@@ -17,7 +17,7 @@ import (
 type testcfg struct{}
 
 func (testcfg) DefaultHTTPTimeout() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(2 * time.Second)
+	return *commonconfig.MustNewDuration(2 * time.Second)
 }
 
 func TestValidate(t *testing.T) {

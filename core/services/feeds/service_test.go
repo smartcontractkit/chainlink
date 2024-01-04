@@ -626,7 +626,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			JobProposalID: idBootstrap,
 		}
 
-		httpTimeout = commonconfig.MustMakeDuration(1 * time.Second)
+		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 	)
 
 	testCases := []struct {
@@ -806,7 +806,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 			Status:         feeds.JobProposalStatusApproved,
 		}
 
-		httpTimeout = commonconfig.MustMakeDuration(1 * time.Second)
+		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 	)
 
 	testCases := []struct {
@@ -946,7 +946,7 @@ answer1      [type=median index=0];
 			Definition:    defn,
 		}
 
-		httpTimeout = commonconfig.MustMakeDuration(1 * time.Second)
+		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 	)
 
 	testCases := []struct {

@@ -358,11 +358,11 @@ func (g *generalConfig) AutoPprofCPUProfileRate() int {
 }
 
 func (g *generalConfig) AutoPprofGatherDuration() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(g.c.AutoPprof.GatherDuration.Duration())
+	return *commonconfig.MustNewDuration(g.c.AutoPprof.GatherDuration.Duration())
 }
 
 func (g *generalConfig) AutoPprofGatherTraceDuration() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
+	return *commonconfig.MustNewDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
 }
 
 func (g *generalConfig) AutoPprofGoroutineThreshold() int {

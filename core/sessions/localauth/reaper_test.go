@@ -19,11 +19,11 @@ import (
 type sessionReaperConfig struct{}
 
 func (c sessionReaperConfig) SessionTimeout() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(42 * time.Second)
+	return *commonconfig.MustNewDuration(42 * time.Second)
 }
 
 func (c sessionReaperConfig) SessionReaperExpiration() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(142 * time.Second)
+	return *commonconfig.MustNewDuration(142 * time.Second)
 }
 
 func TestSessionReaper_ReapSessions(t *testing.T) {

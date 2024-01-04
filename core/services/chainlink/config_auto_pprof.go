@@ -29,11 +29,11 @@ func (a *autoPprofConfig) CPUProfileRate() int {
 }
 
 func (a *autoPprofConfig) GatherDuration() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(a.c.GatherDuration.Duration())
+	return *commonconfig.MustNewDuration(a.c.GatherDuration.Duration())
 }
 
 func (a *autoPprofConfig) GatherTraceDuration() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(a.c.GatherTraceDuration.Duration())
+	return *commonconfig.MustNewDuration(a.c.GatherTraceDuration.Duration())
 }
 
 func (a *autoPprofConfig) GoroutineThreshold() int {

@@ -67,7 +67,7 @@ func (t *TestConfig) ServerTLS() bool {
 }
 
 func (t *TestConfig) SessionTimeout() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(time.Duration(0))
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }
 
 func (t *TestConfig) QueryTimeout() time.Duration {
@@ -75,7 +75,7 @@ func (t *TestConfig) QueryTimeout() time.Duration {
 }
 
 func (t *TestConfig) UserAPITokenDuration() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(time.Duration(0))
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }
 
 func (t *TestConfig) BaseUserAttr() string {
@@ -123,9 +123,9 @@ func (t *TestConfig) UserApiTokenEnabled() bool {
 }
 
 func (t *TestConfig) UpstreamSyncInterval() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(time.Duration(0))
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }
 
 func (t *TestConfig) UpstreamSyncRateLimit() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(time.Duration(0))
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }

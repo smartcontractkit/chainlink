@@ -171,7 +171,7 @@ func (w *webServerConfig) SessionOptions() sessions.Options {
 }
 
 func (w *webServerConfig) SessionTimeout() commonconfig.Duration {
-	return commonconfig.MustMakeDuration(w.c.SessionTimeout.Duration())
+	return *commonconfig.MustNewDuration(w.c.SessionTimeout.Duration())
 }
 
 func (w *webServerConfig) ListenIP() net.IP {
