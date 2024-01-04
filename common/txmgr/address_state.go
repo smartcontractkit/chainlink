@@ -213,12 +213,29 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTx
 	return as.idempotencyKeyToTx[key]
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence() SEQ {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LatestSequence() SEQ {
 	as.RLock()
 	defer as.RUnlock()
 
 	var maxSeq SEQ
 	for _, tx := range as.allTransactions {
+		if tx.Sequence == nil {
+			continue
+		}
+		if (*tx.Sequence).Int64() > maxSeq.Int64() {
+			maxSeq = *tx.Sequence
+		}
+	}
+
+	return maxSeq
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MaxConfirmedSequence() SEQ {
+	as.RLock()
+	defer as.RUnlock()
+
+	var maxSeq SEQ
+	for _, tx := range as.confirmed {
 		if tx.Sequence == nil {
 			continue
 		}
@@ -622,6 +639,28 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveIn
 	tx.Error = txError
 	as.fatalErrored[tx.ID] = tx
 	as.inprogress = nil
+
+	return nil
+}
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveConfirmedMissingReceiptToFatalError(
+	etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	txError null.String,
+) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx, ok := as.confirmedMissingReceipt[etx.ID]
+	if !ok || tx == nil {
+		return fmt.Errorf("move_confirmed_missing_receipt_to_fatal_error: no confirmed_missing_receipt transaction with ID %d: %w", etx.ID, ErrTxnNotFound)
+	}
+
+	tx.State = TxFatalError
+	tx.Sequence = nil
+	tx.TxAttempts = nil
+	tx.InitialBroadcastAt = nil
+	tx.Error = txError
+	as.fatalErrored[tx.ID] = tx
+	delete(as.confirmedMissingReceipt, tx.ID)
 
 	return nil
 }
