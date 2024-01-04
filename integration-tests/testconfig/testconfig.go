@@ -181,7 +181,6 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		logger.Debug().Msgf("Successfully unmarshalled config file %s", fileName)
 		maybeTestConfigs = append(maybeTestConfigs, readConfig)
 
-		// let's see if have overrides under configurationKey
 		var someToml map[string]interface{}
 		err = toml.Unmarshal(content, &someToml)
 		if err != nil {
