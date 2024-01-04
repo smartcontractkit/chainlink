@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"math/big"
 	"math/rand"
 	"sort"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/wasp"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
