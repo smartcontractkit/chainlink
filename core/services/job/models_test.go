@@ -102,7 +102,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 			"chainID":   1337,
 			"fromBlock": 42,
 			"chainReader": evmtypes.ChainReaderConfig{
-				ChainContractReaders: map[string]evmtypes.ChainContractReader{
+				Contracts: map[string]evmtypes.ChainContractReader{
 					"median": {
 						ContractABI: `[
   {
@@ -171,7 +171,7 @@ func TestOCR2OracleSpec(t *testing.T) {
   }
 ]
 `,
-						ChainReaderDefinitions: map[string]evmtypes.ChainReaderDefinition{
+						Configs: map[string]evmtypes.ChainReaderDefinition{
 							"LatestTransmissionDetails": {
 								ChainSpecificName: "latestTransmissionDetails",
 								OutputModifications: codec.ModifiersConfig{
@@ -192,7 +192,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 				},
 			},
 			"codec": evmtypes.CodecConfig{
-				ChainCodecConfigs: map[string]evmtypes.ChainCodecConfig{
+				Configs: map[string]evmtypes.ChainCodecConfig{
 					"MedianReport": {
 						TypeABI: `[
   {

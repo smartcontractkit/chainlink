@@ -19,13 +19,13 @@ import (
 )
 
 type ChainReaderConfig struct {
-	// ChainContractReaders key is contract name
-	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders" toml:"chainContractReaders"`
+	// Contracts key is contract name
+	Contracts map[string]ChainContractReader `json:"contracts" toml:"contracts"`
 }
 
 type CodecConfig struct {
-	// ChainCodecConfigs is the type's name for the codec
-	ChainCodecConfigs map[string]ChainCodecConfig `json:"chainCodecConfigs" toml:"chainCodecConfigs"`
+	// Configs key is the type's name for the codec
+	Configs map[string]ChainCodecConfig `json:"configs" toml:"configs"`
 }
 
 type ChainCodecConfig struct {
@@ -36,7 +36,7 @@ type ChainCodecConfig struct {
 type ChainContractReader struct {
 	ContractABI string `json:"contractABI" toml:"contractABI"`
 	// key is genericName from config
-	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions" toml:"chainReaderDefinitions"`
+	Configs map[string]ChainReaderDefinition `json:"configs" toml:"configs"`
 }
 
 type ChainReaderDefinition struct {
@@ -85,7 +85,6 @@ func (r *ReadType) UnmarshalText(text []byte) error {
 	return fmt.Errorf("unrecognized ReadType: %s", string(text))
 }
 
-// TODO toml?
 type RelayConfig struct {
 	ChainID                *big.Big           `json:"chainID"`
 	FromBlock              uint64             `json:"fromBlock"`

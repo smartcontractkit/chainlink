@@ -10,7 +10,7 @@ contractConfigTrackerPollInterval = "1s"
 chainID = 1337
 fromBlock = 42
 
-[relayConfig.chainReader.chainContractReaders.median]
+[relayConfig.chainReader.contracts.median]
 contractABI = '''
 [
   {
@@ -80,19 +80,13 @@ contractABI = '''
 ]
 '''
 
-[relayConfig.chainReader.chainContractReaders.median.chainReaderDefinitions.LatestRoundRequested]
-chainSpecificName = 'RoundRequested'
-readType = 'event'
+[relayConfig.chainReader.contracts.median.configs]
+LatestRoundRequested = {chainSpecificName = 'RoundRequested', readType = 'event'}
+LatestTransmissionDetails = {chainSpecificName = 'latestTransmissionDetails', outputModifications = [
+    { Fields = { LatestAnswer_ = 'LatestAnswer', LatestTimestamp_ = 'LatestTimestamp' }}
+]}
 
-[relayConfig.chainReader.chainContractReaders.median.chainReaderDefinitions.LatestTransmissionDetails]
-chainSpecificName = 'latestTransmissionDetails'
-
-[[relayConfig.chainReader.chainContractReaders.median.chainReaderDefinitions.LatestTransmissionDetails.outputModifications]]
-[relayConfig.chainReader.chainContractReaders.median.chainReaderDefinitions.LatestTransmissionDetails.outputModifications.Fields]
-LatestAnswer_ = 'LatestAnswer'
-LatestTimestamp_ = 'LatestTimestamp'
-
-[relayConfig.codec.chainCodecConfigs.MedianReport]
+[relayConfig.codec.configs.MedianReport]
 typeABI = '''
 [
   {

@@ -130,10 +130,10 @@ func CreateOCRv2JobsLocal(
 			}
 			if enableChainReaderAndCodec {
 				ocrSpec.OCR2OracleSpec.RelayConfig["chainReader"] = evmtypes.ChainReaderConfig{
-					ChainContractReaders: map[string]evmtypes.ChainContractReader{
+					Contracts: map[string]evmtypes.ChainContractReader{
 						"median": {
 							ContractABI: `[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"requester","type":"address"},{"indexed":false,"internalType":"bytes32","name":"configDigest","type":"bytes32"},{"indexed":false,"internalType":"uint32","name":"epoch","type":"uint32"},{"indexed":false,"internalType":"uint8","name":"round","type":"uint8"}],"name":"RoundRequested","type":"event"},{"inputs":[],"name":"latestTransmissionDetails","outputs":[{"internalType":"bytes32","name":"configDigest","type":"bytes32"},{"internalType":"uint32","name":"epoch","type":"uint32"},{"internalType":"uint8","name":"round","type":"uint8"},{"internalType":"int192","name":"latestAnswer_","type":"int192"},{"internalType":"uint64","name":"latestTimestamp_","type":"uint64"}],"stateMutability":"view","type":"function"}]`,
-							ChainReaderDefinitions: map[string]evmtypes.ChainReaderDefinition{
+							Configs: map[string]evmtypes.ChainReaderDefinition{
 								"LatestTransmissionDetails": {
 									ChainSpecificName: "latestTransmissionDetails",
 									OutputModifications: codec.ModifiersConfig{
@@ -154,7 +154,7 @@ func CreateOCRv2JobsLocal(
 					},
 				}
 				ocrSpec.OCR2OracleSpec.RelayConfig["codec"] = evmtypes.CodecConfig{
-					ChainCodecConfigs: map[string]evmtypes.ChainCodecConfig{
+					Configs: map[string]evmtypes.ChainCodecConfig{
 						"MedianReport": {
 							TypeABI: `[{"Name": "Timestamp","Type": "uint32"},{"Name": "Observers","Type": "bytes32"},{"Name": "Observations","Type": "int192[]"},{"Name": "JuelsPerFeeCoin","Type": "int192"}]`,
 						},
