@@ -55,10 +55,9 @@ These config files are for an OTEL collector, grafana Tempo, and a grafana UI in
 Adding custom traces requires identifying an observability gap in a related group of code executions. This is intuitive for the developer:
 
 - "What's the flow of component interaction in this distributed system?"
-- "What's a ballpark latency of funcOne?"
 - "What's the behavior of the JobProcessorOne component when jobs with [x, y, z] attributes are processed?"
 
-Once an execution flow is desired to be traced, the developer will decide which parts of the execution flow should be measured separately. Each logically separate measure will be a span. Spans can have one parent span and multiple children span. The relations between parent and child spans will make a directed acyclic graph.
+Given an execution flow, the developer must decide which subset of the flow to measure. Each logically separate measure will be a span. Spans can have one parent span and multiple children span. The relations between parent and child spans will make a directed acyclic graph, called a trace.
 
 The most trivial application of a span is measuring latency performance at high levels of granularity (individual func executions). There is much more you can do, including creating human readable and timestamped events within a span (useful for monitoring concurrent access to resources), recording errors, linking parent and children spans through large parts of an application, and even extending a span beyond a single process.
 
@@ -94,3 +93,9 @@ import (
 router := gin.Default()
 router.Use(otelgin.Middleware("service-name"))
 ```
+
+Some quick checks to know you're aligning with Tracing best practices:
+- It measures critical paths
+- All paths are measured end to end (Context is wired all the way through)
+- Emphasizing broadness of measurement over depth
+- Using automatic instrumentation if possible
