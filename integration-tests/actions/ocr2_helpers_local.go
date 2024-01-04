@@ -136,7 +136,6 @@ func CreateOCRv2JobsLocal(
 							ChainReaderDefinitions: map[string]evmtypes.ChainReaderDefinition{
 								"LatestTransmissionDetails": {
 									ChainSpecificName: "latestTransmissionDetails",
-									ReadType:          evmtypes.Method,
 									OutputModifications: codec.ModifiersConfig{
 										&codec.RenameModifierConfig{
 											Fields: map[string]string{

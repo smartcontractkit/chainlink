@@ -43,8 +43,8 @@ type ChainReaderDefinition struct {
 	//TODO test this!
 	CacheEnabled bool `json:"cacheEnabled" toml:"cacheEnabled,omitempty"`
 	// chain specific contract method name or event type.
-	ChainSpecificName   string `json:"chainSpecificName" toml:"chainSpecificName"`
-	ReadType            `json:"readType" toml:"readType,omitempty"`
+	ChainSpecificName   string                `json:"chainSpecificName" toml:"chainSpecificName"`
+	ReadType            ReadType              `json:"readType" toml:"readType,omitempty"`
 	InputModifications  codec.ModifiersConfig `json:"input_modifications" toml:"inputModifications,omitempty"`
 	OutputModifications codec.ModifiersConfig `json:"output_modifications" toml:"outputModifications,omitempty"`
 
@@ -52,12 +52,38 @@ type ChainReaderDefinition struct {
 	EventInputFields []string `json:"eventInputFields"`
 }
 
-type ReadType string
+type ReadType int
 
 const (
-	Method ReadType = "method"
-	Event  ReadType = "event"
+	Method ReadType = iota
+	Event
 )
+
+func (r ReadType) String() string {
+	switch r {
+	case Method:
+		return "method"
+	case Event:
+		return "event"
+	}
+	return fmt.Sprintf("ReadType(%d)", r)
+}
+
+func (r ReadType) MarshalText() ([]byte, error) {
+	return []byte(r.String()), nil
+}
+
+func (r *ReadType) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "method":
+		*r = Method
+		return nil
+	case "event":
+		*r = Event
+		return nil
+	}
+	return fmt.Errorf("unrecognized ReadType: %s", string(text))
+}
 
 // TODO toml?
 type RelayConfig struct {

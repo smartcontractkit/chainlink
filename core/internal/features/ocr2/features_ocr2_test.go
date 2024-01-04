@@ -321,7 +321,7 @@ contractABI = '[{"inputs":[{"internalType":"contractLinkTokenInterface","name":"
 [relayConfig.chainReader.chainContractReaders.median.chainReaderDefinitions]
 [relayConfig.chainReader.chainContractReaders.median.chainReaderDefinitions.LatestRoundRequested]
 chainSpecificName = 'RoundRequested'
-readType = 1
+readType = 'event'
 
 [relayConfig.chainReader.chainContractReaders.median.chainReaderDefinitions.LatestTransmissionDetails]
 chainSpecificName = 'latestTransmissionDetails'
