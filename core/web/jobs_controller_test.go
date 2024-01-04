@@ -360,6 +360,26 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, jb.VRFSpec.CoordinatorAddress.Hex(), resource.VRFSpec.CoordinatorAddress.Hex())
 			},
 		},
+		{
+			name: "stream",
+			tomlTemplate: func(_ string) string {
+				return testspecs.GenerateStreamSpec(testspecs.StreamSpecParams{Name: "ETH/USD"}).Toml()
+			},
+			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
+				require.Equal(t, http.StatusOK, r.StatusCode)
+				resp := cltest.ParseResponseBody(t, r)
+				resource := presenters.JobResource{}
+				err = web.ParseJSONAPIResponse(resp, &resource)
+				require.NoError(t, err)
+
+				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.PipelineSpec)
+
+				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+				assert.Equal(t, jb.Name.ValueOrZero(), resource.Name)
+			},
+		},
 	}
 	for _, tc := range tt {
 		c := tc

@@ -440,6 +440,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create GatewaySpec for jobSpec")
 			}
 			jb.GatewaySpecID = &specID
+		case Stream:
+			// 'stream' type has no associated spec, nothing to do here
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
