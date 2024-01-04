@@ -146,7 +146,7 @@ func MultiCallCCIP(
 				if err != nil {
 					return nil, err
 				}
-				data := CallWithValue{Target: tokenAndAmount.Token, AllowFailure: false, CallData: inputs}
+				data := CallWithValue{Target: tokenAndAmount.Token, AllowFailure: false, Value: big.NewInt(0), CallData: inputs}
 				callData = append(callData, data)
 			}
 			inputs, err := CCIPSendCallData(msg)
