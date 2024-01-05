@@ -36,6 +36,4 @@ contract MockScrollCrossDomainMessenger is IScrollMessenger {
   function sendMessage(address _target, uint256, bytes calldata _message, uint256, address) external payable override {
     Address.functionCall(_target, _message, "sendMessage reverted");
   }
-
 }
-
