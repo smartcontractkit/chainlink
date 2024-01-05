@@ -103,7 +103,7 @@ func (o *OffRamp) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (com
 		return common.Address{}, common.Address{}, err
 	}
 
-	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[ccipdata.ExecOffchainConfig](offchainConfig)
+	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[v1_0_0.ExecOffchainConfig](offchainConfig)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
@@ -117,12 +117,9 @@ func (o *OffRamp) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (com
 	}
 	o.configMu.Lock()
 	o.offchainConfig = ccipdata.ExecOffchainConfig{
-		SourceFinalityDepth:         offchainConfigParsed.SourceFinalityDepth,
-		DestFinalityDepth:           offchainConfigParsed.DestFinalityDepth,
 		DestOptimisticConfirmations: offchainConfigParsed.DestOptimisticConfirmations,
 		BatchGasLimit:               offchainConfigParsed.BatchGasLimit,
 		RelativeBoostPerWaitHour:    offchainConfigParsed.RelativeBoostPerWaitHour,
-		MaxGasPrice:                 offchainConfigParsed.MaxGasPrice,
 		InflightCacheExpiry:         offchainConfigParsed.InflightCacheExpiry,
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
 	}

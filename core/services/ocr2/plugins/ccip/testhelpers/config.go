@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -63,7 +64,7 @@ func (c *CCIPContracts) CreateDefaultExecOffchainConfig(t *testing.T) []byte {
 }
 
 func (c *CCIPContracts) createExecOffchainConfig(t *testing.T, inflightCacheExpiry time.Duration, rootSnoozeTime time.Duration) []byte {
-	config, err := ccipconfig.EncodeOffchainConfig(ccipdata.ExecOffchainConfig{
+	config, err := ccipconfig.EncodeOffchainConfig(v1_0_0.ExecOffchainConfig{
 		SourceFinalityDepth:         1,
 		DestOptimisticConfirmations: 1,
 		DestFinalityDepth:           1,
