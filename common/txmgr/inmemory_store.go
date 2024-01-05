@@ -116,7 +116,14 @@ func NewInMemoryStore[
 }
 
 // CreateTransaction creates a new transaction for a given txRequest.
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], chainID CHAIN_ID) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(
+	ctx context.Context,
+	txRequest txmgrtypes.TxRequest[ADDR, TX_HASH],
+	chainID CHAIN_ID,
+) (
+	tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	err error,
+) {
 	if ms.chainID.String() != chainID.String() {
 		return tx, fmt.Errorf("create_transaction: %w", ErrInvalidChainID)
 	}
@@ -142,10 +149,10 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 
 	// Add the request to the Unstarted channel to be processed by the Broadcaster
 	if err := as.AddTxToUnstarted(&tx); err != nil {
-		return tx, fmt.Errorf("create_transaction: %w", err)
+		return *ms.deepCopyTx(tx), fmt.Errorf("create_transaction: %w", err)
 	}
 
-	return tx, nil
+	return *ms.deepCopyTx(tx), nil
 }
 
 // FindTxWithIdempotencyKey returns a transaction with the given idempotency key
@@ -159,7 +166,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	defer ms.addressStatesLock.Unlock()
 	for _, as := range ms.addressStates {
 		if tx := as.FindTxWithIdempotencyKey(idempotencyKey); tx != nil {
-			return ms.deepCopyTx(tx), nil
+			return ms.deepCopyTx(*tx), nil
 		}
 	}
 
@@ -297,7 +304,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTx
 			"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", tx.ID)
 	}
 
-	return ms.deepCopyTx(tx), nil
+	return ms.deepCopyTx(*tx), nil
 }
 
 // UpdateTxAttemptInProgressToBroadcast updates a transaction attempt from in_progress to broadcast.
@@ -361,7 +368,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindN
 	if err != nil || etx == nil {
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", err)
 	}
-	tx = ms.deepCopyTx(etx)
+	tx = ms.deepCopyTx(*etx)
 
 	return nil
 }
@@ -499,7 +506,10 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBr
 }
 
 // FindTxAttemptsConfirmedMissingReceipt returns all transactions that are confirmed but missing a receipt
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) (
+	[]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	error,
+) {
 	if ms.chainID.String() != chainID.String() {
 		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
 	}
@@ -513,9 +523,17 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		attempts = append(attempts, as.FetchTxAttempts(states, filter)...)
 	}
 	// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
-	// TODO
+	sort.SliceStable(attempts, func(i, j int) bool {
+		return attempts[i].TxID < attempts[j].TxID
+	})
 
-	return attempts, nil
+	// deep copy the attempts
+	var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, attempt := range attempts {
+		eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
+	}
+
+	return eAttempts, nil
 }
 
 // UpdateBroadcastAts updates the broadcast_at time for a given set of attempts
@@ -565,7 +583,10 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 
 // FindTxAttemptsRequiringReceiptFetch returns all transactions that are missing a receipt
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, chainID CHAIN_ID) (attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, chainID CHAIN_ID) (
+	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	err error,
+) {
 	if ms.chainID.String() != chainID.String() {
 		return attempts, fmt.Errorf("find_tx_attempts_requiring_receipt_fetch: %w", ErrInvalidChainID)
 	}
@@ -584,12 +605,23 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		attempts = append(attempts, as.FetchTxAttempts(states, filterFn)...)
 	}
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
-	// TODO
+	sort.Slice(attempts, func(i, j int) bool {
+		return (*attempts[i].Tx.Sequence).Int64() < (*attempts[j].Tx.Sequence).Int64()
+	})
 
-	return attempts, nil
+	// deep copy the attempts
+	var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, attempt := range attempts {
+		eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
+	}
+
+	return eAttempts, nil
 }
 
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error) {
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (
+	[]txmgrtypes.ReceiptPlus[R],
+	error,
+) {
 	if ms.chainID.String() != chainID.String() {
 		return nil, fmt.Errorf("find_txes_pending_callback: %w", ErrInvalidChainID)
 	}
@@ -656,9 +688,14 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 			tx.CallbackCompleted = true
 		}
 	}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		as.ApplyToTxs(nil, fn)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			as.ApplyToTxs(nil, fn)
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 
 	return nil
 }
@@ -674,22 +711,31 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveF
 	}
 
 	// Update in memory store
+	errsLock := sync.Mutex{}
+	var errs error
 	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
 			for _, receipt := range receipts {
-				as.MoveUnconfirmedToConfirmed(receipt)
+				if err := as.MoveUnconfirmedToConfirmed(receipt); err != nil {
+					errsLock.Lock()
+					errs = errors.Join(errs, err)
+					errsLock.Unlock()
+				}
 			}
 			wg.Done()
 		}(as)
 	}
 	wg.Wait()
 
-	return nil
+	return errs
 }
 
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (
+	[]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	error,
+) {
 	if ms.chainID.String() != chainID.String() {
 		return nil, fmt.Errorf("find_txes_by_meta_field_and_states: %w", ErrInvalidChainID)
 	}
@@ -708,12 +754,21 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 		return false
 	}
+	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		for _, tx := range as.FetchTxs(states, filterFn) {
-			txs = append(txs, &tx)
-		}
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			for _, tx := range as.FetchTxs(states, filterFn) {
+				txsLock.Lock()
+				txs = append(txs, ms.deepCopyTx(tx))
+				txsLock.Unlock()
+			}
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 
 	return txs, nil
 }
@@ -737,12 +792,21 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return false
 	}
 
+	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		for _, tx := range as.FetchTxs(states, filterFn) {
-			txs = append(txs, &tx)
-		}
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			for _, tx := range as.FetchTxs(states, filterFn) {
+				txsLock.Lock()
+				txs = append(txs, ms.deepCopyTx(tx))
+				txsLock.Unlock()
+			}
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 
 	return txs, nil
 }
@@ -777,12 +841,21 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return attempt.Receipts[0].GetBlockNumber().Int64() >= blockNum
 	}
 
+	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		for _, tx := range as.FetchTxs(nil, filterFn) {
-			txs = append(txs, &tx)
-		}
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			for _, tx := range as.FetchTxs(nil, filterFn) {
+				txsLock.Lock()
+				txs = append(txs, ms.deepCopyTx(tx))
+				txsLock.Unlock()
+			}
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 
 	return txs, nil
 }
@@ -801,12 +874,21 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		txIDs[i] = id.Int64()
 	}
 
+	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		for _, tx := range as.FetchTxs(states, filterFn, txIDs...) {
-			txs = append(txs, &tx)
-		}
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			for _, tx := range as.FetchTxs(states, filterFn, txIDs...) {
+				txsLock.Lock()
+				txs = append(txs, ms.deepCopyTx(tx))
+				txsLock.Unlock()
+			}
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 
 	return txs, nil
 }
@@ -971,7 +1053,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 	etxs := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs))
 	for i, tx := range txs {
-		etxs[i] = &tx
+		etxs[i] = ms.deepCopyTx(tx)
 	}
 
 	return etxs, nil
@@ -1004,14 +1086,21 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
 	attempts := as.FetchTxAttempts(states, filter)
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
-	// TODO
-
+	sort.Slice(attempts, func(i, j int) bool {
+		return (*attempts[i].Tx.Sequence).Int64() < (*attempts[j].Tx.Sequence).Int64()
+	})
 	// LIMIT by maxInFlightTransactions
 	if len(attempts) > int(maxInFlightTransactions) {
 		attempts = attempts[:maxInFlightTransactions]
 	}
 
-	return attempts, nil
+	// deep copy the attempts
+	var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, attempt := range attempts {
+		eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
+	}
+
+	return eAttempts, nil
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithSequence(_ context.Context, fromAddress ADDR, seq SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
@@ -1033,7 +1122,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return nil, nil
 	}
 
-	return &txs[0], nil
+	return ms.deepCopyTx(txs[0]), nil
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransactionsConfirmedInBlockRange(_ context.Context, highBlockNumber, lowBlockNumber int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
@@ -1059,10 +1148,19 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return blockNum >= lowBlockNumber && blockNum <= highBlockNumber
 	}
 	states := []txmgrtypes.TxState{TxConfirmed, TxConfirmedMissingReceipt}
+	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		txs = append(txs, as.FetchTxs(states, filter)...)
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			txsLock.Lock()
+			txs = append(txs, as.FetchTxs(states, filter)...)
+			txsLock.Unlock()
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 	// sort by sequence ASC
 	sort.Slice(txs, func(i, j int) bool {
 		return (*txs[i].Sequence).Int64() < (*txs[j].Sequence).Int64()
@@ -1070,7 +1168,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 	etxs := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs))
 	for i, tx := range txs {
-		etxs[i] = &tx
+		etxs[i] = ms.deepCopyTx(tx)
 	}
 
 	return etxs, nil
@@ -1085,10 +1183,19 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 		return tx.InitialBroadcastAt != nil
 	}
 	states := []txmgrtypes.TxState{TxUnconfirmed}
+	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		txs = append(txs, as.FetchTxs(states, filter)...)
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			txsLock.Lock()
+			txs = append(txs, as.FetchTxs(states, filter)...)
+			txsLock.Unlock()
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 
 	var minInitialBroadcastAt time.Time
 	for _, tx := range txs {
@@ -1114,10 +1221,19 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 		return attempt.BroadcastBeforeBlockNum != nil
 	}
 	states := []txmgrtypes.TxState{TxUnconfirmed}
+	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		txs = append(txs, as.FetchTxs(states, filter)...)
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			txsLock.Lock()
+			txs = append(txs, as.FetchTxs(states, filter)...)
+			txsLock.Unlock()
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 
 	var minBroadcastBeforeBlockNum int64
 	for _, tx := range txs {
@@ -1149,7 +1265,13 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetIn
 	states := []txmgrtypes.TxState{TxConfirmed, TxConfirmedMissingReceipt, TxUnconfirmed}
 	attempts := as.FetchTxAttempts(states, filter)
 
-	return attempts, nil
+	// deep copy the attempts
+	var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, attempt := range attempts {
+		eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
+	}
+
+	return eAttempts, nil
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNonFatalTransactions(ctx context.Context, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
@@ -1157,18 +1279,26 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNo
 		return nil, fmt.Errorf("get_non_fatal_transactions: %w", ErrInvalidChainID)
 	}
 
-	// TODO(jtw): this is niave ... it might be better to just use all states excluding fatal
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		return tx.State != TxFatalError
 	}
+	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
-		txs = append(txs, as.FetchTxs(nil, filter)...)
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			txsLock.Lock()
+			txs = append(txs, as.FetchTxs(nil, filter)...)
+			txsLock.Unlock()
+			wg.Done()
+		}(as)
 	}
+	wg.Wait()
 
 	etxs := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs))
 	for i, tx := range txs {
-		etxs[i] = &tx
+		etxs[i] = ms.deepCopyTx(tx)
 	}
 
 	return etxs, nil
@@ -1181,7 +1311,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTx
 	for _, as := range ms.addressStates {
 		txs := as.FetchTxs(nil, filter, id)
 		if len(txs) > 0 {
-			return &txs[0], nil
+			return ms.deepCopyTx(txs[0]), nil
 		}
 	}
 
@@ -1215,7 +1345,9 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadT
 	}
 	txAttempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, tx := range as.FetchTxs(nil, filter, etx.ID) {
-		txAttempts = append(txAttempts, tx.TxAttempts...)
+		for _, txAttempt := range tx.TxAttempts {
+			txAttempts = append(txAttempts, ms.deepCopyTxAttempt(*etx, txAttempt))
+		}
 	}
 	etx.TxAttempts = txAttempts
 
@@ -1242,7 +1374,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prelo
 	for i, attempt := range attempts {
 		for _, tx := range txs {
 			if tx.ID == attempt.TxID {
-				attempts[i].Tx = tx
+				attempts[i].Tx = *ms.deepCopyTx(tx)
 			}
 		}
 	}
@@ -1299,8 +1431,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 			}
 		}
 		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{*attempt}
-		return
-
 	}
 	as.ApplyToTxs(nil, fn, attempt.TxID)
 
@@ -1467,7 +1597,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 	etxs := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs))
 	for i, tx := range txs {
-		etxs[i] = ms.deepCopyTx(&tx)
+		etxs[i] = ms.deepCopyTx(tx)
 	}
 
 	return etxs, nil
@@ -1609,7 +1739,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkO
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deepCopyTx(
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	copyTx := txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
 		ID:                 tx.ID,
