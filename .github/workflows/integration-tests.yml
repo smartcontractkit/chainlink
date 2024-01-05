@@ -339,7 +339,7 @@ jobs:
           basic_auth="$LOKI_BASIC_AUTH"
 
           [Logging.Grafana]
-          url="$GRAFANA_URL"
+          url="$GRAFANA_URL/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs?orgId=1"
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -600,7 +600,7 @@ jobs:
           basic_auth="$LOKI_BASIC_AUTH"
 
           [Logging.Grafana]
-          url="$GRAFANA_URL"
+          url="$GRAFANA_URL/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs?orgId=1"
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
