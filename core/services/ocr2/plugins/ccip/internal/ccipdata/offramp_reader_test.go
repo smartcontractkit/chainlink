@@ -26,12 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -53,65 +51,6 @@ func TestOffRampFilters(t *testing.T) {
 		require.NoError(t, c.RegisterFilters())
 		return c
 	}, 3)
-}
-
-func TestExecOffchainConfig_Encoding(t *testing.T) {
-	tests := map[string]struct {
-		want      ccipdata.ExecOffchainConfig
-		expectErr bool
-	}{
-		"encodes and decodes config with all fields set": {
-			want: ccipdata.ExecOffchainConfig{
-				SourceFinalityDepth:         3,
-				DestOptimisticConfirmations: 6,
-				DestFinalityDepth:           3,
-				BatchGasLimit:               5_000_000,
-				RelativeBoostPerWaitHour:    0.07,
-				MaxGasPrice:                 200e9,
-				InflightCacheExpiry:         models.MustMakeDuration(64 * time.Second),
-				RootSnoozeTime:              models.MustMakeDuration(128 * time.Minute),
-			},
-		},
-		"fails decoding when all fields present but with 0 values": {
-			want: ccipdata.ExecOffchainConfig{
-				SourceFinalityDepth:         0,
-				DestFinalityDepth:           0,
-				DestOptimisticConfirmations: 0,
-				BatchGasLimit:               0,
-				RelativeBoostPerWaitHour:    0,
-				MaxGasPrice:                 0,
-				InflightCacheExpiry:         models.MustMakeDuration(0),
-				RootSnoozeTime:              models.MustMakeDuration(0),
-			},
-			expectErr: true,
-		},
-		"fails decoding when all fields are missing": {
-			want:      ccipdata.ExecOffchainConfig{},
-			expectErr: true,
-		},
-		"fails decoding when some fields are missing": {
-			want: ccipdata.ExecOffchainConfig{
-				SourceFinalityDepth: 99999999,
-				InflightCacheExpiry: models.MustMakeDuration(64 * time.Second),
-			},
-			expectErr: true,
-		},
-	}
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			exp := tc.want
-			encode, err := ccipconfig.EncodeOffchainConfig(&exp)
-			require.NoError(t, err)
-			got, err := ccipconfig.DecodeOffchainConfig[ccipdata.ExecOffchainConfig](encode)
-
-			if tc.expectErr {
-				require.ErrorContains(t, err, "must set")
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.want, got)
-			}
-		})
-	}
 }
 
 func TestExecOnchainConfig100(t *testing.T) {

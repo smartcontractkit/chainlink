@@ -625,12 +625,9 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 				offRampReader:     mockOffRampReader,
 				destWrappedNative: destNative,
 				offchainConfig: ccipdata.ExecOffchainConfig{
-					SourceFinalityDepth:         5,
 					DestOptimisticConfirmations: 1,
-					DestFinalityDepth:           5,
 					BatchGasLimit:               300_000,
 					RelativeBoostPerWaitHour:    1,
-					MaxGasPrice:                 1,
 				},
 				lggr:              logger.TestLogger(t),
 				gasPriceEstimator: gasPriceEstimator,

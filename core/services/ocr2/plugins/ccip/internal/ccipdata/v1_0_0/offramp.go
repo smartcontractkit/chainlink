@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -90,6 +91,57 @@ func (d ExecOnchainConfig) Validate() error {
 
 func (d ExecOnchainConfig) PermissionLessExecutionThresholdDuration() time.Duration {
 	return time.Duration(d.PermissionLessExecutionThresholdSeconds) * time.Second
+}
+
+// ExecOffchainConfig is the configuration for nodes executing committed CCIP messages (v1.0–v1.2).
+// It comes from the OffchainConfig field of the corresponding OCR2 plugin configuration.
+// NOTE: do not change the JSON format of this struct without consulting with the RDD people first.
+type ExecOffchainConfig struct {
+	// SourceFinalityDepth indicates how many confirmations a transaction should get on the source chain event before we consider it finalized.
+	SourceFinalityDepth uint32
+	// See [ccipdata.ExecOffchainConfig.DestOptimisticConfirmations]
+	DestOptimisticConfirmations uint32
+	// DestFinalityDepth indicates how many confirmations a transaction should get on the destination chain event before we consider it finalized.
+	DestFinalityDepth uint32
+	// See [ccipdata.ExecOffchainConfig.BatchGasLimit]
+	BatchGasLimit uint32
+	// See [ccipdata.ExecOffchainConfig.RelativeBoostPerWaitHour]
+	RelativeBoostPerWaitHour float64
+	// MaxGasPrice is the max gas price in the native currency (e.g., wei/gas) that a node will pay for executing a transaction on the destination chain.
+	MaxGasPrice uint64
+	// See [ccipdata.ExecOffchainConfig.InflightCacheExpiry]
+	InflightCacheExpiry models.Duration
+	// See [ccipdata.ExecOffchainConfig.RootSnoozeTime]
+	RootSnoozeTime models.Duration
+}
+
+func (c ExecOffchainConfig) Validate() error {
+	if c.SourceFinalityDepth == 0 {
+		return errors.New("must set SourceFinalityDepth")
+	}
+	if c.DestFinalityDepth == 0 {
+		return errors.New("must set DestFinalityDepth")
+	}
+	if c.DestOptimisticConfirmations == 0 {
+		return errors.New("must set DestOptimisticConfirmations")
+	}
+	if c.BatchGasLimit == 0 {
+		return errors.New("must set BatchGasLimit")
+	}
+	if c.RelativeBoostPerWaitHour == 0 {
+		return errors.New("must set RelativeBoostPerWaitHour")
+	}
+	if c.MaxGasPrice == 0 {
+		return errors.New("must set MaxGasPrice")
+	}
+	if c.InflightCacheExpiry.Duration() == 0 {
+		return errors.New("must set InflightCacheExpiry")
+	}
+	if c.RootSnoozeTime.Duration() == 0 {
+		return errors.New("must set RootSnoozeTime")
+	}
+
+	return nil
 }
 
 type OffRamp struct {
@@ -358,7 +410,7 @@ func (o *OffRamp) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (com
 		return common.Address{}, common.Address{}, err
 	}
 
-	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[ccipdata.ExecOffchainConfig](offchainConfig)
+	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[ExecOffchainConfig](offchainConfig)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
@@ -372,12 +424,9 @@ func (o *OffRamp) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (com
 	}
 	o.configMu.Lock()
 	o.offchainConfig = ccipdata.ExecOffchainConfig{
-		SourceFinalityDepth:         offchainConfigParsed.SourceFinalityDepth,
-		DestFinalityDepth:           offchainConfigParsed.DestFinalityDepth,
 		DestOptimisticConfirmations: offchainConfigParsed.DestOptimisticConfirmations,
 		BatchGasLimit:               offchainConfigParsed.BatchGasLimit,
 		RelativeBoostPerWaitHour:    offchainConfigParsed.RelativeBoostPerWaitHour,
-		MaxGasPrice:                 offchainConfigParsed.MaxGasPrice,
 		InflightCacheExpiry:         offchainConfigParsed.InflightCacheExpiry,
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
 	}

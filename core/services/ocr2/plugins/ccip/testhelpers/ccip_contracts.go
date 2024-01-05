@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
@@ -139,7 +140,7 @@ func NewExecOnchainConfig(
 }
 
 type ExecOffchainConfig struct {
-	ccipdata.ExecOffchainConfig
+	v1_0_0.ExecOffchainConfig
 }
 
 func NewExecOffchainConfig(
@@ -152,7 +153,7 @@ func NewExecOffchainConfig(
 	InflightCacheExpiry models.Duration,
 	RootSnoozeTime models.Duration,
 ) ExecOffchainConfig {
-	return ExecOffchainConfig{ccipdata.ExecOffchainConfig{
+	return ExecOffchainConfig{v1_0_0.ExecOffchainConfig{
 		SourceFinalityDepth:         SourceFinalityDepth,
 		DestOptimisticConfirmations: DestOptimisticConfirmations,
 		DestFinalityDepth:           DestFinalityDepth,
