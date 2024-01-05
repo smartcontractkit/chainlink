@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -29,7 +28,7 @@ func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
 	return nil, nil
 }
 
-func transmitterFilterName(addr common.Address) string {
+func transmitterFilterName(addr gethcommon.Address) string {
 	return logpoller.FilterName("OCR3 ContractTransmitter", addr.String())
 }
 

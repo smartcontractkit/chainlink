@@ -12,6 +12,6 @@ contract NoOpOCR3 is OCR3Base {
   constructor() OCR3Base() {}
 
   function _report(bytes calldata report, uint64 sequenceNumber) internal override {
-      // do nothing
+    // do nothing
   }
 }
