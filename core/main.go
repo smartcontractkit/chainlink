@@ -26,6 +26,7 @@ func init() {
 }
 
 func Main() (code int) {
+	randomChange()
 	recovery.ReportPanics(func() {
 		app := cmd.NewApp(newProductionClient())
 		if err := app.Run(os.Args); err != nil {
@@ -49,4 +50,8 @@ func newProductionClient() *cmd.Shell {
 		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
 		PasswordPrompter:               cmd.NewPasswordPrompter(),
 	}
+}
+
+func randomChange() error {
+	return nil
 }

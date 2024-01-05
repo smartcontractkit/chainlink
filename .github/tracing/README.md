@@ -15,7 +15,6 @@ One way to generate traces locally today is with the OCR2 basic smoke test.
 Core and the median plugins are instrumented with open telemetry traces, which are sent to the OTEL collector and forwarded to the Tempo backend. The grafana UI can then read the trace data from the Tempo backend.
 
 
-
 ## CI environment
 
 Another way to generate traces is by enabling traces for PRs. This will instrument traces for `TestOCRv2Basic` in the CI run. 
