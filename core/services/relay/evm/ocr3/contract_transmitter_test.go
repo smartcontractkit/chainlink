@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	logpollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/no_op_ocr3"
@@ -29,6 +30,7 @@ import (
 )
 
 type testUniverse[RI any] struct {
+	simClient       *client.SimulatedBackendClient
 	backend         *backends.SimulatedBackend
 	deployer        *bind.TransactOpts
 	transmitters    []*bind.TransactOpts
@@ -116,6 +118,7 @@ func newTestUniverse[RI any](t *testing.T) testUniverse[RI] {
 		bundles:         bundles,
 		ocr3Transmitter: ocr3Transmitter,
 		f:               f,
+		simClient:       client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID),
 	}
 }
 

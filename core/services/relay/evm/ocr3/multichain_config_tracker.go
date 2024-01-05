@@ -78,6 +78,11 @@ func NewMultichainConfigTracker(
 		return nil, fmt.Errorf("master chain %s not in clients", masterChain)
 	}
 
+	// Ensure master chain is in the contract addresses
+	if _, ok := contractAddresses[masterChain]; !ok {
+		return nil, fmt.Errorf("master chain %s not in contract addresses", masterChain)
+	}
+
 	// Ensure combiner is not nil
 	if combiner == nil {
 		return nil, fmt.Errorf("provide non-nil combiner")
@@ -108,6 +113,7 @@ func NewMultichainConfigTracker(
 		contractAddresses: contractAddresses,
 		contracts:         contracts,
 		masterChain:       masterChain,
+		combiner:          combiner,
 	}, nil
 }
 
