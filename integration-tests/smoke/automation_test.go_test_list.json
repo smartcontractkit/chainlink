@@ -2,8 +2,30 @@
   "tests": [
     {
       "name": "TestAutomationBasic",
-      "label": "ubuntu-latest-32cores-128GB",
-      "nodes": 6
+      "label": "ubuntu-latest",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_0"},
+        {"name":"registry_2_1_conditional"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "label": "ubuntu-latest",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_1_logtrigger"},
+        {"name":"registry_2_1_with_mercury_v02"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "label": "ubuntu-latest",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_1_with_mercury_v03"},
+        {"name":"registry_2_1_with_logtrigger_and_mercury_v02"}
+      ]
     },
     {
       "name": "TestSetUpkeepTriggerConfig"
