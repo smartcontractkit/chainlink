@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/tidwall/gjson"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 )
 
 const (
@@ -115,8 +117,8 @@ func parseDecimalString(input string) (*big.Int, error) {
 }
 
 func parseNumericString(input string) (*big.Int, error) {
-	if HasHexPrefix(input) {
-		output, ok := big.NewInt(0).SetString(RemoveHexPrefix(input), 16)
+	if hex.HasPrefix(input) {
+		output, ok := big.NewInt(0).SetString(hex.TrimPrefix(input), 16)
 		if !ok {
 			return nil, fmt.Errorf("error parsing hex %s", input)
 		}

@@ -131,9 +131,9 @@ var (
 )
 
 type Load struct {
-	NumberOfEvents                int      `toml:",omitempty"`
-	NumberOfSpamMatchingEvents    int      `toml:",omitempty"`
-	NumberOfSpamNonMatchingEvents int      `toml:",omitempty"`
+	NumberOfEvents                int64    `toml:",omitempty"`
+	NumberOfSpamMatchingEvents    int64    `toml:",omitempty"`
+	NumberOfSpamNonMatchingEvents int64    `toml:",omitempty"`
 	CheckBurnAmount               *big.Int `toml:",omitempty"`
 	PerformBurnAmount             *big.Int `toml:",omitempty"`
 	UpkeepGasLimit                uint32   `toml:",omitempty"`
@@ -198,8 +198,18 @@ func TestLogTrigger(t *testing.T) {
 		Bytes("Load Config", loadConfigBytes).
 		Msg("Test Config")
 
-	testConfig := fmt.Sprintf("Number of Nodes: %d\nDuration: %d\nBlock Time: %d\n"+
-		"Spec Type: %s\nLog Level: %s\nImage: %s\nTag: %s\n\nLoad Config: \n%s", numberofNodes, duration,
+	testConfigFormat := `Number of Nodes: %d
+Duration: %d
+Block Time: %d
+Spec Type: %s
+Log Level: %s
+Image: %s
+Tag: %s
+
+Load Config:
+%s`
+
+	testConfig := fmt.Sprintf(testConfigFormat, numberofNodes, duration,
 		blockTime, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag), string(loadConfigBytes))
 	l.Info().Str("testConfig", testConfig).Msg("Test Config")
 
@@ -333,6 +343,9 @@ func TestLogTrigger(t *testing.T) {
 
 	chainClient.ParallelTransactions(true)
 
+	multicallAddress, err := contractDeployer.DeployMultiCallContract()
+	require.NoError(t, err, "Error deploying multicall contract")
+
 	a := automationv2.NewAutomationTestK8s(chainClient, contractDeployer, chainlinkNodes)
 	a.RegistrySettings = *registrySettings
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
@@ -365,6 +378,9 @@ func TestLogTrigger(t *testing.T) {
 		F:                                       1,
 	}
 
+	startTimeTestSetup := time.Now()
+	l.Info().Str("START_TIME", startTimeTestSetup.String()).Msg("Test setup started")
+
 	a.SetupAutomationDeployment(t)
 
 	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(nodeFunding), 0)
@@ -385,13 +401,15 @@ func TestLogTrigger(t *testing.T) {
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	}
 
+	var bytes1 = [32]byte{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+	}
+
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
 	loadConfigs := make([]Load, 0)
 	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
 	require.NoError(t, err, "Error building concurrent chain client")
 
-	cContractDeployer, err := contracts.NewContractDeployer(cEVMClient, l)
-	require.NoError(t, err, "Error building concurrent contract deployer")
 	for _, u := range loadConfig.Load {
 		for i := 0; i < u.NumberOfUpkeeps; i++ {
 			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
@@ -417,7 +435,7 @@ func TestLogTrigger(t *testing.T) {
 				triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
 				continue
 			}
-			triggerContract, err := cContractDeployer.DeployLogEmitterContract()
+			triggerContract, err := contractDeployer.DeployLogEmitterContract()
 			require.NoError(t, err, "Error deploying log emitter contract")
 			triggerContracts = append(triggerContracts, triggerContract)
 			triggerAddresses = append(triggerAddresses, triggerContract.Address())
@@ -436,11 +454,9 @@ func TestLogTrigger(t *testing.T) {
 			ContractAddress: triggerAddresses[i],
 			FilterSelector:  1,
 			Topic0:          emitterABI.Events["Log4"].ID,
-			Topic1: [32]byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
-			Topic2: bytes0,
-			Topic3: bytes0,
+			Topic1:          bytes1,
+			Topic2:          bytes0,
+			Topic3:          bytes0,
 		}
 		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 		require.NoError(t, err, "Error encoding log trigger config")
@@ -449,9 +465,7 @@ func TestLogTrigger(t *testing.T) {
 		checkDataStruct := simple_log_upkeep_counter_wrapper.CheckData{
 			CheckBurnAmount:   loadConfigs[i].CheckBurnAmount,
 			PerformBurnAmount: loadConfigs[i].PerformBurnAmount,
-			EventSig: [32]byte{
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-			},
+			EventSig:          bytes1,
 		}
 
 		encodedCheckDataStruct, err := consumerABI.Methods["_checkDataConfig"].Inputs.Pack(&checkDataStruct)
@@ -493,36 +507,58 @@ func TestLogTrigger(t *testing.T) {
 
 	p := wasp.NewProfile()
 
+	configs := make([]LogTriggerConfig, 0)
+	var numberOfEventsEmitted int64
+	var numberOfEventsEmittedPerSec int64
+
 	for i, triggerContract := range triggerContracts {
-		g, err := wasp.NewGenerator(&wasp.Config{
-			T:           t,
-			LoadType:    wasp.RPS,
-			GenName:     fmt.Sprintf("log_trigger_gen_%s", triggerContract.Address().String()),
-			CallTimeout: time.Second * 10,
-			Schedule: wasp.Plain(
-				1,
-				loadDuration,
-			),
-			Gun: NewLogTriggerUser(
-				triggerContract,
-				l,
-				loadConfigs[i].NumberOfEvents,
-				loadConfigs[i].NumberOfSpamMatchingEvents,
-				loadConfigs[i].NumberOfSpamNonMatchingEvents,
-			),
-			CallResultBufLen: 1000000,
-		})
-		p.Add(g, err)
+		c := LogTriggerConfig{
+			Address:                       triggerContract.Address().String(),
+			NumberOfEvents:                loadConfigs[i].NumberOfEvents,
+			NumberOfSpamMatchingEvents:    loadConfigs[i].NumberOfSpamMatchingEvents,
+			NumberOfSpamNonMatchingEvents: loadConfigs[i].NumberOfSpamNonMatchingEvents,
+		}
+		numberOfEventsEmittedPerSec = numberOfEventsEmittedPerSec + loadConfigs[i].NumberOfEvents
+		configs = append(configs, c)
 	}
 
-	l.Info().Msg("Starting load generators")
-	startTime := time.Now()
+	endTimeTestSetup := time.Now()
+	testSetupDuration := endTimeTestSetup.Sub(startTimeTestSetup)
+	l.Info().
+		Str("END_TIME", endTimeTestSetup.String()).
+		Str("Duration", testSetupDuration.String()).
+		Msg("Test setup ended")
+
 	ts, err := sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
-		strconv.FormatInt(startTime.UnixMilli(), 10), "now",
+		strconv.FormatInt(startTimeTestSetup.UnixMilli(), 10), "now",
 		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
 	if err != nil {
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
+
+	g, err := wasp.NewGenerator(&wasp.Config{
+		T:           t,
+		LoadType:    wasp.RPS,
+		GenName:     "log_trigger_gen",
+		CallTimeout: time.Minute * 3,
+		Schedule: wasp.Plain(
+			1,
+			loadDuration,
+		),
+		Gun: NewLogTriggerUser(
+			l,
+			configs,
+			cEVMClient,
+			multicallAddress.Hex(),
+		),
+		CallResultBufLen: 1000,
+	})
+	p.Add(g, err)
+
+	startTimeTestEx := time.Now()
+	l.Info().Str("START_TIME", startTimeTestEx.String()).Msg("Test execution started")
+
+	l.Info().Msg("Starting load generators")
 	_, err = p.Run(true)
 	require.NoError(t, err, "Error running load generators")
 
@@ -530,21 +566,25 @@ func TestLogTrigger(t *testing.T) {
 	l.Info().Str("STOP_WAIT_TIME", StopWaitTime.String()).Msg("Waiting for upkeeps to be performed")
 	time.Sleep(StopWaitTime)
 	l.Info().Msg("Finished waiting 60s for upkeeps to be performed")
-	endTime := time.Now()
-	testDuration := endTime.Sub(startTime)
-	l.Info().Str("Duration", testDuration.String()).Msg("Test Duration")
+	endTimeTestEx := time.Now()
+	testExDuration := endTimeTestEx.Sub(startTimeTestEx)
+	l.Info().
+		Str("END_TIME", endTimeTestEx.String()).
+		Str("Duration", testExDuration.String()).
+		Msg("Test execution ended")
+
+	l.Info().Str("Duration", testExDuration.String()).Msg("Test Execution Duration")
 	endBlock, err := chainClient.LatestBlockNumber(ctx)
 	require.NoError(t, err, "Error getting latest block number")
 	l.Info().Uint64("Starting Block", startBlock).Uint64("Ending Block", endBlock).Msg("Test Block Range")
 
-	upkeepDelays := make([][]int64, 0)
-	var numberOfEventsEmitted int
-	var batchSize uint64 = 500
+	startTimeTestReport := time.Now()
+	l.Info().Str("START_TIME", startTimeTestReport.String()).Msg("Test reporting started")
 
-	for i, gen := range p.Generators {
-		numberOfEventsEmitted = numberOfEventsEmitted + (len(gen.GetData().OKData.Data) * loadConfigs[i].NumberOfEvents)
-	}
-	l.Info().Int("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
+	upkeepDelaysFast := make([][]int64, 0)
+	upkeepDelaysRecovery := make([][]int64, 0)
+
+	var batchSize uint64 = 500
 
 	if endBlock-startBlock < batchSize {
 		batchSize = endBlock - startBlock
@@ -590,7 +630,8 @@ func TestLogTrigger(t *testing.T) {
 		}
 
 		if len(logs) > 0 {
-			delay := make([]int64, 0)
+			delayFast := make([]int64, 0)
+			delayRecovery := make([]int64, 0)
 			for _, log := range logs {
 				eventDetails, err := consumerABI.EventByID(log.Topics[0])
 				require.NoError(t, err, "Error getting event details")
@@ -601,44 +642,136 @@ func TestLogTrigger(t *testing.T) {
 				if eventDetails.Name == "PerformingUpkeep" {
 					parsedLog, err := consumer.ParsePerformingUpkeep(log)
 					require.NoError(t, err, "Error parsing log")
-					delay = append(delay, parsedLog.TimeToPerform.Int64())
+					if parsedLog.IsRecovered {
+						delayRecovery = append(delayRecovery, parsedLog.TimeToPerform.Int64())
+					} else {
+						delayFast = append(delayFast, parsedLog.TimeToPerform.Int64())
+					}
 				}
 			}
-			upkeepDelays = append(upkeepDelays, delay)
+			upkeepDelaysFast = append(upkeepDelaysFast, delayFast)
+			upkeepDelaysRecovery = append(upkeepDelaysRecovery, delayRecovery)
 		}
 	}
 
-	l.Info().Interface("Upkeep Delays", upkeepDelays).Msg("Upkeep Delays")
-
-	var allUpkeepDelays []int64
-
-	for _, upkeepDelay := range upkeepDelays {
-		allUpkeepDelays = append(allUpkeepDelays, upkeepDelay...)
+	for _, triggerContract := range triggerContracts {
+		var (
+			logs    []types.Log
+			address = triggerContract.Address()
+			timeout = 5 * time.Second
+		)
+		for fromBlock := startBlock; fromBlock < endBlock; fromBlock += batchSize + 1 {
+			filterQuery := geth.FilterQuery{
+				Addresses: []common.Address{address},
+				FromBlock: big.NewInt(0).SetUint64(fromBlock),
+				ToBlock:   big.NewInt(0).SetUint64(fromBlock + batchSize),
+				Topics:    [][]common.Hash{{emitterABI.Events["Log4"].ID}, {bytes1}, {bytes1}},
+			}
+			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+			for err != nil {
+				var (
+					logsInBatch []types.Log
+				)
+				ctx2, cancel := context.WithTimeout(ctx, timeout)
+				logsInBatch, err = chainClient.FilterLogs(ctx2, filterQuery)
+				cancel()
+				if err != nil {
+					l.Error().Err(err).
+						Interface("FilterQuery", filterQuery).
+						Str("Contract Address", triggerContract.Address().Hex()).
+						Str("Timeout", timeout.String()).
+						Msg("Error getting logs")
+					timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
+					continue
+				}
+				l.Debug().
+					Interface("FilterQuery", filterQuery).
+					Str("Contract Address", triggerContract.Address().Hex()).
+					Str("Timeout", timeout.String()).
+					Msg("Collected logs")
+				logs = append(logs, logsInBatch...)
+			}
+		}
+		numberOfEventsEmitted = numberOfEventsEmitted + int64(len(logs))
 	}
 
-	avg, median, ninetyPct, ninetyNinePct, maximum := testreporters.IntListStats(allUpkeepDelays)
-	eventsMissed := numberOfEventsEmitted - len(allUpkeepDelays)
-	percentMissed := float64(eventsMissed) / float64(numberOfEventsEmitted) * 100
-	l.Info().
-		Float64("Average", avg).Int64("Median", median).
-		Int64("90th Percentile", ninetyPct).Int64("99th Percentile", ninetyNinePct).
-		Int64("Max", maximum).Msg("Upkeep Delays in seconds")
+	l.Info().Int64("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	l.Info().
+		Interface("Upkeep Delays Fast", upkeepDelaysFast).
+		Interface("Upkeep Delays Recovered", upkeepDelaysRecovery).
+		Msg("Upkeep Delays")
+
+	var allUpkeepDelays []int64
+	var allUpkeepDelaysFast []int64
+	var allUpkeepDelaysRecovery []int64
+
+	for _, upkeepDelay := range upkeepDelaysFast {
+		allUpkeepDelays = append(allUpkeepDelays, upkeepDelay...)
+		allUpkeepDelaysFast = append(allUpkeepDelaysFast, upkeepDelay...)
+	}
+
+	for _, upkeepDelay := range upkeepDelaysRecovery {
+		allUpkeepDelays = append(allUpkeepDelays, upkeepDelay...)
+		allUpkeepDelaysRecovery = append(allUpkeepDelaysRecovery, upkeepDelay...)
+	}
+
+	avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF := testreporters.IntListStats(allUpkeepDelaysFast)
+	avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR := testreporters.IntListStats(allUpkeepDelaysRecovery)
+	eventsMissed := (numberOfEventsEmitted) - int64(len(allUpkeepDelays))
+	percentMissed := float64(eventsMissed) / float64(numberOfEventsEmitted) * 100
+	l.Info().
+		Float64("Average", avgF).Int64("Median", medianF).
+		Int64("90th Percentile", ninetyPctF).Int64("99th Percentile", ninetyNinePctF).
+		Int64("Max", maximumF).Msg("Upkeep Delays Fast Execution in seconds")
+	l.Info().
+		Float64("Average", avgR).Int64("Median", medianR).
+		Int64("90th Percentile", ninetyPctR).Int64("99th Percentile", ninetyNinePctR).
+		Int64("Max", maximumR).Msg("Upkeep Delays Recovery Execution in seconds")
+	l.Info().
 		Int("Total Perform Count", len(allUpkeepDelays)).
-		Int("Total Events Emitted", numberOfEventsEmitted).
-		Int("Total Events Missed", eventsMissed).
+		Int("Perform Count Fast Execution", len(allUpkeepDelaysFast)).
+		Int("Perform Count Recovery Execution", len(allUpkeepDelaysRecovery)).
+		Int64("Total Events Emitted", numberOfEventsEmitted).
+		Int64("Total Events Missed", eventsMissed).
 		Float64("Percent Missed", percentMissed).
 		Msg("Test completed")
 
-	testReport := fmt.Sprintf("Upkeep Delays in seconds\nAverage: %f\nMedian: %d\n90th Percentile: %d\n"+
-		"99th Percentile: %d\nMax: %d\nTotal Perform Count: %d\n\nTotal Events Emitted: %d\nTotal Events Missed: %d\n"+
-		"Percent Missed: %f\nTest Duration: %s\n",
-		avg, median, ninetyPct, ninetyNinePct, maximum, len(allUpkeepDelays), numberOfEventsEmitted,
-		eventsMissed, percentMissed, testDuration.String())
+	testReportFormat := `Upkeep Delays in seconds - Fast Execution
+Average: %f
+Median: %d
+90th Percentile: %d
+99th Percentile: %d
+Max: %d
+
+Upkeep Delays in seconds - Recovery Execution
+Average: %f
+Median: %d
+90th Percentile: %d
+99th Percentile: %d
+Max: %d
+
+Total Perform Count: %d
+Perform Count Fast Execution: %d
+Perform Count Recovery Execution: %d
+Total Log Triggering Events Emitted: %d
+Total Events Missed: %d
+Percent Missed: %f
+Test Duration: %s`
+
+	endTimeTestReport := time.Now()
+	testReDuration := endTimeTestReport.Sub(startTimeTestReport)
+	l.Info().
+		Str("END_TIME", endTimeTestReport.String()).
+		Str("Duration", testReDuration.String()).
+		Msg("Test reporting ended")
+
+	testReport := fmt.Sprintf(testReportFormat, avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF,
+		avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR, len(allUpkeepDelays), len(allUpkeepDelaysFast),
+		len(allUpkeepDelaysRecovery), numberOfEventsEmitted, eventsMissed, percentMissed, testExDuration.String())
 
 	_, err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
-		strconv.FormatInt(startTime.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
+		strconv.FormatInt(startTimeTestSetup.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
 		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")}, slack.MsgOptionTS(ts))
 	if err != nil {
 		l.Error().Err(err).Msg("Error sending slack notification")

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Added
+
+- `chainlink health` CLI command and HTML `/health` endpoint, to provide human-readable views of the underlying JSON health data.
+
 ### Fixed
 
 - Fixed the encoding used for transactions when resending in batches

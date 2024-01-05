@@ -62,7 +62,7 @@ type runner struct {
 	legacyEVMChains        legacyevm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
-	runReaperWorker        utils.SleeperTask
+	runReaperWorker        *commonutils.SleeperTask
 	lggr                   logger.Logger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
@@ -120,8 +120,8 @@ func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, l
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
-	r.runReaperWorker = utils.NewSleeperTask(
-		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
+	r.runReaperWorker = commonutils.NewSleeperTask(
+		commonutils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
 	)
 	return r
 }

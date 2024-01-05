@@ -356,10 +356,9 @@ jobs:
           - name: ocr
             nodes: 1
             os: ubuntu-latest
-            run: -run TestOCRJobReplacement
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
-          - name: ocr-geth
+          - name: ocr2
             nodes: 1
             os: ubuntu-latest
             run: -run TestOCRBasic
@@ -425,8 +424,8 @@ jobs:
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           - name: runlog
             nodes: 1
@@ -541,7 +540,6 @@ jobs:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          ETH2_EL_CLIENT: ${{matrix.product.client}}
           LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
           LOKI_URL: ${{ secrets.LOKI_URL }}
           LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}

@@ -46,7 +46,7 @@ func newCacheSet(lggr logger.Logger, cfg Config) *cacheSet {
 
 func (cs *cacheSet) Start(context.Context) error {
 	return cs.StartOnce("CacheSet", func() error {
-		cs.lggr.Debugw("CacheSet starting", "config", cs.cfg)
+		cs.lggr.Debugw("CacheSet starting", "config", cs.cfg, "cachingEnabled", cs.cfg.LatestReportTTL > 0)
 		return nil
 	})
 }
@@ -65,6 +65,10 @@ func (cs *cacheSet) Close() error {
 }
 
 func (cs *cacheSet) Get(ctx context.Context, client Client) (f Fetcher, err error) {
+	if cs.cfg.LatestReportTTL == 0 {
+		// caching disabled
+		return nil, nil
+	}
 	ok := cs.IfStarted(func() {
 		f, err = cs.get(ctx, client)
 	})
@@ -104,8 +108,9 @@ func (cs *cacheSet) HealthReport() map[string]error {
 		cs.Name(): cs.Ready(),
 	}
 	cs.RLock()
-	defer cs.RUnlock()
-	for _, c := range cs.caches {
+	caches := maps.Values(cs.caches)
+	cs.RUnlock()
+	for _, c := range caches {
 		services.CopyHealth(report, c.HealthReport())
 	}
 	return report

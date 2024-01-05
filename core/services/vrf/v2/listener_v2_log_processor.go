@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -1182,7 +1183,13 @@ func (lsn *listenerV2) simulateFulfillment(
 		res.err = errors.New("expected []uint8 final result")
 		return res
 	}
-	res.maxFee = utils.HexToBig(hexutil.Encode(b)[2:])
+
+	res.maxFee, err = hex.ParseBig(hexutil.Encode(b)[2:])
+	if err != nil {
+		res.err = err
+		return res
+	}
+
 	for _, trr := range trrs {
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
 			m := trr.Result.Value.(map[string]interface{})

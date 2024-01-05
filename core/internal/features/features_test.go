@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/consumer_wrapper"
@@ -879,7 +880,7 @@ isBootstrapPeer    = true
 			// Raising flags to initiate hibernation
 			_, err = flagsContract.RaiseFlag(owner, ocrContractAddress)
 			require.NoError(t, err, "failed to raise flag for ocrContractAddress")
-			_, err = flagsContract.RaiseFlag(owner, utils.ZeroAddress)
+			_, err = flagsContract.RaiseFlag(owner, evmutils.ZeroAddress)
 			require.NoError(t, err, "failed to raise flag for ZeroAddress")
 
 			b.Commit()
@@ -1105,7 +1106,7 @@ isBootstrapPeer    = true
 		// Raising flags to initiate hibernation
 		_, err = flagsContract.RaiseFlag(owner, ocrContractAddress)
 		require.NoError(t, err, "failed to raise flag for ocrContractAddress")
-		_, err = flagsContract.RaiseFlag(owner, utils.ZeroAddress)
+		_, err = flagsContract.RaiseFlag(owner, evmutils.ZeroAddress)
 		require.NoError(t, err, "failed to raise flag for ZeroAddress")
 
 		b.Commit()
@@ -1263,22 +1264,22 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	b41 := evmtypes.Block{
 		Number:       41,
-		Hash:         utils.NewHash(),
+		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(41_000_000_000, 41_500_000_000),
 	}
 	b42 := evmtypes.Block{
 		Number:       42,
-		Hash:         utils.NewHash(),
+		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(44_000_000_000, 45_000_000_000),
 	}
 	b43 := evmtypes.Block{
 		Number:       43,
-		Hash:         utils.NewHash(),
+		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
 	}
 
 	evmChainID := ubig.New(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
-	h40 := evmtypes.Head{Hash: utils.NewHash(), Number: 40, EVMChainID: evmChainID}
+	h40 := evmtypes.Head{Hash: evmutils.NewHash(), Number: 40, EVMChainID: evmChainID}
 	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 

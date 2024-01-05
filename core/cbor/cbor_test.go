@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_ParseCBOR(t *testing.T) {
 	t.Parallel()
 
-	address, err := utils.TryParseHex("0x8bd112d3f8f92e41c861939545ad387307af9703")
+	address, err := hex.DecodeString("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
 
 	tests := []struct {

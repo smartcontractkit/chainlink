@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
@@ -508,6 +509,23 @@ func (s *Shell) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool,
 		}
 		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
 	}
+	return nil
+}
+
+func (s *Shell) Health(c *cli.Context) error {
+	mime := gin.MIMEPlain
+	if c.Bool("json") {
+		mime = gin.MIMEJSON
+	}
+	resp, err := s.HTTP.Get("/health", map[string]string{"Accept": mime})
+	if err != nil {
+		return s.errorOut(err)
+	}
+	b, err := parseResponse(resp)
+	if err != nil {
+		return s.errorOut(err)
+	}
+	fmt.Println(string(b))
 	return nil
 }
 
