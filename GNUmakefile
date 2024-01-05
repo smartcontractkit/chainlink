@@ -162,6 +162,10 @@ goreleaser-dev-release: ## run goreleaser snapshot release
 modgraph:
 	./tools/bin/modgraph > go.md
 
+.PHONY: modcheck
+modcheck:
+	./tools/bin/modcheck go.disallow
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"

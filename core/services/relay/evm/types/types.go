@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"gopkg.in/guregu/null.v2"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"

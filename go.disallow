@@ -1,0 +1,11 @@
+cosmossdk.io/errors Use the standard library instead
+github.com/gofrs/uuid Use github.com/google/uuid instead
+github.com/satori/go.uuid Use github.com/google/uuid instead
+github.com/test-go/testify/assert Use github.com/stretchr/testify/assert instead
+github.com/test-go/testify/mock Use github.com/stretchr/testify/mock instead
+github.com/test-go/testify/require Use github.com/stretchr/testify/require instead
+go.uber.org/multierr Use the standard library instead, for example https://pkg.go.dev/errors#Join
+gopkg.in/guregu/null.v1 Use gopkg.in/guregu/null.v4 instead
+gopkg.in/guregu/null.v2 Use gopkg.in/guregu/null.v4 instead
+gopkg.in/guregu/null.v3 Use gopkg.in/guregu/null.v4 instead
+https://github.com/go-gorm/gorm Use github.com/jmoiron/sqlx directly instead

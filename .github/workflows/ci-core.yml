@@ -268,6 +268,8 @@ jobs:
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: git diff --minimal --exit-code
+      - name: Ensure no disallowed modules
+        run: make modcheck
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
