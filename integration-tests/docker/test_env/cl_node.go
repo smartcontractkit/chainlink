@@ -382,9 +382,8 @@ func (n *ClNode) ExecGetVersion() (string, error) {
 
 	if len(matches) > 1 {
 		return matches[1], nil
-	} else {
-		return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 	}
+	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 }
 
 func (n *ClNode) getContainerRequest(secrets string) (
