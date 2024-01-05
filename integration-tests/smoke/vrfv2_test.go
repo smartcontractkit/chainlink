@@ -144,7 +144,7 @@ func TestVRFv2Basic(t *testing.T) {
 			wrapperConsumer,
 			vrfv2Contracts.Coordinator,
 			vrfv2Data,
-			subID,
+			*wrapperSubID,
 			vrfv2Config.RandomnessRequestCountPerRequest,
 			vrfv2Config,
 			testConfig.RandomWordsFulfilledEventTimeout,

@@ -37,6 +37,7 @@ type VRFCoordinator interface {
 }
 
 type VRFCoordinatorV2 interface {
+	GetRequestConfig(ctx context.Context) (GetRequestConfig, error)
 	SetConfig(
 		minimumRequestConfirmations uint16,
 		maxGasLimit uint32,

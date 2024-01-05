@@ -255,7 +255,7 @@ func SetupVRFV2Environment(
 	l.Info().Str("Coordinator", vrfv2Contracts.Coordinator.Address()).Msg("Setting Coordinator Config")
 	err = vrfv2Contracts.Coordinator.SetConfig(
 		vrfv2Config.MinimumConfirmations,
-		vrfv2Config.CallbackGasLimit,
+		vrfv2Config.MaxGasLimitCoordinatorConfig,
 		vrfv2Config.StalenessSeconds,
 		vrfv2Config.GasAfterPaymentCalculation,
 		big.NewInt(vrfv2Config.LinkNativeFeedResponse),

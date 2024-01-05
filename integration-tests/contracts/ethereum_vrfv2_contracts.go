@@ -64,6 +64,12 @@ type EthereumVRFV2WrapperLoadTestConsumer struct {
 	consumer *vrfv2_wrapper_load_test_consumer.VRFV2WrapperLoadTestConsumer
 }
 
+type GetRequestConfig struct {
+	MinimumRequestConfirmations uint16
+	MaxGasLimit                 uint32
+	ProvingKeyHashes            [32]byte
+}
+
 // DeployVRFCoordinatorV2 deploys VRFV2 coordinator contract
 func (e *EthereumContractDeployer) DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV2", func(
@@ -195,6 +201,24 @@ func (v *EthereumVRFCoordinatorV2) GetSubscription(ctx context.Context, subID ui
 		return vrf_coordinator_v2.GetSubscription{}, err
 	}
 	return subscription, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) GetRequestConfig(ctx context.Context) (GetRequestConfig, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	minConfirmations, maxGas, keyHashes, err := v.coordinator.GetRequestConfig(opts)
+	if err != nil {
+		return GetRequestConfig{}, err
+	}
+	requestConfig := GetRequestConfig{
+		MinimumRequestConfirmations: minConfirmations,
+		MaxGasLimit:                 maxGas,
+		ProvingKeyHashes:            keyHashes[0],
+	}
+
+	return requestConfig, nil
 }
 
 func (v *EthereumVRFCoordinatorV2) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig) error {
