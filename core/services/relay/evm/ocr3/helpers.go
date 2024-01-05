@@ -106,5 +106,7 @@ func TransmitterCombiner(masterConfig ocrtypes.ContractConfig, followerConfigs [
 // ContractTransmitter and the ContractConfig.Transmitters output for a
 // particular signer must match in order for OCR3 to work.
 func joinTransmitters(transmitters []string) string {
+	// sort first to ensure deterministic ordering
+	slices.Sort(transmitters)
 	return strings.Join(transmitters, ",")
 }

@@ -122,5 +122,7 @@ func (c *contractTransmitterOCR3[RI]) Transmit(ctx context.Context, configDigest
 		return fmt.Errorf("%w: abi.Pack failed with args: (%+v, %s, %+v, %+v, %+v)", err, rawReportCtx, hex.EncodeToString(rwi.Report), rs, ss, vs)
 	}
 
+	c.lggr.Debugw("payload", "payload", hex.EncodeToString(payload))
+
 	return errors.Wrap(c.transmitter.CreateEthTransaction(ctx, c.contractAddress, payload, txMeta), "failed to send Eth transaction")
 }
