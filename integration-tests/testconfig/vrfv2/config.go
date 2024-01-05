@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
 
 const (
@@ -116,9 +116,9 @@ func (c *Common) Validate() error {
 }
 
 type PerformanceConfig struct {
-	TestDuration          *models.Duration `toml:"test_duration"`
-	RPS                   *int64           `toml:"rps"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
+	TestDuration          *blockchain.StrDuration `toml:"test_duration"`
+	RPS                   *int64                  `toml:"rps"`
+	RateLimitUnitDuration *blockchain.StrDuration `toml:"rate_limit_unit_duration"`
 
 	// Using existing environment and contracts
 	UseExistingEnv     *bool `toml:"use_existing_env"`
@@ -150,7 +150,7 @@ func (c *PerformanceConfig) ApplyOverrides(from *PerformanceConfig) error {
 }
 
 func (c *PerformanceConfig) Validate() error {
-	if c.TestDuration == nil || c.TestDuration.Duration() == 0 {
+	if c.TestDuration == nil || c.TestDuration.Duration == 0 {
 		return errors.New("test_duration must be set to a positive value")
 	}
 	if c.RPS == nil || *c.RPS == 0 {
@@ -352,40 +352,40 @@ func (c *SubFunding) Validate() error {
 }
 
 type General struct {
-	CLNodeMaxGasPriceGWei          *int64   `toml:"max_gas_price_gwei"`                  // Max gas price in GWei for the chainlink node default:"1000"
-	LinkNativeFeedResponse         *int64   `toml:"link_native_feed_response"`           // Response of the LINK/ETH feed default:"1000000000000000000"
-	MinimumConfirmations           *uint16  `toml:"minimum_confirmations" `              // Minimum number of confirmations for the VRF Coordinator default:"3"
-	SubscriptionFundingAmountLink  *float64 `toml:"subscription_funding_amount_link"`    // Amount of LINK to fund the subscription with default:"5"
-	NumberOfWords                  *uint32  `toml:"number_of_words" `                    // Number of words to request default:"3"
-	CallbackGasLimit               *uint32  `toml:"callback_gas_limit" `                 // Gas limit for the callback default:"1000000"
-	MaxGasLimitCoordinatorConfig   *uint32  `toml:"max_gas_limit_coordinator_config"`    // Max gas limit for the VRF Coordinator config  default:"2500000"
-	FallbackWeiPerUnitLink         *int64   `toml:"fallback_wei_per_unit_link"`          // Fallback wei per unit LINK for the VRF Coordinator config  default:"60000000000000000"
-	StalenessSeconds               *uint32  `toml:"staleness_seconds" `                  // Staleness in seconds for the VRF Coordinator config default:"86400"
-	GasAfterPaymentCalculation     *uint32  `toml:"gas_after_payment_calculation" `      // Gas after payment calculation for the VRF Coordinator config default:"33825"
-	FulfillmentFlatFeeLinkPPMTier1 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_1"` //default:"500"
-	FulfillmentFlatFeeLinkPPMTier2 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_2"` //default:"500"
-	FulfillmentFlatFeeLinkPPMTier3 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_3"` //default:"500"
-	FulfillmentFlatFeeLinkPPMTier4 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_4"` //default:"500"
-	FulfillmentFlatFeeLinkPPMTier5 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_5"` //default:"500"
-	ReqsForTier2                   *int64   `toml:"reqs_for_tier_2"`                     // default:"0"
-	ReqsForTier3                   *int64   `toml:"reqs_for_tier_3"`                     // default:"0"
-	ReqsForTier4                   *int64   `toml:"reqs_for_tier_4"`                     // default:"0"
-	ReqsForTier5                   *int64   `toml:"reqs_for_tier_5"`                     // default:"0"
+	CLNodeMaxGasPriceGWei          *int64   `toml:"max_gas_price_gwei"`               // Max gas price in GWei for the chainlink node
+	LinkNativeFeedResponse         *int64   `toml:"link_native_feed_response"`        // Response of the LINK/ETH feed
+	MinimumConfirmations           *uint16  `toml:"minimum_confirmations" `           // Minimum number of confirmations for the VRF Coordinator
+	SubscriptionFundingAmountLink  *float64 `toml:"subscription_funding_amount_link"` // Amount of LINK to fund the subscription with
+	NumberOfWords                  *uint32  `toml:"number_of_words" `                 // Number of words to request
+	CallbackGasLimit               *uint32  `toml:"callback_gas_limit" `              // Gas limit for the callback
+	MaxGasLimitCoordinatorConfig   *uint32  `toml:"max_gas_limit_coordinator_config"` // Max gas limit for the VRF Coordinator config
+	FallbackWeiPerUnitLink         *int64   `toml:"fallback_wei_per_unit_link"`       // Fallback wei per unit LINK for the VRF Coordinator config
+	StalenessSeconds               *uint32  `toml:"staleness_seconds" `               // Staleness in seconds for the VRF Coordinator config
+	GasAfterPaymentCalculation     *uint32  `toml:"gas_after_payment_calculation" `   // Gas after payment calculation for the VRF Coordinator
+	FulfillmentFlatFeeLinkPPMTier1 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_1"`
+	FulfillmentFlatFeeLinkPPMTier2 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_2"`
+	FulfillmentFlatFeeLinkPPMTier3 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_3"`
+	FulfillmentFlatFeeLinkPPMTier4 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_4"`
+	FulfillmentFlatFeeLinkPPMTier5 *uint32  `toml:"fulfilment_flat_fee_link_ppm_tier_5"`
+	ReqsForTier2                   *int64   `toml:"reqs_for_tier_2"`
+	ReqsForTier3                   *int64   `toml:"reqs_for_tier_3"`
+	ReqsForTier4                   *int64   `toml:"reqs_for_tier_4"`
+	ReqsForTier5                   *int64   `toml:"reqs_for_tier_5"`
 
-	NumberOfSubToCreate *int `toml:"number_of_sub_to_create"` // Number of subscriptions to create default:"1"
+	NumberOfSubToCreate *int `toml:"number_of_sub_to_create"` // Number of subscriptions to create
 
-	RandomnessRequestCountPerRequest          *uint16 `toml:"randomness_request_count_per_request"`           // How many randomness requests to send per request default:"1"
-	RandomnessRequestCountPerRequestDeviation *uint16 `toml:"randomness_request_count_per_request_deviation"` // How many randomness requests to send per request  default:"0"
+	RandomnessRequestCountPerRequest          *uint16 `toml:"randomness_request_count_per_request"`           // How many randomness requests to send per request
+	RandomnessRequestCountPerRequestDeviation *uint16 `toml:"randomness_request_count_per_request_deviation"` // How many randomness requests to send per request
 
-	RandomWordsFulfilledEventTimeout *models.Duration `toml:"random_words_fulfilled_event_timeout"` // How long to wait for the RandomWordsFulfilled event to be emitted default:"2m"
+	RandomWordsFulfilledEventTimeout *blockchain.StrDuration `toml:"random_words_fulfilled_event_timeout"` // How long to wait for the RandomWordsFulfilled event to be emitted
 
 	// Wrapper Config
-	WrapperGasOverhead                      *uint32  `toml:"wrapped_gas_overhead"`                         // default:"50000"
-	CoordinatorGasOverhead                  *uint32  `toml:"coordinator_gas_overhead"`                     // default:"52000"
-	WrapperPremiumPercentage                *uint8   `toml:"wrapper_premium_percentage"`                   // default:"25"
-	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`                  // default:"10"
-	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"` // default:"1"
-	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`         // default:"10"
+	WrapperGasOverhead                      *uint32  `toml:"wrapped_gas_overhead"`
+	CoordinatorGasOverhead                  *uint32  `toml:"coordinator_gas_overhead"`
+	WrapperPremiumPercentage                *uint8   `toml:"wrapper_premium_percentage"`
+	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`
+	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
+	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`
 }
 
 func (c *General) ApplyOverrides(from *General) error {
@@ -550,7 +550,7 @@ func (c *General) Validate() error {
 	if c.RandomnessRequestCountPerRequestDeviation == nil {
 		return errors.New("randomness_request_count_per_request_deviation must be set to a non-negative value")
 	}
-	if c.RandomWordsFulfilledEventTimeout == nil || c.RandomWordsFulfilledEventTimeout.Duration() == 0 {
+	if c.RandomWordsFulfilledEventTimeout == nil || c.RandomWordsFulfilledEventTimeout.Duration == 0 {
 		return errors.New("random_words_fulfilled_event_timeout must be set to a positive value")
 	}
 	if c.WrapperGasOverhead == nil {

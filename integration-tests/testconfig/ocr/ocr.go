@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type Config struct {
@@ -63,8 +62,8 @@ func (o *Config) Validate() error {
 }
 
 type Common struct {
-	ETHFunds     *int             `toml:"eth_funds"`
-	TestDuration *models.Duration `toml:"test_duration"` //default:"15m
+	ETHFunds     *int                    `toml:"eth_funds"`
+	TestDuration *blockchain.StrDuration `toml:"test_duration"`
 }
 
 func (o *Common) ApplyOverrides(from *Common) error {
@@ -84,7 +83,7 @@ func (o *Common) Validate() error {
 	if o.ETHFunds != nil && *o.ETHFunds < 0 {
 		return errors.New("eth_funds must be set and cannot be negative")
 	}
-	if o.TestDuration == nil || o.TestDuration.Duration() == 0 {
+	if o.TestDuration == nil || o.TestDuration.Duration == 0 {
 		return errors.New("test_duration must be set and be a positive integer")
 	}
 
@@ -92,12 +91,12 @@ func (o *Common) Validate() error {
 }
 
 type Volume struct {
-	Rate                  *int64           `toml:"rate"`
-	VURequestsPerUnit     *int             `toml:"vu_requests_per_unit"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
-	VerificationInterval  *models.Duration `toml:"verification_interval"`
-	VerificationTimeout   *models.Duration `toml:"verification_timeout"`
-	EAChangeInterval      *models.Duration `toml:"ea_change_interval"`
+	Rate                  *int64                  `toml:"rate"`
+	VURequestsPerUnit     *int                    `toml:"vu_requests_per_unit"`
+	RateLimitUnitDuration *blockchain.StrDuration `toml:"rate_limit_unit_duration"`
+	VerificationInterval  *blockchain.StrDuration `toml:"verification_interval"`
+	VerificationTimeout   *blockchain.StrDuration `toml:"verification_timeout"`
+	EAChangeInterval      *blockchain.StrDuration `toml:"ea_change_interval"`
 }
 
 func (o *Volume) ApplyOverrides(from *Volume) error {
@@ -133,16 +132,16 @@ func (o *Volume) Validate() error {
 	if o.VURequestsPerUnit == nil || *o.VURequestsPerUnit <= 0 {
 		return errors.New("vu_requests_per_unit must be set and be a positive integer")
 	}
-	if o.RateLimitUnitDuration == nil || o.RateLimitUnitDuration.Duration() == 0 {
+	if o.RateLimitUnitDuration == nil || o.RateLimitUnitDuration.Duration == 0 {
 		return errors.New("rate_limit_unit_duration must be set and be a positive integer")
 	}
-	if o.VerificationInterval == nil || o.VerificationInterval.Duration() == 0 {
+	if o.VerificationInterval == nil || o.VerificationInterval.Duration == 0 {
 		return errors.New("verification_interval must be set and be a positive integer")
 	}
-	if o.VerificationTimeout == nil || o.VerificationTimeout.Duration() == 0 {
+	if o.VerificationTimeout == nil || o.VerificationTimeout.Duration == 0 {
 		return errors.New("verification_timeout must be set and be a positive integer")
 	}
-	if o.EAChangeInterval == nil || o.EAChangeInterval.Duration() == 0 {
+	if o.EAChangeInterval == nil || o.EAChangeInterval.Duration == 0 {
 		return errors.New("ea_change_interval must be set and be a positive integer")
 	}
 

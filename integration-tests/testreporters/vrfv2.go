@@ -76,7 +76,7 @@ func (o *VRFV2TestReporter) SendSlackNotification(t *testing.T, slackClient *sla
 				"RandomnessRequestCountPerRequest: %d\n"+
 				"RandomnessRequestCountPerRequestDeviation: %d\n",
 			o.TestType,
-			cfg.TestDuration.Duration().Truncate(time.Second).String(),
+			cfg.TestDuration.Duration.Truncate(time.Second).String(),
 			*cfg.UseExistingEnv,
 			o.RequestCount.String(),
 			o.FulfilmentCount.String(),

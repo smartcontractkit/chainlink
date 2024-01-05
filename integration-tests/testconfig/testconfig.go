@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/barkimedes/go-deepcopy"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -74,6 +75,11 @@ func (c *TestConfig) Save() (string, error) {
 	}
 
 	return filePath, nil
+}
+
+// Returns a deep copy of the Test Config or panics on error
+func (c TestConfig) MustCopy() TestConfig {
+	return deepcopy.MustAnything(c).(TestConfig)
 }
 
 type Common struct {

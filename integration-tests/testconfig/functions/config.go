@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/net"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -136,9 +136,9 @@ func (c *Common) Validate() error {
 }
 
 type Performance struct {
-	RPS             *int64           `toml:"rps"`
-	RequestsPerCall *uint32          `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             *int64                  `toml:"rps"`
+	RequestsPerCall *uint32                 `toml:"requests_per_call"`
+	Duration        *blockchain.StrDuration `toml:"duration"`
 }
 
 func (c *Performance) ApplyOverrides(from *Performance) error {
@@ -164,7 +164,7 @@ func (c *Performance) Validate() error {
 	if c.RequestsPerCall != nil && *c.RequestsPerCall < 1 {
 		return errors.New("requests_per_call must be greater than 0")
 	}
-	if c.Duration == nil || c.Duration.Duration() < 1 {
+	if c.Duration == nil || c.Duration.Duration < 1 {
 		return errors.New("duration must be greater than 0")
 	}
 	return nil

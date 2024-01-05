@@ -81,8 +81,7 @@ func TestVRFv2Plus(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Link Billing", func(t *testing.T) {
-		c := config
-		testConfig := c.VRFv2Plus.General
+		configCopy := config.MustCopy()
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
@@ -96,9 +95,9 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*testConfig.RandomnessRequestCountPerRequest,
-			&c,
-			testConfig.RandomWordsFulfilledEventTimeout.Duration(),
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			&configCopy,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -118,7 +117,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, *testConfig.NumberOfWords, uint32(len(status.RandomWords)))
+		require.Equal(t, *configCopy.VRFv2Plus.General.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -126,8 +125,8 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 
 	t.Run("Native Billing", func(t *testing.T) {
-		c := config
-		testConfig := c.VRFv2Plus.General
+		configCopy := config.MustCopy()
+		testConfig := configCopy.VRFv2Plus.General
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
@@ -142,8 +141,8 @@ func TestVRFv2Plus(t *testing.T) {
 			subID,
 			isNativeBilling,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&c,
-			testConfig.RandomWordsFulfilledEventTimeout.Duration(),
+			&configCopy,
+			testConfig.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -169,10 +168,10 @@ func TestVRFv2Plus(t *testing.T) {
 		}
 	})
 	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
-		co := config
+		configCopy := config.MustCopy()
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			env,
-			&co,
+			&configCopy,
 			linkToken,
 			mockETHLinkFeed,
 			vrfv2PlusContracts.Coordinator,
@@ -182,8 +181,8 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("Link Billing", func(t *testing.T) {
-			c := config
-			testConfig := c.VRFv2Plus.General
+			configCopy := config.MustCopy()
+			testConfig := configCopy.VRFv2Plus.General
 			var isNativeBilling = false
 
 			wrapperConsumerJuelsBalanceBeforeRequest, err := linkToken.BalanceOf(testcontext.Get(t), wrapperContracts.LoadTestConsumers[0].Address())
@@ -199,8 +198,8 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				&c,
-				testConfig.RandomWordsFulfilledEventTimeout.Duration(),
+				&configCopy,
+				testConfig.RandomWordsFulfilledEventTimeout.Duration,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -232,8 +231,8 @@ func TestVRFv2Plus(t *testing.T) {
 			}
 		})
 		t.Run("Native Billing", func(t *testing.T) {
-			c := config
-			testConfig := c.VRFv2Plus.General
+			configCopy := config.MustCopy()
+			testConfig := configCopy.VRFv2Plus.General
 			var isNativeBilling = true
 
 			wrapperConsumerBalanceBeforeRequestWei, err := env.EVMClient.BalanceAt(testcontext.Get(t), common.HexToAddress(wrapperContracts.LoadTestConsumers[0].Address()))
@@ -249,8 +248,8 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				&c,
-				testConfig.RandomWordsFulfilledEventTimeout.Duration(),
+				&configCopy,
+				testConfig.RandomWordsFulfilledEventTimeout.Duration,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -283,10 +282,10 @@ func TestVRFv2Plus(t *testing.T) {
 		})
 	})
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
-		c := config
+		configCopy := config.MustCopy()
 		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&c,
+			&configCopy,
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -375,15 +374,16 @@ func TestVRFv2Plus(t *testing.T) {
 
 	})
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
-		c := config
-		testConfig := c.VRFv2Plus.General
+		configCopy := config.MustCopy()
+		testConfig := configCopy.VRFv2Plus.General
+
 		//underfund subs in order rand fulfillments to fail
 		testConfig.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) //1 Wei
 		testConfig.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   //1 Juels
 
 		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&c,
+			&configCopy,
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -415,7 +415,7 @@ func TestVRFv2Plus(t *testing.T) {
 			subIDForCancelling,
 			false,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&c,
+			&configCopy,
 			randomWordsFulfilledEventTimeout,
 			l,
 		)
@@ -429,7 +429,7 @@ func TestVRFv2Plus(t *testing.T) {
 			subIDForCancelling,
 			true,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&config,
+			&configCopy,
 			randomWordsFulfilledEventTimeout,
 			l,
 		)
@@ -532,11 +532,11 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 
 	t.Run("Owner Withdraw", func(t *testing.T) {
-		c := config
-		testConfig := c.VRFv2Plus.General
+		configCopy := config.MustCopy()
+		testConfig := configCopy.VRFv2Plus.General
 		subIDsForWithdraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&c,
+			&configCopy,
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -552,8 +552,8 @@ func TestVRFv2Plus(t *testing.T) {
 			subIDForWithdraw,
 			false,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&c,
-			testConfig.RandomWordsFulfilledEventTimeout.Duration(),
+			&configCopy,
+			testConfig.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
 		require.NoError(t, err)
@@ -565,8 +565,8 @@ func TestVRFv2Plus(t *testing.T) {
 			subIDForWithdraw,
 			true,
 			*testConfig.RandomnessRequestCountPerRequest,
-			&c,
-			testConfig.RandomWordsFulfilledEventTimeout.Duration(),
+			&configCopy,
+			testConfig.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
 		require.NoError(t, err)
@@ -666,8 +666,8 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
-		c := config
-		testConfig := c.VRFv2Plus.General
+		configCopy := config.MustCopy()
+		testConfig := configCopy.VRFv2Plus.General
 		var isNativeBilling = false
 		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
@@ -683,8 +683,8 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 				subID,
 				isNativeBilling,
 				*testConfig.RandomnessRequestCountPerRequest,
-				&c,
-				testConfig.RandomWordsFulfilledEventTimeout.Duration(),
+				&configCopy,
+				testConfig.RandomWordsFulfilledEventTimeout.Duration,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

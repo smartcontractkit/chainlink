@@ -753,11 +753,11 @@ func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contra
 			T:                     t,
 			LoadType:              wasp.RPS,
 			GenName:               fmt.Sprintf("log_poller_gen_%s", (*logEmitter).Address().String()),
-			RateLimitUnitDuration: cfg.Wasp.RateLimitUnitDuration.Duration(),
-			CallTimeout:           cfg.Wasp.CallTimeout.Duration(),
+			RateLimitUnitDuration: cfg.Wasp.RateLimitUnitDuration.Duration,
+			CallTimeout:           cfg.Wasp.CallTimeout.Duration,
 			Schedule: wasp.Plain(
 				RPSprime,
-				cfg.Wasp.Duration.Duration(),
+				cfg.Wasp.Duration.Duration,
 			),
 			Gun: NewLogEmitterGun(
 				logEmitter,
@@ -833,9 +833,9 @@ func runLoopedGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*cont
 func getExpectedLogCount(cfg *lp_config.Config) int64 {
 	if *cfg.General.Generator == lp_config.GeneratorType_WASP {
 		if *cfg.Wasp.RPS != 0 {
-			return *cfg.Wasp.RPS * int64(cfg.Wasp.Duration.Duration().Seconds()) * int64(*cfg.General.EventsPerTx)
+			return *cfg.Wasp.RPS * int64(cfg.Wasp.Duration.Duration.Seconds()) * int64(*cfg.General.EventsPerTx)
 		}
-		return *cfg.Wasp.LPS * int64(cfg.Wasp.Duration.Duration().Seconds())
+		return *cfg.Wasp.LPS * int64(cfg.Wasp.Duration.Duration.Seconds())
 	}
 
 	return int64(len(cfg.General.EventsToEmit) * *cfg.LoopedConfig.ExecutionCount * *cfg.General.Contracts * *cfg.General.EventsPerTx)

@@ -110,9 +110,9 @@ func (c *Common) Validate() error {
 
 type General struct {
 	*vrfv2.General
-	SubscriptionFundingAmountNative *float64 `toml:"subscription_funding_amount_native"` // Amount of LINK to fund the subscription with default:"1"
-	FulfillmentFlatFeeLinkPPM       *uint32  `toml:"fulfillment_flat_fee_link_ppm"`      // Flat fee in ppm for LINK for the VRF Coordinator config default:"500"
-	FulfillmentFlatFeeNativePPM     *uint32  `toml:"fulfillment_flat_fee_native_ppm"`    // Flat fee in ppm for native currency for the VRF Coordinator config default:"500"
+	SubscriptionFundingAmountNative *float64 `toml:"subscription_funding_amount_native"` // Amount of LINK to fund the subscription with
+	FulfillmentFlatFeeLinkPPM       *uint32  `toml:"fulfillment_flat_fee_link_ppm"`      // Flat fee in ppm for LINK for the VRF Coordinator config
+	FulfillmentFlatFeeNativePPM     *uint32  `toml:"fulfillment_flat_fee_native_ppm"`    // Flat fee in ppm for native currency for the VRF Coordinator config
 }
 
 func (c *General) ApplyOverrides(from *General) error {

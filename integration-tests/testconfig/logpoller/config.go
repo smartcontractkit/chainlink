@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
 
 const (
@@ -211,11 +210,11 @@ func (c *ChaosConfig) Validate() error {
 }
 
 type WaspConfig struct {
-	RPS                   *int64           `toml:"rps"`
-	LPS                   *int64           `toml:"lps"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
-	Duration              *models.Duration `toml:"duration"`
-	CallTimeout           *models.Duration `toml:"call_timeout"`
+	RPS                   *int64                  `toml:"rps"`
+	LPS                   *int64                  `toml:"lps"`
+	RateLimitUnitDuration *blockchain.StrDuration `toml:"rate_limit_unit_duration"`
+	Duration              *blockchain.StrDuration `toml:"duration"`
+	CallTimeout           *blockchain.StrDuration `toml:"call_timeout"`
 }
 
 func (w *WaspConfig) ApplyOverrides(from *WaspConfig) error {
@@ -250,13 +249,13 @@ func (w *WaspConfig) Validate() error {
 	if *w.RPS != 0 && *w.LPS != 0 {
 		return fmt.Errorf("only one of RPS or LPS can be set")
 	}
-	if w.Duration == nil || w.Duration.Duration() == 0 {
+	if w.Duration == nil || w.Duration.Duration == 0 {
 		return fmt.Errorf("duration must be set and > 0")
 	}
-	if w.CallTimeout == nil || w.CallTimeout.Duration() == 0 {
+	if w.CallTimeout == nil || w.CallTimeout.Duration == 0 {
 		return fmt.Errorf("call_timeout must be set and > 0")
 	}
-	if w.RateLimitUnitDuration == nil || w.RateLimitUnitDuration.Duration() == 0 {
+	if w.RateLimitUnitDuration == nil || w.RateLimitUnitDuration.Duration == 0 {
 		return fmt.Errorf("rate_limit_unit_duration  must be set and > 0")
 	}
 
