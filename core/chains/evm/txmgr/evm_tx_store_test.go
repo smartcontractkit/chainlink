@@ -478,26 +478,26 @@ func TestORM_UpdateTxsUnconfirmed(t *testing.T) {
 	assert.Equal(t, etx0.State, txmgrcommon.TxUnconfirmed)
 }
 
-func TestORM_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-
-	originalBroadcastAt := time.Unix(1616509100, 0)
-	etx0 := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, txStore, 0, 1, originalBroadcastAt, fromAddress)
-
-	attempts, err := txStore.FindTxAttemptsRequiringReceiptFetch(testutils.Context(t), ethClient.ConfiguredChainID())
-	require.NoError(t, err)
-	assert.Len(t, attempts, 1)
-	assert.Len(t, etx0.TxAttempts, 1)
-	assert.Equal(t, etx0.TxAttempts[0].ID, attempts[0].ID)
-}
+//func TestORM_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
+//	t.Parallel()
+//
+//	db := pgtest.NewSqlxDB(t)
+//	cfg := newTestChainScopedConfig(t)
+//	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+//	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+//	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+//	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+//
+//	originalBroadcastAt := time.Unix(1616509100, 0)
+//	etx0 := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+//		t, txStore, 0, 1, originalBroadcastAt, fromAddress)
+//
+//	attempts, err := txStore.FindTxAttemptsRequiringReceiptFetch(testutils.Context(t), ethClient.ConfiguredChainID())
+//	require.NoError(t, err)
+//	assert.Len(t, attempts, 1)
+//	assert.Len(t, etx0.TxAttempts, 1)
+//	assert.Equal(t, etx0.TxAttempts[0].ID, attempts[0].ID)
+//}
 
 func TestORM_SaveFetchedReceipts(t *testing.T) {
 	t.Parallel()
@@ -533,35 +533,35 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
 }
 
-func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-
-	// create transaction 0 (nonce 0) that is unconfirmed (block 7)
-	etx0_blocknum := int64(7)
-	etx0 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 0, fromAddress)
-	etx0_attempt := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(1))
-	etx0_attempt.BroadcastBeforeBlockNum = &etx0_blocknum
-	require.NoError(t, txStore.InsertTxAttempt(&etx0_attempt))
-	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx0.State)
-
-	// create transaction 1 (nonce 1) that is confirmed (block 77)
-	etx1 := mustInsertConfirmedEthTxBySaveFetchedReceipts(t, txStore, fromAddress, int64(1), int64(77), *ethClient.ConfiguredChainID())
-	assert.Equal(t, etx1.State, txmgrcommon.TxConfirmed)
-
-	// mark transaction 0 confirmed_missing_receipt
-	err := txStore.MarkAllConfirmedMissingReceipt(testutils.Context(t), ethClient.ConfiguredChainID())
-	require.NoError(t, err)
-	etx0, err = txStore.FindTxWithAttempts(etx0.ID)
-	require.NoError(t, err)
-	assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx0.State)
-}
+//func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
+//	t.Parallel()
+//
+//	db := pgtest.NewSqlxDB(t)
+//	cfg := newTestChainScopedConfig(t)
+//	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+//	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+//	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+//	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+//
+//	// create transaction 0 (nonce 0) that is unconfirmed (block 7)
+//	etx0_blocknum := int64(7)
+//	etx0 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 0, fromAddress)
+//	etx0_attempt := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(1))
+//	etx0_attempt.BroadcastBeforeBlockNum = &etx0_blocknum
+//	require.NoError(t, txStore.InsertTxAttempt(&etx0_attempt))
+//	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx0.State)
+//
+//	// create transaction 1 (nonce 1) that is confirmed (block 77)
+//	etx1 := mustInsertConfirmedEthTxBySaveFetchedReceipts(t, txStore, fromAddress, int64(1), int64(77), *ethClient.ConfiguredChainID())
+//	assert.Equal(t, etx1.State, txmgrcommon.TxConfirmed)
+//
+//	// mark transaction 0 confirmed_missing_receipt
+//	err := txStore.MarkAllConfirmedMissingReceipt(testutils.Context(t), ethClient.ConfiguredChainID())
+//	require.NoError(t, err)
+//	etx0, err = txStore.FindTxWithAttempts(etx0.ID)
+//	require.NoError(t, err)
+//	assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx0.State)
+//}
 
 func TestORM_PreloadTxes(t *testing.T) {
 	t.Parallel()
@@ -1140,40 +1140,40 @@ func TestEthConfirmer_FindTxsRequiringResubmissionDueToInsufficientEth(t *testin
 	})
 }
 
-func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-
-	// tx state should be confirmed missing receipt
-	// attempt should be broadcast before cutoff time
-	t.Run("successfully mark errored transactions", func(t *testing.T) {
-		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
-
-		err := txStore.MarkOldTxesMissingReceiptAsErrored(testutils.Context(t), 10, 2, ethClient.ConfiguredChainID())
-		require.NoError(t, err)
-
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
-		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
-	})
-
-	t.Run("successfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
-		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
-		err := txStore.MarkOldTxesMissingReceiptAsErrored(testutils.Context(t), 10, 2, ethClient.ConfiguredChainID())
-		require.NoError(t, err)
-
-		// must run other query outside of postgres transaction so changes are committed
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
-		require.NoError(t, err)
-		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
-	})
-}
+//func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
+//	t.Parallel()
+//
+//	db := pgtest.NewSqlxDB(t)
+//	cfg := newTestChainScopedConfig(t)
+//	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+//	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+//	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+//	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+//
+//	// tx state should be confirmed missing receipt
+//	// attempt should be broadcast before cutoff time
+//	t.Run("successfully mark errored transactions", func(t *testing.T) {
+//		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
+//
+//		err := txStore.MarkOldTxesMissingReceiptAsErrored(testutils.Context(t), 10, 2, ethClient.ConfiguredChainID())
+//		require.NoError(t, err)
+//
+//		etx, err = txStore.FindTxWithAttempts(etx.ID)
+//		require.NoError(t, err)
+//		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
+//	})
+//
+//	t.Run("successfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
+//		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
+//		err := txStore.MarkOldTxesMissingReceiptAsErrored(testutils.Context(t), 10, 2, ethClient.ConfiguredChainID())
+//		require.NoError(t, err)
+//
+//		// must run other query outside of postgres transaction so changes are committed
+//		etx, err = txStore.FindTxWithAttempts(etx.ID)
+//		require.NoError(t, err)
+//		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
+//	})
+//}
 
 func TestORM_LoadEthTxesAttempts(t *testing.T) {
 	t.Parallel()

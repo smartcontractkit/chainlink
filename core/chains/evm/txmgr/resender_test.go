@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -65,7 +68,12 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 		addr3TxesRawHex = append(addr3TxesRawHex, hexutil.Encode(etx.TxAttempts[0].SignedRawTx))
 	}
 
-	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+	estimator := gasmocks.NewEvmEstimator(t)
+	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
+	ge := ccfg.EVM().GasEstimator()
+	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txBuilder, ethKeyStore, 100*time.Millisecond, ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ge), ccfg.EVM().Transactions(), ccfg.Database())
 
 	var resentHex = make(map[string]struct{})
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
@@ -121,7 +129,12 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
-	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+	estimator := gasmocks.NewEvmEstimator(t)
+	newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
+	ge := ccfg.EVM().GasEstimator()
+	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txBuilder, ethKeyStore, 100*time.Millisecond, ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ge), ccfg.EVM().Transactions(), ccfg.Database())
 
 	t.Run("alerts only once for unconfirmed transaction attempt within the unconfirmedTxAlertDelay duration", func(t *testing.T) {
 		_ = cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(1), fromAddress, originalBroadcastAt)
@@ -157,7 +170,12 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+		estimator := gasmocks.NewEvmEstimator(t)
+		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
+		ge := ccfg.EVM().GasEstimator()
+		feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil)
+		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
+		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txBuilder, ethKeyStore, 100*time.Millisecond, ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ge), ccfg.EVM().Transactions(), ccfg.Database())
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, originalBroadcastAt)
@@ -180,8 +198,8 @@ func Test_EthResender_Start(t *testing.T) {
 		})
 
 		func() {
-			er.Start()
-			defer er.Stop()
+			er.Start(context.Background())
+			defer er.Close()
 
 			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)
 		}()

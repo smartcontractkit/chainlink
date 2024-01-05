@@ -53,10 +53,10 @@ func NewTxm(
 	chainID := txmClient.ConfiguredChainID()
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
-	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
+	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, txConfig, keyStore, lggr)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
-		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
+		evmResender = NewEvmResender(lggr, txStore, txmClient, txAttemptBuilder, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, feeCfg, txConfig, dbConfig)
 	}
 	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, txNonceSyncer, evmBroadcaster, evmConfirmer, evmResender, evmTracker)
 	return txm, nil
@@ -87,13 +87,15 @@ func NewEvmResender(
 	lggr logger.Logger,
 	txStore TransactionStore,
 	client TransactionClient,
-	tracker *Tracker,
+	txAttemptBuilder TxAttemptBuilder,
 	ks KeyStore,
 	pollInterval time.Duration,
 	config EvmResenderConfig,
+	feeConfig txmgrtypes.ResenderFeeConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
+	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
 ) *Resender {
-	return txmgr.NewResender(lggr, txStore, client, tracker, ks, pollInterval, config, txConfig)
+	return txmgr.NewResender(lggr, txStore, client, txAttemptBuilder, ks, pollInterval, config, feeConfig, txConfig, dbConfig)
 }
 
 // NewEvmReaper instantiates a new EVM-specific reaper object
@@ -106,14 +108,11 @@ func NewEvmConfirmer(
 	txStore TxStore,
 	client TxmClient,
 	chainConfig txmgrtypes.ConfirmerChainConfig,
-	feeConfig txmgrtypes.ConfirmerFeeConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
-	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
 	keystore KeyStore,
-	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
+	return txmgr.NewConfirmer(txStore, client, chainConfig, txConfig, keystore, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
 }
 
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions

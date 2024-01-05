@@ -10,7 +10,7 @@ type TransactionManagerChainConfig interface {
 
 type TransactionManagerFeeConfig interface {
 	BroadcasterFeeConfig
-	ConfirmerFeeConfig
+	ResenderFeeConfig
 }
 
 type TransactionManagerTransactionsConfig interface {
@@ -40,16 +40,6 @@ type BroadcasterListenerConfig interface {
 	FallbackPollInterval() time.Duration
 }
 
-type ConfirmerFeeConfig interface {
-	BumpTxDepth() uint32
-	LimitDefault() uint32
-
-	// from gas.Config
-	BumpThreshold() uint64
-	MaxFeePrice() string // logging value
-	BumpPercent() uint16
-}
-
 type ConfirmerChainConfig interface {
 	RPCDefaultBatchSize() uint32
 	FinalityDepth() uint32
@@ -67,6 +57,16 @@ type ConfirmerTransactionsConfig interface {
 
 type ResenderChainConfig interface {
 	RPCDefaultBatchSize() uint32
+}
+
+type ResenderFeeConfig interface {
+	BumpTxDepth() uint32
+	LimitDefault() uint32
+
+	// from gas.Config
+	BumpThreshold() uint64
+	MaxFeePrice() string // logging value
+	BumpPercent() uint16
 }
 
 type ResenderTransactionsConfig interface {
