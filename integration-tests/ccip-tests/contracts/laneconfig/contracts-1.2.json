@@ -3,8 +3,28 @@
       "Arbitrum Mainnet": {
         "is_native_fee_token": true,
         "fee_token": "",
-        "bridge_tokens": [],
-        "bridge_tokens_pools": [],
+        "bridge_tokens": [
+          "0x94025780a1aB58868D9B2dBBB775f44b32e8E6e5",
+          "0x27f485b62C4A7E635F561A87560Adf5090239E93",
+          "0x85225Ed797fd4128Ac45A992C46eA4681a7A15dA",
+          "0xfb9Fed8cB962548A11fE7F6F282949061395c7F5",
+          "0x1079563dc03AAd1fe2F3993073520A4725d3b8ba",
+          "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "0xe85411C030fB32A9D8b14Bbbc6CB19417391F711",
+          "0x1c22531AA9747d76fFF8F0A43b37954ca67d28e0",
+          "0x8BF591Eae535f93a242D5A954d3Cde648b48A5A8"
+        ],
+        "bridge_tokens_pools": [
+          "0x94025780a1aB58868D9B2dBBB775f44b32e8E6e5",
+          "0x27f485b62C4A7E635F561A87560Adf5090239E93",
+          "0x85225Ed797fd4128Ac45A992C46eA4681a7A15dA",
+          "0xfb9Fed8cB962548A11fE7F6F282949061395c7F5",
+          "0x1079563dc03AAd1fe2F3993073520A4725d3b8ba",
+          "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "0xe85411C030fB32A9D8b14Bbbc6CB19417391F711",
+          "0x1c22531AA9747d76fFF8F0A43b37954ca67d28e0",
+          "0x8BF591Eae535f93a242D5A954d3Cde648b48A5A8"
+        ],
         "arm": "0xe06b0e8c4bd455153e8794ad7Ea8Ff5A14B64E4b",
         "router": "0x141fa059441E0ca23ce184B6A78bafD2A517DdE8",
         "price_registry": "0x13015e4E6f839E1Aa1016DF521ea458ecA20438c",
@@ -35,8 +55,16 @@
       "Avalanche Mainnet": {
           "is_native_fee_token": true,
           "fee_token": "",
-          "bridge_tokens": [],
-          "bridge_tokens_pools": [],
+          "bridge_tokens": [
+            "0x94025780a1aB58868D9B2dBBB775f44b32e8E6e5",
+            "0x5947BB275c521040051D82396192181b413227A3",
+            "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E"
+          ],
+          "bridge_tokens_pools": [
+            "0x3757f459E0Ac186E360F561080aA28EC578064ad",
+            "0x8A3e8D8614189d7ad0CF3f1a0D787Da79eBCEc17",
+            "0x0F36Bf4eeAA4432C29Fb777cD9fF00767a46f4f7"
+          ],
           "arm": "0xdFD6C0dc67666DE3bB36b31eec5c7B1542A82C1E",
           "router": "0xF4c7E640EdA248ef95972845a62bdC74237805dB",
           "price_registry": "0xfA4edD04eaAcDB07c8D73621bc1790eC50D8c489",
@@ -76,8 +104,24 @@
       "Base Mainnet": {
           "is_native_fee_token": true,
           "fee_token": "",
-          "bridge_tokens": [],
-          "bridge_tokens_pools": [],
+          "bridge_tokens": [
+            "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+            "0xCA160D11087E03fd398d40f561cd4768825f4958",
+            "0xaFB2820316e7Bc5Ef78d295AB9b8Bb2257534576",
+            "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "0xe85411C030fB32A9D8b14Bbbc6CB19417391F711",
+            "0x1c22531AA9747d76fFF8F0A43b37954ca67d28e0",
+            "0x8BF591Eae535f93a242D5A954d3Cde648b48A5A8"
+          ],
+          "bridge_tokens_pools": [
+            "0x1568A4131760231712E59778DAB9EFE67911f4ff",
+            "0x419cbF914C3Fd8d1b315e9A2FcACB47aF2039228",
+            "0x19ef16366Ec4D8c8F022A3708735289538ef6D16",
+            "0x55A5786ca51c31623F3EFb8bBfcc8DF9A4C61bA9",
+            "0x0f0F719a2417C01D9afF5DE6fAD2813eE4Dbd917",
+            "0x34bc9BeB51d98B7E40862B3B4EDa97aD68d0475e",
+            "0xDA5Aa67b0CA4d9f3De7207170FD9Bd2Ff1b13b6F"
+          ],
           "arm": "0x38660c8CC222c0192b635c2ac09687B4F25cCE5F",
           "router": "0x881e3A65B4d4a04dD529061dd0071cf975F58bCD",
           "price_registry": "0x6337a58D4BD7Ba691B66341779e8f87d4679923a",
@@ -126,8 +170,14 @@
       "BSC Mainnet": {
         "is_native_fee_token": true,
         "fee_token": "",
-        "bridge_tokens": [],
-        "bridge_tokens_pools": [],
+        "bridge_tokens": [
+          "0x94025780a1aB58868D9B2dBBB775f44b32e8E6e5",
+          "0xF4C8E32EaDEC4BFe97E0F595AdD0f4450a863a11"
+        ],
+        "bridge_tokens_pools": [
+          "0x00CE37b1C949BF938DE4281d8C4261ee421E4ce7",
+          "0x9E668ee3A9588326A3F37CD12A864b82E8CEA52E"
+        ],
         "arm": "0x3DB43b96B2625F4232e9Df900d464dd2c64C0021",
         "router": "0x34B03Cb9086d7D758AC55af71584F81A598759FE",
         "price_registry": "0xd64aAbD70A71d9f0A00B99F6EFc1626aA2dD43C7",
@@ -176,8 +226,32 @@
       "Ethereum Mainnet": {
         "is_native_fee_token": true,
         "fee_token": "",
-        "bridge_tokens": ["0x514910771AF9Ca656af840dff83E8264EcF986CA"],
-        "bridge_tokens_pools": ["0xC2291992A08eBFDfedfE248F2CCD34Da63570DF4"],
+        "bridge_tokens": [
+          "0x94025780a1aB58868D9B2dBBB775f44b32e8E6e5",
+          "0x888888435FDe8e7d4c54cAb67f206e4199454c60",
+          "0x85225Ed797fd4128Ac45A992C46eA4681a7A15dA",
+          "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+          "0xCA160D11087E03fd398d40f561cd4768825f4958",
+          "0x183015a9bA6fF60230fdEaDc3F43b3D788b13e21",
+          "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "0xb2F30A7C980f052f02563fb518dcc39e6bf38175",
+          "0xe85411C030fB32A9D8b14Bbbc6CB19417391F711",
+          "0x1c22531AA9747d76fFF8F0A43b37954ca67d28e0",
+          "0x8BF591Eae535f93a242D5A954d3Cde648b48A5A8"
+        ],
+        "bridge_tokens_pools": [
+          "0xf0D19c04f04382048fC9ad157C529CeB2c7be823",
+          "0x50f6631B377be52E132DF35a2F05eA54fda882ac",
+          "0x55562A08104837FF55E3A66c49A1419b6311c1E6",
+          "0xC2291992A08eBFDfedfE248F2CCD34Da63570DF4",
+          "0x57D3bb46aF4A9b210FAE046796013090D428475F",
+          "0xD0b84F42b3B88eeF7AA88c48Ac8EC08130d48595",
+          "0xA81f4AB595dE5C14759245DE5ce9899D380FeFda",
+          "0x057152DB365B47851B0A0bd431644b8eE21fE1b4",
+          "0x123ed44f3B863a684437Ebf18F8a744c250Ee5cA",
+          "0x2dd317E7e36544C5222818F228d607c209517470",
+          "0xcd196D3905AfA0eCB4e0e62C2D7d6c52f9C73526"
+        ],
         "arm" : "0x8B63b3DE93431C0f756A493644d128134291fA1b",
         "router": "0x80226fc0Ee2b096224EeAc085Bb9a8cba1146f7D",
         "price_registry": "0x8c9b2Efb7c64C394119270bfecE7f54763b958Ad",
@@ -276,8 +350,18 @@
       "Optimism Mainnet": {
         "is_native_fee_token": true,
         "fee_token": "",
-        "bridge_tokens": [],
-        "bridge_tokens_pools": [],
+        "bridge_tokens": [
+          "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
+          "0x85525353039b2485BC6524dF5946b8BdfFD3922d",
+          "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "0xb2F30A7C980f052f02563fb518dcc39e6bf38175"
+        ],
+        "bridge_tokens_pools": [
+          "0x841b32B5309ba30cFbf4534667fC3D99EdF05B7A",
+          "0x8A97eBcd3549551E1aD02E2a558d4CC48D9A9168",
+          "0x04336603557FEb138B36075156E92f9e551dFC5d",
+          "0xe470A3068302CF045Eec3B800dDBFf42B42e18D8"
+        ],
         "arm": "0x8C7C2C3362a42308BB5c368677Ad321D11693b81",
         "router": "0x3206695CaE29952f4b0c22a169725a865bc8Ce0f",
         "price_registry": "0xb52545aECE8C73A97E52a146757EC15b90Ed8488",
@@ -317,8 +401,18 @@
       "Polygon Mainnet": {
         "is_native_fee_token": true,
         "fee_token": "",
-        "bridge_tokens": [],
-        "bridge_tokens_pools": [],
+        "bridge_tokens": [
+          "0x94025780a1aB58868D9B2dBBB775f44b32e8E6e5",
+          "0x27f485b62C4A7E635F561A87560Adf5090239E93",
+          "0x27DfD2D7b85e0010542da35C6EBcD59E45fc949D",
+          "0xb0897686c545045aFc77CF20eC7A532E3120E0F1"
+        ],
+        "bridge_tokens_pools": [
+          "0x1264EF0A81f17f5104258FcAb4611B9AC3742b74",
+          "0x30F4283a3d6302f968909Ff7c02ceCB2aC6C27Ac",
+          "0xfa6B7be83e9aC5A90A27932986C654dBe2E16B02",
+          "0x086892015567fb8764d02c6845C85C25C8FcA389"
+        ],
         "arm": "0xD7AcF65dA1E1f34b663aB199a474F209bF2b0523",
         "router": "0x849c5ED5a80F5B408Dd4969b78c2C8fdf0565Bfe",
         "price_registry": "0x30D873664Ba766C983984C7AF9A921ccE36D34e1",
