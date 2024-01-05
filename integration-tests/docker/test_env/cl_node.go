@@ -3,10 +3,12 @@ package test_env
 import (
 	"context"
 	"fmt"
+	"io"
 	"maps"
 	"math/big"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -359,6 +362,29 @@ func (n *ClNode) StartContainer() error {
 	n.API = clClient
 
 	return nil
+}
+
+func (n *ClNode) ExecGetVersion() (string, error) {
+	cmd := []string{"chainlink", "--version"}
+	_, output, err := n.Container.Exec(context.Background(), cmd)
+	if err != nil {
+		return "", errors.Wrapf(err, "could not execute cmd %s", cmd)
+	}
+	outputBytes, err := io.ReadAll(output)
+	if err != nil {
+		return "", err
+	}
+	outputString := strings.TrimSpace(string(outputBytes))
+
+	// Find version in cmd output
+	re := regexp.MustCompile("@(.*)")
+	matches := re.FindStringSubmatch(outputString)
+
+	if len(matches) > 1 {
+		return matches[1], nil
+	} else {
+		return "", errors.Errorf("could not find chainlink version in command output '%'", output)
+	}
 }
 
 func (n *ClNode) getContainerRequest(secrets string) (
