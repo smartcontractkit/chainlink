@@ -172,9 +172,6 @@ func NewAddressState[
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close() {
-	as.Lock()
-	defer as.Unlock()
-
 	as.unstarted.Close()
 	as.unstarted = nil
 	as.inprogress = nil
