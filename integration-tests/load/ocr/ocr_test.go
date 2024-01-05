@@ -33,16 +33,16 @@ func TestOCRLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := config.OCR
-	SimulateEAActivity(l, cfg.Volume.EAChangeInterval.Duration(), ocrInstances, workerNodes, msClient)
+	SimulateEAActivity(l, cfg.Volume.EAChangeInterval.Duration, ocrInstances, workerNodes, msClient)
 
 	p := wasp.NewProfile()
 	p.Add(wasp.NewGenerator(&wasp.Config{
 		T:                     t,
 		GenName:               "ocr",
 		LoadType:              wasp.RPS,
-		CallTimeout:           cfg.Volume.VerificationTimeout.Duration(),
-		RateLimitUnitDuration: cfg.Volume.RateLimitUnitDuration.Duration(),
-		Schedule:              wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration()),
+		CallTimeout:           cfg.Volume.VerificationTimeout.Duration,
+		RateLimitUnitDuration: cfg.Volume.RateLimitUnitDuration.Duration,
+		Schedule:              wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration),
 		Gun:                   NewGun(l, cc, ocrInstances),
 		Labels:                CommonTestLabels,
 		LokiConfig:            tc.LokiConfigFromToml(&config),
@@ -67,9 +67,9 @@ func TestOCRVolume(t *testing.T) {
 		T:           t,
 		GenName:     "ocr",
 		LoadType:    wasp.VU,
-		CallTimeout: cfg.Volume.VerificationTimeout.Duration(),
-		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration()),
-		VU:          NewVU(l, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration(), cc, lt, cd, bootstrapNode, workerNodes, msClient),
+		CallTimeout: cfg.Volume.VerificationTimeout.Duration,
+		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration),
+		VU:          NewVU(l, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, cc, lt, cd, bootstrapNode, workerNodes, msClient),
 		Labels:      CommonTestLabels,
 		LokiConfig:  tc.LokiConfigFromToml(&config),
 	}))

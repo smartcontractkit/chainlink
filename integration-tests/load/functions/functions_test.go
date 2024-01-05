@@ -38,7 +38,7 @@ func TestFunctionsLoad(t *testing.T) {
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
 					*cfg.Performance.RPS,
-					cfg.Performance.Duration.Duration(),
+					cfg.Performance.Duration.Duration,
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
@@ -71,7 +71,7 @@ func TestFunctionsLoad(t *testing.T) {
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
 					*cfg.Performance.RPS,
-					cfg.Performance.Duration.Duration(),
+					cfg.Performance.Duration.Duration,
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
@@ -104,7 +104,7 @@ func TestFunctionsLoad(t *testing.T) {
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
 					*cfg.Performance.RPS,
-					cfg.Performance.Duration.Duration(),
+					cfg.Performance.Duration.Duration,
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
@@ -137,7 +137,7 @@ func TestFunctionsLoad(t *testing.T) {
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
 					*cfg.Performance.RPS,
-					cfg.Performance.Duration.Duration(),
+					cfg.Performance.Duration.Duration,
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
@@ -170,7 +170,7 @@ func TestFunctionsLoad(t *testing.T) {
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
 					*cfg.Performance.RPS,
-					cfg.Performance.Duration.Duration(),
+					cfg.Performance.Duration.Duration,
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,
@@ -203,7 +203,7 @@ func TestFunctionsLoad(t *testing.T) {
 				CallTimeout:           3 * time.Minute,
 				Schedule: wasp.Plain(
 					*cfg.Performance.RPS,
-					cfg.Performance.Duration.Duration(),
+					cfg.Performance.Duration.Duration,
 				),
 				Gun: NewSingleFunctionCallGun(
 					ft,

@@ -52,7 +52,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		randomnessRequestCountPerRequest,
 		m.testConfig,
-		vrfv2Config.RandomWordsFulfilledEventTimeout.Duration(),
+		vrfv2Config.RandomWordsFulfilledEventTimeout.Duration,
 		m.logger,
 	)
 	if err != nil {

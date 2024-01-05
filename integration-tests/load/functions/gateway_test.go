@@ -29,7 +29,7 @@ func TestGatewayLoad(t *testing.T) {
 		GenName:  functions.MethodSecretsList,
 		Schedule: wasp.Plain(
 			*listConfig.Functions.Performance.RPS,
-			listConfig.Functions.Performance.Duration.Duration(),
+			listConfig.Functions.Performance.Duration.Duration,
 		),
 		Gun: NewGatewaySecretsSetGun(
 			&listConfig,
@@ -50,7 +50,7 @@ func TestGatewayLoad(t *testing.T) {
 		GenName:  functions.MethodSecretsSet,
 		Schedule: wasp.Plain(
 			*setConfig.Functions.Performance.RPS,
-			setConfig.Functions.Performance.Duration.Duration(),
+			setConfig.Functions.Performance.Duration.Duration,
 		),
 		Gun: NewGatewaySecretsSetGun(
 			&setConfig,
