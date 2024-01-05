@@ -50,18 +50,19 @@ These config files are for an OTEL collector, grafana Tempo, and a grafana UI in
 `otel-collector-dev.yaml` is the configuration for dev (i.e. your local machine) environments, and forwards traces from the otel collector to the grafana tempo instance on the same network. 
 `otel-collector-ci.yaml` is the configuration for the CI runs, and exports the trace data to the artifact from the github run.
 
-## Instrumenting Custom Traces
+## Adding Traces to Plugins and to core
 
-Adding custom traces requires identifying an observability gap in a related group of code executions. This is intuitive for the developer:
+Adding traces requires identifying an observability gap in a related group of code executions or a critical path in your application. This is intuitive for the developer:
 
 - "What's the flow of component interaction in this distributed system?"
 - "What's the behavior of the JobProcessorOne component when jobs with [x, y, z] attributes are processed?"
+- "Is this critical path workflow behaving the way we expect?"
 
-Given an execution flow, the developer must decide which subset of the flow to measure. Each logically separate measure will be a span. Spans can have one parent span and multiple children span. The relations between parent and child spans will make a directed acyclic graph, called a trace.
+The developer will measure a flow of execution from end to end in one trace. Each logically separate measure of this flow is called a span. Spans have either one or no parent span and multiple children span. The relationship between parent and child spans in agreggate will form a directed acyclic graph. The trace begins at the root of this graph.
 
-The most trivial application of a span is measuring latency performance at high levels of granularity (individual func executions). There is much more you can do, including creating human readable and timestamped events within a span (useful for monitoring concurrent access to resources), recording errors, linking parent and children spans through large parts of an application, and even extending a span beyond a single process.
+The most trivial application of a span is measuring top level performance in one critical path. There is much more you can do, including creating human readable and timestamped events within a span (useful for monitoring concurrent access to resources), recording errors, linking parent and children spans through large parts of an application, and even extending a span beyond a single process.
 
-Spans are created by tracers and passed through go applications by Contexts. A tracer must be initialized first. Both core and plugin developers will initialize a tracer from the globally registered trace provider:
+Spans are created by `tracers` and passed through go applications by `Context`s. A tracer must be initialized first. Both core and plugin developers will initialize a tracer from the globally registered trace provider:
 
 ```
 tracer := otel.GetTracerProvider().Tracer("example.com/foo")
@@ -79,7 +80,7 @@ Add spans by:
 	// do some work to track with hello-span
   }
 ```
-As implied by the example, span is a child span of its parent span captured by parentContext.
+As implied by the example, `span` is a child of its parent span captured by `parentContext`.
 
 
 Note that in certain situations, there are 3rd party libraries that will setup spans. For instance:
@@ -94,8 +95,8 @@ router := gin.Default()
 router.Use(otelgin.Middleware("service-name"))
 ```
 
-Some quick checks to know you're aligning with Tracing best practices:
-- It measures critical paths
-- All paths are measured end to end (Context is wired all the way through)
-- Emphasizing broadness of measurement over depth
-- Using automatic instrumentation if possible
+The developer aligns with best practices when they:
+- Start with critical paths
+- Measure paths from end to end (Context is wired all the way through)
+- Emphasize broadness of measurement over depth
+- Use automatic instrumentation if possible
