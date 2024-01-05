@@ -8,11 +8,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {

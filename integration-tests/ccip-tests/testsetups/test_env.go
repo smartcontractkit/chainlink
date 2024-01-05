@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
 	integrationclient "github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -27,7 +28,6 @@ import (
 	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 func SetResourceProfile(cpu, mem string) map[string]interface{} {
