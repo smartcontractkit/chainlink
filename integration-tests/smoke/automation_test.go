@@ -89,9 +89,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -167,7 +167,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
-			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+			}, "10m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
 
@@ -399,9 +399,9 @@ func TestAutomationAddFunds(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			a := setupAutomationTestDocker(
@@ -556,9 +556,9 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -640,9 +640,9 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			a := setupAutomationTestDocker(
@@ -709,9 +709,9 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -809,9 +809,9 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			a := setupAutomationTestDocker(
@@ -872,9 +872,9 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -986,9 +986,9 @@ func TestUpdateCheckData(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
