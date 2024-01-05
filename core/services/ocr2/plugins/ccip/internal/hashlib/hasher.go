@@ -3,7 +3,7 @@ package hashlib
 import (
 	"bytes"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 // Hash contains all supported hash formats.
