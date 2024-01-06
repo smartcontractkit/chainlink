@@ -20,8 +20,7 @@ contract ArbitrumSequencerUptimeFeedTest is L2EPTest {
   address internal s_mockL1OwnerAddr = vm.addr(0x1);
   address internal s_strangerAddr = vm.addr(0x2);
   address internal s_deployerAddr = vm.addr(0x3);
-  address internal s_l2MessengerAddr =
-    address(uint160(s_mockL1OwnerAddr) + uint160(0x1111000000000000000000000000000000001111));
+  address internal s_l2MessengerAddr = toArbitrumL2AliasAddress(s_mockL1OwnerAddr);
 
   /// L2EP contracts
   ArbitrumSequencerUptimeFeed internal s_arbitrumSequencerUptimeFeed;

@@ -32,12 +32,6 @@ contract ArbitrumCrossDomainForwarderTest is L2EPTest {
     s_greeter = new Greeter(address(s_arbitrumCrossDomainForwarder));
     vm.stopPrank();
   }
-
-  /// @param l1Address - Address on L1
-  /// @return an Arbitrum L2 address
-  function toArbitrumL2AliasAddress(address l1Address) public pure returns (address) {
-    return address(uint160(l1Address) + uint160(0x1111000000000000000000000000000000001111));
-  }
 }
 
 contract Constructor is ArbitrumCrossDomainForwarderTest {

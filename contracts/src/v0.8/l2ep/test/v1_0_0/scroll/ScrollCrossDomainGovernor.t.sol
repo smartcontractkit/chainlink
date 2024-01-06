@@ -36,48 +36,6 @@ contract ScrollCrossDomainGovernorTest is L2EPTest {
     s_multiSend = new MultiSend();
     vm.stopPrank();
   }
-
-  /// @param message - the new greeting message, which will be passed as an argument to Greeter#setGreeting
-  /// @return a 2-layer encoding such that decoding the first layer provides the CrossDomainGoverner#forward
-  ///         function selector and the corresponding arguments to the forward function, and decoding the
-  ///         second layer provides the Greeter#setGreeting function selector and the corresponding
-  ///         arguments to the set greeting function (which in this case is the input message)
-  function encodeCrossDomainForwardMessage(string memory message) public view returns (bytes memory) {
-    return
-      abi.encodeWithSelector(
-        s_scrollCrossDomainGovernor.forward.selector,
-        address(s_greeter),
-        abi.encodeWithSelector(s_greeter.setGreeting.selector, message)
-      );
-  }
-
-  /// @param data - the transaction data string
-  /// @return an encoded transaction structured as specified in the MultiSend#multiSend comments
-  function encodeMultiSendTx(bytes memory data) public view returns (bytes memory) {
-    bytes memory txData = abi.encodeWithSelector(Greeter.setGreeting.selector, data);
-    return
-      abi.encodePacked(
-        uint8(0), // operation
-        address(s_greeter), // to
-        uint256(0), // value
-        uint256(txData.length), // data length
-        txData // data as bytes
-      );
-  }
-
-  /// @param encodedTxs - an encoded list of transactions (e.g. abi.encodePacked(encodeMultiSendTx("some data"), ...))
-  /// @return a 2-layer encoding such that decoding the first layer provides the CrossDomainGoverner#forwardDelegate
-  ///         function selector and the corresponding arguments to the forwardDelegate function, and decoding the
-  ///         second layer provides the MultiSend#multiSend function selector and the corresponding
-  ///         arguments to the multiSend function (which in this case is the input encodedTxs)
-  function encodeCrossDomainForwardDelegateMessage(bytes memory encodedTxs) public view returns (bytes memory) {
-    return
-      abi.encodeWithSelector(
-        s_scrollCrossDomainGovernor.forwardDelegate.selector,
-        address(s_multiSend),
-        abi.encodeWithSelector(MultiSend.multiSend.selector, encodedTxs)
-      );
-  }
 }
 
 contract Constructor is ScrollCrossDomainGovernorTest {
@@ -123,7 +81,7 @@ contract Forward is ScrollCrossDomainGovernorTest {
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainGovernor), // target
       0, // value
-      encodeCrossDomainForwardMessage(greeting), // message
+      encodeCrossDomainSetGreetingMsg(s_scrollCrossDomainGovernor.forward.selector, address(s_greeter), greeting), // message
       0 // gas limit
     );
 
@@ -144,7 +102,7 @@ contract Forward is ScrollCrossDomainGovernorTest {
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainGovernor), // target
       0, // value
-      encodeCrossDomainForwardMessage(""), // message
+      encodeCrossDomainSetGreetingMsg(s_scrollCrossDomainGovernor.forward.selector, address(s_greeter), ""), // message
       0 // gas limit
     );
 
@@ -192,7 +150,11 @@ contract ForwardDelegate is ScrollCrossDomainGovernorTest {
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainGovernor), // target
       0, // value
-      encodeCrossDomainForwardDelegateMessage(abi.encodePacked(encodeMultiSendTx("foo"), encodeMultiSendTx("bar"))), // message
+      encodeCrossDomainMultiSendMsg(
+        s_scrollCrossDomainGovernor.forwardDelegate.selector,
+        address(s_multiSend),
+        abi.encodePacked(encodeMultiSendTx(address(s_greeter), "foo"), encodeMultiSendTx(address(s_greeter), "bar"))
+      ), // message
       0 // gas limit
     );
 
@@ -212,7 +174,11 @@ contract ForwardDelegate is ScrollCrossDomainGovernorTest {
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainGovernor), // target
       0, // value
-      encodeCrossDomainForwardDelegateMessage(abi.encodePacked(encodeMultiSendTx("foo"), encodeMultiSendTx("bar"))), // message
+      encodeCrossDomainMultiSendMsg(
+        s_scrollCrossDomainGovernor.forwardDelegate.selector,
+        address(s_multiSend),
+        abi.encodePacked(encodeMultiSendTx(address(s_greeter), "foo"), encodeMultiSendTx(address(s_greeter), "bar"))
+      ), // message
       0 // gas limit
     );
 
@@ -233,7 +199,11 @@ contract ForwardDelegate is ScrollCrossDomainGovernorTest {
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainGovernor), // target
       0, // value
-      encodeCrossDomainForwardDelegateMessage(abi.encodePacked(encodeMultiSendTx("foo"), encodeMultiSendTx(""))), // message
+      encodeCrossDomainMultiSendMsg(
+        s_scrollCrossDomainGovernor.forwardDelegate.selector,
+        address(s_multiSend),
+        abi.encodePacked(encodeMultiSendTx(address(s_greeter), "foo"), encodeMultiSendTx(address(s_greeter), ""))
+      ), // message
       0 // gas limit
     );
 

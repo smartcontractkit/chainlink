@@ -33,20 +33,6 @@ contract ScrollCrossDomainForwarderTest is L2EPTest {
     s_greeter = new Greeter(address(s_scrollCrossDomainForwarder));
     vm.stopPrank();
   }
-
-  /// @param message - the new greeting message, which will be passed as an argument to Greeter#setGreeting
-  /// @return a 2-layer encoding such that decoding the first layer provides the CrossDomainForwarder#forward
-  ///         function selector and the corresponding arguments to the forward function, and decoding the
-  ///         second layer provides the Greeter#setGreeting function selector and the corresponding
-  ///         arguments to the set greeting function (which in this case is the input message)
-  function encodeCrossDomainForwardMessage(string memory message) public view returns (bytes memory) {
-    return
-      abi.encodeWithSelector(
-        s_scrollCrossDomainForwarder.forward.selector,
-        address(s_greeter),
-        abi.encodeWithSelector(s_greeter.setGreeting.selector, message)
-      );
-  }
 }
 
 contract Constructor is ScrollCrossDomainForwarderTest {
@@ -92,7 +78,7 @@ contract Forward is ScrollCrossDomainForwarderTest {
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainForwarder), // target
       0, // value
-      encodeCrossDomainForwardMessage(greeting), // message
+      encodeCrossDomainSetGreetingMsg(s_scrollCrossDomainForwarder.forward.selector, address(s_greeter), greeting), // message
       0 // gas limit
     );
 
@@ -113,7 +99,7 @@ contract Forward is ScrollCrossDomainForwarderTest {
     s_mockScrollCrossDomainMessenger.sendMessage(
       address(s_scrollCrossDomainForwarder), // target
       0, // value
-      encodeCrossDomainForwardMessage(""), // message
+      encodeCrossDomainSetGreetingMsg(s_scrollCrossDomainForwarder.forward.selector, address(s_greeter), ""), // message
       0 // gas limit
     );
 

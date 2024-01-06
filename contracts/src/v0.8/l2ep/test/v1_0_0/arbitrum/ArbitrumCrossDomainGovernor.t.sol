@@ -35,26 +35,6 @@ contract ArbitrumCrossDomainGovernorTest is L2EPTest {
     s_multiSend = new MultiSend();
     vm.stopPrank();
   }
-
-  /// @param l1Address - Address on L1
-  /// @return an Arbitrum L2 address
-  function toArbitrumL2AliasAddress(address l1Address) public pure returns (address) {
-    return address(uint160(l1Address) + uint160(0x1111000000000000000000000000000000001111));
-  }
-
-  /// @param data - the transaction data string
-  /// @return an encoded transaction structured as specified in the MultiSend#multiSend comments
-  function encodeMultiSendTx(bytes memory data) public view returns (bytes memory) {
-    bytes memory txData = abi.encodeWithSelector(Greeter.setGreeting.selector, data);
-    return
-      abi.encodePacked(
-        uint8(0), // operation
-        address(s_greeter), // to
-        uint256(0), // value
-        uint256(txData.length), // data length
-        txData // data as bytes
-      );
-  }
 }
 
 contract Constructor is ArbitrumCrossDomainGovernorTest {
@@ -166,7 +146,7 @@ contract ForwardDelegate is ArbitrumCrossDomainGovernorTest {
       address(s_multiSend),
       abi.encodeWithSelector(
         MultiSend.multiSend.selector,
-        abi.encodePacked(encodeMultiSendTx("foo"), encodeMultiSendTx("bar"))
+        abi.encodePacked(encodeMultiSendTx(address(s_greeter), "foo"), encodeMultiSendTx(address(s_greeter), "bar"))
       )
     );
 
@@ -187,7 +167,7 @@ contract ForwardDelegate is ArbitrumCrossDomainGovernorTest {
       address(s_multiSend),
       abi.encodeWithSelector(
         MultiSend.multiSend.selector,
-        abi.encodePacked(encodeMultiSendTx("foo"), encodeMultiSendTx("bar"))
+        abi.encodePacked(encodeMultiSendTx(address(s_greeter), "foo"), encodeMultiSendTx(address(s_greeter), "bar"))
       )
     );
 
@@ -209,7 +189,7 @@ contract ForwardDelegate is ArbitrumCrossDomainGovernorTest {
       address(s_multiSend),
       abi.encodeWithSelector(
         MultiSend.multiSend.selector,
-        abi.encodePacked(encodeMultiSendTx("foo"), encodeMultiSendTx(""))
+        abi.encodePacked(encodeMultiSendTx(address(s_greeter), "foo"), encodeMultiSendTx(address(s_greeter), ""))
       )
     );
 

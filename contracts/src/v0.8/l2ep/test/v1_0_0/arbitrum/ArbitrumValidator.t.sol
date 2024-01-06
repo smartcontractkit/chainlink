@@ -66,9 +66,7 @@ contract Validate is ArbitrumValidatorTest {
     s_arbitrumValidator.addAccess(s_eoaValidator);
 
     // Gets the ArbitrumValidator L2 address
-    address arbitrumValidatorL2Addr = address(
-      uint160(address(s_arbitrumValidator)) + uint160(0x1111000000000000000000000000000000001111)
-    );
+    address arbitrumValidatorL2Addr = toArbitrumL2AliasAddress(address(s_arbitrumValidator));
 
     // Sets block.timestamp to a later date, funds the ArbitrumValidator contract, and sets msg.sender and tx.origin
     uint256 futureTimestampInSeconds = block.timestamp + 5000;
