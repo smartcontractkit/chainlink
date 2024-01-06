@@ -15,7 +15,7 @@ install-protoc:
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.28.1
+	go install github.com/vektra/mockery/v2@v2.38.0
 
 .PHONY: generate
 generate: mockery install-protoc
