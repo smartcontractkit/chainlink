@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -92,9 +93,9 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
-				err = cr.addMethod(contractName, typeName, contractAbi, chainReaderDefinition)
+				err = cr.addMethod(contractName, typeName, contractAbi, *chainReaderDefinition)
 			case types.Event:
-				err = cr.addEvent(contractName, typeName, contractAbi, chainReaderDefinition)
+				err = cr.addEvent(contractName, typeName, contractAbi, *chainReaderDefinition)
 			default:
 				return fmt.Errorf(
 					"%w: invalid chain reader definition read type: %s",
@@ -240,7 +241,7 @@ func (cr *chainReader) addEncoderDef(contractName, methodName string, args abi.A
 		return err
 	}
 
-	inputMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
+	inputMod, err := (*codec.ModifiersConfig)(&chainReaderDefinition.InputModifications).ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}
@@ -251,7 +252,7 @@ func (cr *chainReader) addEncoderDef(contractName, methodName string, args abi.A
 
 func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs abi.Arguments, def types.ChainReaderDefinition) error {
 	output := &codecEntry{Args: outputs}
-	mod, err := def.OutputModifications.ToModifier(evmDecoderHooks...)
+	mod, err := (*codec.ModifiersConfig)(&def.OutputModifications).ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}

@@ -81,10 +81,32 @@ contractABI = '''
 '''
 
 [relayConfig.chainReader.contracts.median.configs]
-LatestRoundRequested = {chainSpecificName = 'RoundRequested', readType = 'event'}
-LatestTransmissionDetails = {chainSpecificName = 'latestTransmissionDetails', outputModifications = [
-    { Fields = { LatestAnswer_ = 'LatestAnswer', LatestTimestamp_ = 'LatestTimestamp' }}
-]}
+LatestRoundRequested = '''
+{
+  "chainSpecificName": "RoundRequested",
+  "readType": "event"
+}
+'''
+LatestTransmissionDetails = '''
+{
+  "chainSpecificName": "latestTransmissionDetails",
+  "output_modifications": [
+    {
+      "Fields": [
+        "LatestTimestamp_"
+      ],
+      "type": "epoch to time"
+    },
+    {
+      "Fields": {
+        "LatestAnswer_": "LatestAnswer",
+        "LatestTimestamp_": "LatestTimestamp"
+      },
+      "type": "rename"
+    }
+  ]
+}
+'''
 
 [relayConfig.codec.configs.MedianReport]
 typeABI = '''
@@ -110,18 +132,18 @@ typeABI = '''
 
 [pluginConfig]
 juelsPerFeeCoinSource = """
-		// data source 1
-		ds1          [type=bridge name="%s"];
-		ds1_parse    [type=jsonparse path="data"];
-		ds1_multiply [type=multiply times=2];
+  // data source 1
+  ds1          [type=bridge name="%s"];
+  ds1_parse    [type=jsonparse path="data"];
+  ds1_multiply [type=multiply times=2];
 
-		// data source 2
-		ds2          [type=http method=GET url="%s"];
-		ds2_parse    [type=jsonparse path="data"];
-		ds2_multiply [type=multiply times=2];
+  // data source 2
+  ds2          [type=http method=GET url="%s"];
+  ds2_parse    [type=jsonparse path="data"];
+  ds2_multiply [type=multiply times=2];
 
-		ds1 -> ds1_parse -> ds1_multiply -> answer1;
-		ds2 -> ds2_parse -> ds2_multiply -> answer1;
+  ds1 -> ds1_parse -> ds1_multiply -> answer1;
+  ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
-	answer1 [type=median index=0];
+  answer1 [type=median index=0];
 """

@@ -171,10 +171,13 @@ func TestOCR2OracleSpec(t *testing.T) {
   }
 ]
 `,
-						Configs: map[string]evmtypes.ChainReaderDefinition{
+						Configs: map[string]*evmtypes.ChainReaderDefinition{
 							"LatestTransmissionDetails": {
 								ChainSpecificName: "latestTransmissionDetails",
 								OutputModifications: codec.ModifiersConfig{
+									&codec.EpochToTimeModifierConfig{
+										Fields: []string{"LatestTimestamp_"},
+									},
 									&codec.RenameModifierConfig{
 										Fields: map[string]string{
 											"LatestAnswer_":    "LatestAnswer",
@@ -217,20 +220,20 @@ func TestOCR2OracleSpec(t *testing.T) {
 				},
 			},
 		},
-		PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `		// data source 1
-		ds1          [type=bridge name="%s"];
-		ds1_parse    [type=jsonparse path="data"];
-		ds1_multiply [type=multiply times=2];
+		PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `  // data source 1
+  ds1          [type=bridge name="%s"];
+  ds1_parse    [type=jsonparse path="data"];
+  ds1_multiply [type=multiply times=2];
 
-		// data source 2
-		ds2          [type=http method=GET url="%s"];
-		ds2_parse    [type=jsonparse path="data"];
-		ds2_multiply [type=multiply times=2];
+  // data source 2
+  ds2          [type=http method=GET url="%s"];
+  ds2_parse    [type=jsonparse path="data"];
+  ds2_multiply [type=multiply times=2];
 
-		ds1 -> ds1_parse -> ds1_multiply -> answer1;
-		ds2 -> ds2_parse -> ds2_multiply -> answer1;
+  ds1 -> ds1_parse -> ds1_multiply -> answer1;
+  ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
-	answer1 [type=median index=0];
+  answer1 [type=median index=0];
 `,
 		},
 	}
@@ -238,6 +241,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 	t.Run("marshal", func(t *testing.T) {
 		gotB, err := toml.Marshal(val)
 		require.NoError(t, err)
+		t.Log("marshaled:", string(gotB))
 		require.Equal(t, compact, string(gotB))
 	})
 

@@ -385,10 +385,32 @@ contractABI = '''
 '''
 
 [relayConfig.chainReader.contracts.median.configs]
-LatestRoundRequested = {chainSpecificName = 'RoundRequested', readType = 'event'}
-LatestTransmissionDetails = {chainSpecificName = 'latestTransmissionDetails', outputModifications = [
-    { Fields = { LatestAnswer_ = 'LatestAnswer', LatestTimestamp_ = 'LatestTimestamp' }}
-]}
+LatestRoundRequested = '''
+{
+  "chainSpecificName": "RoundRequested",
+  "readType": "event"
+}
+'''
+LatestTransmissionDetails = '''
+{
+  "chainSpecificName": "latestTransmissionDetails",
+  "output_modifications": [
+    {
+      "Fields": [
+        "LatestTimestamp_"
+      ],
+      "type": "epoch to time"
+    },
+    {
+      "Fields": {
+        "LatestAnswer_": "LatestAnswer",
+        "LatestTimestamp_": "LatestTimestamp"
+      },
+      "type": "rename"
+    }
+  ]
+}
+'''
 
 [relayConfig.codec.configs.MedianReport]
 typeABI = '''

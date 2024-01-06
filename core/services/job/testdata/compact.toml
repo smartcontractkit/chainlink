@@ -22,17 +22,8 @@ fromBlock = 42
 contractABI = "[\n  {\n    \"anonymous\": false,\n    \"inputs\": [\n      {\n        \"indexed\": true,\n        \"internalType\": \"address\",\n        \"name\": \"requester\",\n        \"type\": \"address\"\n      },\n      {\n        \"indexed\": false,\n        \"internalType\": \"bytes32\",\n        \"name\": \"configDigest\",\n        \"type\": \"bytes32\"\n      },\n      {\n        \"indexed\": false,\n        \"internalType\": \"uint32\",\n        \"name\": \"epoch\",\n        \"type\": \"uint32\"\n      },\n      {\n        \"indexed\": false,\n        \"internalType\": \"uint8\",\n        \"name\": \"round\",\n        \"type\": \"uint8\"\n      }\n    ],\n    \"name\": \"RoundRequested\",\n    \"type\": \"event\"\n  },\n  {\n    \"inputs\": [],\n    \"name\": \"latestTransmissionDetails\",\n    \"outputs\": [\n      {\n        \"internalType\": \"bytes32\",\n        \"name\": \"configDigest\",\n        \"type\": \"bytes32\"\n      },\n      {\n        \"internalType\": \"uint32\",\n        \"name\": \"epoch\",\n        \"type\": \"uint32\"\n      },\n      {\n        \"internalType\": \"uint8\",\n        \"name\": \"round\",\n        \"type\": \"uint8\"\n      },\n      {\n        \"internalType\": \"int192\",\n        \"name\": \"latestAnswer_\",\n        \"type\": \"int192\"\n      },\n      {\n        \"internalType\": \"uint64\",\n        \"name\": \"latestTimestamp_\",\n        \"type\": \"uint64\"\n      }\n    ],\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n]\n"
 
 [relayConfig.chainReader.contracts.median.configs]
-[relayConfig.chainReader.contracts.median.configs.LatestRoundRequested]
-chainSpecificName = 'RoundRequested'
-readType = 'event'
-
-[relayConfig.chainReader.contracts.median.configs.LatestTransmissionDetails]
-chainSpecificName = 'latestTransmissionDetails'
-
-[[relayConfig.chainReader.contracts.median.configs.LatestTransmissionDetails.outputModifications]]
-[relayConfig.chainReader.contracts.median.configs.LatestTransmissionDetails.outputModifications.Fields]
-LatestAnswer_ = 'LatestAnswer'
-LatestTimestamp_ = 'LatestTimestamp'
+LatestRoundRequested = "{\n  \"chainSpecificName\": \"RoundRequested\",\n  \"readType\": \"event\"\n}\n"
+LatestTransmissionDetails = "{\n  \"chainSpecificName\": \"latestTransmissionDetails\",\n  \"output_modifications\": [\n    {\n      \"Fields\": [\n        \"LatestTimestamp_\"\n      ],\n      \"type\": \"epoch to time\"\n    },\n    {\n      \"Fields\": {\n        \"LatestAnswer_\": \"LatestAnswer\",\n        \"LatestTimestamp_\": \"LatestTimestamp\"\n      },\n      \"type\": \"rename\"\n    }\n  ]\n}\n"
 
 [relayConfig.codec]
 [relayConfig.codec.configs]
@@ -40,4 +31,4 @@ LatestTimestamp_ = 'LatestTimestamp'
 typeABI = "[\n  {\n    \"Name\": \"Timestamp\",\n    \"Type\": \"uint32\"\n  },\n  {\n    \"Name\": \"Observers\",\n    \"Type\": \"bytes32\"\n  },\n  {\n    \"Name\": \"Observations\",\n    \"Type\": \"int192[]\"\n  },\n  {\n    \"Name\": \"JuelsPerFeeCoin\",\n    \"Type\": \"int192\"\n  }\n]\n"
 
 [pluginConfig]
-juelsPerFeeCoinSource = "\t\t// data source 1\n\t\tds1          [type=bridge name=\"%s\"];\n\t\tds1_parse    [type=jsonparse path=\"data\"];\n\t\tds1_multiply [type=multiply times=2];\n\n\t\t// data source 2\n\t\tds2          [type=http method=GET url=\"%s\"];\n\t\tds2_parse    [type=jsonparse path=\"data\"];\n\t\tds2_multiply [type=multiply times=2];\n\n\t\tds1 -> ds1_parse -> ds1_multiply -> answer1;\n\t\tds2 -> ds2_parse -> ds2_multiply -> answer1;\n\n\tanswer1 [type=median index=0];\n"
+juelsPerFeeCoinSource = "  // data source 1\n  ds1          [type=bridge name=\"%s\"];\n  ds1_parse    [type=jsonparse path=\"data\"];\n  ds1_multiply [type=multiply times=2];\n\n  // data source 2\n  ds2          [type=http method=GET url=\"%s\"];\n  ds2_parse    [type=jsonparse path=\"data\"];\n  ds2_multiply [type=multiply times=2];\n\n  ds1 -> ds1_parse -> ds1_multiply -> answer1;\n  ds2 -> ds2_parse -> ds2_multiply -> answer1;\n\n  answer1 [type=median index=0];\n"

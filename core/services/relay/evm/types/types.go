@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -36,20 +37,38 @@ type ChainCodecConfig struct {
 type ChainContractReader struct {
 	ContractABI string `json:"contractABI" toml:"contractABI"`
 	// key is genericName from config
-	Configs map[string]ChainReaderDefinition `json:"configs" toml:"configs"`
+	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
 }
 
-type ChainReaderDefinition struct {
-	//TODO test this!
-	CacheEnabled bool `json:"cacheEnabled" toml:"cacheEnabled,omitempty"`
+type ChainReaderDefinition chainReaderDefinitionFields
+
+// chainReaderDefinitionFields has the fields for ChainReaderDefinition but no methods.
+// This is necessary because package json recognizes the text encoding methods used for TOML,
+// and would infinitely recurse on itself.
+type chainReaderDefinitionFields struct {
+	CacheEnabled bool `json:"cacheEnabled,omitempty"` //TODO test this
 	// chain specific contract method name or event type.
-	ChainSpecificName   string                `json:"chainSpecificName" toml:"chainSpecificName"`
-	ReadType            ReadType              `json:"readType" toml:"readType,omitempty"`
-	InputModifications  codec.ModifiersConfig `json:"input_modifications" toml:"inputModifications,omitempty"`
-	OutputModifications codec.ModifiersConfig `json:"output_modifications" toml:"outputModifications,omitempty"`
+	ChainSpecificName   string                `json:"chainSpecificName"`
+	ReadType            ReadType              `json:"readType,omitempty"`
+	InputModifications  codec.ModifiersConfig `json:"input_modifications,omitempty"`
+	OutputModifications codec.ModifiersConfig `json:"output_modifications,omitempty"`
 
 	// EventInputFields allows you to choose which indexed fields are expected from the input
 	EventInputFields []string `json:"eventInputFields"`
+}
+
+func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
+	var b bytes.Buffer
+	e := json.NewEncoder(&b)
+	e.SetIndent("", "  ")
+	if err := e.Encode((*chainReaderDefinitionFields)(d)); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func (d *ChainReaderDefinition) UnmarshalText(b []byte) error {
+	return json.Unmarshal(b, (*chainReaderDefinitionFields)(d))
 }
 
 type ReadType int

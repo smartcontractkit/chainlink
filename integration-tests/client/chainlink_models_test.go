@@ -42,7 +42,7 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
   }
 ]
 `,
-									Configs: map[string]evmtypes.ChainReaderDefinition{
+									Configs: map[string]*evmtypes.ChainReaderDefinition{
 										"LatestTransmissionDetails": {
 											ChainSpecificName: "latestTransmissionDetails",
 											OutputModifications: codec.ModifiersConfig{
