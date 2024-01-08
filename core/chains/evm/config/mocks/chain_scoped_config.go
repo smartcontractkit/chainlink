@@ -637,22 +637,6 @@ func (_m *ChainScopedConfig) Tracing() coreconfig.Tracing {
 	return r0
 }
 
-// Transmission provides a mock function with given fields:
-func (_m *ChainScopedConfig) Transmission() coreconfig.Transmission {
-	ret := _m.Called()
-
-	var r0 coreconfig.Transmission
-	if rf, ok := ret.Get(0).(func() coreconfig.Transmission); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(coreconfig.Transmission)
-		}
-	}
-
-	return r0
-}
-
 // Validate provides a mock function with given fields:
 func (_m *ChainScopedConfig) Validate() error {
 	ret := _m.Called()

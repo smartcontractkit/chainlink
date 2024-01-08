@@ -240,9 +240,8 @@ LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
 LatestReportDeadline = '5s'
 
-[Transmission]
-[Transmission.TLS]
-CertPath = ''
+[Mercury.TLS]
+CertFile = ''
 
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty

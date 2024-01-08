@@ -575,7 +575,7 @@ MaxStaleAge = "1h" # Default
 # mercury server before retrying. Setting this to zero will wait indefinitely.
 LatestReportDeadline = "5s" # Default
 
-# Transmission.TLS controls client settings for when the node talks to traditional web servers or load balancers.
-[Transmission.TLS]
-# CertPath is the path to the client cert
-CertPath = "/path/to/client/cert.pem" # Example
+# Mercury.TLS controls client settings for when the node talks to traditional web servers or load balancers.
+[Mercury.TLS]
+# CertFile is the path to a PEM file of trusted root certificate authority certificates
+CertFile = "/path/to/client/certs.pem" # Example

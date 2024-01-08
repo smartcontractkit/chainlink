@@ -238,11 +238,6 @@ func TestConfig_Marshal(t *testing.T) {
 					"env":  "dev",
 				},
 			},
-			Transmission: toml.Transmission{
-				TLS: toml.TransmissionTLS{
-					CertPath: ptr("/path/to/cert.pem"),
-				},
-			},
 		},
 	}
 
@@ -671,6 +666,9 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxStaleAge:          models.MustNewDuration(101 * time.Second),
 			LatestReportDeadline: models.MustNewDuration(102 * time.Second),
 		},
+		TLS: toml.MercuryTLS{
+			CertFile: ptr("/path/to/cert.pem"),
+		},
 	}
 
 	for _, tt := range []struct {
@@ -700,9 +698,6 @@ TLSCertPath = '/path/to/cert.pem'
 [Tracing.Attributes]
 env = 'dev'
 test = 'load'
-
-[Transmission.TLS]
-CertPath = '/path/to/cert.pem'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
@@ -1105,6 +1100,9 @@ URL = 'http://stark.node'
 LatestReportTTL = '1m40s'
 MaxStaleAge = '1m41s'
 LatestReportDeadline = '1m42s'
+
+[Mercury.TLS]
+CertFile = '/path/to/cert.pem'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},

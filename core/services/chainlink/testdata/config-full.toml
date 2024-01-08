@@ -238,9 +238,8 @@ LatestReportTTL = '1m40s'
 MaxStaleAge = '1m41s'
 LatestReportDeadline = '1m42s'
 
-[Transmission]
-[Transmission.TLS]
-CertPath = '/path/to/cert.pem'
+[Mercury.TLS]
+CertFile = '/path/to/cert.pem'
 
 [[EVM]]
 ChainID = '1'

@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two new prom metrics for mercury, nops should consider adding alerting on these:
     - `mercury_insufficient_blocks_count`
     - `mercury_zero_blocks_count`
-- Added new `Transmission.TLS` TOML config field `CertPath` for configuring transport credentials when the node acts as a client and initiates a TLS handshake.
+- Added new `Mercury.TLS` TOML config field `CertFile` for configuring transport credentials when the node acts as a client and initiates a TLS handshake.
 
 ### Changed
 

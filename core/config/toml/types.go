@@ -54,7 +54,6 @@ type Core struct {
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
-	Transmission     Transmission     `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -90,7 +89,6 @@ func (c *Core) SetFrom(f *Core) {
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
-	c.Transmission.setFrom(&f.Transmission)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -1306,43 +1304,37 @@ func (mc *MercuryCache) setFrom(f *MercuryCache) {
 	}
 }
 
+type MercuryTLS struct {
+	CertFile *string
+}
+
+func (m *MercuryTLS) setFrom(f *MercuryTLS) {
+	if v := f.CertFile; v != nil {
+		m.CertFile = v
+	}
+}
+
+func (m *MercuryTLS) ValidateConfig() (err error) {
+	if *m.CertFile != "" {
+		if !isValidFilePath(*m.CertFile) {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "CertFile", Value: *m.CertFile, Msg: "must be a valid file path"})
+		}
+	}
+	return
+}
+
 type Mercury struct {
 	Cache MercuryCache `toml:",omitempty"`
+	TLS   MercuryTLS   `toml:",omitempty"`
 }
 
 func (m *Mercury) setFrom(f *Mercury) {
 	m.Cache.setFrom(&f.Cache)
+	m.TLS.setFrom(&f.TLS)
 }
 
-type Transmission struct {
-	TLS TransmissionTLS `toml:",omitempty"`
-}
-
-type TransmissionTLS struct {
-	CertPath *string
-}
-
-func (t *Transmission) setFrom(f *Transmission) {
-	t.TLS.setFrom(&f.TLS)
-}
-
-func (t *TransmissionTLS) setFrom(f *TransmissionTLS) {
-	if v := f.CertPath; v != nil {
-		t.CertPath = v
-	}
-}
-
-func (t *Transmission) ValidateConfig() (err error) {
-	return t.TLS.ValidateConfig()
-}
-
-func (t *TransmissionTLS) ValidateConfig() (err error) {
-	if *t.CertPath != "" {
-		if !isValidFilePath(*t.CertPath) {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "CertPath", Value: *t.CertPath, Msg: "must be a valid file path"})
-		}
-	}
-	return
+func (m *Mercury) ValidateConfig() (err error) {
+	return m.TLS.ValidateConfig()
 }
 
 type MercuryCredentials struct {
