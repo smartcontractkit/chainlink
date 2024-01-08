@@ -46,7 +46,7 @@ type ChainReaderDefinition chainReaderDefinitionFields
 // This is necessary because package json recognizes the text encoding methods used for TOML,
 // and would infinitely recurse on itself.
 type chainReaderDefinitionFields struct {
-	CacheEnabled bool `json:"cacheEnabled,omitempty"` //TODO test this
+	CacheEnabled bool `json:"cacheEnabled,omitempty"`
 	// chain specific contract method name or event type.
 	ChainSpecificName   string                `json:"chainSpecificName"`
 	ReadType            ReadType              `json:"readType,omitempty"`
@@ -54,7 +54,7 @@ type chainReaderDefinitionFields struct {
 	OutputModifications codec.ModifiersConfig `json:"output_modifications,omitempty"`
 
 	// EventInputFields allows you to choose which indexed fields are expected from the input
-	EventInputFields []string `json:"eventInputFields"`
+	EventInputFields []string `json:"eventInputFields,omitempty"`
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {

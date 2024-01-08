@@ -163,7 +163,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 		Contracts: map[string]types.ChainContractReader{
 			AnyContractName: {
 				ContractABI: chain_reader_example.LatestValueHolderMetaData.ABI,
-				Configs: map[string]types.ChainReaderDefinition{
+				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
 						ChainSpecificName: "GetElementAtIndex",
 					},
@@ -217,7 +217,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 			},
 			AnySecondContractName: {
 				ContractABI: chain_reader_example.LatestValueHolderMetaData.ABI,
-				Configs: map[string]types.ChainReaderDefinition{
+				Configs: map[string]*types.ChainReaderDefinition{
 					MethodReturningUint64: {
 						ChainSpecificName: "GetDifferentPrimitiveValue",
 					},

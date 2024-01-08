@@ -95,14 +95,14 @@ LatestTransmissionDetails = '''
       "Fields": [
         "LatestTimestamp_"
       ],
-      "type": "epoch to time"
+      "Type": "epoch to time"
     },
     {
       "Fields": {
         "LatestAnswer_": "LatestAnswer",
         "LatestTimestamp_": "LatestTimestamp"
       },
-      "type": "rename"
+      "Type": "rename"
     }
   ]
 }

@@ -137,6 +137,9 @@ func CreateOCRv2JobsLocal(
 								"LatestTransmissionDetails": {
 									ChainSpecificName: "latestTransmissionDetails",
 									OutputModifications: codec.ModifiersConfig{
+										&codec.EpochToTimeModifierConfig{
+											Fields: []string{"LatestTimestamp_"},
+										},
 										&codec.RenameModifierConfig{
 											Fields: map[string]string{
 												"LatestAnswer_":    "LatestAnswer",

@@ -46,6 +46,9 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 										"LatestTransmissionDetails": {
 											ChainSpecificName: "latestTransmissionDetails",
 											OutputModifications: codec.ModifiersConfig{
+												&codec.EpochToTimeModifierConfig{
+													Fields: []string{"LatestTimestamp_"},
+												},
 												&codec.RenameModifierConfig{
 													Fields: map[string]string{
 														"LatestAnswer_":    "LatestAnswer",
@@ -112,17 +115,8 @@ fromBlock = 42
 contractABI = "[\n  {\n    \"anonymous\": false,\n    \"inputs\": [\n      {\n        \"indexed\": true,\n        \"internalType\": \"address\",\n        \"name\": \"requester\",\n        \"type\": \"address\"\n      }\n    ],\n    \"name\": \"RoundRequested\",\n    \"type\": \"event\"\n  }\n]\n"
 
 [relayConfig.chainReader.contracts.median.configs]
-[relayConfig.chainReader.contracts.median.configs.LatestRoundRequested]
-chainSpecificName = 'RoundRequested'
-readType = 'event'
-
-[relayConfig.chainReader.contracts.median.configs.LatestTransmissionDetails]
-chainSpecificName = 'latestTransmissionDetails'
-
-[[relayConfig.chainReader.contracts.median.configs.LatestTransmissionDetails.outputModifications]]
-[relayConfig.chainReader.contracts.median.configs.LatestTransmissionDetails.outputModifications.Fields]
-LatestAnswer_ = 'LatestAnswer'
-LatestTimestamp_ = 'LatestTimestamp'
+LatestRoundRequested = "{\n  \"chainSpecificName\": \"RoundRequested\",\n  \"readType\": \"event\"\n}\n"
+LatestTransmissionDetails = "{\n  \"chainSpecificName\": \"latestTransmissionDetails\",\n  \"output_modifications\": [\n    {\n      \"Fields\": [\n        \"LatestTimestamp_\"\n      ],\n      \"Type\": \"epoch to time\"\n    },\n    {\n      \"Fields\": {\n        \"LatestAnswer_\": \"LatestAnswer\",\n        \"LatestTimestamp_\": \"LatestTimestamp\"\n      },\n      \"Type\": \"rename\"\n    }\n  ]\n}\n"
 
 [relayConfig.codec]
 [relayConfig.codec.configs]
