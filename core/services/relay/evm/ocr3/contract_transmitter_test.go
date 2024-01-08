@@ -34,13 +34,21 @@ type testUniverse[RI any] struct {
 	backend         *backends.SimulatedBackend
 	deployer        *bind.TransactOpts
 	transmitters    []*bind.TransactOpts
+	signers         []common.Address
 	wrapper         *no_op_ocr3.NoOpOCR3
 	ocr3Transmitter ocr3types.ContractTransmitter[RI]
 	bundles         []ocr2key.KeyBundle
 	f               uint8
 }
 
-func newTestUniverse[RI any](t *testing.T) testUniverse[RI] {
+type bundlesAndSigners struct {
+	bundles []ocr2key.KeyBundle
+	signers []common.Address
+}
+
+func newTestUniverse[RI any](
+	t *testing.T,
+	bs *bundlesAndSigners) testUniverse[RI] {
 	t.Helper()
 
 	deployer := testutils.MustNewSimTransactor(t)
@@ -72,11 +80,16 @@ func newTestUniverse[RI any](t *testing.T) testUniverse[RI] {
 		bundles []ocr2key.KeyBundle
 		signers []common.Address
 	)
-	for i := 0; i < 4; i++ {
-		kb, err2 := ocr2key.New(chaintype.EVM)
-		require.NoError(t, err2, "failed to create key bundle")
-		signers = append(signers, common.HexToAddress(kb.OnChainPublicKey()))
-		bundles = append(bundles, kb)
+	if bs != nil {
+		bundles = bs.bundles
+		signers = bs.signers
+	} else {
+		for i := 0; i < 4; i++ {
+			kb, err2 := ocr2key.New(chaintype.EVM)
+			require.NoError(t, err2, "failed to create key bundle")
+			signers = append(signers, common.HexToAddress(kb.OnChainPublicKey()))
+			bundles = append(bundles, kb)
+		}
 	}
 	f := uint8(1)
 	_, err = wrapper.SetOCR3Config(
@@ -114,6 +127,7 @@ func newTestUniverse[RI any](t *testing.T) testUniverse[RI] {
 		backend:         backend,
 		deployer:        deployer,
 		transmitters:    transmitters,
+		signers:         signers,
 		wrapper:         wrapper,
 		bundles:         bundles,
 		ocr3Transmitter: ocr3Transmitter,
@@ -154,7 +168,7 @@ func (uni testUniverse[RI]) TransmittedEvents(t *testing.T) []*no_op_ocr3.NoOpOC
 func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
 
-	uni := newTestUniverse[struct{}](t)
+	uni := newTestUniverse[struct{}](t, nil)
 
 	c, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
 	require.NoError(t, err, "failed to get latest config digest and epoch")

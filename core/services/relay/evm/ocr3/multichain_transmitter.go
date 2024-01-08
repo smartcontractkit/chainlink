@@ -45,7 +45,7 @@ func (m *multichainTransmitterOCR3[RI]) FromAccount() (types.Account, error) {
 		}
 		accounts = append(accounts, string(account))
 	}
-	return types.Account(joinTransmitters(accounts)), nil
+	return types.Account(JoinTransmitters(accounts)), nil
 }
 
 // Transmit implements ocr3types.ContractTransmitter.

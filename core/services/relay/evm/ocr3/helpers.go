@@ -88,7 +88,7 @@ func TransmitterCombiner(masterConfig ocrtypes.ContractConfig, followerConfigs [
 			// the transmitter index is the same as the signer index for the same config object.
 			transmitters = append(transmitters, string(followerConfig.Transmitters[signerIdx]))
 		}
-		combinedTransmitter := joinTransmitters(transmitters)
+		combinedTransmitter := JoinTransmitters(transmitters)
 		combinedTransmitters = append(combinedTransmitters, ocrtypes.Account(combinedTransmitter))
 	}
 
@@ -101,12 +101,12 @@ func TransmitterCombiner(masterConfig ocrtypes.ContractConfig, followerConfigs [
 	return toReturn, nil
 }
 
-// joinTransmitters is a helper that combines many transmitters into one
+// JoinTransmitters is a helper that combines many transmitters into one
 // Note that this is pulled out so that it can be used in the CombinerFn
 // and the contract transmitter since the output of FromAccount() in the
 // ContractTransmitter and the ContractConfig.Transmitters output for a
 // particular signer must match in order for OCR3 to work.
-func joinTransmitters(transmitters []string) string {
+func JoinTransmitters(transmitters []string) string {
 	// sort first to ensure deterministic ordering
 	slices.Sort(transmitters)
 	return strings.Join(transmitters, ",")

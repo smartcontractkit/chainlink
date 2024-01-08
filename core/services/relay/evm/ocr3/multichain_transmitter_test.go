@@ -20,7 +20,7 @@ func TestMultichainTransmitter(t *testing.T) {
 	numChains := 4
 	unis := make(map[int]testUniverse[multichainMeta])
 	for i := 0; i < numChains; i++ {
-		unis[i] = newTestUniverse[multichainMeta](t)
+		unis[i] = newTestUniverse[multichainMeta](t, nil)
 	}
 
 	mct, err := ocr3.NewMultichainTransmitterOCR3[multichainMeta](
