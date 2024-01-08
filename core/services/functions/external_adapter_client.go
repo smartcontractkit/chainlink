@@ -14,8 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // ExternalAdapterClient supports two endpoints:
@@ -228,13 +228,13 @@ func (ea *externalAdapterClient) request(
 
 	switch eaResp.Result {
 	case "error":
-		userError, err = utils.TryParseHex(eaResp.Data.Error)
+		userError, err = hex.DecodeString(eaResp.Data.Error)
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "error decoding userError hex string")
 		}
 		return nil, userError, eaResp.Data.Domains, nil
 	case "success":
-		userResult, err = utils.TryParseHex(eaResp.Data.Result)
+		userResult, err = hex.DecodeString(eaResp.Data.Result)
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "error decoding result hex string")
 		}

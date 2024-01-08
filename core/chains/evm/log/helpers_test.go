@@ -22,7 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -90,7 +90,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 	lggr := logger.Test(t)
-	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, lggr, config.Database(), cltest.FixtureChainID)
