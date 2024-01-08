@@ -450,7 +450,7 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}${{ matrix.product.tag_suffix }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.product.name }}-test-logs
+          artifacts_name: ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}-test-logs
           artifacts_location: ./integration-tests/smoke/logs/
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
