@@ -27,12 +27,36 @@ func MustNewDuration(d time.Duration) *Duration {
 	return &rv
 }
 
+func ParseDuration(s string) (Duration, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return Duration{}, err
+	}
+
+	return NewDuration(d)
+}
+
 func (d Duration) Duration() time.Duration {
 	return d.d
 }
 
+// Before returns the time d units before time t
+func (d Duration) Before(t time.Time) time.Time {
+	return t.Add(-d.Duration())
+}
+
+// Shorter returns true if and only if d is shorter than od.
+func (d Duration) Shorter(od Duration) bool { return d.d < od.d }
+
+// IsInstant is true if and only if d is of duration 0
+func (d Duration) IsInstant() bool { return d.d == 0 }
+
+// String returns a string representing the duration in the form "72h3m0.5s".
+// Leading zero units are omitted. As a special case, durations less than one
+// second format use a smaller unit (milli-, micro-, or nanoseconds) to ensure
+// that the leading digit is non-zero. The zero duration formats as 0s.
 func (d Duration) String() string {
-	return d.d.String()
+	return d.Duration().String()
 }
 
 // MarshalJSON implements the json.Marshaler interface.
@@ -58,6 +82,21 @@ func (d *Duration) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+func (d *Duration) Scan(v interface{}) (err error) {
+	switch tv := v.(type) {
+	case int64:
+		*d, err = NewDuration(time.Duration(tv))
+		return err
+	default:
+		return errors.Errorf(`don't know how to parse "%s" of type %T as a `+
+			`models.Duration`, tv, tv)
+	}
+}
+
+func (d Duration) Value() (driver.Value, error) {
+	return int64(d.d), nil
+}
+
 // MarshalText implements the text.Marshaler interface.
 func (d Duration) MarshalText() ([]byte, error) {
 	return []byte(d.d.String()), nil
@@ -75,19 +114,4 @@ func (d *Duration) UnmarshalText(input []byte) error {
 	}
 	*d = pd
 	return nil
-}
-
-func (d *Duration) Scan(v interface{}) (err error) {
-	switch tv := v.(type) {
-	case int64:
-		*d, err = NewDuration(time.Duration(tv))
-		return err
-	default:
-		return errors.Errorf(`don't know how to parse "%s" of type %T as a `+
-			`models.Duration`, tv, tv)
-	}
-}
-
-func (d Duration) Value() (driver.Value, error) {
-	return int64(d.d), nil
 }
