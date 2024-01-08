@@ -1,20 +1,84 @@
 [Load]
+# overall load test duration
 test_duration = "3m"
+# rate limit unit duration, 1m = 1 request per minute
 rate_limit_unit_duration = "1m"
+# rate of requests per unit duration
 rate = 3
+# we try to verify the round every N sec
 verification_interval = "5s"
+# verification timeout
 verification_timeout = "3m"
+# how frequently we change external adapter value
 ea_change_interval = "5s"
 
 [Volume]
+# overall volume test duration
 test_duration = "3m"
+# rate limit unit duration, 1m = 1 request per minute
 rate_limit_unit_duration = "1m"
+# rate of requests per unit duration
 vu_requests_per_unit = 10
+# rate of requests per unit duration
 rate = 1
+# we try to verify the round every N sec
 verification_interval = "5s"
+# verification timeout
 verification_timeout = "3m"
-
+# how frequently we change external adapter value
 ea_change_interval = "5s"
 
 [Common]
+# each CL node receives 3 ETH
 eth_funds = 3
+
+# chaos monkey config
+[havoc]
+# pods with this prefix will be ignored when generating experiments
+ignore_pods = ["geth", "mockserver", "-db-"]
+ignore_group_labels = ["release"]
+[havoc.failure]
+# duration of a "failure" experiment
+duration = "10s"
+# percentage of pods experiments affect in groups, see group-failure key and dir when generated
+group_percentage = "30"
+
+[havoc.latency]
+# duration of "latency" experiment
+duration = "10s"
+# constant latency to inject
+latency = "300ms"
+# percentage of pods experiments affect in groups, see group-failure key and dir when generated
+group_percentage = "30"
+
+[havoc.stress_memory]
+# duration of "stress" experiment affecting pod memory
+duration = "10s"
+# amount of workers which occupies memory
+workers = 1
+# total amount of memory occupied
+memory = "512MB"
+# percentage of pods experiments affect in groups, see group-failure key and dir when generated
+group_percentage = "30"
+
+[havoc.stress_cpu]
+# duration of "stress" experiment affecting pod CPU
+duration = "10s"
+# amount of workers which occupies cpu
+workers = 1
+# amount of CPU core utilization, 100 means 1 worker will consume 1 cpu, 2 workers + 100 load = 2 CPUs
+load = 100
+# percentage of pods experiments affect in groups, see group-failure key and dir when generated
+group_percentage = "30"
+
+[havoc.monkey]
+# havoc monkey mode:
+# seq - runs all experiments from all dirs sequentially one time
+# rand - runs random experiments from all dirs
+mode = "rand"
+# duration of havoc monkey
+duration = "3m"
+# dir is a custom dir you can select, if null monkey will create a new dir
+dir = "havoc-test-dir"
+# cooldown between experiments
+cooldown = "10s"
