@@ -132,11 +132,6 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
 		}
-		if !logCountMatches {
-			matchesWider, _ := clNodesHaveExpectedLogCount(0, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
-			l.Warn().Int64("Start block", 0).Int64("End block", endBlock).Bool("Matches wider range?", matchesWider).Msg("Log count does not match, but maybe it matches for wider range?")
-
-		}
 		g.Expect(logCountMatches).To(gomega.BeTrue(), "Not all CL nodes have expected log count")
 	}, logCountWaitDuration, "10s").Should(gomega.Succeed())
 
@@ -175,7 +170,6 @@ func ExecuteLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
-	// we set blockBackfillDepth to 0, to make sure nothing will be backfilled and won't interfere with our test
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupLogPollerTestDocker(
 		t, ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, upKeepsNeeded, time.Duration(1000*time.Millisecond), cfg.General.UseFinalityTag)
 
