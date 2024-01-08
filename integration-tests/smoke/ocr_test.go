@@ -47,7 +47,7 @@ func TestOCRBasic(t *testing.T) {
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -56,7 +56,7 @@ func TestOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(2, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -94,7 +94,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -103,7 +103,7 @@ func TestOCRJobReplacement(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(2, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -120,7 +120,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))

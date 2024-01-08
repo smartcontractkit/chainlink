@@ -1071,7 +1071,6 @@ func main() {
 		coordinatorReregisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")
 		uncompressedPubKey := coordinatorReregisterKey.String("pubkey", "", "uncompressed pubkey")
-		newOracleAddress := coordinatorReregisterKey.String("new-oracle-address", "", "oracle address")
 		skipDeregister := coordinatorReregisterKey.Bool("skip-deregister", false, "if true, key will not be deregistered")
 		helpers.ParseArgs(coordinatorReregisterKey, os.Args[2:], "coordinator-address", "pubkey", "new-oracle-address")
 
@@ -1097,7 +1096,6 @@ func main() {
 		// Use a higher gas price for the register call
 		e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
 		registerTx, err := coordinator.RegisterProvingKey(e.Owner,
-			common.HexToAddress(*newOracleAddress),
 			[2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
 		fmt.Println("Register transaction", helpers.ExplorerLink(e.ChainID, registerTx.Hash()))

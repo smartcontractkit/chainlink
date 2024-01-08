@@ -8,9 +8,9 @@ import (
 	"slices"
 	"strings"
 
+	cconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 var (
@@ -40,7 +40,7 @@ func init() {
 			Chain
 		}{}
 
-		if err := configutils.DecodeTOML(bytes.NewReader(b), &config); err != nil {
+		if err := cconfig.DecodeTOML(bytes.NewReader(b), &config); err != nil {
 			log.Fatalf("failed to decode %q: %v", path, err)
 		}
 		if fe.Name() == "fallback.toml" {

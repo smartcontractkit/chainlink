@@ -12,8 +12,10 @@ import (
 
 // Methods are NOT thread-safe.
 
+var ErrUserHasNoSubscription = errors.New("user has no subscriptions")
+
 type UserSubscriptions interface {
-	UpdateSubscription(subscriptionId uint64, subscription *functions_router.IFunctionsSubscriptionsSubscription)
+	UpdateSubscription(subscriptionId uint64, subscription *functions_router.IFunctionsSubscriptionsSubscription) bool
 	GetMaxUserBalance(user common.Address) (*big.Int, error)
 }
 
@@ -29,29 +31,45 @@ func NewUserSubscriptions() UserSubscriptions {
 	}
 }
 
-func (us *userSubscriptions) UpdateSubscription(subscriptionId uint64, subscription *functions_router.IFunctionsSubscriptionsSubscription) {
+// CachedSubscription is used to populate the user subscription maps from a persistent layer like postgres.
+type CachedSubscription struct {
+	SubscriptionID uint64
+	functions_router.IFunctionsSubscriptionsSubscription
+}
+
+// UpdateSubscription updates a subscription returning false in case there was no variation to the current state.
+func (us *userSubscriptions) UpdateSubscription(subscriptionId uint64, subscription *functions_router.IFunctionsSubscriptionsSubscription) bool {
 	if subscription == nil || subscription.Owner == utils.ZeroAddress {
 		user, ok := us.subscriptionIdsMap[subscriptionId]
-		if ok {
-			delete(us.userSubscriptionsMap[user], subscriptionId)
-			if len(us.userSubscriptionsMap[user]) == 0 {
-				delete(us.userSubscriptionsMap, user)
-			}
+		if !ok {
+			return false
 		}
+
+		delete(us.userSubscriptionsMap[user], subscriptionId)
 		delete(us.subscriptionIdsMap, subscriptionId)
-	} else {
-		us.subscriptionIdsMap[subscriptionId] = subscription.Owner
-		if _, ok := us.userSubscriptionsMap[subscription.Owner]; !ok {
-			us.userSubscriptionsMap[subscription.Owner] = make(map[uint64]*functions_router.IFunctionsSubscriptionsSubscription)
+		if len(us.userSubscriptionsMap[user]) == 0 {
+			delete(us.userSubscriptionsMap, user)
 		}
-		us.userSubscriptionsMap[subscription.Owner][subscriptionId] = subscription
+		return true
 	}
+
+	// there is no change to the subscription
+	if us.userSubscriptionsMap[subscription.Owner][subscriptionId] == subscription {
+		return false
+	}
+
+	us.subscriptionIdsMap[subscriptionId] = subscription.Owner
+	if _, ok := us.userSubscriptionsMap[subscription.Owner]; !ok {
+		us.userSubscriptionsMap[subscription.Owner] = make(map[uint64]*functions_router.IFunctionsSubscriptionsSubscription)
+	}
+	us.userSubscriptionsMap[subscription.Owner][subscriptionId] = subscription
+	return true
 }
 
 func (us *userSubscriptions) GetMaxUserBalance(user common.Address) (*big.Int, error) {
 	subs, exists := us.userSubscriptionsMap[user]
 	if !exists {
-		return nil, errors.New("user has no subscriptions")
+		return nil, ErrUserHasNoSubscription
 	}
 
 	maxBalance := big.NewInt(0)

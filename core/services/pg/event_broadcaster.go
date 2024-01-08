@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -179,8 +180,8 @@ func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscriptio
 		chDone:           make(chan struct{}),
 		lggr:             logger.Sugared(b.lggr),
 	}
-	sub.processQueueWorker = utils.NewSleeperTask(
-		utils.SleeperFuncTask(sub.processQueue, "SubscriptionQueueProcessor"),
+	sub.processQueueWorker = commonutils.NewSleeperTask(
+		commonutils.SleeperFuncTask(sub.processQueue, "SubscriptionQueueProcessor"),
 	)
 	b.subscriptions[channel][sub] = struct{}{}
 	return sub, nil
@@ -247,7 +248,7 @@ type subscription struct {
 	payloadFilter      string
 	eventBroadcaster   *eventBroadcaster
 	queue              *utils.BoundedQueue[Event]
-	processQueueWorker utils.SleeperTask
+	processQueueWorker *commonutils.SleeperTask
 	chEvents           chan Event
 	chDone             chan struct{}
 	lggr               logger.SugaredLogger
