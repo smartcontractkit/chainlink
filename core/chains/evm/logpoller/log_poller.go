@@ -433,7 +433,7 @@ func (lp *logPoller) run() {
 	defer lp.wg.Done()
 	logPollTick := time.After(0)
 	// stagger these somewhat, so they don't all run back-to-back
-	backupLogPollTick := time.After(100 * time.Millisecond)
+	backupLogPollTick := time.After(100 * time.Hour)
 	blockPruneTick := time.After(3 * time.Second)
 	logPruneTick := time.After(5 * time.Second)
 	filtersLoaded := false
@@ -532,7 +532,7 @@ func (lp *logPoller) run() {
 			// frequently than the primary log poller.
 
 			// If pollPeriod is set to 1 block time, backup log poller will run once every 100 blocks
-			const backupPollerBlockDelay = 10000
+			const backupPollerBlockDelay = 100
 
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
 			if !filtersLoaded {
