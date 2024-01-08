@@ -234,7 +234,7 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessHe
 		mark = time.Now()
 
 		if err := ec.HandleReorgedTransactions(ctx, head, from, minedSequence); err != nil {
-			return fmt.Errorf("EnsureConfirmedTransactionsOnChain failed: %w", err)
+			return fmt.Errorf("HandleReorgedTransactions failed: %w", err)
 		}
 
 		//if err := ec.EnsureConfirmedTransactionReceiptsInLongestChain(ctx, head); err != nil {
@@ -541,7 +541,7 @@ func observeUntilTxConfirmed[
 }
 
 // There is a chance some transactions get reorged but they get included in a different block, leading to a confirmed transaction with a different receipt.
-// The TXM cab still detect the nonce difference and keep functioning, but we will have a mismatch on the receipt for a given transaction.
+// The TXM can still detect the nonce difference and keep functioning, but we will have a mismatch on the receipt for a given transaction.
 // To fully protect against this we would had to fetch every receipt for every confirmed transaction after the finality depth.
 // To mitigate this, we do a best effort search in the recent longest chain to try and detect such cases. If a receipt is not found, the tx is marked as
 // unconfirmed and enters the next confirmer cycle.
