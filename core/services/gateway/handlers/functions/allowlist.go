@@ -233,7 +233,7 @@ func (a *onchainAllowlist) update(addrList []common.Address) {
 
 func (a *onchainAllowlist) updateCache(addrList []common.Address) {
 	for id, addr := range addrList {
-		if err := a.orm.UpsertAllowedSender(int64(id), addr); err != nil {
+		if err := a.orm.UpsertAllowedSender(uint64(id), addr); err != nil {
 			a.lggr.Errorf("failed to update cache: %w", err)
 		}
 	}

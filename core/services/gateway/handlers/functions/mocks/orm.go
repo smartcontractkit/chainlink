@@ -90,7 +90,7 @@ func (_m *ORM) GetSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]fu
 }
 
 // UpsertAllowedSender provides a mock function with given fields: id, allowedSender, qopts
-func (_m *ORM) UpsertAllowedSender(id int64, allowedSender common.Address, qopts ...pg.QOpt) error {
+func (_m *ORM) UpsertAllowedSender(id uint64, allowedSender common.Address, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -105,7 +105,7 @@ func (_m *ORM) UpsertAllowedSender(id int64, allowedSender common.Address, qopts
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int64, common.Address, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(uint64, common.Address, ...pg.QOpt) error); ok {
 		r0 = rf(id, allowedSender, qopts...)
 	} else {
 		r0 = ret.Error(0)

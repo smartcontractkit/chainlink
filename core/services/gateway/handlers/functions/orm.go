@@ -20,8 +20,9 @@ import (
 type ORM interface {
 	GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error)
 	UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error
+
 	GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error)
-	UpsertAllowedSender(id int64, allowedSender common.Address, qopts ...pg.QOpt) error
+	UpsertAllowedSender(id uint64, allowedSender common.Address, qopts ...pg.QOpt) error
 }
 
 type orm struct {
@@ -135,9 +136,35 @@ func (cs *cachedSubscriptionRow) encode() CachedSubscription {
 }
 
 func (o *orm) GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error) {
-	return nil, nil
+	var address []common.Address
+	stmt := fmt.Sprintf(`
+		SELECT allowed_address
+		FROM %s
+		WHERE router_contract_address = $1
+		ORDER BY id ASC
+		OFFSET $2
+		LIMIT $3;
+	`, allowlistTableName)
+	err := o.q.WithOpts(qopts...).Select(&address, stmt, o.routerContractAddress, offset, limit)
+	if err != nil {
+		return address, err
+	}
+
+	return address, nil
 }
 
-func (o *orm) UpsertAllowedSender(id int64, allowedSender common.Address, qopts ...pg.QOpt) error {
-	return nil
+func (o *orm) UpsertAllowedSender(id uint64, allowedSender common.Address, qopts ...pg.QOpt) error {
+	stmt := fmt.Sprintf(`
+		INSERT INTO %s (id, allowed_address, router_contract_address)
+		VALUES ($1,$2,$3) ON CONFLICT (id, router_contract_address) DO UPDATE
+		SET allowed_address=$2, router_contract_address=$3;`, allowlistTableName)
+
+	_, err := o.q.WithOpts(qopts...).Exec(
+		stmt,
+		id,
+		allowedSender,
+		o.routerContractAddress,
+	)
+
+	return err
 }

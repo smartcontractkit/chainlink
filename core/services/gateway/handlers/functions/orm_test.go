@@ -51,6 +51,16 @@ func createSubscriptions(t *testing.T, orm functions.ORM, amount int) []function
 	return cachedSubscriptions
 }
 
+func createAllowedSenders(t *testing.T, orm functions.ORM, amount int) []common.Address {
+	cachedAllowedSenders := make([]common.Address, 0)
+	for i := amount; i > 0; i-- {
+		address := testutils.NewAddress()
+		cachedAllowedSenders = append(cachedAllowedSenders, address)
+		err := orm.UpsertAllowedSender(uint64(i), address)
+		require.NoError(t, err)
+	}
+	return cachedAllowedSenders
+}
 func TestORM_GetSubscriptions(t *testing.T) {
 	t.Parallel()
 	t.Run("fetch first page", func(t *testing.T) {
@@ -227,6 +237,75 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		results, err = orm2.GetSubscriptions(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
+	})
+}
+
+func TestORM_GetAllowedSenders(t *testing.T) {
+	t.Parallel()
+	t.Run("fetch first page", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		cachedAllowedSenders := createAllowedSenders(t, orm, 2)
+		results, err := orm.GetAllowedSenders(0, 1)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Equal(t, cachedAllowedSenders[1], results[0])
+	})
+
+	t.Run("fetch second page", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		cachedAllowedSenders := createAllowedSenders(t, orm, 2)
+		results, err := orm.GetAllowedSenders(1, 5)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Equal(t, cachedAllowedSenders[0], results[0])
+	})
+}
+
+func TestORM_UpsertAllowedSender(t *testing.T) {
+	t.Parallel()
+
+	type allowedSender struct {
+		id      uint64
+		address common.Address
+	}
+
+	t.Run("create an allowed sender", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		expected := allowedSender{uint64(1), testutils.NewAddress()}
+		err = orm.UpsertAllowedSender(expected.id, expected.address)
+		require.NoError(t, err)
+
+		results, err := orm.GetAllowedSenders(0, 1)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Equal(t, expected.address, results[0])
+	})
+
+	t.Run("update an allowed sender", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+
+		expectedUpdated := allowedSender{uint64(1), testutils.NewAddress()}
+		err = orm.UpsertAllowedSender(expectedUpdated.id, expectedUpdated.address)
+		require.NoError(t, err)
+
+		expectedNotUpdated := allowedSender{uint64(2), testutils.NewAddress()}
+		err = orm.UpsertAllowedSender(expectedNotUpdated.id, expectedNotUpdated.address)
+		require.NoError(t, err)
+
+		// update the address
+		expectedUpdated.address = testutils.NewAddress()
+		err = orm.UpsertAllowedSender(expectedUpdated.id, expectedUpdated.address)
+		require.NoError(t, err)
+
+		results, err := orm.GetAllowedSenders(0, 5)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, expectedNotUpdated.address, results[1])
+		require.Equal(t, expectedUpdated.address, results[0])
 	})
 }
 
