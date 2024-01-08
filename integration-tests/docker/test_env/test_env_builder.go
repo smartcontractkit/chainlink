@@ -265,7 +265,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	if b.te.LogStream != nil {
 		b.t.Cleanup(func() {
-			b.l.Warn().Msg("Shutting down LogStream")
+			b.l.Debug().Msg("Shutting down LogStream")
 			logPath, err := osutil.GetAbsoluteFolderPath("logs")
 			if err != nil {
 				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
