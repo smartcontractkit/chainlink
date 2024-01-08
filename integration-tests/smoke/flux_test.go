@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 func TestFluxBasic(t *testing.T) {
@@ -29,6 +30,7 @@ func TestFluxBasic(t *testing.T) {
 		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(), node.WithHumanLogs())).
 		WithCLNodes(3).
 		WithStandardCleanup().
 		WithLogStream().

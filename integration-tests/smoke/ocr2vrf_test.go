@@ -27,7 +27,7 @@ import (
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
-	t.Skip("VRFv3 is on pause, skipping")
+	t.Skip("OCR2VRF is on pause, skipping")
 	l := logging.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
@@ -89,7 +89,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 
 func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
-	t.Skip("VRFv3 is on pause, skipping")
+	t.Skip("OCR2VRF is on pause, skipping")
 	l := logging.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 func TestRunLogBasic(t *testing.T) {
@@ -26,6 +27,7 @@ func TestRunLogBasic(t *testing.T) {
 		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(), node.WithHumanLogs())).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().

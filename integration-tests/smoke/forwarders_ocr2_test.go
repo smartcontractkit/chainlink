@@ -30,6 +30,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
 			node.WithP2Pv2(),
+			node.WithHumanLogs(),
 		)).
 		WithForwarders().
 		WithCLNodes(6).

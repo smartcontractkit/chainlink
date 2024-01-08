@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -39,6 +40,7 @@ func TestVRFv2Plus(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(network).
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(), node.WithHumanLogs())).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().

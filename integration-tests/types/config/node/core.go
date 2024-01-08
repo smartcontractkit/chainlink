@@ -119,6 +119,13 @@ func WithP2Pv2() NodeConfigOpt {
 	}
 }
 
+// WithHumanLogs disables JSONConsole logging and uses human readable, structured logs
+func WithHumanLogs() NodeConfigOpt {
+	return func(c *chainlink.Config) {
+		c.Core.Log.JSONConsole = ptr.Ptr(false)
+	}
+}
+
 func WithTracing() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.Tracing = toml.Tracing{

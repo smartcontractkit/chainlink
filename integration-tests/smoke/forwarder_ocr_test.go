@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 func TestForwarderOCRBasic(t *testing.T) {
@@ -23,6 +24,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 		WithGeth().
 		WithMockAdapter().
 		WithForwarders().
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(), node.WithHumanLogs())).
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().

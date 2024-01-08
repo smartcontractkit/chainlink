@@ -12,11 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 // Tests a basic OCRv2 median feed
@@ -47,6 +48,7 @@ func TestOCRv2Basic(t *testing.T) {
 					node.WithOCR2(),
 					node.WithP2Pv2(),
 					node.WithTracing(),
+					node.WithHumanLogs(),
 				)).
 				WithCLNodeOptions(test_env.WithNodeEnvVars(test.env)).
 				WithCLNodes(6).

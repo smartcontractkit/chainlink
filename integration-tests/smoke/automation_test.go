@@ -1071,6 +1071,7 @@ func setupAutomationTestDocker(
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.MustGetSelectedNetworksFromEnv()[0]
 
+	// TODO: This should be updated to the new config builder model
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
@@ -1081,6 +1082,7 @@ func setupAutomationTestDocker(
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = ptr.Ptr[uint32](uint32(150000))
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
+	clNodeConfig.Log.JSONConsole = ptr.Ptr[bool](false) // Sets human-readable logs
 
 	//launch the environment
 	var env *test_env.CLClusterTestEnv

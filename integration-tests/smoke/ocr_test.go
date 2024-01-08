@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 func TestOCRBasic(t *testing.T) {
@@ -73,6 +74,7 @@ func TestOCRJobReplacement(t *testing.T) {
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(6).
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(), node.WithHumanLogs())).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
 		Build()

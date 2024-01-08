@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 func TestCronBasic(t *testing.T) {
@@ -23,6 +24,7 @@ func TestCronBasic(t *testing.T) {
 		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(), node.WithHumanLogs())).
 		WithCLNodes(1).
 		WithStandardCleanup().
 		WithLogStream().
