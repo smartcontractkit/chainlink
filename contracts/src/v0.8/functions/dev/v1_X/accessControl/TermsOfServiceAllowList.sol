@@ -19,12 +19,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.1.0";
 
-  // Keep a count of the number of allowed sender Ids so that its possible to
-  // loop through all the current allowed senders via .getAllowedSendersInRange(().
-  uint64 private s_currentAllowedSenderId;
-
   EnumerableSet.AddressSet private s_allowedSenders;
-  mapping(uint64 => address) private s_allowedSendersIdMap;
   mapping(address => bool) private s_blockedSenders;
 
   event AddedAccess(address user);
@@ -98,7 +93,6 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
     // Add recipient to the allow list
     if (s_allowedSenders.add(recipient)) {
-      s_allowedSendersIdMap[++s_currentAllowedSenderId] = recipient;
       emit AddedAccess(recipient);
     }
   }
@@ -110,25 +104,27 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
   /// @inheritdoc ITermsOfServiceAllowList
   function getAllowedSendersCount() external view override returns (uint64) {
-    return s_currentAllowedSenderId;
+    return uint64(s_allowedSenders.length());
   }
 
-  /// @inheritdoc ITermsOfServiceAllowList
+  /// @dev WARNING: getAllowedSendersInRange uses EnumerableSet .length() and .at() methods to iterate over the list
+  /// without the need for an extra mapping. These method can not guarantee the ordering when new elements are added. 
+  /// Evaluate if eventual consistency will satisfy your usecase before using it.
   function getAllowedSendersInRange(
     uint64 allowedSenderIdStart,
     uint64 allowedSenderIdEnd
   ) external view override returns (address[] memory allowedSenders) {
     if (
       allowedSenderIdStart > allowedSenderIdEnd ||
-      allowedSenderIdEnd > s_currentAllowedSenderId ||
-      s_currentAllowedSenderId == 0
+      allowedSenderIdEnd > s_allowedSenders.length() ||
+      s_allowedSenders.length() == 0
     ) {
       revert InvalidCalldata();
     }
 
     allowedSenders = new address[]((allowedSenderIdEnd - allowedSenderIdStart) + 1);
     for (uint256 i = 0; i <= allowedSenderIdEnd - allowedSenderIdStart; ++i) {
-      allowedSenders[i] = s_allowedSendersIdMap[uint64(allowedSenderIdStart + i)];
+      allowedSenders[i] = s_allowedSenders.at(uint256(allowedSenderIdStart + i - 1));
     }
 
     return allowedSenders;

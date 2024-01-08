@@ -1,6 +1,6 @@
 GETH_VERSION: 1.13.8
 functions: ../../../contracts/solc/v0.8.19/functions/v1_X/FunctionsRequest.abi ../../../contracts/solc/v0.8.19/functions/v1_X/FunctionsRequest.bin 3c972870b0afeb6d73a29ebb182f24956a2cebb127b21c4f867d1ecf19a762db
-functions_allow_list: ../../../contracts/solc/v0.8.19/functions/v1_X/TermsOfServiceAllowList.abi ../../../contracts/solc/v0.8.19/functions/v1_X/TermsOfServiceAllowList.bin 77e0180b0915b178f6acffacc6d04deb510b51ecc62b9d29770d271bc1eaf191
+functions_allow_list: ../../../contracts/solc/v0.8.19/functions/v1_X/TermsOfServiceAllowList.abi ../../../contracts/solc/v0.8.19/functions/v1_X/TermsOfServiceAllowList.bin a705e4d8544d01798a504a70322d8c324779becd74ec4570527d929879898929
 functions_billing_registry_events_mock: ../../../contracts/solc/v0.8.6/functions/v0_0_0/FunctionsBillingRegistryEventsMock.abi ../../../contracts/solc/v0.8.6/functions/v0_0_0/FunctionsBillingRegistryEventsMock.bin 50deeb883bd9c3729702be335c0388f9d8553bab4be5e26ecacac496a89e2b77
 functions_client: ../../../contracts/solc/v0.8.19/functions/v1_X/FunctionsClient.abi ../../../contracts/solc/v0.8.19/functions/v1_X/FunctionsClient.bin 2368f537a04489c720a46733f8596c4fc88a31062ecfa966d05f25dd98608aca
 functions_client_example: ../../../contracts/solc/v0.8.19/functions/v1_X/FunctionsClientExample.abi ../../../contracts/solc/v0.8.19/functions/v1_X/FunctionsClientExample.bin abf32e69f268f40e8530eb8d8e96bf310b798a4c0049a58022d9d2fb527b601b
