@@ -147,7 +147,7 @@ jobs:
           name: tests
       - name: Prepare Base64 TOML config
         env:
-          SELECTED_NETWORKS: ${{ matrix.tests.network }}
+          SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}

@@ -1,7 +1,5 @@
+# original image
 [ChainlinkImage]
-image="public.ecr.aws/chainlink/chainlink"
-version="2.7.0"
 
+# image to upgrade to
 [ChainlinkUpgradeImage]
-image="public.ecr.aws/chainlink/chainlink"
-version="2.8.0"

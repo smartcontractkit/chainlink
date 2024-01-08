@@ -25,19 +25,6 @@ url="http://grafana.url/your-dashboard"
 [Network]
 selected_networks=["simulated"]
 
-# if you want to use polygon_mumbial
-[Network]
-selected_networks=["polygon_mumbai"]
-
-[Network.RpcHttpUrls]
-polygon_mumbai = ["https://matic.getblock.io/608a6708-d787-4ba8-bcbd-493001ea7fd9/testnet/"]
-
-[Network.RpcWsUrls]
-polygon_mumbai = ["wss://matic.getblock.io/608a6708-d787-4ba8-bcbd-493001ea7fd9/testnet/"]
-
-[Network.WalletKeys]
-polygon_mumbai = ["change-me-to-your-PK"]
-
 [PrivateEthereumNetwork]
 # pos or pow
 consensus_type="pos"

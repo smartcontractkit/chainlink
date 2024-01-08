@@ -21,10 +21,6 @@ basic_auth="loki-basic-auth"
 # url of your grafana dashboard
 url="http://grafana.url/your-dashboard"
 
-# if you want to use simulated network
-[Network]
-selected_networks=["simulated"]
-
 # if you want to use polygon_mumbial
 [Network]
 selected_networks=["polygon_mumbai"]
