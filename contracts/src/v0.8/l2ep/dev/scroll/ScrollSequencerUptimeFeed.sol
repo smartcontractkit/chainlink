@@ -41,6 +41,8 @@ contract ScrollSequencerUptimeFeed is
   error InvalidSender();
   /// @notice Replacement for AggregatorV3Interface "No data present"
   error NoDataPresent();
+  /// @notice Address must not be the zero address
+  error ZeroAddress();
 
   event L1SenderTransferred(address indexed from, address indexed to);
   /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
@@ -96,6 +98,10 @@ contract ScrollSequencerUptimeFeed is
 
   /// @notice internal method that stores the L1 sender
   function _setL1Sender(address to) private {
+    if (to == address(0)) {
+      revert ZeroAddress();
+    }
+
     address from = s_l1Sender;
     if (from != to) {
       s_l1Sender = to;
