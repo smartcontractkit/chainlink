@@ -668,7 +668,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
 	})
-	t.Run("Fails when closed on sendonly broadcast", func(t *testing.T) {
+	t.Run("Fails when closed", func(t *testing.T) {
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode:       NodeSelectionModeRoundRobin,
 			chainID:             types.RandomID(),
@@ -680,35 +680,12 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, mn.Close())
 		err = mn.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, "aborted while broadcasting to sendonlys - multinode is stopped: context canceled")
-	})
-	t.Run("Fails when closed on nodes broadcast", func(t *testing.T) {
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode:       NodeSelectionModeRoundRobin,
-			chainID:             types.RandomID(),
-			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{newNode(t, nil, nil)},
-			sendonlys:           nil,
-			classifySendTxError: classifySendTxError,
-		})
-		err := mn.StartOnce("startedTestMultiNode", func() error { return nil })
-		require.NoError(t, err)
-		require.NoError(t, mn.Close())
-		err = mn.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, "aborted while broadcasting to primary - multinode is stopped: context canceled")
+		require.EqualError(t, err, "aborted while broadcasting tx - multinode is stopped: context canceled")
 	})
 }
 
 func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 	t.Parallel()
-	mn := newTestMultiNode(t, multiNodeOpts{
-		selectionMode: NodeSelectionModeRoundRobin,
-		chainID:       types.RandomID(),
-	})
-	err := mn.StartOnce("startedTestMultiNode", func() error { return nil })
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, mn.Close())
-	})
 	// ensure failure on new SendTxReturnCode
 	codesToCover := map[SendTxReturnCode]struct{}{}
 	for code := Successful; code < sendTxReturnCodeLen; code++ {
@@ -717,13 +694,13 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 
 	testCases := []struct {
 		Name                string
-		ExpectedErr         string
+		ExpectedTxResult    string
 		ExpectedCriticalErr string
 		ResultsByCode       map[SendTxReturnCode][]error
 	}{
 		{
 			Name:                "Returns success and logs critical error on Success and Fatal",
-			ExpectedErr:         "success",
+			ExpectedTxResult:    "success",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got Successful and severe error",
 			ResultsByCode: map[SendTxReturnCode][]error{
 				Successful: {errors.New("success")},
@@ -732,7 +709,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		},
 		{
 			Name:                "Returns TransactionAlreadyKnown and logs critical error on TransactionAlreadyKnown and Fatal",
-			ExpectedErr:         "tx_already_known",
+			ExpectedTxResult:    "tx_already_known",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got Successful and severe error",
 			ResultsByCode: map[SendTxReturnCode][]error{
 				TransactionAlreadyKnown: {errors.New("tx_already_known")},
@@ -741,7 +718,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		},
 		{
 			Name:                "Prefers sever error to temporary",
-			ExpectedErr:         "underpriced",
+			ExpectedTxResult:    "underpriced",
 			ExpectedCriticalErr: "",
 			ResultsByCode: map[SendTxReturnCode][]error{
 				Retryable:   {errors.New("retryable")},
@@ -750,7 +727,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		},
 		{
 			Name:                "Returns temporary error",
-			ExpectedErr:         "retryable",
+			ExpectedTxResult:    "retryable",
 			ExpectedCriticalErr: "",
 			ResultsByCode: map[SendTxReturnCode][]error{
 				Retryable: {errors.New("retryable")},
@@ -758,7 +735,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		},
 		{
 			Name:                "Insufficient funds is treated as  error",
-			ExpectedErr:         "",
+			ExpectedTxResult:    "",
 			ExpectedCriticalErr: "",
 			ResultsByCode: map[SendTxReturnCode][]error{
 				Successful:        {nil},
@@ -767,7 +744,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		},
 		{
 			Name:                "Logs critical error on empty ResultsByCode",
-			ExpectedErr:         "invariant violation: expected at least one response on SendTransaction",
+			ExpectedTxResult:    "invariant violation: expected at least one response on SendTransaction",
 			ExpectedCriticalErr: "invariant violation: expected at least one response on SendTransaction",
 			ResultsByCode:       map[SendTxReturnCode][]error{},
 		},
@@ -778,17 +755,17 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			delete(codesToCover, code)
 		}
 		t.Run(testCase.Name, func(t *testing.T) {
-			err := mn.aggregateTxResults(nil, testCase.ResultsByCode)
-			if testCase.ExpectedErr == "" {
+			txResult, err := aggregateTxResults(testCase.ResultsByCode)
+			if testCase.ExpectedTxResult == "" {
 				assert.NoError(t, err)
 			} else {
-				assert.EqualError(t, err, testCase.ExpectedErr)
+				assert.EqualError(t, txResult, testCase.ExpectedTxResult)
 			}
 
 			if testCase.ExpectedCriticalErr == "" {
-				assert.NoError(t, mn.Healthy())
+				assert.NoError(t, err)
 			} else {
-				assert.EqualError(t, mn.Healthy(), testCase.ExpectedCriticalErr)
+				assert.EqualError(t, err, testCase.ExpectedCriticalErr)
 			}
 		})
 	}
