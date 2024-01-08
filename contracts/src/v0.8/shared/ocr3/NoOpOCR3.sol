@@ -7,6 +7,7 @@ import {OCR3Base} from "./OCR3Base.sol";
 // This is so that we can generate gethwrappers for the contract and use the OCR3 ABI in
 // Go code.
 contract NoOpOCR3 is OCR3Base {
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "NoOpOCR3 1.0.0";
 
   constructor() OCR3Base() {}
