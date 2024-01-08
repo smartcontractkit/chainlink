@@ -7,6 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/require"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/no_op_ocr3"
@@ -16,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ocr3"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/require"
 )
 
 func setupLogPoller[RI any](t *testing.T, db *sqlx.DB, bs *bundlesAndSigners) (logpoller.LogPoller, testUniverse[RI]) {
