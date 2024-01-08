@@ -94,7 +94,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "ReturnSeen",
 						InputModifications: codec.ModifiersConfig{
-							&codec.HardCodeConfig{
+							&codec.HardCodeModifierConfig{
 								OnChainValues: map[string]any{
 									"BigField": testStruct.BigField.String(),
 									"Account":  hexutil.Encode(testStruct.Account),
@@ -102,7 +102,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 							},
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.HardCodeConfig{
+							&codec.HardCodeModifierConfig{
 								OffChainValues: map[string]any{"ExtraField": anyExtraValue}},
 						},
 					},

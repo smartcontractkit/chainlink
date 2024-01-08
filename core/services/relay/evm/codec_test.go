@@ -76,7 +76,7 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		entry.TypeAbi = string(defBytes)
 		if k == TestItemWithConfigExtra {
 			entry.ModifierConfigs = codec.ModifiersConfig{
-				&codec.HardCodeConfig{
+				&codec.HardCodeModifierConfig{
 					OnChainValues: map[string]any{
 						"BigField": testStruct.BigField.String(),
 						"Account":  hexutil.Encode(testStruct.Account),
