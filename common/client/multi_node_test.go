@@ -722,20 +722,20 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		ResultsByCode       map[SendTxReturnCode][]error
 	}{
 		{
-			Name:                "Returns error and logs critical error on Success and Fatal",
-			ExpectedErr:         "fatal",
+			Name:                "Returns success and logs critical error on Success and Fatal",
+			ExpectedErr:         "success",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got Successful and severe error",
 			ResultsByCode: map[SendTxReturnCode][]error{
-				Successful: {nil},
+				Successful: {errors.New("success")},
 				Fatal:      {errors.New("fatal")},
 			},
 		},
 		{
-			Name:                "Returns error and logs critical error on TransactionAlreadyKnown and Fatal",
-			ExpectedErr:         "unsupported",
+			Name:                "Returns TransactionAlreadyKnown and logs critical error on TransactionAlreadyKnown and Fatal",
+			ExpectedErr:         "tx_already_known",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got Successful and severe error",
 			ResultsByCode: map[SendTxReturnCode][]error{
-				TransactionAlreadyKnown: {nil},
+				TransactionAlreadyKnown: {errors.New("tx_already_known")},
 				Unsupported:             {errors.New("unsupported")},
 			},
 		},
