@@ -27,6 +27,11 @@ var (
 		Name: "multi_node_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
 	}, []string{"network", "chainId", "state"})
+	// PromMultiNodeInvariantViolations reports violation of our assumptions
+	PromMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multi_node_invariant_violations",
+		Help: "The number of invariant violations",
+	}, []string{"network", "chainId", "invariant"})
 	ErroringNodeError = fmt.Errorf("no live nodes available")
 )
 
@@ -631,13 +636,14 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	if hasSuccess {
 		// We assume that primary node would never report false positive result for a transaction.
 		// Thus, if such case occurs it's probably due to misconfiguration or a bug and requires manual intervention.
-		// Our best option in such situation is to return the error.
 		if hasSevereErrors {
 			const errMsg = "found contradictions in nodes replies on SendTransaction: got Successful and severe error"
 			c.lggr.Criticalw(errMsg, "tx", tx, "resultsByCode", resultsByCode)
 			err := fmt.Errorf(errMsg)
 			c.SvcErrBuffer.Append(err)
-			return severeErrors[0]
+			PromMultiNodeInvariantViolations.WithLabelValues(c.chainFamily, c.chainID.String(), errMsg).Inc()
+			// return success, since at least 1 node has accepted our broadcasted Tx, and thus it can now be included onchain
+			return successResults[0]
 		}
 
 		// other errors are temporary - we are safe to return success
@@ -657,6 +663,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	c.lggr.Criticalw(errMsg, "tx", tx)
 	err := fmt.Errorf(errMsg)
 	c.SvcErrBuffer.Append(err)
+	PromMultiNodeInvariantViolations.WithLabelValues(c.chainFamily, c.chainID.String(), errMsg).Inc()
 	return err
 }
 
