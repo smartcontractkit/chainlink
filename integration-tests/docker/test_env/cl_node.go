@@ -3,9 +3,12 @@ package test_env
 import (
 	"context"
 	"fmt"
+	"io"
+	"maps"
 	"math/big"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -25,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 
@@ -59,6 +64,15 @@ func WithSecrets(secretsTOML string) ClNodeOption {
 	}
 }
 
+func WithNodeEnvVars(ev map[string]string) ClNodeOption {
+	return func(n *ClNode) {
+		if n.ContainerEnvs == nil {
+			n.ContainerEnvs = map[string]string{}
+		}
+		maps.Copy(n.ContainerEnvs, ev)
+	}
+}
+
 // Sets custom node container name if name is not empty
 func WithNodeContainerName(name string) ClNodeOption {
 	return func(c *ClNode) {
@@ -80,6 +94,28 @@ func WithDbContainerName(name string) ClNodeOption {
 func WithLogStream(ls *logstream.LogStream) ClNodeOption {
 	return func(c *ClNode) {
 		c.ls = ls
+	}
+}
+
+func WithImage(image string) ClNodeOption {
+	return func(c *ClNode) {
+		c.ContainerImage = image
+	}
+}
+
+func WithVersion(version string) ClNodeOption {
+	return func(c *ClNode) {
+		c.ContainerVersion = version
+	}
+}
+
+func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
+	return func(c *ClNode) {
+		var err error
+		c.PostgresDb, err = test_env.NewPostgresDb(c.EnvComponent.Networks, opts...)
+		if err != nil {
+			c.t.Fatalf("failed to create postgres db: %v", err)
+		}
 	}
 }
 
@@ -130,8 +166,15 @@ func (n *ClNode) UpgradeVersion(newImage, newVersion string) error {
 		return fmt.Errorf("new version is empty")
 	}
 	if newImage == "" {
-		return fmt.Errorf("new image name is empty")
+		newImage = os.Getenv("CHAINLINK_IMAGE")
 	}
+	n.l.Info().
+		Str("Name", n.ContainerName).
+		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
+		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
+		Str("New Image", newImage).
+		Str("New Version", newVersion).
+		Msg("Upgrading Chainlink Node")
 	n.ContainerImage = newImage
 	n.ContainerVersion = newVersion
 	return n.Restart(n.NodeConfig)
@@ -319,6 +362,28 @@ func (n *ClNode) StartContainer() error {
 	n.API = clClient
 
 	return nil
+}
+
+func (n *ClNode) ExecGetVersion() (string, error) {
+	cmd := []string{"chainlink", "--version"}
+	_, output, err := n.Container.Exec(context.Background(), cmd)
+	if err != nil {
+		return "", errors.Wrapf(err, "could not execute cmd %s", cmd)
+	}
+	outputBytes, err := io.ReadAll(output)
+	if err != nil {
+		return "", err
+	}
+	outputString := strings.TrimSpace(string(outputBytes))
+
+	// Find version in cmd output
+	re := regexp.MustCompile("@(.*)")
+	matches := re.FindStringSubmatch(outputString)
+
+	if len(matches) > 1 {
+		return matches[1], nil
+	}
+	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 }
 
 func (n *ClNode) getContainerRequest(secrets string) (

@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -49,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var nilOpts *bind.CallOpts
@@ -348,7 +347,7 @@ func StartNewNode(
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(
+	tx := cltest.NewLegacyTransaction(
 		n, transmitter,
 		assets.Ether(1).ToInt(),
 		21000,

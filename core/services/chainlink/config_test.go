@@ -3,6 +3,7 @@ package chainlink
 import (
 	_ "embed"
 	"math"
+	"math/big"
 	"net"
 	"strings"
 	"testing"
@@ -17,7 +18,9 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -26,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -35,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 var (
@@ -96,7 +98,7 @@ var (
 		},
 		EVM: []*evmcfg.EVMConfig{
 			{
-				ChainID: big.NewI(1),
+				ChainID: ubig.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:      ptr[uint32](26),
 					FinalityTagEnabled: ptr[bool](false),
@@ -113,7 +115,7 @@ var (
 					},
 				}},
 			{
-				ChainID: big.NewI(42),
+				ChainID: ubig.NewI(42),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						PriceDefault: assets.NewWeiI(math.MaxInt64),
@@ -126,7 +128,7 @@ var (
 					},
 				}},
 			{
-				ChainID: big.NewI(137),
+				ChainID: ubig.NewI(137),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
 						Mode: ptr("FixedPrice"),
@@ -464,7 +466,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
-			ChainID: big.NewI(1),
+			ChainID: ubig.NewI(1),
 			Enabled: ptr(false),
 			Chain: evmcfg.Chain{
 				AutoCreateKey: ptr(false),
@@ -493,7 +495,7 @@ func TestConfig_Marshal(t *testing.T) {
 					TipCapDefault:      assets.NewWeiI(2),
 					TipCapMin:          assets.NewWeiI(1),
 					PriceDefault:       assets.NewWeiI(math.MaxInt64),
-					PriceMax:           assets.NewWei(utils.HexToBig("FFFFFFFFFFFF")),
+					PriceMax:           assets.NewWei(mustHexToBig(t, "FFFFFFFFFFFF")),
 					PriceMin:           assets.NewWeiI(13),
 
 					LimitJobType: evmcfg.GasLimitJobType{
@@ -519,7 +521,7 @@ func TestConfig_Marshal(t *testing.T) {
 					{
 						Key: mustAddress("0x2a3e23c6f242F5345320814aC8a1b4E58707D292"),
 						GasEstimator: evmcfg.KeySpecificGasEstimator{
-							PriceMax: assets.NewWei(utils.HexToBig("FFFFFFFFFFFFFFFFFFFFFFFF")),
+							PriceMax: assets.NewWei(mustHexToBig(t, "FFFFFFFFFFFFFFFFFFFFFFFF")),
 						},
 					},
 				},
@@ -1467,7 +1469,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
-	c.EVM = evmcfg.EVMConfigs{{ChainID: big.NewI(99999133712345)}}
+	c.EVM = evmcfg.EVMConfigs{{ChainID: ubig.NewI(99999133712345)}}
 	c.Cosmos = coscfg.TOMLConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
@@ -1562,3 +1564,9 @@ func TestConfig_warnings(t *testing.T) {
 }
 
 func ptr[T any](t T) *T { return &t }
+
+func mustHexToBig(t *testing.T, hx string) *big.Int {
+	n, err := hex.ParseBig(hx)
+	require.NoError(t, err)
+	return n
+}
