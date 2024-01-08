@@ -10,13 +10,13 @@ TODO: updated process here @Austin Born
 
 [Reference contract](https://github.com/smartcontractkit/reference-data-directory/blob/master/ethereum-testnet-goerli-arbitrum-1/contracts/0x535051166466D159da8742167c9CA1eFe9e82613.json)
 
-[OCR2 config documentation](https://github.com/smartcontractkit/libocr/blob/master/offchainreporting2/internal/config/public_config.go)
+[OCR3 config documentation](https://github.com/smartcontractkit/libocr/blob/master/offchainreporting2plus/internal/config/ocr3config/public_config.go)
 
 **🚨 Important config**
 
 `s` - transmission schedule. This should be set to the number of oracles on the feed - meaning that every oracle will attempt to transmit to the mercury server in the first stage of transmission. eg `[4]` if there are 4 node in the DON, excluding the bootstrap node.
 
-`f` - set this to `n//3` (where `//` denotes integer division), e.g. if you have 16 oracles, set `f` to 5.
+`f` - set this to `(n-1)//3` (where `//` denotes integer division), e.g. if you have 16 oracles, set `f` to 5.
 
 `deltaRound` - report generation frequency. This determines how frequently a new round should be started at most (if rounds take longer than this due to network latency, there will be fewer rounds per second than this parameter would suggest). `100ms` is a good starting point (10 rounds/s).
 
