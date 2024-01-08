@@ -117,7 +117,7 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lp, uni := setupLogPoller[struct{}](t, db)
-	lp.Start(testutils.Context(t))
+	require.NoError(t, lp.Start(testutils.Context(t)))
 
 	masterChain := relay.ID{
 		Network: relay.EVM,

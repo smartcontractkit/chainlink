@@ -49,8 +49,8 @@ func TestMultichainTransmitter(t *testing.T) {
 
 	var configDigests []ocrtypes.ConfigDigest
 	for _, uni := range unis {
-		c, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
-		require.NoError(t, err)
+		c, err2 := uni.wrapper.LatestConfigDigestAndEpoch(nil)
+		require.NoError(t, err2)
 		configDigests = append(configDigests, c.ConfigDigest)
 	}
 

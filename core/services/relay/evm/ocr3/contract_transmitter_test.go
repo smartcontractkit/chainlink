@@ -73,8 +73,8 @@ func newTestUniverse[RI any](t *testing.T) testUniverse[RI] {
 		signers []common.Address
 	)
 	for i := 0; i < 4; i++ {
-		kb, err := ocr2key.New(chaintype.EVM)
-		require.NoError(t, err, "failed to create key bundle")
+		kb, err2 := ocr2key.New(chaintype.EVM)
+		require.NoError(t, err2, "failed to create key bundle")
 		signers = append(signers, common.HexToAddress(kb.OnChainPublicKey()))
 		bundles = append(bundles, kb)
 	}
