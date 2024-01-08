@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -58,6 +59,7 @@ type Resender[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	services.StateMachine
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	txStore             txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	client              txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -70,6 +72,7 @@ type Resender[
 	dbConfig            txmgrtypes.ResenderDatabaseConfig
 	logger              logger.SugaredLogger
 	lastAlertTimestamps map[string]time.Time
+	enabledAddresses    []ADDR
 
 	mb        *mailbox.Mailbox[int64]
 	ctx       context.Context
@@ -117,21 +120,33 @@ func NewResender[
 	}
 }
 
-func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start() {
-	er.logger.Debug("Starting Resender")
-	er.ctx, er.ctxCancel = context.WithCancel(context.Background())
-	er.wg = sync.WaitGroup{}
-	er.wg.Add(1)
-	go er.runLoop()
+func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start(_ context.Context) error {
+	return er.StartOnce("Resender", func() (err error) {
+		er.enabledAddresses, err = er.ks.EnabledAddressesForChain(er.chainID)
+		if err != nil {
+			return fmt.Errorf("Resender: failed to load EnabledAddressesForChain: %w", err)
+		}
+
+		er.ctx, er.ctxCancel = context.WithCancel(context.Background())
+		er.wg = sync.WaitGroup{}
+		er.wg.Add(1)
+		go er.runLoop()
+		return nil
+	})
 }
 
-func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Stop() {
-	er.ctxCancel()
-	er.wg.Wait()
+func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Close() error {
+	return er.StopOnce("Resender", func() (err error) {
+		er.ctxCancel()
+		er.wg.Wait()
+		return nil
+	})
 }
 
 func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop() {
 	defer er.wg.Done()
+	keysChanged, unsub := er.ks.SubscribeToKeyChanges()
+	defer unsub()
 
 	if err := er.resendUnconfirmed(er.ctx); err != nil {
 		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
@@ -159,6 +174,13 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop
 					continue
 				}
 			}
+		case <-keysChanged:
+			var err error
+			er.enabledAddresses, err = er.ks.EnabledAddressesForChain(er.chainID)
+			if err != nil {
+				er.logger.Critical("Failed to reload key states after key change")
+				continue
+			}
 		case <-er.ctx.Done():
 			return
 		}
@@ -166,19 +188,14 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop
 }
 
 func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfirmed(ctx context.Context) error {
-	resendAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
-	if err != nil {
-		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
-	}
 
 	ageThreshold := er.txConfig.ResendAfterThreshold()
 	maxInFlightTransactions := er.txConfig.MaxInFlight()
 	olderThan := time.Now().Add(-ageThreshold)
 	var allAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 
-	for _, k := range resendAddresses {
-		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-		attempts, err = er.txStore.FindTxAttemptsRequiringResend(ctx, olderThan, maxInFlightTransactions, er.chainID, k)
+	for _, k := range er.enabledAddresses {
+		attempts, err := er.txStore.FindTxAttemptsRequiringResend(ctx, olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return fmt.Errorf("failed to FindTxAttemptsRequiringResend: %w", err)
 		}
@@ -266,17 +283,12 @@ func findOldestUnconfirmedAttempt[
 func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {
 	var wg sync.WaitGroup
 
-	enabledAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
-	if err != nil {
-		return fmt.Errorf("Resender: failed to load EnabledAddressesForChain: %w", err)
-	}
-
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
-	wg.Add(len(enabledAddresses))
+	wg.Add(len(er.enabledAddresses))
 	errors := []error{}
 	var errMu sync.Mutex
-	for _, address := range enabledAddresses {
+	for _, address := range er.enabledAddresses {
 		go func(fromAddress ADDR) {
 			if err := er.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
@@ -538,6 +550,7 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleI
 			"signedRawTx", commonhex.EnsurePrefix(hex.EncodeToString(attempt.SignedRawTx)),
 			"blockHeight", blockHeight,
 		)
+		er.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return er.txStore.DeleteInProgressAttempt(ctx, attempt)
 	case client.TransactionAlreadyKnown:

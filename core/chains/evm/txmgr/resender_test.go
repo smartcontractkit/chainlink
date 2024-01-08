@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -83,6 +84,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txBuilder, ethKeyStore, 100*time.Millisecond, ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ge), ccfg.EVM().Transactions(), ccfg.Database())
+	servicetest.Run(t, er)
 
 	var resentHex = make(map[string]struct{})
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
@@ -145,6 +147,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txBuilder, ethKeyStore, 100*time.Millisecond, ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ge), ccfg.EVM().Transactions(), ccfg.Database())
+	servicetest.Run(t, er)
 
 	t.Run("alerts only once for unconfirmed transaction attempt within the unconfirmedTxAlertDelay duration", func(t *testing.T) {
 		_ = cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(1), fromAddress, originalBroadcastAt)
@@ -208,8 +211,7 @@ func Test_EthResender_Start(t *testing.T) {
 		})
 
 		func() {
-			er.Start()
-			defer er.Stop()
+			servicetest.Run(t, er)
 
 			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)
 		}()
@@ -337,6 +339,6 @@ func newEthResender(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Cli
 	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txBuilder, ks, txmgrcommon.DefaultResenderPollInterval,
 		txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database())
 
-	er.Start()
+	servicetest.Run(t, er)
 	return er
 }

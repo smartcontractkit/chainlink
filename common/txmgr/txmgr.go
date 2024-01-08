@@ -183,6 +183,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 		if err := ms.Start(ctx, b.broadcaster); err != nil {
 			return fmt.Errorf("Txm: Broadcaster failed to start: %w", err)
 		}
+		if err := ms.Start(ctx, b.confirmer); err != nil {
+			return fmt.Errorf("Txm: Confirmer failed to start: %w", err)
+		}
+		if err := ms.Start(ctx, b.resender); err != nil {
+			return fmt.Errorf("Txm: Resender failed to start: %w", err)
+		}
 		if err := ms.Start(ctx, b.txAttemptBuilder); err != nil {
 			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
@@ -194,14 +200,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 		b.wg.Add(1)
 		go b.runLoop()
 		<-b.chSubbed
-
-		if b.confirmer != nil {
-			b.confirmer.Start()
-		}
-
-		if b.resender != nil {
-			b.resender.Start()
-		}
 
 		if b.reaper != nil {
 			b.reaper.Start()
@@ -253,14 +251,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 		close(b.chStop)
 
 		b.txStore.Close()
-
-		if b.confirmer != nil {
-			b.confirmer.Stop()
-		}
-
-		if b.resender != nil {
-			b.resender.Stop()
-		}
 
 		if b.reaper != nil {
 			b.reaper.Stop()
@@ -392,6 +382,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			err := b.broadcaster.Close()
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
+			}
+			err = b.confirmer.Close()
+			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
+				b.logger.Errorw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
+			}
+			err = b.resender.Close()
+			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
+				b.logger.Errorw(fmt.Sprintf("Failed to Close Resender: %v", err), "err", err)
 			}
 			err = b.tracker.Close()
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {

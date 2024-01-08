@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -74,6 +75,7 @@ type Confirmer[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	services.StateMachine
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	lggr           logger.SugaredLogger
 	client         txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -82,7 +84,8 @@ type Confirmer[
 	txConfig       txmgrtypes.ConfirmerTransactionsConfig
 	chainID        CHAIN_ID
 
-	ks txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	enabledAddresses []ADDR
 
 	mb        *mailbox.Mailbox[types.Head[BLOCK_HASH]]
 	ctx       context.Context
@@ -124,17 +127,27 @@ func NewConfirmer[
 	}
 }
 
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start() {
-	ec.lggr.Debug("Starting Confirmer")
-	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
-	ec.wg = sync.WaitGroup{}
-	ec.wg.Add(1)
-	go ec.runLoop()
+func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) error {
+	return ec.StartOnce("Confirmer", func() (err error) {
+		ec.enabledAddresses, err = ec.ks.EnabledAddressesForChain(ec.chainID)
+		if err != nil {
+			return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
+		}
+
+		ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
+		ec.wg = sync.WaitGroup{}
+		ec.wg.Add(1)
+		go ec.runLoop()
+		return nil
+	})
 }
 
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Stop() {
-	ec.ctxCancel()
-	ec.wg.Wait()
+func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() error {
+	return ec.StopOnce("Confirmer", func() (err error) {
+		ec.ctxCancel()
+		ec.wg.Wait()
+		return nil
+	})
 }
 
 func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetResumeCallback(callback ResumeCallback) {
@@ -147,6 +160,8 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Name() st
 
 func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer ec.wg.Done()
+	keysChanged, unsub := ec.ks.SubscribeToKeyChanges()
+	defer unsub()
 
 	for {
 		select {
@@ -163,6 +178,13 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop()
 					ec.lggr.Errorw("Error processing head", "err", err)
 					continue
 				}
+			}
+		case <-keysChanged:
+			var err error
+			ec.enabledAddresses, err = ec.ks.EnabledAddressesForChain(ec.chainID)
+			if err != nil {
+				ec.lggr.Critical("Failed to reload key states after key change")
+				continue
 			}
 		case <-ec.ctx.Done():
 			return
@@ -187,12 +209,8 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) processHe
 	}
 
 	// TODO: Add addresses that are not enabled but we still have unconfirmed transactions for
-	enabledAddresses, err := ec.ks.EnabledAddressesForChain(ec.chainID)
-	if err != nil {
-		return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
-	}
 
-	for _, from := range enabledAddresses {
+	for _, from := range ec.enabledAddresses {
 		mark := time.Now()
 		minedSequence, err := ec.getMinedSequenceForAddress(ctx, from)
 		if err != nil {
