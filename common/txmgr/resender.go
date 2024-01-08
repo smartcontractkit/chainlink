@@ -558,8 +558,7 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleI
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		lggr.Debugw("Sequence already used", "txAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := er.dbConfig.DefaultQueryTimeout()
-		//return er.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
-		return er.txStore.SaveSentAttempt(ctx, timeout, &attempt, now)
+		return er.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	case client.InsufficientFunds:
 		timeout := er.dbConfig.DefaultQueryTimeout()
 		return er.txStore.SaveInsufficientFundsAttempt(ctx, timeout, &attempt, now)

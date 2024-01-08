@@ -483,9 +483,17 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]common.Address{}, nil)
 
+	// Create 3 different channels for Txm, Broadcaster, and Confirmer. Order is irrelevant.
 	keyChangeCh := make(chan struct{})
-	unsub := cltest.NewAwaiter()
-	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
+	unsub1 := cltest.NewAwaiter()
+	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub1.ItHappened).Once()
+	keyChangeCh2 := make(chan struct{})
+	unsub2 := cltest.NewAwaiter()
+	kst.On("SubscribeToKeyChanges").Return(keyChangeCh2, unsub2.ItHappened).Once()
+	keyChangeCh3 := make(chan struct{})
+	unsub3 := cltest.NewAwaiter()
+	kst.On("SubscribeToKeyChanges").Return(keyChangeCh3, unsub3.ItHappened).Once()
+
 	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
 	require.NoError(t, err)
@@ -511,7 +519,9 @@ func TestTxm_Lifecycle(t *testing.T) {
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, txm.Close())
-	unsub.AwaitOrFail(t, 1*time.Second)
+	unsub1.AwaitOrFail(t, 1*time.Second)
+	unsub2.AwaitOrFail(t, 1*time.Second)
+	unsub3.AwaitOrFail(t, 1*time.Second)
 }
 
 func TestTxm_Reset(t *testing.T) {
