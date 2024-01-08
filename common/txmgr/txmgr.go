@@ -183,14 +183,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 		if err := ms.Start(ctx, b.broadcaster); err != nil {
 			return fmt.Errorf("Txm: Broadcaster failed to start: %w", err)
 		}
-		if err := ms.Start(ctx, b.confirmer); err != nil {
-			return fmt.Errorf("Txm: Confirmer failed to start: %w", err)
-		}
-
-		if err := ms.Start(ctx, b.resender); err != nil {
-			return fmt.Errorf("Txm: Resender failed to start: %w", err)
-		}
-
 		if err := ms.Start(ctx, b.txAttemptBuilder); err != nil {
 			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
@@ -202,6 +194,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 		b.wg.Add(1)
 		go b.runLoop()
 		<-b.chSubbed
+
+		if b.confirmer != nil {
+			b.confirmer.Start()
+		}
+
+		if b.resender != nil {
+			b.resender.Start()
+		}
 
 		if b.reaper != nil {
 			b.reaper.Start()
@@ -217,7 +217,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 	})
 }
 
-// Reset stops Broadcaster/Confirmer, executes callback, then starts them again
+// Reset stops Broadcaster, executes callback, then starts again
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr ADDR, abandon bool) (err error) {
 	ok := b.IfStarted(func() {
 		done := make(chan error)
@@ -254,6 +254,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 
 		b.txStore.Close()
 
+		if b.confirmer != nil {
+			b.confirmer.Stop()
+		}
+
+		if b.resender != nil {
+			b.resender.Stop()
+		}
+
 		if b.reaper != nil {
 			b.reaper.Stop()
 		}
@@ -287,7 +295,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 	// only query if txm started properly
 	b.IfStarted(func() {
 		services.CopyHealth(report, b.broadcaster.HealthReport())
-		services.CopyHealth(report, b.confirmer.HealthReport())
 		services.CopyHealth(report, b.txAttemptBuilder.HealthReport())
 	})
 
@@ -313,29 +320,24 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 	// eb, ec and stopped
 	execReset := func(r *reset) {
 		// These should always close successfully, since it should be logically
-		// impossible to enter this code path with ec/eb in a state other than
+		// impossible to enter this code path with Broadcaster in a state other than
 		// "Started"
 		if err := b.broadcaster.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
-		}
-		if err := b.confirmer.closeInternal(); err != nil {
-			b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 		}
 		if r != nil {
 			r.f()
 			close(r.done)
 		}
 		var wg sync.WaitGroup
-		// two goroutines to handle independent backoff retries starting:
-		// - Broadcaster
-		// - Confirmer
+		// one goroutine to handle backoff retries for Broadcaster
 		// If chStop is closed, we mark stopped=true so that the main runloop
 		// can check and exit early if necessary
 		//
 		// execReset will not return until either:
-		// 1. Both Broadcaster and Confirmer started successfully
+		// 1. Broadcaster  started successfully
 		// 2. chStop was closed (txmgr exit)
-		wg.Add(2)
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			ctx, cancel := b.chStop.NewCtx()
@@ -352,25 +354,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 					}
 					return
 				case <-ctx.Done():
-					stopOnce.Do(func() { stopped = true })
-					return
-				}
-			}
-		}()
-		go func() {
-			defer wg.Done()
-			// Retry indefinitely on failure
-			backoff := iutils.NewRedialBackoff()
-			for {
-				select {
-				case <-time.After(backoff.Duration()):
-					if err := b.confirmer.startInternal(); err != nil {
-						b.logger.Criticalw("Failed to start Confirmer", "err", err)
-						b.SvcErrBuffer.Append(err)
-						continue
-					}
-					return
-				case <-b.chStop:
 					stopOnce.Do(func() { stopped = true })
 					return
 				}
@@ -402,22 +385,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		case <-b.chStop:
 			// close and exit
 			//
-			// Note that in some cases Broadcaster and/or Confirmer may
-			// be in an Unstarted state here, if execReset exited early.
-			//
+			// Note that in some cases Broadcaster may be in an Unstarted state here,
+			// if execReset exited early.
 			// In this case, we don't care about stopping them since they are
 			// already "stopped".
 			err := b.broadcaster.Close()
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
-			}
-			err = b.confirmer.Close()
-			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
-				b.logger.Errorw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
-			}
-			err = b.resender.Close()
-			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
-				b.logger.Errorw(fmt.Sprintf("Failed to Close Resender: %v", err), "err", err)
 			}
 			err = b.tracker.Close()
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {

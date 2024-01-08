@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -60,28 +59,22 @@ type Resender[
 	FEE feetypes.Fee,
 ] struct {
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	services.StateMachine
 	txStore             txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	client              txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
-	enabledAddresses    []ADDR
 	chainID             CHAIN_ID
 	interval            time.Duration
 	config              txmgrtypes.ResenderChainConfig
 	feeConfig           txmgrtypes.ResenderFeeConfig
 	txConfig            txmgrtypes.ResenderTransactionsConfig
-	dbConfig            txmgrtypes.ConfirmerDatabaseConfig
+	dbConfig            txmgrtypes.ResenderDatabaseConfig
 	logger              logger.SugaredLogger
 	lastAlertTimestamps map[string]time.Time
 
 	mb        *mailbox.Mailbox[int64]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
-	chDone    chan struct{}
 	wg        sync.WaitGroup
-
-	initSync  sync.Mutex
-	isStarted bool
 }
 
 func NewResender[
@@ -102,7 +95,7 @@ func NewResender[
 	config txmgrtypes.ResenderChainConfig,
 	feeConfig txmgrtypes.ResenderFeeConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
-	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
+	dbConfig txmgrtypes.ResenderDatabaseConfig,
 ) *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	if txConfig.ResendAfterThreshold() == 0 {
 		panic("Resender requires a non-zero threshold")
@@ -124,54 +117,23 @@ func NewResender[
 	}
 }
 
-func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start(_ context.Context) error {
-	return er.StartOnce("Resender", func() error {
-		return er.startInternal()
-	})
-}
-
-func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) startInternal() error {
-	er.initSync.Lock()
-	defer er.initSync.Unlock()
-	if er.isStarted {
-		return errors.New("Resender is already started")
-	}
-	var err error
-	er.enabledAddresses, err = er.ks.EnabledAddressesForChain(er.chainID)
-	if err != nil {
-		return fmt.Errorf("Resender: failed to load EnabledAddressesForChain: %w", err)
-	}
-
+func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start() {
+	er.logger.Debug("Starting Resender")
 	er.ctx, er.ctxCancel = context.WithCancel(context.Background())
 	er.wg = sync.WaitGroup{}
 	er.wg.Add(1)
 	go er.runLoop()
-	er.isStarted = true
-	return nil
 }
 
-func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Close() error {
-	return er.StopOnce("Resender", func() error {
-		return er.closeInternal()
-	})
-}
-
-func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) closeInternal() error {
-	er.initSync.Lock()
-	defer er.initSync.Unlock()
-	if !er.isStarted {
-		return fmt.Errorf("Resender is not started: %w", services.ErrAlreadyStopped)
-	}
+func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Stop() {
 	er.ctxCancel()
 	er.wg.Wait()
-	er.isStarted = false
-	return nil
 }
 
 func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop() {
-	defer close(er.chDone)
+	defer er.wg.Done()
 
-	if err := er.resendUnconfirmed(); err != nil {
+	if err := er.resendUnconfirmed(er.ctx); err != nil {
 		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
@@ -179,10 +141,8 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop
 	defer ticker.Stop()
 	for {
 		select {
-		case <-er.ctx.Done():
-			return
 		case <-ticker.C:
-			if err := er.resendUnconfirmed(); err != nil {
+			if err := er.resendUnconfirmed(er.ctx); err != nil {
 				er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
 		case <-er.mb.Notify():
@@ -199,11 +159,13 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop
 					continue
 				}
 			}
+		case <-er.ctx.Done():
+			return
 		}
 	}
 }
 
-func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfirmed() error {
+func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfirmed(ctx context.Context) error {
 	resendAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
 	if err != nil {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
@@ -216,7 +178,7 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendU
 
 	for _, k := range resendAddresses {
 		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-		attempts, err = er.txStore.FindTxAttemptsRequiringResend(er.ctx, olderThan, maxInFlightTransactions, er.chainID, k)
+		attempts, err = er.txStore.FindTxAttemptsRequiringResend(ctx, olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return fmt.Errorf("failed to FindTxAttemptsRequiringResend: %w", err)
 		}
@@ -234,13 +196,13 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendU
 	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(allAttempts), ageThreshold, label.NodeConnectivityProblemWarning), "n", len(allAttempts))
 
 	batchSize := int(er.config.RPCDefaultBatchSize())
-	ctx, cancel := context.WithTimeout(er.ctx, batchSendTransactionTimeout)
+	batchCtx, cancel := context.WithTimeout(ctx, batchSendTransactionTimeout)
 	defer cancel()
-	txErrTypes, _, broadcastTime, txIDs, err := er.client.BatchSendTransactions(ctx, allAttempts, batchSize, er.logger)
+	txErrTypes, _, broadcastTime, txIDs, err := er.client.BatchSendTransactions(batchCtx, allAttempts, batchSize, er.logger)
 
 	// update broadcast times before checking additional errors
 	if len(txIDs) > 0 {
-		if updateErr := er.txStore.UpdateBroadcastAts(er.ctx, broadcastTime, txIDs); updateErr != nil {
+		if updateErr := er.txStore.UpdateBroadcastAts(batchCtx, broadcastTime, txIDs); updateErr != nil {
 			err = errors.Join(err, fmt.Errorf("failed to update broadcast time: %w", updateErr))
 		}
 	}
@@ -304,12 +266,17 @@ func findOldestUnconfirmedAttempt[
 func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {
 	var wg sync.WaitGroup
 
+	enabledAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
+	if err != nil {
+		return fmt.Errorf("Resender: failed to load EnabledAddressesForChain: %w", err)
+	}
+
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
-	wg.Add(len(er.enabledAddresses))
+	wg.Add(len(enabledAddresses))
 	errors := []error{}
 	var errMu sync.Mutex
-	for _, address := range er.enabledAddresses {
+	for _, address := range enabledAddresses {
 		go func(fromAddress ADDR) {
 			if err := er.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
@@ -571,7 +538,6 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleI
 			"signedRawTx", commonhex.EnsurePrefix(hex.EncodeToString(attempt.SignedRawTx)),
 			"blockHeight", blockHeight,
 		)
-		er.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return er.txStore.DeleteInProgressAttempt(ctx, attempt)
 	case client.TransactionAlreadyKnown:
@@ -656,7 +622,7 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) sendEmp
 	}
 	txhash, err := er.client.SendEmptyTransaction(ctx, er.TxAttemptBuilder.NewEmptyTxAttempt, seq, gasLimit, fee, fromAddress)
 	if err != nil {
-		return "", fmt.Errorf("(Confirmer).sendEmptyTransaction failed: %w", err)
+		return "", fmt.Errorf("(Resender).sendEmptyTransaction failed: %w", err)
 	}
 	return txhash, nil
 }

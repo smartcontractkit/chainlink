@@ -2,7 +2,6 @@ package txmgr
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -12,7 +11,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -76,7 +74,6 @@ type Confirmer[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
-	services.StateMachine
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	lggr           logger.SugaredLogger
 	client         txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -85,15 +82,12 @@ type Confirmer[
 	txConfig       txmgrtypes.ConfirmerTransactionsConfig
 	chainID        CHAIN_ID
 
-	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
-	enabledAddresses []ADDR
+	ks txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 
 	mb        *mailbox.Mailbox[types.Head[BLOCK_HASH]]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	wg        sync.WaitGroup
-	initSync  sync.Mutex
-	isStarted bool
 
 	isReceiptNil func(R) bool
 }
@@ -130,51 +124,17 @@ func NewConfirmer[
 	}
 }
 
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) error {
-	return ec.StartOnce("Confirmer", func() error {
-		return ec.startInternal()
-	})
-}
-
-// TODO:
-// 1) Remove syncing logic. StartOnce should be sufficient and calles should only call Start and Close.
-// 2) Retrieve enabled addresses on each iteration instead of initializing them once.
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal() error {
-	ec.initSync.Lock()
-	defer ec.initSync.Unlock()
-	if ec.isStarted {
-		return errors.New("Confirmer is already started")
-	}
-	var err error
-	ec.enabledAddresses, err = ec.ks.EnabledAddressesForChain(ec.chainID)
-	if err != nil {
-		return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
-	}
-
+func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start() {
+	ec.lggr.Debug("Starting Confirmer")
 	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
 	ec.wg = sync.WaitGroup{}
 	ec.wg.Add(1)
 	go ec.runLoop()
-	ec.isStarted = true
-	return nil
 }
 
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() error {
-	return ec.StopOnce("Confirmer", func() error {
-		return ec.closeInternal()
-	})
-}
-
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeInternal() error {
-	ec.initSync.Lock()
-	defer ec.initSync.Unlock()
-	if !ec.isStarted {
-		return fmt.Errorf("Confirmer is not started: %w", services.ErrAlreadyStopped)
-	}
+func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Stop() {
 	ec.ctxCancel()
 	ec.wg.Wait()
-	ec.isStarted = false
-	return nil
 }
 
 func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetResumeCallback(callback ResumeCallback) {
@@ -185,12 +145,9 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Name() st
 	return ec.lggr.Name()
 }
 
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthReport() map[string]error {
-	return map[string]error{ec.Name(): ec.Healthy()}
-}
-
 func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer ec.wg.Done()
+
 	for {
 		select {
 		case <-ec.mb.Notify():
@@ -229,7 +186,13 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) processHe
 		return fmt.Errorf("SetBroadcastBeforeBlockNum failed: %w", err)
 	}
 
-	for _, from := range ec.enabledAddresses {
+	// TODO: Add addresses that are not enabled but we still have unconfirmed transactions for
+	enabledAddresses, err := ec.ks.EnabledAddressesForChain(ec.chainID)
+	if err != nil {
+		return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
+	}
+
+	for _, from := range enabledAddresses {
 		mark := time.Now()
 		minedSequence, err := ec.getMinedSequenceForAddress(ctx, from)
 		if err != nil {
@@ -268,13 +231,22 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ConfirmUn
 	if len(attempts) == 0 {
 		return nil
 	}
+	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
 
-	start := time.Now()
 	// TODO: Add nonce gap check by marking unconfirmed transactions before minedSequence as confirmed_missing_receipt
-	err = ec.fetchAndSaveReceipts(ctx, attempts, blockNum)
+	start := time.Now()
+	allReceipts, err := ec.batchFetchReceipts(ctx, attempts, blockNum)
 	if err != nil {
-		return fmt.Errorf("unable to fetch and save receipts for likely confirmed txs, for address: %v: %w", from, err)
+		return fmt.Errorf("batchFetchReceipts failed: %w", err)
 	}
+
+	if err := ec.txStore.SaveFetchedReceipts(ctx, allReceipts, ec.chainID); err != nil {
+		return fmt.Errorf("saveFetchedReceipts failed: %w", err)
+	}
+	promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(allReceipts)))
+
+	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
+
 	ec.lggr.Debugw(fmt.Sprintf("Fetching and saving %v likely confirmed receipts done", len(attempts)),
 		"time", time.Since(start))
 	return nil
@@ -290,34 +262,6 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureCon
 	}
 
 	start := time.Now()
-	err = ec.fetchReceiptsAndMarkUnconfirmed(ctx, txs, head)
-	if err != nil {
-		return fmt.Errorf("unable to fetch receipts for confirmed txs, for address: %v: %w", from, err)
-	}
-	ec.lggr.Debugw(fmt.Sprintf("Fetching receipts for %v confirmed txs done", len(txs)),
-		"time", time.Since(start))
-
-	return nil
-}
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchAndSaveReceipts(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockNum int64) error {
-	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
-
-	allReceipts, err := ec.batchFetchReceipts(ctx, attempts, blockNum)
-	if err != nil {
-		return fmt.Errorf("batchFetchReceipts failed: %w", err)
-	}
-
-	if err := ec.txStore.SaveFetchedReceipts(ctx, allReceipts, ec.chainID); err != nil {
-		return fmt.Errorf("saveFetchedReceipts failed: %w", err)
-	}
-	promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(allReceipts)))
-
-	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
-
-	return nil
-}
-
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchReceiptsAndMarkUnconfirmed(ctx context.Context, txs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
 	var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	for _, tx := range txs {
 		attempts = append(attempts, tx.TxAttempts...)
@@ -336,6 +280,9 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchRece
 			ec.markForRebroadcast(*tx, head)
 		}
 	}
+
+	ec.lggr.Debugw(fmt.Sprintf("Fetching receipts for %v confirmed txs done", len(txs)),
+		"time", time.Since(start))
 
 	return nil
 }

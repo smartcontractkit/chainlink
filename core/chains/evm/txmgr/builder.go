@@ -93,7 +93,7 @@ func NewEvmResender(
 	config EvmResenderConfig,
 	feeConfig txmgrtypes.ResenderFeeConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
-	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
+	dbConfig txmgrtypes.ResenderDatabaseConfig,
 ) *Resender {
 	return txmgr.NewResender(lggr, txStore, client, txAttemptBuilder, ks, pollInterval, config, feeConfig, txConfig, dbConfig)
 }

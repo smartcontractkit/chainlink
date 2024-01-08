@@ -719,7 +719,7 @@ func (o *evmTxStore) FindTxAttemptsRequiringResend(ctx context.Context, olderTha
 	err = qq.Select(&dbAttempts, `
 SELECT DISTINCT ON (evm.txes.nonce) evm.tx_attempts.*
 FROM evm.tx_attempts
-JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
+JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.txes.state = 'unconfirmed'
 WHERE evm.tx_attempts.state <> 'in_progress' AND evm.txes.broadcast_at <= $1 AND evm_chain_id = $2 AND from_address = $3
 ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas_tip_cap DESC
 LIMIT $4

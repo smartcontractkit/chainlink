@@ -45,11 +45,6 @@ type ConfirmerChainConfig interface {
 	FinalityDepth() uint32
 }
 
-type ConfirmerDatabaseConfig interface {
-	// from pg.QConfig
-	DefaultQueryTimeout() time.Duration
-}
-
 type ConfirmerTransactionsConfig interface {
 	MaxInFlight() uint32
 	ForwardersEnabled() bool
@@ -57,6 +52,11 @@ type ConfirmerTransactionsConfig interface {
 
 type ResenderChainConfig interface {
 	RPCDefaultBatchSize() uint32
+}
+
+type ResenderDatabaseConfig interface {
+	// from pg.QConfig
+	DefaultQueryTimeout() time.Duration
 }
 
 type ResenderFeeConfig interface {

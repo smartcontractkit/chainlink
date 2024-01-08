@@ -1,24 +1,31 @@
 package txmgr_test
 
 import (
-	"context"
+	"errors"
 	"math/big"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -26,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -35,6 +43,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logCfg := pgtest.NewQConfig(true)
 	lggr := logger.Test(t)
+	ctx := testutils.Context(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
@@ -101,7 +110,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 		return true
 	})).Run(func(args mock.Arguments) {}).Return(nil)
 
-	err := er.XXXTestResendUnconfirmed()
+	err := er.XXXTestResendUnconfirmed(ctx)
 	require.NoError(t, err)
 }
 
@@ -111,6 +120,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logCfg := pgtest.NewQConfig(true)
 	lggr, o := logger.TestObserved(t, zapcore.DebugLevel)
+	ctx := testutils.Context(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
@@ -142,10 +152,10 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 		ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil)
 
 		// Try to resend the same unconfirmed attempt twice within the unconfirmedTxAlertDelay to only receive one alert
-		err1 := er.XXXTestResendUnconfirmed()
+		err1 := er.XXXTestResendUnconfirmed(ctx)
 		require.NoError(t, err1)
 
-		err2 := er.XXXTestResendUnconfirmed()
+		err2 := er.XXXTestResendUnconfirmed(ctx)
 		require.NoError(t, err2)
 		testutils.WaitForLogMessageCount(t, o, "TxAttempt has been unconfirmed for more than max duration", 1)
 	})
@@ -198,8 +208,8 @@ func Test_EthResender_Start(t *testing.T) {
 		})
 
 		func() {
-			er.Start(context.Background())
-			defer er.Close()
+			er.Start()
+			defer er.Stop()
 
 			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)
 		}()
@@ -214,4 +224,119 @@ func Test_EthResender_Start(t *testing.T) {
 		assert.Greater(t, dbEtx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 		assert.Greater(t, dbEtx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	})
+}
+
+func TestEthResender_ForceRebroadcast(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	config := newTestChainScopedConfig(t)
+	mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, config.EVM().ChainID())
+	mustInsertInProgressEthTx(t, txStore, 0, fromAddress)
+	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
+	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
+
+	gasPriceWei := gas.EvmFee{Legacy: assets.GWei(52)}
+	overrideGasLimit := uint32(20000)
+
+	t.Run("rebroadcasts one eth_tx if it falls within in nonce range", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ec := newEthResender(t, txStore, ethClient, config, ethKeyStore)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx1.Sequence) &&
+				tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() &&
+				tx.Gas() == uint64(overrideGasLimit) &&
+				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
+				tx.To().String() == etx1.ToAddress.String()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
+
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{1}, gasPriceWei, fromAddress, overrideGasLimit))
+	})
+
+	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ec := newEthResender(t, txStore, ethClient, config, ethKeyStore)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx1.Sequence) &&
+				tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() &&
+				tx.Gas() == uint64(etx1.FeeLimit) &&
+				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
+				tx.To().String() == etx1.ToAddress.String()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
+
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1)}, gasPriceWei, fromAddress, 0))
+	})
+
+	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ec := newEthResender(t, txStore, ethClient, config, ethKeyStore)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx1.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx2.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
+
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
+	})
+
+	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ec := newEthResender(t, txStore, ethClient, config, ethKeyStore)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(1)
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(2)
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
+		for i := 3; i <= 5; i++ {
+			nonce := i
+			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+				return tx.Nonce() == uint64(nonce) &&
+					tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() &&
+					tx.Gas() == uint64(overrideGasLimit) &&
+					*tx.To() == fromAddress &&
+					tx.Value().Cmp(big.NewInt(0)) == 0 &&
+					len(tx.Data()) == 0
+			}), mock.Anything).Return(commonclient.Successful, nil).Once()
+		}
+		nonces := []evmtypes.Nonce{(1), (2), (3), (4), (5)}
+
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), nonces, gasPriceWei, fromAddress, overrideGasLimit))
+	})
+
+	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ec := newEthResender(t, txStore, ethClient, config, ethKeyStore)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EVM().GasEstimator().LimitDefault()
+		}), mock.Anything).Return(commonclient.Successful, nil).Once()
+
+		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))
+	})
+}
+
+func newEthResender(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth) *txmgr.Resender {
+	lggr := logger.Test(t)
+	ge := config.EVM().GasEstimator()
+	estimator := gas.NewWrappedEvmEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
+		return gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr)
+	}, ge.EIP1559DynamicFees(), nil)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txBuilder, ks, txmgrcommon.DefaultResenderPollInterval,
+		txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database())
+
+	er.Start()
+	return er
 }
