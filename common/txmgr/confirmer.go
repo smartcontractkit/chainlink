@@ -29,6 +29,14 @@ var (
 		Name: "tx_manager_num_confirmed_transactions",
 		Help: "Total number of confirmed transactions. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
 	}, []string{"chainID"})
+	promNumSuccessfulTxs = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_num_successful_transactions",
+		Help: "Total number of successful transactions. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
+	}, []string{"chainID"})
+	promRevertedTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_num_tx_reverted",
+		Help: "Number of times a transaction reverted on-chain. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
+	}, []string{"chainID"})
 	promFwdTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_fwd_tx_count",
 		Help: "The number of forwarded transaction attempts labeled by status",
@@ -158,6 +166,10 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Name() st
 	return ec.lggr.Name()
 }
 
+func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthReport() map[string]error {
+	return map[string]error{ec.Name(): ec.Healthy()}
+}
+
 func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer ec.wg.Done()
 	keysChanged, unsub := ec.ks.SubscribeToKeyChanges()
@@ -192,27 +204,24 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop()
 	}
 }
 
-// ProcessHead takes all required transactions for the confirmer on a new head
+// ProcessHead takes all required transactions for the confirmer on a new head.
+// Handles all addresses, so there is no point of running it concurrently.
 func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessHead(ctx context.Context, head types.Head[BLOCK_HASH]) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
-	return ec.processHead(ctx, head)
-}
 
-// NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) processHead(ctx context.Context, head types.Head[BLOCK_HASH]) error {
-
-	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "confirmer")
+	ec.lggr.Debugw("ProcessHead start", "headNum", head.BlockNumber())
 
 	if err := ec.txStore.SetBroadcastBeforeBlockNum(ctx, head.BlockNumber(), ec.chainID); err != nil {
 		return fmt.Errorf("SetBroadcastBeforeBlockNum failed: %w", err)
 	}
 
 	// TODO: Add addresses that are not enabled but we still have unconfirmed transactions for
-
 	for _, from := range ec.enabledAddresses {
+		total := time.Now()
 		mark := time.Now()
-		minedSequence, err := ec.getMinedSequenceForAddress(ctx, from)
+
+		minedSequence, err := ec.client.SequenceAt(ctx, from, nil)
 		if err != nil {
 			return fmt.Errorf("unable to fetch pending sequence for address: %v: %w", from, err)
 		}
@@ -221,10 +230,19 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) processHe
 			return fmt.Errorf("ConfirmUnconfirmedTransactions failed: %w", err)
 		}
 
-		if err := ec.EnsureConfirmedTransactionsOnChain(ctx, head, from, minedSequence); err != nil {
+		ec.lggr.Debugw("Finished ConfirmUnconfirmedTransactions", "headNum", head.BlockNumber(), "time", time.Since(mark))
+		mark = time.Now()
+
+		if err := ec.HandleReorgedTransactions(ctx, head, from, minedSequence); err != nil {
 			return fmt.Errorf("EnsureConfirmedTransactionsOnChain failed: %w", err)
 		}
-		ec.lggr.Debugw("Finished transaction tracking.", "fromAddress", from, "headNum", head.BlockNumber(), "time", time.Since(mark))
+
+		//if err := ec.EnsureConfirmedTransactionReceiptsInLongestChain(ctx, head); err != nil {
+		//	return fmt.Errorf("EnsureConfirmedTransactionReceiptsInLongestChain failed: %w", err)
+		//}
+		ec.lggr.Debugw("Finished Re-org detection", "headNum", head.BlockNumber(), "time", time.Since(mark))
+
+		ec.lggr.Debugw("Finished transaction tracking.", "fromAddress", from, "headNum", head.BlockNumber(), "time", time.Since(total))
 	}
 
 	if ec.resumeCallback != nil {
@@ -251,7 +269,6 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ConfirmUn
 	}
 	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
 
-	// TODO: Add nonce gap check by marking unconfirmed transactions before minedSequence as confirmed_missing_receipt
 	start := time.Now()
 	allReceipts, err := ec.batchFetchReceipts(ctx, attempts, blockNum)
 	if err != nil {
@@ -265,13 +282,19 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ConfirmUn
 
 	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
 
+	// Any unconfirmed tx before the latest mined sequence that doesn't have a receipt is
+	// marked as confirmed missing receipt. This is to avoid nonce gaps.
+	if err := ec.txStore.MarkAllConfirmedMissingReceipt(ctx, ec.chainID); err != nil {
+		return fmt.Errorf("unable to mark txes as 'confirmed_missing_receipt': %w", err)
+	}
+
 	ec.lggr.Debugw(fmt.Sprintf("Fetching and saving %v likely confirmed receipts done", len(attempts)),
 		"time", time.Since(start))
 	return nil
 }
 
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsOnChain(ctx context.Context, head types.Head[BLOCK_HASH], from ADDR, minedSequence SEQ) error {
-	txs, err := ec.txStore.FindConfirmedTxsRequiringReceipt(ctx, ec.chainID, minedSequence)
+func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleReorgedTransactions(ctx context.Context, head types.Head[BLOCK_HASH], from ADDR, minedSequence SEQ) error {
+	txs, err := ec.txStore.FindConfirmedTxsWithSequenceHigherThanMined(ctx, ec.chainID, minedSequence)
 	if err != nil {
 		return fmt.Errorf("FindUnconfirmedTxAttemptsRequiringReceipt failed: %w", err)
 	}
@@ -279,46 +302,13 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureCon
 		return nil
 	}
 
-	start := time.Now()
-	var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	for _, tx := range txs {
-		attempts = append(attempts, tx.TxAttempts...)
+		ec.markForRebroadcast(*tx, head)
 	}
 
-	allReceipts, err := ec.batchFetchReceipts(ctx, attempts, head.BlockNumber())
-	if err != nil {
-		return fmt.Errorf("batchFetchReceipts failed: %w", err)
-	}
-
-	// TODO: Sanity checks
-	// 1) Check if we got a different receipt for an attempt from the one already stored.
-	// 2) Check if we got a receipt that doesn't match with any of the transactions.
-	for _, tx := range txs {
-		if !ec.gotReceipt(ctx, tx, allReceipts) {
-			ec.markForRebroadcast(*tx, head)
-		}
-	}
-
-	ec.lggr.Debugw(fmt.Sprintf("Fetching receipts for %v confirmed txs done", len(txs)),
-		"time", time.Since(start))
+	ec.lggr.Debugw(fmt.Sprintf("Marked %v confirmed and confirmed_missing_receipt txs as unconfirmed.", len(txs)))
 
 	return nil
-}
-
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) gotReceipt(ctx context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], receipts []R) bool {
-	for _, attempt := range tx.TxAttempts {
-		for _, r := range receipts {
-			if r.GetTxHash() == attempt.Hash {
-				return true
-			}
-		}
-	}
-	ec.lggr.Debugf("Potential reorg: couldn't find receipt for confirmed tx: %v", tx)
-	return false
-}
-
-func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getMinedSequenceForAddress(ctx context.Context, from ADDR) (SEQ, error) {
-	return ec.client.SequenceAt(ctx, from, nil)
 }
 
 func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) batchFetchReceipts(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockNum int64) (allReceipts []R, err error) {
@@ -404,6 +394,10 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) batchFetc
 				} else {
 					l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.GetTxHash(), "err", err)
 				}
+				// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
+				promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
+			} else {
+				promNumSuccessfulTxs.WithLabelValues(ec.chainID.String()).Add(1)
 			}
 
 			// This is only recording forwarded tx that were mined and have a status.
@@ -545,3 +539,48 @@ func observeUntilTxConfirmed[
 		}
 	}
 }
+
+// There is a chance some transactions get reorged but they get included in a different block, leading to a confirmed transaction with a different receipt.
+// The TXM cab still detect the nonce difference and keep functioning, but we will have a mismatch on the receipt for a given transaction.
+// To fully protect against this we would had to fetch every receipt for every confirmed transaction after the finality depth.
+// To mitigate this, we do a best effort search in the recent longest chain to try and detect such cases. If a receipt is not found, the tx is marked as
+// unconfirmed and enters the next confirmer cycle.
+//func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionReceiptsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH]) error {
+//	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(ctx, head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
+//	if err != nil {
+//		return fmt.Errorf("findTransactionsConfirmedInBlockRange failed: %w", err)
+//	}
+//
+//	for _, etx := range etxs {
+//		if !hasReceiptInLongestChain(*etx, head) {
+//			if err := ec.markForRebroadcast(*etx, head); err != nil {
+//				return fmt.Errorf("markForRebroadcast failed for etx %v: %w", etx.ID, err)
+//			}
+//		}
+//	}
+//
+//	return nil
+//}
+//
+//func hasReceiptInLongestChain[
+//	CHAIN_ID types.ID,
+//	ADDR types.Hashable,
+//	TX_HASH, BLOCK_HASH types.Hashable,
+//	SEQ types.Sequence,
+//	FEE feetypes.Fee,
+//](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) bool {
+//	for {
+//		for _, attempt := range etx.TxAttempts {
+//			for _, receipt := range attempt.Receipts {
+//				if receipt.GetBlockHash().String() == head.BlockHash().String() && receipt.GetBlockNumber().Int64() == head.BlockNumber() {
+//					return true
+//				}
+//			}
+//		}
+//		if head.GetParent() == nil {
+//			return false
+//		}
+//		head = head.GetParent()
+//	}
+//}
+//

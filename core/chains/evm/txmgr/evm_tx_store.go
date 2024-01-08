@@ -819,7 +819,7 @@ WHERE evm.tx_attempts.state = 'broadcast'
 	return
 }
 
-func (o *evmTxStore) FindConfirmedTxsRequiringReceipt(ctx context.Context, chainID *big.Int, minedNonce evmtypes.Nonce) (etxs []*Tx, err error) {
+func (o *evmTxStore) FindConfirmedTxsWithSequenceHigherThanMined(ctx context.Context, chainID *big.Int, minedNonce evmtypes.Nonce) (etxs []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -830,7 +830,7 @@ func (o *evmTxStore) FindConfirmedTxsRequiringReceipt(ctx context.Context, chain
 SELECT DISTINCT evm.txes.* FROM evm.txes
 INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.tx_attempts.state = 'broadcast'
 INNER JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
-WHERE evm.txes.state = 'confirmed' AND evm.txes.nonce > $1 AND evm_chain_id = $2
+WHERE evm.txes.state IN ('confirmed', 'confirmed_missing_receipt') AND evm.txes.nonce > $1 AND evm_chain_id = $2
 ORDER BY nonce ASC
 `, minedNonce, chainID.String())
 		if err != nil {
@@ -930,6 +930,46 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 
 	err = qq.ExecQ(stmt, valueArgs...)
 	return pkgerrors.Wrap(err, "SaveFetchedReceipts failed to save receipts")
+}
+
+// MarkAllConfirmedMissingReceipt
+// It is possible that we can fail to get a receipt for all evm.tx_attempts
+// even though a transaction with this nonce has long since been confirmed (we
+// know this because transactions with higher nonces HAVE returned a receipt).
+//
+// This can probably only happen if an external wallet used the account (or
+// conceivably because of some bug in the remote eth node that prevents it
+// from returning a receipt for a valid transaction).
+func (o *evmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) (err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	res, err := qq.Exec(`
+UPDATE evm.txes
+SET state = 'confirmed_missing_receipt'
+FROM (
+	SELECT from_address, MAX(nonce) as max_nonce 
+	FROM evm.txes
+	WHERE state = 'confirmed' AND evm_chain_id = $1
+	GROUP BY from_address
+) AS max_table
+WHERE state = 'unconfirmed'
+	AND evm_chain_id = $1
+	AND nonce < max_table.max_nonce
+	AND evm.txes.from_address = max_table.from_address
+	`, chainID.String())
+	if err != nil {
+		return pkgerrors.Wrap(err, "markAllConfirmedMissingReceipt failed")
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return pkgerrors.Wrap(err, "markAllConfirmedMissingReceipt RowsAffected failed")
+	}
+	if rowsAffected > 0 {
+		o.logger.Infow(fmt.Sprintf("%d transactions missing receipt", rowsAffected), "n", rowsAffected)
+	}
+	return
 }
 
 func (o *evmTxStore) GetInProgressTxAttempts(ctx context.Context, address common.Address, chainID *big.Int) (attempts []TxAttempt, err error) {

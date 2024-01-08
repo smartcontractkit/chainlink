@@ -285,6 +285,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 	// only query if txm started properly
 	b.IfStarted(func() {
 		services.CopyHealth(report, b.broadcaster.HealthReport())
+		services.CopyHealth(report, b.confirmer.HealthReport())
 		services.CopyHealth(report, b.txAttemptBuilder.HealthReport())
 	})
 
