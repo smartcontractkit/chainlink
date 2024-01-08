@@ -273,11 +273,13 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
 				// we can't do much if this fails, so we just log the error in logstream
-				_ = b.te.LogStream.FlushAndShutdown()
+				err = b.te.LogStream.FlushAndShutdown()
+				if err != nil {
+					b.l.Error().Err(err).Msg("Error flushing and shutting down LogStream")
+				}
 				b.te.LogStream.PrintLogTargetsLocations()
 				b.te.LogStream.SaveLogLocationInTestSummary()
 			}
-
 		})
 	}
 

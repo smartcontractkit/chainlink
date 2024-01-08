@@ -132,6 +132,7 @@ func TestOCRv2Request(t *testing.T) {
 			node.WithOCR2(),
 			node.WithP2Pv2(),
 			node.WithTracing(),
+			node.WithHumanLogs(),
 		)).
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).

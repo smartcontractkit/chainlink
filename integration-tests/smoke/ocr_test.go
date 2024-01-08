@@ -25,6 +25,7 @@ func TestOCRBasic(t *testing.T) {
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(), node.WithHumanLogs())).
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
