@@ -187,7 +187,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		return errors.Wrap(err, "unexpected error during functions_allow_list.NewTermsOfServiceAllowList")
 	}
 
-	idEnd, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
+	count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
 		Pending:     false,
 		BlockNumber: blockNum,
 		Context:     ctx,
@@ -196,9 +196,13 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		return errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
 	}
 
-	idStart := uint64(0)
 	allowedSenderList := make([]common.Address, 0)
-	for {
+	for idStart := uint64(0); idStart < count; idStart += uint64(a.config.CacheBatchSize) {
+		idEnd := idStart + uint64(a.config.CacheBatchSize)
+		if idEnd > count {
+			idEnd = count
+		}
+
 		allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
 			Pending:     false,
 			BlockNumber: blockNum,
@@ -210,11 +214,9 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 
 		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
 
-		if len(allowedSendersBatch) < int(a.config.CacheBatchSize) {
+		if idEnd == count {
 			break
 		}
-
-		idStart += uint64(a.config.CacheBatchSize)
 	}
 
 	a.update(allowedSenderList)

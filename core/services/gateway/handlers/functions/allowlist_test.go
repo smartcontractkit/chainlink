@@ -50,8 +50,8 @@ func TestAllowlist_UpdateAndCheck(t *testing.T) {
 	}
 
 	orm := fmocks.NewORM(t)
-	orm.On("UpsertAllowedSender", int64(0), common.HexToAddress(addr1)).Return(nil)
-	orm.On("UpsertAllowedSender", int64(1), common.HexToAddress(addr2)).Return(nil)
+	orm.On("UpsertAllowedSender", uint64(0), common.HexToAddress(addr1)).Return(nil)
+	orm.On("UpsertAllowedSender", uint64(1), common.HexToAddress(addr2)).Return(nil)
 
 	allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -103,8 +103,8 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 
 	orm := fmocks.NewORM(t)
 	orm.On("GetAllowedSenders", uint(0), uint(100)).Return([]common.Address{}, nil)
-	orm.On("UpsertAllowedSender", int64(0), common.HexToAddress(addr1)).Return(nil)
-	orm.On("UpsertAllowedSender", int64(1), common.HexToAddress(addr2)).Return(nil)
+	orm.On("UpsertAllowedSender", uint64(0), common.HexToAddress(addr1)).Return(nil)
+	orm.On("UpsertAllowedSender", uint64(1), common.HexToAddress(addr2)).Return(nil)
 
 	allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -118,4 +118,68 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		return allowlist.Allow(common.HexToAddress(addr1)) && !allowlist.Allow(common.HexToAddress(addr3))
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+}
+func TestAllowlist_UpdateFromContract(t *testing.T) {
+	t.Parallel()
+
+	t.Run("OK-iterate_over_list_of_allowed_senders", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testutils.Context(t))
+		client := mocks.NewClient(t)
+		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
+		client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			cancel()
+		}).Return(sampleEncodedAllowlist(t), nil)
+		config := functions.OnchainAllowlistConfig{
+			ContractAddress:    common.Address{},
+			ContractVersion:    1,
+			BlockConfirmations: 1,
+			UpdateFrequencySec: 1,
+			UpdateTimeoutSec:   1,
+			CacheBatchSize:     2,
+		}
+
+		orm := fmocks.NewORM(t)
+		orm.On("UpsertAllowedSender", uint64(0), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(1), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(2), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(3), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(4), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(5), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(6), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(7), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(8), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(9), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(10), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(11), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(12), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(13), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(14), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(15), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(16), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(17), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(18), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(19), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(20), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(21), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(22), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(23), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(24), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(25), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(26), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(27), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(28), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(29), common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(30), common.HexToAddress(addr1)).Once().Return(nil)
+		orm.On("UpsertAllowedSender", uint64(31), common.HexToAddress(addr2)).Once().Return(nil)
+
+		allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+		require.NoError(t, err)
+
+		err = allowlist.UpdateFromContract(ctx)
+		require.NoError(t, err)
+
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			return allowlist.Allow(common.HexToAddress(addr1)) && !allowlist.Allow(common.HexToAddress(addr3))
+		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	})
 }

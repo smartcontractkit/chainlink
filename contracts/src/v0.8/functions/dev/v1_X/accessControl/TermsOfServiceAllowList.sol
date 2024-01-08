@@ -108,7 +108,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   }
 
   /// @dev WARNING: getAllowedSendersInRange uses EnumerableSet .length() and .at() methods to iterate over the list
-  /// without the need for an extra mapping. These method can not guarantee the ordering when new elements are added. 
+  /// without the need for an extra mapping. These method can not guarantee the ordering when new elements are added.
   /// Evaluate if eventual consistency will satisfy your usecase before using it.
   function getAllowedSendersInRange(
     uint64 allowedSenderIdStart,
