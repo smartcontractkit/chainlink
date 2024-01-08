@@ -310,6 +310,7 @@ jobs:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
+      TEST_LOG_COLLECT: "true" #DEBUG: Remove after debugging
     strategy:
       fail-fast: false
       matrix:
@@ -328,13 +329,13 @@ jobs:
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
-            nodes: 1
-            os: ubuntu-latest
+            nodes: 6
+            os: ubuntu-latest-16cores-64GB
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
-            nodes: 1
-            os: ubuntu-latest
+            nodes: 6
+            os: ubuntu-latest-16cores-64GB
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           - name: runlog
