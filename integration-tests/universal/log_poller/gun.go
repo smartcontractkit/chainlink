@@ -7,8 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 /* LogEmitterGun is a gun that constantly emits logs from a contract  */
@@ -38,7 +39,7 @@ func NewLogEmitterGun(
 	}
 }
 
-func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.CallResult {
+func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.Response {
 	localCounter := 0
 	logEmitter := (*m.contract)
 	address := logEmitter.Address()
@@ -53,13 +54,13 @@ func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.CallResult {
 		case "Log3":
 			_, err = logEmitter.EmitLogStrings(getStringSlice(m.eventsPerTx))
 		default:
-			err = fmt.Errorf("Unknown event name: %s", event.Name)
+			err = fmt.Errorf("unknown event name: %s", event.Name)
 		}
 
 		if err != nil {
-			return &wasp.CallResult{Error: err.Error(), Failed: true}
+			return &wasp.Response{Error: err.Error(), Failed: true}
 		}
-		localCounter += 1
+		localCounter++
 	}
 
 	// I don't think that will work as expected, I should atomically read the value and save it, so maybe just a mutex?
@@ -68,11 +69,11 @@ func (m *LogEmitterGun) Call(l *wasp.Generator) *wasp.CallResult {
 		defer counter.mu.Unlock()
 		counter.value += localCounter
 	} else {
-		return &wasp.CallResult{
+		return &wasp.Response{
 			Error:  "SharedData did not contain a Counter",
 			Failed: true,
 		}
 	}
 
-	return &wasp.CallResult{}
+	return &wasp.Response{}
 }

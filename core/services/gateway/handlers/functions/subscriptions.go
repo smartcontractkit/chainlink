@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,12 +19,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+const defaultCacheBatchSize = 100
+
 type OnchainSubscriptionsConfig struct {
 	ContractAddress    common.Address `json:"contractAddress"`
 	BlockConfirmations uint           `json:"blockConfirmations"`
 	UpdateFrequencySec uint           `json:"updateFrequencySec"`
 	UpdateTimeoutSec   uint           `json:"updateTimeoutSec"`
 	UpdateRangeSize    uint           `json:"updateRangeSize"`
+	CacheBatchSize     uint           `json:"cacheBatchSize"`
 }
 
 // OnchainSubscriptions maintains a mirror of all subscriptions fetched from the blockchain (EVM-only).
@@ -43,16 +46,17 @@ type onchainSubscriptions struct {
 
 	config             OnchainSubscriptionsConfig
 	subscriptions      UserSubscriptions
+	orm                ORM
 	client             evmclient.Client
 	router             *functions_router.FunctionsRouter
 	blockConfirmations *big.Int
 	lggr               logger.Logger
 	closeWait          sync.WaitGroup
 	rwMutex            sync.RWMutex
-	stopCh             utils.StopChan
+	stopCh             services.StopChan
 }
 
-func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscriptionsConfig, lggr logger.Logger) (OnchainSubscriptions, error) {
+func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscriptionsConfig, orm ORM, lggr logger.Logger) (OnchainSubscriptions, error) {
 	if client == nil {
 		return nil, errors.New("client is nil")
 	}
@@ -63,14 +67,22 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
 	}
+
+	// if CacheBatchSize is not specified use the default value
+	if config.CacheBatchSize == 0 {
+		lggr.Info("CacheBatchSize not specified, using default size: ", defaultCacheBatchSize)
+		config.CacheBatchSize = defaultCacheBatchSize
+	}
+
 	return &onchainSubscriptions{
 		config:             config,
 		subscriptions:      NewUserSubscriptions(),
+		orm:                orm,
 		client:             client,
 		router:             router,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
 		lggr:               lggr.Named("OnchainSubscriptions"),
-		stopCh:             make(utils.StopChan),
+		stopCh:             make(services.StopChan),
 	}, nil
 }
 
@@ -86,6 +98,8 @@ func (s *onchainSubscriptions) Start(ctx context.Context) error {
 		if s.config.UpdateRangeSize == 0 {
 			return errors.New("OnchainSubscriptionsConfig.UpdateRangeSize must be greater than 0")
 		}
+
+		s.loadCachedSubscriptions()
 
 		s.closeWait.Add(1)
 		go s.queryLoop()
@@ -130,19 +144,16 @@ func (s *onchainSubscriptions) queryLoop() {
 
 		blockNumber := big.NewInt(0).Sub(latestBlockHeight, s.blockConfirmations)
 
-		updateLastKnownCount := func() {
+		if lastKnownCount == 0 || start > lastKnownCount {
 			count, err := s.getSubscriptionsCount(ctx, blockNumber)
 			if err != nil {
-				s.lggr.Errorw("Error getting subscriptions count", "err", err)
-				return
+				s.lggr.Errorw("Error getting new subscriptions count", "err", err)
+			} else {
+				s.lggr.Infow("Updated subscriptions count", "count", count, "blockNumber", blockNumber.Int64())
+				lastKnownCount = count
 			}
-			s.lggr.Infow("Updated subscriptions count", "err", err, "count", count, "blockNumber", blockNumber.Int64())
-			lastKnownCount = count
 		}
 
-		if lastKnownCount == 0 {
-			updateLastKnownCount()
-		}
 		if lastKnownCount == 0 {
 			s.lggr.Info("Router has no subscriptions yet")
 			return
@@ -152,12 +163,9 @@ func (s *onchainSubscriptions) queryLoop() {
 			start = 1
 		}
 
-		end := start + uint64(s.config.UpdateRangeSize)
+		end := start + uint64(s.config.UpdateRangeSize) - 1
 		if end > lastKnownCount {
-			updateLastKnownCount()
-			if end > lastKnownCount {
-				end = lastKnownCount
-			}
+			end = lastKnownCount
 		}
 		if err := s.querySubscriptionsRange(ctx, blockNumber, start, end); err != nil {
 			s.lggr.Errorw("Error querying subscriptions", "err", err, "start", start, "end", end)
@@ -180,6 +188,8 @@ func (s *onchainSubscriptions) queryLoop() {
 }
 
 func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, blockNumber *big.Int, start, end uint64) error {
+	s.lggr.Debugw("Querying subscriptions", "blockNumber", blockNumber, "start", start, "end", end)
+
 	subscriptions, err := s.router.GetSubscriptionsInRange(&bind.CallOpts{
 		Pending:     false,
 		BlockNumber: blockNumber,
@@ -194,7 +204,15 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 	for i, subscription := range subscriptions {
 		subscriptionId := start + uint64(i)
 		subscription := subscription
-		s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
+		updated := s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
+		if updated {
+			if err = s.orm.UpsertSubscription(CachedSubscription{
+				SubscriptionID:                      subscriptionId,
+				IFunctionsSubscriptionsSubscription: subscription,
+			}); err != nil {
+				s.lggr.Errorf("unexpected error updating subscription in the cache: %w", err)
+			}
+		}
 	}
 
 	return nil
@@ -206,4 +224,31 @@ func (s *onchainSubscriptions) getSubscriptionsCount(ctx context.Context, blockN
 		BlockNumber: blockNumber,
 		Context:     ctx,
 	})
+}
+
+func (s *onchainSubscriptions) loadCachedSubscriptions() {
+	offset := uint(0)
+	for {
+		csBatch, err := s.orm.GetSubscriptions(offset, s.config.CacheBatchSize)
+		if err != nil {
+			break
+		}
+
+		for _, cs := range csBatch {
+			_ = s.subscriptions.UpdateSubscription(cs.SubscriptionID, &functions_router.IFunctionsSubscriptionsSubscription{
+				Balance:        cs.Balance,
+				Owner:          cs.Owner,
+				BlockedBalance: cs.BlockedBalance,
+				ProposedOwner:  cs.ProposedOwner,
+				Consumers:      cs.Consumers,
+				Flags:          cs.Flags,
+			})
+		}
+		s.lggr.Debugw("Loading cached subscriptions", "offset", offset, "batch_length", len(csBatch))
+
+		if len(csBatch) != int(s.config.CacheBatchSize) {
+			break
+		}
+		offset += s.config.CacheBatchSize
+	}
 }

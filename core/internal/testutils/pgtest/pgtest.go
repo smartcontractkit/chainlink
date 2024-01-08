@@ -5,15 +5,15 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/scylladb/go-reflectx"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewQConfig(logSQL bool) pg.QConfig {
@@ -34,7 +34,6 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
-
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 
 	return db

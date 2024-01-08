@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -21,7 +21,7 @@ import (
 var ErrInvalidType = errors.New("invalid type")
 
 // GetChainByID fetches the chain by it's id.
-func GetChainByID(ctx context.Context, id string) (*relaytypes.ChainStatus, error) {
+func GetChainByID(ctx context.Context, id string) (*commontypes.ChainStatus, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.ChainsByIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -30,7 +30,7 @@ func GetChainByID(ctx context.Context, id string) (*relaytypes.ChainStatus, erro
 		return nil, err
 	}
 
-	chain, ok := result.(relaytypes.ChainStatus)
+	chain, ok := result.(commontypes.ChainStatus)
 	if !ok {
 		return nil, ErrInvalidType
 	}

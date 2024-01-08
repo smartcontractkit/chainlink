@@ -24,11 +24,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -206,7 +207,7 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDBV2(t, dbName(t.Name()), overrides)
+	config, _ := heavyweight.FullTestDBV2(t, overrides)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	return app
@@ -667,7 +668,7 @@ ds1 -> ds1_parse
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), pollTimerPeriod, mockServer.URL)
 
 	// raise flags to disable polling
-	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, evmutils.ZeroAddress) // global kill switch
 	require.NoError(t, err)
 	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	require.NoError(t, err)
@@ -776,7 +777,7 @@ ds1 -> ds1_parse
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), "1000ms", mockServer.URL)
 
 	// raise flags
-	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, evmutils.ZeroAddress) // global kill switch
 	require.NoError(t, err)
 
 	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
@@ -795,7 +796,7 @@ ds1 -> ds1_parse
 	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetSqlxDB(), 0)
 
 	// lower global kill switch flag - should trigger job run
-	_, err = fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
+	_, err = fa.flagsContract.LowerFlags(fa.sergey, []common.Address{evmutils.ZeroAddress})
 	require.NoError(t, err)
 	fa.backend.Commit()
 	awaitSubmission(t, fa.backend, submissionReceived)
@@ -816,7 +817,7 @@ ds1 -> ds1_parse
 	// raise both flags
 	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	require.NoError(t, err)
-	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress)
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, evmutils.ZeroAddress)
 	require.NoError(t, err)
 	fa.backend.Commit()
 
@@ -887,7 +888,7 @@ ds1 -> ds1_parse
 	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), "100ms", mockServer.URL)
 
 	// raise flags
-	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	_, err = fa.flagsContract.RaiseFlag(fa.sergey, evmutils.ZeroAddress) // global kill switch
 	require.NoError(t, err)
 	_, err = fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	require.NoError(t, err)

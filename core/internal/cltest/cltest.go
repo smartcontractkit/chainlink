@@ -6,7 +6,6 @@ import (
 	crand "crypto/rand"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"math/big"
@@ -16,8 +15,6 @@ import (
 	"net/url"
 	"os"
 	"reflect"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -29,35 +26,34 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"github.com/urfave/cli"
+
+	"github.com/jmoiron/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -82,6 +78,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -119,7 +117,6 @@ const (
 var (
 	DefaultP2PPeerID p2pkey.PeerID
 	FixtureChainID   = *testutils.FixtureChainID
-	source           rand.Source
 
 	DefaultCosmosKey     = cosmoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultCSAKey        = csakey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
@@ -146,18 +143,10 @@ func init() {
 		fmt.Printf("[gin] %-6s %-25s --> %s (%d handlers)\n", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
-	// Seed the random number generator, otherwise separate modules will take
-	// the same advisory locks when tested with `go test -p N` for N > 1
-	seed := time.Now().UTC().UnixNano()
-	fmt.Printf("cltest random seed: %v\n", seed)
-
-	// Also seed the local source
-	source = rand.NewSource(seed)
-	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
+	err := DefaultP2PPeerID.UnmarshalString(configtest.DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
-	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
 }
 
 func NewRandomPositiveInt64() int64 {
@@ -187,7 +176,7 @@ type JobPipelineConfig interface {
 	MaxSuccessfulRuns() uint64
 }
 
-func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, legacyChains evm.LegacyChainContainer, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, legacyChains legacyevm.LegacyChainContainer, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, dbCfg, jpcfg.MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, dbCfg)
@@ -200,22 +189,6 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 	}
 }
 
-func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
-	lggr := logger.TestLogger(t)
-	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.New())
-}
-
-func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) *txmgr.Confirmer {
-	lggr := logger.TestLogger(t)
-	ge := config.EVM().GasEstimator()
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr), ge.EIP1559DynamicFees(), nil)
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)
-	ec.SetResumeCallback(fn)
-	require.NoError(t, ec.Start(testutils.Context(t)))
-	return ec
-}
-
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	t testing.TB
@@ -225,13 +198,6 @@ type TestApplication struct {
 	Started bool
 	Backend *backends.SimulatedBackend
 	Keys    []ethkey.KeyV2
-}
-
-// NewWSServer starts a websocket server which invokes callback for each message received.
-// If chainID is set, then eth_chainId calls will be automatically handled.
-func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandler) string {
-	server := testutils.NewWSServer(t, chainID, callback)
-	return server.WSURL().String()
 }
 
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
@@ -268,10 +234,10 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
-	chainID := *utils.NewBig(&FixtureChainID)
+	chainID := *ubig.New(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case *utils.Big:
+		case *ubig.Big:
 			chainID = *v
 		}
 	}
@@ -291,7 +257,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	return app
 }
 
-func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID utils.Big) {
+func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID ubig.Big) {
 	require.NoError(t, app.KeyStore.Unlock(Password))
 
 	for _, dep := range flagsAndDeps {
@@ -376,17 +342,24 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
-	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
+
+	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
+		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
+		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
+		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
+	})
 
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     loop.GRPCOpts{},
+		MercuryPool:  mercuryPool,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: evm.ChainOpts{
+		ChainOpts: legacyevm.ChainOpts{
 			AppConfig:        cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
@@ -456,6 +429,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
 		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil),
+		MercuryPool:                mercuryPool,
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
@@ -518,7 +492,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
-	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
+	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(client.Successful, nil)
 	// Construct chain
 	h2 := Head(2)
 	h1 := HeadWithHash(1, h2.ParentHash)
@@ -531,14 +505,14 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 		if len(elems) > 0 {
 			elems[0].Result = &evmtypes.Block{
 				Number:       42,
-				Hash:         utils.NewHash(),
+				Hash:         evmutils.NewHash(),
 				Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
 			}
 		}
 		if len(elems) > 1 {
 			elems[1].Result = &evmtypes.Block{
 				Number:       41,
-				Hash:         utils.NewHash(),
+				Hash:         evmutils.NewHash(),
 				Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
 			}
 		}
@@ -628,7 +602,7 @@ func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	u, err := clsessions.NewUser(user.Email, Password, user.Role)
 	require.NoError(ta.t, err)
 
-	err = ta.SessionORM().CreateUser(&u)
+	err = ta.BasicAdminUsersORM().CreateUser(&u)
 	require.NoError(ta.t, err)
 
 	sessionID := ta.MustSeedNewSession(user.Email)
@@ -1001,16 +975,14 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *sqlx.DB, wa
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []int64 {
+func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, want int) []int64 {
 	g := gomega.NewWithT(t)
 
 	var txaIds []int64
-	var err error
-	g.Consistently(func() []int64 {
-		txaIds = make([]int64, 0)
-		err = db.Select(&txaIds, `SELECT ID FROM evm.tx_attempts ORDER BY id ASC`)
+	g.Consistently(func() []txmgr.TxAttempt {
+		attempts, err := txStore.GetAllTxAttempts(testutils.Context(t))
 		assert.NoError(t, err)
-		return txaIds
+		return attempts
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txaIds
 }
@@ -1021,13 +993,13 @@ func Head(val interface{}) *evmtypes.Head {
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case uint64:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case int64:
-		h = evmtypes.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(t), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case *big.Int:
-		h = evmtypes.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(t, evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	default:
 		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
 	}
@@ -1037,7 +1009,7 @@ func Head(val interface{}) *evmtypes.Head {
 func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
 	var h evmtypes.Head
 	time := uint64(0)
-	h = evmtypes.NewHead(big.NewInt(n), hash, utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	return &h
 
 }
@@ -1075,7 +1047,7 @@ type TransactionReceipter interface {
 
 func RequireTxSuccessful(t testing.TB, client TransactionReceipter, txHash common.Hash) *types.Receipt {
 	t.Helper()
-	r, err := client.TransactionReceipt(context.Background(), txHash)
+	r, err := client.TransactionReceipt(testutils.Context(t), txHash)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	require.Equal(t, uint64(1), r.Status)
@@ -1414,11 +1386,11 @@ func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
 	}
 	head := &evmtypes.Head{
 		Number:     parent.Number + 1,
-		Hash:       utils.NewHash(),
+		Hash:       evmutils.NewHash(),
 		ParentHash: parent.Hash,
 		Parent:     parent,
 		Timestamp:  time.Unix(parent.Number+1, 0),
-		EVMChainID: utils.NewBig(&FixtureChainID),
+		EVMChainID: ubig.New(&FixtureChainID),
 	}
 	return head
 }
@@ -1454,10 +1426,10 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*evmtypes.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
-		hash := utils.NewHash()
+		hash := evmutils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: utils.NewBig(&FixtureChainID)}
+		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(&FixtureChainID)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent
@@ -1577,56 +1549,15 @@ func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt s
 	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
 }
 
-func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth, chainID *big.Int) []ethkey.State {
-	keys, err := ethKeyStore.EnabledKeysForChain(chainID)
-	require.NoError(t, err)
-	states, err := ethKeyStore.GetStatesForKeys(keys)
-	require.NoError(t, err)
-	return states
-}
-
-func MustRandomP2PPeerID(t *testing.T) p2ppeer.ID {
-	reader := rand.New(source)
-	p2pPrivkey, _, err := cryptop2p.GenerateEd25519Key(reader)
-	require.NoError(t, err)
-	id, err := p2ppeer.IDFromPrivateKey(p2pPrivkey)
-	require.NoError(t, err)
-	return id
-}
-
 func MustWebURL(t *testing.T, s string) *models.WebURL {
 	uri, err := url.Parse(s)
 	require.NoError(t, err)
 	return (*models.WebURL)(uri)
 }
 
-func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
-	t.Helper()
-	for i, run := range runs {
-		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
-	}
-}
-
-func AssertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
-	t.Helper()
-	for i, run := range runs {
-		require.False(t, run.Error.IsZero(), fmt.Sprintf("expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output))
-	}
-}
-
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	return evmtest.NewChainScopedConfig(t, cfg)
-}
-
-func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey.State {
-	state, err := kst.GetStateForKey(key)
-	require.NoError(t, err)
-	return state
-}
-
-func NewTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.EvmTxStore {
-	return txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
 }
 
 func NewTestTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.TestEvmTxStore {
@@ -1645,48 +1576,4 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 
 	err = tx.Commit()
 	require.NoError(t, err)
-}
-
-// FlagSetApplyFromAction applies the flags from action to the flagSet.
-// `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
-func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
-	cliApp := cmd.Shell{}
-	app := cmd.NewApp(&cliApp)
-
-	foundName := parentCommand == ""
-	actionFuncName := getFuncName(action)
-
-	for _, command := range app.Commands {
-		flags := recursiveFindFlagsWithName(actionFuncName, command, parentCommand, foundName)
-
-		for _, flag := range flags {
-			flag.Apply(flagSet)
-		}
-	}
-
-}
-
-func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, parent string, foundName bool) []cli.Flag {
-
-	if command.Action != nil {
-		if actionFuncName == getFuncName(command.Action) && foundName {
-			return command.Flags
-		}
-	}
-
-	for _, subcommand := range command.Subcommands {
-		if !foundName {
-			foundName = strings.EqualFold(subcommand.Name, parent)
-		}
-
-		found := recursiveFindFlagsWithName(actionFuncName, subcommand, parent, foundName)
-		if found != nil {
-			return found
-		}
-	}
-	return nil
-}
-
-func getFuncName(i interface{}) string {
-	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }

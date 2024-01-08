@@ -8,9 +8,9 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	pkgerrors "github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 

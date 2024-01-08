@@ -5,8 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	lp_helpers "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 	"github.com/stretchr/testify/require"
+
+	lp_helpers "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 )
 
 func TestLoadTestLogPoller(t *testing.T) {

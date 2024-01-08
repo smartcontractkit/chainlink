@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -56,7 +57,7 @@ Address = "0x0001020304050607080900010203040506070809"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
 }
 
@@ -74,7 +75,7 @@ HandlerName = "dummy"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -88,7 +89,7 @@ HandlerName = "no_such_handler"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -102,7 +103,7 @@ SomeOtherField = "abcd"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -120,7 +121,7 @@ Address = "0xnot_an_address"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -128,10 +129,9 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, lggr), lggr)
+	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
-	require.NoError(t, gateway.Start(testutils.Context(t)))
-	require.NoError(t, gateway.Close())
+	servicetest.Run(t, gateway)
 }
 
 func requireJsonRPCResult(t *testing.T, response []byte, expectedId string, expectedResult string) {

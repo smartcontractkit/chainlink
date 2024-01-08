@@ -10,7 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -39,7 +40,7 @@ type logPollerWrapper struct {
 	detectedResponses         detectedEvents
 	mu                        sync.Mutex
 	closeWait                 sync.WaitGroup
-	stopCh                    utils.StopChan
+	stopCh                    services.StopChan
 	lggr                      logger.Logger
 }
 
@@ -106,8 +107,8 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		logPoller:                 logPoller,
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
-		stopCh:                    make(utils.StopChan),
-		lggr:                      lggr,
+		stopCh:                    make(services.StopChan),
+		lggr:                      lggr.Named("LogPollerWrapper"),
 	}, nil
 }
 
@@ -135,16 +136,10 @@ func (l *logPollerWrapper) Close() error {
 }
 
 func (l *logPollerWrapper) HealthReport() map[string]error {
-	return make(map[string]error)
+	return map[string]error{l.Name(): l.Ready()}
 }
 
-func (l *logPollerWrapper) Name() string {
-	return "LogPollerWrapper"
-}
-
-func (l *logPollerWrapper) Ready() error {
-	return nil
-}
+func (l *logPollerWrapper) Name() string { return l.lggr.Name() }
 
 // methods of LogPollerWrapper
 func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {

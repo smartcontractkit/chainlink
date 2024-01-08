@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -12,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -68,7 +67,6 @@ func (l *legacyEndpointConfig) URL() *url.URL {
 }
 
 type telemetryEndpoint struct {
-	services.StateMachine
 	ChainID string
 	Network string
 	URL     *url.URL
@@ -140,11 +138,10 @@ func (m *Manager) Name() string {
 }
 
 func (m *Manager) HealthReport() map[string]error {
-	hr := make(map[string]error)
-	hr[m.lggr.Name()] = m.Healthy()
+	hr := map[string]error{m.Name(): m.Healthy()}
+
 	for _, e := range m.endpoints {
-		name := fmt.Sprintf("%s.%s.%s", m.lggr.Name(), e.Network, e.ChainID)
-		hr[name] = e.Healthy()
+		services.CopyHealth(hr, e.client.HealthReport())
 	}
 	return hr
 }
@@ -190,9 +187,9 @@ func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
 
 	var tClient synchronization.TelemetryService
 	if m.useBatchSend {
-		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, m.maxBatchSize, m.sendInterval, m.sendTimeout, m.uniConn)
+		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, m.maxBatchSize, m.sendInterval, m.sendTimeout, m.uniConn, e.Network(), e.ChainID())
 	} else {
-		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize)
+		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, e.Network(), e.ChainID())
 	}
 
 	te := telemetryEndpoint{

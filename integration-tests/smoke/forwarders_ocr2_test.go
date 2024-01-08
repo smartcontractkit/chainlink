@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -24,7 +24,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
+		WithTestInstance(t).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -35,6 +35,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithLogStream().
 		Build()
 	require.NoError(t, err)
 
@@ -89,10 +90,10 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, ocrInstances, env.EVMClient, time.Minute*10, l)
+	err = actions.WatchNewOCR2Round(1, ocrInstances, env.EVMClient, time.Minute*10, l)
 	require.NoError(t, err)
 
-	answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
+	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 	require.NoError(t, err, "Getting latest answer from OCRv2 contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCRw contract to be 5 but got %d", answer.Int64())
 
@@ -100,10 +101,10 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		ocrRoundVal := (5 + i) % 10
 		err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, ocrRoundVal)
 		require.NoError(t, err)
-		err = actions.StartNewOCR2Round(int64(i), ocrInstances, env.EVMClient, time.Minute*10, l)
+		err = actions.WatchNewOCR2Round(int64(i), ocrInstances, env.EVMClient, time.Minute*10, l)
 		require.NoError(t, err)
 
-		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
+		answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 		require.NoError(t, err, "Error getting latest OCRv2 answer")
 		require.Equal(t, int64(ocrRoundVal), answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
 	}

@@ -7,10 +7,10 @@ import (
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
-	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
-	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	relaymercuryv1 "github.com/smartcontractkit/chainlink-data-streams/mercury/v1"
+	relaymercuryv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -26,18 +26,17 @@ import (
 
 type Config interface {
 	MaxSuccessfulRuns() uint64
+	ResultWriteQueueDepth() uint64
 }
 
 func NewServices(
 	jb job.Job,
-	ocr2Provider relaytypes.MercuryProvider,
+	ocr2Provider commontypes.MercuryProvider,
 	pipelineRunner pipeline.Runner,
-	runResults chan *pipeline.Run,
 	lggr logger.Logger,
 	argsNoPlugin libocr2.MercuryOracleArgs,
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
-	chainHeadTracker types.ChainHeadTracker,
 	orm types.DataSourceORM,
 	feedID utils.FeedID,
 ) ([]job.ServiceCtx, error) {
@@ -56,6 +55,8 @@ func NewServices(
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
+	saver := ocrcommon.NewResultRunSaver(pipelineRunner, lggr, cfg.MaxSuccessfulRuns(), cfg.ResultWriteQueueDepth())
+
 	switch feedID.Version() {
 	case 1:
 		ds := mercuryv1.NewDataSource(
@@ -64,9 +65,9 @@ func NewServices(
 			jb,
 			*jb.PipelineSpec,
 			lggr,
-			runResults,
+			saver,
 			chEnhancedTelem,
-			chainHeadTracker,
+			ocr2Provider.MercuryChainReader(),
 			ocr2Provider.MercuryServerFetcher(),
 			pluginConfig.InitialBlockNumber.Ptr(),
 			feedID,
@@ -85,7 +86,7 @@ func NewServices(
 			*jb.PipelineSpec,
 			feedID,
 			lggr,
-			runResults,
+			saver,
 			chEnhancedTelem,
 			ocr2Provider.MercuryServerFetcher(),
 			*pluginConfig.LinkFeedID,
@@ -105,7 +106,7 @@ func NewServices(
 			*jb.PipelineSpec,
 			feedID,
 			lggr,
-			runResults,
+			saver,
 			chEnhancedTelem,
 			ocr2Provider.MercuryServerFetcher(),
 			*pluginConfig.LinkFeedID,
@@ -125,6 +126,5 @@ func NewServices(
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	saver := ocrcommon.NewResultRunSaver(runResults, pipelineRunner, make(chan struct{}), lggr, cfg.MaxSuccessfulRuns())
 	return []job.ServiceCtx{ocr2Provider, saver, job.NewServiceAdapter(oracle)}, nil
 }

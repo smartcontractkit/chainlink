@@ -12,13 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -37,7 +39,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 	// page 1
 	set := flag.NewFlagSet("test transactions", 0)
-	cltest.FlagSetApplyFromAction(client.IndexTransactions, set, "")
+	flagSetApplyFromAction(client.IndexTransactions, set, "")
 
 	require.NoError(t, set.Set("page", "1"))
 
@@ -51,7 +53,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test txattempts", 0)
-	cltest.FlagSetApplyFromAction(client.IndexTransactions, set, "")
+	flagSetApplyFromAction(client.IndexTransactions, set, "")
 
 	require.NoError(t, set.Set("page", "2"))
 
@@ -77,7 +79,7 @@ func TestShell_ShowTransaction(t *testing.T) {
 	attempt := tx.TxAttempts[0]
 
 	set := flag.NewFlagSet("test get tx", 0)
-	cltest.FlagSetApplyFromAction(client.ShowTransaction, set, "")
+	flagSetApplyFromAction(client.ShowTransaction, set, "")
 
 	require.NoError(t, set.Parse([]string{attempt.Hash.String()}))
 
@@ -101,7 +103,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 
 	// page 1
 	set := flag.NewFlagSet("test txattempts", 0)
-	cltest.FlagSetApplyFromAction(client.IndexTxAttempts, set, "")
+	flagSetApplyFromAction(client.IndexTxAttempts, set, "")
 
 	require.NoError(t, set.Set("page", "1"))
 
@@ -115,7 +117,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)
-	cltest.FlagSetApplyFromAction(client.IndexTxAttempts, set, "")
+	flagSetApplyFromAction(client.IndexTxAttempts, set, "")
 
 	require.NoError(t, set.Set("page", "2"))
 
@@ -156,9 +158,10 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 	db := app.GetSqlxDB()
-
+	cfg := pgtest.NewQConfig(false)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
 	set := flag.NewFlagSet("sendether", 0)
-	cltest.FlagSetApplyFromAction(client.SendEther, set, "")
+	flagSetApplyFromAction(client.SendEther, set, "")
 
 	amount := "100.5"
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
@@ -170,21 +173,26 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	dbEvmTx := txmgr.DbEthTx{}
-	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM evm.txes`))
-	require.Equal(t, "100.500000000000000000", dbEvmTx.Value.String())
-	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
-	require.Equal(t, to, dbEvmTx.ToAddress.String())
+	evmTxes, err := txStore.GetAllTxes(testutils.Context(t))
+	require.NoError(t, err)
+	require.Len(t, evmTxes, 1)
+	evmTx := evmTxes[0]
+	value := assets.Eth(evmTx.Value)
+	require.Equal(t, "100.500000000000000000", value.String())
+	require.Equal(t, fromAddress, evmTx.FromAddress)
+	require.Equal(t, to, evmTx.ToAddress.String())
 
 	output := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, &dbEvmTx.FromAddress, output.From)
-	assert.Equal(t, &dbEvmTx.ToAddress, output.To)
-	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
-	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
+	assert.Equal(t, &evmTx.FromAddress, output.From)
+	assert.Equal(t, &evmTx.ToAddress, output.To)
+	assert.Equal(t, value.String(), output.Value)
+	assert.Equal(t, fmt.Sprintf("%d", *evmTx.Sequence), output.Nonce)
 
-	var dbEvmTxAttempt txmgr.DbEthTxAttempt
-	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
-	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
+	attempts, err := txStore.GetAllTxAttempts(testutils.Context(t))
+	require.NoError(t, err)
+	require.Len(t, attempts, 1)
+	assert.Equal(t, attempts[0].Hash, output.Hash)
+
 }
 
 func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
@@ -216,9 +224,11 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 	db := app.GetSqlxDB()
+	cfg := pgtest.NewQConfig(false)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
 
 	set := flag.NewFlagSet("sendether", 0)
-	cltest.FlagSetApplyFromAction(client.SendEther, set, "")
+	flagSetApplyFromAction(client.SendEther, set, "")
 
 	require.NoError(t, set.Set("id", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("wei", "false"))
@@ -236,19 +246,23 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	dbEvmTx := txmgr.DbEthTx{}
-	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM evm.txes`))
-	require.Equal(t, "1.000000000000000000", dbEvmTx.Value.String())
-	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
-	require.Equal(t, to, dbEvmTx.ToAddress.String())
+	evmTxes, err := txStore.GetAllTxes(testutils.Context(t))
+	require.NoError(t, err)
+	require.Len(t, evmTxes, 1)
+	evmTx := evmTxes[0]
+	value := assets.Eth(evmTx.Value)
+	require.Equal(t, "1.000000000000000000", value.String())
+	require.Equal(t, fromAddress, evmTx.FromAddress)
+	require.Equal(t, to, evmTx.ToAddress.String())
 
 	output := *r.Renders[0].(*cmd.EthTxPresenter)
-	assert.Equal(t, &dbEvmTx.FromAddress, output.From)
-	assert.Equal(t, &dbEvmTx.ToAddress, output.To)
-	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
-	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
+	assert.Equal(t, &evmTx.FromAddress, output.From)
+	assert.Equal(t, &evmTx.ToAddress, output.To)
+	assert.Equal(t, value.String(), output.Value)
+	assert.Equal(t, fmt.Sprintf("%d", *evmTx.Sequence), output.Nonce)
 
-	var dbEvmTxAttempt txmgr.DbEthTxAttempt
-	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
-	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
+	attempts, err := txStore.GetAllTxAttempts(testutils.Context(t))
+	require.NoError(t, err)
+	require.Len(t, attempts, 1)
+	assert.Equal(t, attempts[0].Hash, output.Hash)
 }

@@ -1,0 +1,110 @@
+name: Automation Load Test
+on:
+  workflow_dispatch:
+    inputs:
+      chainlinkVersion:
+        description: Chainlink image version to use
+        required: true
+        type: string
+        default: 2.6.0
+      chainlinkImage:
+        description: Chainlink image repo to use
+        required: true
+        type: string
+        default: public.ecr.aws/chainlink/chainlink
+      network:
+        description: Network to run tests on
+        required: true
+        type: choice
+        options:
+          - SIMULATED
+      TestInputs:
+        description: TestInputs
+        required: false
+        type: string
+      ConfigOverride:
+        description: ConfigOverride
+        required: false
+        type: string
+      slackMemberID:
+        description: Notifies test results (Not your @)
+        required: true
+        default: U02Q14G80TY
+        type: string
+
+jobs:
+  automation_load:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: ${{ inputs.network }} Automation Load Test
+    runs-on: ubuntu20.04-16cores-64GB
+    env:
+      SELECTED_NETWORKS: ${{ inputs.network }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: C03KJ5S7KEK
+      TEST_INPUTS: ${{ inputs.TestInputs }}
+      CONFIG_OVERRIDE: ${{ inputs.ConfigOverride }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+    steps:
+      - name: Setup Push Tag
+        shell: bash
+        run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ inputs.chainlinkVersion }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+
+      - name: Add mask
+        run: |
+          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$SLACK_USER
+          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ env.REF_NAME }}
+      - name: Build Test Image
+        uses: ./.github/actions/build-test-image
+        with:
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          suites: benchmark load/automationv2_1 chaos reorg
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        env:
+          RR_CPU: 4000m
+          RR_MEM: 4Gi
+          DETACH_RUNNER: true
+          TEST_SUITE: automationv2_1
+          TEST_ARGS: -test.timeout 720h
+          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: cd integration-tests && go test -timeout 1h -v -run TestLogTrigger ./load/automationv2_1 -count=1
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ inputs.chainlinkImage }}
+          cl_image_tag: ${{ inputs.chainlinkVersion }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          should_cleanup: false
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ${{ inputs.network }} Automation Load Test
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true

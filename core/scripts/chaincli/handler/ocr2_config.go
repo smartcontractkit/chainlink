@@ -11,8 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/olekukonko/tablewriter"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
+
+	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
@@ -52,7 +54,7 @@ func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {
 
 func configFromBlock(bl *types.Block, addr common.Address, detail keeper_registry_wrapper2_0.LatestConfigDetails) (*confighelper.PublicConfig, error) {
 	for _, tx := range bl.Transactions() {
-		if tx.To() != nil && bytes.Compare(tx.To()[:], addr[:]) == 0 {
+		if tx.To() != nil && bytes.Equal(tx.To()[:], addr[:]) {
 			// this is our transaction
 			// txRes, txErr, err := getTransactionDetailForHashes(hdlr, []string{tx})
 			ocr2Tx, err := NewBaseOCR2Tx(tx)

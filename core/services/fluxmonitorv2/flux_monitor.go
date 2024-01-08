@@ -13,12 +13,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -82,7 +84,7 @@ type FluxMonitor struct {
 	backlog       *utils.BoundedPriorityQueue[log.Broadcast]
 	chProcessLogs chan struct{}
 
-	chStop     chan struct{}
+	chStop     services.StopChan
 	waitOnStop chan struct{}
 }
 
@@ -136,7 +138,7 @@ func NewFluxMonitor(
 			PriorityFlagChangedLog:   2,
 		}),
 		chProcessLogs: make(chan struct{}, 1),
-		chStop:        make(chan struct{}),
+		chStop:        make(services.StopChan),
 		waitOnStop:    make(chan struct{}),
 	}
 
@@ -337,12 +339,12 @@ func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast) {
 		fm.backlog.Add(PriorityAnswerUpdatedLog, broadcast)
 
 	case *flags_wrapper.FlagsFlagRaised:
-		if log.Subject == utils.ZeroAddress || log.Subject == fm.contractAddress {
+		if log.Subject == evmutils.ZeroAddress || log.Subject == fm.contractAddress {
 			fm.backlog.Add(PriorityFlagChangedLog, broadcast)
 		}
 
 	case *flags_wrapper.FlagsFlagLowered:
-		if log.Subject == utils.ZeroAddress || log.Subject == fm.contractAddress {
+		if log.Subject == evmutils.ZeroAddress || log.Subject == fm.contractAddress {
 			fm.backlog.Add(PriorityFlagChangedLog, broadcast)
 		}
 
@@ -587,7 +589,7 @@ func (fm *FluxMonitor) respondToAnswerUpdatedLog(log flux_aggregator_wrapper.Flu
 // need to poll and submit an answer to the contract regardless of the deviation.
 func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound, lb log.Broadcast) {
 	started := time.Now()
-	ctx, cancel := utils.StopChan(fm.chStop).NewCtx()
+	ctx, cancel := fm.chStop.NewCtx()
 	defer cancel()
 
 	newRoundLogger := fm.logger.With(
@@ -813,7 +815,7 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 
 func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker *DeviationChecker, broadcast log.Broadcast) {
 	started := time.Now()
-	ctx, cancel := utils.StopChan(fm.chStop).NewCtx()
+	ctx, cancel := fm.chStop.NewCtx()
 	defer cancel()
 
 	l := fm.logger.With(

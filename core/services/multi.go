@@ -3,7 +3,7 @@ package services
 import (
 	"io"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // StartClose is a subset of the ServiceCtx interface.

@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
@@ -147,7 +147,7 @@ func (ks *cosmos) getByID(id string) (cosmoskey.Key, error) {
 	return key, nil
 }
 
-// CosmosLoopKeystore implements the [github.com/smartcontractkit/chainlink-relay/pkg/loop.Keystore] interface and
+// CosmosLoopKeystore implements the [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and
 // handles signing for Cosmos messages.
 type CosmosLoopKeystore struct {
 	Cosmos

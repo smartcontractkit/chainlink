@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
@@ -14,7 +14,7 @@ import (
 type ETHKey struct {
 	state ethkey.State
 	addr  ethkey.EIP55Address
-	chain evm.Chain
+	chain legacyevm.Chain
 }
 
 type ETHKeyResolver struct {

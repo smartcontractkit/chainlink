@@ -2,21 +2,20 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const QueryTimeout = 10 * time.Second
@@ -45,6 +44,7 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 }
 
+//go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,
@@ -53,7 +53,7 @@ type Node[
 	// State returns nodeState
 	State() nodeState
 	// StateAndLatest returns nodeState with the latest received block number & total difficulty.
-	StateAndLatest() (nodeState, int64, *utils.Big)
+	StateAndLatest() (nodeState, int64, *big.Int)
 	// Name is a unique identifier for this node.
 	Name() string
 	String() string
@@ -90,7 +90,7 @@ type node[
 	state   nodeState
 	// Each node is tracking the last received head number and total difficulty
 	stateLatestBlockNumber     int64
-	stateLatestTotalDifficulty *utils.Big
+	stateLatestTotalDifficulty *big.Int
 
 	// nodeCtx is the node lifetime's context
 	nodeCtx context.Context
@@ -103,7 +103,7 @@ type node[
 	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
 	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
 	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
-	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
+	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *big.Int)
 }
 
 func NewNode[
@@ -135,14 +135,15 @@ func NewNode[
 		n.http = httpuri
 	}
 	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
-	lggr = lggr.Named("Node").With(
-		"nodeTier", client.Primary.String(),
+	lggr = logger.Named(lggr, "Node")
+	lggr = logger.With(lggr,
+		"nodeTier", Primary.String(),
 		"nodeName", name,
 		"node", n.String(),
 		"chainID", chainID,
 		"nodeOrder", n.order,
 	)
-	n.lfcLog = lggr.Named("Lifecycle")
+	n.lfcLog = logger.Named(lggr, "Lifecycle")
 	n.stateLatestBlockNumber = -1
 	n.rpc = rpc
 	n.chainFamily = chainFamily
@@ -150,7 +151,7 @@ func NewNode[
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) String() string {
-	s := fmt.Sprintf("(%s)%s:%s", client.Primary.String(), n.name, n.ws.String())
+	s := fmt.Sprintf("(%s)%s:%s", Primary.String(), n.name, n.ws.String())
 	if n.http != nil {
 		s = s + fmt.Sprintf(":%s", n.http.String())
 	}
@@ -178,19 +179,21 @@ func (n *node[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {
-	return n.StopOnce(n.name, func() error {
-		defer func() {
-			n.wg.Wait()
-			n.rpc.Close()
-		}()
+	return n.StopOnce(n.name, n.close)
+}
 
-		n.stateMu.Lock()
-		defer n.stateMu.Unlock()
+func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
+	defer func() {
+		n.wg.Wait()
+		n.rpc.Close()
+	}()
 
-		n.cancelNodeCtx()
-		n.state = nodeStateClosed
-		return nil
-	})
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+
+	n.cancelNodeCtx()
+	n.state = nodeStateClosed
+	return nil
 }
 
 // Start dials and verifies the node
@@ -253,15 +256,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verify(callerCtx context.Context) (err error
 	var chainID CHAIN_ID
 	if chainID, err = n.rpc.ChainID(callerCtx); err != nil {
 		promFailed()
-		return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+		return fmt.Errorf("failed to verify chain ID for node %s: %w", n.name, err)
 	} else if chainID.String() != n.chainID.String() {
 		promFailed()
-		return errors.Wrapf(
-			errInvalidChainID,
-			"rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+		return fmt.Errorf(
+			"rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s: %w",
 			chainID.String(),
 			n.chainID.String(),
 			n.name,
+			errInvalidChainID,
 		)
 	}
 

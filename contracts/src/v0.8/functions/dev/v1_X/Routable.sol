@@ -8,7 +8,7 @@ import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol"
 /// as the destinations to a route (id=>contract) on the Router.
 /// It provides a Router getter and modifiers.
 abstract contract Routable is ITypeAndVersion {
-  IOwnableFunctionsRouter private immutable i_router;
+  IOwnableFunctionsRouter private immutable i_functionsRouter;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
@@ -19,17 +19,17 @@ abstract contract Routable is ITypeAndVersion {
     if (router == address(0)) {
       revert RouterMustBeSet();
     }
-    i_router = IOwnableFunctionsRouter(router);
+    i_functionsRouter = IOwnableFunctionsRouter(router);
   }
 
   /// @notice Return the Router
   function _getRouter() internal view returns (IOwnableFunctionsRouter router) {
-    return i_router;
+    return i_functionsRouter;
   }
 
   /// @notice Reverts if called by anyone other than the router.
   modifier onlyRouter() {
-    if (msg.sender != address(i_router)) {
+    if (msg.sender != address(i_functionsRouter)) {
       revert OnlyCallableByRouter();
     }
     _;
@@ -37,7 +37,7 @@ abstract contract Routable is ITypeAndVersion {
 
   /// @notice Reverts if called by anyone other than the router owner.
   modifier onlyRouterOwner() {
-    if (msg.sender != i_router.owner()) {
+    if (msg.sender != i_functionsRouter.owner()) {
       revert OnlyCallableByRouterOwner();
     }
     _;

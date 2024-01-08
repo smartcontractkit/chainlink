@@ -17,13 +17,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 // RPCCLient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
@@ -53,11 +55,11 @@ type RPCCLient interface {
 }
 
 type rpcClient struct {
-	rpcLog  logger.Logger
+	rpcLog  logger.SugaredLogger
 	name    string
 	id      int32
 	chainID *big.Int
-	tier    clienttypes.NodeTier
+	tier    commonclient.NodeTier
 
 	ws   rawclient
 	http *rawclient
@@ -85,7 +87,7 @@ func NewRPCClient(
 	name string,
 	id int32,
 	chainID *big.Int,
-	tier clienttypes.NodeTier,
+	tier commonclient.NodeTier,
 ) RPCCLient {
 	r := new(rpcClient)
 	r.name = name
@@ -97,13 +99,14 @@ func NewRPCClient(
 		r.http = &rawclient{uri: *httpuri}
 	}
 	r.chStopInFlight = make(chan struct{})
-	lggr = lggr.Named("Client").With(
+	lggr = logger.Named(lggr, "Client")
+	lggr = logger.With(lggr,
 		"clientTier", tier.String(),
 		"clientName", name,
 		"client", r.String(),
 		"evmChainID", chainID,
 	)
-	r.rpcLog = lggr.Named("RPC")
+	r.rpcLog = logger.Sugared(lggr).Named("RPC")
 
 	return r
 }
@@ -199,14 +202,11 @@ func (r *rpcClient) logResult(
 	callName string,
 	results ...interface{},
 ) {
-	lggr = lggr.With("duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
+	lggr = logger.With(lggr, "duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
 	promEVMPoolRPCNodeCalls.WithLabelValues(r.chainID.String(), r.name).Inc()
 	if err == nil {
 		promEVMPoolRPCNodeCallsSuccess.WithLabelValues(r.chainID.String(), r.name).Inc()
-		lggr.Tracew(
-			fmt.Sprintf("evmclient.Client#%s RPC call success", callName),
-			results...,
-		)
+		logger.Sugared(lggr).Tracew(fmt.Sprintf("evmclient.Client#%s RPC call success", callName), results...)
 	} else {
 		promEVMPoolRPCNodeCallsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
 		lggr.Debugw(
@@ -489,7 +489,7 @@ func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *e
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(r.chainID)
+	head.EVMChainID = ubig.New(r.chainID)
 	return
 }
 
@@ -502,7 +502,7 @@ func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *ev
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(r.chainID)
+	head.EVMChainID = ubig.New(r.chainID)
 	return
 }
 
@@ -864,17 +864,19 @@ func (r *rpcClient) TokenBalance(ctx context.Context, address common.Address, co
 	if err != nil {
 		return numLinkBigInt, err
 	}
-	numLinkBigInt.SetString(result, 0)
+	if _, ok := numLinkBigInt.SetString(result, 0); !ok {
+		return nil, fmt.Errorf("failed to parse int: %s", result)
+	}
 	return numLinkBigInt, nil
 }
 
 // LINKBalance returns the balance of LINK at the given address
-func (r *rpcClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
+func (r *rpcClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*commonassets.Link, error) {
 	balance, err := r.TokenBalance(ctx, address, linkAddress)
 	if err != nil {
-		return assets.NewLinkFromJuels(0), err
+		return commonassets.NewLinkFromJuels(0), err
 	}
-	return (*assets.Link)(balance), nil
+	return (*commonassets.Link)(balance), nil
 }
 
 func (r *rpcClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
@@ -978,10 +980,8 @@ func (r *rpcClient) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 }
 
 // newRqLggr generates a new logger with a unique request ID
-func (r *rpcClient) newRqLggr() logger.Logger {
-	return r.rpcLog.With(
-		"requestID", uuid.New(),
-	)
+func (r *rpcClient) newRqLggr() logger.SugaredLogger {
+	return r.rpcLog.With("requestID", uuid.New())
 }
 
 func wrapCallError(err error, tp string) error {

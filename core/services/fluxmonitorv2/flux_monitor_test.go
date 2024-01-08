@@ -3,7 +3,6 @@ package fluxmonitorv2_test
 import (
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -19,14 +18,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -284,8 +283,8 @@ func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 }
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
-func setupFullDBWithKey(t *testing.T, name string) (*sqlx.DB, common.Address) {
-	cfg, db := heavyweight.FullTestDBV2(t, name, nil)
+func setupFullDBWithKey(t *testing.T) (*sqlx.DB, common.Address) {
+	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, nodeAddr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
@@ -703,7 +702,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once().
 		Run(func(mock.Arguments) { readyToAssert.ItHappened() })
 
-	require.NoError(t, fm.Start(testutils.Context(t)))
+	servicetest.Run(t, fm)
 
 	var logBroadcasts []*logmocks.Broadcast
 
@@ -726,8 +725,6 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	logsAwaiter.ItHappened()
 	readyToAssert.AwaitOrFail(t)
-
-	fm.Close()
 }
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
@@ -906,18 +903,8 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	g.Eventually(func() int { return len(pollOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(3))
 }
 
-// chainlink_test_TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped
-// 63 bytes is max and chainlink_test_ takes up 15, plus 4 for a random hex suffix.
-func dbName(s string) string {
-	diff := len(cmd.TestDBNamePrefix) + len("_FFF")
-	if len(s) <= diff {
-		return strings.ReplaceAll(strings.ToLower(s), "/", "")
-	}
-	return strings.ReplaceAll(strings.ToLower(s[len(s)-diff:]), "/", "")
-}
-
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
-	db, nodeAddr := setupFullDBWithKey(t, "hibernation")
+	db, nodeAddr := setupFullDBWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	const (
@@ -1061,8 +1048,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	idleDurationOccured := make(chan struct{}, 4)
 	initialPollOccurred := make(chan struct{}, 1)
 
-	require.NoError(t, fm.Start(testutils.Context(t)))
-	t.Cleanup(func() { fm.Close() })
+	servicetest.Run(t, fm)
 
 	// Initial Poll
 	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
@@ -1181,11 +1167,9 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	require.NoError(t, fm.SetOracleAddress())
 	fm.ExportedRoundState(t)
-	require.NoError(t, fm.Start(testutils.Context(t)))
+	servicetest.Run(t, fm)
 
 	g.Eventually(ch).Should(gomega.BeClosed())
-
-	fm.Close()
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
@@ -1241,15 +1225,13 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 				Run(func(mock.Arguments) { close(chRoundState) }).
 				Maybe()
 
-			require.NoError(t, fm.Start(testutils.Context(t)))
+			servicetest.Run(t, fm)
 
 			if test.expectedToSubmit {
 				g.Eventually(chRoundState).Should(gomega.BeClosed())
 			} else {
 				g.Consistently(chRoundState).ShouldNot(gomega.BeClosed())
 			}
-
-			require.NoError(t, fm.Close())
 		})
 	}
 }
@@ -1322,8 +1304,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 				}).
 				Maybe()
 
-			require.NoError(t, fm.Start(testutils.Context(t)))
-			t.Cleanup(func() { fm.Close() })
+			servicetest.Run(t, fm)
 
 			assert.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
 
@@ -1397,7 +1378,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 		Run(func(mock.Arguments) { close(chRoundState2) }).
 		Once()
 
-	require.NoError(t, fm.Start(testutils.Context(t)))
+	servicetest.Run(t, fm)
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
@@ -1413,7 +1394,6 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	g.Eventually(chRoundState2).Should(gomega.BeClosed())
 
 	time.Sleep(time.Duration(2*timeout) * time.Second)
-	require.NoError(t, fm.Close())
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
@@ -1939,8 +1919,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 		Return(flux_aggregator_wrapper.OracleRoundState{RoundId: 4, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}, nil).
 		Maybe()
 
-	require.NoError(t, fm.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, fm.Close()) }()
+	servicetest.Run(t, fm)
 
 	waitTime := 15 * time.Second
 	interval := 50 * time.Millisecond

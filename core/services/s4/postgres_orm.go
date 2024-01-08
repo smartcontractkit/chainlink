@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 )
 
 const (
@@ -34,7 +34,7 @@ func NewPostgresORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, tableName, 
 	}
 }
 
-func (o orm) Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
+func (o orm) Get(address *big.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
 	row := &Row{}
 	q := o.q.WithOpts(qopts...)
 
@@ -90,7 +90,7 @@ func (o orm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*Snaps
 	q := o.q.WithOpts(qopts...)
 	rows := make([]*SnapshotRow, 0)
 
-	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
+	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, octet_length(payload) AS payload_size FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
 	if err := q.Select(&rows, stmt, o.namespace, addressRange.MinAddress, addressRange.MaxAddress); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err

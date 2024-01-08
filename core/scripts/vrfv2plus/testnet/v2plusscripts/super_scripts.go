@@ -39,10 +39,10 @@ import (
 var coordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
 
 type CoordinatorConfigV2Plus struct {
-	MinConfs               *int
-	MaxGasLimit            *int64
-	StalenessSeconds       *int64
-	GasAfterPayment        *int64
+	MinConfs               int
+	MaxGasLimit            int64
+	StalenessSeconds       int64
+	GasAfterPayment        int64
 	FallbackWeiPerUnitLink *big.Int
 	FeeConfig              vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig
 }
@@ -196,15 +196,15 @@ func SmokeTestVRF(e helpers.Environment) {
 	x, y := secp256k1.Coordinates(point)
 	fmt.Println("proving key points x:", x, ", y:", y)
 	fmt.Println("proving key points from unmarshal:", pk.X, pk.Y)
-	tx, err := coordinator.RegisterProvingKey(e.Owner, e.Owner.From, [2]*big.Int{x, y})
+	tx, err := coordinator.RegisterProvingKey(e.Owner, [2]*big.Int{x, y})
 	helpers.PanicErr(err)
 	registerReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "register proving key on", coordinatorAddress.String())
 	var provingKeyRegisteredLog *vrf_coordinator_v2_5.VRFCoordinatorV25ProvingKeyRegistered
 	for _, log := range registerReceipt.Logs {
 		if log.Address == coordinatorAddress {
-			var err error
-			provingKeyRegisteredLog, err = coordinator.ParseProvingKeyRegistered(*log)
-			if err != nil {
+			var err2 error
+			provingKeyRegisteredLog, err2 = coordinator.ParseProvingKeyRegistered(*log)
+			if err2 != nil {
 				continue
 			}
 		}
@@ -214,9 +214,8 @@ func SmokeTestVRF(e helpers.Environment) {
 	}
 	if !bytes.Equal(provingKeyRegisteredLog.KeyHash[:], keyHash[:]) {
 		panic(fmt.Sprintf("unexpected key hash registered %s, expected %s", hexutil.Encode(provingKeyRegisteredLog.KeyHash[:]), hexutil.Encode(keyHash[:])))
-	} else {
-		fmt.Println("key hash registered:", hexutil.Encode(provingKeyRegisteredLog.KeyHash[:]))
 	}
+	fmt.Println("key hash registered:", hexutil.Encode(provingKeyRegisteredLog.KeyHash[:]))
 
 	fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 	_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
@@ -268,6 +267,7 @@ func SmokeTestVRF(e helpers.Environment) {
 	consumer, err := vrf_v2plus_sub_owner.NewVRFV2PlusExternalSubOwnerExample(consumerAddress, e.Ec)
 	helpers.PanicErr(err)
 	tx, err = consumer.RequestRandomWords(e.Owner, subID, 100_000, 3, 3, provingKeyRegisteredLog.KeyHash, false)
+	helpers.PanicErr(err)
 	receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "request random words from", consumerAddress.String())
 	fmt.Println("request blockhash:", receipt.BlockHash)
 
@@ -275,9 +275,9 @@ func SmokeTestVRF(e helpers.Environment) {
 	var rwrLog *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested
 	for _, log := range receipt.Logs {
 		if log.Address == coordinatorAddress {
-			var err error
-			rwrLog, err = coordinator.ParseRandomWordsRequested(*log)
-			if err != nil {
+			var err2 error
+			rwrLog, err2 = coordinator.ParseRandomWordsRequested(*log)
+			if err2 != nil {
 				continue
 			}
 		}
@@ -396,13 +396,13 @@ func SmokeTestBHS(e helpers.Environment) {
 	if seReceipt.Status != 1 {
 		fmt.Println("storeEarliest failed")
 		os.Exit(1)
-	} else {
-		fmt.Println("storeEarliest succeeded, checking BH is there")
-		bh, err := bhs.GetBlockhash(nil, seReceipt.BlockNumber.Sub(seReceipt.BlockNumber, big.NewInt(256)))
-		helpers.PanicErr(err)
-		fmt.Println("blockhash stored by storeEarliest:", hexutil.Encode(bh[:]))
-		anchorBlockNumber = seReceipt.BlockNumber
 	}
+	fmt.Println("storeEarliest succeeded, checking BH is there")
+	bh, err := bhs.GetBlockhash(nil, seReceipt.BlockNumber.Sub(seReceipt.BlockNumber, big.NewInt(256)))
+	helpers.PanicErr(err)
+	fmt.Println("blockhash stored by storeEarliest:", hexutil.Encode(bh[:]))
+	anchorBlockNumber = seReceipt.BlockNumber
+
 	if anchorBlockNumber == nil {
 		panic("no anchor block number")
 	}
@@ -417,12 +417,11 @@ func SmokeTestBHS(e helpers.Environment) {
 	if sReceipt.Status != 1 {
 		fmt.Println("store failed")
 		os.Exit(1)
-	} else {
-		fmt.Println("store succeeded, checking BH is there")
-		bh, err := bhs.GetBlockhash(nil, toStore)
-		helpers.PanicErr(err)
-		fmt.Println("blockhash stored by store:", hexutil.Encode(bh[:]))
 	}
+	fmt.Println("store succeeded, checking BH is there")
+	bh, err = bhs.GetBlockhash(nil, toStore)
+	helpers.PanicErr(err)
+	fmt.Println("blockhash stored by store:", hexutil.Encode(bh[:]))
 
 	fmt.Println("\nexecuting storeVerifyHeader")
 	headers, _, err := helpers.GetRlpHeaders(e, []*big.Int{anchorBlockNumber}, false)
@@ -435,12 +434,11 @@ func SmokeTestBHS(e helpers.Environment) {
 	if svhReceipt.Status != 1 {
 		fmt.Println("storeVerifyHeader failed")
 		os.Exit(1)
-	} else {
-		fmt.Println("storeVerifyHeader succeeded, checking BH is there")
-		bh, err := bhs.GetBlockhash(nil, toStore)
-		helpers.PanicErr(err)
-		fmt.Println("blockhash stored by storeVerifyHeader:", hexutil.Encode(bh[:]))
 	}
+	fmt.Println("storeVerifyHeader succeeded, checking BH is there")
+	bh, err = bhs.GetBlockhash(nil, toStore)
+	helpers.PanicErr(err)
+	fmt.Println("blockhash stored by storeVerifyHeader:", hexutil.Encode(bh[:]))
 }
 
 func sendTx(e helpers.Environment, to common.Address, data []byte) (*types.Receipt, common.Hash) {
@@ -481,7 +479,10 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
-	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
+	registerVRFKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
+	registerVRFKeyAgainstAddress := deployCmd.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
+		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
+
 	vrfPrimaryNodeSendingKeysString := deployCmd.String("vrf-primary-node-sending-keys", "", "VRF Primary Node sending keys")
 	minConfs := deployCmd.Int("min-confs", constants.MinConfs, "min confs")
 	nodeSendingKeyFundingAmount := deployCmd.String("sending-key-funding-amount", constants.NodeSendingKeyFundingAmount, "CL node sending key funding amount")
@@ -498,17 +499,23 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
 	subscriptionBalanceNativeWei := decimal.RequireFromString(*subscriptionBalanceNativeWeiString).BigInt()
-	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 
 	feeConfig := vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
 		FulfillmentFlatFeeLinkPPM:   uint32(*flatFeeLinkPPM),
 		FulfillmentFlatFeeNativePPM: uint32(*flatFeeEthPPM),
 	}
 
-	vrfPrimaryNodeSendingKeys := strings.Split(*vrfPrimaryNodeSendingKeysString, ",")
+	var vrfPrimaryNodeSendingKeys []string
+	if len(*vrfPrimaryNodeSendingKeysString) > 0 {
+		vrfPrimaryNodeSendingKeys = strings.Split(*vrfPrimaryNodeSendingKeysString, ",")
+	}
 
 	nodesMap := make(map[string]model.Node)
 
+	fundingAmount, ok := new(big.Int).SetString(*nodeSendingKeyFundingAmount, 10)
+	if !ok {
+		panic(fmt.Sprintf("failed to parse node sending key funding amount '%s'", *nodeSendingKeyFundingAmount))
+	}
 	nodesMap[model.VRFPrimaryNodeName] = model.Node{
 		SendingKeys:             util.MapToSendingKeyArr(vrfPrimaryNodeSendingKeys),
 		SendingKeyFundingAmount: fundingAmount,
@@ -529,19 +536,24 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	}
 
 	coordinatorConfig := CoordinatorConfigV2Plus{
-		MinConfs:               minConfs,
-		MaxGasLimit:            maxGasLimit,
-		StalenessSeconds:       stalenessSeconds,
-		GasAfterPayment:        gasAfterPayment,
+		MinConfs:               *minConfs,
+		MaxGasLimit:            *maxGasLimit,
+		StalenessSeconds:       *stalenessSeconds,
+		GasAfterPayment:        *gasAfterPayment,
 		FallbackWeiPerUnitLink: fallbackWeiPerUnitLink,
 		FeeConfig:              feeConfig,
+	}
+
+	vrfKeyRegistrationConfig := model.VRFKeyRegistrationConfig{
+		VRFKeyUncompressedPubKey: *registerVRFKeyUncompressedPubKey,
+		RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
 	}
 
 	VRFV2PlusDeployUniverse(
 		e,
 		subscriptionBalanceJuels,
 		subscriptionBalanceNativeWei,
-		registerKeyUncompressedPubKey,
+		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
 		*batchFulfillmentEnabled,
@@ -558,7 +570,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 func VRFV2PlusDeployUniverse(e helpers.Environment,
 	subscriptionBalanceJuels *big.Int,
 	subscriptionBalanceNativeWei *big.Int,
-	registerKeyUncompressedPubKey *string,
+	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2Plus,
 	batchFulfillmentEnabled bool,
@@ -566,14 +578,14 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
-	if len(*registerKeyUncompressedPubKey) > 0 {
+	if len(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey) > 0 {
 		// Put key in ECDSA format
-		if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
-			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
+		if strings.HasPrefix(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, "0x") {
+			vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey = strings.Replace(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, "0x", "04", 1)
 		}
 
 		// Generate compressed public key and key hash
-		pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
+		pubBytes, err := hex.DecodeString(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey)
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
@@ -628,10 +640,10 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	SetCoordinatorConfig(
 		e,
 		*coordinator,
-		uint16(*coordinatorConfig.MinConfs),
-		uint32(*coordinatorConfig.MaxGasLimit),
-		uint32(*coordinatorConfig.StalenessSeconds),
-		uint32(*coordinatorConfig.GasAfterPayment),
+		uint16(coordinatorConfig.MinConfs),
+		uint32(coordinatorConfig.MaxGasLimit),
+		uint32(coordinatorConfig.StalenessSeconds),
+		uint32(coordinatorConfig.GasAfterPayment),
 		coordinatorConfig.FallbackWeiPerUnitLink,
 		coordinatorConfig.FeeConfig,
 	)
@@ -639,12 +651,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
 	PrintCoordinatorConfig(coordinator)
 
-	if len(*registerKeyUncompressedPubKey) > 0 {
+	if len(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey) > 0 {
 		fmt.Println("\nRegistering proving key...")
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, e.Owner.From.String())
+		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, vrfKeyRegistrationConfig.RegisterAgainstAddress)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
@@ -690,16 +702,15 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
 		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
 		compressedPkHex,                           //publicKey
-		*coordinatorConfig.MinConfs,               //minIncomingConfirmations
+		coordinatorConfig.MinConfs,                //minIncomingConfirmations
 		e.ChainID,                                 //evmChainID
 		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
 		contractAddresses.CoordinatorAddress,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
-			} else {
-				return common.HexToAddress("0x0").String()
 			}
+			return common.HexToAddress("0x0").String()
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
@@ -718,9 +729,8 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
-			} else {
-				return common.HexToAddress("0x0").String()
 			}
+			return common.HexToAddress("0x0").String()
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
@@ -768,7 +778,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		"\nVRF Subscription LINK Balance:", *subscriptionBalanceJuels,
 		"\nVRF Subscription Native Balance:", *subscriptionBalanceNativeWei,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, *coordinatorConfig.MinConfs),
+		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
 		"\nRetrieve Request Status: ",
 		fmt.Sprintf("go run . eoa-load-test-read-metrics --consumer-address=%s", consumerAddress),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",

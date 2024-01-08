@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -13,11 +14,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type block struct {
@@ -32,7 +38,7 @@ func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, 
 
 func GenLogWithTimestamp(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, topic1 []byte, address common.Address, blockTimestamp time.Time) logpoller.Log {
 	return logpoller.Log{
-		EvmChainId:     utils.NewBig(chainID),
+		EvmChainId:     ubig.New(chainID),
 		LogIndex:       logIndex,
 		BlockHash:      common.HexToHash(blockHash),
 		BlockNumber:    blockNum,
@@ -42,6 +48,21 @@ func GenLogWithTimestamp(chainID *big.Int, logIndex int64, blockNum int64, block
 		TxHash:         common.HexToHash("0x1234"),
 		Data:           append([]byte("hello "), byte(blockNum)),
 		BlockTimestamp: blockTimestamp,
+	}
+}
+
+func GenLogWithData(chainID *big.Int, address common.Address, eventSig common.Hash, logIndex int64, blockNum int64, data []byte) logpoller.Log {
+	return logpoller.Log{
+		EvmChainId:     ubig.New(chainID),
+		LogIndex:       logIndex,
+		BlockHash:      utils.RandomBytes32(),
+		BlockNumber:    blockNum,
+		EventSig:       eventSig,
+		Topics:         [][]byte{},
+		Address:        address,
+		TxHash:         utils.RandomBytes32(),
+		Data:           data,
+		BlockTimestamp: time.Now(),
 	}
 }
 
@@ -179,13 +200,13 @@ func TestORM(t *testing.T) {
 	assert.Equal(t, int64(12), latest.BlockNumber)
 
 	// Delete a block (only 10 on chain).
-	require.NoError(t, o1.DeleteBlocksAfter(10))
+	require.NoError(t, o1.DeleteLogsAndBlocksAfter(10))
 	_, err = o1.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 
 	// Delete blocks from another chain.
-	require.NoError(t, o2.DeleteBlocksAfter(11))
+	require.NoError(t, o2.DeleteLogsAndBlocksAfter(11))
 	_, err = o2.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
@@ -199,7 +220,7 @@ func TestORM(t *testing.T) {
 	topic2 := common.HexToHash("0x1600")
 	require.NoError(t, o1.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    1,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(10),
@@ -210,7 +231,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    2,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(11),
@@ -221,7 +242,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    3,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(12),
@@ -232,7 +253,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    4,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(13),
@@ -243,7 +264,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    5,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(14),
@@ -254,7 +275,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello2"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    6,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(15),
@@ -265,7 +286,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello2"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    7,
 			BlockHash:   common.HexToHash("0x1237"),
 			BlockNumber: int64(16),
@@ -276,7 +297,7 @@ func TestORM(t *testing.T) {
 			Data:        []byte("hello short retention"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    8,
 			BlockHash:   common.HexToHash("0x1238"),
 			BlockNumber: int64(17),
@@ -318,7 +339,6 @@ func TestORM(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 	// With block 12, anything <=2 should work
-	require.NoError(t, o1.DeleteBlocksAfter(10))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 11, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 12, time.Now(), 0))
 	_, err = o1.SelectLatestLogByEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
@@ -421,7 +441,7 @@ func TestORM(t *testing.T) {
 	assert.Len(t, logs, 7)
 
 	// Delete logs after should delete all logs.
-	err = o1.DeleteLogsAfter(1)
+	err = o1.DeleteLogsAndBlocksAfter(1)
 	require.NoError(t, err)
 	logs, err = o1.SelectLogsByBlockRange(1, latest.BlockNumber)
 	require.NoError(t, err)
@@ -432,7 +452,7 @@ func insertLogsTopicValueRange(t *testing.T, chainID *big.Int, o *logpoller.DbOR
 	var lgs []logpoller.Log
 	for i := start; i <= stop; i++ {
 		lgs = append(lgs, logpoller.Log{
-			EvmChainId:  utils.NewBig(chainID),
+			EvmChainId:  ubig.New(chainID),
 			LogIndex:    int64(i),
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(blockNumber),
@@ -517,7 +537,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1, time.Now(), 0))
 	logs := []logpoller.Log{
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    int64(0),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: int64(1),
@@ -528,7 +548,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 			Data:        logpoller.EvmWord(1).Bytes(),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    int64(1),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: int64(1),
@@ -540,7 +560,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 		},
 		// Different txHash
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    int64(2),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: int64(1),
@@ -552,7 +572,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 		},
 		// Different eventSig
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    int64(3),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: int64(1),
@@ -565,7 +585,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 	}
 	require.NoError(t, o1.InsertLogs(logs))
 
-	retrievedLogs, err := o1.SelectIndexedLogsByTxHash(eventSig, txHash)
+	retrievedLogs, err := o1.SelectIndexedLogsByTxHash(addr, eventSig, txHash)
 	require.NoError(t, err)
 
 	require.Equal(t, 2, len(retrievedLogs))
@@ -581,7 +601,7 @@ func TestORM_DataWords(t *testing.T) {
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1, time.Now(), 0))
 	require.NoError(t, o1.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    int64(0),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: int64(1),
@@ -593,7 +613,7 @@ func TestORM_DataWords(t *testing.T) {
 		},
 		{
 			// In block 2, unconfirmed to start
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    int64(1),
 			BlockHash:   common.HexToHash("0x2"),
 			BlockNumber: int64(2),
@@ -648,7 +668,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	sourceAddr := common.HexToAddress("0x12345")
 	inputLogs := []logpoller.Log{
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    1,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(10),
@@ -659,7 +679,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello1"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    2,
 			BlockHash:   common.HexToHash("0x1235"),
 			BlockNumber: int64(11),
@@ -670,7 +690,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello2"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    3,
 			BlockHash:   common.HexToHash("0x1236"),
 			BlockNumber: int64(12),
@@ -681,7 +701,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello3"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    4,
 			BlockHash:   common.HexToHash("0x1237"),
 			BlockNumber: int64(13),
@@ -692,7 +712,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello4"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    5,
 			BlockHash:   common.HexToHash("0x1238"),
 			BlockNumber: int64(14),
@@ -703,7 +723,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 			Data:        []byte("hello5"),
 		},
 		{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    6,
 			BlockHash:   common.HexToHash("0x1239"),
 			BlockNumber: int64(15),
@@ -808,7 +828,7 @@ func BenchmarkLogs(b *testing.B) {
 	addr := common.HexToAddress("0x1234")
 	for i := 0; i < 10_000; i++ {
 		lgs = append(lgs, logpoller.Log{
-			EvmChainId:  utils.NewBig(th.ChainID),
+			EvmChainId:  ubig.New(th.ChainID),
 			LogIndex:    int64(i),
 			BlockHash:   common.HexToHash("0x1"),
 			BlockNumber: 1,
@@ -847,7 +867,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	//Insert two logs that mimics an oracle request from 2 different addresses (matching will be on topic index 1)
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       1,
 			BlockHash:      common.HexToHash("0x1"),
 			BlockNumber:    1,
@@ -859,7 +879,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			Data:           []byte("requestID-A1"),
 		},
 		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       2,
 			BlockHash:      common.HexToHash("0x1"),
 			BlockNumber:    1,
@@ -888,7 +908,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	//Insert a log that mimics response for requestID-A1
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       3,
 			BlockHash:      common.HexToHash("0x2"),
 			BlockNumber:    2,
@@ -916,7 +936,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	//Insert 3 request from addressC (matching will be on topic index 3)
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       5,
 			BlockHash:      common.HexToHash("0x2"),
 			BlockNumber:    3,
@@ -928,7 +948,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			Data:           []byte("requestID-C1"),
 		},
 		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       6,
 			BlockHash:      common.HexToHash("0x2"),
 			BlockNumber:    3,
@@ -939,7 +959,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 			TxHash:         common.HexToHash("0x0002"),
 			Data:           []byte("requestID-C2"),
 		}, {
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       7,
 			BlockHash:      common.HexToHash("0x2"),
 			BlockNumber:    3,
@@ -964,7 +984,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	//Fulfill requestID-C2
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       8,
 			BlockHash:      common.HexToHash("0x3"),
 			BlockNumber:    3,
@@ -987,7 +1007,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	//Fulfill requestID-C3
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       9,
 			BlockHash:      common.HexToHash("0x3"),
 			BlockNumber:    3,
@@ -1022,7 +1042,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	//Fulfill requestID-C3
 	require.NoError(t, orm.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:     (*utils.Big)(th.ChainID),
+			EvmChainId:     (*ubig.Big)(th.ChainID),
 			LogIndex:       10,
 			BlockHash:      common.HexToHash("0x2"),
 			BlockNumber:    10,
@@ -1300,4 +1320,248 @@ func TestNestedLogPollerBlocksQuery(t *testing.T) {
 	logs, err = th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, logpoller.Confirmations(4))
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
+}
+
+func TestInsertLogsWithBlock(t *testing.T) {
+	chainID := testutils.NewRandomEVMChainID()
+	event := utils.RandomBytes32()
+	address := utils.RandomAddress()
+
+	// We need full db here, because we want to test transaction rollbacks.
+	// Using pgtest.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
+	// (inner tx rollback will rollback outer tx, blocking rest of execution)
+	_, db := heavyweight.FullTestDBV2(t, nil)
+	o := logpoller.NewORM(chainID, db, logger.Test(t), pgtest.NewQConfig(true))
+
+	correctLog := GenLog(chainID, 1, 1, utils.RandomAddress().String(), event[:], address)
+	invalidLog := GenLog(chainID, -10, -10, utils.RandomAddress().String(), event[:], address)
+	correctBlock := logpoller.NewLogPollerBlock(utils.RandomBytes32(), 20, time.Now(), 10)
+	invalidBlock := logpoller.NewLogPollerBlock(utils.RandomBytes32(), -10, time.Now(), -10)
+
+	tests := []struct {
+		name           string
+		logs           []logpoller.Log
+		block          logpoller.LogPollerBlock
+		shouldRollback bool
+	}{
+		{
+			name:           "properly persist all data",
+			logs:           []logpoller.Log{correctLog},
+			block:          correctBlock,
+			shouldRollback: false,
+		},
+		{
+			name:           "rollbacks transaction when block is invalid",
+			logs:           []logpoller.Log{correctLog},
+			block:          invalidBlock,
+			shouldRollback: true,
+		},
+		{
+			name:           "rollbacks transaction when log is invalid",
+			logs:           []logpoller.Log{invalidLog},
+			block:          correctBlock,
+			shouldRollback: true,
+		},
+		{
+			name:           "rollback when only some logs are invalid",
+			logs:           []logpoller.Log{correctLog, invalidLog},
+			block:          correctBlock,
+			shouldRollback: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// clean all logs and blocks between test cases
+			defer func() { _ = o.DeleteLogsAndBlocksAfter(0) }()
+			insertError := o.InsertLogsWithBlock(tt.logs, tt.block)
+
+			logs, logsErr := o.SelectLogs(0, math.MaxInt, address, event)
+			block, blockErr := o.SelectLatestBlock()
+
+			if tt.shouldRollback {
+				assert.Error(t, insertError)
+
+				assert.NoError(t, logsErr)
+				assert.Len(t, logs, 0)
+
+				assert.Error(t, blockErr)
+			} else {
+				assert.NoError(t, insertError)
+
+				assert.NoError(t, logsErr)
+				assert.Len(t, logs, len(tt.logs))
+
+				assert.NoError(t, blockErr)
+				assert.Equal(t, block.BlockNumber, tt.block.BlockNumber)
+			}
+		})
+	}
+}
+
+func TestInsertLogsInTx(t *testing.T) {
+	chainID := testutils.NewRandomEVMChainID()
+	event := utils.RandomBytes32()
+	address := utils.RandomAddress()
+	maxLogsSize := 9000
+
+	// We need full db here, because we want to test transaction rollbacks.
+	_, db := heavyweight.FullTestDBV2(t, nil)
+	o := logpoller.NewORM(chainID, db, logger.Test(t), pgtest.NewQConfig(true))
+
+	logs := make([]logpoller.Log, maxLogsSize, maxLogsSize+1)
+	for i := 0; i < maxLogsSize; i++ {
+		logs[i] = GenLog(chainID, int64(i+1), int64(i+1), utils.RandomAddress().String(), event[:], address)
+	}
+	invalidLog := GenLog(chainID, -10, -10, utils.RandomAddress().String(), event[:], address)
+
+	tests := []struct {
+		name           string
+		logs           []logpoller.Log
+		shouldRollback bool
+	}{
+		{
+			name:           "all logs persisted",
+			logs:           logs,
+			shouldRollback: false,
+		},
+		{
+			name:           "rollback when invalid log is passed",
+			logs:           append(logs, invalidLog),
+			shouldRollback: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// clean all logs and blocks between test cases
+			defer func() { _ = o.DeleteLogsAndBlocksAfter(0) }()
+
+			insertErr := o.InsertLogs(tt.logs)
+			logsFromDb, err := o.SelectLogs(0, math.MaxInt, address, event)
+			assert.NoError(t, err)
+
+			if tt.shouldRollback {
+				assert.Error(t, insertErr)
+				assert.Len(t, logsFromDb, 0)
+			} else {
+				assert.NoError(t, insertErr)
+				assert.Len(t, logsFromDb, len(tt.logs))
+			}
+		})
+	}
+}
+
+func TestSelectLogsDataWordBetween(t *testing.T) {
+	address := utils.RandomAddress()
+	eventSig := utils.RandomBytes32()
+	th := SetupTH(t, false, 2, 3, 2, 1000)
+
+	firstLogData := make([]byte, 0, 64)
+	firstLogData = append(firstLogData, logpoller.EvmWord(1).Bytes()...)
+	firstLogData = append(firstLogData, logpoller.EvmWord(10).Bytes()...)
+
+	secondLogData := make([]byte, 0, 64)
+	secondLogData = append(secondLogData, logpoller.EvmWord(5).Bytes()...)
+	secondLogData = append(secondLogData, logpoller.EvmWord(20).Bytes()...)
+
+	err := th.ORM.InsertLogsWithBlock(
+		[]logpoller.Log{
+			GenLogWithData(th.ChainID, address, eventSig, 1, 1, firstLogData),
+			GenLogWithData(th.ChainID, address, eventSig, 2, 2, secondLogData),
+		},
+		logpoller.NewLogPollerBlock(utils.RandomBytes32(), 10, time.Now(), 1),
+	)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name         string
+		wordValue    uint64
+		expectedLogs []int64
+	}{
+		{
+			name:         "returns only first log",
+			wordValue:    2,
+			expectedLogs: []int64{1},
+		},
+		{
+			name:         "returns only second log",
+			wordValue:    11,
+			expectedLogs: []int64{2},
+		},
+		{
+			name:         "returns both logs if word value is between",
+			wordValue:    5,
+			expectedLogs: []int64{1, 2},
+		},
+		{
+			name:         "returns no logs if word value is outside of the range",
+			wordValue:    21,
+			expectedLogs: []int64{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logs, err1 := th.ORM.SelectLogsDataWordBetween(address, eventSig, 0, 1, logpoller.EvmWord(tt.wordValue), logpoller.Unconfirmed)
+			assert.NoError(t, err1)
+			assert.Len(t, logs, len(tt.expectedLogs))
+
+			for index := range logs {
+				assert.Equal(t, tt.expectedLogs[index], logs[index].BlockNumber)
+			}
+		})
+	}
+}
+
+func Benchmark_LogsDataWordBetween(b *testing.B) {
+	chainId := big.NewInt(137)
+	_, db := heavyweight.FullTestDBV2(b, nil)
+	o := logpoller.NewORM(chainId, db, logger.Test(b), pgtest.NewQConfig(false))
+
+	numberOfReports := 100_000
+	numberOfMessagesPerReport := 256
+
+	commitStoreAddress := utils.RandomAddress()
+	commitReportAccepted := utils.RandomBytes32()
+
+	var dbLogs []logpoller.Log
+	for i := 0; i < numberOfReports; i++ {
+		data := make([]byte, 64)
+		// MinSeqNr
+		data = append(data, logpoller.EvmWord(uint64(numberOfMessagesPerReport*i+1)).Bytes()...)
+		// MaxSeqNr
+		data = append(data, logpoller.EvmWord(uint64(numberOfMessagesPerReport*(i+1))).Bytes()...)
+
+		dbLogs = append(dbLogs, logpoller.Log{
+			EvmChainId:     ubig.New(chainId),
+			LogIndex:       int64(i + 1),
+			BlockHash:      utils.RandomBytes32(),
+			BlockNumber:    int64(i + 1),
+			BlockTimestamp: time.Now(),
+			EventSig:       commitReportAccepted,
+			Topics:         [][]byte{},
+			Address:        commitStoreAddress,
+			TxHash:         utils.RandomAddress().Hash(),
+			Data:           data,
+			CreatedAt:      time.Now(),
+		})
+	}
+	require.NoError(b, o.InsertBlock(utils.RandomAddress().Hash(), int64(numberOfReports*numberOfMessagesPerReport), time.Now(), int64(numberOfReports*numberOfMessagesPerReport)))
+	require.NoError(b, o.InsertLogs(dbLogs))
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		logs, err := o.SelectLogsDataWordBetween(
+			commitStoreAddress,
+			commitReportAccepted,
+			2,
+			3,
+			logpoller.EvmWord(uint64(numberOfReports*numberOfMessagesPerReport/2)), // Pick the middle report
+			logpoller.Unconfirmed,
+		)
+		assert.NoError(b, err)
+		assert.Len(b, logs, 1)
+	}
 }

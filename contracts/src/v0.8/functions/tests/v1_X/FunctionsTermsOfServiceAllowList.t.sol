@@ -2,14 +2,16 @@
 pragma solidity ^0.8.19;
 
 import {TermsOfServiceAllowList} from "../../dev/v1_X/accessControl/TermsOfServiceAllowList.sol";
+import {TermsOfServiceAllowListConfig} from "../../dev/v1_X/accessControl/interfaces/ITermsOfServiceAllowList.sol";
 import {FunctionsClientTestHelper} from "./testhelpers/FunctionsClientTestHelper.sol";
 
 import {FunctionsRoutesSetup, FunctionsOwnerAcceptTermsOfServiceSetup} from "./Setup.t.sol";
+import "forge-std/Vm.sol";
 
 /// @notice #constructor
 contract FunctionsTermsOfServiceAllowList_Constructor is FunctionsRoutesSetup {
   function test_Constructor_Success() public {
-    assertEq(s_termsOfServiceAllowList.typeAndVersion(), "Functions Terms of Service Allow List v1.0.0");
+    assertEq(s_termsOfServiceAllowList.typeAndVersion(), "Functions Terms of Service Allow List v1.1.0");
     assertEq(s_termsOfServiceAllowList.owner(), OWNER_ADDRESS);
   }
 }
@@ -21,7 +23,7 @@ contract FunctionsTermsOfServiceAllowList_GetConfig is FunctionsRoutesSetup {
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    TermsOfServiceAllowList.Config memory config = s_termsOfServiceAllowList.getConfig();
+    TermsOfServiceAllowListConfig memory config = s_termsOfServiceAllowList.getConfig();
     assertEq(config.enabled, getTermsOfServiceConfig().enabled);
     assertEq(config.signerPublicKey, getTermsOfServiceConfig().signerPublicKey);
   }
@@ -36,14 +38,14 @@ contract FunctionsTermsOfServiceAllowList_UpdateConfig is FunctionsRoutesSetup {
 
     vm.expectRevert("Only callable by owner");
     s_termsOfServiceAllowList.updateConfig(
-      TermsOfServiceAllowList.Config({enabled: true, signerPublicKey: STRANGER_ADDRESS})
+      TermsOfServiceAllowListConfig({enabled: true, signerPublicKey: STRANGER_ADDRESS})
     );
   }
 
-  event ConfigUpdated(TermsOfServiceAllowList.Config config);
+  event ConfigUpdated(TermsOfServiceAllowListConfig config);
 
   function test_UpdateConfig_Success() public {
-    TermsOfServiceAllowList.Config memory configToSet = TermsOfServiceAllowList.Config({
+    TermsOfServiceAllowListConfig memory configToSet = TermsOfServiceAllowListConfig({
       enabled: false,
       signerPublicKey: TOS_SIGNER
     });
@@ -58,7 +60,7 @@ contract FunctionsTermsOfServiceAllowList_UpdateConfig is FunctionsRoutesSetup {
 
     s_termsOfServiceAllowList.updateConfig(configToSet);
 
-    TermsOfServiceAllowList.Config memory config = s_termsOfServiceAllowList.getConfig();
+    TermsOfServiceAllowListConfig memory config = s_termsOfServiceAllowList.getConfig();
     assertEq(config.enabled, configToSet.enabled);
     assertEq(config.signerPublicKey, configToSet.signerPublicKey);
   }
@@ -156,7 +158,7 @@ contract FunctionsTermsOfServiceAllowList_AcceptTermsOfService is FunctionsRoute
 
   function testAcceptTermsOfService_InvalidSigner_vuln() public {
     // Set the signer as the zero address
-    TermsOfServiceAllowList.Config memory allowListConfig;
+    TermsOfServiceAllowListConfig memory allowListConfig;
     allowListConfig.enabled = true;
     allowListConfig.signerPublicKey = address(0);
     s_termsOfServiceAllowList.updateConfig(allowListConfig);
@@ -197,11 +199,12 @@ contract FunctionsTermsOfServiceAllowList_AcceptTermsOfService is FunctionsRoute
 
     assertTrue(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)));
 
-    // Event emitted even though adding existing item into EnumerableSet set does nothing
-    // TODO: handle differently in contract
-    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit AddedAccess(STRANGER_ADDRESS);
+    // Check the addedAccess is not emitted, given the recipient was already in the list
+    vm.recordLogs();
     s_termsOfServiceAllowList.acceptTermsOfService(STRANGER_ADDRESS, STRANGER_ADDRESS, r, s, v);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries.length, 0);
+
     assertTrue(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)));
   }
 
@@ -258,7 +261,7 @@ contract FunctionsTermsOfServiceAllowList_HasAccess is FunctionsRoutesSetup {
   function test_HasAccess_TrueWhenDisabled() public {
     // Disable allow list, which opens all access
     s_termsOfServiceAllowList.updateConfig(
-      TermsOfServiceAllowList.Config({enabled: false, signerPublicKey: TOS_SIGNER})
+      TermsOfServiceAllowListConfig({enabled: false, signerPublicKey: TOS_SIGNER})
     );
 
     // Send as stranger

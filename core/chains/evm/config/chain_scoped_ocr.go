@@ -25,3 +25,11 @@ func (o *ocrConfig) ObservationGracePeriod() time.Duration {
 func (o *ocrConfig) DatabaseTimeout() time.Duration {
 	return o.c.DatabaseTimeout.Duration()
 }
+
+func (o *ocrConfig) DeltaCOverride() time.Duration {
+	return o.c.DeltaCOverride.Duration()
+}
+
+func (o *ocrConfig) DeltaCJitterOverride() time.Duration {
+	return o.c.DeltaCJitterOverride.Duration()
+}

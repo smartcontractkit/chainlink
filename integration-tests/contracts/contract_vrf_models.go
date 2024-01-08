@@ -49,10 +49,18 @@ type VRFCoordinatorV2 interface {
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
-	CreateSubscription() error
+	CreateSubscription() (*types.Transaction, error)
 	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
 	GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error)
+	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
+	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
+	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
+	FindSubscriptionID(subID uint64) (uint64, error)
+	WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error)
+	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
+	WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
+	OracleWithdraw(recipient common.Address, amount *big.Int) error
 }
 
 type VRFCoordinatorV2_5 interface {
@@ -69,7 +77,6 @@ type VRFCoordinatorV2_5 interface {
 		feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig,
 	) error
 	RegisterProvingKey(
-		oracleAddr string,
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
@@ -80,11 +87,17 @@ type VRFCoordinatorV2_5 interface {
 	AddConsumer(subId *big.Int, consumerAddress string) error
 	FundSubscriptionWithNative(subId *big.Int, nativeTokenAmount *big.Int) error
 	Address() string
+	PendingRequestsExist(ctx context.Context, subID *big.Int) (bool, error)
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error)
+	OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error)
+	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
+	Withdraw(recipient common.Address) error
+	WithdrawNative(recipient common.Address) error
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
 	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	FindSubscriptionID(subID *big.Int) (*big.Int, error)
 	WaitForSubscriptionCreatedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated, error)
+	WaitForSubscriptionCanceledEvent(subID *big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCanceled, error)
 	WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []*big.Int, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested, error)
 	WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, error)
@@ -104,7 +117,6 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 		feeConfig vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
 	) error
 	RegisterProvingKey(
-		oracleAddr string,
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
@@ -159,10 +171,11 @@ type VRFv2Consumer interface {
 
 type VRFv2LoadTestConsumer interface {
 	Address() string
-	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) error
+	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) (*types.Transaction, error)
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
+	ResetMetrics() error
 }
 
 type VRFv2PlusLoadTestConsumer interface {
@@ -256,12 +269,13 @@ type RequestStatus struct {
 }
 
 type LoadTestRequestStatus struct {
-	Fulfilled             bool
-	RandomWords           []*big.Int
-	requestTimestamp      *big.Int
-	fulfilmentTimestamp   *big.Int
-	requestBlockNumber    *big.Int
-	fulfilmentBlockNumber *big.Int
+	Fulfilled   bool
+	RandomWords []*big.Int
+	// Currently Unused November 8, 2023, Mignt be used in near future, will remove if not.
+	// requestTimestamp      *big.Int
+	// fulfilmentTimestamp   *big.Int
+	// requestBlockNumber    *big.Int
+	// fulfilmentBlockNumber *big.Int
 }
 
 type VRFLoadTestMetrics struct {

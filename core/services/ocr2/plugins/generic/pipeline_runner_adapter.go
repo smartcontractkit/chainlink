@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -23,7 +23,7 @@ type PipelineRunnerAdapter struct {
 	logger logger.Logger
 }
 
-func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) ([]types.TaskResult, error) {
+func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, vars types.Vars, options types.Options) (types.TaskResults, error) {
 	s := pipeline.Spec{
 		DotDagSource:    spec,
 		CreatedAt:       time.Now(),
@@ -54,9 +54,13 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 		taskResults[i] = types.TaskResult{
 			ID:    trr.ID.String(),
 			Type:  string(trr.Task.Type()),
-			Value: trr.Result.Value,
-			Error: trr.Result.Error,
-			Index: int(trr.TaskRun.Index),
+			Index: int(trr.Task.OutputIndex()),
+
+			TaskValue: types.TaskValue{
+				Value:      trr.Result.Value,
+				Error:      trr.Result.Error,
+				IsTerminal: len(trr.Task.Outputs()) == 0,
+			},
 		}
 	}
 	return taskResults, nil

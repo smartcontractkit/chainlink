@@ -1,0 +1,810 @@
+# ***
+# This workflow is a monstrosity of copy-paste, and that's to increase legibility in reporting and running, so the code be damned.
+# I suspect this can be cleaned up significantly with some clever trickery of the GitHub actions matrices, but I am not that clever.
+# We want each chain to run in parallel, but each test within the chain needs to be able to run sequentially 
+# (we're trying to eliminate this as a requirement, should make it a lot easier).
+# Each chain can have a variety of tests to run.
+# We also want reporting to be clear in the start-slack-thread and post-test-results-to-slack jobs.
+# ***
+
+name: Live Testnet Tests
+on:
+  schedule:
+    - cron: "0 5 * * *" # Run every night at midnight EST
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+env:
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  MOD_CACHE_VERSION: 2
+  CHAINLINK_NODE_FUNDING: .5
+
+  CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+  CHAINLINK_ENV_USER: ${{ github.actor }}
+  TEST_LOG_LEVEL: debug
+  EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
+
+  SEPOLIA_URLS: ${{ secrets.QA_SEPOLIA_URLS }}
+  SEPOLIA_HTTP_URLS: ${{ secrets.QA_SEPOLIA_HTTP_URLS }}
+
+  BSC_TESTNET_URLS: ${{ secrets.QA_BSC_TESTNET_URLS }}
+  BSC_TESTNET_HTTP_URLS: ${{ secrets.QA_BSC_TESTNET_HTTP_URLS }}
+
+  OPTIMISM_SEPOLIA_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
+  OPTIMISM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
+
+  ARBITRUM_SEPOLIA_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
+  ARBITRUM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
+
+  BASE_GOERLI_URLS: ${{ secrets.QA_BASE_GOERLI_URLS }}
+  BASE_GOERLI_HTTP_URLS: ${{ secrets.QA_BASE_GOERLI_HTTP_URLS }}
+
+  BASE_SEPOLIA_URLS: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
+  BASE_SEPOLIA_HTTP_URLS: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
+
+  POLYGON_MUMBAI_URLS: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
+  POLYGON_MUMBAI_HTTP_URLS: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
+
+  AVALANCHE_FUJI_URLS: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
+  AVALANCHE_FUJI_HTTP_URLS: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
+
+  FANTOM_TESTNET_URLS: ${{ secrets.QA_FANTOM_TESTNET_URLS }}
+  FANTOM_TESTNET_HTTP_URLS: ${{ secrets.QA_FANTOM_TESTNET_HTTP_URLS }}
+
+  CELO_ALFAJORES_URLS: ${{ secrets.QA_CELO_ALFAJORES_URLS }}
+  CELO_ALFAJORES_HTTP_URLS: ${{ secrets.QA_CELO_ALFAJORES_HTTP_URLS }}
+
+  SCROLL_SEPOLIA_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_URLS }}
+  SCROLL_SEPOLIA_HTTP_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_HTTP_URLS }}
+
+  LINEA_GOERLI_URLS: ${{ secrets.QA_LINEA_GOERLI_URLS }}
+  LINEA_GOERLI_HTTP_URLS: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
+
+jobs:
+
+  # Build Test Dependencies
+  
+  build-chainlink:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with: 
+          tag_suffix: ""
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ github.sha }}
+          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+  build-tests:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Tests Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Tests Binary
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        with:
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          binary_name: tests
+
+  # End Build Test Dependencies
+
+  # Reporting Jobs
+
+  start-slack-thread:
+    name: Start Slack Thread
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    environment: integration
+    outputs:
+      thread_ts: ${{ steps.slack.outputs.thread_ts }}
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [sepolia-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-goerli-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, linea-goerli-smoke-tests]
+    steps:
+      - name: Debug Result
+        run: echo ${{ join(needs.*.result, ',') }}
+      - name: Main Slack Notification
+        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        id: slack
+        with:
+          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "emoji": true
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG>' || 'All Good!' }}"
+                      }
+                    },
+                    {
+                      "type": "divider"
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
+  post-test-results-to-slack:
+    name: Post Test Results for ${{ matrix.network }}
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: start-slack-thread
+    strategy:
+      fail-fast: false
+      matrix:
+        network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Goerli, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Linea Goerli]
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Post Test Results
+        uses: ./.github/actions/notify-slack-jobs-result
+        with:
+          github_token: ${{ github.token }}
+          github_repository: ${{ github.repository }}
+          workflow_run_id: ${{ github.run_id }}
+          github_job_name_regex: ^${{ matrix.network }} (?<cap>.*?) Tests$
+          message_title: ${{ matrix.network }}
+          slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
+          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
+          slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
+
+  # End Reporting Jobs
+
+  sepolia-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: SEPOLIA
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
+    name: Sepolia ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  bsc-testnet-tests:
+    # TODO: BSC RPCs are all in a bad state right now, so we're skipping these tests until they're fixed
+    if: false
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: BSC_TESTNET
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
+    name: BSC Testnet ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-bsc-testnet
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  optimism-sepolia-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: OPTIMISM_SEPOLIA
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
+    name: Optimism Sepolia ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-sepolia
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  arbitrum-sepolia-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: ARBITRUM_SEPOLIA
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
+    name: Arbitrum Sepolia ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  base-goerli-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: BASE_GOERLI
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+    name: Base Goerli ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-goerli
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  base-sepolia-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: BASE_SEPOLIA
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+    name: Base Sepolia ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-sepolia
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  
+  polygon-mumbai-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: POLYGON_MUMBAI
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
+    name: Polygon Mumbai ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-polygon-mumbai
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  avalanche-fuji-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: AVALANCHE_FUJI
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
+    name: Avalanche Fuji ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-avalanche-fuji
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  fantom-testnet-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: FANTOM_TESTNET
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+          - product: Automation Conditional
+            test: TestAutomationBasic/registry_2_1_conditional
+          - product: Automation Log Trigger
+            test: TestAutomationBasic/registry_2_1_logtrigger
+    name: Fantom Testnet ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-fantom-testnet
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  celo-alfajores-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: CELO_ALFAJORES
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+    name: Celo Alfajores ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-celo-alfajores
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+     
+  scroll-sepolia-smoke-tests:
+    # TODO: Disabled until bug TT-767 is fixed
+    if: false
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: SCROLL_SEPOLIA
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+    name: Scroll Sepolia ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-scroll-sepolia
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  linea-goerli-smoke-tests:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: LINEA_GOERLI
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+          - product: OCR
+            test: TestOCRBasic
+    name: Linea Goerli ${{ matrix.product }} Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-linea-goerli
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}

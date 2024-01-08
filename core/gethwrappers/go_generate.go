@@ -59,6 +59,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationUtils2_1/AutomationUtils2_1.abi ../../contracts/solc/v0.8.16/AutomationUtils2_1/AutomationUtils2_1.bin AutomationUtils automation_utils_2_1
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.bin AutomationForwarderLogic automation_forwarder_logic
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpkeepCounter.bin LogUpkeepCounter log_upkeep_counter_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.abi ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.bin SimpleLogUpkeepCounter simple_log_upkeep_counter_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/LogTriggeredStreamsLookup/LogTriggeredStreamsLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredStreamsLookup/LogTriggeredStreamsLookup.bin LogTriggeredStreamsLookup log_triggered_streams_lookup_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/DummyProtocol/DummyProtocol.abi ../../contracts/solc/v0.8.16/DummyProtocol/DummyProtocol.bin DummyProtocol dummy_protocol_wrapper
 

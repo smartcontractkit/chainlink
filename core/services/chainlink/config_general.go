@@ -13,12 +13,11 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -28,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
@@ -99,7 +97,7 @@ func (o *GeneralConfigOpts) Setup(configFiles []string, secretsFiles []string) e
 // parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
 func (o *GeneralConfigOpts) parseConfig(config string) error {
 	var c Config
-	if err2 := configutils.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
+	if err2 := commonconfig.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
 
@@ -113,7 +111,7 @@ func (o *GeneralConfigOpts) parseConfig(config string) error {
 // parseSecrets sets Secrets from the given TOML string. Errors on overrides
 func (o *GeneralConfigOpts) parseSecrets(secrets string) error {
 	var s Secrets
-	if err2 := configutils.DecodeTOML(strings.NewReader(secrets), &s); err2 != nil {
+	if err2 := commonconfig.DecodeTOML(strings.NewReader(secrets), &s); err2 != nil {
 		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
 
@@ -137,7 +135,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		return nil, err
 	}
 
-	_, warning := utils.MultiErrorList(o.Config.deprecationWarnings())
+	_, warning := utils.MultiErrorList(o.Config.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
@@ -348,7 +346,7 @@ func (g *generalConfig) StarkNetEnabled() bool {
 }
 
 func (g *generalConfig) WebServer() config.WebServer {
-	return &webServerConfig{c: g.c.WebServer, rootDir: g.RootDir}
+	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) AutoPprofBlockProfileRate() int {
@@ -443,14 +441,6 @@ func (g *generalConfig) P2P() config.P2P {
 	return &p2p{c: g.c.P2P}
 }
 
-func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
-	return g.c.P2P.NetworkStack()
-}
-
-func (g *generalConfig) P2PNetworkingStackRaw() string {
-	return g.c.P2P.NetworkStack().String()
-}
-
 func (g *generalConfig) P2PPeerID() p2pkey.PeerID {
 	return *g.c.P2P.PeerID
 }
@@ -507,7 +497,7 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 }
 
 func (g *generalConfig) Mercury() coreconfig.Mercury {
-	return &mercuryConfig{s: g.secrets.Mercury}
+	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
 }
 
 func (g *generalConfig) Threshold() coreconfig.Threshold {

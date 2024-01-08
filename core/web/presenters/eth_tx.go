@@ -6,9 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 // EthTxResource represents a Ethereum Transaction JSONAPI resource.
@@ -25,7 +25,7 @@ type EthTxResource struct {
 	SentAt     string          `json:"sentAt"`
 	To         *common.Address `json:"to"`
 	Value      string          `json:"value"`
-	EVMChainID utils.Big       `json:"evmChainID"`
+	EVMChainID big.Big         `json:"evmChainID"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -50,7 +50,7 @@ func NewEthTxResource(tx txmgr.Tx) EthTxResource {
 	}
 
 	if tx.ChainID != nil {
-		r.EVMChainID = *utils.NewBig(tx.ChainID)
+		r.EVMChainID = *big.New(tx.ChainID)
 	}
 	return r
 }
@@ -65,7 +65,7 @@ func NewEthTxResourceFromAttempt(txa txmgr.TxAttempt) EthTxResource {
 	r.Hex = hexutil.Encode(txa.SignedRawTx)
 
 	if txa.Tx.ChainID != nil {
-		r.EVMChainID = *utils.NewBig(txa.Tx.ChainID)
+		r.EVMChainID = *big.New(txa.Tx.ChainID)
 	}
 
 	if tx.Sequence != nil {

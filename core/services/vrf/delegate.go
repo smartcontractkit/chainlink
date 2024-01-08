@@ -10,11 +10,12 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -29,7 +30,6 @@ import (
 	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Delegate struct {
@@ -37,9 +37,9 @@ type Delegate struct {
 	pr           pipeline.Runner
 	porm         pipeline.ORM
 	ks           keystore.Master
-	legacyChains evm.LegacyChainContainer
+	legacyChains legacyevm.LegacyChainContainer
 	lggr         logger.Logger
-	mailMon      *utils.MailboxMonitor
+	mailMon      *mailbox.Monitor
 }
 
 func NewDelegate(
@@ -47,10 +47,10 @@ func NewDelegate(
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
-	legacyChains evm.LegacyChainContainer,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg pg.QConfig,
-	mailMon *utils.MailboxMonitor) *Delegate {
+	mailMon *mailbox.Monitor) *Delegate {
 	return &Delegate{
 		q:            pg.NewQ(db, lggr, cfg),
 		ks:           ks,
@@ -66,10 +66,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(job.Job)              {}
+func (d *Delegate) AfterJobCreated(job.Job)               {}
+func (d *Delegate) BeforeJobDeleted(job.Job)              {}
+func (d *Delegate) OnDeleteJob(job.Job, pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
@@ -142,6 +142,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if vrfOwner != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
+			if jb.VRFSpec.CustomRevertsPipelineEnabled {
+				return nil, errors.New("Custom Reverted Txns Pipeline is not supported for VRF V2 Plus")
+			}
 
 			// Get the LINKNATIVEFEED address with retries
 			// This is needed because the RPC endpoint may be down so we need to
@@ -160,24 +163,28 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, errors.Wrap(err2, "NewAggregatorV3Interface")
 			}
 
-			return []job.ServiceCtx{v2.New(
-				chain.Config().EVM(),
-				chain.Config().EVM().GasEstimator(),
-				lV2Plus,
-				chain,
-				chain.ID(),
-				d.q,
-				v2.NewCoordinatorV2_5(coordinatorV2Plus),
-				batchCoordinatorV2,
-				vrfOwner,
-				aggregator,
-				d.pr,
-				d.ks.Eth(),
-				jb,
-				d.mailMon,
-				utils.NewHighCapacityMailbox[log.Broadcast](),
-				func() {},
-				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
+			return []job.ServiceCtx{
+				v2.New(
+					chain.Config().EVM(),
+					chain.Config().EVM().GasEstimator(),
+					lV2Plus,
+					chain,
+					chain.ID(),
+					d.q,
+					v2.NewCoordinatorV2_5(coordinatorV2Plus),
+					batchCoordinatorV2,
+					vrfOwner,
+					aggregator,
+					d.pr,
+					d.ks.Eth(),
+					jb,
+					func() {},
+					// the lookback in the deduper must be >= the lookback specified for the log poller
+					// otherwise we will end up re-delivering logs that were already delivered.
+					vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+					vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+				),
+			}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
@@ -225,10 +232,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.pr,
 				d.ks.Eth(),
 				jb,
-				d.mailMon,
-				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
+				// the lookback in the deduper must be >= the lookback specified for the log poller
+				// otherwise we will end up re-delivering logs that were already delivered.
+				vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+			),
+			}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.ServiceCtx{&v1.Listener{
@@ -243,7 +253,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				MailMon:        d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				ReqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
+				ReqLogs:            mailbox.NewHighCapacity[log.Broadcast](),
 				ChStop:             make(chan struct{}),
 				WaitOnStop:         make(chan struct{}),
 				NewHead:            make(chan struct{}, 1),

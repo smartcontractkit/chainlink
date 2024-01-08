@@ -8,7 +8,7 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 import {AccessControllerInterface} from "../shared/interfaces/AccessControllerInterface.sol";
 import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
-import {Common} from "../libraries/Common.sol";
+import {Common} from "./libraries/Common.sol";
 
 /**
  * The verifier proxy contract is the gateway for all report verification requests

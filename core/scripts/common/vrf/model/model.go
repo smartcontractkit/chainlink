@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -20,7 +21,6 @@ type Node struct {
 	NumberOfSendingKeysToCreate int
 	SendingKeyFundingAmount     *big.Int
 	VrfKeys                     []string
-	jobSpec                     string
 }
 
 type SendingKey struct {
@@ -43,4 +43,9 @@ type ContractAddresses struct {
 	BatchBHSAddress         common.Address
 	CoordinatorAddress      common.Address
 	BatchCoordinatorAddress common.Address
+}
+
+type VRFKeyRegistrationConfig struct {
+	VRFKeyUncompressedPubKey string
+	RegisterAgainstAddress   string
 }

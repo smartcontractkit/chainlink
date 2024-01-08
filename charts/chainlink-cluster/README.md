@@ -16,13 +16,8 @@ nix develop
 ## New cluster
 We are using [devspace](https://www.devspace.sh/docs/getting-started/installation?x0=3)
 
-Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments
+Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments for more details
 
-Set your registry for the image, example for `ECR`:
-```
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${aws_account}.dkr.ecr.us-west-2.amazonaws.com
-export DEVSPACE_IMAGE="${aws_account}.dkr.ecr.us-west-2.amazonaws.com/chainlink-devspace"
-```
 Enter the shell and deploy
 ```
 # set your unique namespace if it's a new cluster
@@ -34,7 +29,7 @@ If you don't need a build use
 devspace deploy --skip-build
 ```
 
-Connect to your environment
+Connect to your environment, by replacing container with label `node-1` with your local repository files
 ```
 devspace dev -p node
 make chainlink
@@ -45,20 +40,19 @@ Fix something in the code locally, it'd automatically sync, rebuild it inside co
 make chainlink
 make chainlink-local-start
 ```
-If you need to update the whole cluster run `deploy` again with a new set of images
+
+Reset the pod to original image
 ```
 devspace reset pods
-devspace deploy
 ```
+
 Destroy the cluster
 ```
 devspace purge
 ```
 
-If you need to run some system level tests inside k8s use `runner` profile:
-```
-devspace dev -p runner
-```
+## Running load tests
+Check this [doc](../../integration-tests/load/ocr/README.md)
 
 If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
 
@@ -66,8 +60,6 @@ If you used `devspace dev ...` always use `devspace reset pods` to switch the po
 If you need to debug CL node that is already deployed change `dev.app.container` and `dev.app.labelSelector` in [devspace.yaml](devspace.yaml) if they are not default and run:
 ```
 devspace dev -p node
-or
-devspace dev -p runner
 ```
 
 ## Automatic file sync
@@ -78,14 +70,14 @@ After that all the changes will be synced automatically
 Check `.profiles` to understand what is uploaded in profiles `runner` and `node`
 
 # Helm
-If you would like to use `helm` directly, please uncomment data in `values-raw-helm.yaml`
+If you would like to use `helm` directly, please uncomment data in `values.yaml`
 ## Install from local files
 ```
-helm install -f values-raw-helm.yaml cl-cluster .
+helm install -f values.yaml cl-cluster .
 ```
 Forward all apps (in another terminal)
 ```
-sudo kubefwd svc
+sudo kubefwd svc -n cl-cluster
 ```
 Then you can connect and run your tests
 
@@ -103,7 +95,7 @@ kubectl config set-context --current --namespace cl-cluster
 
 Install
 ```
-helm install -f values-raw-helm.yaml cl-cluster chainlink-cluster/chainlink-cluster --version v0.1.2
+helm install -f values.yaml cl-cluster .
 ```
 
 ## Create a new release
@@ -118,3 +110,17 @@ helm test cl-cluster
 ```
 helm uninstall cl-cluster
 ```
+
+# Grafana dashboard
+We are using [Grabana]() lib to create dashboards programmatically
+```
+export GRAFANA_URL=...
+export GRAFANA_TOKEN=...
+export LOKI_DATA_SOURCE_NAME=Loki
+export PROMETHEUS_DATA_SOURCE_NAME=Thanos
+export DASHBOARD_FOLDER=CRIB
+export DASHBOARD_NAME=ChainlinkCluster
+
+cd dashboard/cmd && go run dashboard_deploy.go
+```
+Open Grafana folder `CRIB` and find dashboard `ChainlinkCluster`

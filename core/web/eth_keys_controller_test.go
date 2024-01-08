@@ -8,14 +8,15 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -411,10 +412,12 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	var count int
-	err = app.GetSqlxDB().Get(&count, `SELECT count(*) FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+	db := app.GetSqlxDB()
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg.Database())
+
+	txes, err := txStore.FindTxesByFromAddressAndState(testutils.Context(t), addr, "fatal_error")
 	require.NoError(t, err)
-	assert.Equal(t, 0, count)
+	require.Len(t, txes, 0)
 
 	client := app.NewHTTPClient(nil)
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
@@ -437,10 +440,12 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
 	assert.Equal(t, false, updatedKey.Disabled)
 
-	var s string
-	err = app.GetSqlxDB().Get(&s, `SELECT error FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+	txes, err = txStore.FindTxesByFromAddressAndState(testutils.Context(t), addr, "fatal_error")
 	require.NoError(t, err)
-	assert.Equal(t, "abandoned", s)
+	require.Len(t, txes, 1)
+
+	tx := txes[0]
+	assert.Equal(t, "abandoned", tx.Error.String)
 }
 
 func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {

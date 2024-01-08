@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -16,15 +17,23 @@ import (
 )
 
 type Delegate struct {
-	legacyChains evm.LegacyChainContainer
+	legacyChains legacyevm.LegacyChainContainer
 	ks           keystore.Eth
+	db           *sqlx.DB
+	cfg          pg.QConfig
 	lggr         logger.Logger
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains evm.LegacyChainContainer, ks keystore.Eth, lggr logger.Logger) *Delegate {
-	return &Delegate{legacyChains: legacyChains, ks: ks, lggr: lggr}
+func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) *Delegate {
+	return &Delegate{
+		legacyChains: legacyChains,
+		ks:           ks,
+		db:           db,
+		cfg:          cfg,
+		lggr:         lggr,
+	}
 }
 
 func (d *Delegate) JobType() job.Type {
@@ -47,7 +56,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "unmarshal gateway config")
 	}
-	handlerFactory := NewHandlerFactory(d.legacyChains, d.lggr)
+	handlerFactory := NewHandlerFactory(d.legacyChains, d.db, d.cfg, d.lggr)
 	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr)
 	if err != nil {
 		return nil, err

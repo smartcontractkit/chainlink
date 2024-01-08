@@ -34,9 +34,10 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -51,7 +52,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ocr2Node struct {
@@ -105,13 +105,12 @@ func setupNodeOCR2(
 	t *testing.T,
 	owner *bind.TransactOpts,
 	port int,
-	dbName string,
 	useForwarder bool,
 	b *backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
 	p2pKey := keystest.NewP2PKeyV2(t)
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.Feature.LogPoller = ptr(true)
@@ -120,7 +119,6 @@ func setupNodeOCR2(
 		c.OCR2.Enabled = ptr(true)
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V1.Enabled = ptr(false)
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
@@ -145,7 +143,7 @@ func setupNodeOCR2(
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(
+	tx := cltest.NewLegacyTransaction(
 		n, transmitter,
 		assets.Ether(1).ToInt(),
 		21000,
@@ -172,7 +170,7 @@ func setupNodeOCR2(
 
 		// add forwarder address to be tracked in db
 		forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
-		chainID := utils.Big(*b.Blockchain().Config().ChainID)
+		chainID := ubig.Big(*b.Blockchain().Config().ChainID)
 		_, err2 = forwarderORM.CreateForwarder(faddr, chainID)
 		require.NoError(t, err2)
 
@@ -193,7 +191,7 @@ func TestIntegration_OCR2(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", false /* useForwarders */, b, nil)
+	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, false /* useForwarders */, b, nil)
 
 	var (
 		oracles      []confighelper2.OracleIdentityExtra
@@ -203,7 +201,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	)
 	ports := freeport.GetN(t, 4)
 	for i := 0; i < 4; i++ {
-		node := setupNodeOCR2(t, owner, ports[i], fmt.Sprintf("oracle%d", i), false /* useForwarders */, b, []commontypes.BootstrapperLocator{
+		node := setupNodeOCR2(t, owner, ports[i], false /* useForwarders */, b, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		})
@@ -477,7 +475,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", true /* useForwarders */, b, nil)
+	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, true /* useForwarders */, b, nil)
 
 	var (
 		oracles            []confighelper2.OracleIdentityExtra
@@ -488,7 +486,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	)
 	ports := freeport.GetN(t, 4)
 	for i := uint16(0); i < 4; i++ {
-		node := setupNodeOCR2(t, owner, ports[i], fmt.Sprintf("oracle%d", i), true /* useForwarders */, b, []commontypes.BootstrapperLocator{
+		node := setupNodeOCR2(t, owner, ports[i], true /* useForwarders */, b, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		})
