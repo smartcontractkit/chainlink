@@ -343,6 +343,25 @@ func StartNewRound(
 	return nil
 }
 
+// WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
+// round from the contract, as this can cause some odd behavior in some cases
+func WatchNewRound(
+	roundNumber int64,
+	ocrInstances []contracts.OffchainAggregator,
+	client blockchain.EVMClient,
+	logger zerolog.Logger,
+) error {
+	for i := 0; i < len(ocrInstances); i++ {
+		ocrRound := contracts.NewOffchainAggregatorRoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), client.GetNetworkConfig().Timeout.Duration, logger)
+		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
+		err := client.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
 // SetAdapterResponse sets a single adapter response that correlates with an ocr contract and a chainlink node
 func SetAdapterResponse(
 	response int,

@@ -326,18 +326,12 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             file: ocr
-            pyroscope_env: ci-smoke-ocr-evm-simulated                         
+            pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 1
             os: ubuntu-latest
             file: ocr2
-            pyroscope_env: ci-smoke-ocr2-evm-simulated                                                     
-          - name: ocr2
-            nodes: 1
-            os: ubuntu-latest
-            run: -run TestOCRv2Request
-            file: ocr2
-            pyroscope_env: ci-smoke-ocr2-evm-simulated                                                           
+            pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 1
             os: ubuntu-latest
@@ -358,7 +352,7 @@ jobs:
           - name: vrfv2plus
             nodes: 1
             os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated                       
+            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu-latest
