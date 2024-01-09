@@ -12,6 +12,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ormconfig struct {
@@ -348,7 +348,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 
 	ds1_id := uuid.New()
 	now := time.Now()
-	address, err := utils.TryParseHex("0x8bd112d3f8f92e41c861939545ad387307af9703")
+	address, err := hex.DecodeString("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
 	cborOutput := map[string]interface{}{
 		"blockNum":        "0x13babbd",

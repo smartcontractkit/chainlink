@@ -18,6 +18,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -409,7 +410,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 
 // addKeyToKeeper imports the provided ETH sending key to the keeper
 func (k *Keeper) addKeyToKeeper(client cmd.HTTPClient, privKeyHex string) (string, error) {
-	privkey, err := crypto.HexToECDSA(utils.RemoveHexPrefix(privKeyHex))
+	privkey, err := crypto.HexToECDSA(hex.TrimPrefix(privKeyHex))
 	if err != nil {
 		log.Fatalf("Failed to decode priv key %s: %v", privKeyHex, err)
 	}

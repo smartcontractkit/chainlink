@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -483,6 +482,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 
 	medianProvider := medianProvider{
+		lggr:                lggr.Named("MedianProvider"),
 		configWatcher:       configWatcher,
 		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
@@ -513,6 +513,7 @@ func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commo
 var _ commontypes.MedianProvider = (*medianProvider)(nil)
 
 type medianProvider struct {
+	lggr                logger.Logger
 	configWatcher       *configWatcher
 	contractTransmitter ContractTransmitter
 	reportCodec         median.ReportCodec
@@ -521,26 +522,22 @@ type medianProvider struct {
 	ms                  services.MultiStart
 }
 
-func (p *medianProvider) Name() string {
-	return "EVM.MedianProvider"
-}
+func (p *medianProvider) Name() string { return p.lggr.Name() }
 
 func (p *medianProvider) Start(ctx context.Context) error {
-	return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter)
+	return p.ms.Start(ctx, p.configWatcher, p.contractTransmitter, p.medianContract)
 }
 
-func (p *medianProvider) Close() error {
-	return p.ms.Close()
-}
+func (p *medianProvider) Close() error { return p.ms.Close() }
 
-func (p *medianProvider) Ready() error {
-	return multierr.Combine(p.configWatcher.Ready(), p.contractTransmitter.Ready())
-}
+func (p *medianProvider) Ready() error { return nil }
 
 func (p *medianProvider) HealthReport() map[string]error {
-	report := p.configWatcher.HealthReport()
-	services.CopyHealth(report, p.contractTransmitter.HealthReport())
-	return report
+	hp := map[string]error{p.Name(): p.Ready()}
+	services.CopyHealth(hp, p.configWatcher.HealthReport())
+	services.CopyHealth(hp, p.contractTransmitter.HealthReport())
+	services.CopyHealth(hp, p.medianContract.HealthReport())
+	return hp
 }
 
 func (p *medianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {

@@ -135,6 +135,8 @@ geth:
 mockserver:
   enabled: true
   releasenameOverride: mockserver
+  service:
+    type: ClusterIP
   app:
     runAsUser: 999
     readOnlyRootFilesystem: false
@@ -178,6 +180,101 @@ runner:
     type: NodePort
     port: 8080
 
+ingress:
+  enabled: false
+  annotations: {}
+  ingressClassName: alb
+  hosts:
+    - host: chainlink-node-1.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-1
+                port:
+                  number: 6688
+    - host: chainlink-node-2.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-2
+                port:
+                  number: 6688
+    - host: chainlink-node-3.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-3
+                port:
+                  number: 6688
+    - host: chainlink-node-4.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-4
+                port:
+                  number: 6688
+    - host: chainlink-node-5.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-5
+                port:
+                  number: 6688
+    - host: chainlink-node-6.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-6
+                port:
+                  number: 6688
+    - host: chainlink-geth-http.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: geth
+                port:
+                  number: 8544
+    - host: chainlink-geth-ws.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: geth
+                port:
+                  number: 8546
+    - host: chainlink-mockserver.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mockserver
+                port:
+                  number: 1080
 # monitoring.coreos.com/v1 PodMonitor for each node
 prometheusMonitor: true
 

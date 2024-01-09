@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestRegistry(t *testing.T) {

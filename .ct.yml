@@ -1,0 +1,5 @@
+# See: https://github.com/helm/chart-testing
+target-branch: ccip-develop
+chart-dirs: 'charts'
+check-version-increment: false
+validate-maintainers: false

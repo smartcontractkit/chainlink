@@ -17,7 +17,8 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
     uint256 lastBlock,
     uint256 previousBlock,
     uint256 counter,
-    uint256 timeToPerform
+    uint256 timeToPerform,
+    bool isRecovered
   );
 
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
@@ -26,6 +27,7 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
   uint256 public initialBlock;
   uint256 public counter;
   uint256 public timeToPerform;
+  bool public isRecovered;
 
   constructor() {
     previousPerformBlock = 0;
@@ -52,9 +54,9 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
       }
     }
     if (log.topics[2] == eventSig) {
-      return (true, abi.encode(log, checkData));
+      return (true, abi.encode(log, block.number, checkData));
     }
-    return (false, abi.encode(log, checkData));
+    return (false, abi.encode(log, block.number, checkData));
   }
 
   function performUpkeep(bytes calldata performData) external override {
@@ -64,8 +66,12 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
     lastBlock = block.number;
     counter = counter + 1;
     previousPerformBlock = lastBlock;
-    (Log memory log, bytes memory extraData) = abi.decode(performData, (Log, bytes));
+    (Log memory log, uint256 checkBlock, bytes memory extraData) = abi.decode(performData, (Log, uint256, bytes));
     timeToPerform = block.timestamp - log.timestamp;
+    isRecovered = false;
+    if (checkBlock != log.blockNumber) {
+      isRecovered = true;
+    }
     (uint256 checkBurnAmount, uint256 performBurnAmount, bytes32 eventSig) = abi.decode(
       extraData,
       (uint256, uint256, bytes32)
@@ -80,6 +86,14 @@ contract SimpleLogUpkeepCounter is ILogAutomation {
         dummyIndex = keccak256(abi.encode(dummyIndex, address(this)));
       }
     }
-    emit PerformingUpkeep(tx.origin, initialBlock, lastBlock, previousPerformBlock, counter, timeToPerform);
+    emit PerformingUpkeep(
+      tx.origin,
+      initialBlock,
+      lastBlock,
+      previousPerformBlock,
+      counter,
+      timeToPerform,
+      isRecovered
+    );
   }
 }

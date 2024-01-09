@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 func MustGetEventID(name string, abi2 abi.ABI) common.Hash {

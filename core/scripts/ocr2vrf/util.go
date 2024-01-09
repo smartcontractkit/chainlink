@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
