@@ -51,6 +51,7 @@ type ClNode struct {
 	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
 	UserEmail             string                  `json:"userEmail"`
 	UserPassword          string                  `json:"userPassword"`
+	AlwaysPullImage       bool
 	t                     *testing.T
 	l                     zerolog.Logger
 	ls                    *logstream.LogStream
@@ -435,9 +436,10 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	apiCredsPath := "/home/api-credentials.txt"
 
 	return &tc.ContainerRequest{
-		Name:         n.ContainerName,
-		Image:        fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
-		ExposedPorts: []string{"6688/tcp"},
+		Name:            n.ContainerName,
+		AlwaysPullImage: n.AlwaysPullImage,
+		Image:           fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
+		ExposedPorts:    []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
 			"-s", secretsPath,
