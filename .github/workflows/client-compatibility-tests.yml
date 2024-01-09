@@ -279,7 +279,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG> and <@U060CGGPY8H>' || 'All Good!' }}"
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U060CGGPY8H>' || 'All Good!' }}"
                       }
                     },
                     {
