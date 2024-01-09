@@ -650,8 +650,9 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 	})
 	t.Run("Soft timeout stops results collection", func(t *testing.T) {
 		chainID := types.RandomID()
+		expectedError := errors.New("tmp error")
+		fastNode := newNode(t, expectedError, nil)
 		// hold reply from the node till end of the test
-		fastNode := newNode(t, nil, nil)
 		testContext, testCancel := context.WithCancel(tests.Context(t))
 		defer testCancel()
 		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
@@ -666,7 +667,38 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 			sendTxSoftTimeout:   tests.TestInterval,
 		})
 		err := mn.SendTransaction(tests.Context(t), nil)
+		require.EqualError(t, err, expectedError.Error())
+	})
+	t.Run("Returns success without waiting for the rest of the nodes", func(t *testing.T) {
+		chainID := types.RandomID()
+		fastNode := newNode(t, nil, nil)
+		// hold reply from the node till end of the test
+		testContext, testCancel := context.WithCancel(tests.Context(t))
+		defer testCancel()
+		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
+			// block caller til end of the test
+			<-testContext.Done()
+		})
+		slowSendOnly := newNode(t, errors.New("send only failed"), func(_ mock.Arguments) {
+			// block caller til end of the test
+			<-testContext.Done()
+		})
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
+		mn := newTestMultiNode(t, multiNodeOpts{
+			logger:              lggr,
+			selectionMode:       NodeSelectionModeRoundRobin,
+			chainID:             chainID,
+			nodes:               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{fastNode, slowNode},
+			sendonlys:           []SendOnlyNode[types.ID, multiNodeRPCClient]{slowSendOnly},
+			classifySendTxError: classifySendTxError,
+			sendTxSoftTimeout:   tests.TestInterval,
+		})
+		assert.NoError(t, mn.StartOnce("startedTestMultiNode", func() error { return nil }))
+		err := mn.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, err)
+		testCancel()
+		require.NoError(t, mn.Close())
+		tests.AssertLogEventually(t, observedLogs, "observed invariant violation on SendTransaction")
 	})
 	t.Run("Fails when closed", func(t *testing.T) {
 		mn := newTestMultiNode(t, multiNodeOpts{
@@ -680,7 +712,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, mn.Close())
 		err = mn.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, "aborted while broadcasting tx - multinode is stopped: context canceled")
+		require.EqualError(t, err, "aborted while broadcasting tx - multiNode is stopped: context canceled")
 	})
 }
 
@@ -699,9 +731,9 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		ResultsByCode       map[SendTxReturnCode][]error
 	}{
 		{
-			Name:                "Returns success and logs critical error on Success and Fatal",
+			Name:                "Returns success and logs critical error on success and Fatal",
 			ExpectedTxResult:    "success",
-			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got Successful and severe error",
+			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
 			ResultsByCode: map[SendTxReturnCode][]error{
 				Successful: {errors.New("success")},
 				Fatal:      {errors.New("fatal")},
@@ -710,7 +742,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		{
 			Name:                "Returns TransactionAlreadyKnown and logs critical error on TransactionAlreadyKnown and Fatal",
 			ExpectedTxResult:    "tx_already_known",
-			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got Successful and severe error",
+			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
 			ResultsByCode: map[SendTxReturnCode][]error{
 				TransactionAlreadyKnown: {errors.New("tx_already_known")},
 				Unsupported:             {errors.New("unsupported")},
@@ -744,8 +776,8 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 		},
 		{
 			Name:                "Logs critical error on empty ResultsByCode",
-			ExpectedTxResult:    "invariant violation: expected at least one response on SendTransaction",
-			ExpectedCriticalErr: "invariant violation: expected at least one response on SendTransaction",
+			ExpectedTxResult:    "expected at least one response on SendTransaction",
+			ExpectedCriticalErr: "expected at least one response on SendTransaction",
 			ResultsByCode:       map[SendTxReturnCode][]error{},
 		},
 	}

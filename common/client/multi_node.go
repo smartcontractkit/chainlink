@@ -581,23 +581,23 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 }
 
-func cloneChannel[T any](source <-chan T) chan T {
-	result := make(chan T, len(source))
-	go func() {
-		for t := range source {
-			result <- t
+func fanOut[T any](source chan T, destinations ...chan T) {
+	for t := range source {
+		for _, dest := range destinations {
+			dest <- t
 		}
-		close(result)
-	}()
+	}
 
-	return result
+	for _, dest := range destinations {
+		close(dest)
+	}
 }
 
-// waitTxResults - waits for sufficient number of sendTxResult to determine result of transaction submission.
+// collectTxResults - waits for sufficient number of sendTxResult to determine result of transaction submission.
 // We balance the waiting time and the number of collected results. Our target is replies from 70% of nodes,
 // but we won't wait longer than sendTxSoftTimeout since the first reply to avoid waiting
 // for a timeout from slow/unhealthy nodes.
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) waitTxResults(ctx context.Context, tx TX, txResults <-chan sendTxResult) (map[SendTxReturnCode][]error, error) {
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) collectTxResults(ctx context.Context, tx TX, txResults <-chan sendTxResult) (map[SendTxReturnCode][]error, error) {
 	// combine context and stop channel to ensure we stop, when signal received
 	ctx, cancel := c.chStop.Ctx(ctx)
 	defer cancel()
@@ -613,11 +613,8 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			return nil, ctx.Err()
 		case result := <-txResults:
 			errorsByCode[result.ResultCode] = append(errorsByCode[result.ResultCode], result.Err)
-			if result.ResultCode == Successful {
-				return errorsByCode, nil
-			}
 			resultsCount++
-			if resultsCount >= requiredResults {
+			if result.ResultCode == Successful || resultsCount >= requiredResults {
 				return errorsByCode, nil
 			}
 		case <-softTimeoutChan:
@@ -636,24 +633,18 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
-	ok := c.IfNotStopped(func() {
-		c.wg.Add(1)
-		go func() {
-			defer c.wg.Done()
-			resultsByCode := map[SendTxReturnCode][]error{}
-			for txResult := range txResults {
-				resultsByCode[txResult.ResultCode] = append(resultsByCode[txResult.ResultCode], txResult.Err)
-			}
+	defer c.wg.Done()
+	resultsByCode := map[SendTxReturnCode][]error{}
+	// txResults eventually will be closed
+	for txResult := range txResults {
+		resultsByCode[txResult.ResultCode] = append(resultsByCode[txResult.ResultCode], txResult.Err)
+	}
 
-			_, criticalErr := aggregateTxResults(resultsByCode)
-			if criticalErr != nil {
-				c.SvcErrBuffer.Append(criticalErr)
-				PromMultiNodeInvariantViolations.WithLabelValues(c.chainFamily, c.chainID.String(), criticalErr.Error()).Inc()
-			}
-		}()
-	})
-	if !ok {
-		c.lggr.Debugw("Cannot report SendTransaction anomalies; MultiNode is stopped")
+	_, criticalErr := aggregateTxResults(resultsByCode)
+	if criticalErr != nil {
+		c.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
+		c.SvcErrBuffer.Append(criticalErr)
+		PromMultiNodeInvariantViolations.WithLabelValues(c.chainFamily, c.chainID.String(), criticalErr.Error()).Inc()
 	}
 }
 
@@ -664,7 +655,7 @@ func aggregateTxResults(resultsByCode map[SendTxReturnCode][]error) (txResult er
 		// We assume that primary node would never report false positive txResult for a transaction.
 		// Thus, if such case occurs it's probably due to misconfiguration or a bug and requires manual intervention.
 		if hasSevereErrors {
-			const errMsg = "found contradictions in nodes replies on SendTransaction: got Successful and severe error"
+			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error"
 			// return success, since at least 1 node has accepted our broadcasted Tx, and thus it can now be included onchain
 			return successResults[0], fmt.Errorf(errMsg)
 		}
@@ -682,7 +673,7 @@ func aggregateTxResults(resultsByCode map[SendTxReturnCode][]error) (txResult er
 		return result[0], nil
 	}
 
-	err = fmt.Errorf("invariant violation: expected at least one response on SendTransaction")
+	err = fmt.Errorf("expected at least one response on SendTransaction")
 	return err, err
 }
 
@@ -692,34 +683,42 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 
 	txResults := make(chan sendTxResult, len(c.nodes))
+	// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
 	ok := c.IfNotStopped(func() {
-		// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
-		var wg sync.WaitGroup
-		wg.Add(len(c.sendonlys) + len(c.nodes))
+		c.wg.Add(len(c.sendonlys))
+		// fire-n-forget, as sendOnlyNodes can not be trusted with result reporting
 		for _, n := range c.sendonlys {
-			// fire-n-forget, as sendOnlyNodes can not be trusted with result reporting
-			go c.broadcastTxAsync(ctx, n, tx, nil, &wg)
+			go c.broadcastTxAsync(ctx, n, tx, nil, &c.wg)
 		}
 
-		for _, n := range c.nodes {
-			go c.broadcastTxAsync(ctx, n, tx, txResults, &wg)
-		}
-
+		// signal when all the primary nodes done broadcasting tx
+		inTxResults := make(chan sendTxResult, len(c.nodes))
+		var wg sync.WaitGroup
+		wg.Add(len(c.nodes))
 		c.wg.Add(1)
 		go func() {
 			wg.Wait()
 			c.wg.Done()
-			close(txResults)
+			close(inTxResults)
 
 		}()
+
+		for _, n := range c.nodes {
+			go c.broadcastTxAsync(ctx, n, tx, inTxResults, &wg)
+		}
+
+		txResultsToReport := make(chan sendTxResult, len(c.nodes))
+		go fanOut(inTxResults, txResultsToReport, txResults)
+
+		c.wg.Add(1)
+		go c.reportSendTxAnomalies(tx, txResultsToReport)
+
 	})
 	if !ok {
-		return fmt.Errorf("aborted while broadcasting tx - multinode is stopped: %w", context.Canceled)
+		return fmt.Errorf("aborted while broadcasting tx - multiNode is stopped: %w", context.Canceled)
 	}
 
-	go c.reportSendTxAnomalies(tx, cloneChannel(txResults))
-
-	resultsByCode, err := c.waitTxResults(ctx, tx, txResults)
+	resultsByCode, err := c.collectTxResults(ctx, tx, txResults)
 	if err != nil {
 		return fmt.Errorf("failed to collect tx results: %w", err)
 	}
