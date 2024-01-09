@@ -124,12 +124,12 @@ contract VRFV2Plus is BaseTest {
     // Should revert when already registered.
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(vrfUncompressedPublicKey);
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.ProvingKeyAlreadyRegistered.selector, vrfKeyHash));
-    s_testCoordinator.registerProvingKey(LINK_WHALE, uncompressedKeyParts);
+    s_testCoordinator.registerProvingKey(uncompressedKeyParts);
   }
 
   function registerProvingKey() public {
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(vrfUncompressedPublicKey);
-    s_testCoordinator.registerProvingKey(LINK_WHALE, uncompressedKeyParts);
+    s_testCoordinator.registerProvingKey(uncompressedKeyParts);
   }
 
   // note: Call this function via this.getProvingKeyParts to be able to pass memory as calldata and
