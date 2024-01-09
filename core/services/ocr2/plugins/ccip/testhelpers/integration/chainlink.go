@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	evmUtils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -67,7 +68,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -939,7 +940,7 @@ func (k *ksa) CSA() keystore.CSA {
 
 func NewKsa(db *sqlx.DB, lggr logger.Logger, csa keystore.CSA, config chainlink.GeneralConfig) *ksa {
 	return &ksa{
-		Master: keystore.New(db, utils.FastScryptParams, lggr, config.Database()),
+		Master: keystore.New(db, clutils.FastScryptParams, lggr, config.Database()),
 		csa:    csa,
 	}
 }
