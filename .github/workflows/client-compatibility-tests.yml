@@ -213,7 +213,8 @@ jobs:
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV  
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+          touch .root_dir
       - name: Debug pwd
         run: |
           pwd
