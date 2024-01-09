@@ -172,7 +172,6 @@ jobs:
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           ETH2_EL_CLIENT: ${{matrix.client}}          
         run: |
-          echo ::add-mask::$UPGRADE_IMAGE
           convert_to_toml_array() {
             local IFS=','
             local input_array=($1)
@@ -214,7 +213,11 @@ jobs:
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV                    
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV  
+      - name: Debug pwd
+        run: |
+          pwd
+          ls -la                            
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
