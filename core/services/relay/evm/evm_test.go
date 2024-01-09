@@ -15,10 +15,9 @@ import (
 func TestRelayerOpts_Validate(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	type fields struct {
-		DB               *sqlx.DB
-		QConfig          pg.QConfig
-		CSAETHKeystore   evm.CSAETHKeystore
-		EventBroadcaster pg.EventBroadcaster
+		DB             *sqlx.DB
+		QConfig        pg.QConfig
+		CSAETHKeystore evm.CSAETHKeystore
 	}
 	tests := []struct {
 		name            string
@@ -28,23 +27,19 @@ func TestRelayerOpts_Validate(t *testing.T) {
 		{
 			name: "all invalid",
 			fields: fields{
-				DB:               nil,
-				QConfig:          nil,
-				CSAETHKeystore:   nil,
-				EventBroadcaster: nil,
+				DB:             nil,
+				QConfig:        nil,
+				CSAETHKeystore: nil,
 			},
 			wantErrContains: `nil DB
 nil QConfig
-nil Keystore
-nil Eventbroadcaster`,
+nil Keystore`,
 		},
 		{
 			name: "missing db, keystore",
 			fields: fields{
-				DB:               nil,
-				QConfig:          cfg.Database(),
-				CSAETHKeystore:   nil,
-				EventBroadcaster: pg.NewNullEventBroadcaster(),
+				DB:      nil,
+				QConfig: cfg.Database(),
 			},
 			wantErrContains: `nil DB
 nil Keystore`,
