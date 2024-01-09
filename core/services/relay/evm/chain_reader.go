@@ -154,15 +154,15 @@ func (cr *chainReader) addMethod(
 		client:       cr.client,
 	})
 
-	if err := cr.addEncoderDef(contractName, methodName, method, chainReaderDefinition); err != nil {
+	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition); err != nil {
 		return err
 	}
 
 	return cr.addDecoderDef(contractName, methodName, method.Outputs, chainReaderDefinition)
 }
 
-func (cr *chainReader) addEvent(contractName, eventName string, abi abi.ABI, chainReaderDefinition types.ChainReaderDefinition) error {
-	event, eventExists := abi.Events[chainReaderDefinition.ChainSpecificName]
+func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chainReaderDefinition types.ChainReaderDefinition) error {
+	event, eventExists := a.Events[chainReaderDefinition.ChainSpecificName]
 	if !eventExists {
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
@@ -170,12 +170,20 @@ func (cr *chainReader) addEvent(contractName, eventName string, abi abi.ABI, cha
 		lp:   cr.lp,
 		hash: event.ID,
 	})
+
+	// Though nothing is encoded encoderDef is required so that CreateType can return a struct{} for CreateType to allow "decoding" into.
+	// The caller isn't aware that there are no arguments and will try to encode the parameters.
+	// The "Arguments" must be empty so decoding is to struct{}, prefix doesn't matter, as this won't be encoded.
+	if err := cr.addEncoderDef(contractName, eventName, abi.Arguments{}, nil, chainReaderDefinition); err != nil {
+		return err
+	}
+
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
 
-func (cr *chainReader) addEncoderDef(contractName, methodName string, method abi.Method, chainReaderDefinition types.ChainReaderDefinition) error {
+func (cr *chainReader) addEncoderDef(contractName, methodName string, args abi.Arguments, prefix []byte, chainReaderDefinition types.ChainReaderDefinition) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	input := &codecEntry{Args: method.Inputs, encodingPrefix: method.ID}
+	input := &codecEntry{Args: args, encodingPrefix: prefix}
 
 	if err := input.Init(); err != nil {
 		return err
