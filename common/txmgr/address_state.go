@@ -63,9 +63,6 @@ func NewAddressState[
 		allTransactions:         map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 	}
 
-	as.Lock()
-	defer as.Unlock()
-
 	// Load all unstarted transactions from persistent storage
 	offset := 0
 	limit := 50
@@ -172,11 +169,24 @@ func NewAddressState[
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) close() {
+	clear(as.idempotencyKeyToTx)
+
 	as.unstarted.Close()
 	as.unstarted = nil
 	as.inprogress = nil
+
 	clear(as.unconfirmed)
-	clear(as.idempotencyKeyToTx)
+	clear(as.confirmedMissingReceipt)
+	clear(as.confirmed)
+	clear(as.allTransactions)
+	clear(as.fatalErrored)
+
+	as.idempotencyKeyToTx = nil
+	as.unconfirmed = nil
+	as.confirmedMissingReceipt = nil
+	as.confirmed = nil
+	as.allTransactions = nil
+	as.fatalErrored = nil
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(txState txmgrtypes.TxState) int {
