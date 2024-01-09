@@ -51,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
@@ -257,13 +258,6 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0o700)
-
-// PristineDBName is a clean copy of test DB with migrations.
-// Used by heavyweight.FullTestDB* functions.
-const (
-	PristineDBName   = "chainlink_test_pristine"
-	TestDBNamePrefix = "chainlink_test_"
-)
 
 // RunNode starts the Chainlink core.
 func (s *Shell) RunNode(c *cli.Context) error {
@@ -815,7 +809,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 		}()
 	}
 	for _, dbname := range dbs {
-		if strings.HasPrefix(dbname, TestDBNamePrefix) && !strings.HasSuffix(dbname, "_pristine") {
+		if strings.HasPrefix(dbname, testdb.TestDBNamePrefix) && !strings.HasSuffix(dbname, "_pristine") {
 			ch <- dbname
 		}
 	}
@@ -1085,11 +1079,11 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 }
 
 func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
-	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, PristineDBName))
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, testdb.PristineDBName))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, PristineDBName, template))
+	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, testdb.PristineDBName, template))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}

@@ -45,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
@@ -850,12 +849,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
-	uni.backend.Commit()
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
@@ -1010,12 +1004,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
-	uni.backend.Commit()
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
 
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
