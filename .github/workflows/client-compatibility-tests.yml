@@ -122,8 +122,8 @@ jobs:
           echo "Copy operation completed."
           EOF
 
-          cat ./copy_toml.sh
-          /bin/bash ./copy_toml.sh 'default ocr' ./integration-tests ./toml_configs
+          chmox +x ./copy_toml.sh
+          ./copy_toml.sh "default ocr" ./integration-tests ./toml_configs
           cd ./toml_configs && zip toml_configs.zip ./
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v3
