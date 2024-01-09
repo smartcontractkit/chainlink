@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -89,10 +88,9 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
 				ChainOpts: legacyevm.ChainOpts{
-					AppConfig:        cfg,
-					EventBroadcaster: pg.NewNullEventBroadcaster(),
-					MailMon:          &mailbox.Monitor{},
-					DB:               db,
+					AppConfig: cfg,
+					MailMon:   &mailbox.Monitor{},
+					DB:        db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -194,10 +192,9 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
 				ChainOpts: legacyevm.ChainOpts{
-					AppConfig:        cfg,
-					EventBroadcaster: pg.NewNullEventBroadcaster(),
-					MailMon:          &mailbox.Monitor{},
-					DB:               db,
+					AppConfig: cfg,
+					MailMon:   &mailbox.Monitor{},
+					DB:        db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
