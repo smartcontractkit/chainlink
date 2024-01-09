@@ -7,8 +7,6 @@ import (
 	"sort"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -21,6 +19,7 @@ import (
 type Plugin struct {
 	f                       int
 	closePluginTimeout      time.Duration
+	rootNetwork             models.NetworkID
 	liquidityManagers       *liquiditymanager.Registry
 	liquidityManagerFactory liquiditymanager.Factory
 	liquidityGraph          liquiditygraph.LiquidityGraph
@@ -44,6 +43,7 @@ func NewPlugin(
 	return &Plugin{
 		f:                       f,
 		closePluginTimeout:      closePluginTimeout,
+		rootNetwork:             liquidityManagerNetwork,
 		liquidityManagers:       liquidityManagers,
 		liquidityManagerFactory: liquidityManagerFactory,
 		liquidityGraph:          liquidityGraph,
@@ -188,57 +188,26 @@ func (p *Plugin) Close() error {
 	return nil
 }
 
-// todo: consider placing the graph exploration logic under graph package to keep the plugin logic cleaner
 func (p *Plugin) syncGraphEdges(ctx context.Context) error {
 	// todo: if there wasn't any change to the graph stop earlier
 
-	p.liquidityGraph.Reset()
-
-	type qItem struct {
-		networkID models.NetworkID
-		lmAddress models.Address
+	rootLM, exists := p.liquidityManagers.Get(p.rootNetwork)
+	if !exists {
+		return fmt.Errorf("root lm %v not found", p.rootNetwork)
 	}
 
-	seen := mapset.NewSet[qItem]()
-	queue := mapset.NewSet[qItem]()
-	for networkID, lmAddress := range p.liquidityManagers.GetAll() {
-		elem := qItem{networkID: networkID, lmAddress: lmAddress}
-		queue.Add(elem)
-		seen.Add(elem)
+	lm, err := p.liquidityManagerFactory.NewLiquidityManager(p.rootNetwork, rootLM)
+	if err != nil {
+		return fmt.Errorf("init liquidity manager: %w", err)
 	}
 
-	for queue.Cardinality() > 0 {
-		elem, ok := queue.Pop()
-		if !ok {
-			return errors.New("unexpected internal error, there is a bug in the algorithm")
-		}
-
-		p.liquidityGraph.AddNetwork(elem.networkID, big.NewInt(0)) // TODO: investigate fetching the balance here.
-
-		lm, err := p.liquidityManagerFactory.NewLiquidityManager(elem.networkID, elem.lmAddress)
-		if err != nil {
-			return fmt.Errorf("init liquidity manager: %w", err)
-		}
-
-		destinationLMs, err := lm.GetLiquidityManagers(ctx)
-		if err != nil {
-			return fmt.Errorf("get %v destination liquidity managers: %w", elem.networkID, err)
-		}
-
-		for destNetworkID, lmAddr := range destinationLMs {
-			p.liquidityGraph.AddConnection(elem.networkID, destNetworkID)
-
-			newElem := qItem{networkID: destNetworkID, lmAddress: lmAddr}
-			if !seen.Contains(newElem) {
-				queue.Add(newElem)
-				seen.Add(newElem)
-
-				if _, exists := p.liquidityManagers.Get(destNetworkID); !exists {
-					p.liquidityManagers.Add(destNetworkID, lmAddr)
-				}
-			}
-		}
+	lms, g, err := lm.Discover(ctx, p.liquidityManagerFactory)
+	if err != nil {
+		return fmt.Errorf("discover lms: %w", err)
 	}
+
+	p.liquidityGraph = g      // todo: thread safe
+	p.liquidityManagers = lms // todo: thread safe
 
 	return nil
 }

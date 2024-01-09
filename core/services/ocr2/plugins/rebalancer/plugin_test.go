@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/rebalancermocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -57,7 +58,11 @@ func TestPluginObservation(t *testing.T) {
 	mockLM := mocks.NewLiquidityManager(t)
 	deps.mockFactory.On("NewLiquidityManager", net, addr).Return(mockLM, nil)
 
-	mockLM.On("GetLiquidityManagers", ctx).Return(map[models.NetworkID]models.Address{}, nil)
+	g := liquiditygraph.NewGraph()
+	g.AddNetwork(net, big.NewInt(1234))
+	reg := liquiditymanager.NewRegistry()
+	reg.Add(net, addr)
+	mockLM.On("Discover", ctx, deps.mockFactory).Return(reg, g, nil)
 	mockLM.On("GetBalance", ctx).Return(big.NewInt(1234), nil)
 	mockLM.On("GetPendingTransfers", ctx).Return([]models.PendingTransfer{}, nil)
 

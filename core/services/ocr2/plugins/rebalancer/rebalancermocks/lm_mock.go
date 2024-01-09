@@ -6,6 +6,9 @@ import (
 	context "context"
 	big "math/big"
 
+	liquiditygraph "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
+	liquiditymanager "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
+
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
@@ -32,6 +35,45 @@ func (_m *LiquidityManager) Close(ctx context.Context) error {
 	}
 
 	return r0
+}
+
+// Discover provides a mock function with given fields: ctx, lmFactory
+func (_m *LiquidityManager) Discover(ctx context.Context, lmFactory liquiditymanager.Factory) (*liquiditymanager.Registry, liquiditygraph.LiquidityGraph, error) {
+	ret := _m.Called(ctx, lmFactory)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Discover")
+	}
+
+	var r0 *liquiditymanager.Registry
+	var r1 liquiditygraph.LiquidityGraph
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, liquiditymanager.Factory) (*liquiditymanager.Registry, liquiditygraph.LiquidityGraph, error)); ok {
+		return rf(ctx, lmFactory)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, liquiditymanager.Factory) *liquiditymanager.Registry); ok {
+		r0 = rf(ctx, lmFactory)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*liquiditymanager.Registry)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, liquiditymanager.Factory) liquiditygraph.LiquidityGraph); ok {
+		r1 = rf(ctx, lmFactory)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(liquiditygraph.LiquidityGraph)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, liquiditymanager.Factory) error); ok {
+		r2 = rf(ctx, lmFactory)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // GetBalance provides a mock function with given fields: ctx
