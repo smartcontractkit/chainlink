@@ -42,7 +42,7 @@ contract ScrollSequencerUptimeFeed is
   /// @notice Replacement for AggregatorV3Interface "No data present"
   error NoDataPresent();
   /// @notice Address must not be the zero address
-  error ZeroAddress();
+  error ZeroAddress(string msg);
 
   event L1SenderTransferred(address indexed from, address indexed to);
   /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
@@ -71,7 +71,7 @@ contract ScrollSequencerUptimeFeed is
   /// @param initialStatus The initial status of the feed
   constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) {
     if (l2CrossDomainMessengerAddr == address(0)) {
-      revert ZeroAddress();
+      revert ZeroAddress("cannot set L1 cross domain messenger address to zero address");
     }
 
     _setL1Sender(l1SenderAddress);
@@ -103,7 +103,7 @@ contract ScrollSequencerUptimeFeed is
   /// @notice internal method that stores the L1 sender
   function _setL1Sender(address to) private {
     if (to == address(0)) {
-      revert ZeroAddress();
+      revert ZeroAddress("cannot set L1 sender address to zero address");
     }
 
     address from = s_l1Sender;
