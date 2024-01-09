@@ -53,10 +53,9 @@ nil Keystore`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := evm.RelayerOpts{
-				DB:               tt.fields.DB,
-				QConfig:          tt.fields.QConfig,
-				CSAETHKeystore:   tt.fields.CSAETHKeystore,
-				EventBroadcaster: tt.fields.EventBroadcaster,
+				DB:             tt.fields.DB,
+				QConfig:        tt.fields.QConfig,
+				CSAETHKeystore: tt.fields.CSAETHKeystore,
 			}
 			err := c.Validate()
 			if tt.wantErrContains != "" {
