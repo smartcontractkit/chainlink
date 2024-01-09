@@ -24,6 +24,14 @@ func (m *mercuryCacheConfig) LatestReportDeadline() time.Duration {
 	return m.c.LatestReportDeadline.Duration()
 }
 
+type mercuryTLSConfig struct {
+	c toml.MercuryTLS
+}
+
+func (m *mercuryTLSConfig) CertFile() string {
+	return *m.c.CertFile
+}
+
 type mercuryConfig struct {
 	c toml.Mercury
 	s toml.MercurySecrets
@@ -46,4 +54,8 @@ func (m *mercuryConfig) Credentials(credName string) *models.MercuryCredentials 
 
 func (m *mercuryConfig) Cache() config.MercuryCache {
 	return &mercuryCacheConfig{c: m.c.Cache}
+}
+
+func (m *mercuryConfig) TLS() config.MercuryTLS {
+	return &mercuryTLSConfig{c: m.c.TLS}
 }
