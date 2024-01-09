@@ -78,8 +78,9 @@ jobs:
       # We need to provide TOML configs to test execution step, because tests binary doesn't containt them
       # and we need these default values if we don't want to create them in flight
       - name: Gather TOML config files
-        run: |
+        run: |        
           cat << EOF > copy_toml.sh
+          #!/bin/bash          
           # This script searches for TOML files matching given regex patterns and copies them to a target directory.
 
           if [ "$#" -ne 3 ]; then
@@ -116,7 +117,7 @@ jobs:
           echo "Copy operation completed."
           EOF
 
-          /bin/sh ./copy_toml.sh ./integration-tests ./toml_configs
+          bash ./copy_toml.sh 'default ocr' ./integration-tests ./toml_configs
           cd ./toml_configs && zip toml_configs.zip ./
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v3
