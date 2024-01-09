@@ -22,6 +22,8 @@ import (
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
+	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
@@ -36,7 +38,9 @@ import (
 const commonGasLimitOnEvms = uint64(4712388)
 
 func TestChainReader(t *testing.T) {
+	t.Parallel()
 	RunChainReaderInterfaceTests(t, &chainReaderInterfaceTester{})
+	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(&chainReaderInterfaceTester{}))
 }
 
 type chainReaderInterfaceTester struct {

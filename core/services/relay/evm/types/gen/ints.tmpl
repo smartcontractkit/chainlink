@@ -30,6 +30,10 @@ func (i *{{.Prefix}}int{{.Size}}) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *{{.Prefix}}int{{.Size}}) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *{{.Prefix}}int{{.Size}}) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -37,6 +41,11 @@ func (i *{{.Prefix}}int{{.Size}}) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *{{.Prefix}}int{{.Size}}) MarshalText() ([]byte, error) {
+    bi := (*big.Int)(i)
+    return []byte(bi.String()), nil
 }
 
 func (i *{{.Prefix}}int{{.Size}}) Verify() error {
