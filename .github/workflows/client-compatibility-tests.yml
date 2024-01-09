@@ -170,7 +170,8 @@ jobs:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          ETH2_EL_CLIENT: ${{matrix.client}}          
+          ETH2_EL_CLIENT: ${{matrix.client}}
+          CHAINLINK_VERSION: ${{ github.sha }}
         run: |
           convert_to_toml_array() {
             local IFS=','
@@ -199,7 +200,7 @@ jobs:
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+          version="$CHAINLINK_VERSION"
 
           [Pyroscope]
           enabled=$pyroscope_enabled
@@ -212,7 +213,7 @@ jobs:
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          # echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           touch .root_dir
       - name: Debug pwd

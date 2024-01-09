@@ -196,7 +196,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		}
 
 		if _, ok := someToml[configurationName]; !ok {
-			logger.Debug().Msgf("Config file %s does not contain configuration named '%s', skipping.", fileName, configurationName)
+			logger.Debug().Msgf("Config file %s does not contain configuration named '%s', will read only default configuration.", fileName, configurationName)
 			continue
 		}
 
@@ -216,6 +216,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 	configEncoded, isSet := os.LookupEnv(Base64OverrideEnvVarName)
 	if isSet && configEncoded != "" {
+		logger.Debug().Msgf("Base64 config override from environment variable '%s' found", Base64OverrideEnvVarName)
 		decoded, err := base64.StdEncoding.DecodeString(configEncoded)
 		if err != nil {
 			return TestConfig{}, err
@@ -227,7 +228,6 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
 		}
 
-		logger.Debug().Msgf("Applying base64 config override from environment variable %s", Base64OverrideEnvVarName)
 		maybeTestConfigs = append(maybeTestConfigs, base64override)
 	} else {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
@@ -240,6 +240,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		return TestConfig{}, errors.Wrapf(err, "error applying secrets to network config")
 	}
 
+	logger.Debug().Msg("Applying overrides to test config")
 	for i := range maybeTestConfigs {
 		err := testConfig.ApplyOverrides(&maybeTestConfigs[i])
 		if err != nil {
@@ -248,6 +249,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	}
 
 	testConfig.ConfigurationName = configurationName
+	logger.Debug().Msg("Validating test config")
 	err = testConfig.Validate()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error validating test config")
@@ -257,6 +259,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		testConfig.Common = &Common{}
 	}
 
+	logger.Debug().Msg("Correct test config constructed successfully")
 	return testConfig, nil
 }
 
