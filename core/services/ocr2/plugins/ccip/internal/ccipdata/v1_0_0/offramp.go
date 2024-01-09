@@ -145,21 +145,22 @@ func (c ExecOffchainConfig) Validate() error {
 }
 
 type OffRamp struct {
-	offRamp                 evm_2_evm_offramp_1_0_0.EVM2EVMOffRampInterface
+	offRampV100             evm_2_evm_offramp_1_0_0.EVM2EVMOffRampInterface
 	addr                    common.Address
 	lp                      logpoller.LogPoller
-	lggr                    logger.Logger
-	ec                      client.Client
+	Logger                  logger.Logger
+	Client                  client.Client
 	evmBatchCaller          rpclib.EvmBatchCaller
 	filters                 []logpoller.Filter
-	estimator               gas.EvmFeeEstimator
-	executionReportArgs     abi.Arguments
+	Estimator               gas.EvmFeeEstimator
+	ExecutionReportArgs     abi.Arguments
 	eventIndex              int
 	eventSig                common.Hash
 	cachedOffRampTokens     cache.AutoSync[ccipdata.OffRampTokens]
 	sourceToDestTokensCache sync.Map
 
 	// Dynamic config
+	// configMu guards all the dynamic config fields.
 	configMu          sync.RWMutex
 	gasPriceEstimator prices.GasPriceEstimatorExec
 	offchainConfig    ccipdata.ExecOffchainConfig
@@ -167,10 +168,10 @@ type OffRamp struct {
 }
 
 func (o *OffRamp) GetStaticConfig(ctx context.Context) (ccipdata.OffRampStaticConfig, error) {
-	if o.offRamp == nil {
+	if o.offRampV100 == nil {
 		return ccipdata.OffRampStaticConfig{}, fmt.Errorf("offramp not initialized")
 	}
-	c, err := o.offRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
+	c, err := o.offRampV100.GetStaticConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return ccipdata.OffRampStaticConfig{}, fmt.Errorf("error while retrieving offramp config: %w", err)
 	}
@@ -185,15 +186,15 @@ func (o *OffRamp) GetStaticConfig(ctx context.Context) (ccipdata.OffRampStaticCo
 }
 
 func (o *OffRamp) GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error) {
-	return o.offRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sequenceNumber)
+	return o.offRampV100.GetExecutionState(&bind.CallOpts{Context: ctx}, sequenceNumber)
 }
 
 func (o *OffRamp) GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error) {
-	return o.offRamp.GetSenderNonce(&bind.CallOpts{Context: ctx}, sender)
+	return o.offRampV100.GetSenderNonce(&bind.CallOpts{Context: ctx}, sender)
 }
 
 func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
-	state, err := o.offRamp.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
+	state, err := o.offRampV100.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return *new(evm_2_evm_offramp.RateLimiterTokenBucket), err
 	}
@@ -207,7 +208,7 @@ func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offram
 }
 
 func (o *OffRamp) GetDestinationToken(ctx context.Context, address common.Address) (common.Address, error) {
-	return o.offRamp.GetDestinationToken(&bind.CallOpts{Context: ctx}, address)
+	return o.offRampV100.GetDestinationToken(&bind.CallOpts{Context: ctx}, address)
 }
 
 func (o *OffRamp) getDestinationTokensFromSourceTokens(ctx context.Context, tokenAddresses []common.Address) ([]common.Address, error) {
@@ -219,7 +220,7 @@ func (o *OffRamp) getDestinationTokensFromSourceTokens(ctx context.Context, toke
 				destTokens[i] = destToken
 				found[tokenAddress] = true
 			} else {
-				o.lggr.Errorf("source to dest cache contains invalid type %T", v)
+				o.Logger.Errorf("source to dest cache contains invalid type %T", v)
 			}
 		}
 	}
@@ -326,11 +327,11 @@ func (o *OffRamp) GetSourceToDestTokensMapping(ctx context.Context) (map[common.
 
 func (o *OffRamp) GetTokens(ctx context.Context) (ccipdata.OffRampTokens, error) {
 	return o.cachedOffRampTokens.Get(ctx, func(ctx context.Context) (ccipdata.OffRampTokens, error) {
-		destTokens, err := o.offRamp.GetDestinationTokens(&bind.CallOpts{Context: ctx})
+		destTokens, err := o.offRampV100.GetDestinationTokens(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return ccipdata.OffRampTokens{}, fmt.Errorf("get destination tokens: %w", err)
 		}
-		sourceTokens, err := o.offRamp.GetSupportedTokens(&bind.CallOpts{Context: ctx})
+		sourceTokens, err := o.offRampV100.GetSupportedTokens(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return ccipdata.OffRampTokens{}, err
 		}
@@ -404,17 +405,25 @@ func (o *OffRamp) Address() common.Address {
 	return o.addr
 }
 
-func (o *OffRamp) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (common.Address, common.Address, error) {
-	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ExecOnchainConfig](onchainConfig)
+func (o *OffRamp) UpdateDynamicConfig(onchainConfig ccipdata.ExecOnchainConfig, offchainConfig ccipdata.ExecOffchainConfig, gasPriceEstimator prices.GasPriceEstimatorExec) {
+	o.configMu.Lock()
+	o.onchainConfig = onchainConfig
+	o.offchainConfig = offchainConfig
+	o.gasPriceEstimator = gasPriceEstimator
+	o.configMu.Unlock()
+}
+
+func (o *OffRamp) ChangeConfig(onchainConfigBytes []byte, offchainConfigBytes []byte) (common.Address, common.Address, error) {
+	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ExecOnchainConfig](onchainConfigBytes)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
 
-	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[ExecOffchainConfig](offchainConfig)
+	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[ExecOffchainConfig](offchainConfigBytes)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
-	destRouter, err := router.NewRouter(onchainConfigParsed.Router, o.ec)
+	destRouter, err := router.NewRouter(onchainConfigParsed.Router, o.Client)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
@@ -422,19 +431,19 @@ func (o *OffRamp) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (com
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
-	o.configMu.Lock()
-	o.offchainConfig = ccipdata.ExecOffchainConfig{
+
+	offchainConfig := ccipdata.ExecOffchainConfig{
 		DestOptimisticConfirmations: offchainConfigParsed.DestOptimisticConfirmations,
 		BatchGasLimit:               offchainConfigParsed.BatchGasLimit,
 		RelativeBoostPerWaitHour:    offchainConfigParsed.RelativeBoostPerWaitHour,
 		InflightCacheExpiry:         offchainConfigParsed.InflightCacheExpiry,
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
 	}
-	o.onchainConfig = ccipdata.ExecOnchainConfig{PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds)}
-	o.gasPriceEstimator = prices.NewExecGasPriceEstimator(o.estimator, big.NewInt(int64(offchainConfigParsed.MaxGasPrice)), 0)
-	o.configMu.Unlock()
+	onchainConfig := ccipdata.ExecOnchainConfig{PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds)}
+	gasPriceEstimator := prices.NewExecGasPriceEstimator(o.Estimator, big.NewInt(int64(offchainConfigParsed.MaxGasPrice)), 0)
+	o.UpdateDynamicConfig(onchainConfig, offchainConfig, gasPriceEstimator)
 
-	o.lggr.Infow("Starting exec plugin",
+	o.Logger.Infow("Starting exec plugin",
 		"offchainConfig", onchainConfigParsed,
 		"onchainConfig", offchainConfigParsed)
 	return onchainConfigParsed.PriceRegistry, destWrappedNative, nil
@@ -465,9 +474,9 @@ func (o *OffRamp) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, se
 
 	return ccipdata.ParseLogs[ccipdata.ExecutionStateChanged](
 		logs,
-		o.lggr,
+		o.Logger,
 		func(log types.Log) (*ccipdata.ExecutionStateChanged, error) {
-			sc, err := o.offRamp.ParseExecutionStateChanged(log)
+			sc, err := o.offRampV100.ParseExecutionStateChanged(log)
 			if err != nil {
 				return nil, err
 			}
@@ -516,7 +525,7 @@ func encodeExecutionReport(args abi.Arguments, report ccipdata.ExecReport) ([]by
 }
 
 func (o *OffRamp) EncodeExecutionReport(report ccipdata.ExecReport) ([]byte, error) {
-	return encodeExecutionReport(o.executionReportArgs, report)
+	return encodeExecutionReport(o.ExecutionReportArgs, report)
 }
 
 func DecodeExecReport(args abi.Arguments, report []byte) (ccipdata.ExecReport, error) {
@@ -594,7 +603,7 @@ func DecodeExecReport(args abi.Arguments, report []byte) (ccipdata.ExecReport, e
 }
 
 func (o *OffRamp) DecodeExecutionReport(report []byte) (ccipdata.ExecReport, error) {
-	return DecodeExecReport(o.executionReportArgs, report)
+	return DecodeExecReport(o.ExecutionReportArgs, report)
 }
 
 func (o *OffRamp) TokenEvents() []common.Hash {
@@ -632,14 +641,14 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 	}
 
 	return &OffRamp{
-		offRamp:             offRamp,
-		ec:                  ec,
+		offRampV100:         offRamp,
+		Client:              ec,
 		addr:                addr,
-		lggr:                lggr,
+		Logger:              lggr,
 		lp:                  lp,
 		filters:             filters,
-		estimator:           estimator,
-		executionReportArgs: executionReportArgs,
+		Estimator:           estimator,
+		ExecutionReportArgs: executionReportArgs,
 		eventSig:            ExecutionStateChangedEvent,
 		eventIndex:          executionStateChangedSequenceNumberIndex,
 		configMu:            sync.RWMutex{},

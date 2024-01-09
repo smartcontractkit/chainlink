@@ -114,10 +114,10 @@ func TestCachedOffRampTokens(t *testing.T) {
 	batchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).Return(outputs, nil)
 
 	offRamp := OffRamp{
-		offRamp:        mockOffRamp,
+		offRampV100:    mockOffRamp,
 		lp:             lp,
-		lggr:           logger.TestLogger(t),
-		ec:             ec,
+		Logger:         logger.TestLogger(t),
+		Client:         ec,
 		evmBatchCaller: batchCaller,
 		cachedOffRampTokens: cache.NewLogpollerEventsBased[ccipdata.OffRampTokens](
 			lp,
