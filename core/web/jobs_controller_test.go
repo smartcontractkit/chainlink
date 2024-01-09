@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
@@ -139,12 +140,17 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig().Database())
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	pks, err := app.KeyStore.VRF().GetAll()
-	require.NoError(t, err)
-	require.Len(t, pks, 1)
-	k, err := app.KeyStore.P2P().GetAll()
-	require.NoError(t, err)
-	require.Len(t, k, 1)
+	var pks []vrfkey.KeyV2
+	var k []p2pkey.KeyV2
+	{
+		var err error
+		pks, err = app.KeyStore.VRF().GetAll()
+		require.NoError(t, err)
+		require.Len(t, pks, 1)
+		k, err = app.KeyStore.P2P().GetAll()
+		require.NoError(t, err)
+		require.Len(t, k, 1)
+	}
 
 	jorm := app.JobORM()
 	var tt = []struct {
@@ -369,7 +375,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resp := cltest.ParseResponseBody(t, r)
 				resource := presenters.JobResource{}
-				err = web.ParseJSONAPIResponse(resp, &resource)
+				err := web.ParseJSONAPIResponse(resp, &resource)
 				require.NoError(t, err)
 
 				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
