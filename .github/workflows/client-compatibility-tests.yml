@@ -221,11 +221,7 @@ jobs:
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-          touch .root_dir
-      - name: Debug pwd
-        run: |
-          pwd
-          ls -la                            
+          touch .root_dir                       
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
