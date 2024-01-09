@@ -82,11 +82,12 @@ jobs:
           set -x          
           ./.github/scripts/copy_toml.sh 'default ocr' ./integration-tests ./toml_configs
           cd ./toml_configs && zip -j toml_configs.zip ./*
+          pwd
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v3
         with:
           name: toml_configs
-          path: toml_configs.zip
+          path: ./toml_configs/toml_configs.zip
 
   # End Build Test Dependencies
 
