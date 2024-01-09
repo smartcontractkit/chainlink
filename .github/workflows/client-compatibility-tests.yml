@@ -194,6 +194,12 @@ jobs:
             execution_layer="geth"
           fi
 
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi          
+
           cat << EOF > config.toml
           [Network]
           selected_networks=$selected_networks
@@ -213,7 +219,7 @@ jobs:
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          # echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           touch .root_dir
       - name: Debug pwd
