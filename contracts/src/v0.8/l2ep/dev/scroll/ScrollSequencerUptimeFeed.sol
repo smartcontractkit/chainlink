@@ -70,6 +70,10 @@ contract ScrollSequencerUptimeFeed is
   /// @param l2CrossDomainMessengerAddr Address of the L2CrossDomainMessenger contract
   /// @param initialStatus The initial status of the feed
   constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) {
+    if (l2CrossDomainMessengerAddr == address(0)) {
+      revert ZeroAddress();
+    }
+
     _setL1Sender(l1SenderAddress);
     s_l2CrossDomainMessenger = IL2ScrollMessenger(l2CrossDomainMessengerAddr);
 
