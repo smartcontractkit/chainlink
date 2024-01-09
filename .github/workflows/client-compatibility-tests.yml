@@ -80,7 +80,7 @@ jobs:
       - name: Gather TOML config files
         run: |        
           set -x          
-          ./.github/scripts/copy_toml.sh "default ocr" ./integration-tests ./toml_configs
+          ./.github/scripts/copy_toml.sh 'default ocr' ./integration-tests ./toml_configs
           cd ./toml_configs && zip toml_configs.zip ./
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v3
