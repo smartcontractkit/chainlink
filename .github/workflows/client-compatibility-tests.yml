@@ -100,7 +100,7 @@ jobs:
           if [ ! -d "$search_folder" ]; then
               echo "Search folder does not exist: $search_folder"
               exit 1
-          fi
+          fiwhy 
 
           mkdir -p "$target_folder"
 
@@ -122,8 +122,8 @@ jobs:
           echo "Copy operation completed."
           EOF
 
-          chmod +x ./copy_toml.sh
-          ./copy_toml.sh 'default ocr' ./integration-tests ./toml_configs
+          cat ./copy_toml.sh
+          /bin/bash ./copy_toml.sh 'default ocr' ./integration-tests ./toml_configs
           cd ./toml_configs && zip toml_configs.zip ./
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v3
