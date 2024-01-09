@@ -154,7 +154,7 @@ func (cr *chainReader) addMethod(
 		client:       cr.client,
 	})
 
-	if err := cr.addMethodEncoderDef(contractName, methodName, method, chainReaderDefinition); err != nil {
+	if err := cr.addEncoderDef(contractName, methodName, method, chainReaderDefinition); err != nil {
 		return err
 	}
 
@@ -170,15 +170,10 @@ func (cr *chainReader) addEvent(contractName, eventName string, abi abi.ABI, cha
 		lp:   cr.lp,
 		hash: event.ID,
 	})
-
-	if err := cr.addEventEncoderDef(contractName, eventName, event, chainReaderDefinition); err != nil {
-		return err
-	}
-
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
 
-func (cr *chainReader) addMethodEncoderDef(contractName, methodName string, method abi.Method, chainReaderDefinition types.ChainReaderDefinition) error {
+func (cr *chainReader) addEncoderDef(contractName, methodName string, method abi.Method, chainReaderDefinition types.ChainReaderDefinition) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
 	input := &codecEntry{Args: method.Inputs, encodingPrefix: method.ID}
 
@@ -191,24 +186,6 @@ func (cr *chainReader) addMethodEncoderDef(contractName, methodName string, meth
 		return err
 	}
 	input.mod = inputMod
-	cr.parsed.encoderDefs[wrapItemType(contractName, methodName, true)] = input
-	return nil
-}
-
-func (cr *chainReader) addEventEncoderDef(contractName, methodName string, event abi.Event, chainReaderDefinition types.ChainReaderDefinition) error {
-	// prepend event sig as encodingPrefix
-	input := &codecEntry{Args: event.Inputs, encodingPrefix: event.ID.Bytes()}
-
-	if err := input.Init(); err != nil {
-		return err
-	}
-
-	inputMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
-	if err != nil {
-		return err
-	}
-	input.mod = inputMod
-
 	cr.parsed.encoderDefs[wrapItemType(contractName, methodName, true)] = input
 	return nil
 }
