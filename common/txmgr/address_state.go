@@ -756,15 +756,6 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abando
 	for _, tx := range as.unconfirmed {
 		as.abandonTx(tx)
 	}
-	for _, tx := range as.idempotencyKeyToTx {
-		as.abandonTx(tx)
-	}
-	for _, tx := range as.confirmedMissingReceipt {
-		as.abandonTx(tx)
-	}
-	for _, tx := range as.confirmed {
-		as.abandonTx(tx)
-	}
 
 	clear(as.unconfirmed)
 }

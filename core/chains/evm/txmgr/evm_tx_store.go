@@ -476,7 +476,7 @@ func (o *evmTxStore) UnstartedTransactions(offset, limit int, fromAddress common
 		return
 	}
 
-	sql = `SELECT * FROM evm.txes WHERE state = 'unstarted' AND from_address = $1 AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC LIMIT $3 OFFSET $4`
+	sql = `SELECT * FROM evm.txes WHERE state = 'unstarted' AND from_address = $1 AND evm_chain_id = $2 ORDER BY id desc LIMIT $3 OFFSET $4`
 	var dbTxs []DbEthTx
 	if err = o.q.Select(&dbTxs, sql, fromAddress, chainID.String(), limit, offset); err != nil {
 		return
@@ -1653,8 +1653,14 @@ func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	var dbEtx DbEthTx
 	err := qq.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return txmgr.ErrTxnNotFound
+		}
+		return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+	}
 	dbEtx.ToTx(etx)
-	return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+	return nil
 }
 
 func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
