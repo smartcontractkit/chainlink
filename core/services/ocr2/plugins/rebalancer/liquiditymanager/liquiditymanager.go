@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
 
@@ -23,6 +24,9 @@ type LiquidityManager interface {
 
 	// GetPendingTransfers returns the pending liquidity transfers.
 	GetPendingTransfers(ctx context.Context) ([]models.PendingTransfer, error)
+
+	// Discover discovers other liquidity managers
+	Discover(ctx context.Context, lmFactory Factory) (*Registry, liquiditygraph.LiquidityGraph, error)
 
 	// Close releases any resources.
 	Close(ctx context.Context) error
