@@ -190,6 +190,7 @@ type jobPipelineConfig interface {
 type mercuryConfig interface {
 	Credentials(credName string) *models.MercuryCredentials
 	Cache() coreconfig.MercuryCache
+	TLS() coreconfig.MercuryTLS
 }
 
 type thresholdConfig interface {
