@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/urfave/cli"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
-	"github.com/urfave/cli"
 )
 
 func MapToSendingKeyArr(nodeSendingKeys []string) []model.SendingKey {
