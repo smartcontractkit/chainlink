@@ -128,6 +128,9 @@ jobs:
           binary_name: tests
       - name: Prepare Base64 network config
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+                  
           cat << EOF > network_config.toml
           [RpcHttpUrls]
           sepolia = [$(convert_to_toml_array "$SEPOLIA_HTTP_URLS")]
@@ -180,96 +183,96 @@ jobs:
 
   # Reporting Jobs
 
-  start-slack-thread:
-    name: Start Slack Thread
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
-    environment: integration
-    outputs:
-      thread_ts: ${{ steps.slack.outputs.thread_ts }}
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    runs-on: ubuntu-latest
-    needs: [sepolia-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-goerli-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, linea-goerli-smoke-tests]
-    steps:
-      - name: Debug Result
-        run: echo ${{ join(needs.*.result, ',') }}
-      - name: Main Slack Notification
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
-        id: slack
-        with:
-          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
-          payload: |
-            {
-              "attachments": [
-                {
-                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
-                  "blocks": [
-                    {
-                      "type": "header",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
-                        "emoji": true
-                      }
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG>' || 'All Good!' }}"
-                      }
-                    },
-                    {
-                      "type": "divider"
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+  # start-slack-thread:
+  #   name: Start Slack Thread
+  #   if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+  #   environment: integration
+  #   outputs:
+  #     thread_ts: ${{ steps.slack.outputs.thread_ts }}
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   runs-on: ubuntu-latest
+  #   needs: [sepolia-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-goerli-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, linea-goerli-smoke-tests]
+  #   steps:
+  #     - name: Debug Result
+  #       run: echo ${{ join(needs.*.result, ',') }}
+      # - name: Main Slack Notification
+      #   uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+      #   id: slack
+      #   with:
+      #     channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
+      #     payload: |
+      #       {
+      #         "attachments": [
+      #           {
+      #             "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
+      #             "blocks": [
+      #               {
+      #                 "type": "header",
+      #                 "text": {
+      #                   "type": "plain_text",
+      #                   "text": "Live Smoke Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+      #                   "emoji": true
+      #                 }
+      #               },
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG>' || 'All Good!' }}"
+      #                 }
+      #               },
+      #               {
+      #                 "type": "divider"
+      #               },
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+      #                 }
+      #               }
+      #             ]
+      #           }
+      #         ]
+      #       }
+      #   env:
+      #     SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
-  post-test-results-to-slack:
-    name: Post Test Results for ${{ matrix.network }}
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    runs-on: ubuntu-latest
-    needs: start-slack-thread
-    strategy:
-      fail-fast: false
-      matrix:
-        network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Goerli, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Linea Goerli]
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Post Test Results
-        uses: ./.github/actions/notify-slack-jobs-result
-        with:
-          github_token: ${{ github.token }}
-          github_repository: ${{ github.repository }}
-          workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^${{ matrix.network }} (?<cap>.*?) Tests$
-          message_title: ${{ matrix.network }}
-          slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
-          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
-          slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
+  # post-test-results-to-slack:
+  #   name: Post Test Results for ${{ matrix.network }}
+  #   if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   runs-on: ubuntu-latest
+  #   needs: start-slack-thread
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Goerli, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Linea Goerli]
+  #   steps:
+  #     - name: Checkout the repo
+  #       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  #     - name: Post Test Results
+  #       uses: ./.github/actions/notify-slack-jobs-result
+  #       with:
+  #         github_token: ${{ github.token }}
+  #         github_repository: ${{ github.repository }}
+  #         workflow_run_id: ${{ github.run_id }}
+  #         github_job_name_regex: ^${{ matrix.network }} (?<cap>.*?) Tests$
+  #         message_title: ${{ matrix.network }}
+  #         slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
+  #         slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
+  #         slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
 
   # End Reporting Jobs
 

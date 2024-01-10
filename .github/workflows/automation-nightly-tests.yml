@@ -78,18 +78,8 @@ jobs:
           UPGRADE_VERSION: ${{ github.sha }}
         run: |
           echo ::add-mask::$UPGRADE_IMAGE
-          convert_to_toml_array() {
-            local IFS=','
-            local input_array=($1)
-            local toml_array_format="["
-        
-            for element in "${input_array[@]}"; do
-                toml_array_format+="\"$element\","
-            done
-        
-            toml_array_format="${toml_array_format%,}]"
-            echo "$toml_array_format"
-          }
+          # load reusable functions
+          source ./.github/scripts/functions.sh
         
           selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
 
