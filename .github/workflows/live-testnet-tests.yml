@@ -130,7 +130,7 @@ jobs:
           binary_name: tests
       - name: Output shared functions
         run: |      
-          FUNCTIONS=$(cat ./.github/scripts/functions.sh | base64)
+          FUNCTIONS=$(cat ./.github/scripts/functions.sh | base64 -w0)
           echo "base64_functions=$FUNCTIONS" >> $GITHUB_OUTPUT
 
   # End Build Test Dependencies
