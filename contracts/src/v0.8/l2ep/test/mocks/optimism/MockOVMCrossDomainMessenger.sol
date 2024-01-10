@@ -28,6 +28,4 @@ contract MockOVMCrossDomainMessenger is iOVM_CrossDomainMessenger {
   function sendMessage(address _target, bytes calldata _message, uint32) external override {
     Address.functionCall(_target, _message, "sendMessage reverted");
   }
-
 }
-
