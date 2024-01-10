@@ -1,6 +1,7 @@
 package ccipdata
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -43,23 +44,26 @@ func LogsConfirmations(finalized bool) logpoller.Confirmations {
 
 func ParseLogs[T any](logs []logpoller.Log, lggr logger.Logger, parseFunc func(log types.Log) (*T, error)) ([]Event[T], error) {
 	reqs := make([]Event[T], 0, len(logs))
+
 	for _, log := range logs {
 		data, err := parseFunc(log.ToGethLog())
-		if err == nil {
-			reqs = append(reqs, Event[T]{
-				Data: *data,
-				Meta: Meta{
-					BlockTimestamp: log.BlockTimestamp,
-					BlockNumber:    log.BlockNumber,
-					TxHash:         log.TxHash,
-					LogIndex:       uint(log.LogIndex),
-				},
-			})
+		if err != nil {
+			lggr.Errorw("Unable to parse log", "err", err)
+			continue
 		}
+		reqs = append(reqs, Event[T]{
+			Data: *data,
+			Meta: Meta{
+				BlockTimestamp: log.BlockTimestamp,
+				BlockNumber:    log.BlockNumber,
+				TxHash:         log.TxHash,
+				LogIndex:       uint(log.LogIndex),
+			},
+		})
 	}
 
 	if len(logs) != len(reqs) {
-		lggr.Warnw("Some logs were not parsed", "logs", len(logs), "requests", len(reqs))
+		return nil, fmt.Errorf("%d logs were not parsed", len(logs)-len(reqs))
 	}
 	return reqs, nil
 }
