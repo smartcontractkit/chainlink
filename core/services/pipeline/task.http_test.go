@@ -263,10 +263,9 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
-		msg := "could not hit data fetcher"
-		err := json.NewEncoder(w).Encode(adapterResponse{
-			ErrorMessage: &msg,
-		})
+		resp := &adapterResponse{}
+		resp.SetErrorMessage("could not hit data fetcher")
+		err := json.NewEncoder(w).Encode(resp)
 		require.NoError(t, err)
 	})
 

@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/internal/eautils"
 )
 
 // NOTE: These metrics generate a new label per bridge, this should be safe
@@ -169,7 +170,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 
 	// check for external adapter response object status
-	if code, ok := bestEffortExtractEAStatus(responseBytes); ok {
+	if code, ok := eautils.BestEffortExtractEAStatus(responseBytes); ok {
 		statusCode = code
 	}
 
@@ -257,36 +258,4 @@ func withRunInfo(request MapParam, meta MapParam) MapParam {
 		output["meta"] = meta
 	}
 	return output
-}
-
-type adapterStatus struct {
-	Error              *string `json:"error"`
-	StatusCode         *int    `json:"statusCode"`
-	ProviderStatusCode *int    `json:"providerStatusCode"`
-}
-
-func bestEffortExtractEAStatus(responseBytes []byte) (int, bool) {
-	var status adapterStatus
-	err := json.Unmarshal(responseBytes, &status)
-	if err != nil {
-		return 0, false
-	}
-
-	if status.StatusCode == nil {
-		return 0, false
-	}
-
-	if *status.StatusCode != http.StatusOK {
-		return *status.StatusCode, true
-	}
-
-	if status.ProviderStatusCode != nil && *status.ProviderStatusCode != http.StatusOK {
-		return *status.ProviderStatusCode, true
-	}
-
-	if status.Error != nil && *status.Error != "" {
-		return http.StatusInternalServerError, true
-	}
-
-	return *status.StatusCode, true
 }

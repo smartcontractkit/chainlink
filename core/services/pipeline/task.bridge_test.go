@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/internal/eautils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -58,11 +59,8 @@ type adapterResponseData struct {
 // adapterResponse is the HTTP response as defined by the external adapter:
 // https://github.com/smartcontractkit/bnc-adapter
 type adapterResponse struct {
-	Data               adapterResponseData `json:"data"`
-	ErrorMessage       *string             `json:"errorMessage"`
-	Error              *string             `json:"error"`
-	StatusCode         *int                `json:"statusCode"`
-	ProviderStatusCode *int                `json:"providerStatusCode"`
+	eautils.AdapterStatus
+	Data adapterResponseData `json:"data"`
 }
 
 func (pr *adapterResponse) SetStatusCode(code int) {
@@ -820,10 +818,10 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
-		msg := "could not hit data fetcher"
-		err := json.NewEncoder(w).Encode(adapterResponse{
-			ErrorMessage: &msg,
-		})
+
+		resp := &adapterResponse{}
+		resp.SetErrorMessage("could not hit data fetcher")
+		err := json.NewEncoder(w).Encode(resp)
 		require.NoError(t, err)
 	})
 
@@ -1140,5 +1138,4 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	require.NotNil(t, result.Value)
 	require.False(t, runInfo.IsRetryable)
 	require.False(t, runInfo.IsPending)
-
 }
