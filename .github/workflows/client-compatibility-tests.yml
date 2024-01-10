@@ -219,7 +219,7 @@ jobs:
 
           [PrivateEthereumNetwork.EthereumChainConfig]
           seconds_per_slot=3
-          slots_per_epoch=1         
+          slots_per_epoch=2
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
