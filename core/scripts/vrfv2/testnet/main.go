@@ -94,7 +94,7 @@ func main() {
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			panic(fmt.Sprintf("invalid status code: ", resp.StatusCode))
+			panic(fmt.Sprintf("invalid status code: %d", resp.StatusCode))
 		}
 
 		keyJson, err := io.ReadAll(resp.Body)
@@ -128,8 +128,8 @@ func main() {
 
 		var request *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 		for _, log := range logs {
-			unpacked, err := coordinator.ParseLog(log)
-			helpers.PanicErr(err)
+			unpacked, err2 := coordinator.ParseLog(log)
+			helpers.PanicErr(err2)
 			rwr, ok := unpacked.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
 			if !ok {
 				// should never happen
