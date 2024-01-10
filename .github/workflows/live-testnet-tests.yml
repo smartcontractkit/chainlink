@@ -67,7 +67,7 @@ jobs:
       contents: read
     name: Build Tests Binary
     outputs:
-        test_value_2: ${{ steps.network_config.outputs.base64_network_config }}        
+        base64_network_config: ${{ steps.network_config.outputs.base64_network_config }}        
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
