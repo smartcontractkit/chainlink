@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 
@@ -110,7 +109,7 @@ func DeployVRFV2WrapperConsumers(contractDeployer contracts.ContractDeployer, li
 	for i := 1; i <= consumerContractsAmount; i++ {
 		loadTestConsumer, err := contractDeployer.DeployVRFV2WrapperLoadTestConsumer(linkTokenAddress, vrfV2Wrapper.Address())
 		if err != nil {
-			return nil, errors.Wrap(err, ErrAdvancedConsumer)
+			return nil, fmt.Errorf("%s, err %w", ErrAdvancedConsumer, err)
 		}
 		consumers = append(consumers, loadTestConsumer)
 	}
@@ -127,11 +126,11 @@ func DeployVRFV2DirectFundingContracts(
 ) (*VRFV2WrapperContracts, error) {
 	vrfv2Wrapper, err := contractDeployer.DeployVRFV2Wrapper(linkTokenAddress, linkEthFeedAddress, coordinator.Address())
 	if err != nil {
-		return nil, errors.Wrap(err, ErrDeployWrapper)
+		return nil, fmt.Errorf("%s, err %w", ErrDeployWrapper, err)
 	}
 	err = chainClient.WaitForEvents()
 	if err != nil {
-		return nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
 	consumers, err := DeployVRFV2WrapperConsumers(contractDeployer, linkTokenAddress, vrfv2Wrapper, consumerContractsAmount)
@@ -140,7 +139,7 @@ func DeployVRFV2DirectFundingContracts(
 	}
 	err = chainClient.WaitForEvents()
 	if err != nil {
-		return nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 	return &VRFV2WrapperContracts{vrfv2Wrapper, consumers}, nil
 }
@@ -373,7 +372,7 @@ func SetupVRFV2WrapperEnvironment(
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
 	// Configure VRF v2 wrapper contract
@@ -389,7 +388,7 @@ func SetupVRFV2WrapperEnvironment(
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
 	// Fetch wrapper subscription ID
@@ -399,7 +398,7 @@ func SetupVRFV2WrapperEnvironment(
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
 	// Fund wrapper subscription
@@ -418,7 +417,7 @@ func SetupVRFV2WrapperEnvironment(
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
 	return wrapperContracts, &wrapperSubID, nil
