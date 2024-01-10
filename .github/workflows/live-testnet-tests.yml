@@ -128,19 +128,10 @@ jobs:
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           binary_name: tests
-      # We need to provide TOML configs to test execution step, because tests binary doesn't containt them
-      # and we need these default values if we don't want to create them in flight
-      - name: Gather TOML config files
-        run: |        
-          set -x          
-          ./.github/scripts/copy_toml.sh 'default ocr automation' ./integration-tests ./toml_configs
-          cd ./toml_configs && zip -j toml_configs.zip ./*
-          pwd
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v3
-        with:
-          name: toml_configs
-          path: ./toml_configs/toml_configs.zip
+      - name: Output shared functions
+        run: |      
+          FUNCTIONS=$(cat ./.github/scripts/functions.sh | base64)
+          echo "base64_functions=$FUNCTIONS" >> $GITHUB_OUTPUT
 
   # End Build Test Dependencies
 
@@ -264,31 +255,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests    
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}          
         run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
-
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
-
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
 
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -314,23 +289,21 @@ jobs:
           key="$PYROSCOPE_KEY"
 
           [RpcHttpUrls]
-          sepolia = [$(convert_to_toml_array "$SEPOLIA_HTTP_URLS")]
+          sepolia = $(convert_to_toml_array "$SEPOLIA_HTTP_URLS")
 
           [RpcWsUrls]
-          sepolia = [$(convert_to_toml_array "$SEPOLIA_URLS")]
+          sepolia = $(convert_to_toml_array "$SEPOLIA_URLS")
 
           [WalletKeys]
-          sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          sepolia = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-          touch .root_dir          
+          touch .root_dir
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -374,27 +347,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests     
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests            
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-bsc-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
-
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
-
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
 
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -434,9 +395,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV        
           touch .root_dir          
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0       
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -478,21 +437,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests         
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
             
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -574,21 +527,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests         
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
             
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -666,22 +613,16 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests   
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
-    
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
+
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -757,21 +698,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests        
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
     
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -853,22 +788,16 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests   
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-polygon-mumbai
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
-    
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
+
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -949,21 +878,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests   
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-avalanche-fuji
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
     
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -1044,21 +967,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests      
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-fantom-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
     
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -1136,21 +1053,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests 
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-celo-alfajores
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
     
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -1231,20 +1142,14 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-scroll-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
     
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -1322,21 +1227,15 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip          
+          name: tests        
       - name: Prepare Base64 TOML override
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-linea-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
     
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
