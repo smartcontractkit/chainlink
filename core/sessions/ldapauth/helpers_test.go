@@ -5,11 +5,11 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Returns an instantiated ldapAuthenticator struct without validation for testing
@@ -66,16 +66,16 @@ func (t *TestConfig) ServerTLS() bool {
 	return false
 }
 
-func (t *TestConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(time.Duration(0))
+func (t *TestConfig) SessionTimeout() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }
 
 func (t *TestConfig) QueryTimeout() time.Duration {
 	return time.Duration(0)
 }
 
-func (t *TestConfig) UserAPITokenDuration() models.Duration {
-	return models.MustMakeDuration(time.Duration(0))
+func (t *TestConfig) UserAPITokenDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }
 
 func (t *TestConfig) BaseUserAttr() string {
@@ -122,10 +122,10 @@ func (t *TestConfig) UserApiTokenEnabled() bool {
 	return true
 }
 
-func (t *TestConfig) UpstreamSyncInterval() models.Duration {
-	return models.MustMakeDuration(time.Duration(0))
+func (t *TestConfig) UpstreamSyncInterval() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }
 
-func (t *TestConfig) UpstreamSyncRateLimit() models.Duration {
-	return models.MustMakeDuration(time.Duration(0))
+func (t *TestConfig) UpstreamSyncRateLimit() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }

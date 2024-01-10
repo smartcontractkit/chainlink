@@ -357,12 +357,12 @@ func (g *generalConfig) AutoPprofCPUProfileRate() int {
 	return int(*g.c.AutoPprof.CPUProfileRate)
 }
 
-func (g *generalConfig) AutoPprofGatherDuration() models.Duration {
-	return models.MustMakeDuration(g.c.AutoPprof.GatherDuration.Duration())
+func (g *generalConfig) AutoPprofGatherDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(g.c.AutoPprof.GatherDuration.Duration())
 }
 
-func (g *generalConfig) AutoPprofGatherTraceDuration() models.Duration {
-	return models.MustMakeDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
+func (g *generalConfig) AutoPprofGatherTraceDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
 }
 
 func (g *generalConfig) AutoPprofGoroutineThreshold() int {
@@ -385,7 +385,7 @@ func (g *generalConfig) AutoPprofMutexProfileFraction() int {
 	return int(*g.c.AutoPprof.MutexProfileFraction)
 }
 
-func (g *generalConfig) AutoPprofPollInterval() models.Duration {
+func (g *generalConfig) AutoPprofPollInterval() commonconfig.Duration {
 	return *g.c.AutoPprof.PollInterval
 }
 
