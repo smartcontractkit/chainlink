@@ -189,7 +189,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 						l.Error().Err(err).Msg("Error cleaning up test environment")
 					}
 				}).
-			WithLogStream().
 			Build()
 
 		require.NoError(t, err, "error creating test env")
@@ -207,8 +206,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			vrfv2PlusConfig,
 			linkToken,
 			mockETHLinkFeed,
-			//register proving key against EOA address in order to return funds to this address
-			env.EVMClient.GetDefaultWallet().Address(),
 			0,
 			1,
 			vrfv2PlusConfig.NumberOfSubToCreate,

@@ -51,6 +51,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -310,8 +311,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		auditLogger = audit.NoopLogger
 	}
 
-	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
-
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
@@ -328,8 +327,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
-		case pg.EventBroadcaster:
-			eventBroadcaster = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -341,7 +338,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
-	mailMon := mailbox.NewMonitor(cfg.AppID().String())
+	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
@@ -359,10 +356,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:        cfg,
-			EventBroadcaster: eventBroadcaster,
-			MailMon:          mailMon,
-			DB:               db,
+			AppConfig: cfg,
+			MailMon:   mailMon,
+			DB:        db,
 		},
 		CSAETHKeystore: keyStore,
 	}
@@ -415,7 +411,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     cfg,
-		EventBroadcaster:           eventBroadcaster,
 		MailMon:                    mailMon,
 		SqlxDB:                     db,
 		KeyStore:                   keyStore,
@@ -504,14 +499,14 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 		if len(elems) > 0 {
 			elems[0].Result = &evmtypes.Block{
 				Number:       42,
-				Hash:         utils.NewHash(),
+				Hash:         evmutils.NewHash(),
 				Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
 			}
 		}
 		if len(elems) > 1 {
 			elems[1].Result = &evmtypes.Block{
 				Number:       41,
-				Hash:         utils.NewHash(),
+				Hash:         evmutils.NewHash(),
 				Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
 			}
 		}
@@ -974,16 +969,14 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *sqlx.DB, wa
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []int64 {
+func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, want int) []int64 {
 	g := gomega.NewWithT(t)
 
 	var txaIds []int64
-	var err error
-	g.Consistently(func() []int64 {
-		txaIds = make([]int64, 0)
-		err = db.Select(&txaIds, `SELECT ID FROM evm.tx_attempts ORDER BY id ASC`)
+	g.Consistently(func() []txmgr.TxAttempt {
+		attempts, err := txStore.GetAllTxAttempts(testutils.Context(t))
 		assert.NoError(t, err)
-		return txaIds
+		return attempts
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txaIds
 }
@@ -994,13 +987,13 @@ func Head(val interface{}) *evmtypes.Head {
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case uint64:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case int64:
-		h = evmtypes.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(t), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	case *big.Int:
-		h = evmtypes.NewHead(t, utils.NewHash(), utils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(t, evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	default:
 		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
 	}
@@ -1010,7 +1003,7 @@ func Head(val interface{}) *evmtypes.Head {
 func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
 	var h evmtypes.Head
 	time := uint64(0)
-	h = evmtypes.NewHead(big.NewInt(n), hash, utils.NewHash(), time, ubig.New(&FixtureChainID))
+	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	return &h
 
 }
@@ -1387,7 +1380,7 @@ func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
 	}
 	head := &evmtypes.Head{
 		Number:     parent.Number + 1,
-		Hash:       utils.NewHash(),
+		Hash:       evmutils.NewHash(),
 		ParentHash: parent.Hash,
 		Parent:     parent,
 		Timestamp:  time.Unix(parent.Number+1, 0),
@@ -1427,7 +1420,7 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*evmtypes.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
-		hash := utils.NewHash()
+		hash := evmutils.NewHash()
 		hashes = append(hashes, hash)
 
 		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(&FixtureChainID)}

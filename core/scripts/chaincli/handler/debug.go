@@ -24,6 +24,8 @@ import (
 
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 
+	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -34,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -86,7 +87,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 	// get upkeepID from command args
 	upkeepID := big.NewInt(0)
-	upkeepIDNoPrefix := utils.RemoveHexPrefix(args[0])
+	upkeepIDNoPrefix := commonhex.TrimPrefix(args[0])
 	_, wasBase10 := upkeepID.SetString(upkeepIDNoPrefix, 10)
 	if !wasBase10 {
 		_, wasBase16 := upkeepID.SetString(upkeepIDNoPrefix, 16)
@@ -308,10 +309,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			var values [][]byte
 			values, err = streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
 
-			if checkResults[0].IneligibilityReason == uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput) {
+			if checkResults[0].IneligibilityReason == uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
-			if checkResults[0].PipelineExecutionState == uint8(mercury.InvalidMercuryRequest) {
+			if checkResults[0].PipelineExecutionState == uint8(encoding.InvalidMercuryRequest) {
 				resolveIneligible("the mercury request data is invalid")
 			}
 			if err != nil {
@@ -362,7 +363,17 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if simulateResult.Success {
 		resolveEligible()
 	} else {
-		resolveIneligible("simulate perform upkeep unsuccessful")
+		// Convert performGas to *big.Int for comparison
+		performGasBigInt := new(big.Int).SetUint64(uint64(upkeepInfo.PerformGas))
+		// Compare PerformGas and GasUsed
+		result := performGasBigInt.Cmp(simulateResult.GasUsed)
+
+		if result < 0 {
+			// PerformGas is smaller than GasUsed
+			resolveIneligible(fmt.Sprintf("simulate perform upkeep unsuccessful, PerformGas (%d) is lower than GasUsed (%s)", upkeepInfo.PerformGas, simulateResult.GasUsed.String()))
+		} else {
+			resolveIneligible("simulate perform upkeep unsuccessful")
+		}
 	}
 }
 

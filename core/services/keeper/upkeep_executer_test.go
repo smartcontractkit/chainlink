@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newHead() evmtypes.Head {
@@ -335,7 +335,12 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	executer.OnNewLongestChain(testutils.Context(t), &head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
-	cltest.AssertCountStays(t, db, "evm.txes", 0)
+
+	cfg := pgtest.NewQConfig(false)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txes, err := txStore.GetAllTxes(testutils.Context(t))
+	require.NoError(t, err)
+	require.Len(t, txes, 0)
 }
 
 func ptr[T any](t T) *T { return &t }

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -31,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
@@ -870,7 +870,7 @@ func setupAndFundSubscriptionAndConsumer(
 	uni.backend.Commit()
 
 	if vrfVersion == vrfcommon.V2Plus {
-		b, err2 := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
+		b, err2 := evmutils.ABIEncode(`[{"type":"uint256"}]`, subID)
 		require.NoError(t, err2)
 		_, err2 = uni.linkContract.TransferAndCall(
 			uni.sergey, coordinatorAddress, fundingAmount, b)
@@ -878,7 +878,7 @@ func setupAndFundSubscriptionAndConsumer(
 		uni.backend.Commit()
 		return
 	}
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
+	b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(
 		uni.sergey, coordinatorAddress, fundingAmount, b)
@@ -1682,11 +1682,7 @@ func testMaliciousConsumer(
 	time.Sleep(1 * time.Second)
 
 	// Register a proving key associated with the VRF job.
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
+	registerProvingKeyHelper(t, uni, uni.rootContract, vrfkey)
 
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.maliciousConsumerContract.CreateSubscriptionAndFund(carol,

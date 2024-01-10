@@ -215,6 +215,9 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	hc := HealthController{app}
 	r.GET("/readyz", hc.Readyz)
 	r.GET("/health", hc.Health)
+	r.GET("/health.txt", func(context *gin.Context) {
+		context.Request.Header.Set("Accept", gin.MIMEPlain)
+	}, hc.Health)
 }
 
 func loopRoutes(app chainlink.Application, r *gin.RouterGroup) {

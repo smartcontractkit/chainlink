@@ -2,6 +2,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -11,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	mrand "math/rand"
 	"sort"
 	"strings"
@@ -19,8 +19,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/jpillora/backoff"
 	pkgerrors "github.com/pkg/errors"
@@ -33,34 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-const (
-	// DefaultSecretSize is the entropy in bytes to generate a base64 string of 64 characters.
-	DefaultSecretSize = 48
-	// EVMWordByteLen the length of an EVM Word Byte
-	EVMWordByteLen = 32
-)
-
-// ZeroAddress is an address of all zeroes, otherwise in Ethereum as
-// 0x0000000000000000000000000000000000000000
-var ZeroAddress = common.Address{}
-
-func RandomAddress() common.Address {
-	b := make([]byte, 20)
-	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
-	return common.BytesToAddress(b)
-}
-
-func RandomBytes32() (r [32]byte) {
-	b := make([]byte, 32)
-	_, _ = rand.Read(b[:]) // Assignment for errcheck. Only used in tests so we can ignore.
-	copy(r[:], b)
-	return
-}
-
-func Bytes32ToSlice(a [32]byte) (r []byte) {
-	r = append(r, a[:]...)
-	return
-}
+// DefaultSecretSize is the entropy in bytes to generate a base64 string of 64 characters.
+const DefaultSecretSize = 48
 
 func MustNewPeerID() string {
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
@@ -72,22 +44,6 @@ func MustNewPeerID() string {
 		panic(err)
 	}
 	return peerID.String()
-}
-
-// EmptyHash is a hash of all zeroes, otherwise in Ethereum as
-// 0x0000000000000000000000000000000000000000000000000000000000000000
-var EmptyHash = common.Hash{}
-
-// Uint256ToBytes is x represented as the bytes of a uint256
-func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
-	if x.Cmp(MaxUint256) > 0 {
-		return nil, fmt.Errorf("too large to convert to uint256")
-	}
-	uint256 = common.LeftPadBytes(x.Bytes(), EVMWordByteLen)
-	if x.Cmp(big.NewInt(0).SetBytes(uint256)) != 0 {
-		panic("failed to round-trip uint256 back to source big.Int")
-	}
-	return uint256, err
 }
 
 // ISO8601UTC formats given time to ISO8601.
@@ -125,29 +81,6 @@ func NewSecret(n int) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-// RemoveHexPrefix removes the prefix (0x) of a given hex string.
-func RemoveHexPrefix(str string) string {
-	if HasHexPrefix(str) {
-		return str[2:]
-	}
-	return str
-}
-
-// HasHexPrefix returns true if the string starts with 0x.
-func HasHexPrefix(str string) bool {
-	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
-}
-
-// IsEmptyAddress checks that the address is empty, synonymous with the zero
-// account/address. No logs can come from this address, as there is no contract
-// present there.
-//
-// See https://stackoverflow.com/questions/48219716/what-is-address0-in-solidity
-// for the more info on the zero address.
-func IsEmptyAddress(addr common.Address) bool {
-	return addr == ZeroAddress
-}
-
 // StringToHex converts a standard string to a hex encoded string.
 func StringToHex(in string) string {
 	return AddHexPrefix(hex.EncodeToString([]byte(in)))
@@ -169,82 +102,6 @@ func IsEmpty(bytes []byte) bool {
 		}
 	}
 	return true
-}
-
-// Sleeper interface is used for tasks that need to be done on some
-// interval, excluding Cron, like reconnecting.
-type Sleeper interface {
-	Reset()
-	Sleep()
-	After() time.Duration
-	Duration() time.Duration
-}
-
-// BackoffSleeper is a sleeper that backs off on subsequent attempts.
-type BackoffSleeper struct {
-	backoff.Backoff
-	beenRun atomic.Bool
-}
-
-// NewBackoffSleeper returns a BackoffSleeper that is configured to
-// sleep for 0 seconds initially, then backs off from 1 second minimum
-// to 10 seconds maximum.
-func NewBackoffSleeper() *BackoffSleeper {
-	return &BackoffSleeper{
-		Backoff: backoff.Backoff{
-			Min: 1 * time.Second,
-			Max: 10 * time.Second,
-		},
-	}
-}
-
-// Sleep waits for the given duration, incrementing the back off.
-func (bs *BackoffSleeper) Sleep() {
-	if bs.beenRun.CompareAndSwap(false, true) {
-		return
-	}
-	time.Sleep(bs.Backoff.Duration())
-}
-
-// After returns the duration for the next stop, and increments the backoff.
-func (bs *BackoffSleeper) After() time.Duration {
-	if bs.beenRun.CompareAndSwap(false, true) {
-		return 0
-	}
-	return bs.Backoff.Duration()
-}
-
-// Duration returns the current duration value.
-func (bs *BackoffSleeper) Duration() time.Duration {
-	if !bs.beenRun.Load() {
-		return 0
-	}
-	return bs.ForAttempt(bs.Attempt())
-}
-
-// Reset resets the backoff intervals.
-func (bs *BackoffSleeper) Reset() {
-	bs.beenRun.Store(false)
-	bs.Backoff.Reset()
-}
-
-// RetryWithBackoff retries the sleeper and backs off if not Done
-func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
-	sleeper := NewBackoffSleeper()
-	sleeper.Reset()
-	for {
-		retry := fn()
-		if !retry {
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(sleeper.After()):
-			continue
-		}
-	}
 }
 
 // UnmarshalToMap takes an input json string and returns a map[string]interface i.e. a raw object
@@ -275,24 +132,6 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-// Keccak256 is a simplified interface for the legacy SHA3 implementation that
-// Ethereum uses.
-func Keccak256(in []byte) ([]byte, error) {
-	hash := sha3.NewLegacyKeccak256()
-	_, err := hash.Write(in)
-	return hash.Sum(nil), err
-}
-
-func Keccak256Fixed(in []byte) [32]byte {
-	hash := sha3.NewLegacyKeccak256()
-	// Note this Keccak256 cannot error https://github.com/golang/crypto/blob/master/sha3/sha3.go#L126
-	// if we start supporting hashing algos which do, we can change this API to include an error.
-	hash.Write(in)
-	var h [32]byte
-	copy(h[:], hash.Sum(nil))
-	return h
-}
-
 // Sha256 returns a hexadecimal encoded string of a hashed input
 func Sha256(in string) (string, error) {
 	hasher := sha3.New256()
@@ -301,99 +140,6 @@ func Sha256(in string) (string, error) {
 		return "", pkgerrors.Wrap(err, "sha256 write error")
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
-}
-
-// EIP55CapitalizedAddress returns true iff possibleAddressString has the correct
-// capitalization for an Ethereum address, per EIP 55
-func EIP55CapitalizedAddress(possibleAddressString string) bool {
-	if !HasHexPrefix(possibleAddressString) {
-		possibleAddressString = "0x" + possibleAddressString
-	}
-	EIP55Capitalized := common.HexToAddress(possibleAddressString).Hex()
-	return possibleAddressString == EIP55Capitalized
-}
-
-// ParseEthereumAddress returns addressString as a go-ethereum Address, or an
-// error if it's invalid, e.g. if EIP 55 capitalization check fails
-func ParseEthereumAddress(addressString string) (common.Address, error) {
-	if !common.IsHexAddress(addressString) {
-		return common.Address{}, fmt.Errorf(
-			"not a valid Ethereum address: %s", addressString)
-	}
-	address := common.HexToAddress(addressString)
-	if !EIP55CapitalizedAddress(addressString) {
-		return common.Address{}, fmt.Errorf(
-			"%s treated as Ethereum address, but it has an invalid capitalization! "+
-				"The correctly-capitalized address would be %s, but "+
-				"check carefully before copying and pasting! ",
-			addressString, address.Hex())
-	}
-	return address, nil
-}
-
-// MustHash returns the keccak256 hash, or panics on failure.
-func MustHash(in string) common.Hash {
-	out, err := Keccak256([]byte(in))
-	if err != nil {
-		panic(err)
-	}
-	return common.BytesToHash(out)
-}
-
-// JustError takes a tuple and returns the last entry, the error.
-func JustError(_ interface{}, err error) error {
-	return err
-}
-
-var zero = big.NewInt(0)
-
-// CheckUint256 returns an error if n is out of bounds for a uint256
-func CheckUint256(n *big.Int) error {
-	if n.Cmp(zero) < 0 || n.Cmp(MaxUint256) >= 0 {
-		return fmt.Errorf("number out of range for uint256")
-	}
-	return nil
-}
-
-// HexToUint256 returns the uint256 represented by s, or an error if it doesn't
-// represent one.
-func HexToUint256(s string) (*big.Int, error) {
-	rawNum, err := hexutil.Decode(s)
-	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "while parsing %s as hex: ", s)
-	}
-	rv := big.NewInt(0).SetBytes(rawNum) // can't be negative number
-	if err := CheckUint256(rv); err != nil {
-		return nil, err
-	}
-	return rv, nil
-}
-
-// HexToBig parses the given hex string or panics if it is invalid.
-func HexToBig(s string) *big.Int {
-	n, ok := new(big.Int).SetString(s, 16)
-	if !ok {
-		panic(fmt.Errorf(`failed to convert "%s" as hex to big.Int`, s))
-	}
-	return n
-}
-
-// Uint256ToBytes32 returns the bytes32 encoding of the big int provided
-func Uint256ToBytes32(n *big.Int) []byte {
-	if n.BitLen() > 256 {
-		panic("vrf.uint256ToBytes32: too big to marshal to uint256")
-	}
-	return common.LeftPadBytes(n.Bytes(), 32)
-}
-
-// WaitGroupChan creates a channel that closes when the provided sync.WaitGroup is done.
-func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
-	chAwait := make(chan struct{})
-	go func() {
-		defer close(chAwait)
-		wg.Wait()
-	}()
-	return chAwait
 }
 
 // WithCloseChan wraps a context so that it is canceled if the passed in channel is closed.
@@ -419,40 +165,6 @@ type StopChan = services.StopChan
 
 // Deprecated: use services.StopRChan
 type StopRChan = services.StopRChan
-
-// DependentAwaiter contains Dependent funcs
-type DependentAwaiter interface {
-	AwaitDependents() <-chan struct{}
-	AddDependents(n int)
-	DependentReady()
-}
-
-type dependentAwaiter struct {
-	wg *sync.WaitGroup
-	ch <-chan struct{}
-}
-
-// NewDependentAwaiter creates a new DependentAwaiter
-func NewDependentAwaiter() DependentAwaiter {
-	return &dependentAwaiter{
-		wg: &sync.WaitGroup{},
-	}
-}
-
-func (da *dependentAwaiter) AwaitDependents() <-chan struct{} {
-	if da.ch == nil {
-		da.ch = WaitGroupChan(da.wg)
-	}
-	return da.ch
-}
-
-func (da *dependentAwaiter) AddDependents(n int) {
-	da.wg.Add(n)
-}
-
-func (da *dependentAwaiter) DependentReady() {
-	da.wg.Done()
-}
 
 // BoundedQueue is a FIFO queue that discards older items when it reaches its capacity.
 type BoundedQueue[T any] struct {
@@ -572,20 +284,6 @@ func (q *BoundedPriorityQueue[T]) Empty() bool {
 		}
 	}
 	return true
-}
-
-// WrapIfError decorates an error with the given message.  It is intended to
-// be used with `defer` statements, like so:
-//
-//	func SomeFunction() (err error) {
-//	    defer WrapIfError(&err, "error in SomeFunction:")
-//
-//	    ...
-//	}
-func WrapIfError(err *error, msg string) {
-	if *err != nil {
-		*err = pkgerrors.Wrap(*err, msg)
-	}
 }
 
 // TickerBase is an interface for pausable tickers.
@@ -750,16 +448,6 @@ func (t *ResettableTimer) Reset(duration time.Duration) {
 	t.timer = time.NewTimer(duration)
 }
 
-// EVMBytesToUint64 converts
-// a bytebuffer to uint64
-func EVMBytesToUint64(buf []byte) uint64 {
-	var result uint64
-	for _, b := range buf {
-		result = result<<8 + uint64(b)
-	}
-	return result
-}
-
 var (
 	ErrAlreadyStopped      = errors.New("already stopped")
 	ErrCannotStopUnstarted = errors.New("cannot stop unstarted service")
@@ -836,23 +524,9 @@ func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 		"\n\n"
 }
 
-// AllEqual returns true iff all the provided elements are equal to each other.
-func AllEqual[T comparable](elems ...T) bool {
-	for i := 1; i < len(elems); i++ {
-		if elems[i] != elems[0] {
-			return false
-		}
-	}
-	return true
-}
-
-// RandUint256 generates a random bigNum up to 2 ** 256 - 1
-func RandUint256() *big.Int {
-	n, err := rand.Int(rand.Reader, MaxUint256)
-	if err != nil {
-		panic(err)
-	}
-	return n
+// ConcatBytes appends a bunch of byte arrays into a single byte array
+func ConcatBytes(bufs ...[]byte) []byte {
+	return bytes.Join(bufs, []byte{})
 }
 
 func LeftPadBitString(input string, length int) string {
@@ -860,22 +534,6 @@ func LeftPadBitString(input string, length int) string {
 		return input
 	}
 	return strings.Repeat("0", length-len(input)) + input
-}
-
-// TryParseHex parses the given hex string to bytes,
-// it can return error if the hex string is invalid.
-// Follows the semantic of ethereum's FromHex.
-func TryParseHex(s string) (b []byte, err error) {
-	if !HasHexPrefix(s) {
-		err = errors.New("hex string must have 0x prefix")
-	} else {
-		s = s[2:]
-		if len(s)%2 == 1 {
-			s = "0" + s
-		}
-		b, err = hex.DecodeString(s)
-	}
-	return
 }
 
 // ErrorBuffer uses joinedErrors interface to join multiple errors into a single error.

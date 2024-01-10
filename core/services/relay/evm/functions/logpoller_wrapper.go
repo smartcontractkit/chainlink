@@ -108,7 +108,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
 		stopCh:                    make(services.StopChan),
-		lggr:                      lggr,
+		lggr:                      lggr.Named("LogPollerWrapper"),
 	}, nil
 }
 
@@ -136,16 +136,10 @@ func (l *logPollerWrapper) Close() error {
 }
 
 func (l *logPollerWrapper) HealthReport() map[string]error {
-	return make(map[string]error)
+	return map[string]error{l.Name(): l.Ready()}
 }
 
-func (l *logPollerWrapper) Name() string {
-	return "LogPollerWrapper"
-}
-
-func (l *logPollerWrapper) Ready() error {
-	return nil
-}
+func (l *logPollerWrapper) Name() string { return l.lggr.Name() }
 
 // methods of LogPollerWrapper
 func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {

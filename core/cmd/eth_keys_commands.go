@@ -14,6 +14,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -123,15 +124,27 @@ type EthKeyPresenter struct {
 }
 
 func (p *EthKeyPresenter) ToRow() []string {
+	eth := "Unknown"
+	if p.EthBalance != nil {
+		eth = p.EthBalance.String()
+	}
+	link := "Unknown"
+	if p.LinkBalance != nil {
+		link = p.LinkBalance.String()
+	}
+	gas := "None"
+	if p.MaxGasPriceWei != nil {
+		gas = p.MaxGasPriceWei.String()
+	}
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
-		p.EthBalance.String(),
-		p.LinkBalance.String(),
+		eth,
+		link,
 		fmt.Sprintf("%v", p.Disabled),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
-		p.MaxGasPriceWei.String(),
+		gas,
 	}
 }
 
@@ -143,7 +156,7 @@ func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
 
 	renderList(ethKeysTableHeaders, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 type EthKeyPresenters []EthKeyPresenter

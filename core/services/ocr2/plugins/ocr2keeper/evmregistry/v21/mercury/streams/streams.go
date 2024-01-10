@@ -21,6 +21,7 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
 	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v03"
@@ -114,7 +115,7 @@ func (s *streams) Lookup(ctx context.Context, checkResults []ocr2keepers.CheckRe
 // buildResult checks if the upkeep is allowed by Mercury and builds a streams lookup request from the check result
 func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keepers.CheckResult, checkResults []ocr2keepers.CheckResult, lookups map[int]*mercury.StreamsLookup) {
 	lookupLggr := s.lggr.With("where", "StreamsLookup")
-	if checkResult.IneligibilityReason != uint8(mercury.MercuryUpkeepFailureReasonTargetCheckReverted) {
+	if checkResult.IneligibilityReason != uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
 		// Streams Lookup only works when upkeep target check reverts
 		return
 	}
@@ -139,7 +140,7 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	streamsLookupResponse := &mercury.StreamsLookup{StreamsLookupError: streamsLookupErr}
 
 	if len(streamsLookupResponse.Feeds) == 0 {
-		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 		lookupLggr.Debugf("at block %s upkeep %s has empty feeds array", block, upkeepId)
 		return
 	}
@@ -156,13 +157,13 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 			return
 		} else if !allowed {
 			lookupLggr.Debugf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
-			checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonMercuryAccessNotAllowed)
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
 			return
 		}
 	} else if !streamsLookupResponse.IsMercuryV03() {
 		// if mercury version is not v02 or v03, set failure reason
 		lookupLggr.Debugf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
-		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 		return
 	}
 
@@ -191,7 +192,7 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 	payload, err := s.abi.Pack("checkCallback", lookup.UpkeepId, values, lookup.ExtraData)
 	if err != nil {
 		checkResults[i].Retryable = false
-		checkResults[i].PipelineExecutionState = uint8(mercury.PackUnpackDecodeFailed)
+		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
 		return err
 	}
 
@@ -204,7 +205,7 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 	// call checkCallback function at the block which OCR3 has agreed upon
 	if err = s.client.CallContext(ctx, &mercuryBytes, "eth_call", args, hexutil.EncodeUint64(lookup.Block)); err != nil {
 		checkResults[i].Retryable = true
-		checkResults[i].PipelineExecutionState = uint8(mercury.RpcFlakyFailure)
+		checkResults[i].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
 		return err
 	}
 
@@ -212,24 +213,23 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 
 	unpackCallBackState, needed, performData, failureReason, _, err := s.packer.UnpackCheckCallbackResult(mercuryBytes)
 	if err != nil {
-		checkResults[i].PipelineExecutionState = unpackCallBackState
+		checkResults[i].PipelineExecutionState = uint8(unpackCallBackState)
 		return err
 	}
 
-	if failureReason == uint8(mercury.MercuryUpkeepFailureReasonMercuryCallbackReverted) {
-		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonMercuryCallbackReverted)
+	if failureReason == encoding.UpkeepFailureReasonMercuryCallbackReverted {
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted)
 		s.lggr.Debugf("at block %d upkeep %s requested time %s mercury callback reverts", lookup.Block, lookup.UpkeepId, lookup.Time)
 		return nil
-
 	}
 
 	if !needed {
-		checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonUpkeepNotNeeded)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonUpkeepNotNeeded)
 		s.lggr.Debugf("at block %d upkeep %s requested time %s callback reports upkeep not needed", lookup.Block, lookup.UpkeepId, lookup.Time)
 		return nil
 	}
 
-	checkResults[i].IneligibilityReason = uint8(mercury.MercuryUpkeepFailureReasonNone)
+	checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
 	checkResults[i].Eligible = true
 	checkResults[i].PerformData = performData
 	s.lggr.Infof("at block %d upkeep %s requested time %s CheckCallback successful with perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(performData))
@@ -238,7 +238,7 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 }
 
 func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) ([][]byte, error) {
-	state, reason, values, retryable, retryInterval, err := mercury.NoPipelineError, mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0*time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", lookup.FeedParamKey, lookup.TimeParamKey, lookup.Feeds)
+	state, reason, values, retryable, retryInterval, err := encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0*time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", lookup.FeedParamKey, lookup.TimeParamKey, lookup.Feeds)
 	pluginRetryKey := generatePluginRetryKey(checkResults[i].WorkID, lookup.Block)
 
 	if lookup.IsMercuryV02() {
@@ -263,10 +263,10 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 
 // AllowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
 // this upkeep is allowed to use Mercury service.
-func (s *streams) AllowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (state mercury.MercuryUpkeepState, reason mercury.MercuryUpkeepFailureReason, retryable bool, allow bool, err error) {
+func (s *streams) AllowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (state encoding.PipelineExecutionState, reason encoding.UpkeepFailureReason, retryable bool, allow bool, err error) {
 	allowed, ok := s.mercuryConfig.IsUpkeepAllowed(upkeepId.String())
 	if ok {
-		return mercury.NoPipelineError, mercury.MercuryUpkeepFailureReasonNone, false, allowed.(bool), nil
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, allowed.(bool), nil
 	}
 
 	payload, err := s.packer.PackGetUpkeepPrivilegeConfig(upkeepId)
@@ -274,7 +274,7 @@ func (s *streams) AllowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (s
 		// pack error, no retryable
 		s.lggr.Warnf("failed to pack getUpkeepPrivilegeConfig data for upkeepId %s: %s", upkeepId, err)
 
-		return mercury.PackUnpackDecodeFailed, mercury.MercuryUpkeepFailureReasonNone, false, false, fmt.Errorf("failed to pack upkeepId: %w", err)
+		return encoding.PackUnpackDecodeFailed, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to pack upkeepId: %w", err)
 	}
 
 	var resultBytes hexutil.Bytes
@@ -284,29 +284,29 @@ func (s *streams) AllowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (s
 	}
 
 	if err = s.client.CallContext(opts.Context, &resultBytes, "eth_call", args, hexutil.EncodeBig(opts.BlockNumber)); err != nil {
-		return mercury.RpcFlakyFailure, mercury.MercuryUpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
+		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
 
 	var upkeepPrivilegeConfigBytes []byte
 	upkeepPrivilegeConfigBytes, err = s.packer.UnpackGetUpkeepPrivilegeConfig(resultBytes)
 
 	if err != nil {
-		return mercury.PackUnpackDecodeFailed, mercury.MercuryUpkeepFailureReasonNone, false, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
+		return encoding.PackUnpackDecodeFailed, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
 
 	if len(upkeepPrivilegeConfigBytes) == 0 {
 		s.mercuryConfig.SetUpkeepAllowed(upkeepId.String(), false, cache.DefaultExpiration)
-		return mercury.NoPipelineError, mercury.MercuryUpkeepFailureReasonMercuryAccessNotAllowed, false, false, fmt.Errorf("upkeep privilege config is empty")
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, fmt.Errorf("upkeep privilege config is empty")
 	}
 
 	var privilegeConfig UpkeepPrivilegeConfig
 	if err = json.Unmarshal(upkeepPrivilegeConfigBytes, &privilegeConfig); err != nil {
-		return mercury.MercuryUnmarshalError, mercury.MercuryUpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
+		return encoding.MercuryUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
 	}
 
 	s.mercuryConfig.SetUpkeepAllowed(upkeepId.String(), privilegeConfig.MercuryEnabled, cache.DefaultExpiration)
 
-	return mercury.NoPipelineError, mercury.MercuryUpkeepFailureReasonNone, false, privilegeConfig.MercuryEnabled, nil
+	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, privilegeConfig.MercuryEnabled, nil
 }
 
 func (s *streams) buildCallOpts(ctx context.Context, block *big.Int) *bind.CallOpts {

@@ -3,9 +3,12 @@ package test_env
 import (
 	"context"
 	"fmt"
+	"io"
+	"maps"
 	"math/big"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -47,6 +51,7 @@ type ClNode struct {
 	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
 	UserEmail             string                  `json:"userEmail"`
 	UserPassword          string                  `json:"userPassword"`
+	AlwaysPullImage       bool
 	t                     *testing.T
 	l                     zerolog.Logger
 	ls                    *logstream.LogStream
@@ -57,6 +62,15 @@ type ClNodeOption = func(c *ClNode)
 func WithSecrets(secretsTOML string) ClNodeOption {
 	return func(c *ClNode) {
 		c.NodeSecretsConfigTOML = secretsTOML
+	}
+}
+
+func WithNodeEnvVars(ev map[string]string) ClNodeOption {
+	return func(n *ClNode) {
+		if n.ContainerEnvs == nil {
+			n.ContainerEnvs = map[string]string{}
+		}
+		maps.Copy(n.ContainerEnvs, ev)
 	}
 }
 
@@ -153,8 +167,15 @@ func (n *ClNode) UpgradeVersion(newImage, newVersion string) error {
 		return fmt.Errorf("new version is empty")
 	}
 	if newImage == "" {
-		return fmt.Errorf("new image name is empty")
+		newImage = os.Getenv("CHAINLINK_IMAGE")
 	}
+	n.l.Info().
+		Str("Name", n.ContainerName).
+		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
+		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
+		Str("New Image", newImage).
+		Str("New Version", newVersion).
+		Msg("Upgrading Chainlink Node")
 	n.ContainerImage = newImage
 	n.ContainerVersion = newVersion
 	return n.Restart(n.NodeConfig)
@@ -344,6 +365,28 @@ func (n *ClNode) StartContainer() error {
 	return nil
 }
 
+func (n *ClNode) ExecGetVersion() (string, error) {
+	cmd := []string{"chainlink", "--version"}
+	_, output, err := n.Container.Exec(context.Background(), cmd)
+	if err != nil {
+		return "", errors.Wrapf(err, "could not execute cmd %s", cmd)
+	}
+	outputBytes, err := io.ReadAll(output)
+	if err != nil {
+		return "", err
+	}
+	outputString := strings.TrimSpace(string(outputBytes))
+
+	// Find version in cmd output
+	re := regexp.MustCompile("@(.*)")
+	matches := re.FindStringSubmatch(outputString)
+
+	if len(matches) > 1 {
+		return matches[1], nil
+	}
+	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
+}
+
 func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
@@ -393,9 +436,10 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	apiCredsPath := "/home/api-credentials.txt"
 
 	return &tc.ContainerRequest{
-		Name:         n.ContainerName,
-		Image:        fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
-		ExposedPorts: []string{"6688/tcp"},
+		Name:            n.ContainerName,
+		AlwaysPullImage: n.AlwaysPullImage,
+		Image:           fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
+		ExposedPorts:    []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
 			"-s", secretsPath,
