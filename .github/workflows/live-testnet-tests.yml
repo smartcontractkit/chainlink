@@ -66,6 +66,8 @@ jobs:
       id-token: write
       contents: read
     name: Build Tests Binary
+    outputs:
+          test_value_2: ${{ steps.network_config.outputs.test_value_2 }}        
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -183,6 +185,7 @@ jobs:
           echo "base64_network_config=$BASE64_NETWORK_CONFIG" >> $GITHUB_OUTPUT
 
           echo "test_value=123" >> $GITHUB_OUTPUT
+          echo "test_value_2=456" >> $GITHUB_OUTPUT
 
   # End Build Test Dependencies
 
@@ -318,10 +321,15 @@ jobs:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-          TEST_VALUE: ${{ needs.build-tests.outputs.test_value }}          
+          TEST_VALUE: ${{ needs.build-tests.outputs.test_value }}       
+          TEST_VALUE_2: ${{ needs.build-tests.outputs.test_value_2 }}          
         run: |
           echo "TEST_VALUE=$TEST_VALUE" 
           echo "TEST_VALUE=${{ needs.build-tests.outputs.test_value }}"
+
+          echo "TEST_VALUE_2=$TEST_VALUE_2" 
+          echo "TEST_VALUE_2=${{ needs.build-tests.outputs.test_value_2 }}"
+
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
