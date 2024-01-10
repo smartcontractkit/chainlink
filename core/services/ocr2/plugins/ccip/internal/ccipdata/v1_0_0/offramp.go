@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -193,12 +192,12 @@ func (o *OffRamp) GetSenderNonce(ctx context.Context, sender common.Address) (ui
 	return o.offRampV100.GetSenderNonce(&bind.CallOpts{Context: ctx}, sender)
 }
 
-func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
+func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (ccipdata.TokenBucketRateLimit, error) {
 	state, err := o.offRampV100.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return *new(evm_2_evm_offramp.RateLimiterTokenBucket), err
+		return ccipdata.TokenBucketRateLimit{}, err
 	}
-	return evm_2_evm_offramp.RateLimiterTokenBucket{
+	return ccipdata.TokenBucketRateLimit{
 		Tokens:      state.Tokens,
 		LastUpdated: state.LastUpdated,
 		IsEnabled:   state.IsEnabled,
