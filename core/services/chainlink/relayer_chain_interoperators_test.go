@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
@@ -205,10 +204,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
-						AppConfig:        cfg,
-						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &mailbox.Monitor{},
-						DB:               db,
+						AppConfig: cfg,
+						MailMon:   &mailbox.Monitor{},
+						DB:        db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -279,10 +277,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				TOMLConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
-						AppConfig:        cfg,
-						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &mailbox.Monitor{},
-						DB:               db,
+						AppConfig: cfg,
+
+						MailMon: &mailbox.Monitor{},
+						DB:      db,
 					},
 					CSAETHKeystore: keyStore,
 				}),

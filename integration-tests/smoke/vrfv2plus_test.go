@@ -42,7 +42,6 @@ func TestVRFv2Plus(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err, "error creating test env")
 
@@ -622,7 +621,6 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err, "error creating test env")
 
@@ -713,7 +711,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err, "error creating test env")
 	env.ParallelTransactions(true)

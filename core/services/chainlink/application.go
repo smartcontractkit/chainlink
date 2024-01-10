@@ -416,7 +416,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
-			eventBroadcaster,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
