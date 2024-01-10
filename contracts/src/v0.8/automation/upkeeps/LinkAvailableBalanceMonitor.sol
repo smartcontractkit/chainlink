@@ -69,8 +69,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     bool isActive;
   }
 
-  bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-  bytes32 public constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
+  bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+  bytes32 private constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
   uint96 private constant DEFAULT_TOP_UP_AMOUNT_JULES = 9000000000000000000;
   uint96 private constant DEFAULT_MIN_BALANCE_JULES = 1000000000000000000;
   IERC20 private immutable i_linkToken;
@@ -80,39 +80,38 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   uint16 private s_maxCheck;
   uint8 private s_upkeepInterval;
 
-  /// @notice s_watchList contains all the addresses watched by this monitor
+  /// @dev s_watchList contains all the addresses watched by this monitor
   /// It mainly provides the length() function
   EnumerableSet.AddressSet private s_watchList;
 
   /// @notice s_targets contains all the addresses watched by this monitor
   /// Each key points to a MonitoredAddress with all the needed metadata
-  mapping(address targetAddress => MonitoredAddress targetProperties) internal s_targets;
+  mapping(address targetAddress => MonitoredAddress targetProperties) private s_targets;
 
   /// @notice s_onRampAddresses represents a list of CCIP onRamp addresses watched on this contract
   /// There has to be only one onRamp per dstChainSelector.
   /// dstChainSelector is needed as we have to track the live onRamp, and delete the onRamp
   /// whenever a new one is deployed with the same dstChainSelector.
-  EnumerableMap.UintToAddressMap internal s_onRampAddresses;
+  EnumerableMap.UintToAddressMap private s_onRampAddresses;
 
   /// @param admin is the administrator address of this contract
-  /// @param linkTokenAddress the LINK token address
+  /// @param linkToken the LINK token address
   /// @param minWaitPeriodSeconds represents the amount of time that has to wait a contract to be funded
   /// @param maxPerform maximum amount of contracts to fund
   /// @param maxCheck maximum amount of contracts to check
   /// @param upkeepInterval randomizes the check for underfunded contracts
   constructor(
     address admin,
-    address linkTokenAddress,
+    IERC20 linkToken,
     uint256 minWaitPeriodSeconds,
     uint16 maxPerform,
     uint16 maxCheck,
     uint8 upkeepInterval
   ) {
-    if (linkTokenAddress == address(0)) revert InvalidLinkTokenAddress(linkTokenAddress);
     _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
     _setRoleAdmin(EXECUTOR_ROLE, ADMIN_ROLE);
     _grantRole(ADMIN_ROLE, admin);
-    i_linkToken = IERC20(linkTokenAddress);
+    i_linkToken = linkToken;
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
     setMaxCheck(maxCheck);
