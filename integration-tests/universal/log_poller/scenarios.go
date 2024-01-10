@@ -141,9 +141,8 @@ func ExecuteBasicLogPollerTest(t *testing.T, cfg *Config) {
 		if logCountMatches {
 			allNodesLogCountMatches = true
 			break
-		} else {
-			l.Warn().Err(err).Msg("At least one CL node did not have expected log count. Retrying...")
 		}
+		l.Warn().Err(err).Msg("At least one CL node did not have expected log count. Retrying...")
 	}
 
 	allNodesHaveAllExpectedLogs := false

@@ -957,9 +957,9 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 				l.Err(result.Err).Msg("Error encountered during chaos experiment")
 				errorCh <- result.Err
 				return // Return on actual error
-			} else {
-				pauseData = append(pauseData, result.PauseData)
 			}
+
+			pauseData = append(pauseData, result.PauseData)
 		}
 
 		l.Info().Msg("All chaos experiments finished")
