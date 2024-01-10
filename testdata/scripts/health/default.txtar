@@ -31,7 +31,6 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 -- out.txt --
--EventBroadcaster
 -JobSpawner
 -Mailbox.Monitor
 -Mercury.WSRPCPool
@@ -44,15 +43,6 @@ HTTPPort = $PORT
 -- out.json --
 {
   "data": [
-    {
-      "type": "checks",
-      "id": "EventBroadcaster",
-      "attributes": {
-        "name": "EventBroadcaster",
-        "status": "passing",
-        "output": ""
-      }
-    },
     {
       "type": "checks",
       "id": "JobSpawner",
