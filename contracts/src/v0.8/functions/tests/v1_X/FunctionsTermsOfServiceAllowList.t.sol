@@ -257,7 +257,33 @@ contract FunctionsTermsOfServiceAllowList_GetAllowedSendersInRange is FunctionsO
     address[] memory expectedSenders = new address[](1);
     expectedSenders[0] = OWNER_ADDRESS;
 
-    assertEq(s_termsOfServiceAllowList.getAllowedSendersInRange(1, 1), expectedSenders);
+    assertEq(s_termsOfServiceAllowList.getAllowedSendersInRange(0, 0), expectedSenders);
+  }
+
+  function test_GetAllowedSendersInRange_RevertIfAllowedSendersIsEmpty() public {
+    // setup a new empty s_termsOfServiceAllowList
+    FunctionsRoutesSetup.setUp();
+
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 AllowedSendersCount = s_termsOfServiceAllowList.getAllowedSendersCount();
+    uint64 expected = 0;
+    assertEq(AllowedSendersCount, expected);
+
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+    s_termsOfServiceAllowList.getAllowedSendersInRange(0, 0);
+  }
+
+  function test_GetAllowedSendersInRange_RevertIfStartIsAfterEnd() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+
+    s_termsOfServiceAllowList.getAllowedSendersInRange(1, 0);
   }
 
   function test_GetAllowedSendersInRange_RevertIfEndIsAfterLastAllowedSender() public {
@@ -265,9 +291,9 @@ contract FunctionsTermsOfServiceAllowList_GetAllowedSendersInRange is FunctionsO
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    uint64 lastAllowedSenderId = s_termsOfServiceAllowList.getAllowedSendersCount();
+    uint64 AllowedSendersCount = s_termsOfServiceAllowList.getAllowedSendersCount();
     vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
-    s_termsOfServiceAllowList.getAllowedSendersInRange(1, lastAllowedSenderId + 1);
+    s_termsOfServiceAllowList.getAllowedSendersInRange(1, AllowedSendersCount + 1);
   }
 }
 

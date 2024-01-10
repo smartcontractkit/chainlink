@@ -197,26 +197,22 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	}
 
 	allowedSenderList := make([]common.Address, 0)
-	for idStart := uint64(0); idStart < count; idStart += uint64(a.config.CacheBatchSize) {
-		idEnd := idStart + uint64(a.config.CacheBatchSize)
-		if idEnd > count {
-			idEnd = count
+	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.CacheBatchSize) {
+		idxEnd := idxStart + uint64(a.config.CacheBatchSize)
+		if idxEnd >= count {
+			idxEnd = count - 1
 		}
 
 		allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
 			Pending:     false,
 			BlockNumber: blockNum,
 			Context:     ctx,
-		}, idStart, idEnd)
+		}, idxStart, idxEnd)
 		if err != nil {
 			return errors.Wrap(err, "error calling GetAllowedSendersInRange")
 		}
 
 		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
-
-		if idEnd == count {
-			break
-		}
 	}
 
 	a.update(allowedSenderList)

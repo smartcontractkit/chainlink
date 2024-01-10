@@ -27,6 +27,9 @@ interface ITermsOfServiceAllowList {
   function getAllowedSendersCount() external view returns (uint64);
 
   /// @notice Retrieve a list of allowed senders using an inclusive range
+  /// @dev WARNING: getAllowedSendersInRange uses EnumerableSet .length() and .at() methods to iterate over the list
+  /// without the need for an extra mapping. These method can not guarantee the ordering when new elements are added.
+  /// Evaluate if eventual consistency will satisfy your usecase before using it.
   /// @param allowedSenderIdStart - the ID of the allowed sender to start the range at
   /// @param allowedSenderIdEnd - the ID of the allowed sender to end the range at
   /// @return allowedSenders - all allowed addresses

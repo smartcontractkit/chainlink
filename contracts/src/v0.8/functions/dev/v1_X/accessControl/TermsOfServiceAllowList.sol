@@ -107,24 +107,22 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     return uint64(s_allowedSenders.length());
   }
 
-  /// @dev WARNING: getAllowedSendersInRange uses EnumerableSet .length() and .at() methods to iterate over the list
-  /// without the need for an extra mapping. These method can not guarantee the ordering when new elements are added.
-  /// Evaluate if eventual consistency will satisfy your usecase before using it.
+  /// @inheritdoc ITermsOfServiceAllowList
   function getAllowedSendersInRange(
-    uint64 allowedSenderIdStart,
-    uint64 allowedSenderIdEnd
+    uint64 allowedSenderIdxStart,
+    uint64 allowedSenderIdxEnd
   ) external view override returns (address[] memory allowedSenders) {
     if (
-      allowedSenderIdStart > allowedSenderIdEnd ||
-      allowedSenderIdEnd > s_allowedSenders.length() ||
+      allowedSenderIdxStart > allowedSenderIdxEnd ||
+      allowedSenderIdxEnd >= s_allowedSenders.length() ||
       s_allowedSenders.length() == 0
     ) {
       revert InvalidCalldata();
     }
 
-    allowedSenders = new address[]((allowedSenderIdEnd - allowedSenderIdStart) + 1);
-    for (uint256 i = 0; i <= allowedSenderIdEnd - allowedSenderIdStart; ++i) {
-      allowedSenders[i] = s_allowedSenders.at(uint256(allowedSenderIdStart + i - 1));
+    allowedSenders = new address[]((allowedSenderIdxEnd - allowedSenderIdxStart) + 1);
+    for (uint256 i = 0; i <= allowedSenderIdxEnd - allowedSenderIdxStart; ++i) {
+      allowedSenders[i] = s_allowedSenders.at(uint256(allowedSenderIdxStart + i));
     }
 
     return allowedSenders;
