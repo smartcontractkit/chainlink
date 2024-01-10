@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -100,7 +99,7 @@ type OffRampReader interface {
 	OnchainConfig() ExecOnchainConfig
 	GasPriceEstimator() prices.GasPriceEstimatorExec
 	GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error)
-	CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error)
+	CurrentRateLimiterState(ctx context.Context) (TokenBucketRateLimit, error)
 	GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error)
 	GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error)
 	GetSourceToDestTokensMapping(ctx context.Context) (map[common.Address]common.Address, error)

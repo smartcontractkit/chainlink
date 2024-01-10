@@ -36,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -52,7 +51,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 		tokenPoolsMapping map[common.Address]common.Address
 		blessedRoots      map[[32]byte]bool
 		senderNonce       uint64
-		rateLimiterState  evm_2_evm_offramp.RateLimiterTokenBucket
+		rateLimiterState  ccipdata.TokenBucketRateLimit
 		expErr            bool
 	}{
 		{
@@ -73,9 +72,9 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 				},
 			},
 			blessedRoots: map[[32]byte]bool{
-				[32]byte{123}: true,
+				{123}: true,
 			},
-			rateLimiterState: evm_2_evm_offramp.RateLimiterTokenBucket{
+			rateLimiterState: ccipdata.TokenBucketRateLimit{
 				IsEnabled: false,
 			},
 			tokenPoolsMapping: map[common.Address]common.Address{},
@@ -1802,7 +1801,7 @@ func Test_prepareTokenExecData(t *testing.T) {
 			destPriceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorExec(t)
 
-			offrampReader.On("CurrentRateLimiterState", ctx).Return(evm_2_evm_offramp.RateLimiterTokenBucket{}, nil).Maybe()
+			offrampReader.On("CurrentRateLimiterState", ctx).Return(ccipdata.TokenBucketRateLimit{}, nil).Maybe()
 			offrampReader.On("GetSourceToDestTokensMapping", ctx).Return(map[common.Address]common.Address{}, nil).Maybe()
 			gasPriceEstimator.On("GetGasPrice", ctx).Return(prices.GasPrice(big.NewInt(1e9)), nil).Maybe()
 

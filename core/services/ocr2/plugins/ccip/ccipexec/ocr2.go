@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
@@ -1018,7 +1017,7 @@ func (r *ExecutionReportingPlugin) getUnexpiredCommitReports(
 }
 
 type execTokenData struct {
-	rateLimiterTokenBucket evm_2_evm_offramp.RateLimiterTokenBucket
+	rateLimiterTokenBucket ccipdata.TokenBucketRateLimit
 	sourceTokenPrices      map[common.Address]*big.Int
 	destTokenPrices        map[common.Address]*big.Int
 	sourceToDestTokens     map[common.Address]common.Address

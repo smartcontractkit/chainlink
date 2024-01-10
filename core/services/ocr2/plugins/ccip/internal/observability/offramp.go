@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -51,8 +50,8 @@ func (o *ObservedOffRampReader) GetSenderNonce(ctx context.Context, sender commo
 	})
 }
 
-func (o *ObservedOffRampReader) CurrentRateLimiterState(ctx context.Context) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
-	return withObservedInteraction(o.metric, "CurrentRateLimiterState", func() (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
+func (o *ObservedOffRampReader) CurrentRateLimiterState(ctx context.Context) (ccipdata.TokenBucketRateLimit, error) {
+	return withObservedInteraction(o.metric, "CurrentRateLimiterState", func() (ccipdata.TokenBucketRateLimit, error) {
 		return o.OffRampReader.CurrentRateLimiterState(ctx)
 	})
 }
