@@ -1,6 +1,7 @@
 package testconfig
 
 import (
+	"embed"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -16,18 +17,17 @@ import (
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
 	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
-	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/logpoller"
+	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
-
-	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 )
 
 type TestConfig struct {
@@ -49,6 +49,13 @@ type TestConfig struct {
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
 
 	ConfigurationName string `toml:"-"`
+}
+
+var embeddedConfigs embed.FS
+var areConfigsEmbedded bool
+
+func init() {
+	embeddedConfigs = embeddedConfigsFs
 }
 
 // Returns Grafana URL from Logging config
@@ -163,6 +170,63 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
 
+	var byteToTestConfig = func(content []byte) (TestConfig, error) {
+		var readConfig TestConfig
+		err := toml.Unmarshal(content, &readConfig)
+		if err != nil {
+			return TestConfig{}, errors.Wrapf(err, "error unmarshaling config")
+		}
+
+		logger.Debug().Msgf("Successfully unmarshalled config file")
+		maybeTestConfigs = append(maybeTestConfigs, readConfig)
+
+		var someToml map[string]interface{}
+		err = toml.Unmarshal(content, &someToml)
+		if err != nil {
+			return TestConfig{}, err
+		}
+
+		if _, ok := someToml[configurationName]; !ok {
+			logger.Debug().Msgf("Config file does not contain configuration named '%s', will read only default configuration.", configurationName)
+			return readConfig, nil
+		}
+
+		marshalled, err := toml.Marshal(someToml[configurationName])
+		if err != nil {
+			return TestConfig{}, err
+		}
+
+		err = toml.Unmarshal(marshalled, &readConfig)
+		if err != nil {
+			return TestConfig{}, err
+		}
+
+		logger.Debug().Msgf("Configuration named '%s' read successfully.", configurationName)
+
+		return readConfig, nil
+	}
+
+	// read embedded configs is build tag "embed" is set
+	// this makes our life much easier when using a binary
+	if areConfigsEmbedded {
+		logger.Info().Msg("Reading embedded configs")
+		embeddedFiles := []string{"default.toml", fmt.Sprintf("%s/%s.toml", product, product)}
+		for _, fileName := range embeddedFiles {
+			file, err := embeddedConfigs.ReadFile(fileName)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
+			}
+
+			readConfig, err := byteToTestConfig(file)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
+			}
+
+			maybeTestConfigs = append(maybeTestConfigs, readConfig)
+		}
+	}
+
+	logger.Info().Msg("Reading configs from file system")
 	for _, fileName := range fileNames {
 		logger.Debug().Msgf("Looking for config file %s", fileName)
 		filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME, 2)
@@ -180,37 +244,11 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
 
-		var readConfig TestConfig
-		err = toml.Unmarshal(content, &readConfig)
+		readConfig, err := byteToTestConfig(content)
 		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error unmarshaling config")
+			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
 
-		logger.Debug().Msgf("Successfully unmarshalled config file %s", fileName)
-		maybeTestConfigs = append(maybeTestConfigs, readConfig)
-
-		var someToml map[string]interface{}
-		err = toml.Unmarshal(content, &someToml)
-		if err != nil {
-			return TestConfig{}, err
-		}
-
-		if _, ok := someToml[configurationName]; !ok {
-			logger.Debug().Msgf("Config file %s does not contain configuration named '%s', will read only default configuration.", fileName, configurationName)
-			continue
-		}
-
-		marshalled, err := toml.Marshal(someToml[configurationName])
-		if err != nil {
-			return TestConfig{}, err
-		}
-
-		err = toml.Unmarshal(marshalled, &readConfig)
-		if err != nil {
-			return TestConfig{}, err
-		}
-
-		logger.Debug().Msgf("Configuration named '%s' read successfully.", configurationName)
 		maybeTestConfigs = append(maybeTestConfigs, readConfig)
 	}
 

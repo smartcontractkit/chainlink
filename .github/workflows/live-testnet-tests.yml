@@ -119,11 +119,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@8872f6ea8c4a0351206336528d28ebf2f635d80d # v2.3.0
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
+          go_tags: embed
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           binary_name: tests
@@ -276,11 +277,18 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}          
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
-    
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          convert_to_toml_array() {
+              local IFS=','
+              local input_array=($1)
+              local toml_array_format="["
+
+              for element in "${input_array[@]}"; do
+                  toml_array_format+="\"$element\","
+              done
+
+              toml_array_format="${toml_array_format%,}]"
+              echo "$toml_array_format"
+          }
 
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
@@ -366,11 +374,7 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
+          name: tests     
       - name: Unzip artifact with TOML configs
         run: unzip toml_configs.zip          
       - name: Prepare Base64 TOML override
@@ -379,8 +383,18 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-bsc-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          convert_to_toml_array() {
+              local IFS=','
+              local input_array=($1)
+              local toml_array_format="["
+
+              for element in "${input_array[@]}"; do
+                  toml_array_format+="\"$element\","
+              done
+
+              toml_array_format="${toml_array_format%,}]"
+              echo "$toml_array_format"
+          }
 
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true

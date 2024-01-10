@@ -43,7 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/logpoller"
+	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
