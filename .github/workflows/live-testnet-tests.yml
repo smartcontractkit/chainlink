@@ -180,7 +180,7 @@ jobs:
           linea_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
-          BASE64_NETWORK_CONFIG=$(cat network_config.toml | base64 -w 0)
+          BASE64_NETWORK_CONFIG=$(cat network_config.toml | base64 -w 0 | base64 -w 0)
           echo ::add-mask::$BASE64_NETWORK_CONFIG
           echo "base64_network_config=$BASE64_NETWORK_CONFIG" >> $GITHUB_OUTPUT
           echo "Length after base64: ${#BASE64_NETWORK_CONFIG}"
@@ -323,7 +323,11 @@ jobs:
         run: |
           echo "Lenght of top level var: ${#BASE64_NETWORK_CONFIG}"
           X=${{ needs.build-tests.outputs.base64_network_config }}
+          Y=echo ${{ needs.build-tests.outputs.base64_network_config }} | base64 -d
           echo "Lenght of in-script var: ${#X}"
+          echo "Lenght of debaseed var: ${#Y}"
+
+          echo "BASE64_NETWORK_CONFIG=$Y" >> $GITHUB_ENV
 
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
