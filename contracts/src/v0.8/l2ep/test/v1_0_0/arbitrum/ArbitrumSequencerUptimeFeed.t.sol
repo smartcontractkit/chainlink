@@ -1,24 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
 import {ArbitrumSequencerUptimeFeed} from "../../../dev/arbitrum/ArbitrumSequencerUptimeFeed.sol";
-import {FeedConsumer} from "../../../../../v0.8/tests/FeedConsumer.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
+import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {Flags} from "../../../dev/Flags.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-// Use this command from the /contracts directory to run this test file:
-//
-//  FOUNDRY_PROFILE=l2ep forge test -vvv --match-path ./src/v0.8/l2ep/test/v1_0_0/arbitrum/ArbitrumSequencerUptimeFeed.t.sol
-//
 contract ArbitrumSequencerUptimeFeedTest is L2EPTest {
   /// Constants
   uint256 internal constant GAS_USED_DEVIATION = 100;
 
-  /// Helper variables
-  address internal s_mockL1OwnerAddr = vm.addr(0x1);
-  address internal s_strangerAddr = vm.addr(0x2);
+  /// Helper variable(s)
+  address internal s_mockL1OwnerAddr = vm.addr(0x2);
   address internal s_deployerAddr = vm.addr(0x3);
   address internal s_l2MessengerAddr = toArbitrumL2AliasAddress(s_mockL1OwnerAddr);
 
@@ -47,7 +42,7 @@ contract ArbitrumSequencerUptimeFeedTest is L2EPTest {
     s_accessController.addAccess(s_deployerAddr);
     s_flags.addAccess(address(s_arbitrumSequencerUptimeFeed));
 
-    vm.expectEmit(false, false, false, true);
+    vm.expectEmit();
     emit Initialized();
     s_arbitrumSequencerUptimeFeed.initialize();
 
@@ -55,14 +50,14 @@ contract ArbitrumSequencerUptimeFeedTest is L2EPTest {
   }
 }
 
-contract Constants is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeedConstants is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should have the correct value for FLAG_L2_SEQ_OFFLINE'
   function test_InitialState() public {
     assertEq(s_arbitrumSequencerUptimeFeed.FLAG_L2_SEQ_OFFLINE(), 0xa438451D6458044c3c8CD2f6f31c91ac882A6d91);
   }
 }
 
-contract UpdateStatus is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeedUpdateStatus is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
   function test_RevertIfNotL2CrossDomainMessengerAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
@@ -71,9 +66,6 @@ contract UpdateStatus is ArbitrumSequencerUptimeFeedTest {
     // Tries to update the status from an unauthorized account
     vm.expectRevert(abi.encodeWithSelector(ArbitrumSequencerUptimeFeed.InvalidSender.selector));
     s_arbitrumSequencerUptimeFeed.updateStatus(true, uint64(1));
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
   /// @notice it should update status when status has changed and incoming timestamp is newer than the latest
@@ -83,7 +75,7 @@ contract UpdateStatus is ArbitrumSequencerUptimeFeedTest {
 
     // Submits a status update
     uint256 timestamp = s_arbitrumSequencerUptimeFeed.latestTimestamp();
-    vm.expectEmit(false, false, false, true);
+    vm.expectEmit();
     emit AnswerUpdated(1, 2, timestamp);
     s_arbitrumSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
     assertEq(s_arbitrumSequencerUptimeFeed.latestAnswer(), 1);
@@ -91,14 +83,11 @@ contract UpdateStatus is ArbitrumSequencerUptimeFeedTest {
 
     // Submit another status update, different status, newer timestamp should update
     timestamp = timestamp + 200;
-    vm.expectEmit(false, false, false, true);
+    vm.expectEmit();
     emit AnswerUpdated(0, 3, timestamp);
     s_arbitrumSequencerUptimeFeed.updateStatus(false, uint64(timestamp));
     assertEq(s_arbitrumSequencerUptimeFeed.latestAnswer(), 0);
     assertEq(s_arbitrumSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
   /// @notice it should update status when status has changed and incoming timestamp is the same as latest
@@ -110,21 +99,18 @@ contract UpdateStatus is ArbitrumSequencerUptimeFeedTest {
     uint256 timestamp = s_arbitrumSequencerUptimeFeed.latestTimestamp();
 
     // Submits a status update
-    vm.expectEmit(false, false, false, true);
+    vm.expectEmit();
     emit AnswerUpdated(1, 2, timestamp);
     s_arbitrumSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
     assertEq(s_arbitrumSequencerUptimeFeed.latestAnswer(), 1);
     assertEq(s_arbitrumSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
 
     // Submit another status update, different status, same timestamp should update
-    vm.expectEmit(false, false, false, true);
+    vm.expectEmit();
     emit AnswerUpdated(0, 3, timestamp);
     s_arbitrumSequencerUptimeFeed.updateStatus(false, uint64(timestamp));
     assertEq(s_arbitrumSequencerUptimeFeed.latestAnswer(), 0);
     assertEq(s_arbitrumSequencerUptimeFeed.latestTimestamp(), uint64(timestamp));
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
   /// @notice it should ignore out-of-order updates
@@ -134,7 +120,7 @@ contract UpdateStatus is ArbitrumSequencerUptimeFeedTest {
 
     // Submits a status update
     uint256 timestamp = s_arbitrumSequencerUptimeFeed.latestTimestamp() + 10000;
-    vm.expectEmit(false, false, false, true);
+    vm.expectEmit();
     emit AnswerUpdated(1, 2, timestamp);
     s_arbitrumSequencerUptimeFeed.updateStatus(true, uint64(timestamp));
     assertEq(s_arbitrumSequencerUptimeFeed.latestAnswer(), 1);
@@ -146,13 +132,10 @@ contract UpdateStatus is ArbitrumSequencerUptimeFeedTest {
     emit UpdateIgnored(true, 0, true, 0); // arguments are dummy values
     // TODO: how can we check that an AnswerUpdated event was NOT emitted
     s_arbitrumSequencerUptimeFeed.updateStatus(false, uint64(timestamp));
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 }
 
-contract AggregatorV3Interface is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeedAggregatorV3Interface is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should return valid answer from getRoundData and latestRoundData
   function test_AggregatorV3Interface() public {
     // Sets msg.sender and tx.origin to a valid address
@@ -203,9 +186,6 @@ contract AggregatorV3Interface is ArbitrumSequencerUptimeFeedTest {
     assertEq(startedAt2, startedAt);
     assertEq(updatedAt2, updatedAt);
     assertEq(answeredInRound2, answeredInRound);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
   /// @notice it should revert from #getRoundData when round does not yet exist (future roundId)
@@ -228,13 +208,10 @@ contract AggregatorV3Interface is ArbitrumSequencerUptimeFeedTest {
     assertEq(startedAt, 0);
     assertEq(updatedAt, 0);
     assertEq(answeredInRound, 2);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 }
 
-contract ProtectReadsOnAggregatorV2V3InterfaceFunctions is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeedProtectReadsOnAggregatorV2V3InterfaceFunctions is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should disallow reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted
   function test_AggregatorV2V3InterfaceDisallowReadsIfConsumingContractIsNotWhitelisted() public {
     // Deploys a FeedConsumer contract
@@ -259,7 +236,6 @@ contract ProtectReadsOnAggregatorV2V3InterfaceFunctions is ArbitrumSequencerUpti
     // Whitelist consumer
     vm.startPrank(s_deployerAddr, s_deployerAddr);
     s_arbitrumSequencerUptimeFeed.addAccess(address(feedConsumer));
-    vm.stopPrank();
 
     // Sanity - consumer is whitelisted
     assertEq(s_arbitrumSequencerUptimeFeed.checkEnabled(), true);
@@ -273,8 +249,8 @@ contract ProtectReadsOnAggregatorV2V3InterfaceFunctions is ArbitrumSequencerUpti
   }
 }
 
-contract GasCosts is ArbitrumSequencerUptimeFeedTest {
-  /// @notice it should consume a known amount of gas for updates @skip-coverage
+contract ArbitrumSequencerUptimeFeedGasCosts is ArbitrumSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for updates
   function test_GasCosts() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
@@ -289,7 +265,7 @@ contract GasCosts is ArbitrumSequencerUptimeFeedTest {
     uint256 gasFinal;
 
     // measures gas used for no update
-    expectedGasUsed = 5507; // TODO: used to be 28300
+    expectedGasUsed = 5507; // NOTE: used to be 28300 in hardhat tests
     gasStart = gasleft();
     s_arbitrumSequencerUptimeFeed.updateStatus(false, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -297,26 +273,23 @@ contract GasCosts is ArbitrumSequencerUptimeFeedTest {
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
 
     // measures gas used for update
-    expectedGasUsed = 68198; // TODO: Used to be 93015
+    expectedGasUsed = 68198; // NOTE: used to be 93015 in hardhat tests
     gasStart = gasleft();
     s_arbitrumSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 1000));
     gasFinal = gasleft();
     assertEq(s_arbitrumSequencerUptimeFeed.latestAnswer(), 1);
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 }
 
-contract AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
-  /// @notice it should consume a known amount of gas for getRoundData(uint80) @skip-coverage
+contract ArbitrumSequencerUptimeFeedAggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
+  /// @notice it should consume a known amount of gas for getRoundData(uint80)
   function test_GasUsageForGetRoundData() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4658; // TODO: used to be 31157
+    uint256 expectedGasUsed = 4658; // NOTE: used to be 31157 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -331,18 +304,15 @@ contract AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
 
     // Checks that gas usage is within expected range
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
-  /// @notice it should consume a known amount of gas for latestRoundData() @skip-coverage
+  /// @notice it should consume a known amount of gas for latestRoundData()
   function test_GasUsageForLatestRoundData() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 2154; // TODO: used to be 28523
+    uint256 expectedGasUsed = 2154; // NOTE: used to be 28523 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -357,18 +327,15 @@ contract AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
 
     // Checks that gas usage is within expected range
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
-  /// @notice it should consume a known amount of gas for latestAnswer() @skip-coverage
+  /// @notice it should consume a known amount of gas for latestAnswer()
   function test_GasUsageForLatestAnswer() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1722; // TODO: used to be 28329
+    uint256 expectedGasUsed = 1722; // NOTE: used to be 28329 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -383,18 +350,15 @@ contract AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
 
     // Checks that gas usage is within expected range
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
-  /// @notice it should consume a known amount of gas for latestTimestamp() @skip-coverage
+  /// @notice it should consume a known amount of gas for latestTimestamp()
   function test_GasUsageForLatestTimestamp() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1652; // TODO: used to be 28229
+    uint256 expectedGasUsed = 1652; // NOTE: used to be 28229 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -409,18 +373,15 @@ contract AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
 
     // Checks that gas usage is within expected range
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
-  /// @notice it should consume a known amount of gas for latestRound() @skip-coverage
+  /// @notice it should consume a known amount of gas for latestRound()
   function test_GasUsageForLatestRound() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1632; // TODO: used to be 28245
+    uint256 expectedGasUsed = 1632; // NOTE: used to be 28245 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -435,18 +396,15 @@ contract AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
 
     // Checks that gas usage is within expected range
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
-  /// @notice it should consume a known amount of gas for getAnswer() @skip-coverage
+  /// @notice it should consume a known amount of gas for getAnswer()
   function test_GasUsageForGetAnswer() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4059; // TODO: used to be 30799
+    uint256 expectedGasUsed = 4059; // NOTE: used to be 30799 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -461,18 +419,15 @@ contract AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
 
     // Checks that gas usage is within expected range
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 
-  /// @notice it should consume a known amount of gas for getTimestamp() @skip-coverage
+  /// @notice it should consume a known amount of gas for getTimestamp()
   function test_GasUsageForGetTimestamp() public {
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4024; // TODO: used to be 30753
+    uint256 expectedGasUsed = 4024; // NOTE: used to be 30753 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -487,8 +442,5 @@ contract AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
 
     // Checks that gas usage is within expected range
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
-
-    // Resets msg.sender and tx.origin
-    vm.stopPrank();
   }
 }

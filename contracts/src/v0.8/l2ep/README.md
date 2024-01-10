@@ -110,6 +110,20 @@ To run a specific L2EP test, you can use a variation of the following command:
 FOUNDRY_PROFILE=l2ep forge test -vvv --match-path ./src/v0.8/l2ep/test/v1_0_0/scroll/ScrollSequencerUptimeFeed.t.sol
 ```
 
+Or alternatively:
+
+```sh
+FOUNDRY_PROFILE=l2ep forge test -vvv --match-contract ScrollSequencerUptimeFeed
+```
+
+If yu prefer, you can also export `FOUNDRY_PROFILE` so that it doesn't need
+to be provided before every command:
+
+```sh
+export FOUNDRY_PROFILE=l2ep
+forge test -vvv
+```
+
 A full list of flags for `forge test` can be found [here](https://book.getfoundry.sh/reference/forge/forge-test).
 
 #### Coverage
@@ -119,5 +133,5 @@ v1 contracts are, being evaluated then temporarily change the L2EP profile in
 `./foundry.toml`.
 
 ```sh
-forge coverage --ir-minimum
+forge coverage
 ```

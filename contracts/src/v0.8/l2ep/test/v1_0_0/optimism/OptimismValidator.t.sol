@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimismL1CrossDomainMessenger.sol";
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
@@ -7,17 +7,12 @@ import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequenc
 import {OptimismValidator} from "../../../dev/optimism/OptimismValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-// Use this command from the /contracts directory to run this test file:
-//
-//  FOUNDRY_PROFILE=l2ep forge test -vvv --match-path ./src/v0.8/l2ep/test/v1_0_0/optimism/OptimismValidator.t.sol
-//
 contract OptimismValidatorTest is L2EPTest {
   /// Helper constants
   address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = 0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b;
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
 
-  /// Helper variables
-  address internal s_strangerAddress = vm.addr(0x1);
+  /// Helper variable(s)
   address internal s_eoaValidator = vm.addr(0x2);
 
   /// L2EP contracts
@@ -48,7 +43,7 @@ contract OptimismValidatorTest is L2EPTest {
   }
 }
 
-contract SetGasLimit is OptimismValidatorTest {
+contract OptimismValidatorSetGasLimit is OptimismValidatorTest {
   /// @notice it correctly updates the gas limit
   function test_CorrectlyUpdatesTheGasLimit() public {
     uint32 newGasLimit = 2000000;
@@ -58,13 +53,12 @@ contract SetGasLimit is OptimismValidatorTest {
   }
 }
 
-contract Validate is OptimismValidatorTest {
+contract OptimismValidatorValidate is OptimismValidatorTest {
   /// @notice it reverts if called by account with no access
   function test_RevertsIfCalledByAnAccountWithNoAccess() public {
-    vm.startPrank(s_strangerAddress, s_strangerAddress);
+    vm.startPrank(s_strangerAddr);
     vm.expectRevert("No access");
     s_optimismValidator.validate(0, 0, 1, 1);
-    vm.stopPrank();
   }
 
   /// @notice it posts sequencer status when there is not status change
@@ -74,7 +68,7 @@ contract Validate is OptimismValidatorTest {
 
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 5000;
-    vm.startPrank(s_eoaValidator, s_eoaValidator);
+    vm.startPrank(s_eoaValidator);
     vm.warp(futureTimestampInSeconds);
 
     // Sets up the expected event data
@@ -89,7 +83,6 @@ contract Validate is OptimismValidatorTest {
 
     // Runs the function (which produces the event to test)
     s_optimismValidator.validate(0, 0, 0, 0);
-    vm.stopPrank();
   }
 
   /// @notice it post sequencer offline
@@ -99,7 +92,7 @@ contract Validate is OptimismValidatorTest {
 
     // Sets block.timestamp to a later date
     uint256 futureTimestampInSeconds = block.timestamp + 10000;
-    vm.startPrank(s_eoaValidator, s_eoaValidator);
+    vm.startPrank(s_eoaValidator);
     vm.warp(futureTimestampInSeconds);
 
     // Sets up the expected event data
@@ -114,6 +107,5 @@ contract Validate is OptimismValidatorTest {
 
     // Runs the function (which produces the event to test)
     s_optimismValidator.validate(0, 0, 1, 1);
-    vm.stopPrank();
   }
 }

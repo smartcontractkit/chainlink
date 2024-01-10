@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
-import {MultiSend} from "../../../../v0.8/vendor/MultiSend.sol";
-import {Greeter} from "../../../../v0.8/tests/Greeter.sol";
+import {MultiSend} from "../../../vendor/MultiSend.sol";
+import {Greeter} from "../../../tests/Greeter.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract L2EPTest is Test {
+  /// Helper variable(s)
+  address internal s_strangerAddr = vm.addr(0x1);
+
   /// @param expectedGasUsage - the expected gas usage
   /// @param startGasUsage - the gas usage before the code of interest is run
   /// @param finalGasUsage - the gas usage after the code of interest is run

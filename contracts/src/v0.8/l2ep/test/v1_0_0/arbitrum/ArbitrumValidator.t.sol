@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {AccessControllerInterface} from "../../../../shared/interfaces/AccessControllerInterface.sol";
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
 import {ArbitrumSequencerUptimeFeed} from "../../../dev/arbitrum/ArbitrumSequencerUptimeFeed.sol";
-import {MockArbitrumInbox} from "../../../../../v0.8/tests/MockArbitrumInbox.sol";
 import {ArbitrumValidator} from "../../../dev/arbitrum/ArbitrumValidator.sol";
+import {MockArbitrumInbox} from "../../../../tests/MockArbitrumInbox.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-// Use this command from the /contracts directory to run this test file:
-//
-//  FOUNDRY_PROFILE=l2ep forge test -vvv --match-path ./src/v0.8/l2ep/test/v1_0_0/arbitrum/ArbitrumValidator.t.sol
-//
 contract ArbitrumValidatorTest is L2EPTest {
   /// Helper constants
   address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = 0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b;
@@ -20,7 +16,7 @@ contract ArbitrumValidatorTest is L2EPTest {
   uint256 internal constant BASE_FEE = 14000000000;
   uint256 internal constant MAX_GAS = 1000000;
 
-  /// Helper variables
+  /// Helper variable(s)
   address internal s_eoaValidator = vm.addr(0x2);
 
   /// L2EP contracts
@@ -59,7 +55,7 @@ contract ArbitrumValidatorTest is L2EPTest {
   }
 }
 
-contract Validate is ArbitrumValidatorTest {
+contract ArbitrumValidatorValidate is ArbitrumValidatorTest {
   /// @notice it post sequencer offline
   function test_PostSequencerOffline() public {
     // Gives access to the s_eoaValidator
@@ -72,10 +68,10 @@ contract Validate is ArbitrumValidatorTest {
     uint256 futureTimestampInSeconds = block.timestamp + 5000;
     vm.warp(futureTimestampInSeconds);
     vm.deal(address(s_arbitrumValidator), 1 ether);
-    vm.startPrank(s_eoaValidator, s_eoaValidator);
+    vm.startPrank(s_eoaValidator);
 
     // Sets up the expected event data
-    vm.expectEmit(false, false, false, true);
+    vm.expectEmit();
     emit RetryableTicketNoRefundAliasRewriteCreated(
       L2_SEQ_STATUS_RECORDER_ADDRESS, // destAddr
       0, // arbTxCallValue
@@ -89,6 +85,5 @@ contract Validate is ArbitrumValidatorTest {
 
     // Runs the function (which produces the event to test)
     s_arbitrumValidator.validate(0, 0, 1, 1);
-    vm.stopPrank();
   }
 }

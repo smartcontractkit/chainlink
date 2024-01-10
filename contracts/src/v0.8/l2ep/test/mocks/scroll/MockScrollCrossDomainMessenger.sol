@@ -19,10 +19,6 @@ contract MockScrollCrossDomainMessenger is IScrollMessenger {
     s_mockMessageSender = sender;
   }
 
-  /// *****************************
-  /// * Public Mutating Functions *
-  /// *****************************
-
   /// @notice Send cross chain message from L1 to L2 or L2 to L1.
   /// @param _target The address of account who receive the message.
   /// @param _message The content of the message.

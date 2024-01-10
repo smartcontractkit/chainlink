@@ -20,10 +20,6 @@ contract MockOVMCrossDomainMessenger is iOVM_CrossDomainMessenger {
     s_mockMessageSender = sender;
   }
 
-  /********************
-   * Public Functions *
-   ********************/
-
   /**
    * Sends a cross domain message to the target messenger.
    * @param _target Target contract address.
@@ -32,4 +28,6 @@ contract MockOVMCrossDomainMessenger is iOVM_CrossDomainMessenger {
   function sendMessage(address _target, bytes calldata _message, uint32) external override {
     Address.functionCall(_target, _message, "sendMessage reverted");
   }
+
 }
+
