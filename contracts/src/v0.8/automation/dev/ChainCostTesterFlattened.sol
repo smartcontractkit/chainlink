@@ -8,7 +8,7 @@
 // For license information, see https://github.com/nitro/blob/master/LICENSE
 // Original license: SPDX_License_Identifier: BUSL-1.1
 
-pragma solidity 0.8.16;
+pragma solidity 0.8.19;
 
 interface ArbGasInfo {
     // return gas prices in wei, assuming the specified aggregator is used
@@ -239,7 +239,7 @@ interface IScrollL1GasPriceOracle {
 
 contract ChainCostTesterFlattened {
     event BlockLog(uint256 block, uint256 timestamp, bytes32 hash);
-    event GasDetails(uint256 nativeGasUsed, uint256 l1Cost, uint256 l1DataLength, uint256 l1BaseFee, uint256 nativeGasPriceFromOracle, uint256 txGasPrice);
+    event GasDetails(uint256 nativeGasUsed, uint256 l1Cost, uint256 l1DataLength, uint256 l1BaseFee, uint256 l1GasUsed, uint256 txGasPrice);
     event OracleGasCost(uint256 gasUsed, uint256 l1Cost);
 
     Metis_GasPriceOracle public immutable METIS_ORACLE = Metis_GasPriceOracle(0x420000000000000000000000000000000000000F);
@@ -303,83 +303,43 @@ contract ChainCostTesterFlattened {
         uint256 l1Cost;
         uint256 l1BaseFee;
         uint256 nativeGasPriceFromOracle;
+        uint256 l1GasUsed;
         bytes memory totalBytes;
         if (isArbitrum()) {
-            totalBytes = bytes.concat(_data, arbPadding);
+            totalBytes = bytes.concat(msg.data, arbPadding);
             l1Cost = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
             l1BaseFee = ARB_NITRO_ORACLE.getL1GasPriceEstimate();
             nativeGasPriceFromOracle = 0;
         } else if (isMetis()) {
-            totalBytes = bytes.concat(_data, metisPadding);
+            totalBytes = bytes.concat(msg.data, metisPadding);
             l1Cost = METIS_ORACLE.getL1Fee(totalBytes);
             l1BaseFee = METIS_ORACLE.l1BaseFee();
             nativeGasPriceFromOracle = METIS_ORACLE.gasPrice();
         } else if (isScroll()) {
-            totalBytes = bytes.concat(_data, scrollPadding);
+            totalBytes = bytes.concat(msg.data, scrollPadding);
             l1Cost = SCROLL_ORACLE.getL1Fee(totalBytes);
             l1BaseFee = SCROLL_ORACLE.l1BaseFee();
-            nativeGasPriceFromOracle = 0; // the oracle does not expose this
+            l1GasUsed = SCROLL_ORACLE.getL1GasUsed(totalBytes);
         } else if (isGnosis()) {
-            totalBytes = bytes.concat(_data, gnosisPadding);
-            l1Cost = 0;
-            l1BaseFee = 0;
-            nativeGasPriceFromOracle = 0;
+            totalBytes = bytes.concat(msg.data, gnosisPadding);
         } else if (isPolygonZKEVM()) {
-            totalBytes = bytes.concat(_data, zkEVMPadding);
-            l1Cost = 0;
-            l1BaseFee = 0;
-            nativeGasPriceFromOracle = 0;
+            totalBytes = bytes.concat(msg.data, zkEVMPadding);
         } else if (isZKSync()) {
-            totalBytes = bytes.concat(_data, zkSyncPadding);
-            l1Cost = 0;
-            l1BaseFee = 0;
-            nativeGasPriceFromOracle = 0;
+            totalBytes = bytes.concat(msg.data, zkSyncPadding);
         } else if (isCelo()) {
-            totalBytes = bytes.concat(_data, celoPadding);
-            l1Cost = 0;
-            l1BaseFee = 0;
-            nativeGasPriceFromOracle = 0;
+            totalBytes = bytes.concat(msg.data, celoPadding);
         } else if (isETHSepolia()) {
-            totalBytes = bytes.concat(_data, ethSepoliaPadding);
-            l1Cost = 0;
-            l1BaseFee = 0;
-            nativeGasPriceFromOracle = 0;
+            totalBytes = bytes.concat(msg.data, ethSepoliaPadding);
         } else if (isOP()) {
-            totalBytes = bytes.concat(_data, optPadding);
-            l1Cost = OPTIMISM_ORACLE.getL1Fee(_data);
+            totalBytes = bytes.concat(msg.data, optPadding);
+            l1Cost = OPTIMISM_ORACLE.getL1Fee(totalBytes);
             l1BaseFee = OPTIMISM_ORACLE.l1BaseFee();
             nativeGasPriceFromOracle = OPTIMISM_ORACLE.gasPrice();
         }
 
         uint256 g2 = gasleft();
-        emit GasDetails(g1 - g2, l1Cost, totalBytes.length, l1BaseFee, nativeGasPriceFromOracle, tx.gasprice);
+        emit GasDetails(g1 - g2, l1Cost, totalBytes.length, l1BaseFee, l1GasUsed, tx.gasprice);
     }
-
-//    function updateData(bytes calldata _data) public {
-//        uint256 g1 = gasLeft();
-//        emit BlockLog(block.number, block.timestamp, blockhash(block.number));
-//
-//        // store bytes
-//        data = _data;
-//
-//        uint256 g2 = gasLeft();
-//        emit GasDetails(g2 - g1, );
-//    }
-//
-//    function compute(uint256 _n) public {
-//        uint256 g1 = gasLeft();
-//        emit BlockLog(block.number, block.timestamp, blockhash(block.number));
-//
-//        // some computation
-//        uint256 _sum = 0;
-//        for (uint256 i = 0; i < _n; i++) {
-//            _sum += i;
-//        }
-//        sum = _sum;
-//
-//        uint256 g2 = gasLeft();
-//        emit GasDetails(g2 - g1, );
-//    }
 
     function checkOracleGas(bytes calldata _data) external returns (uint256) {
         uint256 g1;
@@ -407,8 +367,8 @@ contract ChainCostTesterFlattened {
         return g1 - g2;
     }
 
-    function checkScroll(bytes calldata _data) external {
-        uint256 l1Cost = SCROLL_ORACLE.getL1Fee(_data);
+    function checkScroll(bytes calldata _data) external view {
+        SCROLL_ORACLE.getL1Fee(_data);
     }
 
     function isScroll() public view returns (bool) {
