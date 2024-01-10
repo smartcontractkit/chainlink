@@ -367,12 +367,18 @@ jobs:
             run: -run TestLogPollerFewFiltersFinalityTag
             file: log_poller
             pyroscope_env: ""
-          - name: log-poller-chaos-fixed-depth
+          - name: log-poller-chaos-chainlink-node-fixed-depth
             nodes: 1
             os: ubuntu-latest
             run: -run TestLogPollerWithChaosFixedDepth
             file: log_poller
-            pyroscope_env: ""          
+            pyroscope_env: ""    
+          - name: log-poller-chaos-postgres-fixed-depth
+            nodes: 1
+            os: ubuntu-latest
+            run: -run TestLogPollerWithChaosPostgresFixedDepth
+            file: log_poller
+            pyroscope_env: ""                                
           - name: log-poller-replay-finality-tag
             nodes: 1
             os: ubuntu-latest

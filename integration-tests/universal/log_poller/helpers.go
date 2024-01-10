@@ -167,16 +167,16 @@ func getExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []Expe
 	return expectedFilters
 }
 
-var nodeHasExpectedFilters = func(expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, error) {
+var nodeHasExpectedFilters = func(expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, string, error) {
 	orm, db, err := NewOrm(logger, chainID, postgresDb)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	defer db.Close()
 	knownFilters, err := orm.LoadFilters()
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	for _, expectedFilter := range expectedFilters {
@@ -189,11 +189,11 @@ var nodeHasExpectedFilters = func(expectedFilters []ExpectedFilter, logger core_
 		}
 
 		if !filterFound {
-			return false, fmt.Errorf("no filter found for emitter %s and topic %s", expectedFilter.emitterAddress.String(), expectedFilter.topic.Hex())
+			return false, fmt.Sprintf("no filter found for emitter %s and topic %s", expectedFilter.emitterAddress.String(), expectedFilter.topic.Hex()), nil
 		}
 	}
 
-	return true, nil
+	return true, "", nil
 }
 
 var randomWait = func(minMilliseconds, maxMilliseconds int) {
@@ -543,7 +543,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 					}
 				}
 
-				l.Warn().Int("Count", len(logs)).Str("Node name", nodeName).Msg("Fetched log poller logs")
+				l.Info().Int("Count", len(logs)).Str("Node name", nodeName).Msg("Fetched log poller logs")
 
 				r <- dbQueryResult{
 					err:      nil,
@@ -651,7 +651,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 	return missingLogs, nil
 }
 
-var printMissingLogsByType = func(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
+var printMissingLogsInfo = func(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
 	var findHumanName = func(topic common.Hash) string {
 		for _, event := range cfg.General.EventsToEmit {
 			if event.ID == topic {
@@ -670,8 +670,33 @@ var printMissingLogsByType = func(missingLogs map[string][]geth_types.Log, l zer
 		}
 	}
 
+	l.Debug().Msg("Missing log by event name")
 	for k, v := range missingByType {
-		l.Warn().Str("Event name", k).Int("Missing count", v).Msg("Missing logs by type")
+		l.Debug().Str("Event name", k).Int("Missing count", v).Msg("Missing logs by type")
+	}
+
+	missingByBlock := make(map[uint64]int)
+	for _, logs := range missingLogs {
+		for _, l := range logs {
+			missingByBlock[l.BlockNumber]++
+		}
+	}
+
+	l.Debug().Msg("Missing logs by block")
+	for k, v := range missingByBlock {
+		l.Debug().Uint64("Block number", k).Int("Missing count", v).Msg("Missing logs by block")
+	}
+
+	missingByEmitter := make(map[string]int)
+	for _, logs := range missingLogs {
+		for _, l := range logs {
+			missingByEmitter[l.Address.String()]++
+		}
+	}
+
+	l.Debug().Msg("Missing logs by emitter")
+	for k, v := range missingByEmitter {
+		l.Debug().Str("Emitter address", k).Int("Missing count", v).Msg("Missing logs by emitter")
 	}
 }
 
@@ -700,7 +725,7 @@ var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEm
 		}
 	}
 
-	l.Warn().Int("Count", len(allLogsInEVMNode)).Msg("Logs in EVM node")
+	l.Info().Int("Count", len(allLogsInEVMNode)).Msg("Logs in EVM node")
 
 	return allLogsInEVMNode, nil
 }
@@ -832,7 +857,16 @@ func getExpectedLogCount(cfg *Config) int64 {
 	return int64(len(cfg.General.EventsToEmit) * cfg.LoopedConfig.ExecutionCount * cfg.General.Contracts * cfg.General.EventsPerTx)
 }
 
-var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, targetComponent string) error {
+type PauseData struct {
+	StartBlock      uint64
+	EndBlock        uint64
+	TargetComponent string
+	ContaineName    string
+}
+
+var ChaosPauses = []PauseData{}
+
+var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, targetComponent string) ChaosPauseData {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	// randomBool := rand.Intn(2) == 0
 
@@ -845,20 +879,39 @@ var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 	case "postgres":
 		component = randomNode.PostgresDb.EnvComponent
 	default:
-		return fmt.Errorf("unknown component %s", targetComponent)
+		return ChaosPauseData{Err: fmt.Errorf("unknown component %s", targetComponent)}
 	}
 
+	ctx := context.Background()
+	pauseStartBlock, err := testEnv.EVMClient.LatestBlockNumber(ctx)
+	if err != nil {
+		return ChaosPauseData{Err: err}
+	}
 	pauseTimeSec := rand.Intn(20-5) + 5
 	l.Info().Str("Container", component.ContainerName).Int("Pause time", pauseTimeSec).Msg("Pausing component")
 	pauseTimeDur := time.Duration(pauseTimeSec) * time.Second
-	err := component.ChaosPause(l, pauseTimeDur)
+	err = component.ChaosPause(l, pauseTimeDur)
+	if err != nil {
+		return ChaosPauseData{Err: err}
+	}
 	l.Info().Str("Container", component.ContainerName).Msg("Component unpaused")
 
+	pauseEndBlock, err := testEnv.EVMClient.LatestBlockNumber(ctx)
 	if err != nil {
-		return err
+		return ChaosPauseData{Err: err}
 	}
 
-	return nil
+	return ChaosPauseData{PauseData: PauseData{
+		StartBlock:      pauseStartBlock,
+		EndBlock:        pauseEndBlock,
+		TargetComponent: targetComponent,
+		ContaineName:    component.ContainerName,
+	}}
+}
+
+type ChaosPauseData struct {
+	Err       error
+	PauseData PauseData
 }
 
 var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *Config, errorCh chan error) {
@@ -867,7 +920,8 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 		return
 	}
 
-	chaosChan := make(chan error, cfg.ChaosConfig.ExperimentCount)
+	chaosChan := make(chan ChaosPauseData, cfg.ChaosConfig.ExperimentCount)
+	// chaosChan := make(chan error, cfg.ChaosConfig.ExperimentCount)
 
 	wg := &sync.WaitGroup{}
 
@@ -887,6 +941,7 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, cfg.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
 				}()
 				chaosChan <- chaosPauseSyncFn(l, testEnv, cfg.ChaosConfig.TargetComponent)
+				time.Sleep(10 * time.Second)
 			}()
 		}
 
@@ -896,18 +951,23 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 	}()
 
 	go func() {
-		for err := range chaosChan {
-			if err != nil {
-				l.Err(err).Msg("Error encountered during chaos experiment")
-				errorCh <- err
+		var pauseData []PauseData
+		for result := range chaosChan {
+			if result.Err != nil {
+				l.Err(result.Err).Msg("Error encountered during chaos experiment")
+				errorCh <- result.Err
 				return // Return on actual error
+			} else {
+				pauseData = append(pauseData, result.PauseData)
 			}
-			// No need for an else block here, because if err is nil (which happens when the channel is closed),
-			// the loop will exit and the following log and nil send will execute.
 		}
 
 		l.Info().Msg("All chaos experiments finished")
 		errorCh <- nil // Only send nil once, after all errors have been handled and the channel is closed
+
+		for _, p := range pauseData {
+			l.Debug().Str("Target component", p.TargetComponent).Str("Container", p.ContaineName).Str("Block range", fmt.Sprintf("%d - %d", p.StartBlock, p.EndBlock)).Msgf("Details of executed chaos pause")
+		}
 	}()
 }
 

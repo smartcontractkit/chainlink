@@ -174,7 +174,7 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 70,
+				ExecutionCount: 120,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
 				MinEmitWaitTimeMs: 100,
@@ -182,7 +182,7 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 			},
 		},
 		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 5,
+			ExperimentCount: 6,
 			TargetComponent: "chainlink",
 		},
 	}
@@ -198,7 +198,7 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 }
 
 func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
-	t.Skip("This one reliably fails, we need to discover whether it's a test or app bug")
+	// t.Skip("This one reliably fails, we need to discover whether it's a test or app bug")
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:      logpoller.GeneratorType_Looped,
@@ -208,7 +208,7 @@ func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
 		},
 		LoopedConfig: &logpoller.LoopedConfig{
 			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 70,
+				ExecutionCount: 120,
 			},
 			FuzzConfig: logpoller.FuzzConfig{
 				MinEmitWaitTimeMs: 100,
@@ -216,7 +216,7 @@ func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
 			},
 		},
 		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 4,
+			ExperimentCount: 6,
 			TargetComponent: "postgres",
 		},
 	}
