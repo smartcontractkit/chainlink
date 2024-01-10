@@ -67,7 +67,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@f5ec6bc30b6500dc7a42e042b3f5a64d28d8bcb1 # v2.3.2
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -146,7 +146,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@f5ec6bc30b6500dc7a42e042b3f5a64d28d8bcb1 # v2.3.2
         env:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet

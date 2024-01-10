@@ -51,7 +51,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@f5ec6bc30b6500dc7a42e042b3f5a64d28d8bcb1 # v2.3.2
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run ^TestVRFv2Plus$/^Link_Billing$ ./smoke/vrfv2plus_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
