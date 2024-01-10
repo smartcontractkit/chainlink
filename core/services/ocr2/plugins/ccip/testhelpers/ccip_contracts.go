@@ -929,9 +929,11 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	o, err := destPool.Owner(nil)
 	require.NoError(t, err)
 	require.Equal(t, destUser.From.String(), o.String())
+	_, err = destPool.SetLiquidityManager(destUser, destUser.From)
+	require.NoError(t, err)
 	_, err = destLinkToken.Approve(destUser, destPoolAddress, Link(200))
 	require.NoError(t, err)
-	_, err = destPool.AddLiquidity(destUser, Link(200))
+	_, err = destPool.ProvideLiquidity(destUser, Link(200))
 	require.NoError(t, err)
 	destChain.Commit()
 
