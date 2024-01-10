@@ -80,8 +80,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   uint16 private s_maxCheck;
   uint8 private s_upkeepInterval;
 
-  /// @dev s_watchList contains all the addresses watched by this monitor
-  /// It mainly provides the length() function
+  /// @notice s_watchList contains all the addresses watched by this monitor
+  /// @dev It mainly provides the length() function
   EnumerableSet.AddressSet private s_watchList;
 
   /// @notice s_targets contains all the addresses watched by this monitor
