@@ -407,6 +407,10 @@ contract ChainCostTesterFlattened {
         return g1 - g2;
     }
 
+    function checkScroll(bytes calldata _data) external {
+        uint256 l1Cost = SCROLL_ORACLE.getL1Fee(_data);
+    }
+
     function isScroll() public view returns (bool) {
         // Scroll Sepolia or Scroll mainnet
         return block.chainid == 534351 || block.chainid == 534352;

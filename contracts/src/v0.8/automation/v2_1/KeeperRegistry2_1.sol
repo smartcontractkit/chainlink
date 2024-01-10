@@ -220,6 +220,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
   // |                           SETTERS                            |
   // ================================================================
 
+  function setScrollPadding(bytes memory _data) external onlyOwner {
+    SCROLL_L1_FEE_DATA_PADDING = _data;
+  }
+
   /**
    * @inheritdoc OCR2Abstract
    * @dev prefer the type-safe version of setConfig (below) whenever possible

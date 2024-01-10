@@ -5,6 +5,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {ArbGasInfo} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import {OVM_GasPriceOracle} from "../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
+import {IScrollL1GasPriceOracle} from "../../vendor/@scroll-tech/contracts/src/L2/predeploys/IScrollL1GasPriceOracle.sol";
 import {ExecutionPrevention} from "../ExecutionPrevention.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {StreamsLookupCompatibleInterface} from "../interfaces/StreamsLookupCompatibleInterface.sol";
@@ -47,9 +48,12 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
   uint8 internal constant UPKEEP_VERSION_BASE = 3;
-  // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
-  bytes internal constant L1_FEE_DATA_PADDING =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  // OP_L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
+  bytes internal constant OP_L1_FEE_DATA_PADDING =
+    hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  // SCROLL_L1_FEE_DATA_PADDING includes 100 bytes
+  bytes public SCROLL_L1_FEE_DATA_PADDING =
+    hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
@@ -63,6 +67,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
+  IScrollL1GasPriceOracle internal constant SCROLL_ORACLE = IScrollL1GasPriceOracle(0x5300000000000000000000000000000000000002);
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
@@ -164,7 +169,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   enum Mode {
     DEFAULT,
     ARBITRUM,
-    OPTIMISM
+    OPTIMISM,
+    SCROLL
   }
 
   enum Trigger {
@@ -579,7 +585,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     if (i_mode == Mode.OPTIMISM) {
       bytes memory txCallData = new bytes(0);
       if (isExecution) {
-        txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
+        txCallData = bytes.concat(msg.data, OP_L1_FEE_DATA_PADDING);
       } else {
         // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
         // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
@@ -596,6 +602,14 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
         (, uint256 perL1CalldataUnit, , , , ) = ARB_NITRO_ORACLE.getPricesInWei();
         l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
       }
+    } else if (i_mode == Mode.SCROLL) {
+      bytes memory txCallData = new bytes(0);
+      if (isExecution) {
+        txCallData = bytes.concat(msg.data, SCROLL_L1_FEE_DATA_PADDING);
+      } else {
+        txCallData = new bytes(4 * s_storage.maxPerformDataSize);
+      }
+      l1CostWei = SCROLL_ORACLE.getL1Fee(txCallData);
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
