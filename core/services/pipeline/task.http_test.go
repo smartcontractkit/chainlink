@@ -14,7 +14,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -264,8 +263,9 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
+		msg := "could not hit data fetcher"
 		err := json.NewEncoder(w).Encode(adapterResponse{
-			ErrorMessage: null.StringFrom("could not hit data fetcher"),
+			ErrorMessage: &msg,
 		})
 		require.NoError(t, err)
 	})

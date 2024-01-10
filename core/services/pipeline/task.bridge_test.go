@@ -19,7 +19,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -59,11 +58,46 @@ type adapterResponseData struct {
 // adapterResponse is the HTTP response as defined by the external adapter:
 // https://github.com/smartcontractkit/bnc-adapter
 type adapterResponse struct {
-	Data         adapterResponseData `json:"data"`
-	ErrorMessage null.String         `json:"errorMessage"`
+	Data               adapterResponseData `json:"data"`
+	ErrorMessage       *string             `json:"errorMessage"`
+	Error              *string             `json:"error"`
+	StatusCode         *int                `json:"statusCode"`
+	ProviderStatusCode *int                `json:"providerStatusCode"`
 }
 
-func (pr adapterResponse) Result() *decimal.Decimal {
+func (pr *adapterResponse) SetStatusCode(code int) {
+	pr.StatusCode = &code
+}
+
+func (pr *adapterResponse) UnsetStatusCode() {
+	pr.StatusCode = nil
+}
+
+func (pr *adapterResponse) SetProviderStatusCode(code int) {
+	pr.ProviderStatusCode = &code
+}
+
+func (pr *adapterResponse) UnsetProviderStatusCode() {
+	pr.ProviderStatusCode = nil
+}
+
+func (pr *adapterResponse) SetError(msg string) {
+	pr.Error = &msg
+}
+
+func (pr *adapterResponse) UnsetError() {
+	pr.Error = nil
+}
+
+func (pr *adapterResponse) SetErrorMessage(msg string) {
+	pr.ErrorMessage = &msg
+}
+
+func (pr *adapterResponse) UnsetErrorMessage() {
+	pr.ErrorMessage = nil
+}
+
+func (pr *adapterResponse) Result() *decimal.Decimal {
 	return pr.Data.Result
 }
 
@@ -295,7 +329,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
-	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-1*time.Minute))
 	require.NoError(t, err)
@@ -786,8 +820,9 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
+		msg := "could not hit data fetcher"
 		err := json.NewEncoder(w).Encode(adapterResponse{
-			ErrorMessage: null.StringFrom("could not hit data fetcher"),
+			ErrorMessage: &msg,
 		})
 		require.NoError(t, err)
 	})
@@ -1015,4 +1050,95 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
 	})
+}
+
+func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.WebServer.BridgeCacheTTL = models.MustNewDuration(1 * time.Minute)
+	})
+
+	testAdapterResponse := &adapterResponse{
+		Data: adapterResponseData{Result: &decimal.Zero},
+	}
+
+	queryer := pg.NewQ(db, logger.TestLogger(t), cfg.Database())
+	s1 := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			err := json.NewEncoder(w).Encode(testAdapterResponse)
+			require.NoError(t, err)
+		}))
+	defer s1.Close()
+
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg.Database())
+
+	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+	}
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+
+	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
+	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now())
+	require.NoError(t, err)
+
+	vars := pipeline.NewVarsFrom(
+		map[string]interface{}{
+			"jobRun": map[string]interface{}{
+				"meta": map[string]interface{}{
+					"shouldFail": true,
+				},
+			},
+		},
+	)
+
+	// expect all external adapter response status failures to be served from the cache
+	testAdapterResponse.SetStatusCode(http.StatusBadRequest)
+	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+
+	require.NoError(t, result.Error)
+	require.NotNil(t, result.Value)
+	require.False(t, runInfo.IsRetryable)
+	require.False(t, runInfo.IsPending)
+
+	testAdapterResponse.SetStatusCode(http.StatusOK)
+	testAdapterResponse.SetProviderStatusCode(http.StatusBadRequest)
+	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+
+	require.NoError(t, result.Error)
+	require.NotNil(t, result.Value)
+	require.False(t, runInfo.IsRetryable)
+	require.False(t, runInfo.IsPending)
+
+	testAdapterResponse.SetStatusCode(http.StatusOK)
+	testAdapterResponse.SetProviderStatusCode(http.StatusOK)
+	testAdapterResponse.SetError("some error")
+	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+
+	require.NoError(t, result.Error)
+	require.NotNil(t, result.Value)
+	require.False(t, runInfo.IsRetryable)
+	require.False(t, runInfo.IsPending)
+
+	testAdapterResponse.SetStatusCode(http.StatusInternalServerError)
+	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+
+	require.NoError(t, result.Error)
+	require.NotNil(t, result.Value)
+	require.False(t, runInfo.IsRetryable)
+	require.False(t, runInfo.IsPending)
+
 }

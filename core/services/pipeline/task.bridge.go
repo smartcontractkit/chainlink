@@ -167,10 +167,10 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	var cachedResponse bool
 	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
-	if err != nil {
-		if code, ok := bestEffortExtractEAStatus(responseBytes); ok {
-			statusCode = code
-		}
+
+	// check for external adapter response object status
+	if code, ok := bestEffortExtractEAStatus(responseBytes); ok {
+		statusCode = code
 	}
 
 	if err != nil || statusCode != http.StatusOK {
