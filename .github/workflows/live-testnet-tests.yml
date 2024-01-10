@@ -183,6 +183,7 @@ jobs:
           BASE64_NETWORK_CONFIG=$(cat network_config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_NETWORK_CONFIG
           echo "base64_network_config=$BASE64_NETWORK_CONFIG" >> $GITHUB_OUTPUT
+          echo "Length after base64: ${#BASE64_NETWORK_CONFIG}"
 
   # End Build Test Dependencies
 
@@ -318,7 +319,12 @@ jobs:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}          
+          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}          
         run: |
+          echo "Lenght of top level var: ${#BASE64_NETWORK_CONFIG}"
+          X=${{ needs.build-tests.outputs.base64_network_config }}
+          echo "Lenght of in-script var: ${#X}"
+
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
