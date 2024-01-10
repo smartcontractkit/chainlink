@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -22,10 +23,12 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfclient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -66,10 +69,8 @@ const (
 	// 1 day should be enough for most of the cases
 	PermissionlessExecThreshold = 60 * 60 * 24 // 1 day
 
-	MaxNoOfTokensInMsg = 50
-	// we keep the finality timeout high as it's out of our control
-	FinalityTimeout        = 1 * time.Hour
-	TokenTransfer   string = "WithToken"
+	MaxNoOfTokensInMsg        = 50
+	TokenTransfer      string = "WithToken"
 
 	DataOnlyTransfer string = "WithoutToken"
 )
@@ -2193,16 +2194,18 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("getting current block should be successful in destination chain %w", err)
 	}
 
-	tokenUSDMap := make(map[string]string)
+	var tokenAddresses []string
+
 	for _, token := range lane.Dest.Common.BridgeTokens {
-		tokenUSDMap[token.Address()] = LinkToUSD.String()
+		tokenAddresses = append(tokenAddresses, token.Address())
 	}
+	tokenAddresses = append(tokenAddresses, lane.Dest.Common.FeeToken.Address(), lane.Source.Common.WrappedNative.Hex(), lane.Dest.Common.WrappedNative.Hex())
 
-	tokenUSDMap[lane.Dest.Common.FeeToken.Address()] = LinkToUSD.String()
-	tokenUSDMap[lane.Source.Common.WrappedNative.Hex()] = WrappedNativeToUSD.String()
-	tokenUSDMap[lane.Dest.Common.WrappedNative.Hex()] = WrappedNativeToUSD.String()
-	lane.Logger.Info().Interface("tokenUSDMap", tokenUSDMap).Msg("tokenUSDMap")
-
+	var killgrave *ctftestenv.Killgrave
+	if env.LocalCluster != nil {
+		killgrave = env.LocalCluster.MockAdapter
+	}
+	tokensUSDUrl := SetMockServerWithSameTokenFeeConversionValue(tokenAddresses, killgrave, env.MockServer)
 	jobParams := integrationtesthelpers.CCIPJobSpecParams{
 		OffRamp:                lane.Dest.OffRamp.EthAddress,
 		CommitStore:            lane.Dest.CommitStore.EthAddress,
@@ -2210,7 +2213,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		DestChainName:          destChainClient.GetNetworkName(),
 		DestEvmChainId:         destChainClient.GetChainID().Uint64(),
 		SourceStartBlock:       lane.Source.SrcStartBlock,
-		TokenPricesUSDPipeline: StaticTokenFeeForMultipleTokenAddr(tokenUSDMap),
+		TokenPricesUSDPipeline: TokenFeeForMultipleTokenAddr(tokensUSDUrl),
 		DestStartBlock:         currentBlockOnDest,
 	}
 
@@ -2431,17 +2434,17 @@ func CreateOCR2CCIPExecutionJobs(
 	return nil
 }
 
-// TODO : keep it if there is a better mockserver implementation is found
-func _(tokenAddr []string, mockserver *ctfclient.MockserverClient) string {
+func TokenFeeForMultipleTokenAddr(tokenAddrToURL map[string]string) string {
 	source := ""
 	right := ""
-	for i, addr := range tokenAddr {
-		url := fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, addr)
+	i := 1
+	for addr, url := range tokenAddrToURL {
 		source = source + fmt.Sprintf(`
 token%d [type=http method=GET url="%s"];
-token%d_parse [type=jsonparse path="Data,Result"];
-token%d->token%d_parse;`, i+1, url, i+1, i+1, i+1)
-		right = right + fmt.Sprintf(` \\\"%s\\\":$(token%d_parse),`, addr, i+1)
+token%d_parse [type=jsonparse path="data,result"];
+token%d->token%d_parse;`, i, url, i, i, i)
+		right = right + fmt.Sprintf(` \\\"%s\\\":$(token%d_parse),`, addr, i)
+		i++
 	}
 	right = right[:len(right)-1]
 	source = fmt.Sprintf(`%s
@@ -2450,18 +2453,8 @@ merge [type=merge left="{}" right="{%s}"];`, source, right)
 	return source
 }
 
-func StaticTokenFeeForMultipleTokenAddr(tokenUSD map[string]string) string {
-	right := ""
-	for addr, value := range tokenUSD {
-		right = right + fmt.Sprintf(`\\"%s\\":\\"%s\\",`, addr, value)
-	}
-	right = right[:len(right)-1]
-	source := fmt.Sprintf(`merge [type=merge left="{}" right="{%s}"];`, right)
-
-	return source
-}
-
 type CCIPTestEnv struct {
+	MockServer               *ctfClient.MockserverClient
 	LocalCluster             *test_env.CLClusterTestEnv
 	CLNodesWithKeys          map[string][]*client.CLNodesWithKeys // key - network chain-id
 	CLNodes                  []*client.ChainlinkK8sClient
@@ -2574,6 +2567,11 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
 		c.CLNodes = chainlinkK8sNodes
+		mockServer, err := ctfClient.ConnectMockServer(c.K8Env)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		c.MockServer = mockServer
 	}
 
 	nodesWithKeys := make(map[string][]*client.CLNodesWithKeys)
@@ -2758,4 +2756,63 @@ func NewBalanceSheet() *BalanceSheet {
 		Items:       make(map[string]BalanceItem),
 		PrevBalance: make(map[string]*big.Int),
 	}
+}
+
+// SetMockServerWithSameTokenFeeConversionValue sets the mock responses in mockserver that are read by chainlink nodes
+// to simulate different price feed value.
+func SetMockServerWithSameTokenFeeConversionValue(
+	tokenAddresses []string,
+	killGrave *ctftestenv.Killgrave,
+	mockserver *ctfClient.MockserverClient,
+) map[string]string {
+	wg := &sync.WaitGroup{}
+	mapTokenURL := make(map[string]string)
+	syncMapTokenURL := &sync.Map{}
+	for _, tokenAddr := range tokenAddresses {
+		path := fmt.Sprintf("token_contract_%s", tokenAddr[2:12])
+		wg.Add(1)
+		tokenAddr := tokenAddr
+		go func() {
+			// keep updating token value every 15 second
+			for {
+				if killGrave == nil && mockserver == nil {
+					log.Fatal().Msg("both killgrave and mockserver are nil")
+					return
+				}
+				tokenValue := big.NewInt(time.Now().UnixNano()).String()
+				if killGrave != nil {
+					err := killGrave.SetAdapterBasedAnyValuePath(path, []string{http.MethodGet}, tokenValue)
+					if err != nil {
+						log.Fatal().Err(err).Msg("failed to set killgrave server value")
+						return
+					}
+					if _, ok := syncMapTokenURL.Load(tokenAddr); !ok {
+						syncMapTokenURL.Store(tokenAddr, fmt.Sprintf("%s/%s", killGrave.InternalEndpoint, path))
+						// call Done after setting the value for the first time
+						wg.Done()
+					}
+				}
+				if mockserver != nil {
+					err := mockserver.SetAnyValuePath(fmt.Sprintf("/%s", path), tokenValue)
+					if err != nil {
+						log.Fatal().Err(err).Msg("failed to set mockserver value")
+						return
+					}
+					if _, ok := syncMapTokenURL.Load(tokenAddr); !ok {
+						syncMapTokenURL.Store(tokenAddr, fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, path))
+						// call Done after setting the value for the first time
+						wg.Done()
+					}
+				}
+				time.Sleep(15 * time.Second)
+			}
+		}()
+	}
+	// wait for all token value to be set at least once
+	wg.Wait()
+	syncMapTokenURL.Range(func(key, value interface{}) bool {
+		mapTokenURL[key.(string)] = value.(string)
+		return true
+	})
+	return mapTokenURL
 }
