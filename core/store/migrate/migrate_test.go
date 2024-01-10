@@ -530,7 +530,7 @@ func TestNoTriggers(t *testing.T) {
 	}
 
 	// if you find yourself here and are tempted to add a trigger, something has gone wrong
-	// and you should talk to the foundations before proceeding
+	// and you should talk to the foundations team before proceeding
 	assert_num_triggers(0)
 
 	// version prior to removal of all triggers
