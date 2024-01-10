@@ -63,6 +63,12 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	// "generate-proof" generates a proof for a given request ID and block number
+	// using they VRF key from the given VRF node. It can optionally submit the
+	// transaction on-chain. This scripts is useful when you want to manually fulfill
+	// a request ID but do not already have a proof
+	// this script exports key from the given node and decrypts it in memory
+	// the exported key is not persisted locally
 	case "generate-proof":
 		cmd := flag.NewFlagSet("generate-proof", flag.ExitOnError)
 		vrfNodeURL := cmd.String("vrf-node-url", "", "remote node URL")
@@ -70,7 +76,7 @@ func main() {
 		requestBlock := cmd.Uint64("request-block", 0, "request block")
 		requestID := cmd.String("request-id", "", "request ID")
 		coordinatorAddress := cmd.String("coordinator-address", "", "request ID")
-		dryrun := cmd.Bool("dryrun", true, "dryrun generates proof but doesn't execute tx on-chain")
+		executeTx := cmd.Bool("execute-tx", false, "if true, posts fulfillment transaction on-chain")
 		helpers.ParseArgs(cmd, os.Args[2:], "vrf-node-url", "compressed-pub-key", "request-block", "request-id", "coordinator-address")
 
 		output := &bytes.Buffer{}
@@ -163,7 +169,7 @@ func main() {
 
 		fmt.Printf("Proof: %+v, commitment: %+v\n", proof, rc)
 
-		if *dryrun {
+		if *executeTx {
 			fmt.Println("Sending fulfillment!")
 			tx, err := coordinator.FulfillRandomWords(e.Owner, proof, rc)
 			helpers.PanicErr(err)
