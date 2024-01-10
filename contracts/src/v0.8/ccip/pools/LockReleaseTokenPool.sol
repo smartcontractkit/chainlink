@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {ILiquidityContainer} from "../../liquidity-manager/interfaces/ILiquidityContainer.sol";
 
 import {TokenPool} from "./TokenPool.sol";
 
@@ -12,18 +13,15 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 /// Because of lock/unlock requiring liquidity, this pool contract also has function to add and remove
 /// liquidity. This allows for proper bookkeeping for both user and liquidity provider balances.
 /// @dev One token per LockReleaseTokenPool.
-contract LockReleaseTokenPool is TokenPool, ITypeAndVersion {
+contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion {
   using SafeERC20 for IERC20;
 
-  event LiquidityAdded(address indexed provider, uint256 indexed amount);
-  event LiquidityRemoved(address indexed provider, uint256 indexed amount);
-
   error InsufficientLiquidity();
-  error WithdrawalTooHigh();
   error LiquidityNotAccepted();
+  error Unauthorized(address caller);
 
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "LockReleaseTokenPool 1.2.0";
+  string public constant override typeAndVersion = "LockReleaseTokenPool 1.3.0-dev";
 
   /// @dev The unique lock release pool flag to signal through EIP 165.
   bytes4 private constant LOCK_RELEASE_INTERFACE_ID = bytes4(keccak256("LockReleaseTokenPool"));
@@ -34,7 +32,7 @@ contract LockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// balanceOf(pool) on home chain == sum(totalSupply(mint/burn "wrapped" token) on all remote chains) should always hold
   bool internal immutable i_acceptLiquidity;
 
-  mapping(address provider => uint256 balance) internal s_liquidityProviderBalances;
+  address internal s_liquidityManager;
 
   constructor(
     IERC20 token,
@@ -85,14 +83,22 @@ contract LockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
   // @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) public pure virtual override returns (bool) {
-    return interfaceId == LOCK_RELEASE_INTERFACE_ID || super.supportsInterface(interfaceId);
+    return
+      interfaceId == LOCK_RELEASE_INTERFACE_ID ||
+      interfaceId == type(ILiquidityContainer).interfaceId ||
+      super.supportsInterface(interfaceId);
   }
 
-  /// @notice Gets the amount of provided liquidity for a given address.
-  /// @param provider The address for which to get the balance.
-  /// @return The current provided liquidity.
-  function getProvidedLiquidity(address provider) external view returns (uint256) {
-    return s_liquidityProviderBalances[provider];
+  /// @notice Gets liquidity manager, can be address(0) if none is configured.
+  /// @return The current liquidity manager.
+  function getLiquidityManager() external view returns (address) {
+    return s_liquidityManager;
+  }
+
+  /// @notice Sets the liquidity manager address.
+  /// @dev Only callable by the owner.
+  function setLiquidityManager(address liquidityManager) external onlyOwner {
+    s_liquidityManager = liquidityManager;
   }
 
   /// @notice Checks if the pool can accept liquidity.
@@ -103,19 +109,20 @@ contract LockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
   /// @notice Adds liquidity to the pool. The tokens should be approved first.
   /// @param amount The amount of liquidity to provide.
-  function addLiquidity(uint256 amount) external {
+  function provideLiquidity(uint256 amount) external {
     if (!i_acceptLiquidity) revert LiquidityNotAccepted();
+    if (s_liquidityManager != msg.sender) revert Unauthorized(msg.sender);
+
     i_token.safeTransferFrom(msg.sender, address(this), amount);
-    s_liquidityProviderBalances[msg.sender] += amount;
     emit LiquidityAdded(msg.sender, amount);
   }
 
   /// @notice Removed liquidity to the pool. The tokens will be sent to msg.sender.
   /// @param amount The amount of liquidity to remove.
-  function removeLiquidity(uint256 amount) external {
-    if (s_liquidityProviderBalances[msg.sender] < amount) revert WithdrawalTooHigh();
+  function withdrawLiquidity(uint256 amount) external {
+    if (s_liquidityManager != msg.sender) revert Unauthorized(msg.sender);
+
     if (i_token.balanceOf(address(this)) < amount) revert InsufficientLiquidity();
-    s_liquidityProviderBalances[msg.sender] -= amount;
     i_token.safeTransfer(msg.sender, amount);
     emit LiquidityRemoved(msg.sender, amount);
   }

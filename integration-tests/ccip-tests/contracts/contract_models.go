@@ -181,7 +181,7 @@ func (pool *LockReleaseTokenPool) RemoveLiquidity(amount *big.Int) error {
 		Str("Token Pool", pool.Address()).
 		Str("Amount", amount.String()).
 		Msg("Initiating removing funds from pool")
-	tx, err := pool.Instance.RemoveLiquidity(opts, amount)
+	tx, err := pool.Instance.WithdrawLiquidity(opts, amount)
 	if err != nil {
 		return err
 	}
@@ -212,10 +212,18 @@ func (pool *LockReleaseTokenPool) AddLiquidity(approveFn tokenApproveFn, tokenAd
 	if err != nil {
 		return err
 	}
+	_, err = pool.Instance.SetLiquidityManager(opts, opts.From)
+	if err != nil {
+		return err
+	}
+	opts, err = pool.client.TransactionOpts(pool.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
 	log.Info().
 		Str("Token Pool", pool.Address()).
 		Msg("Initiating adding Tokens in pool")
-	tx, err := pool.Instance.AddLiquidity(opts, amount)
+	tx, err := pool.Instance.ProvideLiquidity(opts, amount)
 	if err != nil {
 		return err
 	}

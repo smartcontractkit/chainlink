@@ -36,6 +36,7 @@ contract LockReleaseTokenPoolSetup is BaseTest {
 
     s_lockReleaseTokenPool.applyRampUpdates(onRamps, offRamps);
     s_lockReleaseTokenPoolWithAllowList.applyRampUpdates(onRamps, offRamps);
+    s_lockReleaseTokenPool.setLiquidityManager(OWNER);
   }
 }
 
@@ -138,16 +139,6 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
   }
 }
 
-contract LockReleaseTokenPool_getProvidedLiquidity is LockReleaseTokenPoolSetup {
-  function testFuzz_GetProvidedLiquiditySuccess(uint256 amount) public {
-    s_token.approve(address(s_lockReleaseTokenPool), amount);
-
-    s_lockReleaseTokenPool.addLiquidity(amount);
-
-    assertEq(s_lockReleaseTokenPool.getProvidedLiquidity(OWNER), amount);
-  }
-}
-
 contract LockReleaseTokenPool_canAcceptLiquidity is LockReleaseTokenPoolSetup {
   function test_CanAcceptLiquiditySuccess() public {
     assertEq(true, s_lockReleaseTokenPool.canAcceptLiquidity());
@@ -157,12 +148,12 @@ contract LockReleaseTokenPool_canAcceptLiquidity is LockReleaseTokenPoolSetup {
   }
 }
 
-contract LockReleaseTokenPool_addLiquidity is LockReleaseTokenPoolSetup {
-  function testFuzz_AddLiquiditySuccess(uint256 amount) public {
+contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
+  function testFuzz_ProvideLiquiditySuccess(uint256 amount) public {
     uint256 balancePre = s_token.balanceOf(OWNER);
     s_token.approve(address(s_lockReleaseTokenPool), amount);
 
-    s_lockReleaseTokenPool.addLiquidity(amount);
+    s_lockReleaseTokenPool.provideLiquidity(amount);
 
     assertEq(s_token.balanceOf(OWNER), balancePre - amount);
     assertEq(s_token.balanceOf(address(s_lockReleaseTokenPool)), amount);
@@ -173,49 +164,40 @@ contract LockReleaseTokenPool_addLiquidity is LockReleaseTokenPoolSetup {
   function testFuzz_ExceedsAllowance(uint256 amount) public {
     vm.assume(amount > 0);
     vm.expectRevert("ERC20: insufficient allowance");
-    s_lockReleaseTokenPool.addLiquidity(amount);
+    s_lockReleaseTokenPool.provideLiquidity(amount);
   }
 
   function testLiquidityNotAcceptedReverts() public {
     s_lockReleaseTokenPool = new LockReleaseTokenPool(s_token, new address[](0), address(s_mockARM), false);
 
     vm.expectRevert(LockReleaseTokenPool.LiquidityNotAccepted.selector);
-    s_lockReleaseTokenPool.addLiquidity(1);
+    s_lockReleaseTokenPool.provideLiquidity(1);
   }
 }
 
-contract LockReleaseTokenPool_removeLiquidity is LockReleaseTokenPoolSetup {
-  function testFuzz_RemoveLiquiditySuccess(uint256 amount) public {
+contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
+  function testFuzz_WithdrawalLiquiditySuccess(uint256 amount) public {
     uint256 balancePre = s_token.balanceOf(OWNER);
     s_token.approve(address(s_lockReleaseTokenPool), amount);
-    s_lockReleaseTokenPool.addLiquidity(amount);
+    s_lockReleaseTokenPool.provideLiquidity(amount);
 
-    s_lockReleaseTokenPool.removeLiquidity(amount);
+    s_lockReleaseTokenPool.withdrawLiquidity(amount);
 
     assertEq(s_token.balanceOf(OWNER), balancePre);
   }
 
   // Reverts
-  function testFuzz_WithdrawalTooHighReverts(uint256 balance, uint256 withdrawal) public {
-    vm.assume(balance < withdrawal);
-    s_token.approve(address(s_lockReleaseTokenPool), balance);
-    s_lockReleaseTokenPool.addLiquidity(balance);
-
-    vm.expectRevert(LockReleaseTokenPool.WithdrawalTooHigh.selector);
-    s_lockReleaseTokenPool.removeLiquidity(withdrawal);
-  }
-
   function testInsufficientLiquidityReverts() public {
     uint256 maxUint256 = 2 ** 256 - 1;
     s_token.approve(address(s_lockReleaseTokenPool), maxUint256);
-    s_lockReleaseTokenPool.addLiquidity(maxUint256);
+    s_lockReleaseTokenPool.provideLiquidity(maxUint256);
 
     changePrank(address(s_lockReleaseTokenPool));
     s_token.transfer(OWNER, maxUint256);
     changePrank(OWNER);
 
     vm.expectRevert(LockReleaseTokenPool.InsufficientLiquidity.selector);
-    s_lockReleaseTokenPool.removeLiquidity(1);
+    s_lockReleaseTokenPool.withdrawLiquidity(1);
   }
 }
 
