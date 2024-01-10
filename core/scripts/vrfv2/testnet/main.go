@@ -3,11 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
+	"net/http"
 	"os"
 	"strings"
 
@@ -22,6 +26,8 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/jmoiron/sqlx"
+
+	vrfutil "github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -43,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -56,6 +63,115 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "generate-proof":
+		cmd := flag.NewFlagSet("generate-proof", flag.ExitOnError)
+		vrfNodeURL := cmd.String("vrf-node-url", "", "remote node URL")
+		pubKey := cmd.String("compressed-pub-key", "", "compressed public key")
+		requestBlock := cmd.Uint64("request-block", 0, "request block")
+		requestID := cmd.String("request-id", "", "request ID")
+		coordinatorAddress := cmd.String("coordinator-address", "", "request ID")
+		dryrun := cmd.Bool("dryrun", true, "dryrun generates proof but doesn't execute tx on-chain")
+		helpers.ParseArgs(cmd, os.Args[2:], "vrf-node-url", "compressed-pub-key", "request-block", "request-id", "coordinator-address")
+
+		output := &bytes.Buffer{}
+		client, _ := vrfutil.ConnectToNode(vrfNodeURL, output, nil)
+
+		// generate password for encrypting the key
+		randomBytes := make([]byte, 32)
+		_, err := rand.Read(randomBytes)
+		helpers.PanicErr(err)
+		pw := base64.URLEncoding.EncodeToString(randomBytes)
+
+		fmt.Println("Exporting vrf key...")
+		resp, err := client.HTTP.Post("/v2/keys/vrf/export/"+*pubKey+"?newpassword="+pw, nil)
+		helpers.PanicErr(err)
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			panic(fmt.Sprintf("invalid status code: ", resp.StatusCode))
+		}
+
+		keyJson, err := io.ReadAll(resp.Body)
+		helpers.PanicErr(err)
+
+		fmt.Println("Received vrf key")
+
+		key, err := vrfkey.FromEncryptedJSON(keyJson, pw)
+		helpers.PanicErr(err)
+
+		logs, err := e.Ec.FilterLogs(context.Background(), ethereum.FilterQuery{
+			FromBlock: big.NewInt(0).SetUint64(*requestBlock),
+			ToBlock:   big.NewInt(0).SetUint64(*requestBlock),
+			Addresses: []common.Address{
+				common.HexToAddress(*coordinatorAddress),
+			},
+			Topics: [][]common.Hash{
+				{
+					vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
+				},
+			},
+		})
+		helpers.PanicErr(err)
+
+		fmt.Println("Searching for request log...")
+
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(
+			common.HexToAddress(*coordinatorAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+
+		var request *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
+		for _, log := range logs {
+			unpacked, err := coordinator.ParseLog(log)
+			helpers.PanicErr(err)
+			rwr, ok := unpacked.(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+			if !ok {
+				// should never happen
+				panic("cast to *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested")
+			}
+			if rwr.RequestId.String() == *requestID {
+				fmt.Printf("found request ID: %s\n", *requestID)
+				request = rwr
+				break
+			}
+		}
+
+		if request == nil {
+			panic(fmt.Sprintf("couldn't find request ID: %s in block: %d", *requestID, *requestBlock))
+		}
+
+		ps, err := proof.BigToSeed(request.PreSeed)
+		helpers.PanicErr(err)
+		preSeedData := proof.PreSeedDataV2{
+			PreSeed:          ps,
+			BlockHash:        request.Raw.BlockHash,
+			BlockNum:         *requestBlock,
+			SubId:            request.SubId,
+			CallbackGasLimit: request.CallbackGasLimit,
+			NumWords:         request.NumWords,
+			Sender:           request.Sender,
+		}
+
+		fmt.Printf("preseed data : %+v\n", preSeedData)
+		finalSeed := proof.FinalSeedV2(preSeedData)
+
+		p, err := key.GenerateProof(finalSeed)
+		helpers.PanicErr(err)
+
+		proof, rc, err := proof.GenerateProofResponseFromProofV2(p, preSeedData)
+		helpers.PanicErr(err)
+
+		fmt.Printf("Proof: %+v, commitment: %+v\n", proof, rc)
+
+		if *dryrun {
+			fmt.Println("Sending fulfillment!")
+			tx, err := coordinator.FulfillRandomWords(e.Owner, proof, rc)
+			helpers.PanicErr(err)
+
+			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("manual fulfillment of request ID: %s", *requestID))
+		}
+		fmt.Println("done!")
+
 	case "manual-fulfill":
 		cmd := flag.NewFlagSet("manual-fulfill", flag.ExitOnError)
 		// In order to get the tx data for a fulfillment transaction, you can grep the

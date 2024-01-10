@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"math/big"
 	"os"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -24,28 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
-
-func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
-	prompter := clcmd.NewTerminalPrompter()
-	client := &clcmd.Shell{
-		Renderer:                       clcmd.RendererJSON{Writer: writer},
-		AppFactory:                     clcmd.ChainlinkAppFactory{},
-		KeyStoreAuthenticator:          clcmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
-		FallbackAPIInitializer:         clcmd.NewPromptingAPIInitializer(prompter),
-		Runner:                         clcmd.ChainlinkRunner{},
-		PromptingSessionRequestBuilder: clcmd.NewPromptingSessionRequestBuilder(prompter),
-		ChangePasswordPrompter:         clcmd.NewChangePasswordPrompter(),
-		PasswordPrompter:               clcmd.NewPasswordPrompter(),
-	}
-	app := clcmd.NewApp(client)
-	fs := flag.NewFlagSet("blah", flag.ContinueOnError)
-	fs.Bool("json", true, "")
-	fs.String("remote-node-url", remoteNodeURL, "")
-	helpers.PanicErr(app.Before(cli.NewContext(nil, fs, nil)))
-	// overwrite renderer since it's set to stdout after Before() is called
-	client.Renderer = clcmd.RendererJSON{Writer: writer}
-	return client, app
-}
 
 var (
 	checkMarkEmoji = "✅"
@@ -142,7 +120,7 @@ func main() {
 	output := &bytes.Buffer{}
 	for key, node := range nodesMap {
 		node := node
-		client, app := connectToNode(&node.URL, output, node.CredsFile)
+		client, app := util.ConnectToNode(&node.URL, output, &node.CredsFile)
 		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL, maxGasPriceGwei)
 		if key == model.VRFPrimaryNodeName {
 			vrfKeys := createVRFKeyIfNeeded(client, app, output, numVRFKeys, &node.URL)
@@ -242,7 +220,7 @@ func main() {
 
 		for key, node := range nodesMap {
 			node := node
-			client, app := connectToNode(&node.URL, output, node.CredsFile)
+			client, app := util.ConnectToNode(&node.URL, output, &node.CredsFile)
 
 			//GET ALL JOBS
 			jobIDs := getAllJobIDs(client, app, output)
@@ -291,7 +269,7 @@ func importVRFKeyToNodeIfSet(vrfBackupNodeURL *string, nodes map[string]model.No
 		vrfPrimaryNode := nodes[model.VRFBackupNodeName]
 
 		if len(vrfBackupNode.VrfKeys) == 0 || vrfPrimaryNode.VrfKeys[0] != vrfBackupNode.VrfKeys[0] {
-			client, app := connectToNode(&vrfBackupNode.URL, output, file)
+			client, app := util.ConnectToNode(&vrfBackupNode.URL, output, &file)
 			importVRFKey(client, app, output)
 
 			vrfKeys := getVRFKeys(client, app, output)
@@ -419,21 +397,6 @@ func printVRFKeyData(vrfKeys []presenters.VRFKeyResource) {
 		fmt.Println("Hash: ", vrfKey.Hash)
 		fmt.Println("-----------------------------")
 	}
-}
-
-func connectToNode(nodeURL *string, output *bytes.Buffer, credFile string) (*clcmd.Shell, *cli.App) {
-	client, app := newApp(*nodeURL, output)
-	// login first to establish the session
-	fmt.Println("logging in to:", *nodeURL)
-	loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
-	loginFs.String("file", credFile, "")
-	loginFs.Bool("bypass-version-check", true, "")
-	loginCtx := cli.NewContext(app, loginFs, nil)
-	err := client.RemoteLogin(loginCtx)
-	helpers.PanicErr(err)
-	output.Reset()
-	fmt.Println()
-	return client, app
 }
 
 func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numVRFKeys *int, nodeURL *string) []presenters.VRFKeyResource {
