@@ -25,6 +25,44 @@ env:
   CHAINLINK_ENV_USER: ${{ github.actor }}
   TEST_LOG_LEVEL: debug
 
+  EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
+
+  SEPOLIA_URLS: ${{ secrets.QA_SEPOLIA_URLS }}
+  SEPOLIA_HTTP_URLS: ${{ secrets.QA_SEPOLIA_HTTP_URLS }}
+  
+  BSC_TESTNET_URLS: ${{ secrets.QA_BSC_TESTNET_URLS }}
+  BSC_TESTNET_HTTP_URLS: ${{ secrets.QA_BSC_TESTNET_HTTP_URLS }}
+  
+  OPTIMISM_SEPOLIA_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
+  OPTIMISM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
+  
+  ARBITRUM_SEPOLIA_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
+  ARBITRUM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
+  
+  BASE_GOERLI_URLS: ${{ secrets.QA_BASE_GOERLI_URLS }}
+  BASE_GOERLI_HTTP_URLS: ${{ secrets.QA_BASE_GOERLI_HTTP_URLS }}
+  
+  BASE_SEPOLIA_URLS: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
+  BASE_SEPOLIA_HTTP_URLS: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
+  
+  POLYGON_MUMBAI_URLS: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
+  POLYGON_MUMBAI_HTTP_URLS: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
+  
+  AVALANCHE_FUJI_URLS: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
+  AVALANCHE_FUJI_HTTP_URLS: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
+  
+  FANTOM_TESTNET_URLS: ${{ secrets.QA_FANTOM_TESTNET_URLS }}
+  FANTOM_TESTNET_HTTP_URLS: ${{ secrets.QA_FANTOM_TESTNET_HTTP_URLS }}
+  
+  CELO_ALFAJORES_URLS: ${{ secrets.QA_CELO_ALFAJORES_URLS }}
+  CELO_ALFAJORES_HTTP_URLS: ${{ secrets.QA_CELO_ALFAJORES_HTTP_URLS }}
+  
+  SCROLL_SEPOLIA_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_URLS }}
+  SCROLL_SEPOLIA_HTTP_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_HTTP_URLS }}
+  
+  LINEA_GOERLI_URLS: ${{ secrets.QA_LINEA_GOERLI_URLS }}
+  LINEA_GOERLI_HTTP_URLS: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
+
 jobs:
 
   # Build Test Dependencies
@@ -65,9 +103,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    name: Build Tests Binary
-    outputs:
-        base64_network_config: ${{ steps.network_config.outputs.base64_network_config }}        
+    name: Build Tests Binary 
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -103,88 +139,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: toml_configs
-          path: ./toml_configs/toml_configs.zip          
-      - name: Prepare Base64 network config
-        id: network_config
-        env:
-          EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
-          SEPOLIA_URLS: ${{ secrets.QA_SEPOLIA_URLS }}
-          SEPOLIA_HTTP_URLS: ${{ secrets.QA_SEPOLIA_HTTP_URLS }}
-          BSC_TESTNET_URLS: ${{ secrets.QA_BSC_TESTNET_URLS }}
-          BSC_TESTNET_HTTP_URLS: ${{ secrets.QA_BSC_TESTNET_HTTP_URLS }}
-          OPTIMISM_SEPOLIA_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
-          OPTIMISM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
-          ARBITRUM_SEPOLIA_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
-          ARBITRUM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
-          BASE_GOERLI_URLS: ${{ secrets.QA_BASE_GOERLI_URLS }}
-          BASE_GOERLI_HTTP_URLS: ${{ secrets.QA_BASE_GOERLI_HTTP_URLS }}
-          BASE_SEPOLIA_URLS: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
-          BASE_SEPOLIA_HTTP_URLS: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
-          POLYGON_MUMBAI_URLS: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
-          POLYGON_MUMBAI_HTTP_URLS: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
-          AVALANCHE_FUJI_URLS: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
-          AVALANCHE_FUJI_HTTP_URLS: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
-          FANTOM_TESTNET_URLS: ${{ secrets.QA_FANTOM_TESTNET_URLS }}
-          FANTOM_TESTNET_HTTP_URLS: ${{ secrets.QA_FANTOM_TESTNET_HTTP_URLS }}
-          CELO_ALFAJORES_URLS: ${{ secrets.QA_CELO_ALFAJORES_URLS }}
-          CELO_ALFAJORES_HTTP_URLS: ${{ secrets.QA_CELO_ALFAJORES_HTTP_URLS }}
-          SCROLL_SEPOLIA_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_URLS }}
-          SCROLL_SEPOLIA_HTTP_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_HTTP_URLS }}
-          LINEA_GOERLI_URLS: ${{ secrets.QA_LINEA_GOERLI_URLS }}
-          LINEA_GOERLI_HTTP_URLS: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
-        run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
-                  
-          cat << EOF > network_config.toml
-          [RpcHttpUrls]
-          mietek=stefan
-          # sepolia = [$(convert_to_toml_array "$SEPOLIA_HTTP_URLS")]
-          # bsc_testnet = [$(convert_to_toml_array "$BSC_TESTNET_HTTP_URLS")]
-          # optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_HTTP_URLS")]
-          # arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_HTTP_URLS")]
-          # base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_HTTP_URLS")]
-          # base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_HTTP_URLS")]
-          # polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_HTTP_URLS")]
-          # avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_HTTP_URLS")]
-          # fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_HTTP_URLS")]
-          # celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")]
-          # scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_HTTP_URLS")]
-          # linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_HTTP_URLS")]
-          
-          # [RpcWsUrls]
-          # sepolia = [$(convert_to_toml_array "$SEPOLIA_URLS")]
-          # bsc_testnet = [$(convert_to_toml_array "$BSC_TESTNET_URLS")]
-          # optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_URLS")]
-          # arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_URLS")]
-          # base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_URLS")]
-          # base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_URLS")]
-          # polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_URLS")]
-          # avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_URLS")]
-          # fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_URLS")]
-          # celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES_URLS")]
-          # scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_URLS")]
-          # linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_URLS")]
-          
-          # [WalletKeys]
-          # sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
-          # bsc_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
-          # optimism_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
-          # arbitrum_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
-          # base_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
-          # base_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
-          # polygon_mumbai = [$(convert_to_toml_array "$EVM_KEYS")]
-          # avalanche_fuji = [$(convert_to_toml_array "$EVM_KEYS")]
-          # fantom_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
-          # celo_alfajores = [$(convert_to_toml_array "$EVM_KEYS")]
-          # scroll_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
-          # linea_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
-          EOF
-          
-          BASE64_NETWORK_CONFIG=$(cat network_config.toml | base64 -w 0 | base64 -w 0)
-          echo ::add-mask::$BASE64_NETWORK_CONFIG
-          echo "base64_network_config=$BASE64_NETWORK_CONFIG" >> $GITHUB_OUTPUT
-          echo "Length after base64: ${#BASE64_NETWORK_CONFIG}"
+          path: ./toml_configs/toml_configs.zip
 
   # End Build Test Dependencies
 
@@ -320,16 +275,7 @@ jobs:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}          
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}          
         run: |
-          echo "Lenght of top level var: ${#BASE64_NETWORK_CONFIG}"
-          X=${{ needs.build-tests.outputs.base64_network_config }}
-          Y=echo ${{ needs.build-tests.outputs.base64_network_config }} | base64 -d
-          echo "Lenght of in-script var: ${#X}"
-          echo "Lenght of debaseed var: ${#Y}"
-
-          echo "BASE64_NETWORK_CONFIG=$Y" >> $GITHUB_ENV
-
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -352,6 +298,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          sepolia = [$(convert_to_toml_array "$SEPOLIA_HTTP_URLS")]
+
+          [RpcWsUrls]
+          sepolia = [$(convert_to_toml_array "$SEPOLIA_URLS")]
+
+          [WalletKeys]
+          sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -440,6 +395,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          bsc_testnet = [$(convert_to_toml_array "$BSC_TESTNET_HTTP_URLS")]
+
+          [RpcWsUrls]
+          bsc_testnet = [$(convert_to_toml_array "$BSC_TESTNET_URLS")]
+
+          [WalletKeys]
+          bsc_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -526,6 +490,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_HTTP_URLS")]
+
+          [RpcWsUrls]
+          optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_URLS")]
+
+          [WalletKeys]
+          optimism_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -534,8 +507,6 @@ jobs:
           touch .root_dir                
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -612,6 +583,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_HTTP_URLS")]
+
+          [RpcWsUrls]
+          arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_URLS")]
+
+          [WalletKeys]
+          arbitrum_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -619,9 +599,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
           touch .root_dir                        
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0  
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -694,6 +672,14 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+          [RpcHttpUrls]
+          base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_HTTP_URLS")]
+
+          [RpcWsUrls]
+          base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_URLS")]
+
+          [WalletKeys]
+          base_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -701,9 +687,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
           touch .root_dir          
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0     
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -776,6 +760,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_HTTP_URLS")]
+
+          [RpcWsUrls]
+          base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_URLS")]
+
+          [WalletKeys]
+          base_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -783,9 +776,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
           touch .root_dir          
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -862,6 +853,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_HTTP_URLS")]
+
+          [RpcWsUrls]
+          polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_URLS")]
+
+          [WalletKeys]
+          polygon_mumbai = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -870,8 +870,6 @@ jobs:
           touch .root_dir            
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -948,6 +946,14 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+          [RpcHttpUrls]
+          avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_HTTP_URLS")]
+
+          [RpcWsUrls]
+          avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_URLS")]
+
+          [WalletKeys]
+          avalanche_fuji = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -955,9 +961,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
           touch .root_dir               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -1034,6 +1038,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_HTTP_URLS")]
+
+          [RpcWsUrls]
+          fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_URLS")]
+
+          [WalletKeys]
+          fantom_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1042,8 +1055,6 @@ jobs:
           touch .root_dir                     
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -1116,6 +1127,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")]
+
+          [RpcWsUrls]
+          celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES
+
+          [WalletKeys]
+          celo_alfajores = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1123,9 +1143,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
           touch .root_dir               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0       
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -1200,6 +1218,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_HTTP_URLS")]
+
+          [RpcWsUrls]
+          scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_URLS")]
+
+          [WalletKeys]
+          scroll_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1207,9 +1234,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV         
           touch .root_dir           
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0  
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -1282,6 +1307,15 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [RpcHttpUrls]
+          linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_HTTP_URLS")]
+
+          [RpcWsUrls]
+          linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_URLS")]
+
+          [WalletKeys]
+          linea_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1289,9 +1323,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
           touch .root_dir               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          BASE64_NETWORK_CONFIG: ${{ needs.build-tests.outputs.base64_network_config }}        
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
