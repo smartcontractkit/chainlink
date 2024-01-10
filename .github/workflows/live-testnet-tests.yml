@@ -276,6 +276,12 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}          
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -373,6 +379,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-bsc-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -468,6 +477,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+            
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -561,6 +573,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+            
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -650,6 +665,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -738,6 +756,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -831,6 +852,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-polygon-mumbai
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -924,6 +948,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-avalanche-fuji
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -1016,6 +1043,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-fantom-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -1105,6 +1135,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-celo-alfajores
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -1196,6 +1229,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-scroll-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
@@ -1285,6 +1321,9 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-linea-goerli
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
         run: |
+          # load reusable functions
+          source ./.github/scripts/functions.sh
+    
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
