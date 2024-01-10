@@ -212,10 +212,6 @@ func (ec *Confirmer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessHe
 
 	ec.lggr.Debugw("ProcessHead start", "headNum", head.BlockNumber())
 
-	if err := ec.txStore.SetBroadcastBeforeBlockNum(ctx, head.BlockNumber(), ec.chainID); err != nil {
-		return fmt.Errorf("SetBroadcastBeforeBlockNum failed: %w", err)
-	}
-
 	// TODO: Add addresses that are not enabled but we still have unconfirmed transactions for
 	for _, from := range ec.enabledAddresses {
 		total := time.Now()

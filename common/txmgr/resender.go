@@ -148,16 +148,12 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop
 	keysChanged, unsub := er.ks.SubscribeToKeyChanges()
 	defer unsub()
 
-	if err := er.resendUnconfirmed(er.ctx); err != nil {
-		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
-	}
-
 	ticker := time.NewTicker(utils.WithJitter(er.interval))
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			if err := er.resendUnconfirmed(er.ctx); err != nil {
+			if err := er.ResendUnconfirmed(er.ctx); err != nil {
 				er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
 		case <-er.mb.Notify():
@@ -187,7 +183,7 @@ func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop
 	}
 }
 
-func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfirmed(ctx context.Context) error {
+func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) ResendUnconfirmed(ctx context.Context) error {
 
 	ageThreshold := er.txConfig.ResendAfterThreshold()
 	maxInFlightTransactions := er.txConfig.MaxInFlight()
@@ -282,6 +278,10 @@ func findOldestUnconfirmedAttempt[
 // RebroadcastWhereNecessary bumps gas or resends transactions that were previously out-of-funds
 func (er *Resender[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {
 	var wg sync.WaitGroup
+
+	if err := er.txStore.SetBroadcastBeforeBlockNum(ctx, blockHeight, er.chainID); err != nil {
+		return fmt.Errorf("SetBroadcastBeforeBlockNum failed: %w", err)
+	}
 
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
