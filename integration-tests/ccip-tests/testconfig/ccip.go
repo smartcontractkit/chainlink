@@ -12,6 +12,7 @@ type CCIPTestConfig struct {
 	CommitAndExecuteOnSameDON  *bool              `toml:",omitempty"`
 	NoOfCommitNodes            int                `toml:",omitempty"`
 	MsgType                    string             `toml:",omitempty"`
+	DestGasLimit               *int64             `toml:",omitempty"`
 	MulticallInOneTx           *bool              `toml:",omitempty"`
 	NoOfSendsInMulticall       int                `toml:",omitempty"`
 	PhaseTimeout               *models.Duration   `toml:",omitempty"`
@@ -60,6 +61,9 @@ func (c *CCIPTestConfig) ApplyOverrides(fromCfg *CCIPTestConfig) error {
 	}
 	if fromCfg.LocalCluster != nil {
 		c.LocalCluster = fromCfg.LocalCluster
+	}
+	if fromCfg.DestGasLimit != nil {
+		c.DestGasLimit = fromCfg.DestGasLimit
 	}
 	if fromCfg.ExistingDeployment != nil {
 		c.ExistingDeployment = fromCfg.ExistingDeployment
@@ -156,6 +160,11 @@ func (c *CCIPTestConfig) Validate() error {
 			return errors.Errorf("number of sends in multisend should be greater than 0 if multisend is true")
 		}
 	}
+
+	if c.DestGasLimit == nil {
+		return errors.Errorf("destination gas limit should be set")
+	}
+
 	return nil
 }
 

@@ -88,7 +88,7 @@ var (
 		return fmt.Sprintf("%s-ethereum-geth", name)
 	}
 	// ApprovedAmountToRouter is the default amount which gets approved for router so that it can transfer token and use the fee token for fee payment
-	ApprovedAmountToRouter           = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(200))
+	ApprovedAmountToRouter           = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
 	ApprovedFeeAmountToRouter        = new(big.Int).Mul(big.NewInt(int64(GasFeeMultiplier)), big.NewInt(1e5))
 	GasFeeMultiplier          uint64 = 12e17
 	LinkToUSD                        = big.NewInt(6e18)

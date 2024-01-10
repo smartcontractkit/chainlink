@@ -27,6 +27,8 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 	}
 	l := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
+	require.NotNil(t, TestCfg.TestGroupInput.DestGasLimit)
+	gasLimit := big.NewInt(*TestCfg.TestGroupInput.DestGasLimit)
 	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", nil, TestCfg)
 	var tcs []subtestInput
 	if len(setUpOutput.Lanes) == 0 {
@@ -65,7 +67,7 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
 
 			tc.lane.RecordStateBeforeTransfer()
-			err := tc.lane.SendRequests(1, TestCfg.TestGroupInput.MsgType, big.NewInt(600_000))
+			err := tc.lane.SendRequests(1, TestCfg.TestGroupInput.MsgType, gasLimit)
 			require.NoError(t, err)
 			tc.lane.ValidateRequests(true)
 		})
@@ -224,6 +226,9 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			// current tokens are equal to the full capacity  - should fail
 			src.TransferAmount[0] = rlOnRamp.Tokens
 			tc.lane.Logger.Info().Str("tokensTobeSent", rlOnRamp.Tokens.String()).Msg("Aggregated Capacity")
+			// approve the tokens
+			require.NoError(t, src.Common.BridgeTokens[0].Approve(src.Common.Router.Address(), src.TransferAmount[0]))
+			require.NoError(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			failedTx, _, _, err := tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				actions.TokenTransfer, "msg with token more than aggregated capacity",
@@ -309,6 +314,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			tokensTobeSent = new(big.Int).Add(TokenPoolRateLimitCapacity, big.NewInt(2))
 			src.TransferAmount[0] = tokensTobeSent
 			tc.lane.Logger.Info().Str("tokensTobeSent", tokensTobeSent.String()).Msg("More than Token Pool Capacity")
+
 			failedTx, _, _, err = tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				actions.TokenTransfer, "msg with token more than token pool capacity",
@@ -340,6 +346,9 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			tokensTobeSent = new(big.Int).Mul(TokenPoolRateLimitRate, big.NewInt(50))
 			tc.lane.Logger.Info().Str("tokensTobeSent", tokensTobeSent.String()).Msg("More than TokenPool Rate")
 			src.TransferAmount[0] = tokensTobeSent
+			// approve the tokens
+			require.NoError(t, src.Common.BridgeTokens[0].Approve(src.Common.Router.Address(), src.TransferAmount[0]))
+			require.NoError(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			failedTx, _, _, err = tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				actions.TokenTransfer, "msg with token more than token pool rate",
