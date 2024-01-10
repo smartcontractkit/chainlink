@@ -103,6 +103,7 @@ jobs:
           name: toml_configs
           path: ./toml_configs/toml_configs.zip          
       - name: Prepare Base64 network config
+        id: network_config
         env:
           EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
           SEPOLIA_URLS: ${{ secrets.QA_SEPOLIA_URLS }}
@@ -180,6 +181,8 @@ jobs:
           BASE64_NETWORK_CONFIG=$(cat network_config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_NETWORK_CONFIG
           echo "base64_network_config=$BASE64_NETWORK_CONFIG" >> $GITHUB_OUTPUT
+
+          echo "test_value=123" >> $GITHUB_OUTPUT
 
   # End Build Test Dependencies
 
@@ -315,7 +318,10 @@ jobs:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+          TEST_VALUE: ${{ needs.build-tests.outputs.test_value }}          
         run: |
+          echo "TEST_VALUE=$TEST_VALUE" 
+          echo "TEST_VALUE=${{ needs.build-tests.outputs.test_value }}"
           if [ -n "$PYROSCOPE_SERVER" ]; then
             pyroscope_enabled=true
           else
