@@ -72,22 +72,14 @@ jobs:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
+          go_tags: embed
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           binary_name: tests
-      # We need to provide TOML configs to test execution step, because tests binary doesn't containt them
-      # and we need these default values if we don't want to create them in flight
-      - name: Gather TOML config files
-        run: |        
-          set -x          
-          ./.github/scripts/copy_toml.sh 'default ocr' ./integration-tests ./toml_configs
-          cd ./toml_configs && zip -j toml_configs.zip ./*
-          pwd
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v3
-        with:
-          name: toml_configs
-          path: ./toml_configs/toml_configs.zip
+      - name: Output shared functions
+        run: |      
+          FUNCTIONS=$(cat ./.github/scripts/functions.sh | base64 -w0)
+          echo "base64_functions=$FUNCTIONS" >> $GITHUB_OUTPUT
 
   # End Build Test Dependencies
 
@@ -158,12 +150,6 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Download TOML configs artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: toml_configs          
-      - name: Unzip artifact with TOML configs
-        run: unzip toml_configs.zip
       - name: Prepare Base64 TOML config
         env:
           SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
@@ -173,8 +159,8 @@ jobs:
           ETH2_EL_CLIENT: ${{matrix.client}}
           CHAINLINK_VERSION: ${{ github.sha }}
         run: |
-          # load reusable functions
-          source ./.github/scripts/functions.sh
+          # load reusable functions from job output, base64 and make them available to shell via source
+          source <(echo "${{ needs.build-tests.outputs.base64_functions }}" | base64 -d)
         
           selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
 
