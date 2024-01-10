@@ -215,7 +215,11 @@ jobs:
           key="$PYROSCOPE_KEY"
           
           [PrivateEthereumNetwork]
-          execution_layer="$execution_layer"          
+          execution_layer="$execution_layer"
+
+          [PrivateEthereumNetwork.EthereumChainConfig]
+          seconds_per_slot=3
+          slots_per_epoch=1         
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
