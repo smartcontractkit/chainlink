@@ -67,11 +67,10 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DB:               ccOpts.DB,
-			QConfig:          ccOpts.AppConfig.Database(),
-			CSAETHKeystore:   config.CSAETHKeystore,
-			EventBroadcaster: ccOpts.EventBroadcaster,
-			MercuryPool:      r.MercuryPool,
+			DB:             ccOpts.DB,
+			QConfig:        ccOpts.AppConfig.Database(),
+			CSAETHKeystore: config.CSAETHKeystore,
+			MercuryPool:    r.MercuryPool,
 		}
 		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {

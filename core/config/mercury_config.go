@@ -12,7 +12,12 @@ type MercuryCache interface {
 	LatestReportDeadline() time.Duration
 }
 
+type MercuryTLS interface {
+	CertFile() string
+}
+
 type Mercury interface {
 	Credentials(credName string) *ocr2models.MercuryCredentials
 	Cache() MercuryCache
+	TLS() MercuryTLS
 }

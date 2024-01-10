@@ -25,6 +25,7 @@ import (
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -362,7 +363,17 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if simulateResult.Success {
 		resolveEligible()
 	} else {
-		resolveIneligible("simulate perform upkeep unsuccessful")
+		// Convert performGas to *big.Int for comparison
+		performGasBigInt := new(big.Int).SetUint64(uint64(upkeepInfo.PerformGas))
+		// Compare PerformGas and GasUsed
+		result := performGasBigInt.Cmp(simulateResult.GasUsed)
+
+		if result < 0 {
+			// PerformGas is smaller than GasUsed
+			resolveIneligible(fmt.Sprintf("simulate perform upkeep unsuccessful, PerformGas (%d) is lower than GasUsed (%s)", upkeepInfo.PerformGas, simulateResult.GasUsed.String()))
+		} else {
+			resolveIneligible("simulate perform upkeep unsuccessful")
+		}
 	}
 }
 

@@ -1304,12 +1304,37 @@ func (mc *MercuryCache) setFrom(f *MercuryCache) {
 	}
 }
 
+type MercuryTLS struct {
+	CertFile *string
+}
+
+func (m *MercuryTLS) setFrom(f *MercuryTLS) {
+	if v := f.CertFile; v != nil {
+		m.CertFile = v
+	}
+}
+
+func (m *MercuryTLS) ValidateConfig() (err error) {
+	if *m.CertFile != "" {
+		if !isValidFilePath(*m.CertFile) {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "CertFile", Value: *m.CertFile, Msg: "must be a valid file path"})
+		}
+	}
+	return
+}
+
 type Mercury struct {
 	Cache MercuryCache `toml:",omitempty"`
+	TLS   MercuryTLS   `toml:",omitempty"`
 }
 
 func (m *Mercury) setFrom(f *Mercury) {
 	m.Cache.setFrom(&f.Cache)
+	m.TLS.setFrom(&f.TLS)
+}
+
+func (m *Mercury) ValidateConfig() (err error) {
+	return m.TLS.ValidateConfig()
 }
 
 type MercuryCredentials struct {
