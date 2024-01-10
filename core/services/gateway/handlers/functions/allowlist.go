@@ -22,7 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const defaultAllowlistCacheBatchSize = 100
+const (
+	defaultStoredAllowlistBatchSize  = 100
+	defaultOnchainAllowlistBatchSize = 100
+)
 
 type OnchainAllowlistConfig struct {
 	// ContractAddress is required
@@ -30,9 +33,10 @@ type OnchainAllowlistConfig struct {
 	ContractVersion    uint32         `json:"contractVersion"`
 	BlockConfirmations uint           `json:"blockConfirmations"`
 	// UpdateFrequencySec can be zero to disable periodic updates
-	UpdateFrequencySec uint `json:"updateFrequencySec"`
-	UpdateTimeoutSec   uint `json:"updateTimeoutSec"`
-	CacheBatchSize     uint `json:"cacheBatchSize"`
+	UpdateFrequencySec        uint `json:"updateFrequencySec"`
+	UpdateTimeoutSec          uint `json:"updateTimeoutSec"`
+	StoredAllowlistBatchSize  uint `json:"storedAllowlistBatchSize"`
+	OnchainAllowlistBatchSize uint `json:"onchainAllowlistBatchSize"`
 }
 
 // OnchainAllowlist maintains an allowlist of addresses fetched from the blockchain (EVM-only).
@@ -73,10 +77,16 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 		return nil, fmt.Errorf("unsupported contract version %d", config.ContractVersion)
 	}
 
-	// if CacheBatchSize is not specified used the default value
-	if config.CacheBatchSize == 0 {
-		lggr.Info("CacheBatchSize not specified, using default size: ", defaultAllowlistCacheBatchSize)
-		config.CacheBatchSize = defaultAllowlistCacheBatchSize
+	// if StoredAllowlistBatchSize is not specified used the default value
+	if config.StoredAllowlistBatchSize == 0 {
+		lggr.Info("StoredAllowlistBatchSize not specified, using default size: ", defaultStoredAllowlistBatchSize)
+		config.StoredAllowlistBatchSize = defaultStoredAllowlistBatchSize
+	}
+
+	// if OnchainAllowlistBatchSize is not specified used the default value
+	if config.OnchainAllowlistBatchSize == 0 {
+		lggr.Info("OnchainAllowlistBatchSize not specified, using default size: ", defaultOnchainAllowlistBatchSize)
+		config.OnchainAllowlistBatchSize = defaultOnchainAllowlistBatchSize
 	}
 
 	contractV1, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
@@ -113,7 +123,7 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 			cancel()
 		}
 
-		a.loadCachedAllowedList()
+		a.loadStoredAllowedSenderList()
 
 		a.closeWait.Add(1)
 		go func() {
@@ -197,8 +207,8 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	}
 
 	allowedSenderList := make([]common.Address, 0)
-	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.CacheBatchSize) {
-		idxEnd := idxStart + uint64(a.config.CacheBatchSize)
+	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
+		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
 		if idxEnd >= count {
 			idxEnd = count - 1
 		}
@@ -216,7 +226,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	}
 
 	a.update(allowedSenderList)
-	a.updateCache(allowedSenderList)
+	a.updateStoredAllowedSenderList(allowedSenderList)
 	return nil
 }
 
@@ -229,29 +239,30 @@ func (a *onchainAllowlist) update(addrList []common.Address) {
 	a.lggr.Infow("allowlist updated successfully", "len", len(addrList))
 }
 
-func (a *onchainAllowlist) updateCache(addrList []common.Address) {
+func (a *onchainAllowlist) updateStoredAllowedSenderList(addrList []common.Address) {
 	for id, addr := range addrList {
 		if err := a.orm.UpsertAllowedSender(uint64(id), addr); err != nil {
-			a.lggr.Errorf("failed to update cache: %w", err)
+			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
 	}
 }
 
-func (a *onchainAllowlist) loadCachedAllowedList() {
+func (a *onchainAllowlist) loadStoredAllowedSenderList() {
 	allowedList := make([]common.Address, 0)
 	offset := uint(0)
 	for {
-		asBatch, err := a.orm.GetAllowedSenders(offset, a.config.CacheBatchSize)
+		asBatch, err := a.orm.GetAllowedSenders(offset, a.config.StoredAllowlistBatchSize)
 		if err != nil {
+			a.lggr.Errorf("failed to get stored allowed senders: %w", err)
 			break
 		}
 
 		allowedList = append(allowedList, asBatch...)
 
-		if len(asBatch) != int(a.config.CacheBatchSize) {
+		if len(asBatch) != int(a.config.StoredAllowlistBatchSize) {
 			break
 		}
-		offset += a.config.CacheBatchSize
+		offset += a.config.StoredAllowlistBatchSize
 	}
 
 	a.update(allowedList)

@@ -130,12 +130,13 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 			cancel()
 		}).Return(sampleEncodedAllowlist(t), nil)
 		config := functions.OnchainAllowlistConfig{
-			ContractAddress:    common.Address{},
-			ContractVersion:    1,
-			BlockConfirmations: 1,
-			UpdateFrequencySec: 1,
-			UpdateTimeoutSec:   1,
-			CacheBatchSize:     2,
+			ContractAddress:           common.Address{},
+			ContractVersion:           1,
+			BlockConfirmations:        1,
+			UpdateFrequencySec:        1,
+			UpdateTimeoutSec:          1,
+			StoredAllowlistBatchSize:  2,
+			OnchainAllowlistBatchSize: 2,
 		}
 
 		orm := fmocks.NewORM(t)
