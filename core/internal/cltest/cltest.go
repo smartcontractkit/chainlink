@@ -360,10 +360,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:        cfg,
-			EventBroadcaster: eventBroadcaster,
-			MailMon:          mailMon,
-			DB:               db,
+			AppConfig: cfg,
+			MailMon:   mailMon,
+			DB:        db,
 		},
 		CSAETHKeystore: keyStore,
 	}

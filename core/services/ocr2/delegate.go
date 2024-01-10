@@ -190,6 +190,7 @@ type jobPipelineConfig interface {
 type mercuryConfig interface {
 	Credentials(credName string) *models.MercuryCredentials
 	Cache() coreconfig.MercuryCache
+	TLS() coreconfig.MercuryTLS
 }
 
 type thresholdConfig interface {
@@ -227,7 +228,6 @@ func NewDelegate(
 	ethKs keystore.Eth,
 	relayers RelayGetter,
 	mailMon *mailbox.Monitor,
-	eventBroadcaster pg.EventBroadcaster,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
