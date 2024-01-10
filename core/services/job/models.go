@@ -361,7 +361,7 @@ func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
 
 func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
 	if s.ChainID != "" {
-		return relay.ChainID(s.ChainID), nil
+		return s.ChainID, nil
 	}
 	// backward compatible job spec
 	return s.getChainIdFromRelayConfig()
@@ -375,13 +375,13 @@ func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (relay.ChainID, error) {
 	}
 	switch t := v.(type) {
 	case string:
-		return relay.ChainID(t), nil
+		return t, nil
 	case int, int64, int32:
-		return relay.ChainID(fmt.Sprintf("%d", v)), nil
+		return fmt.Sprintf("%d", v), nil
 	case float64:
 		// backward compatibility with JSONConfig.EVMChainID
 		i := int64(t)
-		return relay.ChainID(strconv.FormatInt(i, 10)), nil
+		return strconv.FormatInt(i, 10), nil
 
 	default:
 		return "", fmt.Errorf("unable to parse chainID: unexpected type %T", t)

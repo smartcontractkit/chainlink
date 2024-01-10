@@ -214,8 +214,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
 			expectedEVMRelayerIds: []relay.ID{
-				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
-				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
+				{Network: relay.EVM, ChainID: evmChainID1.String()},
+				{Network: relay.EVM, ChainID: evmChainID2.String()},
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}},
 		},
@@ -230,8 +230,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
 			expectedSolanaRelayerIds: []relay.ID{
-				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
-				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
+				{Network: relay.Solana, ChainID: solanaChainID1},
+				{Network: relay.Solana, ChainID: solanaChainID2},
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.Solana: {}},
 		},
@@ -246,8 +246,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			expectedStarknetChainCnt: 2,
 			expectedStarknetNodeCnt:  4,
 			expectedStarknetRelayerIds: []relay.ID{
-				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
-				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
+				{Network: relay.StarkNet, ChainID: starknetChainID1},
+				{Network: relay.StarkNet, ChainID: starknetChainID2},
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.StarkNet: {}},
 		},
@@ -264,8 +264,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
 			expectedCosmosRelayerIds: []relay.ID{
-				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
-				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
+				{Network: relay.Cosmos, ChainID: cosmosChainID1},
+				{Network: relay.Cosmos, ChainID: cosmosChainID2},
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.Cosmos: {}},
 		},
@@ -297,29 +297,29 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
 			expectedEVMRelayerIds: []relay.ID{
-				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
-				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
+				{Network: relay.EVM, ChainID: evmChainID1.String()},
+				{Network: relay.EVM, ChainID: evmChainID2.String()},
 			},
 
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
 			expectedSolanaRelayerIds: []relay.ID{
-				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
-				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
+				{Network: relay.Solana, ChainID: solanaChainID1},
+				{Network: relay.Solana, ChainID: solanaChainID2},
 			},
 
 			expectedStarknetChainCnt: 2,
 			expectedStarknetNodeCnt:  4,
 			expectedStarknetRelayerIds: []relay.ID{
-				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
-				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
+				{Network: relay.StarkNet, ChainID: starknetChainID1},
+				{Network: relay.StarkNet, ChainID: starknetChainID2},
 			},
 
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
 			expectedCosmosRelayerIds: []relay.ID{
-				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
-				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
+				{Network: relay.Cosmos, ChainID: cosmosChainID1},
+				{Network: relay.Cosmos, ChainID: cosmosChainID2},
 			},
 
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}, relay.Cosmos: {}, relay.Solana: {}, relay.StarkNet: {}},
