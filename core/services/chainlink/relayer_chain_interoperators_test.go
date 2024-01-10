@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -45,22 +44,22 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		cfg := evmcfg.Defaults(evmChainID1)
 		node1_1 := evmcfg.Node{
 			Name:     ptr("Test node chain1:1"),
-			WSURL:    models.MustParseURL("ws://localhost:8546"),
-			HTTPURL:  models.MustParseURL("http://localhost:8546"),
+			WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
+			HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(15)),
 		}
 		node1_2 := evmcfg.Node{
 			Name:     ptr("Test node chain1:2"),
-			WSURL:    models.MustParseURL("ws://localhost:8547"),
-			HTTPURL:  models.MustParseURL("http://localhost:8547"),
+			WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+			HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(36)),
 		}
 		node2_1 := evmcfg.Node{
 			Name:     ptr("Test node chain2:1"),
-			WSURL:    models.MustParseURL("ws://localhost:8547"),
-			HTTPURL:  models.MustParseURL("http://localhost:8547"),
+			WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+			HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(11)),
 		}
@@ -85,7 +84,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 1 node 1"),
-					URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8547").URL())),
+					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
 				}},
 			},
 			&solana.TOMLConfig{
@@ -94,7 +93,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 2 node 1"),
-					URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8527").URL())),
+					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8527").URL())),
 				}},
 			},
 		}
@@ -107,15 +106,15 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 1 node 1"),
-						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8547").URL())),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
 					},
 					{
 						Name: ptr("starknet chain 1 node 2"),
-						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8548").URL())),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8548").URL())),
 					},
 					{
 						Name: ptr("starknet chain 1 node 3"),
-						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:8549").URL())),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8549").URL())),
 					},
 				},
 			},
@@ -126,7 +125,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 2 node 1"),
-						URL:  ((*commoncfg.URL)(models.MustParseURL("http://localhost:3547").URL())),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:3547").URL())),
 					},
 				},
 			},
@@ -144,7 +143,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 1 node 1"),
-						TendermintURL: (*commoncfg.URL)(models.MustParseURL("http://localhost:9548").URL()),
+						TendermintURL: (*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:9548").URL()),
 					},
 				},
 			},
@@ -159,7 +158,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 2 node 1"),
-						TendermintURL: (*commoncfg.URL)(models.MustParseURL("http://localhost:9598").URL()),
+						TendermintURL: (*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:9598").URL()),
 					},
 				},
 			},
