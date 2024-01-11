@@ -76,7 +76,7 @@ jobs:
             echo "labels=${LABELS}" | tee -a "${GITHUB_OUTPUT}"
           fi
 
-      - name: setup-gap
+      - name: Setup GAP
         if: contains(steps.pr-labels.outputs.labels, 'crib')
         uses: smartcontractkit/.github/actions/setup-gap@main
         with:
