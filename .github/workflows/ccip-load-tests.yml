@@ -108,18 +108,60 @@ jobs:
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       SELECTED_NETWORKS: SIMULATED
-      EVM_KEYS: ${{ secrets.QA_EVM_KEYS }} # replace it with input parameter once debug log is updated to not print the key
       TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests
-      GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
+
+      EVM_KEYS: ${{ secrets.QA_EVM_KEYS }} # replace it with input parameter once debug log is updated to not print the key
       OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
       OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
+      OPTIMISM_SEPOLIA_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
+      OPTIMISM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
+      OPTIMISM_MAINNET_URLS: ${{ secrets.QA_OPTIMISM_MAINNET_URLS }}
+      OPTIMISM_MAINNET_HTTP_URLS: ${{ secrets.QA_OPTIMISM_MAINNET_HTTP_URLS }}
+
       SEPOLIA_URLS: ${{ secrets.QA_SEPOLIA_URLS }}
       SEPOLIA_HTTP_URLS: ${{ secrets.QA_SEPOLIA_HTTP_URLS }}
+      ETHEREUM_MAINNET_URLS: ${{ secrets.QA_ETHEREUM_MAINNET_URLS }}
+      ETHEREUM_MAINNET_HTTP_URLS: ${{ secrets.QA_ETHEREUM_MAINNET_HTTP_URLS }}
+
       AVALANCHE_FUJI_URLS: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
       AVALANCHE_FUJI_HTTP_URLS: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
+      AVALANCHE_MAINNET_URLS: ${{ secrets.QA_AVALANCHE_MAINNET_URLS }}
+      AVALANCHE_MAINNET_HTTP_URLS: ${{ secrets.QA_AVALANCHE_MAINNET_HTTP_URLS }}
+
+      ARBITRUM_SEPOLIA_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
+      ARBITRUM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
+      ARBITRUM_MAINNET_URLS: ${{ secrets.QA_ARBITRUM_MAINNET_URLS }}
+      ARBITRUM_MAINNET_HTTP_URLS: ${{ secrets.QA_ARBITRUM_MAINNET_HTTP_URLS }}
+
+      BASE_GOERLI_URLS: ${{ secrets.QA_BASE_GOERLI_URLS }}
+      BASE_GOERLI_HTTP_URLS: ${{ secrets.QA_BASE_GOERLI_HTTP_URLS }}
+      BASE_SEPOLIA_URLS: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
+      BASE_SEPOLIA_HTTP_URLS: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
+      BASE_MAINNET_URLS: ${{ secrets.QA_BASE_MAINNET_URLS }}
+      BASE_MAINNET_HTTP_URLS: ${{ secrets.QA_BASE_MAINNET_HTTP_URLS }}
+
+      BSC_TESTNET_URLS: ${{ secrets.QA_BSC_TESTNET_URLS }}
+      BSC_TESTNET_HTTP_URLS: ${{ secrets.QA_BSC_TESTNET_HTTP_URLS }}
+      BSC_MAINNET_URLS: ${{ secrets.QA_BSC_MAINNET_URLS }}
+      BSC_MAINNET_HTTP_URLS: ${{ secrets.QA_BSC_MAINNET_HTTP_URLS }}
+
+      POLYGON_MUMBAI_URLS: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
+      POLYGON_MUMBAI_HTTP_URLS: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
+      POLYGON_MAINNET_URLS: ${{ secrets.QA_POLYGON_MAINNET_URLS }}
+      POLYGON_MAINNET_HTTP_URLS: ${{ secrets.QA_POLYGON_MAINNET_HTTP_URLS }}
+
+      WEMIX_TESTNET_URLS: ${{ secrets.QA_WEMIX_TESTNET_URLS }}
+      WEMIX_TESTNET_HTTP_URLS: ${{ secrets.QA_WEMIX_TESTNET_HTTP_URLS }}
+      WEMIX_MAINNET_URLS: ${{ secrets.QA_WEMIX_MAINNET_URLS }}
+      WEMIX_MAINNET_HTTP_URLS: ${{ secrets.QA_WEMIX_MAINNET_HTTP_URLS }}
+
+      KROMA_SEPOLIA_URLS: ${{ secrets.QA_KROMA_SEPOLIA_URLS }}
+      KROMA_SEPOLIA_HTTP_URLS: ${{ secrets.QA_KROMA_SEPOLIA_HTTP_URLS }}
+      KROMA_MAINNET_URLS: ${{ secrets.QA_KROMA_MAINNET_URLS }}
+      KROMA_MAINNET_HTTP_URLS: ${{ secrets.QA_KROMA_MAINNET_HTTP_URLS }}
+
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
