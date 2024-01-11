@@ -35,15 +35,15 @@ on:
           - "MUMBAI"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
-        required: true
+        required: false
         type: string
       wsURL:
         description: WS URL for the network (Skip for Simulated)
-        required: true
+        required: false
         type: string
       httpURL:
         description: HTTP URL for the network (Skip for Simulated)
-        required: true
+        required: false
         type: string        
 
 jobs:
