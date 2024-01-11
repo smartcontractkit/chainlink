@@ -154,6 +154,7 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 	if err != nil {
 		return errors.Wrap(err, "error preparing named statement")
 	}
+	defer stmt.Close()
 	return errors.Wrap(stmt.QueryRowx(arg).Scan(dest), "error querying row")
 }
 

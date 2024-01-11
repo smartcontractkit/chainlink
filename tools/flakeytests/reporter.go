@@ -2,6 +2,7 @@ package flakeytests
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -138,14 +139,14 @@ func (l *LokiReporter) createRequest(report *Report) (pushRequest, error) {
 	return pr, nil
 }
 
-func (l *LokiReporter) makeRequest(pushReq pushRequest) error {
+func (l *LokiReporter) makeRequest(ctx context.Context, pushReq pushRequest) error {
 	body, err := json.Marshal(pushReq)
 	if err != nil {
 		return err
 	}
 
 	u := url.URL{Scheme: "https", Host: l.host, Path: "loki/api/v1/push"}
-	req, err := http.NewRequest("POST", u.String(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -167,13 +168,13 @@ func (l *LokiReporter) makeRequest(pushReq pushRequest) error {
 	return err
 }
 
-func (l *LokiReporter) Report(report *Report) error {
+func (l *LokiReporter) Report(ctx context.Context, report *Report) error {
 	pushReq, err := l.createRequest(report)
 	if err != nil {
 		return err
 	}
 
-	return l.makeRequest(pushReq)
+	return l.makeRequest(ctx, pushReq)
 }
 
 func NewLokiReporter(host, auth, command string, ctx Context) *LokiReporter {

@@ -38,6 +38,7 @@ import (
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
 	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 
@@ -54,7 +55,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 			sr := sessions.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
 			tca := cmd.NewSessionCookieAuthenticator(cmd.ClientOpts{}, store, logger.TestLogger(t))
-			cookie, err := tca.Authenticate(sr)
+			cookie, err := tca.Authenticate(ctx, sr)
 
 			assert.Error(t, err)
 			assert.Nil(t, cookie)
@@ -68,8 +69,9 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 
@@ -87,7 +89,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 			sr := sessions.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
 			tca := cmd.NewSessionCookieAuthenticator(app.NewClientOpts(), store, logger.TestLogger(t))
-			cookie, err := tca.Authenticate(sr)
+			cookie, err := tca.Authenticate(ctx, sr)
 
 			if test.wantError {
 				assert.Error(t, err)
