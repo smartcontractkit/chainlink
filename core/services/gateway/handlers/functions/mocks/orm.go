@@ -15,6 +15,31 @@ type ORM struct {
 	mock.Mock
 }
 
+// CreateAllowedSender provides a mock function with given fields: allowedSender, qopts
+func (_m *ORM) CreateAllowedSender(allowedSender common.Address, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, allowedSender)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateAllowedSender")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(common.Address, ...pg.QOpt) error); ok {
+		r0 = rf(allowedSender, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetAllowedSenders provides a mock function with given fields: offset, limit, qopts
 func (_m *ORM) GetAllowedSenders(offset uint, limit uint, qopts ...pg.QOpt) ([]common.Address, error) {
 	_va := make([]interface{}, len(qopts))
@@ -87,31 +112,6 @@ func (_m *ORM) GetSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]fu
 	}
 
 	return r0, r1
-}
-
-// UpsertAllowedSender provides a mock function with given fields: id, allowedSender, qopts
-func (_m *ORM) UpsertAllowedSender(id uint64, allowedSender common.Address, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, id, allowedSender)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpsertAllowedSender")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, common.Address, ...pg.QOpt) error); ok {
-		r0 = rf(id, allowedSender, qopts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // UpsertSubscription provides a mock function with given fields: subscription, qopts

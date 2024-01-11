@@ -240,8 +240,8 @@ func (a *onchainAllowlist) update(addrList []common.Address) {
 }
 
 func (a *onchainAllowlist) updateStoredAllowedSenderList(addrList []common.Address) {
-	for id, addr := range addrList {
-		if err := a.orm.UpsertAllowedSender(uint64(id), addr); err != nil {
+	for _, addr := range addrList {
+		if err := a.orm.CreateAllowedSender(addr); err != nil {
 			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
 	}
