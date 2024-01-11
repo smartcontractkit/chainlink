@@ -289,13 +289,13 @@ jobs:
           key="$PYROSCOPE_KEY"
 
           [RpcHttpUrls]
-          sepolia = $(convert_to_toml_array "$SEPOLIA_HTTP_URLS")
+          sepolia = $(convert_to_toml_array "http://localhost:6688")
 
           [RpcWsUrls]
-          sepolia = $(convert_to_toml_array "$SEPOLIA_URLS")
+          sepolia = $(convert_to_toml_array "ws://localhost:6689")
 
           [WalletKeys]
-          sepolia = $(convert_to_toml_array "$EVM_KEYS")
+          sepolia = $(convert_to_toml_array "0x0")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
