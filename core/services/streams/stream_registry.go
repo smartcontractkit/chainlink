@@ -8,11 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-type StreamID string
-
-func (s StreamID) String() string {
-	return string(s)
-}
+type StreamID = string
 
 type Registry interface {
 	Get(streamID StreamID) (strm Stream, exists bool)
