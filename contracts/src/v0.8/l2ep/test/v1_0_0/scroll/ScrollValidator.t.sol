@@ -12,9 +12,6 @@ contract ScrollValidatorTest is L2EPTest {
   address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = 0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b;
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
 
-  /// Helper variable(s)
-  address internal s_eoaValidator = vm.addr(0x2);
-
   /// L2EP contracts
   MockScrollL1CrossDomainMessenger internal s_mockScrollL1CrossDomainMessenger;
   MockScrollL2CrossDomainMessenger internal s_mockScrollL2CrossDomainMessenger;
@@ -50,7 +47,7 @@ contract ScrollValidatorTest is L2EPTest {
   }
 }
 
-contract ScrollValidatorSetGasLimit is ScrollValidatorTest {
+contract ScrollValidator_SetGasLimit is ScrollValidatorTest {
   /// @notice it correctly updates the gas limit
   function test_CorrectlyUpdatesTheGasLimit() public {
     uint32 newGasLimit = 2000000;
@@ -60,7 +57,7 @@ contract ScrollValidatorSetGasLimit is ScrollValidatorTest {
   }
 }
 
-contract ScrollValidatorValidate is ScrollValidatorTest {
+contract ScrollValidator_Validate is ScrollValidatorTest {
   /// @notice it reverts if called by account with no access
   function test_RevertsIfCalledByAnAccountWithNoAccess() public {
     vm.startPrank(s_strangerAddr);

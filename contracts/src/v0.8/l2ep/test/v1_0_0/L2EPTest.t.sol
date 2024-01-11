@@ -8,6 +8,9 @@ import {Test} from "forge-std/Test.sol";
 contract L2EPTest is Test {
   /// Helper variable(s)
   address internal s_strangerAddr = vm.addr(0x1);
+  address internal s_l1OwnerAddr = vm.addr(0x2);
+  address internal s_eoaValidator = vm.addr(0x3);
+  address internal s_deployerAddr = vm.addr(0x4);
 
   /// @param expectedGasUsage - the expected gas usage
   /// @param startGasUsage - the gas usage before the code of interest is run

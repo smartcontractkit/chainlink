@@ -8,7 +8,6 @@ import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ArbitrumCrossDomainGovernorTest is L2EPTest {
   /// Helper variable(s)
-  address internal s_l1OwnerAddr = vm.addr(0x2);
   address internal s_crossDomainMessengerAddr = toArbitrumL2AliasAddress(s_l1OwnerAddr);
   address internal s_newOwnerCrossDomainMessengerAddr = toArbitrumL2AliasAddress(s_strangerAddr);
 
@@ -32,7 +31,7 @@ contract ArbitrumCrossDomainGovernorTest is L2EPTest {
   }
 }
 
-contract ArbitrumCrossDomainGovernorConstructor is ArbitrumCrossDomainGovernorTest {
+contract ArbitrumCrossDomainGovernor_Constructor is ArbitrumCrossDomainGovernorTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
     // it should set the owner correctly
@@ -49,7 +48,7 @@ contract ArbitrumCrossDomainGovernorConstructor is ArbitrumCrossDomainGovernorTe
   }
 }
 
-contract ArbitrumCrossDomainGovernorForward is ArbitrumCrossDomainGovernorTest {
+contract ArbitrumCrossDomainGovernor_Forward is ArbitrumCrossDomainGovernorTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
     vm.startPrank(s_strangerAddr);
@@ -107,7 +106,7 @@ contract ArbitrumCrossDomainGovernorForward is ArbitrumCrossDomainGovernorTest {
   }
 }
 
-contract ArbitrumCrossDomainGovernorForwardDelegate is ArbitrumCrossDomainGovernorTest {
+contract ArbitrumCrossDomainGovernor_ForwardDelegate is ArbitrumCrossDomainGovernorTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
     vm.startPrank(s_strangerAddr);
@@ -184,7 +183,7 @@ contract ArbitrumCrossDomainGovernorForwardDelegate is ArbitrumCrossDomainGovern
   }
 }
 
-contract ArbitrumCrossDomainGovernorTransferL1Ownership is ArbitrumCrossDomainGovernorTest {
+contract ArbitrumCrossDomainGovernor_TransferL1Ownership is ArbitrumCrossDomainGovernorTest {
   /// @notice it should not be callable by non-owners
   function test_NotCallableByNonOwners() public {
     vm.startPrank(s_strangerAddr);
@@ -227,7 +226,7 @@ contract ArbitrumCrossDomainGovernorTransferL1Ownership is ArbitrumCrossDomainGo
   }
 }
 
-contract ArbitrumCrossDomainGovernorAcceptL1Ownership is ArbitrumCrossDomainGovernorTest {
+contract ArbitrumCrossDomainGovernor_AcceptL1Ownership is ArbitrumCrossDomainGovernorTest {
   /// @notice it should not be callable by non pending-owners
   function test_NotCallableByNonPendingOwners() public {
     // Sets msg.sender and tx.origin

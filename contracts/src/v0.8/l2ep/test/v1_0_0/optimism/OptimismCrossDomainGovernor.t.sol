@@ -8,9 +8,6 @@ import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract OptimismCrossDomainGovernorTest is L2EPTest {
-  /// Helper variable(s)
-  address internal s_l1OwnerAddr = vm.addr(0x2);
-
   /// Contracts
   MockOVMCrossDomainMessenger internal s_mockOptimismCrossDomainMessenger;
   OptimismCrossDomainGovernor internal s_optimismCrossDomainGovernor;
@@ -33,7 +30,7 @@ contract OptimismCrossDomainGovernorTest is L2EPTest {
   }
 }
 
-contract OptimismCrossDomainGovernorConstructor is OptimismCrossDomainGovernorTest {
+contract OptimismCrossDomainGovernor_Constructor is OptimismCrossDomainGovernorTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
     // it should set the owner correctly
@@ -50,7 +47,7 @@ contract OptimismCrossDomainGovernorConstructor is OptimismCrossDomainGovernorTe
   }
 }
 
-contract OptimismCrossDomainGovernorForward is OptimismCrossDomainGovernorTest {
+contract OptimismCrossDomainGovernor_Forward is OptimismCrossDomainGovernorTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
     vm.startPrank(s_strangerAddr);
@@ -110,7 +107,7 @@ contract OptimismCrossDomainGovernorForward is OptimismCrossDomainGovernorTest {
   }
 }
 
-contract OptimismCrossDomainGovernorForwardDelegate is OptimismCrossDomainGovernorTest {
+contract OptimismCrossDomainGovernor_ForwardDelegate is OptimismCrossDomainGovernorTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
     vm.startPrank(s_strangerAddr);
@@ -198,7 +195,7 @@ contract OptimismCrossDomainGovernorForwardDelegate is OptimismCrossDomainGovern
   }
 }
 
-contract OptimismCrossDomainGovernorTransferL1Ownership is OptimismCrossDomainGovernorTest {
+contract OptimismCrossDomainGovernor_TransferL1Ownership is OptimismCrossDomainGovernorTest {
   /// @notice it should not be callable by non-owners
   function test_NotCallableByNonOwners() public {
     vm.startPrank(s_strangerAddr);
@@ -249,7 +246,7 @@ contract OptimismCrossDomainGovernorTransferL1Ownership is OptimismCrossDomainGo
   }
 }
 
-contract OptimismCrossDomainGovernorAcceptL1Ownership is OptimismCrossDomainGovernorTest {
+contract OptimismCrossDomainGovernor_AcceptL1Ownership is OptimismCrossDomainGovernorTest {
   /// @notice it should not be callable by non pending-owners
   function test_NotCallableByNonPendingOwners() public {
     // Sets msg.sender and tx.origin

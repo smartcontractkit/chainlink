@@ -1,7 +1,7 @@
 # Overview
 
 This folder contains the source code and tests for the Layer 2
-Exchange Protocol (L2EP) contracts. It is organized as follows:
+Emergency Protocol (L2EP) contracts. It is organized as follows:
 
 ```text
 .
@@ -78,9 +78,14 @@ The name of the base contract follows the following convention:
 <NameOfContractBeingTested>Test
 ```
 
-The child contract names do not follow a naming convention, but they should
-broadly describe the tests defined within it. Each test function follows the
-same pattern:
+The child contract names follow a similar convention:
+
+```text
+<NameOfContractBeingTested>_<Name>
+```
+
+Each test function within the child contract complies
+with the following naming pattern:
 
 ```text
 test_<NameOfTest>
@@ -116,12 +121,18 @@ Or alternatively:
 FOUNDRY_PROFILE=l2ep forge test -vvv --match-contract ScrollSequencerUptimeFeed
 ```
 
-If yu prefer, you can also export `FOUNDRY_PROFILE` so that it doesn't need
+If you prefer, you can also export `FOUNDRY_PROFILE` so that it doesn't need
 to be provided before every command:
 
 ```sh
+# Export foundry profile
 export FOUNDRY_PROFILE=l2ep
+
+# Run all tests
 forge test -vvv
+
+# Run all tests and generate a gas snapshot
+make snapshot
 ```
 
 A full list of flags for `forge test` can be found [here](https://book.getfoundry.sh/reference/forge/forge-test).

@@ -13,9 +13,7 @@ contract ArbitrumSequencerUptimeFeedTest is L2EPTest {
   uint256 internal constant GAS_USED_DEVIATION = 100;
 
   /// Helper variable(s)
-  address internal s_mockL1OwnerAddr = vm.addr(0x2);
-  address internal s_deployerAddr = vm.addr(0x3);
-  address internal s_l2MessengerAddr = toArbitrumL2AliasAddress(s_mockL1OwnerAddr);
+  address internal s_l2MessengerAddr = toArbitrumL2AliasAddress(s_l1OwnerAddr);
 
   /// L2EP contracts
   ArbitrumSequencerUptimeFeed internal s_arbitrumSequencerUptimeFeed;
@@ -35,7 +33,7 @@ contract ArbitrumSequencerUptimeFeedTest is L2EPTest {
 
     s_accessController = new SimpleWriteAccessController();
     s_flags = new Flags(address(s_accessController), address(s_accessController));
-    s_arbitrumSequencerUptimeFeed = new ArbitrumSequencerUptimeFeed(address(s_flags), s_mockL1OwnerAddr);
+    s_arbitrumSequencerUptimeFeed = new ArbitrumSequencerUptimeFeed(address(s_flags), s_l1OwnerAddr);
 
     s_accessController.addAccess(address(s_arbitrumSequencerUptimeFeed));
     s_accessController.addAccess(address(s_flags));
@@ -50,14 +48,14 @@ contract ArbitrumSequencerUptimeFeedTest is L2EPTest {
   }
 }
 
-contract ArbitrumSequencerUptimeFeedConstants is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeed_Constants is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should have the correct value for FLAG_L2_SEQ_OFFLINE'
   function test_InitialState() public {
     assertEq(s_arbitrumSequencerUptimeFeed.FLAG_L2_SEQ_OFFLINE(), 0xa438451D6458044c3c8CD2f6f31c91ac882A6d91);
   }
 }
 
-contract ArbitrumSequencerUptimeFeedUpdateStatus is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeed_UpdateStatus is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
   function test_RevertIfNotL2CrossDomainMessengerAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
@@ -135,7 +133,7 @@ contract ArbitrumSequencerUptimeFeedUpdateStatus is ArbitrumSequencerUptimeFeedT
   }
 }
 
-contract ArbitrumSequencerUptimeFeedAggregatorV3Interface is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeed_AggregatorV3Interface is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should return valid answer from getRoundData and latestRoundData
   function test_AggregatorV3Interface() public {
     // Sets msg.sender and tx.origin to a valid address
@@ -191,7 +189,7 @@ contract ArbitrumSequencerUptimeFeedAggregatorV3Interface is ArbitrumSequencerUp
   /// @notice it should revert from #getRoundData when round does not yet exist (future roundId)
   function test_Return0WhenRoundDoesNotExistYet() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
     (
@@ -211,7 +209,7 @@ contract ArbitrumSequencerUptimeFeedAggregatorV3Interface is ArbitrumSequencerUp
   }
 }
 
-contract ArbitrumSequencerUptimeFeedProtectReadsOnAggregatorV2V3InterfaceFunctions is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFunctions is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should disallow reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted
   function test_AggregatorV2V3InterfaceDisallowReadsIfConsumingContractIsNotWhitelisted() public {
     // Deploys a FeedConsumer contract
@@ -249,7 +247,7 @@ contract ArbitrumSequencerUptimeFeedProtectReadsOnAggregatorV2V3InterfaceFunctio
   }
 }
 
-contract ArbitrumSequencerUptimeFeedGasCosts is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeed_GasCosts is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should consume a known amount of gas for updates
   function test_GasCosts() public {
     // Sets msg.sender and tx.origin to a valid address
@@ -282,7 +280,7 @@ contract ArbitrumSequencerUptimeFeedGasCosts is ArbitrumSequencerUptimeFeedTest 
   }
 }
 
-contract ArbitrumSequencerUptimeFeedAggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
+contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequencerUptimeFeedTest {
   /// @notice it should consume a known amount of gas for getRoundData(uint80)
   function test_GasUsageForGetRoundData() public {
     // Sets msg.sender and tx.origin to a valid address

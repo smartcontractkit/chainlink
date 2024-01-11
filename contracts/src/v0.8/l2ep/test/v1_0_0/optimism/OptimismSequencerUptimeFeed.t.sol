@@ -11,9 +11,6 @@ contract OptimismSequencerUptimeFeedTest is L2EPTest {
   /// Constants
   uint256 internal constant GAS_USED_DEVIATION = 100;
 
-  /// Helper variable(s)
-  address internal s_mockL1OwnerAddr = vm.addr(0x2);
-
   /// L2EP contracts
   MockOptimismL1CrossDomainMessenger internal s_mockOptimismL1CrossDomainMessenger;
   MockOptimismL2CrossDomainMessenger internal s_mockOptimismL2CrossDomainMessenger;
@@ -30,25 +27,25 @@ contract OptimismSequencerUptimeFeedTest is L2EPTest {
     s_mockOptimismL1CrossDomainMessenger = new MockOptimismL1CrossDomainMessenger();
     s_mockOptimismL2CrossDomainMessenger = new MockOptimismL2CrossDomainMessenger();
     s_optimismSequencerUptimeFeed = new OptimismSequencerUptimeFeed(
-      s_mockL1OwnerAddr,
+      s_l1OwnerAddr,
       address(s_mockOptimismL2CrossDomainMessenger),
       false
     );
 
     // Sets mock sender in mock L2 messenger contract
-    s_mockOptimismL2CrossDomainMessenger.setSender(s_mockL1OwnerAddr);
+    s_mockOptimismL2CrossDomainMessenger.setSender(s_l1OwnerAddr);
   }
 }
 
-contract OptimismSequencerUptimeFeedConstructor is OptimismSequencerUptimeFeedTest {
+contract OptimismSequencerUptimeFeed_Constructor is OptimismSequencerUptimeFeedTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Checks L1 sender
     address actualL1Addr = s_optimismSequencerUptimeFeed.l1Sender();
-    assertEq(actualL1Addr, s_mockL1OwnerAddr);
+    assertEq(actualL1Addr, s_l1OwnerAddr);
 
     // Checks latest round data
     (uint80 roundId, int256 answer, , , ) = s_optimismSequencerUptimeFeed.latestRoundData();
@@ -57,7 +54,7 @@ contract OptimismSequencerUptimeFeedConstructor is OptimismSequencerUptimeFeedTe
   }
 }
 
-contract OptimismSequencerUptimeFeedUpdateStatus is OptimismSequencerUptimeFeedTest {
+contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeedTest {
   /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
   function test_RevertIfNotL2CrossDomainMessengerAddr() public {
     // Sets msg.sender and tx.origin to an unauthorized address
@@ -200,7 +197,7 @@ contract OptimismSequencerUptimeFeedUpdateStatus is OptimismSequencerUptimeFeedT
   }
 }
 
-contract OptimismSequencerUptimeFeedAggregatorV3Interface is OptimismSequencerUptimeFeedTest {
+contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerUptimeFeedTest {
   /// @notice it should return valid answer from getRoundData and latestRoundData
   function test_AggregatorV3Interface() public {
     // Sets msg.sender and tx.origin to a valid address
@@ -257,7 +254,7 @@ contract OptimismSequencerUptimeFeedAggregatorV3Interface is OptimismSequencerUp
   /// @notice it should revert from #getRoundData when round does not yet exist (future roundId)
   function test_RevertGetRoundDataWhenRoundDoesNotExistYet() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
     vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
@@ -267,7 +264,7 @@ contract OptimismSequencerUptimeFeedAggregatorV3Interface is OptimismSequencerUp
   /// @notice it should revert from #getAnswer when round does not yet exist (future roundId)
   function test_RevertGetAnswerWhenRoundDoesNotExistYet() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
     vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
@@ -277,7 +274,7 @@ contract OptimismSequencerUptimeFeedAggregatorV3Interface is OptimismSequencerUp
   /// @notice it should revert from #getTimestamp when round does not yet exist (future roundId)
   function test_RevertGetTimestampWhenRoundDoesNotExistYet() public {
     // Sets msg.sender and tx.origin to a valid address
-    vm.startPrank(s_mockL1OwnerAddr, s_mockL1OwnerAddr);
+    vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
     vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
@@ -285,7 +282,7 @@ contract OptimismSequencerUptimeFeedAggregatorV3Interface is OptimismSequencerUp
   }
 }
 
-contract OptimismSequencerUptimeFeedProtectReadsOnAggregatorV2V3InterfaceFunctions is OptimismSequencerUptimeFeedTest {
+contract OptimismSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFunctions is OptimismSequencerUptimeFeedTest {
   /// @notice it should disallow reads on AggregatorV2V3Interface functions when consuming contract is not whitelisted
   function test_AggregatorV2V3InterfaceDisallowReadsIfConsumingContractIsNotWhitelisted() public {
     // Deploys a FeedConsumer contract
@@ -322,7 +319,7 @@ contract OptimismSequencerUptimeFeedProtectReadsOnAggregatorV2V3InterfaceFunctio
   }
 }
 
-contract OptimismSequencerUptimeFeedGasCosts is OptimismSequencerUptimeFeedTest {
+contract OptimismSequencerUptimeFeed_GasCosts is OptimismSequencerUptimeFeedTest {
   /// @notice it should consume a known amount of gas for updates
   function test_GasCosts() public {
     // Sets msg.sender and tx.origin to a valid address
@@ -356,7 +353,7 @@ contract OptimismSequencerUptimeFeedGasCosts is OptimismSequencerUptimeFeedTest 
   }
 }
 
-contract OptimismSequencerUptimeFeedAggregatorInterfaceGasCosts is OptimismSequencerUptimeFeedTest {
+contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequencerUptimeFeedTest {
   /// @notice it should consume a known amount of gas for getRoundData(uint80)
   function test_GasUsageForGetRoundData() public {
     // Sets msg.sender and tx.origin to a valid address

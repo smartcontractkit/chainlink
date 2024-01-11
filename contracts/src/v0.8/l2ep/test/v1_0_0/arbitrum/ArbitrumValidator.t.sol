@@ -16,9 +16,6 @@ contract ArbitrumValidatorTest is L2EPTest {
   uint256 internal constant BASE_FEE = 14000000000;
   uint256 internal constant MAX_GAS = 1000000;
 
-  /// Helper variable(s)
-  address internal s_eoaValidator = vm.addr(0x2);
-
   /// L2EP contracts
   AccessControllerInterface internal s_accessController;
   MockArbitrumInbox internal s_mockArbitrumInbox;
@@ -55,7 +52,7 @@ contract ArbitrumValidatorTest is L2EPTest {
   }
 }
 
-contract ArbitrumValidatorValidate is ArbitrumValidatorTest {
+contract ArbitrumValidator_Validate is ArbitrumValidatorTest {
   /// @notice it post sequencer offline
   function test_PostSequencerOffline() public {
     // Gives access to the s_eoaValidator

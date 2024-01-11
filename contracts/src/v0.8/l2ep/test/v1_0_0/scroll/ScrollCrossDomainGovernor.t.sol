@@ -8,9 +8,6 @@ import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ScrollCrossDomainGovernorTest is L2EPTest {
-  /// Helper variable(s)
-  address internal s_l1OwnerAddr = vm.addr(0x2);
-
   /// Contracts
   MockScrollCrossDomainMessenger internal s_mockScrollCrossDomainMessenger;
   ScrollCrossDomainGovernor internal s_scrollCrossDomainGovernor;
@@ -33,7 +30,7 @@ contract ScrollCrossDomainGovernorTest is L2EPTest {
   }
 }
 
-contract ScrollCrossDomainGovernorConstructor is ScrollCrossDomainGovernorTest {
+contract ScrollCrossDomainGovernor_Constructor is ScrollCrossDomainGovernorTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
     // it should set the owner correctly
@@ -50,7 +47,7 @@ contract ScrollCrossDomainGovernorConstructor is ScrollCrossDomainGovernorTest {
   }
 }
 
-contract ScrollCrossDomainGovernorForward is ScrollCrossDomainGovernorTest {
+contract ScrollCrossDomainGovernor_Forward is ScrollCrossDomainGovernorTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
     vm.startPrank(s_strangerAddr);
@@ -112,7 +109,7 @@ contract ScrollCrossDomainGovernorForward is ScrollCrossDomainGovernorTest {
   }
 }
 
-contract ScrollCrossDomainGovernorForwardDelegate is ScrollCrossDomainGovernorTest {
+contract ScrollCrossDomainGovernor_ForwardDelegate is ScrollCrossDomainGovernorTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
     vm.startPrank(s_strangerAddr);
@@ -204,7 +201,7 @@ contract ScrollCrossDomainGovernorForwardDelegate is ScrollCrossDomainGovernorTe
   }
 }
 
-contract ScrollCrossDomainGovernorTransferL1Ownership is ScrollCrossDomainGovernorTest {
+contract ScrollCrossDomainGovernor_TransferL1Ownership is ScrollCrossDomainGovernorTest {
   /// @notice it should not be callable by non-owners
   function test_NotCallableByNonOwners() public {
     vm.startPrank(s_strangerAddr);
@@ -257,7 +254,7 @@ contract ScrollCrossDomainGovernorTransferL1Ownership is ScrollCrossDomainGovern
   }
 }
 
-contract ScrollCrossDomainGovernorAcceptL1Ownership is ScrollCrossDomainGovernorTest {
+contract ScrollCrossDomainGovernor_AcceptL1Ownership is ScrollCrossDomainGovernorTest {
   /// @notice it should not be callable by non pending-owners
   function test_NotCallableByNonPendingOwners() public {
     // Sets msg.sender and tx.origin

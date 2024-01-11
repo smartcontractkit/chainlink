@@ -7,9 +7,6 @@ import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract OptimismCrossDomainForwarderTest is L2EPTest {
-  /// Helper variable(s)
-  address internal s_l1OwnerAddr = vm.addr(0x2);
-
   /// Contracts
   MockOVMCrossDomainMessenger internal s_mockOptimismCrossDomainMessenger;
   OptimismCrossDomainForwarder internal s_optimismCrossDomainForwarder;
@@ -33,7 +30,7 @@ contract OptimismCrossDomainForwarderTest is L2EPTest {
   }
 }
 
-contract OptimismCrossDomainForwarderConstructor is OptimismCrossDomainForwarderTest {
+contract OptimismCrossDomainForwarder_Constructor is OptimismCrossDomainForwarderTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
     // it should set the owner correctly
@@ -50,7 +47,7 @@ contract OptimismCrossDomainForwarderConstructor is OptimismCrossDomainForwarder
   }
 }
 
-contract OptimismCrossDomainForwarderForward is OptimismCrossDomainForwarderTest {
+contract OptimismCrossDomainForwarder_Forward is OptimismCrossDomainForwarderTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
     vm.startPrank(s_strangerAddr);
@@ -92,7 +89,7 @@ contract OptimismCrossDomainForwarderForward is OptimismCrossDomainForwarderTest
   }
 }
 
-contract OptimismCrossDomainForwarderTransferL1Ownership is OptimismCrossDomainForwarderTest {
+contract OptimismCrossDomainForwarder_TransferL1Ownership is OptimismCrossDomainForwarderTest {
   /// @notice it should not be callable by non-owners
   function test_NotCallableByNonOwners() public {
     vm.startPrank(s_strangerAddr);
@@ -143,7 +140,7 @@ contract OptimismCrossDomainForwarderTransferL1Ownership is OptimismCrossDomainF
   }
 }
 
-contract OptimismCrossDomainForwarderAcceptL1Ownership is OptimismCrossDomainForwarderTest {
+contract OptimismCrossDomainForwarder_AcceptL1Ownership is OptimismCrossDomainForwarderTest {
   /// @notice it should not be callable by non pending-owners
   function test_NotCallableByNonPendingOwners() public {
     // Sets msg.sender and tx.origin

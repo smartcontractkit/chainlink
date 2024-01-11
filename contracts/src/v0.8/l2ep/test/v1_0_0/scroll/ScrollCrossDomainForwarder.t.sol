@@ -7,9 +7,6 @@ import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ScrollCrossDomainForwarderTest is L2EPTest {
-  /// Helper variable(s)
-  address internal s_l1OwnerAddr = vm.addr(0x2);
-
   /// Contracts
   MockScrollCrossDomainMessenger internal s_mockScrollCrossDomainMessenger;
   ScrollCrossDomainForwarder internal s_scrollCrossDomainForwarder;
@@ -30,7 +27,7 @@ contract ScrollCrossDomainForwarderTest is L2EPTest {
   }
 }
 
-contract ScrollCrossDomainForwarderConstructor is ScrollCrossDomainForwarderTest {
+contract ScrollCrossDomainForwarder_Constructor is ScrollCrossDomainForwarderTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
     // it should set the owner correctly
@@ -47,7 +44,7 @@ contract ScrollCrossDomainForwarderConstructor is ScrollCrossDomainForwarderTest
   }
 }
 
-contract ScrollCrossDomainForwarderForward is ScrollCrossDomainForwarderTest {
+contract ScrollCrossDomainForwarder_Forward is ScrollCrossDomainForwarderTest {
   /// @notice it should not be callable by unknown address
   function test_NotCallableByUnknownAddress() public {
     vm.startPrank(s_strangerAddr);
@@ -91,7 +88,7 @@ contract ScrollCrossDomainForwarderForward is ScrollCrossDomainForwarderTest {
   }
 }
 
-contract ScrollCrossDomainForwarderTransferL1Ownership is ScrollCrossDomainForwarderTest {
+contract ScrollCrossDomainForwarder_TransferL1Ownership is ScrollCrossDomainForwarderTest {
   /// @notice it should not be callable by non-owners
   function test_NotCallableByNonOwners() public {
     vm.startPrank(s_strangerAddr);
@@ -144,7 +141,7 @@ contract ScrollCrossDomainForwarderTransferL1Ownership is ScrollCrossDomainForwa
   }
 }
 
-contract ScrollCrossDomainForwarderAcceptL1Ownership is ScrollCrossDomainForwarderTest {
+contract ScrollCrossDomainForwarder_AcceptL1Ownership is ScrollCrossDomainForwarderTest {
   /// @notice it should not be callable by non pending-owners
   function test_NotCallableByNonPendingOwners() public {
     // Sets msg.sender and tx.origin
