@@ -497,13 +497,13 @@ jobs:
           selected_networks=["optimism_sepolia"]
 
           [Network.RpcHttpUrls]
-          optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_HTTP_URLS")]
+          optimism_sepolia = $(convert_to_toml_array "$OPTIMISM_SEPOLIA_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_URLS")]
+          optimism_sepolia = $(convert_to_toml_array "$OPTIMISM_SEPOLIA_URLS")
 
           [Network.WalletKeys]
-          optimism_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          optimism_sepolia = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -597,13 +597,13 @@ jobs:
           selected_networks=["arbitrum_sepolia"]
           
           [Network.RpcHttpUrls]
-          arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_HTTP_URLS")]
+          arbitrum_sepolia = $(convert_to_toml_array "$ARBITRUM_SEPOLIA_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_URLS")]
+          arbitrum_sepolia = $(convert_to_toml_array "$ARBITRUM_SEPOLIA_URLS")
 
           [Network.WalletKeys]
-          arbitrum_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          arbitrum_sepolia = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -693,13 +693,13 @@ jobs:
           selected_networks=["base_goerli"]
 
           [Network.RpcHttpUrls]
-          base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_HTTP_URLS")]
+          base_goerli = $(convert_to_toml_array "$BASE_GOERLI_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_URLS")]
+          base_goerli = $(convert_to_toml_array "$BASE_GOERLI_URLS")
 
           [Network.WalletKeys]
-          base_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
+          base_goerli = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -789,13 +789,13 @@ jobs:
           selected_networks=["base_sepolia"]
 
           [Network.RpcHttpUrls]
-          base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_HTTP_URLS")]
+          base_sepolia = $(convert_to_toml_array "$BASE_SEPOLIA_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_URLS")]
+          base_sepolia = $(convert_to_toml_array "$BASE_SEPOLIA_URLS")
 
           [Network.WalletKeys]
-          base_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          base_sepolia = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -889,13 +889,13 @@ jobs:
           selected_networks=["polygon_mumbai"]
 
           [Network.RpcHttpUrls]
-          polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_HTTP_URLS")]
+          polygon_mumbai = $(convert_to_toml_array "$POLYGON_MUMBAI_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_URLS")]
+          polygon_mumbai = $(convert_to_toml_array "$POLYGON_MUMBAI_URLS")
 
           [Network.WalletKeys]
-          polygon_mumbai = [$(convert_to_toml_array "$EVM_KEYS")]
+          polygon_mumbai = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -989,13 +989,13 @@ jobs:
           selected_networks=["avalanche_fuji"]
 
           [Network.RpcHttpUrls]
-          avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_HTTP_URLS")]
+          avalanche_fuji = $(convert_to_toml_array "$AVALANCHE_FUJI_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_URLS")]
+          avalanche_fuji = $(convert_to_toml_array "$AVALANCHE_FUJI_URLS")
 
           [Network.WalletKeys]
-          avalanche_fuji = [$(convert_to_toml_array "$EVM_KEYS")]
+          avalanche_fuji = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1089,13 +1089,13 @@ jobs:
           selected_networks=["fantom_testnet"]
 
           [Network.RpcHttpUrls]
-          fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_HTTP_URLS")]
+          fantom_testnet = $(convert_to_toml_array "$FANTOM_TESTNET_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_URLS")]
+          fantom_testnet = $(convert_to_toml_array "$FANTOM_TESTNET_URLS")
 
           [Network.WalletKeys]
-          fantom_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
+          fantom_testnet = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1185,13 +1185,13 @@ jobs:
           selected_networks=["celo_alfajores"]
 
           [Network.RpcHttpUrls]
-          celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")]
+          celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES
+          celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES)
 
           [Network.WalletKeys]
-          celo_alfajores = [$(convert_to_toml_array "$EVM_KEYS")]
+          celo_alfajores = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1283,13 +1283,13 @@ jobs:
           selected_networks=["scroll_sepolia"]
 
           [Network.RpcHttpUrls]
-          scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_HTTP_URLS")]
+          scroll_sepolia = $(convert_to_toml_array "$SCROLL_SEPOLIA_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_URLS")]
+          scroll_sepolia = $(convert_to_toml_array "$SCROLL_SEPOLIA_URLS")
 
           [Network.WalletKeys]
-          scroll_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
+          scroll_sepolia = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1379,13 +1379,13 @@ jobs:
           selected_networks=["linea_goerli"]          
 
           [Network.RpcHttpUrls]
-          linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_HTTP_URLS")]
+          linea_goerli = $(convert_to_toml_array "$LINEA_GOERLI_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_URLS")]
+          linea_goerli = $(convert_to_toml_array "$LINEA_GOERLI_URLS")
 
           [Network.WalletKeys]
-          linea_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
+          linea_goerli = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
