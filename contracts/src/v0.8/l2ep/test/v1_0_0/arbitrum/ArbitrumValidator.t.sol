@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {AccessControllerInterface} from "../../../../shared/interfaces/AccessControllerInterface.sol";
+
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
 import {ArbitrumSequencerUptimeFeed} from "../../../dev/arbitrum/ArbitrumSequencerUptimeFeed.sol";
 import {ArbitrumValidator} from "../../../dev/arbitrum/ArbitrumValidator.sol";

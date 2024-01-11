@@ -3,9 +3,10 @@ pragma solidity 0.8.19;
 
 import {MockScrollCrossDomainMessenger} from "../../mocks/scroll/MockScrollCrossDomainMessenger.sol";
 import {ScrollCrossDomainGovernor} from "../../../dev/scroll/ScrollCrossDomainGovernor.sol";
-import {MultiSend} from "../../../../vendor/MultiSend.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
+
+import {MultiSend} from "../../../../vendor/MultiSend.sol";
 
 contract ScrollCrossDomainGovernorTest is L2EPTest {
   /// Contracts

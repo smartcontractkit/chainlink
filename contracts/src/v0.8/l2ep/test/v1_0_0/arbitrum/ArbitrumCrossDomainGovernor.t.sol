@@ -2,9 +2,10 @@
 pragma solidity 0.8.19;
 
 import {ArbitrumCrossDomainGovernor} from "../../../dev/arbitrum/ArbitrumCrossDomainGovernor.sol";
-import {MultiSend} from "../../../../vendor/MultiSend.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
+
+import {MultiSend} from "../../../../vendor/MultiSend.sol";
 
 contract ArbitrumCrossDomainGovernorTest is L2EPTest {
   /// Helper variable(s)

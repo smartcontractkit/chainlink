@@ -3,9 +3,10 @@ pragma solidity 0.8.19;
 
 import {OptimismCrossDomainGovernor} from "../../../dev/optimism/OptimismCrossDomainGovernor.sol";
 import {MockOVMCrossDomainMessenger} from "../../mocks/optimism/MockOVMCrossDomainMessenger.sol";
-import {MultiSend} from "../../../../vendor/MultiSend.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
+
+import {MultiSend} from "../../../../vendor/MultiSend.sol";
 
 contract OptimismCrossDomainGovernorTest is L2EPTest {
   /// Contracts
