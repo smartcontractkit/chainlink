@@ -127,8 +127,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 		return tx, fmt.Errorf("create_transaction: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[tx.FromAddress]
 	if !ok {
 		return tx, fmt.Errorf("create_transaction: %w", ErrAddressNotFound)
@@ -164,8 +164,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	}
 
 	// Check if the transaction is in the pending queue of all address states
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		if tx := as.FindTxWithIdempotencyKey(idempotencyKey); tx != nil {
 			return ms.deepCopyTx(*tx), nil
@@ -185,8 +185,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Check
 		return fmt.Errorf("check_tx_queue_capacity: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
 		return fmt.Errorf("check_tx_queue_capacity: %w", ErrAddressNotFound)
@@ -214,8 +214,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindL
 		return seq, fmt.Errorf("find_latest_sequence: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
 		return seq, fmt.Errorf("find_latest_sequence: %w", ErrAddressNotFound)
@@ -237,8 +237,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
 		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrAddressNotFound)
@@ -255,8 +255,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
 		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrAddressNotFound)
@@ -282,8 +282,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 		return fmt.Errorf("update_tx_unstarted_to_in_progress: attempt state must be in_progress")
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w", ErrAddressNotFound)
@@ -306,8 +306,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // GetTxInProgress returns the in_progress transaction for a given address.
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTxInProgress(ctx context.Context, fromAddress ADDR) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
 		return nil, fmt.Errorf("get_tx_in_progress: %w", ErrAddressNotFound)
@@ -350,8 +350,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: new attempt state must be broadcast, got: %s", newAttemptState)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", ErrAddressNotFound)
@@ -375,8 +375,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindN
 	if ms.chainID.String() != chainID.String() {
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
 	}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrAddressNotFound)
@@ -409,8 +409,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 		return fmt.Errorf("save_replacement_in_progress_attempt: expected oldattempt to have an ID")
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[oldAttempt.Tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("save_replacement_in_progress_attempt: %w", ErrAddressNotFound)
@@ -440,8 +440,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 		return fmt.Errorf("update_tx_fatal_error: expected error field to be set")
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("update_tx_fatal_error: %w", ErrAddressNotFound)
@@ -493,8 +493,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 	}
 
 	// check that the address exists in the unstarted transactions
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[addr]
 	if !ok {
 		return fmt.Errorf("abandon: %w", ErrAddressNotFound)
@@ -527,8 +527,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBr
 			}
 		}
 	}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		as.ApplyToTxs(nil, fn)
 	}
@@ -550,8 +550,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	}
 	states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
 	attempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		attempts = append(attempts, as.FetchTxAttempts(states, filter)...)
 	}
@@ -583,8 +583,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 		}
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		as.ApplyToTxs(nil, fn, txIDs...)
 	}
@@ -600,8 +600,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	// Update in memory store
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	wg := sync.WaitGroup{}
 	for _, as := range ms.addressStates {
 		wg.Add(1)
@@ -638,8 +638,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	}
 	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
 	attempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		attempts = append(attempts, as.FetchTxAttempts(states, filterFn)...)
 	}
@@ -685,8 +685,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	}
 	states := []txmgrtypes.TxState{TxConfirmed}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		txs = append(txs, as.FetchTxs(states, filterFn)...)
 	}
@@ -730,8 +730,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 		}
 	}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -758,8 +758,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveF
 	errsLock := sync.Mutex{}
 	var errs error
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -803,8 +803,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -844,8 +844,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -896,8 +896,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -932,8 +932,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -967,8 +967,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prune
 		return tx.Subject.UUID == subject
 	}
 	var m int
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		m += as.PruneUnstartedTxQueue(queueSize, filter)
 	}
@@ -1017,8 +1017,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapT
 	}
 
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -1032,8 +1032,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapT
 		return tx.State == TxFatalError && tx.CreatedAt.Before(timeThreshold)
 	}
 	states = []txmgrtypes.TxState{TxFatalError}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -1051,8 +1051,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 	}
 
 	var total int
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		total += as.CountTransactionsByState(state)
 	}
@@ -1069,8 +1069,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 	}
 
 	// Check if fromaddress enabled
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[attempt.Tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("delete_in_progress_attempt: %w", ErrAddressNotFound)
@@ -1099,8 +1099,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return nil, fmt.Errorf("find_txs_requiring_resubmission_due_to_insufficient_funds: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[address]
 	if !ok {
 		return nil, fmt.Errorf("find_txs_requiring_resubmission_due_to_insufficient_funds: %w", ErrAddressNotFound)
@@ -1134,8 +1134,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return nil, fmt.Errorf("find_tx_attempts_requiring_resend: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[address]
 	if !ok {
 		return nil, fmt.Errorf("find_tx_attempts_requiring_resend: %w", ErrAddressNotFound)
@@ -1176,8 +1176,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithSequence(_ context.Context, fromAddress ADDR, seq SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
 		return nil, fmt.Errorf("find_tx_with_sequence: %w", ErrAddressNotFound)
@@ -1225,8 +1225,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -1263,8 +1263,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -1304,8 +1304,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -1333,8 +1333,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetIn
 		return nil, fmt.Errorf("get_in_progress_tx_attempts: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[address]
 	if !ok {
 		return nil, fmt.Errorf("get_in_progress_tx_attempts: %w", ErrAddressNotFound)
@@ -1370,8 +1370,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNo
 	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	wg := sync.WaitGroup{}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -1396,8 +1396,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTx
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		return tx.ID == id
 	}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		txs := as.FetchTxs(nil, filter, id)
 		if len(txs) > 0 {
@@ -1414,8 +1414,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasIn
 		return false, fmt.Errorf("has_in_progress_transaction: %w", ErrInvalidChainID)
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[account]
 	if !ok {
 		return false, fmt.Errorf("has_in_progress_transaction: %w", ErrAddressNotFound)
@@ -1427,8 +1427,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasIn
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadTxAttempts(_ context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[etx.FromAddress]
 	if !ok {
 		return fmt.Errorf("load_tx_attempts: %w", ErrAddressNotFound)
@@ -1452,8 +1452,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prelo
 		return nil
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[attempts[0].Tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("preload_txes: %w", ErrAddressNotFound)
@@ -1478,8 +1478,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prelo
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[attempt.Tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("save_confirmed_missing_receipt_attempt: %w", ErrAddressNotFound)
@@ -1497,8 +1497,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveC
 	return as.MoveInProgressToConfirmedMissingReceipt(*attempt, broadcastAt)
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInProgressAttempt(ctx context.Context, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[attempt.Tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("save_in_progress_attempt: %w", ErrAddressNotFound)
@@ -1533,8 +1533,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[attempt.Tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("save_insufficient_funds_attempt: %w", ErrAddressNotFound)
@@ -1567,8 +1567,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[attempt.Tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("save_sent_attempt: %w", ErrAddressNotFound)
@@ -1602,8 +1602,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[etx.FromAddress]
 	if !ok {
 		return fmt.Errorf("update_tx_for_rebroadcast: %w", ErrAddressNotFound)
@@ -1639,8 +1639,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxF
 
 		return attempt.Receipts[0].GetBlockNumber().Int64() <= (blockHeight - int64(tx.MinConfirmations.Uint32))
 	}
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		txas := as.FetchTxAttempts(nil, fn, txID)
 		if len(txas) > 0 {
@@ -1659,8 +1659,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return nil, nil
 	}
 
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[address]
 	if !ok {
 		return nil, fmt.Errorf("find_txs_requiring_gas_bump: %w", ErrAddressNotFound)
@@ -1718,8 +1718,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 	wg := sync.WaitGroup{}
 	errsLock := sync.Mutex{}
 	var errs error
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
@@ -1776,8 +1776,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkO
 	wg := sync.WaitGroup{}
 	errsLock := sync.Mutex{}
 	var errs error
-	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
