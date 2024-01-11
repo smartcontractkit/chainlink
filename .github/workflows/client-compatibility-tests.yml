@@ -67,7 +67,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@7f6497dcb78915554c1b3c9cb4e6c73fb401157b # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@bce4caa154b1e0e652d042788e14c8870832acd2 # v2.3.0
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
