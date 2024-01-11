@@ -1188,7 +1188,7 @@ jobs:
           celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")
 
           [Network.RpcWsUrls]
-          celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES")
+          celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES_URLS")
 
           [Network.WalletKeys]
           celo_alfajores = $(convert_to_toml_array "$EVM_KEYS")
