@@ -398,7 +398,7 @@ func (c *coordinator) ReportBlocks(
 
 	// TODO BELOW: Write tests for the new blockhash retrieval.
 	// Obtain recent blockhashes, ordered by ascending block height.
-	for i := recentBlockHashesStartHeight; i <= uint64(currentHeight); i++ {
+	for i := recentBlockHashesStartHeight; i <= currentHeight; i++ {
 		recentBlockHashes = append(recentBlockHashes, blockhashesMapping[i])
 	}
 
@@ -518,7 +518,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	}
 
 	// Get a mapping of block numbers to block hashes.
-	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, uint64(currentHeight), recentBlockHashesStartHeight))
+	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, currentHeight, recentBlockHashesStartHeight))
 	if err != nil {
 		err = errors.Wrap(err, "get blockhashes for ReportBlocks")
 	}
