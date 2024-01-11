@@ -170,14 +170,14 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
 
-	var byteToTestConfig = func(content []byte) (TestConfig, error) {
+	var byteToTestConfig = func(filename string, content []byte) (TestConfig, error) {
 		var readConfig TestConfig
 		err := toml.Unmarshal(content, &readConfig)
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error unmarshaling config")
 		}
 
-		logger.Debug().Msgf("Successfully unmarshalled config file")
+		logger.Debug().Msgf("Successfully unmarshalled %s config file", filename)
 		maybeTestConfigs = append(maybeTestConfigs, readConfig)
 
 		var someToml map[string]interface{}
@@ -187,7 +187,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		}
 
 		if _, ok := someToml[configurationName]; !ok {
-			logger.Debug().Msgf("Config file does not contain configuration named '%s', will read only default configuration.", configurationName)
+			logger.Debug().Msgf("Config file %s does not contain configuration named '%s', will read only default configuration.", filename, configurationName)
 			return readConfig, nil
 		}
 
@@ -217,7 +217,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
 
-			readConfig, err := byteToTestConfig(file)
+			readConfig, err := byteToTestConfig(fileName, file)
 			if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
@@ -244,7 +244,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
 
-		readConfig, err := byteToTestConfig(content)
+		readConfig, err := byteToTestConfig(fileName, content)
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
