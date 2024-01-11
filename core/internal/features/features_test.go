@@ -1343,6 +1343,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &b43
 	})
+	ethClient.On("Close").Return().Once()
 
 	// Simulate one new head and check the gas price got updated
 	h43 := cltest.Head(43)
@@ -1354,6 +1355,12 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		require.NoError(t, err)
 		return gasPrice.Legacy.String()
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45 gwei"))
+
+	defer func() {
+		for _, re := range cc.Slice() {
+			require.NoError(t, re.Close())
+		}
+	}()
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
