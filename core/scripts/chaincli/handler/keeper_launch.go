@@ -92,7 +92,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 		// Create authenticated client
 		var cl cmd.HTTPClient
 		var err error
-		cl, err = authenticate(startedNode.url, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
+		cl, err = authenticate(ctx, startedNode.url, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
 		if err != nil {
 			log.Fatal("Authentication failed, ", err)
 		}
@@ -101,13 +101,13 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 
 		if len(k.cfg.KeeperKeys) > 0 {
 			// import key if exists
-			nodeAddrHex, err = k.addKeyToKeeper(cl, k.cfg.KeeperKeys[i])
+			nodeAddrHex, err = k.addKeyToKeeper(ctx, cl, k.cfg.KeeperKeys[i])
 			if err != nil {
 				log.Fatal("could not add key to keeper", err)
 			}
 		} else {
 			// get node's default wallet address
-			nodeAddrHex, err = getNodeAddress(cl)
+			nodeAddrHex, err = getNodeAddress(ctx, cl)
 			if err != nil {
 				log.Println("Failed to get node addr: ", err)
 				continue
@@ -117,7 +117,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 		nodeAddr := common.HexToAddress(nodeAddrHex)
 
 		// Create keepers
-		if err = k.createKeeperJob(cl, registryAddr.Hex(), nodeAddr.Hex()); err != nil {
+		if err = k.createKeeperJob(ctx, cl, registryAddr.Hex(), nodeAddr.Hex()); err != nil {
 			log.Println("Failed to create keeper job: ", err)
 			continue
 		}
@@ -291,12 +291,12 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 }
 
 // createKeeperJob creates a keeper job in the chainlink node by the given address
-func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
+func (k *Keeper) createKeeperJob(ctx context.Context, client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	var err error
 	if k.cfg.OCR2Keepers {
-		err = k.createOCR2KeeperJob(client, registryAddr, nodeAddr)
+		err = k.createOCR2KeeperJob(ctx, client, registryAddr, nodeAddr)
 	} else {
-		err = k.createLegacyKeeperJob(client, registryAddr, nodeAddr)
+		err = k.createLegacyKeeperJob(ctx, client, registryAddr, nodeAddr)
 	}
 	if err != nil {
 		return err
@@ -308,7 +308,7 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr s
 }
 
 // createLegacyKeeperJob creates a legacy keeper job in the chainlink node by the given address
-func (k *Keeper) createLegacyKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
+func (k *Keeper) createLegacyKeeperJob(ctx context.Context, client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
 			Name:            fmt.Sprintf("keeper job - registry %s", registryAddr),
@@ -321,7 +321,7 @@ func (k *Keeper) createLegacyKeeperJob(client cmd.HTTPClient, registryAddr, node
 		return fmt.Errorf("failed to marshal request: %s", err)
 	}
 
-	resp, err := client.Post("/v2/jobs", bytes.NewReader(request))
+	resp, err := client.Post(ctx, "/v2/jobs", bytes.NewReader(request))
 	if err != nil {
 		return fmt.Errorf("failed to create keeper job: %s", err)
 	}
@@ -363,8 +363,8 @@ contractVersion = "%s"
 mercuryCredentialName = "%s"`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
-func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
-	ocr2KeyConfig, err := getNodeOCR2Config(client)
+func (k *Keeper) createOCR2KeeperJob(ctx context.Context, client cmd.HTTPClient, contractAddr, nodeAddr string) error {
+	ocr2KeyConfig, err := getNodeOCR2Config(ctx, client)
 	if err != nil {
 		return fmt.Errorf("failed to get node OCR2 key bundle ID: %s", err)
 	}
@@ -390,7 +390,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 		return fmt.Errorf("failed to marshal request: %s", err)
 	}
 
-	resp, err := client.Post("/v2/jobs", bytes.NewReader(request))
+	resp, err := client.Post(ctx, "/v2/jobs", bytes.NewReader(request))
 	if err != nil {
 		return fmt.Errorf("failed to create ocr2keeper job: %s", err)
 	}
@@ -409,7 +409,7 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 }
 
 // addKeyToKeeper imports the provided ETH sending key to the keeper
-func (k *Keeper) addKeyToKeeper(client cmd.HTTPClient, privKeyHex string) (string, error) {
+func (k *Keeper) addKeyToKeeper(ctx context.Context, client cmd.HTTPClient, privKeyHex string) (string, error) {
 	privkey, err := crypto.HexToECDSA(hex.TrimPrefix(privKeyHex))
 	if err != nil {
 		log.Fatalf("Failed to decode priv key %s: %v", privKeyHex, err)
@@ -429,7 +429,7 @@ func (k *Keeper) addKeyToKeeper(client cmd.HTTPClient, privKeyHex string) (strin
 	query.Set("evmChainID", fmt.Sprint(k.cfg.ChainID))
 
 	importUrl.RawQuery = query.Encode()
-	resp, err := client.Post(importUrl.String(), bytes.NewReader(keyJSON))
+	resp, err := client.Post(ctx, importUrl.String(), bytes.NewReader(keyJSON))
 	if err != nil {
 		log.Fatalf("Failed to import priv key %s: %v", privKeyHex, err)
 	}
