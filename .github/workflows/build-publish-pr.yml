@@ -60,7 +60,7 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
         run: |
           RESPONSE=$(gh pr view ${PR_NUMBER} --json labels)
-          # Check if the curl command was successful
+          # Check if the labels command was successful
           if [[ $? -ne 0 ]]; then
             echo "Error fetching labels"
             exit 1
