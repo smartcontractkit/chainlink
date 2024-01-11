@@ -21,12 +21,12 @@ func (m *mockStream) Run(ctx context.Context) (*pipeline.Run, pipeline.TaskRunRe
 	return m.run, m.trrs, m.err
 }
 
-func Test_StreamRegistry(t *testing.T) {
+func Test_Registry(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	runner := &mockRunner{}
 
 	t.Run("Get", func(t *testing.T) {
-		sr := newStreamRegistry(lggr, runner)
+		sr := newRegistry(lggr, runner)
 
 		sr.streams["foo"] = &mockStream{run: &pipeline.Run{ID: 1}}
 		sr.streams["bar"] = &mockStream{run: &pipeline.Run{ID: 2}}
@@ -49,7 +49,7 @@ func Test_StreamRegistry(t *testing.T) {
 		assert.False(t, exists)
 	})
 	t.Run("Register", func(t *testing.T) {
-		sr := newStreamRegistry(lggr, runner)
+		sr := newRegistry(lggr, runner)
 
 		t.Run("registers new stream", func(t *testing.T) {
 			assert.Len(t, sr.streams, 0)
@@ -79,7 +79,7 @@ func Test_StreamRegistry(t *testing.T) {
 		})
 	})
 	t.Run("Unregister", func(t *testing.T) {
-		sr := newStreamRegistry(lggr, runner)
+		sr := newRegistry(lggr, runner)
 
 		sr.streams["foo"] = &mockStream{run: &pipeline.Run{ID: 1}}
 		sr.streams["bar"] = &mockStream{run: &pipeline.Run{ID: 2}}

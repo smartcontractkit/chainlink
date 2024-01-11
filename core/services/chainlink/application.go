@@ -291,7 +291,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
-		streamRegistry = streams.NewStreamRegistry(globalLogger, pipelineRunner)
+		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {

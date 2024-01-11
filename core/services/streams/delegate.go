@@ -23,14 +23,14 @@ type DelegateConfig interface {
 
 type Delegate struct {
 	lggr     logger.Logger
-	registry StreamRegistry
+	registry Registry
 	runner   ocrcommon.Runner
 	cfg      DelegateConfig
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(lggr logger.Logger, registry StreamRegistry, runner ocrcommon.Runner, cfg DelegateConfig) *Delegate {
+func NewDelegate(lggr logger.Logger, registry Registry, runner ocrcommon.Runner, cfg DelegateConfig) *Delegate {
 	return &Delegate{lggr, registry, runner, cfg}
 }
 
@@ -66,7 +66,7 @@ type ResultRunSaver interface {
 }
 
 type StreamService struct {
-	registry StreamRegistry
+	registry Registry
 	id       StreamID
 	spec     *pipeline.Spec
 	lggr     logger.Logger

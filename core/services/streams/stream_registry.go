@@ -14,7 +14,7 @@ func (s StreamID) String() string {
 	return string(s)
 }
 
-type StreamRegistry interface {
+type Registry interface {
 	Get(streamID StreamID) (strm Stream, exists bool)
 	Register(streamID StreamID, spec pipeline.Spec, rrs ResultRunSaver) error
 	Unregister(streamID StreamID)
@@ -27,14 +27,14 @@ type streamRegistry struct {
 	streams map[StreamID]Stream
 }
 
-func NewStreamRegistry(lggr logger.Logger, runner Runner) StreamRegistry {
-	return newStreamRegistry(lggr, runner)
+func NewRegistry(lggr logger.Logger, runner Runner) Registry {
+	return newRegistry(lggr, runner)
 }
 
-func newStreamRegistry(lggr logger.Logger, runner Runner) *streamRegistry {
+func newRegistry(lggr logger.Logger, runner Runner) *streamRegistry {
 	return &streamRegistry{
 		sync.RWMutex{},
-		lggr.Named("StreamRegistry"),
+		lggr.Named("Registry"),
 		runner,
 		make(map[StreamID]Stream),
 	}
