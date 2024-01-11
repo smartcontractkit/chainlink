@@ -52,7 +52,7 @@ func (s *Shell) ReplayFromBlock(c *cli.Context) (err error) {
 	}
 
 	buf := bytes.NewBufferString("{}")
-	resp, err := s.HTTP.Post(
+	resp, err := s.HTTP.Post(s.ctx(),
 		fmt.Sprintf(
 			"/v2/replay_from_block/%v?%s",
 			blockNumber,
