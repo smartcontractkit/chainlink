@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -62,6 +63,25 @@ func GenLogWithData(chainID *big.Int, address common.Address, eventSig common.Ha
 		Address:        address,
 		TxHash:         utils.RandomBytes32(),
 		Data:           data,
+		BlockTimestamp: time.Now(),
+	}
+}
+
+func GenLogWithTopics(chainID *big.Int, logIndex int64, blockNum int64, eventSig common.Hash, address common.Address, topics ...[]byte) logpoller.Log {
+	var prefixedTopics [][]byte
+	prefixedTopics = append(prefixedTopics, []byte{}) // First topic is always empty
+	prefixedTopics = append(prefixedTopics, topics...)
+
+	return logpoller.Log{
+		EvmChainId:     ubig.New(chainID),
+		LogIndex:       logIndex,
+		BlockHash:      utils.RandomBytes32(),
+		BlockNumber:    blockNum,
+		EventSig:       eventSig,
+		Topics:         prefixedTopics,
+		Address:        address,
+		TxHash:         utils.RandomBytes32(),
+		Data:           []byte{},
 		BlockTimestamp: time.Now(),
 	}
 }
@@ -1564,4 +1584,164 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 		assert.NoError(b, err)
 		assert.Len(b, logs, 1)
 	}
+}
+
+func Benchmark_SelectLatestIndexedLogs(b *testing.B) {
+	chainId := big.NewInt(137)
+	_, db := heavyweight.FullTestDBV2(b, nil)
+	o := logpoller.NewORM(chainId, db, logger.Test(b), pgtest.NewQConfig(false))
+
+	numberOfLogs := 20_000
+	numberOfTopics := 100 // 100 tokens
+
+	addr := utils.RandomAddress()
+	event := utils.RandomBytes32()
+
+	availableTopics := make([][]byte, numberOfTopics)
+	for i := 0; i < numberOfTopics; i++ {
+		randomBytes := utils.RandomBytes32()
+		availableTopics[i] = randomBytes[:]
+	}
+
+	var dbLogs []logpoller.Log
+	for i := 0; i < numberOfLogs; i++ {
+		topics := make([][]byte, 4)
+		for j := 0; j < 4; j++ {
+			topics[j] = availableTopics[(i+j)%numberOfTopics]
+		}
+
+		dbLogs = append(dbLogs, logpoller.Log{
+			EvmChainId:     ubig.New(chainId),
+			LogIndex:       int64(i + 1),
+			BlockHash:      utils.RandomBytes32(),
+			BlockNumber:    int64(i + 1),
+			BlockTimestamp: time.Now(),
+			EventSig:       event,
+			Topics:         topics,
+			Address:        addr,
+			TxHash:         utils.RandomAddress().Hash(),
+			Data:           []byte{},
+			CreatedAt:      time.Now(),
+		})
+	}
+	require.NoError(b, o.InsertBlock(utils.RandomAddress().Hash(), int64(numberOfLogs), time.Now(), int64(numberOfLogs)))
+	require.NoError(b, o.InsertLogs(dbLogs))
+
+	b.ResetTimer()
+
+	// NEW QUERY
+	for i := 0; i < b.N; i++ {
+		logs, err := o.SelectLatestIndexedLogs(
+			addr,
+			event,
+			[]int{1},
+			time.Now().Add(-1*time.Hour),
+			logpoller.Unconfirmed,
+		)
+		assert.NoError(b, err)
+		assert.Len(b, logs, numberOfTopics)
+	}
+
+	// OLD QUERY - required getting all matching requests and then filtering them in memory to pick the latest
+	//for i := 0; i < b.N; i++ {
+	//	logs, err := o.SelectLogsCreatedAfter(
+	//		addr,
+	//		event,
+	//		time.Now().Add(-1*time.Hour),
+	//		logpoller.Unconfirmed,
+	//	)
+	//	assert.NoError(b, err)
+	//	assert.Len(b, logs, numberOfLogs)
+	//}
+}
+
+func Test_SelectLatestIndexedLogs(t *testing.T) {
+	address := utils.RandomAddress()
+	eventSig := utils.RandomBytes32()
+	past := time.Now().Add(-1 * time.Hour)
+
+	th := SetupTH(t, false, 2, 3, 2, 1000)
+
+	topic1 := utils.RandomBytes32()
+	topic2 := utils.RandomBytes32()
+	topic3 := utils.RandomBytes32()
+
+	emittedLogs := []logpoller.Log{
+		GenLogWithTopics(th.ChainID, 1, 1, eventSig, address, topic1[:], topic1[:]),
+		GenLogWithTopics(th.ChainID, 2, 4, eventSig, address, topic2[:], topic1[:]),
+		GenLogWithTopics(th.ChainID, 3, 1, eventSig, address, topic1[:], topic2[:]),
+		GenLogWithTopics(th.ChainID, 4, 4, eventSig, address, topic2[:], topic2[:]),
+		GenLogWithTopics(th.ChainID, 2, 1, eventSig, address, topic1[:], topic3[:]),
+	}
+	require.NoError(t, th.ORM.InsertLogs(emittedLogs))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 10, time.Now(), 1))
+
+	tests := []struct {
+		name               string
+		topicIndexes       []int
+		expectedLength     int
+		elementsAssertions func(logs []logpoller.Log)
+	}{
+		{
+			name:           "returns single element when grouping by empty topics",
+			topicIndexes:   []int{3},
+			expectedLength: 1,
+			elementsAssertions: func(logs []logpoller.Log) {
+				assert.Equal(t, logs[0].BlockNumber, int64(4))
+				assert.Equal(t, logs[0].BlockNumber, int64(4))
+			},
+		},
+		{
+			name:           "returns latest value per topic",
+			topicIndexes:   []int{1},
+			expectedLength: 2,
+			elementsAssertions: func(logs []logpoller.Log) {
+				indexTopic1 := findLogByTopic(1, logs, topic1[:])
+				assert.Equal(t, logs[indexTopic1].BlockNumber, int64(1))
+
+				indexTopic2 := findLogByTopic(1, logs, topic2[:])
+				assert.Equal(t, logs[indexTopic2].BlockNumber, int64(4))
+			},
+		},
+		{
+			name:           "returns latest value for multiple topics",
+			topicIndexes:   []int{2},
+			expectedLength: 3,
+			elementsAssertions: func(logs []logpoller.Log) {
+				indexTopic1 := findLogByTopic(2, logs, topic1[:])
+				assert.Equal(t, logs[indexTopic1].BlockNumber, int64(4))
+
+				indexTopic2 := findLogByTopic(2, logs, topic2[:])
+				assert.Equal(t, logs[indexTopic2].BlockNumber, int64(4))
+
+				indexTopic3 := findLogByTopic(2, logs, topic3[:])
+				assert.Equal(t, logs[indexTopic3].BlockNumber, int64(1))
+			},
+		},
+		{
+			name:               "returns values grouped by 2 topics",
+			topicIndexes:       []int{1, 2},
+			expectedLength:     5,
+			elementsAssertions: func(logs []logpoller.Log) {},
+		},
+		{
+			name:               "returns values by multiple 3 topics",
+			topicIndexes:       []int{3, 1, 2},
+			expectedLength:     5,
+			elementsAssertions: func(logs []logpoller.Log) {},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logs, err := th.ORM.SelectLatestIndexedLogs(address, eventSig, tt.topicIndexes, past, logpoller.Unconfirmed)
+			require.NoError(t, err)
+			assert.Len(t, logs, tt.expectedLength)
+			tt.elementsAssertions(logs)
+		})
+	}
+}
+
+func findLogByTopic(index int, logs []logpoller.Log, topic []byte) int {
+	return slices.IndexFunc(logs, func(log logpoller.Log) bool { return bytes.Equal(log.Topics[index], topic) })
 }

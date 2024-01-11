@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -52,6 +54,7 @@ type ORM interface {
 	SelectLogsDataWordRange(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordBetween(address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+	SelectLatestIndexedLogs(address common.Address, eventSig common.Hash, topicIndexes []int, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 }
 
 type DbORM struct {
@@ -753,6 +756,81 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 		return nil, err
 	}
 	return logs, nil
+}
+
+func (o *DbORM) SelectLatestIndexedLogs(address common.Address, eventSig common.Hash, topicIndexes []int, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
+		withBlockTimestampAfter(after).
+		withConfs(confs).
+		toArgs()
+	if err != nil {
+		return nil, err
+	}
+
+	topicPartitions, err := queryByTopicPartitions(topicIndexes)
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(`
+		WITH LatestIndexedLogs AS (
+			SELECT
+				evm_chain_id,
+				log_index,
+				block_hash,
+				block_number,
+				address,
+				event_sig,
+				topics,
+				tx_hash,
+				data,
+				created_at,
+				block_timestamp,
+				ROW_NUMBER() OVER (
+					PARTITION BY %s evm_chain_id, address, event_sig
+					ORDER BY block_number DESC, log_index DESC
+				) AS rn
+			FROM
+				evm.logs
+			WHERE
+					evm_chain_id = :evm_chain_id AND
+					address = :address AND
+					event_sig = :event_sig AND
+					block_timestamp > :block_timestamp_after AND
+ 					block_number <= %s
+		)
+		SELECT
+			evm_chain_id,
+			log_index,
+			block_hash,
+			block_number,
+			address,
+			event_sig,
+			topics,
+			tx_hash,
+			data,
+			created_at,
+			block_timestamp
+		FROM
+			LatestIndexedLogs
+		WHERE
+			rn = 1`, topicPartitions, nestedBlockNumberQuery(confs))
+	var logs []Log
+	if err := o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func queryByTopicPartitions(topicIndexes []int) (string, error) {
+	topicPartitions := strings.Builder{}
+	for _, index := range topicIndexes {
+		if !(index == 1 || index == 2 || index == 3) {
+			return "", fmt.Errorf("invalid index for topic: %d", index)
+		}
+		topicPartitions.WriteString(fmt.Sprintf("topics[%d], ", index+1))
+	}
+	return topicPartitions.String(), nil
 }
 
 func nestedBlockNumberQuery(confs Confirmations) string {

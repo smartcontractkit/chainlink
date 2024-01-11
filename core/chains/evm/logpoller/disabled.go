@@ -110,3 +110,7 @@ func (d disabled) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSig
 func (d disabled) LogsDataWordBetween(eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
+
+func (d disabled) LatestIndexedLogs(address common.Address, eventSig common.Hash, topicIndexes []int, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
