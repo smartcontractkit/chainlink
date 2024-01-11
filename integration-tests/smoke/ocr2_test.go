@@ -98,7 +98,8 @@ func TestOCRv2Basic(t *testing.T) {
 
 			// DEBUG: Checking what happens if we let it run
 			for round := 1; round <= 5; round++ {
-				env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, round*5)
+				err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, round*5)
+				require.NoError(t, err, "Error setting new adapter value")
 				err = actions.WatchNewOCR2Round(int64(round), aggregatorContracts, env.EVMClient, time.Minute*5, l)
 				require.NoError(t, err, "Error starting new OCR2 round")
 				roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(int64(round)))
