@@ -59,9 +59,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.number }}
         run: |
-          # Fetch labels using curl
-          RESPONSE=$(curl --silent --fail --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels")
+          RESPONSE=$(gh pr view ${PR_NUMBER} --json labels)
           # Check if the curl command was successful
           if [[ $? -ne 0 ]]; then
             echo "Error fetching labels"
