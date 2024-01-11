@@ -110,7 +110,7 @@ func (s *Shell) CreateExternalInitiator(c *cli.Context) (err error) {
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := s.HTTP.Post("/v2/external_initiators", buf)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/external_initiators", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -131,7 +131,7 @@ func (s *Shell) DeleteExternalInitiator(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("Must pass the name of the external initiator to delete"))
 	}
 
-	resp, err := s.HTTP.Delete("/v2/external_initiators/" + c.Args().First())
+	resp, err := s.HTTP.Delete(s.ctx(), "/v2/external_initiators/"+c.Args().First())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -155,7 +155,7 @@ func (s *Shell) getPage(requestURI string, page int, model interface{}) (err err
 	}
 	uri.RawQuery = q.Encode()
 
-	resp, err := s.HTTP.Get(uri.String())
+	resp, err := s.HTTP.Get(s.ctx(), uri.String())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -180,7 +180,7 @@ func (s *Shell) RemoteLogin(c *cli.Context) error {
 	if err != nil {
 		return s.errorOut(err)
 	}
-	_, err = s.CookieAuthenticator.Authenticate(sessionRequest)
+	_, err = s.CookieAuthenticator.Authenticate(s.ctx(), sessionRequest)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -194,7 +194,7 @@ func (s *Shell) RemoteLogin(c *cli.Context) error {
 
 // Logout removes local and remote session.
 func (s *Shell) Logout(_ *cli.Context) (err error) {
-	resp, err := s.HTTP.Delete("/sessions")
+	resp, err := s.HTTP.Delete(s.ctx(), "/sessions")
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -224,7 +224,7 @@ func (s *Shell) ChangePassword(_ *cli.Context) (err error) {
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := s.HTTP.Patch("/v2/user/password", buf)
+	resp, err := s.HTTP.Patch(s.ctx(), "/v2/user/password", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -313,7 +313,7 @@ func (s *Shell) ConfigV2(c *cli.Context) error {
 }
 
 func (s *Shell) configV2Str(userOnly bool) (string, error) {
-	resp, err := s.HTTP.Get(fmt.Sprintf("/v2/config/v2?userOnly=%t", userOnly))
+	resp, err := s.HTTP.Get(s.ctx(), fmt.Sprintf("/v2/config/v2?userOnly=%t", userOnly))
 	if err != nil {
 		return "", s.errorOut(err)
 	}
@@ -351,7 +351,7 @@ func (s *Shell) SetLogLevel(c *cli.Context) (err error) {
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := s.HTTP.Patch("/v2/log", buf)
+	resp, err := s.HTTP.Patch(s.ctx(), "/v2/log", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -383,7 +383,7 @@ func (s *Shell) SetLogSQL(c *cli.Context) (err error) {
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	resp, err := s.HTTP.Patch("/v2/log", buf)
+	resp, err := s.HTTP.Patch(s.ctx(), "/v2/log", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -476,7 +476,7 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 }
 
 func (s *Shell) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool, cliVersion, cliSha string) error {
-	resp, err := s.HTTP.Get("/v2/build_info")
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/build_info")
 	if err != nil {
 		lggr.Warnw("Got error querying for version. Remote node version is unknown and CLI may behave in unexpected ways.", "err", err)
 		return nil
@@ -517,7 +517,7 @@ func (s *Shell) Health(c *cli.Context) error {
 	if c.Bool("json") {
 		mime = gin.MIMEJSON
 	}
-	resp, err := s.HTTP.Get("/health", map[string]string{"Accept": mime})
+	resp, err := s.HTTP.Get(s.ctx(), "/health", map[string]string{"Accept": mime})
 	if err != nil {
 		return s.errorOut(err)
 	}

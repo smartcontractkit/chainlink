@@ -10,6 +10,8 @@ linters:
     - misspell
     - rowserrcheck
     - errorlint
+    - sqlclosecheck
+    - noctx
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
