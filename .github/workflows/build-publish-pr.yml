@@ -67,7 +67,7 @@ jobs:
             exit 1
           fi
           echo "RESPONSE=${RESPONSE}"
-          LABELS=$(echo "$RESPONSE" | jq -r '.labels[].name')
+          LABELS=$(echo "$RESPONSE" | jq -r '.labels | map(.name) | join(", ")')
           # Check if any labels were found
           if [[ -z "${LABELS:-}" ]]; then
             echo "No labels found"
