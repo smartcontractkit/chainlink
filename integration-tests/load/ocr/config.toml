@@ -35,16 +35,42 @@ ea_change_interval = "5s"
 # each CL node receives 3 ETH
 eth_funds = 3
 
-# chaos monkey config
 [havoc]
+# dir is a custom dir you can select, if null monkey will create a new dir
+dir = "experiments-crib-core"
+# if you have multiple products inside one namespace this can help to filter by label in k=v format
+namespace_label_filter = ""
 # pods with this prefix will be ignored when generating experiments
 ignore_pods = ["geth", "mockserver", "-db-"]
-ignore_group_labels = ["release"]
+# group labels containing these strings will be ignored when generating group experiments
+ignore_group_labels = [
+    "mainnet",
+    "release",
+    "intents.otterize.com",
+    "pod-template-hash",
+    "rollouts-pod-template-hash",
+    "chain.link/app",
+    "chain.link/cost-center",
+    "chain.link/env",
+    "chain.link/project",
+    "chain.link/team",
+    "app.kubernetes.io/part-of",
+    "app.kubernetes.io/managed-by",
+    "app.chain.link/product",
+    "app.kubernetes.io/version",
+    "app.chain.link/blockchain"
+    #    "app.kubernetes.io/instance",
+    #    "app.kubernetes.io/name",
+]
+# these are experiment types you'd like to generate, it also defines an order of execution in seq mode
+experiment_types = ["external", "failure", "latency", "cpu", "memory", "group-failure", "group-latency"]
+
 [havoc.failure]
 # duration of a "failure" experiment
 duration = "10s"
 # percentage of pods experiments affect in groups, see group-failure key and dir when generated
-group_percentage = "30"
+group_percentage = ["30", "20", "10"]
+group_fixed = ["3", "2", "1"]
 
 [havoc.latency]
 # duration of "latency" experiment
@@ -52,7 +78,8 @@ duration = "10s"
 # constant latency to inject
 latency = "300ms"
 # percentage of pods experiments affect in groups, see group-failure key and dir when generated
-group_percentage = "30"
+group_percentage = ["30", "20", "10"]
+group_fixed = ["3", "2", "1"]
 
 [havoc.stress_memory]
 # duration of "stress" experiment affecting pod memory
@@ -74,14 +101,18 @@ load = 100
 # percentage of pods experiments affect in groups, see group-failure key and dir when generated
 group_percentage = "30"
 
+[havoc.external_targets]
+# duration of "external" experiment
+duration = "10s"
+# URL of external service that'd fail to resolve
+urls = ["www.google.com"]
+
 [havoc.monkey]
 # havoc monkey mode:
 # seq - runs all experiments from all dirs sequentially one time
 # rand - runs random experiments from all dirs
 mode = "rand"
 # duration of havoc monkey
-duration = "1h"
-# dir is a custom dir you can select, if null monkey will create a new dir
-dir = "havoc-test-dir"
+duration = "24h"
 # cooldown between experiments
 cooldown = "10s"

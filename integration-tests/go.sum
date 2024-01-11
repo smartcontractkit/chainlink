@@ -1510,8 +1510,8 @@ github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306 h1:ko88
 github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306/go.mod h1:w1sAEES3g3PuV/RzUrgow20W2uErMly84hhD3um1WL4=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJif132UCdjo8u43i7iPN1/MFnu49hv7lFGFftCHKU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
-github.com/smartcontractkit/havoc v0.0.7 h1:FM3/X0SxASVLhg8Kb0ea672ZZHhe2oAl0rhgqQPFw84=
-github.com/smartcontractkit/havoc v0.0.7/go.mod h1:zeVImDBJdBoW8VPsWbYGgPRlHjQg9mATUZe/t6FQ7l8=
+github.com/smartcontractkit/havoc v0.1.0 h1:1E2+jzeqleHqpx7hRdy8V0+vzGAkv7Qw1jmxK6nKzw0=
+github.com/smartcontractkit/havoc v0.1.0/go.mod h1:zeVImDBJdBoW8VPsWbYGgPRlHjQg9mATUZe/t6FQ7l8=
 github.com/smartcontractkit/libocr v0.0.0-20231130143053-c5102a9c0fb7 h1:AA7vf29c6lFsZm+MtIEtXtg6VUOQV6waJo5MUuHfRjQ=
 github.com/smartcontractkit/libocr v0.0.0-20231130143053-c5102a9c0fb7/go.mod h1:WcuWFMskcGK0MYZuH5hEhGJOzdJRUFeNEM4PAKlejI4=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 h1:yiKnypAqP8l0OX0P3klzZ7SCcBUxy5KqTAKZmQOvSQE=
