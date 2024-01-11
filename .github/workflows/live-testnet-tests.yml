@@ -279,10 +279,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["sepolia"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -295,6 +292,8 @@ jobs:
           key="$PYROSCOPE_KEY"
 
           [Network]
+          selected_networks=["sepolia"]
+
           [Network.RpcHttpUrls]
           sepolia = $(convert_to_toml_array "$SEPOLIA_URLS")
 
@@ -382,10 +381,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["bsc_testnet"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -397,14 +393,17 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
-          [RpcHttpUrls]
-          bsc_testnet = [$(convert_to_toml_array "$BSC_TESTNET_HTTP_URLS")]
+          [Network]
+          selected_networks=["bsc_testnet"]
 
-          [RpcWsUrls]
-          bsc_testnet = [$(convert_to_toml_array "$BSC_TESTNET_URLS")]
+          [Network.RpcHttpUrls]
+          bsc_testnet = $(convert_to_toml_array "$BSC_TESTNET_HTTP_URLS")
 
-          [WalletKeys]
-          bsc_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
+          [Network.RpcWsUrls]
+          bsc_testnet = $(convert_to_toml_array "$BSC_TESTNET_URLS")
+
+          [Network.WalletKeys]
+          bsc_testnet = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -482,10 +481,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["optimism_sepolia"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -497,13 +493,16 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
-          [RpcHttpUrls]
+          [Network]
+          selected_networks=["optimism_sepolia"]
+
+          [Network.RpcHttpUrls]
           optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           optimism_sepolia = [$(convert_to_toml_array "$OPTIMISM_SEPOLIA_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           optimism_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -584,9 +583,6 @@ jobs:
           [Common]
           chainlink_node_funding=0.5
           
-          [Network]
-          selected_networks=["arbitrum_sepolia"]
-          
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
           version="${{ github.sha }}"
@@ -597,13 +593,16 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
-          [RpcHttpUrls]
+          [Network]
+          selected_networks=["arbitrum_sepolia"]
+          
+          [Network.RpcHttpUrls]
           arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           arbitrum_sepolia = [$(convert_to_toml_array "$ARBITRUM_SEPOLIA_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           arbitrum_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -678,10 +677,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["base_goerli"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -692,13 +688,17 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
-          [RpcHttpUrls]
+
+          [Network]
+          selected_networks=["base_goerli"]
+
+          [Network.RpcHttpUrls]
           base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           base_goerli = [$(convert_to_toml_array "$BASE_GOERLI_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           base_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -775,9 +775,6 @@ jobs:
           [Common]
           chainlink_node_funding=0.5
           
-          [Network]
-          selected_networks=["base_sepolia"]
-          
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
           version="${{ github.sha }}"
@@ -787,14 +784,17 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+          
+          [Network]
+          selected_networks=["base_sepolia"]
 
-          [RpcHttpUrls]
+          [Network.RpcHttpUrls]
           base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           base_sepolia = [$(convert_to_toml_array "$BASE_SEPOLIA_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           base_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -875,9 +875,6 @@ jobs:
           [Common]
           chainlink_node_funding=0.5
           
-          [Network]
-          selected_networks=["polygon_mumbai"]
-          
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
           version="${{ github.sha }}"
@@ -887,14 +884,17 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+                    
+          [Network]
+          selected_networks=["polygon_mumbai"]
 
-          [RpcHttpUrls]
+          [Network.RpcHttpUrls]
           polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           polygon_mumbai = [$(convert_to_toml_array "$POLYGON_MUMBAI_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           polygon_mumbai = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -973,10 +973,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["avalanche_fuji"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -987,13 +984,17 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
-          [RpcHttpUrls]
+
+          [Network]
+          selected_networks=["avalanche_fuji"]
+
+          [Network.RpcHttpUrls]
           avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           avalanche_fuji = [$(convert_to_toml_array "$AVALANCHE_FUJI_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           avalanche_fuji = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -1072,10 +1073,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["fantom_testnet"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -1087,13 +1085,16 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
-          [RpcHttpUrls]
+          [Network]
+          selected_networks=["fantom_testnet"]
+
+          [Network.RpcHttpUrls]
           fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           fantom_testnet = [$(convert_to_toml_array "$FANTOM_TESTNET_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           fantom_testnet = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -1168,10 +1169,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["celo_alfajores"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -1183,13 +1181,16 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
-          [RpcHttpUrls]
+          [Network]
+          selected_networks=["celo_alfajores"]
+
+          [Network.RpcHttpUrls]
           celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           celo_alfajores = [$(convert_to_toml_array "$CELO_ALFAJORES
 
-          [WalletKeys]
+          [Network.WalletKeys]
           celo_alfajores = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -1266,10 +1267,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["scroll_sepolia"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -1281,13 +1279,16 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
-          [RpcHttpUrls]
+          [Network]
+          selected_networks=["scroll_sepolia"]
+
+          [Network.RpcHttpUrls]
           scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           scroll_sepolia = [$(convert_to_toml_array "$SCROLL_SEPOLIA_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           scroll_sepolia = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
@@ -1362,10 +1363,7 @@ jobs:
           
           cat << EOF > config.toml
           [Common]
-          chainlink_node_funding=0.5
-          
-          [Network]
-          selected_networks=["linea_goerli"]
+          chainlink_node_funding=0.5        
           
           [ChainlinkImage]
           image="$CHAINLINK_IMAGE"
@@ -1377,13 +1375,16 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
-          [RpcHttpUrls]
+          [Network]
+          selected_networks=["linea_goerli"]          
+
+          [Network.RpcHttpUrls]
           linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_HTTP_URLS")]
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           linea_goerli = [$(convert_to_toml_array "$LINEA_GOERLI_URLS")]
 
-          [WalletKeys]
+          [Network.WalletKeys]
           linea_goerli = [$(convert_to_toml_array "$EVM_KEYS")]
           EOF
           
