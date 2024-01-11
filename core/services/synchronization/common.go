@@ -24,6 +24,7 @@ const (
 	OCR2VRF           TelemetryType = "ocr2-vrf"
 	AutomationCustom  TelemetryType = "automation-custom"
 	OCR3Automation    TelemetryType = "ocr3-automation"
+	OCR3Rebalancer    TelemetryType = "ocr3-rebalancer"
 )
 
 type TelemPayload struct {

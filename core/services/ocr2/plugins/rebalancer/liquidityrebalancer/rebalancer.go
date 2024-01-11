@@ -7,5 +7,9 @@ import (
 
 //go:generate mockery --quiet --name Rebalancer --output ../rebalancermocks --filename rebalancer_mock.go --case=underscore
 type Rebalancer interface {
-	ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, inflightTransfers []models.PendingTransfer) ([]models.Transfer, error)
+	ComputeTransfersToBalance(
+		g liquiditygraph.LiquidityGraph,
+		inflightTransfers []models.PendingTransfer,
+		medianLiquidityPerChain []models.NetworkLiquidity,
+	) ([]models.Transfer, error)
 }

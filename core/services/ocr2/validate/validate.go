@@ -19,6 +19,7 @@ import (
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
+	rebalancermodels "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -123,6 +124,8 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		return validateOCR2CCIPCommitSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
 		return validateOCR2GenericPluginSpec(spec.OCR2OracleSpec.PluginConfig)
+	case "rebalancer":
+		return validateRebalancerSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -185,6 +188,27 @@ func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
 		return errors.New("generic config invalid: must provide telemetry type")
 	}
 
+	return nil
+}
+
+func validateRebalancerSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var pluginConfig rebalancermodels.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+	if pluginConfig.LiquidityManagerNetwork == 0 {
+		return errors.New("liquidityManagerNetwork must be provided")
+	}
+	if pluginConfig.ClosePluginTimeoutSec <= 0 {
+		return errors.New("closePluginTimeoutSec must be positive")
+	}
+	if err := rebalancermodels.ValidateRebalancerConfig(pluginConfig.RebalancerConfig); err != nil {
+		return fmt.Errorf("rebalancer config invalid: %w", err)
+	}
 	return nil
 }
 

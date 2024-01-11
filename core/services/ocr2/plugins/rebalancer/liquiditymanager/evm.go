@@ -2,6 +2,7 @@ package liquiditymanager
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"math/big"
 
@@ -16,8 +17,11 @@ type EvmLiquidityManager struct {
 	networkID models.NetworkID
 }
 
-func NewEvmLiquidityManager(address models.Address) *EvmLiquidityManager {
-	return &EvmLiquidityManager{}
+func NewEvmLiquidityManager(address models.Address, networkID models.NetworkID) *EvmLiquidityManager {
+	return &EvmLiquidityManager{
+		address:   address,
+		networkID: networkID,
+	}
 }
 
 func (e EvmLiquidityManager) MoveLiquidity(ctx context.Context, chainID models.NetworkID, amount *big.Int) error {
@@ -29,7 +33,11 @@ func (e EvmLiquidityManager) GetLiquidityManagers(ctx context.Context) (map[mode
 }
 
 func (e EvmLiquidityManager) GetBalance(ctx context.Context) (*big.Int, error) {
-	return big.NewInt(0), nil
+	r, err := rand.Int(rand.Reader, big.NewInt(1000))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate random number: %w", err)
+	}
+	return r, nil
 }
 
 func (e EvmLiquidityManager) GetPendingTransfers(ctx context.Context) ([]models.PendingTransfer, error) {
@@ -66,9 +74,15 @@ func (e EvmLiquidityManager) Discover(ctx context.Context, lmFactory Factory) (*
 			return nil, nil, fmt.Errorf("init liquidity manager: %w", err)
 		}
 
+		lms.Add(elem.networkID, elem.lmAddress)
+
 		destinationLMs, err := lm.GetLiquidityManagers(ctx)
 		if err != nil {
 			return nil, nil, fmt.Errorf("get %v destination liquidity managers: %w", elem.networkID, err)
+		}
+
+		if destinationLMs == nil {
+			continue
 		}
 
 		for destNetworkID, lmAddr := range destinationLMs {

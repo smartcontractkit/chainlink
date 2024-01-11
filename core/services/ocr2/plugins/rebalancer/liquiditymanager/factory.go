@@ -22,8 +22,8 @@ func NewBaseLiquidityManagerFactory() *BaseLiquidityManagerFactory {
 func (b *BaseLiquidityManagerFactory) NewLiquidityManager(networkID models.NetworkID, address models.Address) (LiquidityManager, error) {
 	switch typ := networkID.Type(); typ {
 	case models.NetworkTypeEvm:
-		return NewEvmLiquidityManager(address), nil
+		return NewEvmLiquidityManager(address, networkID), nil
 	default:
-		return nil, fmt.Errorf("liquidity manager of type %v is not supported", typ)
+		return nil, fmt.Errorf("liquidity manager of type %v (id %d) is not supported", typ, networkID)
 	}
 }

@@ -11,6 +11,10 @@ type NetworkLiquidity struct {
 	Liquidity *big.Int
 }
 
+func (n NetworkLiquidity) String() string {
+	return fmt.Sprintf("NetworkLiquidity{Network: %d, Liquidity: %s}", n.Network, n.Liquidity.String())
+}
+
 func NewNetworkLiquidity(chain NetworkID, liq *big.Int) NetworkLiquidity {
 	return NetworkLiquidity{
 		Network:   chain,

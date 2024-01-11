@@ -35,6 +35,9 @@ type LiquidityGraph interface {
 
 	// Reset resets the graph to it's empty state.
 	Reset()
+
+	// String returns the string representation of the graph.
+	String() string
 }
 
 type Graph struct {
@@ -139,4 +142,11 @@ func (g *Graph) Reset() {
 
 	g.networksGraph = make(map[models.NetworkID][]models.NetworkID)
 	g.networkBalance = make(map[models.NetworkID]*big.Int)
+}
+
+func (g *Graph) String() string {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	return fmt.Sprintf("Graph{networksGraph: %+v, networkBalance: %+v}", g.networksGraph, g.networkBalance)
 }
