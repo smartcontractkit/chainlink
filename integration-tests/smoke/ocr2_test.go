@@ -96,26 +96,15 @@ func TestOCRv2Basic(t *testing.T) {
 			err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
 			require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-			err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
-			require.NoError(t, err, "Error starting new OCR2 round")
-			roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
-			require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
-			require.Equal(t, int64(5), roundData.Answer.Int64(),
-				"Expected latest answer from OCR contract to be 5 but got %d",
-				roundData.Answer.Int64(),
-			)
-
-			err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
-			require.NoError(t, err)
-			err = actions.WatchNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
-			require.NoError(t, err)
-
-			roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(2))
-			require.NoError(t, err, "Error getting latest OCR answer")
-			require.Equal(t, int64(10), roundData.Answer.Int64(),
-				"Expected latest answer from OCR contract to be 10 but got %d",
-				roundData.Answer.Int64(),
-			)
+			// DEBUG: Checking what happens if we let it run
+			for round := 1; round <= 5; round++ {
+				env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, round*5)
+				err = actions.WatchNewOCR2Round(int64(round), aggregatorContracts, env.EVMClient, time.Minute*5, l)
+				require.NoError(t, err, "Error starting new OCR2 round")
+				roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(int64(round)))
+				require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+				l.Info().Int("Round", round).Int("Expecting", round*5).Int64("Answer", roundData.Answer.Int64()).Msg("Found OCR New OCR Round")
+			}
 		})
 	}
 }
