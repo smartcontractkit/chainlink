@@ -44,6 +44,10 @@ const (
 	attestationStatusPending attestationStatus = "pending_confirmations"
 )
 
+var (
+	ErrUnknownResponse = errors.New("unexpected response from attestation API")
+)
+
 // messageAndAttestation has to match the onchain struct `MessageAndAttestation` in the
 // USDC token pool.
 type messageAndAttestation struct {
@@ -87,6 +91,7 @@ type TokenDataReader struct {
 type attestationResponse struct {
 	Status      attestationStatus `json:"status"`
 	Attestation string            `json:"attestation"`
+	Error       string            `json:"error"`
 }
 
 var _ tokendata.Reader = &TokenDataReader{}
@@ -139,18 +144,20 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg internal.EVM2EV
 	if err != nil {
 		return []byte{}, errors.Wrap(err, "failed calling usdc attestation API ")
 	}
-
-	if attestationResp.Status != attestationStatusSuccess {
-		return []byte{}, tokendata.ErrNotReady
+	switch attestationResp.Status {
+	case attestationStatusSuccess:
+		// The USDC pool needs a combination of the message body and the attestation
+		messageAndAttestation, err = encodeMessageAndAttestation(messageBody, attestationResp.Attestation)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode messageAndAttestation : %w", err)
+		}
+		return messageAndAttestation, nil
+	case attestationStatusPending:
+		return nil, tokendata.ErrNotReady
+	default:
+		s.lggr.Errorw("Unexpected response from attestation API", "attestationResp", attestationResp)
+		return nil, ErrUnknownResponse
 	}
-
-	// The USDC pool needs a combination of the message body and the attestation
-	messageAndAttestation, err = encodeMessageAndAttestation(messageBody, attestationResp.Attestation)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode messageAndAttestation : %w", err)
-	}
-
-	return messageAndAttestation, nil
 }
 
 // encodeMessageAndAttestation encodes the message body and attestation into a single byte array
@@ -202,6 +209,9 @@ func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHas
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return attestationResponse{}, err
+	}
+	if response.Error != "" {
+		return attestationResponse{}, fmt.Errorf("attestation API error: %s", response.Error)
 	}
 	if response.Status == "" {
 		return attestationResponse{}, fmt.Errorf("invalid attestation response: %s", string(body))
