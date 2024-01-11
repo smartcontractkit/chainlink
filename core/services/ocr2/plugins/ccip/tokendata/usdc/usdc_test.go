@@ -120,11 +120,45 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 					_, err := w.Write(responseBytes)
 					require.NoError(t, err)
 				}))
-
 			},
 			parentTimeoutSeconds: 60,
 			customTimeoutSeconds: 2,
 			expectedError:        tokendata.ErrTimeout,
+		},
+		{
+			name: "error response",
+			getTs: func() *httptest.Server {
+				response := attestationResponse{
+					Error: "some error",
+				}
+				responseBytes, _ := json.Marshal(response)
+
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					_, err := w.Write(responseBytes)
+					require.NoError(t, err)
+				}))
+
+			},
+			parentTimeoutSeconds: 60,
+			expectedError:        nil,
+		},
+		{
+			name: "invalid status",
+			getTs: func() *httptest.Server {
+				response := attestationResponse{
+					Status:      "",
+					Attestation: "720502893578a89a8a87982982ef781c18b193",
+				}
+				responseBytes, _ := json.Marshal(response)
+
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					_, err := w.Write(responseBytes)
+					require.NoError(t, err)
+				}))
+
+			},
+			parentTimeoutSeconds: 60,
+			expectedError:        nil,
 		},
 		{
 			name: "rate limit",

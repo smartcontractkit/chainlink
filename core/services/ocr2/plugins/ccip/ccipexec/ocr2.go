@@ -397,6 +397,10 @@ func (r *ExecutionReportingPlugin) buildBatch(
 		tokenData, elapsed, err := r.getTokenDataWithTimeout(ctx, msg, tokenDataRemainingDuration)
 		tokenDataRemainingDuration -= elapsed
 		if err != nil {
+			if errors.Is(err, tokendata.ErrNotReady) {
+				msgLggr.Warnw("skipping message due to token data not ready", "err", err)
+				continue
+			}
 			msgLggr.Errorw("skipping message error while getting token data", "err", err)
 			continue
 		}
