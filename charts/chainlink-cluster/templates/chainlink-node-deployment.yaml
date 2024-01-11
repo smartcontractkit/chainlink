@@ -4,6 +4,9 @@ kind: Deployment
 metadata:
   name: {{ $.Release.Name }}-{{ $cfg.name }}
 spec:
+  strategy:
+    # Need to recreate the pod to deal with lease lock held by old pod.
+    type: Recreate
   selector:
     matchLabels:
       app: {{ $.Release.Name }}
