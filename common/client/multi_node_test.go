@@ -646,7 +646,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		requestContext, cancel := context.WithCancel(tests.Context(t))
 		cancel()
 		err := mn.SendTransaction(requestContext, nil)
-		require.EqualError(t, err, "failed to collect tx results: context canceled")
+		require.EqualError(t, err, "context canceled")
 	})
 	t.Run("Soft timeout stops results collection", func(t *testing.T) {
 		chainID := types.RandomID()

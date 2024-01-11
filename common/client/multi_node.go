@@ -594,7 +594,7 @@ func fanOut[T any](source chan T, destinations ...chan T) {
 }
 
 // collectTxResults - refer to SendTransaction comment for implementation details,
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) collectTxResults(ctx context.Context, tx TX, txResults <-chan sendTxResult) (map[SendTxReturnCode][]error, error) {
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) collectTxResults(ctx context.Context, tx TX, txResults <-chan sendTxResult) error {
 	// combine context and stop channel to ensure we stop, when signal received
 	ctx, cancel := c.chStop.Ctx(ctx)
 	defer cancel()
@@ -602,20 +602,21 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	errorsByCode := map[SendTxReturnCode][]error{}
 	var softTimeoutChan <-chan time.Time
 	var resultsCount int
+loop:
 	for {
 		select {
 		case <-ctx.Done():
 			c.lggr.Debugw("Failed to collect of the results before context was done", "tx", tx, "errorsByCode", errorsByCode)
-			return nil, ctx.Err()
+			return ctx.Err()
 		case result := <-txResults:
 			errorsByCode[result.ResultCode] = append(errorsByCode[result.ResultCode], result.Err)
 			resultsCount++
 			if result.ResultCode == Successful || resultsCount >= requiredResults {
-				return errorsByCode, nil
+				break loop
 			}
 		case <-softTimeoutChan:
 			c.lggr.Debugw("Send Tx soft timeout expired - returning responses we've collected so far", "tx", tx, "resultsCount", resultsCount, "requiredResults", requiredResults)
-			return errorsByCode, nil
+			break loop
 		}
 
 		if softTimeoutChan == nil {
@@ -626,6 +627,11 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			defer tm.Stop()
 		}
 	}
+
+	// ignore critical error as it's reported in reportSendTxAnomalies
+	result, _ := aggregateTxResults(errorsByCode)
+	return result
+
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
@@ -645,8 +651,8 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 }
 
 func aggregateTxResults(resultsByCode map[SendTxReturnCode][]error) (txResult error, err error) {
-	severeErrors, hasSevereErrors := findFirstIn(resultsByCode, []SendTxReturnCode{Fatal, Underpriced, Unsupported, ExceedsMaxFee, FeeOutOfValidRange, Unknown})
-	successResults, hasSuccess := findFirstIn(resultsByCode, []SendTxReturnCode{Successful, TransactionAlreadyKnown})
+	severeErrors, hasSevereErrors := findFirstIn(resultsByCode, sendTxSevereErrors)
+	successResults, hasSuccess := findFirstIn(resultsByCode, sendTxSuccessfulCodes)
 	if hasSuccess {
 		// We assume that primary node would never report false positive txResult for a transaction.
 		// Thus, if such case occurs it's probably due to misconfiguration or a bug and requires manual intervention.
@@ -734,14 +740,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return fmt.Errorf("aborted while broadcasting tx - multiNode is stopped: %w", context.Canceled)
 	}
 
-	resultsByCode, err := c.collectTxResults(ctx, tx, txResults)
-	if err != nil {
-		return fmt.Errorf("failed to collect tx results: %w", err)
-	}
-
-	// ignore critical error as it's reported in reportSendTxAnomalies
-	result, _ := aggregateTxResults(resultsByCode)
-	return result
+	return c.collectTxResults(ctx, tx, txResults)
 }
 
 // findFirstIn - returns first existing value for the slice of keys
