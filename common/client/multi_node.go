@@ -593,16 +593,12 @@ func fanOut[T any](source chan T, destinations ...chan T) {
 	}
 }
 
-// collectTxResults - waits for sufficient number of sendTxResult to determine result of transaction submission.
-// We balance the waiting time and the number of collected results. Our target is replies from 70% of nodes,
-// but we won't wait longer than sendTxSoftTimeout since the first reply to avoid waiting
-// for a timeout from slow/unhealthy nodes.
+// collectTxResults - refer to SendTransaction comment for implementation details,
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) collectTxResults(ctx context.Context, tx TX, txResults <-chan sendTxResult) (map[SendTxReturnCode][]error, error) {
 	// combine context and stop channel to ensure we stop, when signal received
 	ctx, cancel := c.chStop.Ctx(ctx)
 	defer cancel()
-	const quorum = 0.7
-	requiredResults := int(math.Ceil(float64(len(c.nodes)) * quorum))
+	requiredResults := int(math.Ceil(float64(len(c.nodes)) * sendTxQuorum))
 	errorsByCode := map[SendTxReturnCode][]error{}
 	var softTimeoutChan <-chan time.Time
 	var resultsCount int
@@ -677,6 +673,26 @@ func aggregateTxResults(resultsByCode map[SendTxReturnCode][]error) (txResult er
 	return err, err
 }
 
+const sendTxQuorum = 0.7
+
+// SendTransaction - broadcasts transaction to all the send-only and primary nodes regardless of their health.
+// A returned nil or error does not guarantee that the transaction will or won't be included. Additional checks must be
+// performed to determine the final state.
+//
+// Send-only nodes' results are ignored as they tend to return false-positive responses. Broadcast to them is necessary
+// to speed up the propagation of TX in the network.
+//
+// Handling of primary nodes' results consists of collection and aggregation.
+// In the collection step, we gather as many results as possible while minimizing waiting time. This operation succeeds
+// on one of the following conditions:
+// * Received at least one success
+// * Received at least one result and `sendTxSoftTimeout` expired
+// * Received results from the sufficient number of nodes defined by sendTxQuorum.
+// The aggregation is based on the following conditions:
+// * If there is at least one success - returns success
+// * If there is at least one terminal error - returns terminal error
+// * If there is both success and terminal error - returns success and reports invariant violation
+// * Otherwise, returns any (effectively random) of the errors.
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SendTransaction(ctx context.Context, tx TX) error {
 	if len(c.nodes) == 0 {
 		return ErroringNodeError
