@@ -68,7 +68,6 @@ deployments:
       values:
         podSecurityContext:
           fsGroup: 999
-
         chainlink:
           securityContext:
             capabilities:
@@ -291,14 +290,13 @@ dev:
       instance: node-1
     # Sync files between the local filesystem and the development container
     sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
       - path: ../..:/home/chainlink
         printLogs: true
         disableDownload: true
         uploadExcludePaths:
+          - .git/
           - integration-tests/
+          - docs/
           - .github/
           - belt/
           - charts/
@@ -308,16 +306,6 @@ dev:
           - integration-scripts/
           - testdata/
           - evm-test-helpers/
-    # Open a terminal and use the following command
+#    # Open a terminal and use the following command
     terminal:
       command: bash
-    ssh:
-      enabled: true
-    proxyCommands:
-#       TODO: access issues
-#      - command: devspace
-#      - command: kubectl
-#      - command: helm
-      - gitCredentials: true
-    ports:
-      - port: "2345"

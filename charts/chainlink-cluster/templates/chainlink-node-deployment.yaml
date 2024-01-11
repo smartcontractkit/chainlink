@@ -55,15 +55,17 @@ spec:
               path: /health
               port: {{ $.Values.chainlink.web_port }}
             initialDelaySeconds: 1
-            periodSeconds: 5
-            timeoutSeconds: 10
+            periodSeconds: 10
+            failureThreshold: 10
+            timeoutSeconds: 20
           readinessProbe:
             httpGet:
               path: /health
               port: {{ $.Values.chainlink.web_port }}
             initialDelaySeconds: 1
-            periodSeconds: 5
-            timeoutSeconds: 10
+            periodSeconds: 10
+            failureThreshold: 10
+            timeoutSeconds: 20
           startupProbe:
             httpGet:
               path: /

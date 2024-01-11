@@ -1,4 +1,7 @@
-[Load]
+[env]
+namespace = "cl-cluster"
+
+[load]
 # overall load test duration
 test_duration = "3m"
 # rate limit unit duration, 1m = 1 request per minute
@@ -12,7 +15,7 @@ verification_timeout = "3m"
 # how frequently we change external adapter value
 ea_change_interval = "5s"
 
-[Volume]
+[volume]
 # overall volume test duration
 test_duration = "3m"
 # rate limit unit duration, 1m = 1 request per minute
@@ -28,7 +31,7 @@ verification_timeout = "3m"
 # how frequently we change external adapter value
 ea_change_interval = "5s"
 
-[Common]
+[common]
 # each CL node receives 3 ETH
 eth_funds = 3
 
@@ -77,7 +80,7 @@ group_percentage = "30"
 # rand - runs random experiments from all dirs
 mode = "rand"
 # duration of havoc monkey
-duration = "3m"
+duration = "1h"
 # dir is a custom dir you can select, if null monkey will create a new dir
 dir = "havoc-test-dir"
 # cooldown between experiments
