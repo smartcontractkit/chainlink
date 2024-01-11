@@ -3,9 +3,11 @@ package evm
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/google/uuid"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -71,11 +73,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 		return err
 	}
 
-	bytes, err := b.GetLatestValue(ctx, params)
-	if err != nil {
-		return err
-	}
-	return cr.codec.Decode(ctx, bytes, returnVal, wrapItemType(contractName, method, false))
+	return b.GetLatestValue(ctx, params, returnVal)
 }
 
 func (cr *chainReader) Bind(_ context.Context, bindings []commontypes.BoundContract) error {
@@ -128,10 +126,10 @@ func (cr *chainReader) HealthReport() map[string]error {
 }
 
 func (cr *chainReader) CreateContractType(contractName, methodName string, forEncoding bool) (any, error) {
-	return cr.codec.CreateType(wrapItemType(contractName, methodName, forEncoding), forEncoding)
+	return cr.codec.CreateType(WrapItemType(contractName, methodName, forEncoding), forEncoding)
 }
 
-func wrapItemType(contractName, methodName string, isParams bool) string {
+func WrapItemType(contractName, methodName string, isParams bool) string {
 	if isParams {
 		return fmt.Sprintf("params.%s.%s", contractName, methodName)
 	}
@@ -146,6 +144,13 @@ func (cr *chainReader) addMethod(
 	method, methodExists := abi.Methods[chainReaderDefinition.ChainSpecificName]
 	if !methodExists {
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
+	}
+
+	if len(chainReaderDefinition.EventInputFields) != 0 {
+		return fmt.Errorf(
+			"%w: method %s has event topic fields defined, but is not an event",
+			commontypes.ErrInvalidConfig,
+			chainReaderDefinition.ChainSpecificName)
 	}
 
 	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
@@ -164,21 +169,55 @@ func (cr *chainReader) addMethod(
 func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chainReaderDefinition types.ChainReaderDefinition) error {
 	event, eventExists := a.Events[chainReaderDefinition.ChainSpecificName]
 	if !eventExists {
-		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
+		return fmt.Errorf("%w: event %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
-	cr.contractBindings.AddReadBinding(contractName, eventName, &eventBinding{
-		lp:   cr.lp,
-		hash: event.ID,
-	})
 
-	// Though nothing is encoded encoderDef is required so that CreateType can return a struct{} for CreateType to allow "decoding" into.
-	// The caller isn't aware that there are no arguments and will try to encode the parameters.
-	// The "Arguments" must be empty so decoding is to struct{}, prefix doesn't matter, as this won't be encoded.
-	if err := cr.addEncoderDef(contractName, eventName, abi.Arguments{}, nil, chainReaderDefinition); err != nil {
+	filterArgs, topicInfo, indexArgNames := setupEventInput(event, chainReaderDefinition)
+
+	if err := verifyEventInputsUsed(chainReaderDefinition, indexArgNames); err != nil {
 		return err
 	}
 
+	if err := topicInfo.Init(); err != nil {
+		return err
+	}
+
+	// Encoder def's codec won't be used to encode, only for its type as input for GetLatestValue
+	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition); err != nil {
+		return err
+	}
+
+	ce := cr.parsed.encoderDefs[WrapItemType(contractName, eventName, true)]
+	inMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
+	if err != nil {
+		return err
+	}
+
+	if _, err = inMod.RetypeForOffChain(reflect.PointerTo(ce.checkedType), ""); err != nil {
+		return err
+	}
+
+	cr.contractBindings.AddReadBinding(contractName, eventName, &eventBinding{
+		contractName:  contractName,
+		eventName:     eventName,
+		lp:            cr.lp,
+		hash:          event.ID,
+		inputInfo:     ce,
+		inputModifier: inMod,
+		topicInfo:     topicInfo,
+		id:            WrapItemType(contractName, eventName, false) + uuid.NewString(),
+	})
+
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
+}
+
+func verifyEventInputsUsed(chainReaderDefinition types.ChainReaderDefinition, indexArgNames map[string]bool) error {
+	for _, value := range chainReaderDefinition.EventInputFields {
+		if !indexArgNames[abi.ToCamelCase(value)] {
+			return fmt.Errorf("%w: %s is not an indexed argument of event %s", commontypes.ErrInvalidConfig, value, chainReaderDefinition.ChainSpecificName)
+		}
+	}
+	return nil
 }
 
 func (cr *chainReader) addEncoderDef(contractName, methodName string, args abi.Arguments, prefix []byte, chainReaderDefinition types.ChainReaderDefinition) error {
@@ -194,7 +233,7 @@ func (cr *chainReader) addEncoderDef(contractName, methodName string, args abi.A
 		return err
 	}
 	input.mod = inputMod
-	cr.parsed.encoderDefs[wrapItemType(contractName, methodName, true)] = input
+	cr.parsed.encoderDefs[WrapItemType(contractName, methodName, true)] = input
 	return nil
 }
 
@@ -205,6 +244,39 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 		return err
 	}
 	output.mod = mod
-	cr.parsed.decoderDefs[wrapItemType(contractName, methodName, false)] = output
+	cr.parsed.decoderDefs[WrapItemType(contractName, methodName, false)] = output
 	return output.Init()
+}
+
+func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Argument, *codecEntry, map[string]bool) {
+	topicFieldDefs := map[string]bool{}
+	for _, value := range def.EventInputFields {
+		capFirstValue := abi.ToCamelCase(value)
+		topicFieldDefs[capFirstValue] = true
+	}
+
+	filterArgs := make([]abi.Argument, 0, maxTopicFields)
+	info := &codecEntry{}
+	indexArgNames := map[string]bool{}
+
+	for _, input := range event.Inputs {
+		if !input.Indexed {
+			continue
+		}
+
+		filterWith := topicFieldDefs[abi.ToCamelCase(input.Name)]
+		if filterWith {
+			// When presenting the filter off-chain,
+			// the user will provide the unindexed version of the input
+			// Topics will be hashed if needed to determine what to look up
+			inputUnindexed := input
+			inputUnindexed.Indexed = false
+			filterArgs = append(filterArgs, inputUnindexed)
+		}
+
+		info.Args = append(info.Args, input)
+		indexArgNames[abi.ToCamelCase(input.Name)] = true
+	}
+
+	return filterArgs, info, indexArgNames
 }

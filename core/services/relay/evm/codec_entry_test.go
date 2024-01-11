@@ -1,12 +1,12 @@
 package evm
 
 import (
-	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -150,7 +150,6 @@ func TestCodecEntry(t *testing.T) {
 		address, err := abi.NewType("address", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
 		entry := codecEntry{Args: abi.Arguments{{Name: "foo", Type: address}}}
-		fmt.Printf("%+v\n", address.GetType())
 		require.NoError(t, entry.Init())
 	})
 
@@ -161,10 +160,60 @@ func TestCodecEntry(t *testing.T) {
 		assert.True(t, errors.Is(entry.Init(), commontypes.ErrInvalidType))
 	})
 
-	t.Run("Invalid parameters are not supported", func(t *testing.T) {
+	t.Run("Multiple abi arguments with the same name returns an error", func(t *testing.T) {
 		anyType, err := abi.NewType("int16[3]", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
 		entry := codecEntry{Args: abi.Arguments{{Name: "Name", Type: anyType}, {Name: "Name", Type: anyType}}}
-		assert.True(t, errors.Is(entry.Init(), commontypes.ErrInvalidType))
+		assert.True(t, errors.Is(entry.Init(), commontypes.ErrInvalidConfig))
+	})
+
+	t.Run("Indexed basic types leave their native and checked types as-is", func(t *testing.T) {
+		anyType, err := abi.NewType("int16", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := codecEntry{Args: abi.Arguments{{Name: "Name", Type: anyType, Indexed: true}}}
+		require.NoError(t, entry.Init())
+		nativeField, ok := entry.nativeType.FieldByName("Name")
+		require.True(t, ok)
+		assert.Equal(t, reflect.TypeOf(int16(0)), nativeField.Type)
+		checkedField, ok := entry.checkedType.FieldByName("Name")
+		require.True(t, ok)
+		assert.Equal(t, reflect.TypeOf(int16(0)), checkedField.Type)
+	})
+
+	t.Run("Indexed non basic types change to hash", func(t *testing.T) {
+		anyType, err := abi.NewType("string", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := codecEntry{Args: abi.Arguments{{Name: "Name", Type: anyType, Indexed: true}}}
+		require.NoError(t, entry.Init())
+		nativeField, ok := entry.nativeType.FieldByName("Name")
+		require.True(t, ok)
+		assert.Equal(t, reflect.TypeOf(common.Hash{}), nativeField.Type)
+		checkedField, ok := entry.checkedType.FieldByName("Name")
+		require.True(t, ok)
+		assert.Equal(t, reflect.TypeOf(common.Hash{}), checkedField.Type)
+	})
+
+	t.Run("Too many indexed items returns an error", func(t *testing.T) {
+		anyType, err := abi.NewType("int16", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := codecEntry{
+			Args: abi.Arguments{
+				{Name: "Name1", Type: anyType, Indexed: true},
+				{Name: "Name2", Type: anyType, Indexed: true},
+				{Name: "Name3", Type: anyType, Indexed: true},
+				{Name: "Name4", Type: anyType, Indexed: true},
+			},
+		}
+		require.True(t, errors.Is(entry.Init(), commontypes.ErrInvalidConfig))
+	})
+
+	// TODO: when the TODO on
+	// https://github.com/ethereum/go-ethereum/blob/release/1.12/accounts/abi/topics.go#L78
+	// is removed, remove this test.
+	t.Run("Using unsupported types by go-ethereum returns an error", func(t *testing.T) {
+		anyType, err := abi.NewType("int256[2]", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := codecEntry{Args: abi.Arguments{{Name: "Name", Type: anyType, Indexed: true}}}
+		assert.True(t, errors.Is(entry.Init(), commontypes.ErrInvalidConfig))
 	})
 }

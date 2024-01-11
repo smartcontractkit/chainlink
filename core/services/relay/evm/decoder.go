@@ -91,6 +91,5 @@ func mapstructureDecode(src, dest any) error {
 	if err = mDecoder.Decode(src); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
-
 	return nil
 }
