@@ -213,13 +213,16 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		embeddedFiles := []string{"default.toml", fmt.Sprintf("%s/%s.toml", product, product)}
 		for _, fileName := range embeddedFiles {
 			file, err := embeddedConfigs.ReadFile(fileName)
-			if err != nil {
+			if err != nil && errors.Is(err, os.ErrNotExist) {
+				logger.Debug().Msgf("Embedded config file %s not found. Continuing", fileName)
+				continue
+			} else if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
 
 			readConfig, err := byteToTestConfig(fileName, file)
 			if err != nil {
-				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
+				return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config")
 			}
 
 			maybeTestConfigs = append(maybeTestConfigs, readConfig)
