@@ -2,8 +2,8 @@ name: "Build and Publish from PR"
 
 ##
 # This workflow builds and publishes a Docker image for Chainlink from a PR.
-# It doesn't use an environment, has its own special IAM role, does not sign
-# the image, and publishes to a special ECR repo.
+# It has its own special IAM role, does not sign the image, and publishes to
+# a special ECR repo.
 ##
 
 on:
