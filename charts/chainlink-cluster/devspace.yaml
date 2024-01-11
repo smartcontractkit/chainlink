@@ -22,7 +22,13 @@ pipelines:
     run: |-
       run_dependencies --all       # 1. Deploy any projects this project needs (see "dependencies")
       ensure_pull_secrets --all    # 2. Ensure pull secrets
-      start_dev app                # 3. Start dev mode "app" (see "dev" section)
+      start_dev app-1 &
+      start_dev app-2 &
+      start_dev app-3 &
+      start_dev app-4 &
+      start_dev app-5 &
+      start_dev app-6
+  # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
   deploy:
     run: |-
       set -o pipefail
@@ -431,37 +437,9 @@ deployments:
         tolerations:
         affinity:
 
-profiles:
-  # this replaces only "runner" pod, usable when you'd like to run some system level tests inside k8s
-  - name: runner
-    patches:
-      - op: replace
-        path: dev.app.workingDir
-        value: /home/chainlink/integration-tests
-      - op: replace
-        path: dev.app.container
-        value: runner
-      - op: replace
-        path: dev.app.labelSelector.instance
-        value: runner-1
-      - op: remove
-        path: dev.app.sync[1].uploadExcludePaths[0]
-      - op: remove
-        path: dev.app.open
-      - op: remove
-        path: dev.app.ports[1]
-  - name: node
-    patches:
-      - op: replace
-        path: dev.app.container
-        value: node
-      - op: replace
-        path: dev.app.labelSelector.instance
-        value: node-1
-
 # This is a list of `dev` containers that are based on the containers created by your deployments
 dev:
-  app:
+  app-1:
     workingDir: /home/chainlink
     container: node
     labelSelector:
@@ -485,16 +463,137 @@ dev:
           - integration-scripts/
           - testdata/
           - evm-test-helpers/
-    # Open a terminal and use the following command
+  app-2:
+    workingDir: /home/chainlink
+    container: node
+    labelSelector:
+      instance: node-2
+    # Sync files between the local filesystem and the development container
+    sync:
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
+        printLogs: true
+        disableDownload: true
+      - path: ../..:/home/chainlink
+        printLogs: true
+        disableDownload: true
+        uploadExcludePaths:
+          - integration-tests/
+          - .git
+          - .github/
+          - docs/
+          - belt/
+          - charts/
+          - contracts/
+          - node_modules/
+          - integration/
+          - integration-scripts/
+          - testdata/
+          - evm-test-helpers/
+  app-3:
+    workingDir: /home/chainlink
+    container: node
+    labelSelector:
+      instance: node-3
+    # Sync files between the local filesystem and the development container
+    sync:
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
+        printLogs: true
+        disableDownload: true
+      - path: ../..:/home/chainlink
+        printLogs: true
+        disableDownload: true
+        uploadExcludePaths:
+          - integration-tests/
+          - .git
+          - .github/
+          - docs/
+          - belt/
+          - charts/
+          - contracts/
+          - node_modules/
+          - integration/
+          - integration-scripts/
+          - testdata/
+          - evm-test-helpers/
+  app-4:
+    workingDir: /home/chainlink
+    container: node
+    labelSelector:
+      instance: node-4
+    # Sync files between the local filesystem and the development container
+    sync:
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
+        printLogs: true
+        disableDownload: true
+      - path: ../..:/home/chainlink
+        printLogs: true
+        disableDownload: true
+        uploadExcludePaths:
+          - integration-tests/
+          - .git
+          - .github/
+          - docs/
+          - belt/
+          - charts/
+          - contracts/
+          - node_modules/
+          - integration/
+          - integration-scripts/
+          - testdata/
+          - evm-test-helpers/
+  app-5:
+    workingDir: /home/chainlink
+    container: node
+    labelSelector:
+      instance: node-5
+    # Sync files between the local filesystem and the development container
+    sync:
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
+        printLogs: true
+        disableDownload: true
+      - path: ../..:/home/chainlink
+        printLogs: true
+        disableDownload: true
+        uploadExcludePaths:
+          - integration-tests/
+          - .git
+          - .github/
+          - docs/
+          - belt/
+          - charts/
+          - contracts/
+          - node_modules/
+          - integration/
+          - integration-scripts/
+          - testdata/
+          - evm-test-helpers/
+  app-6:
+    workingDir: /home/chainlink
+    container: node
+    labelSelector:
+      instance: node-6
+    # Sync files between the local filesystem and the development container
+    sync:
+      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
+        printLogs: true
+        disableDownload: true
+      - path: ../..:/home/chainlink
+        printLogs: true
+        disableDownload: true
+        uploadExcludePaths:
+          - integration-tests/
+          - .git
+          - .github/
+          - docs/
+          - belt/
+          - charts/
+          - contracts/
+          - node_modules/
+          - integration/
+          - integration-scripts/
+          - testdata/
+          - evm-test-helpers/
     terminal:
-      command: bash
-    ssh:
       enabled: true
-    proxyCommands:
-      #       TODO: access issues
-      #      - command: devspace
-      #      - command: kubectl
-      #      - command: helm
-      - gitCredentials: true
     ports:
       - port: "2345"
