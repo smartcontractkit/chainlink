@@ -739,7 +739,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return fmt.Errorf("failed to collect tx results: %w", err)
 	}
 
-	// ignore critical error as it's report in reportSendTxAnomalies
+	// ignore critical error as it's reported in reportSendTxAnomalies
 	result, _ := aggregateTxResults(resultsByCode)
 	return result
 }
