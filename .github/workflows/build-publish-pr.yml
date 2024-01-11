@@ -57,6 +57,7 @@ jobs:
       - name: Get PR labels
         id: pr-labels
         env:
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.number }}
         run: |
           RESPONSE=$(gh pr view ${PR_NUMBER} --json labels)
