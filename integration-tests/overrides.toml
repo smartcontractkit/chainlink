@@ -1,0 +1,70 @@
+[ChainlinkImage]
+image="tofelb/chainlink"
+version="develop-143954"
+
+# image="public.ecr.aws/chainlink/chainlink"
+# version="2.7.1-automation-20231127"
+
+# [OCR]
+# [OCR.Common]
+# test_duration="2m"
+
+# [ChainlinkUpgradeImage]
+# image="public.ecr.aws/chainlink/chainlink"
+# version="2.7.1-automation-20231127"
+
+# image="chainlink-local"
+# version="develop"
+
+# [VRFv2Plus.Performance]
+# use_existing_env=false
+# test_duration="1m"
+# cancel_subs_after_test_run=false
+
+# [VRFv2.Performance]
+# use_existing_env=false
+# test_duration="1m"
+# # 10 RPM - 1 tx request with 1 rand request in each tx every 6 seconds
+# rate_limit_unit_duration = "6s"
+# rps = 1
+
+# [Automation]
+# [Automation.General]
+# duration=200
+
+# [Network]
+# selected_networks=["polygon_mumbai"]
+
+# [Network.RpcHttpUrls]
+# polygon_mumbai = ["https://matic.getblock.io/608a6708-d787-4ba8-bcbd-493001ea7fd9/testnet/"]
+
+# [Network.RpcWsUrls]
+# polygon_mumbai = ["wss://matic.getblock.io/608a6708-d787-4ba8-bcbd-493001ea7fd9/testnet/"]
+
+# [Network.WalletKeys]
+# polygon_mumbai = ["e3c686d5840f4af3bc8280d7c783a28c9e6934924f0a8267d6dda3205af102e8"]
+
+[Logging]
+test_log_collect=true
+# run_id="15825181"
+
+# [Logging.Loki]
+# tenant_id="promtail"
+# url="https://loki.ops.prod.cldev.sh/loki/api/v1/push"
+# basic_auth="loki-admin:8)cd5if02qt8@vKO2NKT"
+
+# [Logging.Grafana]
+# url="https://grafana.ops.prod.cldev.sh/d/a4899f53-f709-430a-aec2-24f32198dcc9/chainlink-automation-v2-load-test"
+# url="http://somwhere.else.com"
+
+[LogStream]
+log_targets=["in-memory"]
+log_producer_timeout="10s"
+log_producer_retry_limit=10
+
+[PrivateEthereumNetwork]
+execution_layer="besu"
+
+[PrivateEthereumNetwork.EthereumChainConfig]
+seconds_per_slot=3
+slots_per_epoch=2

@@ -212,3 +212,6 @@ run_test_with_local_image: build_docker_image
 	ARGS="$(args)" \
 	PRODUCT=$(product) 	\
 	./scripts/run_product_tests
+
+remove_test_execution_artefacts:
+	./scripts/search_and_delete.sh .run.id
