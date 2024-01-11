@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/stretchr/testify/assert"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -13,27 +15,27 @@ func TestGetUpkeepType(t *testing.T) {
 	tests := []struct {
 		name       string
 		upkeepID   []byte
-		upkeepType ocr2keepers.UpkeepType
+		upkeepType types.UpkeepType
 	}{
 		{
 			"zeroed id",
 			big.NewInt(0).Bytes(),
-			ocr2keepers.ConditionTrigger,
+			types.ConditionTrigger,
 		},
 		{
 			"old id",
 			[]byte("5820911532554020907796191562093071158274499580927271776163559390280294438608"),
-			ocr2keepers.ConditionTrigger,
+			types.ConditionTrigger,
 		},
 		{
 			"condition trigger",
-			GenUpkeepID(ocr2keepers.ConditionTrigger, "").BigInt().Bytes(),
-			ocr2keepers.ConditionTrigger,
+			GenUpkeepID(types.ConditionTrigger, "").BigInt().Bytes(),
+			types.ConditionTrigger,
 		},
 		{
 			"log trigger",
-			GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt().Bytes(),
-			ocr2keepers.LogTrigger,
+			GenUpkeepID(types.LogTrigger, "111").BigInt().Bytes(),
+			types.LogTrigger,
 		},
 		{
 			"log trigger id",
@@ -41,7 +43,7 @@ func TestGetUpkeepType(t *testing.T) {
 				id, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
 				return id.Bytes()
 			}(),
-			ocr2keepers.LogTrigger,
+			types.LogTrigger,
 		},
 	}
 

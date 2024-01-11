@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -18,7 +20,7 @@ type ActiveUpkeepList interface {
 	// Remove removes entries from the list
 	Remove(id ...*big.Int) int
 	// View returns the list of IDs of the given type
-	View(...ocr2keepers.UpkeepType) []*big.Int
+	View(...types.UpkeepType) []*big.Int
 	// IsActive returns true if the given ID is of an active upkeep
 	IsActive(id *big.Int) bool
 	Size() int
@@ -81,7 +83,7 @@ func (al *activeList) Remove(ids ...*big.Int) int {
 }
 
 // View returns the list of IDs of the given type
-func (al *activeList) View(upkeepTypes ...ocr2keepers.UpkeepType) []*big.Int {
+func (al *activeList) View(upkeepTypes ...types.UpkeepType) []*big.Int {
 	al.lock.RLock()
 	defer al.lock.RUnlock()
 

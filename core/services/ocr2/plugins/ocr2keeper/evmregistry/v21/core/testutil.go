@@ -3,13 +3,15 @@ package core
 import (
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 )
 
 // GenUpkeepID generates an ocr2keepers.UpkeepIdentifier with a specific UpkeepType and some random string
-func GenUpkeepID(uType ocr2keepers.UpkeepType, rand string) ocr2keepers.UpkeepIdentifier {
+func GenUpkeepID(uType types.UpkeepType, rand string) ocr2keepers.UpkeepIdentifier {
 	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
 	b = append(b, []byte(rand)...)
 	b = common.RightPadBytes(b, 32-len(b))

@@ -3,6 +3,8 @@ package core
 import (
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 )
 
@@ -17,17 +19,17 @@ const (
 
 // GetUpkeepType returns the upkeep type from the given ID.
 // it follows the same logic as the contract, but performs it locally.
-func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) ocr2keepers.UpkeepType {
+func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) types.UpkeepType {
 	for i := upkeepTypeStartIndex; i < upkeepTypeByteIndex; i++ {
 		if id[i] != 0 { // old id
-			return ocr2keepers.ConditionTrigger
+			return types.ConditionTrigger
 		}
 	}
 	typeByte := id[upkeepTypeByteIndex]
-	return ocr2keepers.UpkeepType(typeByte)
+	return types.UpkeepType(typeByte)
 }
 
-func getUpkeepTypeFromBigInt(id *big.Int) (ocr2keepers.UpkeepType, bool) {
+func getUpkeepTypeFromBigInt(id *big.Int) (types.UpkeepType, bool) {
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	ok := uid.FromBigInt(id)
 	return GetUpkeepType(*uid), ok

@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	types3 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -377,9 +379,9 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 func TestRegistry_CheckUpkeeps(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	uid0 := core.GenUpkeepID(ocr2keepers.UpkeepType(0), "p0")
-	uid1 := core.GenUpkeepID(ocr2keepers.UpkeepType(1), "p1")
-	uid2 := core.GenUpkeepID(ocr2keepers.UpkeepType(1), "p2")
+	uid0 := core.GenUpkeepID(types3.UpkeepType(0), "p0")
+	uid1 := core.GenUpkeepID(types3.UpkeepType(1), "p1")
+	uid2 := core.GenUpkeepID(types3.UpkeepType(1), "p2")
 
 	extension1 := &ocr2keepers.LogTriggerExtension{
 		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
@@ -537,9 +539,9 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 }
 
 func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
-	uid0 := core.GenUpkeepID(ocr2keepers.UpkeepType(0), "p0")
-	uid1 := core.GenUpkeepID(ocr2keepers.UpkeepType(1), "p1")
-	uid2 := core.GenUpkeepID(ocr2keepers.UpkeepType(1), "p2")
+	uid0 := core.GenUpkeepID(types3.UpkeepType(0), "p0")
+	uid1 := core.GenUpkeepID(types3.UpkeepType(1), "p1")
+	uid2 := core.GenUpkeepID(types3.UpkeepType(1), "p2")
 
 	extension1 := &ocr2keepers.LogTriggerExtension{
 		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -32,7 +33,7 @@ func (p *upkeepProvider) GetActiveUpkeeps(_ context.Context) ([]ocr2keepers.Upke
 		return nil, fmt.Errorf("no latest block found when fetching active upkeeps")
 	}
 	var payloads []ocr2keepers.UpkeepPayload
-	for _, uid := range p.activeUpkeeps.View(ocr2keepers.ConditionTrigger) {
+	for _, uid := range p.activeUpkeeps.View(types.ConditionTrigger) {
 		payload, err := core.NewUpkeepPayload(
 			uid,
 			ocr2keepers.NewTrigger(latestBlock.Number, latestBlock.Hash),

@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
@@ -35,7 +37,7 @@ func TestWorkID(t *testing.T) {
 		},
 		{
 			name:     "happy flow with extension",
-			upkeepID: GenUpkeepID(ocr2keepers.LogTrigger, "12345").String(),
+			upkeepID: GenUpkeepID(types.LogTrigger, "12345").String(),
 			trigger: ocr2keepers.Trigger{
 				BlockNumber: 123,
 				BlockHash:   common.HexToHash("0xabcdef"),
@@ -96,7 +98,7 @@ func TestNewUpkeepPayload(t *testing.T) {
 	tests := []struct {
 		name       string
 		upkeepID   *big.Int
-		upkeepType ocr2keepers.UpkeepType
+		upkeepType types.UpkeepType
 		trigger    ocr2keepers.Trigger
 		check      []byte
 		errored    bool
@@ -105,7 +107,7 @@ func TestNewUpkeepPayload(t *testing.T) {
 		{
 			name:       "happy flow no extension",
 			upkeepID:   big.NewInt(111),
-			upkeepType: ocr2keepers.ConditionTrigger,
+			upkeepType: types.ConditionTrigger,
 			trigger: ocr2keepers.Trigger{
 				BlockNumber: 11,
 				BlockHash:   common.HexToHash("0x11111"),
@@ -116,7 +118,7 @@ func TestNewUpkeepPayload(t *testing.T) {
 		{
 			name:       "happy flow with extension",
 			upkeepID:   big.NewInt(111),
-			upkeepType: ocr2keepers.LogTrigger,
+			upkeepType: types.LogTrigger,
 			trigger: ocr2keepers.Trigger{
 				BlockNumber: 11,
 				BlockHash:   common.HexToHash("0x11111"),

@@ -5,6 +5,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/stretchr/testify/require"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -14,18 +16,18 @@ import (
 
 func TestActiveUpkeepList(t *testing.T) {
 	logIDs := []ocr2keepers.UpkeepIdentifier{
-		core.GenUpkeepID(ocr2keepers.LogTrigger, "0"),
-		core.GenUpkeepID(ocr2keepers.LogTrigger, "1"),
-		core.GenUpkeepID(ocr2keepers.LogTrigger, "2"),
-		core.GenUpkeepID(ocr2keepers.LogTrigger, "3"),
-		core.GenUpkeepID(ocr2keepers.LogTrigger, "4"),
+		core.GenUpkeepID(types.LogTrigger, "0"),
+		core.GenUpkeepID(types.LogTrigger, "1"),
+		core.GenUpkeepID(types.LogTrigger, "2"),
+		core.GenUpkeepID(types.LogTrigger, "3"),
+		core.GenUpkeepID(types.LogTrigger, "4"),
 	}
 	conditionalIDs := []ocr2keepers.UpkeepIdentifier{
-		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "0"),
-		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "1"),
-		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "2"),
-		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "3"),
-		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "4"),
+		core.GenUpkeepID(types.ConditionTrigger, "0"),
+		core.GenUpkeepID(types.ConditionTrigger, "1"),
+		core.GenUpkeepID(types.ConditionTrigger, "2"),
+		core.GenUpkeepID(types.ConditionTrigger, "3"),
+		core.GenUpkeepID(types.ConditionTrigger, "4"),
 	}
 
 	tests := []struct {
@@ -70,7 +72,7 @@ func TestActiveUpkeepList(t *testing.T) {
 			for _, id := range tc.remove {
 				require.False(t, al.IsActive(id))
 			}
-			logIds := al.View(ocr2keepers.LogTrigger)
+			logIds := al.View(types.LogTrigger)
 			require.Equal(t, len(tc.expectedLogIds), len(logIds))
 			sort.Slice(logIds, func(i, j int) bool {
 				return logIds[i].Cmp(logIds[j]) < 0
@@ -78,7 +80,7 @@ func TestActiveUpkeepList(t *testing.T) {
 			for i := range logIds {
 				require.Equal(t, tc.expectedLogIds[i], logIds[i])
 			}
-			conditionalIds := al.View(ocr2keepers.ConditionTrigger)
+			conditionalIds := al.View(types.ConditionTrigger)
 			require.Equal(t, len(tc.expectedConditionalIds), len(conditionalIds))
 			sort.Slice(conditionalIds, func(i, j int) bool {
 				return conditionalIds[i].Cmp(conditionalIds[j]) < 0
@@ -98,7 +100,7 @@ func TestActiveUpkeepList_error(t *testing.T) {
 		al.items["-1"] = true
 		al.items["100"] = true
 
-		keys := al.View(ocr2keepers.ConditionTrigger)
+		keys := al.View(types.ConditionTrigger)
 		require.Equal(t, []*big.Int{big.NewInt(100)}, keys)
 	})
 }

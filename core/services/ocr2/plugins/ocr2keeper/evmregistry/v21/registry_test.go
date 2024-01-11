@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
+	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	types "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	types3 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -211,7 +211,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepUnpaused errors",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 			},
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
@@ -234,8 +234,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepTriggerConfigSet errors",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
@@ -259,8 +259,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "an error is returned when parsing the logs using the registry errors",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
@@ -288,8 +288,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "an error is returned when registering the filter errors",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
@@ -319,11 +319,11 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 					if log.BlockNumber == 1 {
 						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
 							TriggerConfig: []byte{1, 2, 3},
-							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 						}, nil
 					}
 					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
-						Id: core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+						Id: core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 					}, nil
 				},
 				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -341,9 +341,9 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "log trigger upkeeps are refreshed without error",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
+				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
@@ -372,12 +372,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
 						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
-							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
 					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
-						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},
 				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -395,7 +395,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			ids: func() []*big.Int {
 				res := []*big.Int{}
 				for i := 0; i < logTriggerRefreshBatchSize*3; i++ {
-					res = append(res, core.GenUpkeepID(types.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+					res = append(res, core.GenUpkeepID(types2.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
 				}
 				return res
 			}(),
@@ -424,12 +424,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
 						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
-							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
 					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
-						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},
 				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -447,7 +447,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			ids: func() []*big.Int {
 				res := []*big.Int{}
 				for i := 0; i < logTriggerRefreshBatchSize+3; i++ {
-					res = append(res, core.GenUpkeepID(types.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+					res = append(res, core.GenUpkeepID(types2.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
 				}
 				return res
 			}(),
@@ -478,12 +478,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
 						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
-							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
 					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
-						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},
 				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {

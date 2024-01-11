@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/stretchr/testify/require"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -29,7 +31,7 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 		{
 			"empty",
 			&mockActiveUpkeepList{
-				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+				ViewFn: func(upkeepType ...types.UpkeepType) []*big.Int {
 					return []*big.Int{}
 				},
 			},
@@ -40,7 +42,7 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 		{
 			"happy flow",
 			&mockActiveUpkeepList{
-				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+				ViewFn: func(upkeepType ...types.UpkeepType) []*big.Int {
 					return []*big.Int{
 						big.NewInt(1),
 						big.NewInt(2),
@@ -65,7 +67,7 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 		{
 			"latest block not found",
 			&mockActiveUpkeepList{
-				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+				ViewFn: func(upkeepType ...types.UpkeepType) []*big.Int {
 					return []*big.Int{
 						big.NewInt(1),
 						big.NewInt(2),
@@ -100,11 +102,11 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 
 type mockActiveUpkeepList struct {
 	ActiveUpkeepList
-	ViewFn     func(...ocr2keepers.UpkeepType) []*big.Int
+	ViewFn     func(...types.UpkeepType) []*big.Int
 	IsActiveFn func(id *big.Int) bool
 }
 
-func (l *mockActiveUpkeepList) View(u ...ocr2keepers.UpkeepType) []*big.Int {
+func (l *mockActiveUpkeepList) View(u ...types.UpkeepType) []*big.Int {
 	return l.ViewFn(u...)
 }
 

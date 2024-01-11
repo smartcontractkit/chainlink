@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -150,7 +152,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	require.Equal(t, 1, len(addrs))
 
 	t.Run("update filter config", func(t *testing.T) {
-		upkeepID := evmregistry21.GenUpkeepID(ocr2keepers.LogTrigger, "111")
+		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "111")
 		id := upkeepID.BigInt()
 		cfg := newPlainLogTriggerConfig(addrs[0])
 		b, err := ethClient.BlockByHash(ctx, backend.Commit())
@@ -182,7 +184,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	})
 
 	t.Run("register same log filter", func(t *testing.T) {
-		upkeepID := evmregistry21.GenUpkeepID(ocr2keepers.LogTrigger, "222")
+		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "222")
 		id := upkeepID.BigInt()
 		cfg := newPlainLogTriggerConfig(addrs[0])
 		b, err := ethClient.BlockByHash(ctx, backend.Commit())

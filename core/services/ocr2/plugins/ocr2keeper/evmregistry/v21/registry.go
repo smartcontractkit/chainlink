@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -296,7 +298,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 			continue
 		}
 		switch core.GetUpkeepType(*uid) {
-		case ocr2keepers.LogTrigger:
+		case types2.LogTrigger:
 			logTriggerIDs = append(logTriggerIDs, id)
 		default:
 		}
@@ -518,7 +520,7 @@ func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	uid.FromBigInt(id)
 	trigger := core.GetUpkeepType(*uid)
 	switch trigger {
-	case ocr2keepers.LogTrigger:
+	case types2.LogTrigger:
 		if err := r.logEventProvider.UnregisterFilter(id); err != nil {
 			r.lggr.Warnw("failed to unregister log filter", "upkeepID", id.String())
 		}
@@ -586,7 +588,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	uid.FromBigInt(id)
 	switch core.GetUpkeepType(*uid) {
-	case ocr2keepers.LogTrigger:
+	case types2.LogTrigger:
 		if len(cfg) == 0 {
 			fetched, err := r.fetchTriggerConfig(id)
 			if err != nil {

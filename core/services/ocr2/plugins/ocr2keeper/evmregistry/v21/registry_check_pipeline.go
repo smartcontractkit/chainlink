@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -197,7 +199,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
-		case ocr2keepers.LogTrigger:
+		case types.LogTrigger:
 			reason, state, retryable := r.verifyLogExists(upkeepId, p)
 			if reason != encoding.UpkeepFailureReasonNone || state != encoding.NoPipelineError {
 				results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)

@@ -3,6 +3,8 @@ package transmit
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -14,7 +16,7 @@ import (
 )
 
 func TestTransmitEventLog(t *testing.T) {
-	uid := core.GenUpkeepID(ocr2keepers.ConditionTrigger, "111")
+	uid := core.GenUpkeepID(types.ConditionTrigger, "111")
 
 	tests := []struct {
 		name  string

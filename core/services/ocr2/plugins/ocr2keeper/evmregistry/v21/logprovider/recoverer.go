@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/random"
@@ -193,7 +195,7 @@ func (r *logRecoverer) HealthReport() map[string]error {
 
 func (r *logRecoverer) GetProposalData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {
 	switch core.GetUpkeepType(proposal.UpkeepID) {
-	case ocr2keepers.LogTrigger:
+	case types.LogTrigger:
 		return r.getLogTriggerCheckData(ctx, proposal)
 	default:
 		return []byte{}, errors.New("not a log trigger upkeep ID")

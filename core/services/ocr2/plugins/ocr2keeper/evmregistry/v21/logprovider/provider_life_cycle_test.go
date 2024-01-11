@@ -5,12 +5,12 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -155,7 +155,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
-		UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1111").BigInt(),
+		UpkeepID: core.GenUpkeepID(types.LogTrigger, "1111").BigInt(),
 		TriggerConfig: LogTriggerConfig{
 			ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
 			Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
@@ -163,7 +163,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 		UpdateBlock: uint64(0),
 	}))
 	require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
-		UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2222").BigInt(),
+		UpkeepID: core.GenUpkeepID(types.LogTrigger, "2222").BigInt(),
 		TriggerConfig: LogTriggerConfig{
 			ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
 			Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
@@ -175,11 +175,11 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	newIds, err := p.RefreshActiveUpkeeps()
 	require.NoError(t, err)
 	require.Len(t, newIds, 0)
-	mp.On("HasFilter", p.filterName(core.GenUpkeepID(ocr2keepers.LogTrigger, "2222").BigInt())).Return(true)
+	mp.On("HasFilter", p.filterName(core.GenUpkeepID(types.LogTrigger, "2222").BigInt())).Return(true)
 	newIds, err = p.RefreshActiveUpkeeps(
-		core.GenUpkeepID(ocr2keepers.LogTrigger, "2222").BigInt(),
-		core.GenUpkeepID(ocr2keepers.LogTrigger, "1234").BigInt(),
-		core.GenUpkeepID(ocr2keepers.LogTrigger, "123").BigInt())
+		core.GenUpkeepID(types.LogTrigger, "2222").BigInt(),
+		core.GenUpkeepID(types.LogTrigger, "1234").BigInt(),
+		core.GenUpkeepID(types.LogTrigger, "123").BigInt())
 	require.NoError(t, err)
 	require.Len(t, newIds, 2)
 	require.Equal(t, 1, p.filterStore.Size())

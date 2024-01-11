@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 )
@@ -33,13 +33,13 @@ func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 		return nil, ErrInvalidUpkeepID
 	}
 	switch upkeepType {
-	case ocr2keepers.ConditionTrigger:
+	case types.ConditionTrigger:
 		trig := automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger{
 			BlockNum:  trig.BlockNum,
 			BlockHash: trig.BlockHash,
 		}
 		trigger, err = utilsABI.Pack("_conditionalTrigger", &trig)
-	case ocr2keepers.LogTrigger:
+	case types.LogTrigger:
 		logTrig := automation_utils_2_1.KeeperRegistryBase21LogTrigger{
 			BlockNum:     trig.BlockNum,
 			BlockHash:    trig.BlockHash,
@@ -70,7 +70,7 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		return triggerWrapper{}, ErrInvalidUpkeepID
 	}
 	switch upkeepType {
-	case ocr2keepers.ConditionTrigger:
+	case types.ConditionTrigger:
 		unpacked, err := utilsABI.Methods["_conditionalTrigger"].Inputs.Unpack(raw)
 		if err != nil {
 			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack conditional trigger", err)
@@ -84,7 +84,7 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		}
 		copy(triggerW.BlockHash[:], converted.BlockHash[:])
 		return triggerW, nil
-	case ocr2keepers.LogTrigger:
+	case types.LogTrigger:
 		unpacked, err := utilsABI.Methods["_logTrigger"].Inputs.Unpack(raw)
 		if err != nil {
 			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack log trigger", err)

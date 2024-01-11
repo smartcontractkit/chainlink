@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -20,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-var _ ocr2keepers.TransmitEventProvider = &EventProvider{}
+var _ types.TransmitEventProvider = &EventProvider{}
 
 type logParser func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error)
 
@@ -189,7 +191,7 @@ func (c *EventProvider) processLogs(latestBlock int64, logs ...logpoller.Log) ([
 				triggerW.BlockHash,
 			)
 			switch core.GetUpkeepType(*upkeepId) {
-			case ocr2keepers.LogTrigger:
+			case types.LogTrigger:
 				trigger.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{}
 				trigger.LogTriggerExtension.TxHash = triggerW.TxHash
 				trigger.LogTriggerExtension.Index = triggerW.LogIndex
