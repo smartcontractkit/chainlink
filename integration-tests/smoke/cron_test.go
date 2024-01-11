@@ -32,7 +32,6 @@ func TestCronBasic(t *testing.T) {
 		WithMockAdapter().
 		WithCLNodes(1).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err)
 
@@ -85,7 +84,6 @@ func TestCronJobReplacement(t *testing.T) {
 		WithMockAdapter().
 		WithCLNodes(1).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err)
 

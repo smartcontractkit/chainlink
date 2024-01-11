@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/wasp"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -35,7 +36,6 @@ import (
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -1019,7 +1019,7 @@ func setupLogPollerTestDocker(
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
-	syncInterval := models.MustMakeDuration(5 * time.Minute)
+	syncInterval := *commonconfig.MustNewDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
 	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
 	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
@@ -1036,7 +1036,7 @@ func setupLogPollerTestDocker(
 	clNodesCount := 5
 
 	var logPolllerSettingsFn = func(chain *evmcfg.Chain) *evmcfg.Chain {
-		chain.LogPollInterval = models.MustNewDuration(lpPollingInterval)
+		chain.LogPollInterval = commonconfig.MustNewDuration(lpPollingInterval)
 		chain.FinalityDepth = ptr.Ptr[uint32](uint32(finalityDepth))
 		chain.FinalityTagEnabled = ptr.Ptr[bool](finalityTagEnabled)
 		return chain
@@ -1070,7 +1070,6 @@ func setupLogPollerTestDocker(
 		WithChainOptions(logPolllerSettingsFn).
 		EVMClientNetworkOptions(evmClientSettingsFn).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 

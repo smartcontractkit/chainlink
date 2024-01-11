@@ -61,7 +61,8 @@ type CLTestEnvBuilder struct {
 
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
-		l: log.Logger,
+		l:            log.Logger,
+		hasLogStream: true,
 	}
 }
 
@@ -103,8 +104,9 @@ func (b *CLTestEnvBuilder) WithTestInstance(t *testing.T) *CLTestEnvBuilder {
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithLogStream() *CLTestEnvBuilder {
-	b.hasLogStream = true
+// WithoutLogStream disables LogStream logging component
+func (b *CLTestEnvBuilder) WithoutLogStream() *CLTestEnvBuilder {
+	b.hasLogStream = false
 	return b
 }
 

@@ -124,15 +124,27 @@ type EthKeyPresenter struct {
 }
 
 func (p *EthKeyPresenter) ToRow() []string {
+	eth := "Unknown"
+	if p.EthBalance != nil {
+		eth = p.EthBalance.String()
+	}
+	link := "Unknown"
+	if p.LinkBalance != nil {
+		link = p.LinkBalance.String()
+	}
+	gas := "None"
+	if p.MaxGasPriceWei != nil {
+		gas = p.MaxGasPriceWei.String()
+	}
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
-		p.EthBalance.String(),
-		p.LinkBalance.String(),
+		eth,
+		link,
 		fmt.Sprintf("%v", p.Disabled),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
-		p.MaxGasPriceWei.String(),
+		gas,
 	}
 }
 
