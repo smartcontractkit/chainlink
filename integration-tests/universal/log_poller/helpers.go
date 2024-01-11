@@ -380,13 +380,13 @@ var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.
 		err              error
 	}
 
-	queryCh := make(chan logQueryResult, len(nodes.Nodes)-1)
+	resultChan := make(chan logQueryResult, len(nodes.Nodes)-1)
 	ctx, cancelFn := context.WithCancel(context.Background())
 
 	for i := 1; i < len(nodes.Nodes); i++ {
 		wg.Add(1)
 
-		go func(clNode *test_env.ClNode, r chan logQueryResult) {
+		go func(clNode *test_env.ClNode, resultChan chan logQueryResult) {
 			defer wg.Done()
 			select {
 			case <-ctx.Done():
@@ -394,7 +394,7 @@ var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.
 			default:
 				orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
 				if err != nil {
-					r <- logQueryResult{
+					resultChan <- logQueryResult{
 						nodeName:         clNode.ContainerName,
 						logCount:         0,
 						hasExpectedCount: false,
@@ -408,7 +408,7 @@ var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.
 				for _, filter := range expectedFilters {
 					logs, err := orm.SelectLogs(startBlock, endBlock, filter.emitterAddress, filter.topic)
 					if err != nil {
-						r <- logQueryResult{
+						resultChan <- logQueryResult{
 							nodeName:         clNode.ContainerName,
 							logCount:         0,
 							hasExpectedCount: false,
@@ -419,14 +419,14 @@ var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.
 					foundLogsCount += len(logs)
 				}
 
-				r <- logQueryResult{
+				resultChan <- logQueryResult{
 					nodeName:         clNode.ContainerName,
 					logCount:         foundLogsCount,
 					hasExpectedCount: foundLogsCount >= expectedLogCount,
-					err:              err,
+					err:              nil,
 				}
 			}
-		}(nodes.Nodes[i], queryCh)
+		}(nodes.Nodes[i], resultChan)
 	}
 
 	var err error
@@ -434,7 +434,7 @@ var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.
 
 	go func() {
 		foundMap := make(map[string]bool, 0)
-		for r := range queryCh {
+		for r := range resultChan {
 			if r.err != nil {
 				err = r.err
 				cancelFn()
@@ -443,15 +443,22 @@ var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.
 
 			foundMap[r.nodeName] = r.hasExpectedCount
 			if r.hasExpectedCount {
-				l.Info().Str("Node name", r.nodeName).Int("Logs count", r.logCount).Msg("Expected log count found in CL node")
+				l.Debug().
+					Str("Node name", r.nodeName).
+					Int("Logs count", r.logCount).
+					Msg("Expected log count found in CL node")
 			} else {
-				l.Warn().Str("Node name", r.nodeName).Str("Found/Expected logs", fmt.Sprintf("%d/%d", r.logCount, expectedLogCount)).Int("Missing logs", expectedLogCount-r.logCount).Msg("Too low log count found in CL node")
+				l.Debug().
+					Str("Node name", r.nodeName).
+					Str("Found/Expected logs", fmt.Sprintf("%d/%d", r.logCount, expectedLogCount)).
+					Int("Missing logs", expectedLogCount-r.logCount).
+					Msg("Too low log count found in CL node")
 			}
 
 			if len(foundMap) == len(nodes.Nodes)-1 {
 				allFound := true
-				for _, v := range foundMap {
-					if !v {
+				for _, hadAllLogs := range foundMap {
+					if !hadAllLogs {
 						allFound = false
 						break
 					}
@@ -464,7 +471,7 @@ var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.
 	}()
 
 	wg.Wait()
-	close(queryCh)
+	close(resultChan)
 
 	return <-allFoundCh, err
 }
@@ -505,7 +512,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 			default:
 				nodeName := clnodeCluster.Nodes[i].ContainerName
 
-				l.Info().Str("Node name", nodeName).Msg("Fetching log poller logs")
+				l.Debug().Str("Node name", nodeName).Msg("Fetching log poller logs")
 				orm, db, err := NewOrm(coreLogger, evmClient.GetChainID(), clnodeCluster.Nodes[i].PostgresDb)
 				if err != nil {
 					r <- dbQueryResult{
@@ -522,7 +529,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 					address := (*logEmitters[j]).Address()
 
 					for _, event := range cfg.General.EventsToEmit {
-						l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching single emitter's logs")
+						l.Trace().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching single emitter's logs")
 						result, err := orm.SelectLogs(startBlock, endBlock, address, event.ID)
 						if err != nil {
 							r <- dbQueryResult{
@@ -538,7 +545,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 
 						logs = append(logs, result...)
 
-						l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Int("Log count", len(result)).Msg("Logs found per node")
+						l.Trace().Str("Event name", event.Name).Str("Emitter address", address.String()).Int("Log count", len(result)).Msg("Logs found per node")
 					}
 				}
 
@@ -598,7 +605,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 		go func(i int, result chan missingLogResult) {
 			defer wg.Done()
 			nodeName := clnodeCluster.Nodes[i].ContainerName
-			l.Info().Str("Node name", nodeName).Str("Progress", fmt.Sprintf("0/%d", evmLogCount)).Msg("Comparing single CL node's logs with EVM logs")
+			l.Info().Str("Node name", nodeName).Str("Progress", fmt.Sprintf("0/%d", evmLogCount)).Msg("Comparing single CL node's logs with EVM logs (this might take a while)")
 
 			missingLogs := make([]geth_types.Log, 0)
 			for i, evmLog := range allLogsInEVMNode {
@@ -612,7 +619,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 				}
 
 				if i%10000 == 0 && i != 0 {
-					l.Info().Str("Node name", nodeName).Str("Progress", fmt.Sprintf("%d/%d", i, evmLogCount)).Msg("Comparing single CL node's logs with EVM logs")
+					l.Debug().Str("Node name", nodeName).Str("Progress", fmt.Sprintf("%d/%d", i, evmLogCount)).Msg("Comparing single CL node's logs with EVM logs")
 				}
 
 				if !logFound {
@@ -644,7 +651,9 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 
 	expectedTotalLogsEmitted := getExpectedLogCount(cfg)
 	if int64(len(allLogsInEVMNode)) != expectedTotalLogsEmitted {
-		l.Warn().Str("Actual/Expected", fmt.Sprintf("%d/%d", expectedTotalLogsEmitted, len(allLogsInEVMNode))).Msg("Some of the test logs were not found in EVM node. This is a bug in the test")
+		l.Warn().
+			Str("Actual/Expected", fmt.Sprintf("%d/%d", expectedTotalLogsEmitted, len(allLogsInEVMNode))).
+			Msg("Some of the test logs were not found in EVM node. This is a bug in the test")
 	}
 
 	return missingLogs, nil
@@ -1269,4 +1278,31 @@ func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 	}
 
 	return nil
+}
+
+func fluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock int64, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, testEnv *test_env.CLClusterTestEnv) (bool, error) {
+	logCountWaitDuration, err := time.ParseDuration(duration)
+	if err != nil {
+		return false, err
+	}
+	endTime := time.Now().Add(logCountWaitDuration)
+
+	// not using gomega here, because I want to see which logs were missing
+	allNodesLogCountMatches := false
+	for time.Now().Before(endTime) {
+		logCountMatches, clErr := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), expectedLogCount, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		if clErr != nil {
+			l.Warn().
+				Err(clErr).
+				Msg("Error checking if CL nodes have expected log count. Retrying...")
+		}
+		if logCountMatches {
+			allNodesLogCountMatches = true
+			break
+		}
+		l.Warn().
+			Msg("At least one CL node did not have expected log count. Retrying...")
+	}
+
+	return allNodesLogCountMatches, nil
 }

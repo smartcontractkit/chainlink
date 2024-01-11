@@ -36,6 +36,13 @@ func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
 
 	cfg.General.EventsToEmit = eventsToEmit
 
+	// this was added only to support triggering tests from CI with custom values
+	err := cfg.OverrideFromEnv()
+	if err != nil {
+		t.Errorf("failed to override config from env: %v", err)
+		t.FailNow()
+	}
+
 	logpoller.ExecuteBasicLogPollerTest(t, &cfg)
 }
 
@@ -198,7 +205,6 @@ func TestLogPollerWithChaosFinalityTag(t *testing.T) {
 }
 
 func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
-	// t.Skip("This one reliably fails, we need to discover whether it's a test or app bug")
 	cfg := logpoller.Config{
 		General: &logpoller.General{
 			Generator:      logpoller.GeneratorType_Looped,
