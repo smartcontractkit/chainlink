@@ -516,6 +516,31 @@ func TestDatabaseBackFillWithMigration202(t *testing.T) {
 	}
 }
 
+func TestNoTriggers(t *testing.T) {
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+
+	assert_num_triggers := func(expected int) {
+
+		row := db.DB.QueryRow("select count(*) from information_schema.triggers")
+		var count int
+		err := row.Scan(&count)
+
+		require.NoError(t, err)
+		require.Equal(t, expected, count)
+	}
+
+	// if you find yourself here and are tempted to add a trigger, something has gone wrong
+	// and you should talk to the foundations team before proceeding
+	assert_num_triggers(0)
+
+	// version prior to removal of all triggers
+	v := 217
+	err := goose.UpTo(db.DB, migrationDir, int64(v))
+	require.NoError(t, err)
+	assert_num_triggers(1)
+
+}
+
 func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	previousMigration := int64(201)
 	backfillMigration := int64(202)

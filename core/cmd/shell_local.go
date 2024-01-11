@@ -1006,9 +1006,8 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
 		if err != nil {
 			return err
-		} else if rows.Err() != nil {
-			return rows.Err()
 		}
+		defer rows.Close()
 
 		var tablesToDeleteFrom []string
 		for rows.Next() {
@@ -1018,6 +1017,9 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 				return err
 			}
 			tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
+		}
+		if rows.Err() != nil {
+			return rows.Err()
 		}
 
 		for _, tableName := range tablesToDeleteFrom {

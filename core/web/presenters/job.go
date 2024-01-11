@@ -513,6 +513,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	case job.Gateway:
 		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
+	case job.Stream:
+		// no spec; nothing to do
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}
