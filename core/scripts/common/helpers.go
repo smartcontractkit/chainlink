@@ -171,6 +171,8 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 		prefix = "https://goerli.arbiscan.io"
 	case ArbitrumOneChainID: // Arbitrum mainnet
 		prefix = "https://arbiscan.io"
+	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
+		prefix = "https://sepolia.arbiscan.io"
 
 	case 56: // BSC mainnet
 		prefix = "https://bscscan.com"
@@ -233,6 +235,8 @@ func automationExplorerNetworkName(chainID int64) (prefix string) {
 		prefix = "arbitrum-goerli"
 	case ArbitrumOneChainID: // Arbitrum mainnet
 		prefix = "arbitrum"
+	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
+		prefix = "arbitrum-sepolia"
 
 	case 56: // BSC mainnet
 		prefix = "bsc"
