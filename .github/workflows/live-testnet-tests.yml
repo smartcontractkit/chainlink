@@ -294,13 +294,14 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
-          [RpcHttpUrls]
+          [Network]
+          [Network.RpcHttpUrls]
           sepolia = $(convert_to_toml_array "$SEPOLIA_URLS")
 
-          [RpcWsUrls]
+          [Network.RpcWsUrls]
           sepolia = $(convert_to_toml_array "$SEPOLIA_HTTP_URLS")
 
-          [WalletKeys]
+          [Network.WalletKeys]
           sepolia = $(convert_to_toml_array "$EVM_KEYS")
           EOF
           
