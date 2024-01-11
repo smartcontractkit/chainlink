@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/flakeytests"
@@ -13,6 +15,13 @@ import (
 const numReruns = 2
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	go func() {
+		<-ctx.Done()
+		stop() // restore default exit behavior
+		log.Println("Cancelling... interrupt again to exit")
+	}()
+
 	grafanaHost := flag.String("grafana_host", "", "grafana host URL")
 	grafanaAuth := flag.String("grafana_auth", "", "grafana basic auth for Loki API")
 	command := flag.String("command", "", "test command being rerun; used to tag metrics")
@@ -48,10 +57,10 @@ func main() {
 		readers = append(readers, r)
 	}
 
-	ctx := flakeytests.GetGithubMetadata(*ghRepo, *ghEventName, *ghSHA, *ghEventPath, *ghRunID)
-	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *command, ctx)
+	meta := flakeytests.GetGithubMetadata(*ghRepo, *ghEventName, *ghSHA, *ghEventPath, *ghRunID)
+	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *command, meta)
 	r := flakeytests.NewRunner(readers, rep, numReruns)
-	err := r.Run()
+	err := r.Run(ctx)
 	if err != nil {
 		log.Fatalf("Error re-running flakey tests: %s", err)
 	}
