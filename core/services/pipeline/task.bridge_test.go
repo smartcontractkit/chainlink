@@ -80,7 +80,7 @@ func (pr *adapterResponse) UnsetProviderStatusCode() {
 }
 
 func (pr *adapterResponse) SetError(msg string) {
-	pr.Error = &msg
+	pr.Error = msg
 }
 
 func (pr *adapterResponse) UnsetError() {

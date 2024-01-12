@@ -7,7 +7,7 @@ import (
 
 type AdapterStatus struct {
 	ErrorMessage       *string `json:"errorMessage"`
-	Error              *string `json:"error"`
+	Error              any     `json:"error"`
 	StatusCode         *int    `json:"statusCode"`
 	ProviderStatusCode *int    `json:"providerStatusCode"`
 }
@@ -31,7 +31,7 @@ func BestEffortExtractEAStatus(responseBytes []byte) (code int, ok bool) {
 		return *status.ProviderStatusCode, true
 	}
 
-	if status.Error != nil && *status.Error != "" {
+	if status.Error != nil {
 		return http.StatusInternalServerError, true
 	}
 
