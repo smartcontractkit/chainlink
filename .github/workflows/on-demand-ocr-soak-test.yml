@@ -15,6 +15,7 @@ on:
           - "CELO_ALFAJORES"
           - "CELO_MAINNET"
           - "BASE_GOERLI"
+          - "BASE_SEPOLIA"
           - "BASE_MAINNET"
           - "BSC_MAINNET"
           - "BSC_TESTNET"
