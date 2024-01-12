@@ -44,6 +44,4 @@ contract OptimismValidator is GasLimitValidator {
     // return success
     return true;
   }
-
 }
-

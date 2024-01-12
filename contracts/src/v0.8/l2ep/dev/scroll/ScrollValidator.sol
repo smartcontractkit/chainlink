@@ -45,6 +45,4 @@ contract ScrollValidator is GasLimitValidator {
     // return success
     return true;
   }
-
 }
-
