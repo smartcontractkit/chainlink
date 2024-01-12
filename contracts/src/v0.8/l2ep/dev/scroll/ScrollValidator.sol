@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {ScrollSequencerUptimeFeedInterface} from "../interfaces/ScrollSequencerUptimeFeedInterface.sol";
-
+import {SequencerUptimeFeed} from "../SequencerUptimeFeed.sol";
 import {GasLimitValidator} from "../GasLimitValidator.sol";
 
 import {IL1ScrollMessenger} from "@scroll-tech/contracts/L1/IL1ScrollMessenger.sol";
@@ -35,7 +34,7 @@ contract ScrollValidator is GasLimitValidator {
       L2_UPTIME_FEED_ADDR,
       0,
       abi.encodeWithSelector(
-        ScrollSequencerUptimeFeedInterface.updateStatus.selector,
+        SequencerUptimeFeed.updateStatus.selector,
         currentAnswer == ANSWER_SEQ_OFFLINE,
         uint64(block.timestamp)
       ),

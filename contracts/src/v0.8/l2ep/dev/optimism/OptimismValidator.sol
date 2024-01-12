@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {OptimismSequencerUptimeFeedInterface} from "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
-
+import {SequencerUptimeFeed} from "../SequencerUptimeFeed.sol";
 import {GasLimitValidator} from "../GasLimitValidator.sol";
 
 import {IL1CrossDomainMessenger} from "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
@@ -34,7 +33,7 @@ contract OptimismValidator is GasLimitValidator {
     IL1CrossDomainMessenger(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).sendMessage(
       L2_UPTIME_FEED_ADDR, // target
       abi.encodeWithSelector(
-        OptimismSequencerUptimeFeedInterface.updateStatus.selector,
+        SequencerUptimeFeed.updateStatus.selector,
         currentAnswer == ANSWER_SEQ_OFFLINE,
         uint64(block.timestamp)
       ),

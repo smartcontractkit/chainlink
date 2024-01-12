@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {MockScrollL1CrossDomainMessenger} from "../../mocks/scroll/MockScrollL1CrossDomainMessenger.sol";
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2CrossDomainMessenger.sol";
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
+import {SequencerUptimeFeed} from "../../../dev/SequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -61,7 +62,7 @@ contract ScrollSequencerUptimeFeed_UpdateStatus is ScrollSequencerUptimeFeedTest
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.InvalidSender.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.InvalidSender.selector));
     s_scrollSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -74,7 +75,7 @@ contract ScrollSequencerUptimeFeed_UpdateStatus is ScrollSequencerUptimeFeedTest
     s_mockScrollL2CrossDomainMessenger.setSender(s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.InvalidSender.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.InvalidSender.selector));
     s_scrollSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -257,7 +258,7 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.NoDataPresent.selector));
     s_scrollSequencerUptimeFeed.getRoundData(2);
   }
 
@@ -267,7 +268,7 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.NoDataPresent.selector));
     s_scrollSequencerUptimeFeed.getAnswer(2);
   }
 
@@ -277,7 +278,7 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.NoDataPresent.selector));
     s_scrollSequencerUptimeFeed.getTimestamp(2);
   }
 }

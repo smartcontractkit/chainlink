@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimismL1CrossDomainMessenger.sol";
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
 import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequencerUptimeFeed.sol";
+import {SequencerUptimeFeed} from "../../../dev/SequencerUptimeFeed.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -61,7 +62,7 @@ contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeed
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.InvalidSender.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.InvalidSender.selector));
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -74,7 +75,7 @@ contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeed
     s_mockOptimismL2CrossDomainMessenger.setSender(s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.InvalidSender.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.InvalidSender.selector));
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -257,7 +258,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.NoDataPresent.selector));
     s_optimismSequencerUptimeFeed.getRoundData(2);
   }
 
@@ -267,7 +268,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.NoDataPresent.selector));
     s_optimismSequencerUptimeFeed.getAnswer(2);
   }
 
@@ -277,7 +278,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.NoDataPresent.selector));
     s_optimismSequencerUptimeFeed.getTimestamp(2);
   }
 }
@@ -344,7 +345,7 @@ contract OptimismSequencerUptimeFeed_GasCosts is OptimismSequencerUptimeFeedTest
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
 
     // measures gas used for update
-    expectedGasUsed = 33348; // NOTE: used to be 60170 in hardhat tests
+    expectedGasUsed = 31640; // NOTE: used to be 60170 in hardhat tests
     gasStart = gasleft();
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -409,7 +410,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1722; // NOTE: used to be 28329 in hardhat tests
+    uint256 expectedGasUsed = 1566; // NOTE: used to be 28329 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -433,7 +434,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1598; // NOTE: used to be 28229 in hardhat tests
+    uint256 expectedGasUsed = 1459; // NOTE: used to be 28229 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -457,7 +458,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1632; // NOTE: used to be 28245 in hardhat tests
+    uint256 expectedGasUsed = 1470; // NOTE: used to be 28245 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
