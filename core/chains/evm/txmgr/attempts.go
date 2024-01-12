@@ -124,7 +124,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit u
 		uint64(nonce),
 		fromAddress,
 		value,
-		uint32(feeLimit),
+		feeLimit,
 		fee.Legacy,
 		payload,
 	)

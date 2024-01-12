@@ -23,6 +23,11 @@ type VRFV2Contracts struct {
 	LoadTestConsumers []contracts.VRFv2LoadTestConsumer
 }
 
+type VRFV2WrapperContracts struct {
+	VRFV2Wrapper      contracts.VRFV2Wrapper
+	LoadTestConsumers []contracts.VRFv2WrapperLoadTestConsumer
+}
+
 // VRFV2PlusKeyData defines a jobs into and proving key info
 type VRFV2KeyData struct {
 	VRFKey            *client.VRFKey

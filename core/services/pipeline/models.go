@@ -75,7 +75,7 @@ func (r *Run) SetID(value string) error {
 	if err != nil {
 		return err
 	}
-	r.ID = int64(ID)
+	r.ID = ID
 	return nil
 }
 

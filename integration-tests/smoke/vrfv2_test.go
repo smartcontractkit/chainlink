@@ -11,6 +11,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
@@ -88,10 +90,10 @@ func TestVRFv2Basic(t *testing.T) {
 		randomWordsFulfilledEvent, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
 			vrfv2Contracts.LoadTestConsumers[0],
 			vrfv2Contracts.Coordinator,
-			vrfv2Data,
 			subID,
-			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			vrfv2Data,
 			&configCopy,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
@@ -119,6 +121,80 @@ func TestVRFv2Basic(t *testing.T) {
 		}
 	})
 
+	t.Run("Direct Funding (VRFV2Wrapper)", func(t *testing.T) {
+		configCopy := config.MustCopy()
+		wrapperContracts, wrapperSubID, err := vrfv2_actions.SetupVRFV2WrapperEnvironment(
+			env,
+			&configCopy,
+			linkToken,
+			mockETHLinkFeed,
+			vrfv2Contracts.Coordinator,
+			vrfv2Data.KeyHash,
+			1,
+		)
+		require.NoError(t, err)
+		wrapperConsumer := wrapperContracts.LoadTestConsumers[0]
+
+		wrapperConsumerJuelsBalanceBeforeRequest, err := linkToken.BalanceOf(testcontext.Get(t), wrapperConsumer.Address())
+		require.NoError(t, err, "Error getting wrapper consumer balance")
+
+		wrapperSubscription, err := vrfv2Contracts.Coordinator.GetSubscription(testcontext.Get(t), *wrapperSubID)
+		require.NoError(t, err, "Error getting subscription information")
+		subBalanceBeforeRequest := wrapperSubscription.Balance
+
+		// Request Randomness and wait for fulfillment event
+		randomWordsFulfilledEvent, err := vrfv2_actions.DirectFundingRequestRandomnessAndWaitForFulfillment(
+			wrapperConsumer,
+			vrfv2Contracts.Coordinator,
+			*wrapperSubID,
+			vrfv2Data,
+			&configCopy,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2.General,
+			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+		)
+		require.NoError(t, err, "Error requesting randomness and waiting for fulfilment")
+
+		// Check wrapper subscription balance
+		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
+		wrapperSubscription, err = vrfv2Contracts.Coordinator.GetSubscription(testcontext.Get(t), *wrapperSubID)
+		require.NoError(t, err, "Error getting subscription information")
+		subBalanceAfterRequest := wrapperSubscription.Balance
+		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
+
+		// Check status of randomness request within the wrapper consumer contract
+		consumerStatus, err := wrapperConsumer.GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "Error getting randomness request status")
+		require.True(t, consumerStatus.Fulfilled)
+
+		// Check wrapper consumer LINK balance
+		expectedWrapperConsumerJuelsBalance := new(big.Int).Sub(wrapperConsumerJuelsBalanceBeforeRequest, consumerStatus.Paid)
+		wrapperConsumerJuelsBalanceAfterRequest, err := linkToken.BalanceOf(testcontext.Get(t), wrapperConsumer.Address())
+		require.NoError(t, err, "Error getting wrapper consumer balance")
+		require.Equal(t, expectedWrapperConsumerJuelsBalance, wrapperConsumerJuelsBalanceAfterRequest)
+
+		// Check random word count
+		require.Equal(t, *configCopy.VRFv2.General.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
+		for _, w := range consumerStatus.RandomWords {
+			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
+		}
+
+		l.Info().
+			Str("Consumer Balance Before Request (Link)", (*commonassets.Link)(wrapperConsumerJuelsBalanceBeforeRequest).Link()).
+			Str("Consumer Balance After Request (Link)", (*commonassets.Link)(wrapperConsumerJuelsBalanceAfterRequest).Link()).
+			Bool("Fulfilment Status", consumerStatus.Fulfilled).
+			Str("Paid by Consumer Contract (Link)", (*commonassets.Link)(consumerStatus.Paid).Link()).
+			Str("Paid by Coordinator Sub (Link)", (*commonassets.Link)(randomWordsFulfilledEvent.Payment).Link()).
+			Str("RequestTimestamp", consumerStatus.RequestTimestamp.String()).
+			Str("FulfilmentTimestamp", consumerStatus.FulfilmentTimestamp.String()).
+			Str("RequestBlockNumber", consumerStatus.RequestBlockNumber.String()).
+			Str("FulfilmentBlockNumber", consumerStatus.FulfilmentBlockNumber.String()).
+			Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
+			Msg("Random Words Fulfilment Details For Link Billing")
+	})
+
 	t.Run("Oracle Withdraw", func(t *testing.T) {
 		configCopy := config.MustCopy()
 		testConfig := configCopy.VRFv2.General
@@ -137,10 +213,10 @@ func TestVRFv2Basic(t *testing.T) {
 		fulfilledEventLink, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
 			vrfv2Contracts.LoadTestConsumers[0],
 			vrfv2Contracts.Coordinator,
-			vrfv2Data,
 			subIDForOracleWithdraw,
-			*testConfig.RandomnessRequestCountPerRequest,
+			vrfv2Data,
 			&configCopy,
+			*testConfig.RandomnessRequestCountPerRequest,
 			testConfig.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
@@ -172,6 +248,7 @@ func TestVRFv2Basic(t *testing.T) {
 			"LINK funds were not returned after oracle withdraw",
 		)
 	})
+
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
 		configCopy := config.MustCopy()
 		subIDsForCancelling, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
@@ -279,10 +356,10 @@ func TestVRFv2Basic(t *testing.T) {
 		_, err = vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
 			vrfv2Contracts.LoadTestConsumers[0],
 			vrfv2Contracts.Coordinator,
-			vrfv2Data,
 			subIDForCancelling,
-			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			vrfv2Data,
 			&configCopy,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			randomWordsFulfilledEventTimeout,
 			l,
 		)
@@ -421,10 +498,10 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			randomWordsFulfilledEvent, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
 				vrfv2Contracts.LoadTestConsumers[0],
 				vrfv2Contracts.Coordinator,
-				vrfv2Data,
 				subID,
-				*config.VRFv2.General.RandomnessRequestCountPerRequest,
+				vrfv2Data,
 				&config,
+				*config.VRFv2.General.RandomnessRequestCountPerRequest,
 				config.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 				l,
 			)

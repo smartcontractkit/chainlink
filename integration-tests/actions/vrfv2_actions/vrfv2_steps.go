@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 )
 
 var (
@@ -56,6 +57,7 @@ var (
 
 	ErrWaitRandomWordsRequestedEvent = "error waiting for RandomWordsRequested event"
 	ErrWaitRandomWordsFulfilledEvent = "error waiting for RandomWordsFulfilled event"
+	ErrDeployWrapper                 = "error deploying VRFV2PlusWrapper"
 )
 
 func DeployVRFV2Contracts(
@@ -102,6 +104,46 @@ func DeployVRFV2Consumers(contractDeployer contracts.ContractDeployer, coordinat
 		consumers = append(consumers, loadTestConsumer)
 	}
 	return consumers, nil
+}
+
+func DeployVRFV2WrapperConsumers(contractDeployer contracts.ContractDeployer, linkTokenAddress string, vrfV2Wrapper contracts.VRFV2Wrapper, consumerContractsAmount int) ([]contracts.VRFv2WrapperLoadTestConsumer, error) {
+	var consumers []contracts.VRFv2WrapperLoadTestConsumer
+	for i := 1; i <= consumerContractsAmount; i++ {
+		loadTestConsumer, err := contractDeployer.DeployVRFV2WrapperLoadTestConsumer(linkTokenAddress, vrfV2Wrapper.Address())
+		if err != nil {
+			return nil, fmt.Errorf("%s, err %w", ErrAdvancedConsumer, err)
+		}
+		consumers = append(consumers, loadTestConsumer)
+	}
+	return consumers, nil
+}
+
+func DeployVRFV2DirectFundingContracts(
+	contractDeployer contracts.ContractDeployer,
+	chainClient blockchain.EVMClient,
+	linkTokenAddress string,
+	linkEthFeedAddress string,
+	coordinator contracts.VRFCoordinatorV2,
+	consumerContractsAmount int,
+) (*VRFV2WrapperContracts, error) {
+	vrfv2Wrapper, err := contractDeployer.DeployVRFV2Wrapper(linkTokenAddress, linkEthFeedAddress, coordinator.Address())
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrDeployWrapper, err)
+	}
+	err = chainClient.WaitForEvents()
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+	}
+
+	consumers, err := DeployVRFV2WrapperConsumers(contractDeployer, linkTokenAddress, vrfv2Wrapper, consumerContractsAmount)
+	if err != nil {
+		return nil, err
+	}
+	err = chainClient.WaitForEvents()
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+	}
+	return &VRFV2WrapperContracts{vrfv2Wrapper, consumers}, nil
 }
 
 func CreateVRFV2Job(
@@ -215,7 +257,7 @@ func SetupVRFV2Environment(
 	l.Info().Str("Coordinator", vrfv2Contracts.Coordinator.Address()).Msg("Setting Coordinator Config")
 	err = vrfv2Contracts.Coordinator.SetConfig(
 		*vrfv2Config.MinimumConfirmations,
-		*vrfv2Config.CallbackGasLimit,
+		*vrfv2Config.MaxGasLimitCoordinatorConfig,
 		*vrfv2Config.StalenessSeconds,
 		*vrfv2Config.GasAfterPaymentCalculation,
 		big.NewInt(*vrfv2Config.LinkNativeFeedResponse),
@@ -308,6 +350,82 @@ func SetupVRFV2Environment(
 
 	l.Info().Msg("VRFV2  environment setup is finished")
 	return vrfv2Contracts, subIDs, &data, nil
+}
+
+func SetupVRFV2WrapperEnvironment(
+	env *test_env.CLClusterTestEnv,
+	testConfig *tc.TestConfig,
+	linkToken contracts.LinkToken,
+	mockNativeLINKFeed contracts.MockETHLINKFeed,
+	coordinator contracts.VRFCoordinatorV2,
+	keyHash [32]byte,
+	wrapperConsumerContractsAmount int,
+) (*VRFV2WrapperContracts, *uint64, error) {
+	// Deploy VRF v2 direct funding contracts
+	wrapperContracts, err := DeployVRFV2DirectFundingContracts(
+		env.ContractDeployer,
+		env.EVMClient,
+		linkToken.Address(),
+		mockNativeLINKFeed.Address(),
+		coordinator,
+		wrapperConsumerContractsAmount,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+	}
+
+	vrfv2Config := testConfig.VRFv2.General
+
+	// Configure VRF v2 wrapper contract
+	err = wrapperContracts.VRFV2Wrapper.SetConfig(
+		*vrfv2Config.WrapperGasOverhead,
+		*vrfv2Config.CoordinatorGasOverhead,
+		*vrfv2Config.WrapperPremiumPercentage,
+		keyHash,
+		*vrfv2Config.WrapperMaxNumberOfWords,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+	}
+
+	// Fetch wrapper subscription ID
+	wrapperSubID, err := wrapperContracts.VRFV2Wrapper.GetSubID(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+	}
+
+	// Fund wrapper subscription
+	err = FundSubscriptions(env, testConfig, linkToken, coordinator, []uint64{wrapperSubID})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Fund consumer with LINK
+	err = linkToken.Transfer(
+		wrapperContracts.LoadTestConsumers[0].Address(),
+		big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(*vrfv2Config.WrapperConsumerFundingAmountLink)),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+	}
+
+	return wrapperContracts, &wrapperSubID, nil
 }
 
 func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, numberOfNativeTokenAddressesToCreate int, chainID *big.Int) ([]string, error) {
@@ -460,13 +578,49 @@ func FundSubscriptions(
 	return nil
 }
 
+func DirectFundingRequestRandomnessAndWaitForFulfillment(
+	consumer contracts.VRFv2WrapperLoadTestConsumer,
+	coordinator contracts.VRFCoordinatorV2,
+	subID uint64,
+	vrfv2Data *VRFV2Data,
+	testConfig *tc.TestConfig,
+	randomnessRequestCountPerRequest uint16,
+	vrfv2Config vrfv2_config.General,
+	randomWordsFulfilledEventTimeout time.Duration,
+	l zerolog.Logger,
+) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {
+	logRandRequest(consumer.Address(), coordinator.Address(), subID, testConfig, l)
+	_, err := consumer.RequestRandomness(
+		*testConfig.VRFv2.General.MinimumConfirmations,
+		*testConfig.VRFv2.General.CallbackGasLimit,
+		*testConfig.VRFv2.General.NumberOfWords,
+		randomnessRequestCountPerRequest,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrRequestRandomness, err)
+	}
+	wrapperAddress, err := consumer.GetWrapper(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("error getting wrapper address, err: %w", err)
+	}
+	fulfillmentEvents, err := WaitForRequestAndFulfillmentEvents(
+		wrapperAddress.String(),
+		coordinator,
+		vrfv2Data,
+		subID,
+		randomWordsFulfilledEventTimeout,
+		l,
+	)
+	return fulfillmentEvents, err
+}
+
 func RequestRandomnessAndWaitForFulfillment(
 	consumer contracts.VRFv2LoadTestConsumer,
 	coordinator contracts.VRFCoordinatorV2,
-	vrfv2Data *VRFV2Data,
 	subID uint64,
-	randomnessRequestCountPerRequest uint16,
+	vrfv2Data *VRFV2Data,
 	config *tc.TestConfig,
+	randomnessRequestCountPerRequest uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {

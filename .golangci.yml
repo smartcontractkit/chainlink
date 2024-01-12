@@ -10,6 +10,7 @@ linters:
     - misspell
     - rowserrcheck
     - errorlint
+    - unconvert
     - sqlclosecheck
     - noctx
 linters-settings:

@@ -31,8 +31,8 @@ type mockConfig struct {
 }
 
 var (
-	testInterval = time.Duration(50 * time.Millisecond)
-	testDuration = time.Duration(20 * time.Millisecond)
+	testInterval = 50 * time.Millisecond
+	testDuration = 20 * time.Millisecond
 	testRate     = 100
 	testSize     = 16 * 1024 * 1024
 )

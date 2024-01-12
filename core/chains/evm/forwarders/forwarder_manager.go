@@ -236,7 +236,7 @@ func (f *FwdMgr) runLoop() {
 	defer f.wg.Done()
 	tick := time.After(0)
 
-	for ; ; tick = time.After(utils.WithJitter(time.Duration(time.Minute))) {
+	for ; ; tick = time.After(utils.WithJitter(time.Minute)) {
 		select {
 		case <-tick:
 			if err := f.logpoller.Ready(); err != nil {
