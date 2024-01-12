@@ -97,8 +97,8 @@ type ConfigTracker interface {
 }
 
 type TransmitterReportDecoder interface {
-	BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error)
-	ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error)
+	BenchmarkPriceFromReport(ctx context.Context, report ocrtypes.Report) (*big.Int, error)
+	ObservationTimestampFromReport(ctx context.Context, report ocrtypes.Report) (uint32, error)
 }
 
 var _ Transmitter = (*mercuryTransmitter)(nil)
@@ -441,7 +441,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		Payload: payload,
 	}
 
-	ts, err := mt.codec.ObservationTimestampFromReport(report)
+	ts, err := mt.codec.ObservationTimestampFromReport(ctx, report)
 	if err != nil {
 		mt.lggr.Warnw("Failed to get observation timestamp from report", "err", err)
 	}
@@ -467,7 +467,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 }
 
 // FromAccount returns the stringified (hex) CSA public key
-func (mt *mercuryTransmitter) FromAccount() (ocrtypes.Account, error) {
+func (mt *mercuryTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(mt.fromAccount), nil
 }
 
@@ -513,7 +513,7 @@ func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) 
 	if !is {
 		return nil, fmt.Errorf("expected report to be []byte, but it was %T", m["report"])
 	}
-	return mt.codec.BenchmarkPriceFromReport(report)
+	return mt.codec.BenchmarkPriceFromReport(ctx, report)
 }
 
 // LatestTimestamp will return -1, nil if the feed is missing

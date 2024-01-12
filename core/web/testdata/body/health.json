@@ -56,6 +56,15 @@
     },
     {
       "type": "checks",
+      "id": "EVM.0.Relayer",
+      "attributes": {
+        "name": "EVM.0.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.0.Txm",
       "attributes": {
         "name": "EVM.0.Txm",

@@ -278,7 +278,7 @@ func (d *Delegate) getHomeChainContractReader(
 	}
 
 	reader, err := evm.NewChainReaderService(
-		context.Background(),
+		ctx,
 		d.lggr,
 		homeChain.LogPoller(),
 		homeChain.HeadTracker(),

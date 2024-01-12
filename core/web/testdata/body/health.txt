@@ -5,6 +5,7 @@ ok EVM.0.HeadTracker
 !  EVM.0.HeadTracker.HeadListener
 	Listener is not connected
 ok EVM.0.LogBroadcaster
+ok EVM.0.Relayer
 ok EVM.0.Txm
 ok EVM.0.Txm.BlockHistoryEstimator
 ok EVM.0.Txm.Broadcaster

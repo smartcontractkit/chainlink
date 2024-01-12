@@ -131,25 +131,10 @@ type AppConfig interface {
 	toml.HasEVMConfigs
 }
 
-type ChainRelayExtenderConfig struct {
+type ChainRelayOpts struct {
 	Logger   logger.Logger
 	KeyStore keystore.Eth
 	ChainOpts
-}
-
-func (c ChainRelayExtenderConfig) Validate() error {
-	err := c.ChainOpts.Validate()
-	if c.Logger == nil {
-		err = errors.Join(err, errors.New("nil Logger"))
-	}
-	if c.KeyStore == nil {
-		err = errors.Join(err, errors.New("nil Keystore"))
-	}
-
-	if err != nil {
-		err = fmt.Errorf("invalid ChainRelayerExtenderConfig: %w", err)
-	}
-	return err
 }
 
 type ChainOpts struct {
@@ -188,7 +173,7 @@ func (o ChainOpts) Validate() error {
 	return err
 }
 
-func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
+func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpts) (Chain, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
@@ -203,7 +188,7 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
-func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
+func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts) (*chain, error) {
 	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var client evmclient.Client

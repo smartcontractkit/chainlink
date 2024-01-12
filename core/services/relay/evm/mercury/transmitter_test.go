@@ -228,11 +228,11 @@ type mockCodec struct {
 
 var _ mercurytypes.ReportCodec = &mockCodec{}
 
-func (m *mockCodec) BenchmarkPriceFromReport(_ ocrtypes.Report) (*big.Int, error) {
+func (m *mockCodec) BenchmarkPriceFromReport(ctx context.Context, _ ocrtypes.Report) (*big.Int, error) {
 	return m.val, m.err
 }
 
-func (m *mockCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
+func (m *mockCodec) ObservationTimestampFromReport(ctx context.Context, report ocrtypes.Report) (uint32, error) {
 	return 0, nil
 }
 

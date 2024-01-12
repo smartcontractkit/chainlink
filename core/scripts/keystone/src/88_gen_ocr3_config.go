@@ -181,6 +181,7 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 		cfg.TransmissionSchedule,
 		identities,
 		nil, // empty plugin config
+		nil,
 		time.Duration(cfg.MaxDurationQueryMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationObservationMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationAcceptMillis)*time.Millisecond,

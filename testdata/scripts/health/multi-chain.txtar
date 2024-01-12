@@ -78,6 +78,7 @@ ok EVM.1.HeadTracker
 !  EVM.1.HeadTracker.HeadListener
 	Listener is not connected
 ok EVM.1.LogBroadcaster
+ok EVM.1.Relayer
 ok EVM.1.Txm
 ok EVM.1.Txm.BlockHistoryEstimator
 ok EVM.1.Txm.Broadcaster
@@ -92,8 +93,10 @@ ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
-ok Solana.Bar
-ok StarkNet.Baz
+ok Solana.Bar.Chain
+ok Solana.Bar.Relayer
+ok Solana.Bar.Txm
+ok StarkNet.Baz.Relayer
 ok TelemetryManager
 
 -- out-unhealthy.txt --
@@ -180,6 +183,15 @@ ok TelemetryManager
       "id": "EVM.1.LogBroadcaster",
       "attributes": {
         "name": "EVM.1.LogBroadcaster",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Relayer",
+      "attributes": {
+        "name": "EVM.1.Relayer",
         "status": "passing",
         "output": ""
       }
@@ -312,18 +324,36 @@ ok TelemetryManager
     },
     {
       "type": "checks",
-      "id": "Solana.Bar",
+      "id": "Solana.Bar.Chain",
       "attributes": {
-        "name": "Solana.Bar",
+        "name": "Solana.Bar.Chain",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz",
+      "id": "Solana.Bar.Relayer",
       "attributes": {
-        "name": "StarkNet.Baz",
+        "name": "Solana.Bar.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Txm",
+      "attributes": {
+        "name": "Solana.Bar.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "StarkNet.Baz.Relayer",
+      "attributes": {
+        "name": "StarkNet.Baz.Relayer",
         "status": "passing",
         "output": ""
       }

@@ -169,6 +169,7 @@ func (d *v20KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
 		offC,                  // reportingPluginConfig []byte,
+		nil,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
 		800*time.Millisecond,  // maxDurationReport time.Duration, sum of MaxDurationQuery/Observation/Report must be less than DeltaProgress
@@ -312,6 +313,7 @@ func (d *v21KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
 		offC,                  // reportingPluginConfig []byte,
+		nil,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
 		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,

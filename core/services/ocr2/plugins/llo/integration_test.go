@@ -146,12 +146,13 @@ func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra) (
 		[]int{len(oracles)},   // S
 		oracles,
 		reportingPluginConfig, // reportingPluginConfig []byte,
-		0,                     // maxDurationQuery
-		250*time.Millisecond,  // maxDurationObservation
-		0,                     // maxDurationShouldAcceptAttestedReport
-		0,                     // maxDurationShouldTransmitAcceptedReport
-		int(fNodes),           // f
-		onchainConfig,         // encoded onchain config
+		nil,
+		0,                    // maxDurationQuery
+		250*time.Millisecond, // maxDurationObservation
+		0,                    // maxDurationShouldAcceptAttestedReport
+		0,                    // maxDurationShouldTransmitAcceptedReport
+		int(fNodes),          // f
+		onchainConfig,        // encoded onchain config
 	)
 
 	require.NoError(t, err)
