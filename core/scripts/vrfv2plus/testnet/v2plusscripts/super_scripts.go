@@ -480,8 +480,6 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
 	registerVRFKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
-	registerVRFKeyAgainstAddress := deployCmd.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
-		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
 
 	vrfPrimaryNodeSendingKeysString := deployCmd.String("vrf-primary-node-sending-keys", "", "VRF Primary Node sending keys")
 	minConfs := deployCmd.Int("min-confs", constants.MinConfs, "min confs")
@@ -546,7 +544,6 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	vrfKeyRegistrationConfig := model.VRFKeyRegistrationConfig{
 		VRFKeyUncompressedPubKey: *registerVRFKeyUncompressedPubKey,
-		RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
 	}
 
 	VRFV2PlusDeployUniverse(
@@ -656,7 +653,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, vrfKeyRegistrationConfig.RegisterAgainstAddress)
+		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
