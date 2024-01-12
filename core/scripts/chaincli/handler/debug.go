@@ -150,7 +150,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
-		addLink("checkUpkeep simulation", tenderlySimLink(k.cfg, chainID, 0, rawCall, registryAddress))
+		addLink("checkUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, 0, rawCall, registryAddress))
 	} else if triggerType == LogTrigger {
 		// validate inputs
 		message("upkeep identified as log trigger")
@@ -243,9 +243,9 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
-		addLink("checkUpkeep simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+		addLink("checkUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, registryAddress))
 		rawCall = append(core.ILogAutomationABI.Methods["checkLog"].ID, triggerData...)
-		addLink("checkLog (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
+		addLink("checkLog (direct) simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 	} else {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
@@ -334,12 +334,12 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			if err != nil {
 				failUnknown("failed to pack raw checkCallback call", err)
 			}
-			addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+			addLink("checkCallback simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, registryAddress))
 			rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.ExtraData)
 			if err != nil {
 				failUnknown("failed to pack raw checkCallback (direct) call", err)
 			}
-			addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
+			addLink("checkCallback (direct) simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 		} else {
 			message("did not revert with StreamsLookup error")
 		}
@@ -358,7 +358,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if err != nil {
 		failUnknown("failed to pack raw simulatePerformUpkeep call", err)
 	}
-	addLink("simulatePerformUpkeep simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+	addLink("simulatePerformUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, registryAddress))
 
 	if simulateResult.Success {
 		resolveEligible()
@@ -536,7 +536,7 @@ type TenderlyAPIResponse struct {
 	}
 }
 
-func tenderlySimLink(cfg *config.Config, chainID int64, blockNumber uint64, input []byte, contractAddress gethcommon.Address) string {
+func tenderlySimLink(ctx context.Context, cfg *config.Config, chainID int64, blockNumber uint64, input []byte, contractAddress gethcommon.Address) string {
 	errResult := "<NONE>"
 	if cfg.TenderlyAccountName == "" || cfg.TenderlyKey == "" || cfg.TenderlyProjectName == "" {
 		warning("tenderly credentials not properly configured - this is optional but helpful")
@@ -558,7 +558,8 @@ func tenderlySimLink(cfg *config.Config, chainID int64, blockNumber uint64, inpu
 		warning(fmt.Sprintf("unable to marshal tenderly request data: %v", err))
 		return errResult
 	}
-	request, err := http.NewRequest(
+	request, err := http.NewRequestWithContext(
+		ctx,
 		"POST",
 		fmt.Sprintf("https://api.tenderly.co/api/v1/account/%s/project/%s/simulate", cfg.TenderlyAccountName, cfg.TenderlyProjectName),
 		bytes.NewBuffer(jsonData),

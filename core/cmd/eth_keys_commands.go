@@ -124,15 +124,27 @@ type EthKeyPresenter struct {
 }
 
 func (p *EthKeyPresenter) ToRow() []string {
+	eth := "Unknown"
+	if p.EthBalance != nil {
+		eth = p.EthBalance.String()
+	}
+	link := "Unknown"
+	if p.LinkBalance != nil {
+		link = p.LinkBalance.String()
+	}
+	gas := "None"
+	if p.MaxGasPriceWei != nil {
+		gas = p.MaxGasPriceWei.String()
+	}
 	return []string{
 		p.Address,
 		p.EVMChainID.String(),
-		p.EthBalance.String(),
-		p.LinkBalance.String(),
+		eth,
+		link,
 		fmt.Sprintf("%v", p.Disabled),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
-		p.MaxGasPriceWei.String(),
+		gas,
 	}
 }
 
@@ -164,7 +176,7 @@ func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
 
 // ListETHKeys renders the active account address with its ETH & LINK balance
 func (s *Shell) ListETHKeys(_ *cli.Context) (err error) {
-	resp, err := s.HTTP.Get("/v2/keys/evm")
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/evm")
 
 	if err != nil {
 		return s.errorOut(err)
@@ -194,7 +206,7 @@ func (s *Shell) CreateETHKey(c *cli.Context) (err error) {
 	}
 
 	createUrl.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(createUrl.String(), nil)
+	resp, err := s.HTTP.Post(s.ctx(), createUrl.String(), nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -219,7 +231,7 @@ func (s *Shell) DeleteETHKey(c *cli.Context) (err error) {
 		return nil
 	}
 
-	resp, err := s.HTTP.Delete("/v2/keys/evm/" + address)
+	resp, err := s.HTTP.Delete(s.ctx(), "/v2/keys/evm/"+address)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -278,7 +290,7 @@ func (s *Shell) ImportETHKey(c *cli.Context) (err error) {
 	}
 
 	importUrl.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(importUrl.String(), bytes.NewReader(keyJSON))
+	resp, err := s.HTTP.Post(s.ctx(), importUrl.String(), bytes.NewReader(keyJSON))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -320,7 +332,7 @@ func (s *Shell) ExportETHKey(c *cli.Context) (err error) {
 	query.Set("newpassword", strings.TrimSpace(string(newPassword)))
 
 	exportUrl.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(exportUrl.String(), nil)
+	resp, err := s.HTTP.Post(s.ctx(), exportUrl.String(), nil)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
@@ -373,7 +385,7 @@ func (s *Shell) UpdateChainEVMKey(c *cli.Context) (err error) {
 	}
 
 	chainURL.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(chainURL.String(), nil)
+	resp, err := s.HTTP.Post(s.ctx(), chainURL.String(), nil)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
