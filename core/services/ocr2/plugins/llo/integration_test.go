@@ -4,7 +4,11 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -27,6 +32,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/stream_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -34,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
@@ -126,6 +133,11 @@ func detectPanicLogs(t *testing.T, logObservers []*observer.ObservedLogs) {
 //     panic("not needed for llo")
 // }
 
+type Stream struct {
+	id                 string
+	baseBenchmarkPrice *big.Int
+}
+
 func TestIntegration_Streams(t *testing.T) {
 	// TODO:
 
@@ -137,6 +149,21 @@ func TestIntegration_Streams(t *testing.T) {
 	})
 	const fromBlock = 1 // cannot use zero, start from block 1
 	// testStartTimeStamp := uint32(time.Now().Unix())
+
+	// streams
+	btcStream := Stream{
+		id:                 "BTC/USD",
+		baseBenchmarkPrice: big.NewInt(20_000 * multiplier),
+	}
+	ethStream := Stream{
+		id:                 "ETH/USD",
+		baseBenchmarkPrice: big.NewInt(1_568 * multiplier),
+	}
+	linkStream := Stream{
+		id:                 "LINK/USD",
+		baseBenchmarkPrice: big.NewInt(7150 * multiplier / 1000),
+	}
+	streams := []Stream{btcStream, ethStream, linkStream}
 
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
@@ -189,32 +216,41 @@ func TestIntegration_Streams(t *testing.T) {
 
 	addBootstrapJob(t, bootstrapNode, chainID, configAddress, "job-1")
 
-	// createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
-	//     bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-	//         b, err := io.ReadAll(req.Body)
-	//         require.NoError(t, err)
-	//         require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
+	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
+		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			b, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
-	//         res.WriteHeader(http.StatusOK)
-	//         val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
-	//         resp := fmt.Sprintf(`{"result": %s}`, val)
-	//         _, err = res.Write([]byte(resp))
-	//         require.NoError(t, err)
-	//     }))
-	//     t.Cleanup(bridge.Close)
-	//     u, _ := url.Parse(bridge.URL)
-	//     bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-	//     require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
-	//         Name: bridges.BridgeName(bridgeName),
-	//         URL:  models.WebURL(*u),
-	//     }))
+			res.WriteHeader(http.StatusOK)
+			val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
+			resp := fmt.Sprintf(`{"result": %s}`, val)
+			_, err = res.Write([]byte(resp))
+			require.NoError(t, err)
+		}))
+		t.Cleanup(bridge.Close)
+		u, _ := url.Parse(bridge.URL)
+		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
+		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+			Name: bridges.BridgeName(bridgeName),
+			URL:  models.WebURL(*u),
+		}))
 
-	//     return bridgeName
-	// }
+		return bridgeName
+	}
 
 	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
-		addStreamsJob(
+		for _, strm := range streams {
+			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", strm.id), i, strm.baseBenchmarkPrice, node.App.BridgeORM())
+			addStreamJob(
+				t,
+				node,
+				strm.id,
+				bmBridge,
+			)
+		}
+		addLLOJob(
 			t,
 			node,
 			configAddress,
@@ -311,9 +347,35 @@ func TestIntegration_Streams(t *testing.T) {
 			}
 		}
 	})
+
+	// TODO: test verification
+}
+func addStreamJob(
+	t *testing.T,
+	node Node,
+	streamId string,
+	bridgeName string,
+) {
+	node.AddJob(t, fmt.Sprintf(`
+type = "stream"
+schemaVersion = 1
+name = "%s"
+observationSource = """
+	// Benchmark Price
+	price1          [type=bridge name="%s"];
+	price1_parse    [type=jsonparse path="result"];
+	price1_multiply [type=multiply times=100000000 index=0];
+
+	price1 -> price1_parse -> price1_multiply;
+"""
+
+		`,
+		streamID,
+		bridgeName,
+	))
 }
 
-func addStreamsJob(
+func addLLOJob(
 	t *testing.T,
 	node Node,
 	verifierAddress common.Address,
