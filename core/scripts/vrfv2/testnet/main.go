@@ -872,9 +872,9 @@ func main() {
 		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		tx, err := link.Transfer(e.Owner, common.HexToAddress(*consumerAddress), decimal.RequireFromString(*subFundingAmountJuels).BigInt())
+		linkTransferTX, err := link.Transfer(e.Owner, common.HexToAddress(*consumerAddress), decimal.RequireFromString(*subFundingAmountJuels).BigInt())
 		helpers.PanicErr(err)
-		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer", *subFundingAmountJuels, "juels to", *consumerAddress)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, linkTransferTX, e.ChainID, "transfer", *subFundingAmountJuels, "juels to", *consumerAddress)
 
 		consumerBalanceJuels, err := link.BalanceOf(nil, common.HexToAddress(*consumerAddress))
 		helpers.PanicErr(err)
@@ -886,7 +886,7 @@ func main() {
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
-			tx, err := consumer.RequestRandomWords(
+			requestRandTX, err := consumer.RequestRandomWords(
 				e.Owner,
 				uint16(*requestConfirmations),
 				keyHashBytes,
@@ -896,8 +896,8 @@ func main() {
 				decimal.RequireFromString(*subFundingAmountJuels).BigInt(),
 			)
 			helpers.PanicErr(err)
-			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
-			txes = append(txes, tx)
+			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, requestRandTX.Hash()))
+			txes = append(txes, requestRandTX)
 		}
 
 		coordinatorAddress, err := consumer.COORDINATOR(nil)
