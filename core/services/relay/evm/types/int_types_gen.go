@@ -31,6 +31,10 @@ func (i *int24) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int24) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int24) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -38,6 +42,11 @@ func (i *int24) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int24) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int24) Verify() error {
@@ -70,6 +79,10 @@ func (i *uint24) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint24) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint24) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -77,6 +90,11 @@ func (i *uint24) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint24) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint24) Verify() error {
@@ -109,6 +127,10 @@ func (i *int40) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int40) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int40) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -116,6 +138,11 @@ func (i *int40) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int40) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int40) Verify() error {
@@ -148,6 +175,10 @@ func (i *uint40) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint40) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint40) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -155,6 +186,11 @@ func (i *uint40) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint40) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint40) Verify() error {
@@ -187,6 +223,10 @@ func (i *int48) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int48) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int48) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -194,6 +234,11 @@ func (i *int48) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int48) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int48) Verify() error {
@@ -226,6 +271,10 @@ func (i *uint48) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint48) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint48) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -233,6 +282,11 @@ func (i *uint48) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint48) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint48) Verify() error {
@@ -265,6 +319,10 @@ func (i *int56) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int56) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int56) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -272,6 +330,11 @@ func (i *int56) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int56) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int56) Verify() error {
@@ -304,6 +367,10 @@ func (i *uint56) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint56) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint56) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -311,6 +378,11 @@ func (i *uint56) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint56) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint56) Verify() error {
@@ -343,6 +415,10 @@ func (i *int72) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int72) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int72) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -350,6 +426,11 @@ func (i *int72) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int72) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int72) Verify() error {
@@ -382,6 +463,10 @@ func (i *uint72) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint72) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint72) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -389,6 +474,11 @@ func (i *uint72) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint72) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint72) Verify() error {
@@ -421,6 +511,10 @@ func (i *int80) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int80) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int80) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -428,6 +522,11 @@ func (i *int80) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int80) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int80) Verify() error {
@@ -460,6 +559,10 @@ func (i *uint80) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint80) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint80) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -467,6 +570,11 @@ func (i *uint80) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint80) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint80) Verify() error {
@@ -499,6 +607,10 @@ func (i *int88) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int88) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int88) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -506,6 +618,11 @@ func (i *int88) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int88) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int88) Verify() error {
@@ -538,6 +655,10 @@ func (i *uint88) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint88) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint88) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -545,6 +666,11 @@ func (i *uint88) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint88) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint88) Verify() error {
@@ -577,6 +703,10 @@ func (i *int96) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int96) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int96) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -584,6 +714,11 @@ func (i *int96) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int96) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int96) Verify() error {
@@ -616,6 +751,10 @@ func (i *uint96) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint96) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint96) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -623,6 +762,11 @@ func (i *uint96) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint96) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint96) Verify() error {
@@ -655,6 +799,10 @@ func (i *int104) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int104) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int104) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -662,6 +810,11 @@ func (i *int104) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int104) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int104) Verify() error {
@@ -694,6 +847,10 @@ func (i *uint104) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint104) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint104) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -701,6 +858,11 @@ func (i *uint104) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint104) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint104) Verify() error {
@@ -733,6 +895,10 @@ func (i *int112) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int112) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int112) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -740,6 +906,11 @@ func (i *int112) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int112) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int112) Verify() error {
@@ -772,6 +943,10 @@ func (i *uint112) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint112) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint112) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -779,6 +954,11 @@ func (i *uint112) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint112) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint112) Verify() error {
@@ -811,6 +991,10 @@ func (i *int120) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int120) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int120) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -818,6 +1002,11 @@ func (i *int120) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int120) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int120) Verify() error {
@@ -850,6 +1039,10 @@ func (i *uint120) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint120) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint120) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -857,6 +1050,11 @@ func (i *uint120) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint120) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint120) Verify() error {
@@ -889,6 +1087,10 @@ func (i *int128) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int128) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int128) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -896,6 +1098,11 @@ func (i *int128) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int128) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int128) Verify() error {
@@ -928,6 +1135,10 @@ func (i *uint128) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint128) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint128) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -935,6 +1146,11 @@ func (i *uint128) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint128) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint128) Verify() error {
@@ -967,6 +1183,10 @@ func (i *int136) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int136) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int136) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -974,6 +1194,11 @@ func (i *int136) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int136) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int136) Verify() error {
@@ -1006,6 +1231,10 @@ func (i *uint136) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint136) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint136) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1013,6 +1242,11 @@ func (i *uint136) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint136) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint136) Verify() error {
@@ -1045,6 +1279,10 @@ func (i *int144) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int144) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int144) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1052,6 +1290,11 @@ func (i *int144) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int144) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int144) Verify() error {
@@ -1084,6 +1327,10 @@ func (i *uint144) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint144) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint144) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1091,6 +1338,11 @@ func (i *uint144) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint144) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint144) Verify() error {
@@ -1123,6 +1375,10 @@ func (i *int152) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int152) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int152) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1130,6 +1386,11 @@ func (i *int152) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int152) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int152) Verify() error {
@@ -1162,6 +1423,10 @@ func (i *uint152) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint152) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint152) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1169,6 +1434,11 @@ func (i *uint152) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint152) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint152) Verify() error {
@@ -1201,6 +1471,10 @@ func (i *int160) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int160) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int160) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1208,6 +1482,11 @@ func (i *int160) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int160) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int160) Verify() error {
@@ -1240,6 +1519,10 @@ func (i *uint160) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint160) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint160) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1247,6 +1530,11 @@ func (i *uint160) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint160) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint160) Verify() error {
@@ -1279,6 +1567,10 @@ func (i *int168) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int168) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int168) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1286,6 +1578,11 @@ func (i *int168) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int168) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int168) Verify() error {
@@ -1318,6 +1615,10 @@ func (i *uint168) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint168) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint168) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1325,6 +1626,11 @@ func (i *uint168) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint168) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint168) Verify() error {
@@ -1357,6 +1663,10 @@ func (i *int176) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int176) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int176) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1364,6 +1674,11 @@ func (i *int176) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int176) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int176) Verify() error {
@@ -1396,6 +1711,10 @@ func (i *uint176) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint176) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint176) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1403,6 +1722,11 @@ func (i *uint176) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint176) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint176) Verify() error {
@@ -1435,6 +1759,10 @@ func (i *int184) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int184) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int184) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1442,6 +1770,11 @@ func (i *int184) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int184) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int184) Verify() error {
@@ -1474,6 +1807,10 @@ func (i *uint184) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint184) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint184) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1481,6 +1818,11 @@ func (i *uint184) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint184) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint184) Verify() error {
@@ -1513,6 +1855,10 @@ func (i *int192) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int192) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int192) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1520,6 +1866,11 @@ func (i *int192) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int192) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int192) Verify() error {
@@ -1552,6 +1903,10 @@ func (i *uint192) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint192) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint192) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1559,6 +1914,11 @@ func (i *uint192) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint192) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint192) Verify() error {
@@ -1591,6 +1951,10 @@ func (i *int200) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int200) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int200) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1598,6 +1962,11 @@ func (i *int200) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int200) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int200) Verify() error {
@@ -1630,6 +1999,10 @@ func (i *uint200) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint200) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint200) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1637,6 +2010,11 @@ func (i *uint200) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint200) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint200) Verify() error {
@@ -1669,6 +2047,10 @@ func (i *int208) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int208) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int208) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1676,6 +2058,11 @@ func (i *int208) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int208) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int208) Verify() error {
@@ -1708,6 +2095,10 @@ func (i *uint208) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint208) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint208) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1715,6 +2106,11 @@ func (i *uint208) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint208) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint208) Verify() error {
@@ -1747,6 +2143,10 @@ func (i *int216) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int216) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int216) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1754,6 +2154,11 @@ func (i *int216) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int216) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int216) Verify() error {
@@ -1786,6 +2191,10 @@ func (i *uint216) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint216) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint216) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1793,6 +2202,11 @@ func (i *uint216) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint216) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint216) Verify() error {
@@ -1825,6 +2239,10 @@ func (i *int224) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int224) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int224) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1832,6 +2250,11 @@ func (i *int224) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int224) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int224) Verify() error {
@@ -1864,6 +2287,10 @@ func (i *uint224) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint224) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint224) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1871,6 +2298,11 @@ func (i *uint224) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint224) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint224) Verify() error {
@@ -1903,6 +2335,10 @@ func (i *int232) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int232) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int232) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1910,6 +2346,11 @@ func (i *int232) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int232) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int232) Verify() error {
@@ -1942,6 +2383,10 @@ func (i *uint232) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint232) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint232) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1949,6 +2394,11 @@ func (i *uint232) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint232) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint232) Verify() error {
@@ -1981,6 +2431,10 @@ func (i *int240) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int240) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int240) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -1988,6 +2442,11 @@ func (i *int240) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int240) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int240) Verify() error {
@@ -2020,6 +2479,10 @@ func (i *uint240) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint240) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint240) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -2027,6 +2490,11 @@ func (i *uint240) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint240) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint240) Verify() error {
@@ -2059,6 +2527,10 @@ func (i *int248) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int248) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int248) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -2066,6 +2538,11 @@ func (i *int248) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int248) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int248) Verify() error {
@@ -2098,6 +2575,10 @@ func (i *uint248) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint248) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint248) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -2105,6 +2586,11 @@ func (i *uint248) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint248) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint248) Verify() error {
@@ -2137,6 +2623,10 @@ func (i *int256) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *int256) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *int256) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -2144,6 +2634,11 @@ func (i *int256) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *int256) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *int256) Verify() error {
@@ -2176,6 +2671,10 @@ func (i *uint256) UnmarshalCBOR(input []byte) error {
 	return i.Verify()
 }
 
+func (i *uint256) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal((*big.Int)(i))
+}
+
 func (i *uint256) UnmarshalText(input []byte) error {
 	bi := (*big.Int)(i)
 	if _, ok := bi.SetString(string(input), 10); !ok {
@@ -2183,6 +2682,11 @@ func (i *uint256) UnmarshalText(input []byte) error {
 	}
 
 	return i.Verify()
+}
+
+func (i *uint256) MarshalText() ([]byte, error) {
+	bi := (*big.Int)(i)
+	return []byte(bi.String()), nil
 }
 
 func (i *uint256) Verify() error {
