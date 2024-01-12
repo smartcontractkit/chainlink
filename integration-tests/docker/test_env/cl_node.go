@@ -51,7 +51,10 @@ type ClNode struct {
 	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
 	UserEmail             string                  `json:"userEmail"`
 	UserPassword          string                  `json:"userPassword"`
-	AlwaysPullImage       bool
+	AlwaysPullImage       bool                    `json:"-"`
+	PostStartsHooks       []tc.ContainerHook      `json:"-"`
+	PostStopsHooks        []tc.ContainerHook      `json:"-"`
+	PreTerminatesHooks    []tc.ContainerHook      `json:"-"`
 	t                     *testing.T
 	l                     zerolog.Logger
 	ls                    *logstream.LogStream
@@ -140,10 +143,30 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 		PostgresDb:   pgDb,
 		l:            log.Logger,
 	}
+	n.SetDefaultHooks()
 	for _, opt := range opts {
 		opt(n)
 	}
 	return n, nil
+}
+
+func (n *ClNode) SetDefaultHooks() {
+	n.PostStartsHooks = []tc.ContainerHook{
+		func(ctx context.Context, c tc.Container) error {
+			if n.ls != nil {
+				return n.ls.ConnectContainer(ctx, c, "cl-node")
+			}
+			return nil
+		},
+	}
+	n.PostStopsHooks = []tc.ContainerHook{
+		func(ctx context.Context, c tc.Container) error {
+			if n.ls != nil {
+				return n.ls.DisconnectContainer(c)
+			}
+			return nil
+		},
+	}
 }
 
 func (n *ClNode) SetTestLogger(t *testing.T) {
@@ -475,22 +498,11 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			},
 		},
 		LifecycleHooks: []tc.ContainerLifecycleHooks{
-			{PostStarts: []tc.ContainerHook{
-				func(ctx context.Context, c tc.Container) error {
-					if n.ls != nil {
-						return n.ls.ConnectContainer(ctx, c, "cl-node")
-					}
-					return nil
-				},
+			{
+				PostStarts:    n.PostStartsHooks,
+				PostStops:     n.PostStopsHooks,
+				PreTerminates: n.PreTerminatesHooks,
 			},
-				PostStops: []tc.ContainerHook{
-					func(ctx context.Context, c tc.Container) error {
-						if n.ls != nil {
-							return n.ls.DisconnectContainer(c)
-						}
-						return nil
-					},
-				}},
 		},
 	}, nil
 }
