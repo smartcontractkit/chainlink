@@ -14,7 +14,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/stream_config_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -33,11 +33,11 @@ type ChannelDefinitionCacheORM interface {
 	StoreChannelDefinitions(ctx context.Context, cd commontypes.ChannelDefinitions) (err error)
 }
 
-var streamConfigStoreABI abi.ABI
+var channelConfigStoreABI abi.ABI
 
 func init() {
 	var err error
-	streamConfigStoreABI, err = abi.JSON(strings.NewReader(stream_config_store.StreamConfigStoreABI))
+	channelConfigStoreABI, err = abi.JSON(strings.NewReader(channel_config_store.ChannelConfigStoreABI))
 	if err != nil {
 		panic(err)
 	}
@@ -65,11 +65,11 @@ type channelDefinitionCache struct {
 }
 
 var (
-	topicNewChannelDefinition     = (stream_config_store.StreamConfigStoreNewChannelDefinition{}).Topic()
-	topicChannelDefinitionRemoved = (stream_config_store.StreamConfigStoreChannelDefinitionRemoved{}).Topic()
-	topicNewProductionConfig      = (stream_config_store.StreamConfigStoreNewProductionConfig{}).Topic()
-	topicNewStagingConfig         = (stream_config_store.StreamConfigStoreNewStagingConfig{}).Topic()
-	topicPromoteStagingConfig     = (stream_config_store.StreamConfigStorePromoteStagingConfig{}).Topic()
+	topicNewChannelDefinition     = (channel_config_store.ChannelConfigStoreNewChannelDefinition{}).Topic()
+	topicChannelDefinitionRemoved = (channel_config_store.ChannelConfigStoreChannelDefinitionRemoved{}).Topic()
+	topicNewProductionConfig      = (channel_config_store.ChannelConfigStoreNewProductionConfig{}).Topic()
+	topicNewStagingConfig         = (channel_config_store.ChannelConfigStoreNewStagingConfig{}).Topic()
+	topicPromoteStagingConfig     = (channel_config_store.ChannelConfigStorePromoteStagingConfig{}).Topic()
 
 	allTopics = []common.Hash{topicNewChannelDefinition, topicChannelDefinitionRemoved, topicNewProductionConfig, topicNewStagingConfig, topicPromoteStagingConfig}
 )
@@ -159,18 +159,18 @@ func (c *channelDefinitionCache) poll() {
 func (c *channelDefinitionCache) applyLog(log logpoller.Log) error {
 	switch log.EventSig {
 	case topicNewChannelDefinition:
-		unpacked := new(stream_config_store.StreamConfigStoreNewChannelDefinition)
+		unpacked := new(channel_config_store.ChannelConfigStoreNewChannelDefinition)
 
-		err := streamConfigStoreABI.UnpackIntoInterface(unpacked, "NewChannelDefinition", log.Data)
+		err := channelConfigStoreABI.UnpackIntoInterface(unpacked, "NewChannelDefinition", log.Data)
 		if err != nil {
 			return fmt.Errorf("failed to unpack log data: %w", err)
 		}
 
 		c.applyNewChannelDefinition(unpacked)
 	case topicChannelDefinitionRemoved:
-		unpacked := new(stream_config_store.StreamConfigStoreChannelDefinitionRemoved)
+		unpacked := new(channel_config_store.ChannelConfigStoreChannelDefinitionRemoved)
 
-		err := streamConfigStoreABI.UnpackIntoInterface(unpacked, "ChannelDefinitionRemoved", log.Data)
+		err := channelConfigStoreABI.UnpackIntoInterface(unpacked, "ChannelDefinitionRemoved", log.Data)
 		if err != nil {
 			return fmt.Errorf("failed to unpack log data: %w", err)
 		}
@@ -182,7 +182,7 @@ func (c *channelDefinitionCache) applyLog(log logpoller.Log) error {
 	return nil
 }
 
-func (c *channelDefinitionCache) applyNewChannelDefinition(log *stream_config_store.StreamConfigStoreNewChannelDefinition) {
+func (c *channelDefinitionCache) applyNewChannelDefinition(log *channel_config_store.ChannelConfigStoreNewChannelDefinition) {
 	rf := string(log.ChannelDefinition.ReportFormat[:])
 	streamIDs := make([]commontypes.StreamID, len(log.ChannelDefinition.StreamIDs))
 	for i, streamID := range log.ChannelDefinition.StreamIDs {
@@ -197,7 +197,7 @@ func (c *channelDefinitionCache) applyNewChannelDefinition(log *stream_config_st
 	}
 }
 
-func (c *channelDefinitionCache) applyChannelDefinitionRemoved(log *stream_config_store.StreamConfigStoreChannelDefinitionRemoved) {
+func (c *channelDefinitionCache) applyChannelDefinitionRemoved(log *channel_config_store.ChannelConfigStoreChannelDefinitionRemoved) {
 	c.definitionsMu.Lock()
 	defer c.definitionsMu.Unlock()
 	delete(c.definitions, log.ChannelId)

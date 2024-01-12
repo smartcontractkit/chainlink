@@ -34,7 +34,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/stream_config_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -49,7 +49,7 @@ var (
 	multiplier int64 = 100000000
 )
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *stream_config_store.StreamConfigStore, common.Address) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *channel_config_store.ChannelConfigStore, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
@@ -58,7 +58,7 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 	t.Cleanup(stopMining)
 
 	// Deploy contracts
-	verifierAddress, _, verifierContract, err := stream_config_store.DeployStreamConfigStore(steve, backend)
+	verifierAddress, _, verifierContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
 	require.NoError(t, err)
 
 	// linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend)
