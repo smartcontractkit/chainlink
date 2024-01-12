@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -69,6 +70,7 @@ type NodeClient[
 	SubscribersCount() int32
 	SetAliveLoopSub(types.Subscription)
 	UnsubscribeAllExceptAliveLoop()
+	IsSyncing(ctx context.Context) (bool, error)
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.

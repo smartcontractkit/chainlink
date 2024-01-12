@@ -1029,6 +1029,33 @@ func (r *rpcClient) makeQueryCtx(ctx context.Context) (context.Context, context.
 	return makeQueryCtx(ctx, r.getChStopInflight())
 }
 
+func (r *rpcClient) IsSyncing(ctx context.Context) (bool, error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer cancel()
+	lggr := r.newRqLggr()
+
+	lggr.Debug("RPC call: evmclient.Client#SyncProgress")
+	var syncProgress *ethereum.SyncProgress
+	start := time.Now()
+	if http != nil {
+		syncProgress, err = http.geth.SyncProgress(ctx)
+		err = r.wrapHTTP(err)
+	} else {
+		syncProgress, err = ws.geth.SyncProgress(ctx)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "BlockNumber",
+		"syncProgress", syncProgress,
+	)
+
+	return syncProgress != nil, nil
+}
+
 // getChStopInflight provides a convenience helper that mutex wraps a
 // read to the chStopInFlight
 func (r *rpcClient) getChStopInflight() chan struct{} {
