@@ -189,7 +189,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Compare/Build Automation Test List
     outputs:
-      matrix: ${{ env.MATRIX_JSON }}
+      automation-matrix: ${{ env.AUTOMATION_JOB_MATRIX_JSON }}
+      lp-matrix: ${{ env.LP_JOB_MATRIX_JSON }}
     steps:
       - name: Check for Skip Tests Label
         if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
@@ -203,27 +204,31 @@ jobs:
           cd ./integration-tests
           ./scripts/compareTestList.sh ./smoke/automation_test.go
           ./scripts/compareTestList.sh ./smoke/keeper_test.go
+          ./scripts/compareTestList.sh ./smoke/log_poller_test.go
       - name: Build Test Matrix Lists
         id: build-test-matrix-list
         run: |
           cd ./integration-tests
           MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
-          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
+          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER)
+
+          MATRIX_JSON_LP=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log-poller ubuntu-latest 1)
+          echo "LP_JOB_MATRIX_JSON=${MATRIX_JSON_LP}" >> $GITHUB_ENV
 
           # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
           if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
             echo "We are in a merge_group event, run both automation and keepers tests"
-            echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+            echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
           else
             echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
             target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
             if [[ "$target_branch" == "develop" ]]; then
-              echo "only run automation tests"
-              echo "MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
+              echo "only run log poller and automation tests"
+              echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
             else
-              echo "run both automation and keepers tests"
-              echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+              echo "run both log poller, automation and keepers tests"
+              echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
             fi
           fi
 
@@ -245,7 +250,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: ${{fromJson(needs.compare-tests.outputs.matrix)}}
+        product: ${{fromJson(needs.compare-tests.outputs.automation-matrix)}}
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
@@ -295,6 +300,75 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
+
+  eth-smoke-tests-matrix-log-poller:
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs:
+      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
+    env:
+      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+    strategy:
+      fail-fast: false
+      matrix:
+        product: ${{fromJson(needs.compare-tests.outputs.lp-matrix)}}
+    runs-on: ${{ matrix.product.os }}
+    name: ETH Smoke Tests ${{ matrix.product.name }}
+    steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Go Test Command
+        id: build-go-test-command
+        run: |
+          # if the matrix.product.run is set, use it for a different command
+          if [ "${{ matrix.product.run }}" != "" ]; then
+            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+          fi
+      ## Run this step when changes that require tests to be run are made
+      - name: Run Tests
+        if: needs.changes.outputs.src == 'true'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        env:
+          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_location: ./integration-tests/smoke/logs/
+          publish_check_name: ${{ matrix.product.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ""          
 
   eth-smoke-tests-matrix:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
@@ -371,18 +445,6 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             run: -run TestLogPollerWithChaosFixedDepth
-            file: log_poller
-            pyroscope_env: ""    
-          - name: log-poller-chaos-postgres-fixed-depth
-            nodes: 1
-            os: ubuntu-latest
-            run: -run TestLogPollerWithChaosPostgresFixedDepth
-            file: log_poller
-            pyroscope_env: ""                                
-          - name: log-poller-replay-finality-tag
-            nodes: 1
-            os: ubuntu-latest
-            run: -run TestLogPollerReplayFinalityTag
             file: log_poller
             pyroscope_env: ""              
     runs-on: ${{ matrix.product.os }}

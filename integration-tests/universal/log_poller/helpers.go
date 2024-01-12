@@ -596,16 +596,17 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 		logs     []geth_types.Log
 	}
 
-	l.Info().Msg("Started comparison of logs from EVM node and CL nodes. This may take a while if there's a lot of logs")
-	missingCh := make(chan missingLogResult, len(clnodeCluster.Nodes)-1)
 	evmLogCount := len(allLogsInEVMNode)
+	l.Info().Int("Log count", evmLogCount).Msg("Started comparison of logs from EVM node and CL nodes. This may take a while if there's a lot of logs")
+
+	missingCh := make(chan missingLogResult, len(clnodeCluster.Nodes)-1)
 	for i := 1; i < len(clnodeCluster.Nodes); i++ {
 		wg.Add(1)
 
 		go func(i int, result chan missingLogResult) {
 			defer wg.Done()
 			nodeName := clnodeCluster.Nodes[i].ContainerName
-			l.Info().Str("Node name", nodeName).Str("Progress", fmt.Sprintf("0/%d", evmLogCount)).Msg("Comparing single CL node's logs with EVM logs (this might take a while)")
+			l.Debug().Str("Node name", nodeName).Str("Progress", fmt.Sprintf("0/%d", evmLogCount)).Msg("Comparing single CL node's logs with EVM logs")
 
 			missingLogs := make([]geth_types.Log, 0)
 			for i, evmLog := range allLogsInEVMNode {
