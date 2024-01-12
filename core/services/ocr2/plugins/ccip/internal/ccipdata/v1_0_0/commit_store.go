@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -177,10 +177,10 @@ func (c *CommitStore) GasPriceEstimator() prices.GasPriceEstimatorCommit {
 type CommitOffchainConfig struct {
 	SourceFinalityDepth   uint32
 	DestFinalityDepth     uint32
-	FeeUpdateHeartBeat    models.Duration
+	FeeUpdateHeartBeat    config.Duration
 	FeeUpdateDeviationPPB uint32
 	MaxGasPrice           uint64
-	InflightCacheExpiry   models.Duration
+	InflightCacheExpiry   config.Duration
 }
 
 func (c CommitOffchainConfig) Validate() error {

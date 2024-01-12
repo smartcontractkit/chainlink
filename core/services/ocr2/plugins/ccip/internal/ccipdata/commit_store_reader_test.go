@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestCommitFilters(t *testing.T) {
@@ -63,26 +63,26 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 			want: v1_2_0.CommitOffchainConfig{
 				SourceFinalityDepth:      3,
 				DestFinalityDepth:        3,
-				GasPriceHeartBeat:        models.MustMakeDuration(1 * time.Hour),
+				GasPriceHeartBeat:        *config.MustNewDuration(1 * time.Hour),
 				DAGasPriceDeviationPPB:   5e7,
 				ExecGasPriceDeviationPPB: 5e7,
-				TokenPriceHeartBeat:      models.MustMakeDuration(1 * time.Hour),
+				TokenPriceHeartBeat:      *config.MustNewDuration(1 * time.Hour),
 				TokenPriceDeviationPPB:   5e7,
 				MaxGasPrice:              200e9,
-				InflightCacheExpiry:      models.MustMakeDuration(23456 * time.Second),
+				InflightCacheExpiry:      *config.MustNewDuration(23456 * time.Second),
 			},
 		},
 		"fails decoding when all fields present but with 0 values": {
 			want: v1_2_0.CommitOffchainConfig{
 				SourceFinalityDepth:      0,
 				DestFinalityDepth:        0,
-				GasPriceHeartBeat:        models.MustMakeDuration(0),
+				GasPriceHeartBeat:        *config.MustNewDuration(0),
 				DAGasPriceDeviationPPB:   0,
 				ExecGasPriceDeviationPPB: 0,
-				TokenPriceHeartBeat:      models.MustMakeDuration(0),
+				TokenPriceHeartBeat:      *config.MustNewDuration(0),
 				TokenPriceDeviationPPB:   0,
 				MaxGasPrice:              0,
-				InflightCacheExpiry:      models.MustMakeDuration(0),
+				InflightCacheExpiry:      *config.MustNewDuration(0),
 			},
 			expectErr: true,
 		},
@@ -93,10 +93,10 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 		"fails decoding when some fields are missing": {
 			want: v1_2_0.CommitOffchainConfig{
 				SourceFinalityDepth:      3,
-				GasPriceHeartBeat:        models.MustMakeDuration(1 * time.Hour),
+				GasPriceHeartBeat:        *config.MustNewDuration(1 * time.Hour),
 				DAGasPriceDeviationPPB:   5e7,
 				ExecGasPriceDeviationPPB: 5e7,
-				TokenPriceHeartBeat:      models.MustMakeDuration(1 * time.Hour),
+				TokenPriceHeartBeat:      *config.MustNewDuration(1 * time.Hour),
 				TokenPriceDeviationPPB:   5e7,
 				MaxGasPrice:              200e9,
 			},
@@ -223,10 +223,10 @@ func TestCommitStoreReaders(t *testing.T) {
 	offchainConfig, err := ccipconfig.EncodeOffchainConfig[v1_0_0.CommitOffchainConfig](v1_0_0.CommitOffchainConfig{
 		SourceFinalityDepth:   commonOffchain.SourceFinalityDepth,
 		DestFinalityDepth:     commonOffchain.DestFinalityDepth,
-		FeeUpdateHeartBeat:    models.MustMakeDuration(commonOffchain.GasPriceHeartBeat),
+		FeeUpdateHeartBeat:    *config.MustNewDuration(commonOffchain.GasPriceHeartBeat),
 		FeeUpdateDeviationPPB: commonOffchain.GasPriceDeviationPPB,
 		MaxGasPrice:           maxGas,
-		InflightCacheExpiry:   models.MustMakeDuration(commonOffchain.InflightCacheExpiry),
+		InflightCacheExpiry:   *config.MustNewDuration(commonOffchain.InflightCacheExpiry),
 	})
 	require.NoError(t, err)
 	_, err = ch.SetOCR2Config(user, signers, transmitters, 1, onchainConfig, 1, []byte{})
@@ -239,12 +239,12 @@ func TestCommitStoreReaders(t *testing.T) {
 		SourceFinalityDepth:      commonOffchain.SourceFinalityDepth,
 		DestFinalityDepth:        commonOffchain.DestFinalityDepth,
 		MaxGasPrice:              maxGas,
-		GasPriceHeartBeat:        models.MustMakeDuration(commonOffchain.GasPriceHeartBeat),
+		GasPriceHeartBeat:        *config.MustNewDuration(commonOffchain.GasPriceHeartBeat),
 		DAGasPriceDeviationPPB:   1e7,
 		ExecGasPriceDeviationPPB: commonOffchain.GasPriceDeviationPPB,
 		TokenPriceDeviationPPB:   commonOffchain.TokenPriceDeviationPPB,
-		TokenPriceHeartBeat:      models.MustMakeDuration(commonOffchain.TokenPriceHeartBeat),
-		InflightCacheExpiry:      models.MustMakeDuration(commonOffchain.InflightCacheExpiry),
+		TokenPriceHeartBeat:      *config.MustNewDuration(commonOffchain.TokenPriceHeartBeat),
+		InflightCacheExpiry:      *config.MustNewDuration(commonOffchain.InflightCacheExpiry),
 	})
 	require.NoError(t, err)
 	_, err = ch2.SetOCR2Config(user, signers, transmitters, 1, onchainConfig2, 1, []byte{})

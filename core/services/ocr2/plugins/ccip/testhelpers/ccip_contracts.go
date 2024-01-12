@@ -20,6 +20,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
@@ -45,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
@@ -85,13 +85,13 @@ type CommitOffchainConfig struct {
 
 func NewCommitOffchainConfig(SourceFinalityDepth uint32,
 	DestFinalityDepth uint32,
-	GasPriceHeartBeat models.Duration,
+	GasPriceHeartBeat config.Duration,
 	DAGasPriceDeviationPPB uint32,
 	ExecGasPriceDeviationPPB uint32,
-	TokenPriceHeartBeat models.Duration,
+	TokenPriceHeartBeat config.Duration,
 	TokenPriceDeviationPPB uint32,
 	MaxGasPrice uint64,
-	InflightCacheExpiry models.Duration) CommitOffchainConfig {
+	InflightCacheExpiry config.Duration) CommitOffchainConfig {
 	return CommitOffchainConfig{v1_2_0.CommitOffchainConfig{
 		SourceFinalityDepth:      SourceFinalityDepth,
 		DestFinalityDepth:        DestFinalityDepth,
@@ -150,8 +150,8 @@ func NewExecOffchainConfig(
 	BatchGasLimit uint32,
 	RelativeBoostPerWaitHour float64,
 	MaxGasPrice uint64,
-	InflightCacheExpiry models.Duration,
-	RootSnoozeTime models.Duration,
+	InflightCacheExpiry config.Duration,
+	RootSnoozeTime config.Duration,
 ) ExecOffchainConfig {
 	return ExecOffchainConfig{v1_0_0.ExecOffchainConfig{
 		SourceFinalityDepth:         SourceFinalityDepth,
