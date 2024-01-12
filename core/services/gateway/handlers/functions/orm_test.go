@@ -56,9 +56,10 @@ func seedAllowedSenders(t *testing.T, orm functions.ORM, amount int) []common.Ad
 	for i := 0; i < amount; i++ {
 		address := testutils.NewAddress()
 		storedAllowedSenders[i] = address
-		err := orm.CreateAllowedSender(address)
-		require.NoError(t, err)
 	}
+
+	err := orm.CreateAllowedSender(storedAllowedSenders)
+	require.NoError(t, err)
 
 	return storedAllowedSenders
 }
@@ -268,11 +269,11 @@ func TestORM_GetAllowedSenders(t *testing.T) {
 func TestORM_CreateAllowedSender(t *testing.T) {
 	t.Parallel()
 
-	t.Run("create an allowed sender", func(t *testing.T) {
+	t.Run("OK-create_an_allowed_sender", func(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := testutils.NewAddress()
-		err = orm.CreateAllowedSender(expected)
+		err = orm.CreateAllowedSender([]common.Address{expected})
 		require.NoError(t, err)
 
 		results, err := orm.GetAllowedSenders(0, 1)
@@ -281,20 +282,52 @@ func TestORM_CreateAllowedSender(t *testing.T) {
 		require.Equal(t, expected, results[0])
 	})
 
-	t.Run("create an existing allowed sender", func(t *testing.T) {
+	t.Run("OK-create_an_existing_allowed_sender", func(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := testutils.NewAddress()
-		err = orm.CreateAllowedSender(expected)
+		err = orm.CreateAllowedSender([]common.Address{expected})
 		require.NoError(t, err)
 
-		err = orm.CreateAllowedSender(expected)
+		err = orm.CreateAllowedSender([]common.Address{expected})
 		require.NoError(t, err)
 
 		results, err := orm.GetAllowedSenders(0, 5)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(results), "incorrect results length")
 		require.Equal(t, expected, results[0])
+	})
+
+	t.Run("OK-create_multiple_allowed_senders_in_one_query", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		expected := []common.Address{testutils.NewAddress(), testutils.NewAddress()}
+		err = orm.CreateAllowedSender(expected)
+		require.NoError(t, err)
+
+		results, err := orm.GetAllowedSenders(0, 2)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, expected[0], results[0])
+		require.Equal(t, expected[1], results[1])
+	})
+
+	t.Run("OK-create_multiple_allowed_senders_with_duplicates", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		addr1 := testutils.NewAddress()
+		addr2 := testutils.NewAddress()
+		expected := []common.Address{addr1, addr2}
+
+		duplicatedAddressInput := []common.Address{addr1, addr1, addr1, addr2}
+		err = orm.CreateAllowedSender(duplicatedAddressInput)
+		require.NoError(t, err)
+
+		results, err := orm.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, expected[0], results[0])
+		require.Equal(t, expected[1], results[1])
 	})
 }
 

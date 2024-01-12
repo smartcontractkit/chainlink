@@ -15,14 +15,14 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateAllowedSender provides a mock function with given fields: allowedSender, qopts
-func (_m *ORM) CreateAllowedSender(allowedSender common.Address, qopts ...pg.QOpt) error {
+// CreateAllowedSender provides a mock function with given fields: allowedSenders, qopts
+func (_m *ORM) CreateAllowedSender(allowedSenders []common.Address, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, allowedSender)
+	_ca = append(_ca, allowedSenders)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
@@ -31,8 +31,8 @@ func (_m *ORM) CreateAllowedSender(allowedSender common.Address, qopts ...pg.QOp
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Address, ...pg.QOpt) error); ok {
-		r0 = rf(allowedSender, qopts...)
+	if rf, ok := ret.Get(0).(func([]common.Address, ...pg.QOpt) error); ok {
+		r0 = rf(allowedSenders, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

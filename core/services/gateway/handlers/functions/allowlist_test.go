@@ -50,8 +50,7 @@ func TestAllowlist_UpdateAndCheck(t *testing.T) {
 	}
 
 	orm := fmocks.NewORM(t)
-	orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Return(nil)
-	orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Return(nil)
+	orm.On("CreateAllowedSender", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Return(nil)
 
 	allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -102,9 +101,8 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 	}
 
 	orm := fmocks.NewORM(t)
-	orm.On("GetAllowedSenders", uint(0), uint(100)).Return([]common.Address{}, nil)
-	orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Return(nil)
-	orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Return(nil)
+	orm.On("GetAllowedSenders", uint(0), uint(1000)).Return([]common.Address{}, nil)
+	orm.On("CreateAllowedSender", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Return(nil)
 
 	allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -130,7 +128,7 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 			cancel()
 		}).Return(sampleEncodedAllowlist(t), nil)
 		config := functions.OnchainAllowlistConfig{
-			ContractAddress:           common.Address{},
+			ContractAddress:           common.HexToAddress(addr3),
 			ContractVersion:           1,
 			BlockConfirmations:        1,
 			UpdateFrequencySec:        1,
@@ -140,38 +138,7 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 		}
 
 		orm := fmocks.NewORM(t)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr1)).Once().Return(nil)
-		orm.On("CreateAllowedSender", common.HexToAddress(addr2)).Once().Return(nil)
+		orm.On("CreateAllowedSender", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(16).Return(nil)
 
 		allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 		require.NoError(t, err)

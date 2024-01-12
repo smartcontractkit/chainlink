@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	defaultStoredAllowlistBatchSize  = 100
+	defaultStoredAllowlistBatchSize  = 1000
 	defaultOnchainAllowlistBatchSize = 100
 )
 
@@ -207,6 +207,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	}
 
 	allowedSenderList := make([]common.Address, 0)
+	var storageWg sync.WaitGroup
 	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
 		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
 		if idxEnd >= count {
@@ -223,10 +224,19 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		}
 
 		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
+
+		storageWg.Add(1)
+		go func(allowedSendersBatch []common.Address) {
+			defer storageWg.Done()
+			err = a.orm.CreateAllowedSender(allowedSendersBatch)
+			if err != nil {
+				a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+			}
+		}(allowedSendersBatch)
 	}
 
 	a.update(allowedSenderList)
-	a.updateStoredAllowedSenderList(allowedSenderList)
+	storageWg.Wait()
 	return nil
 }
 
@@ -237,14 +247,6 @@ func (a *onchainAllowlist) update(addrList []common.Address) {
 	}
 	a.allowlist.Store(&newAllowlist)
 	a.lggr.Infow("allowlist updated successfully", "len", len(addrList))
-}
-
-func (a *onchainAllowlist) updateStoredAllowedSenderList(addrList []common.Address) {
-	for _, addr := range addrList {
-		if err := a.orm.CreateAllowedSender(addr); err != nil {
-			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
-		}
-	}
 }
 
 func (a *onchainAllowlist) loadStoredAllowedSenderList() {
