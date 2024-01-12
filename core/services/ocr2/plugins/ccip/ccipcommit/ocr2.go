@@ -453,13 +453,13 @@ func (r *CommitReportingPlugin) selectPriceUpdates(ctx context.Context, now time
 		return nil, nil, err
 	}
 
-	return r.calculatePriceUpdates(gasPriceObs, tokenPriceObs, latestGasPrice, latestTokenPrices)
+	return r.calculatePriceUpdates(ctx, gasPriceObs, tokenPriceObs, latestGasPrice, latestTokenPrices)
 }
 
 // Note priceUpdates must be deterministic.
 // The provided gasPriceObs and tokenPriceObs should not contain nil values.
 // The returned latestGasPrice and latestTokenPrices should not contain nil values.
-func (r *CommitReportingPlugin) calculatePriceUpdates(gasPriceObs map[uint64][]*big.Int, tokenPriceObs map[cciptypes.Address][]*big.Int, latestGasPrice map[uint64]update, latestTokenPrices map[cciptypes.Address]update) ([]cciptypes.GasPrice, []cciptypes.TokenPrice, error) {
+func (r *CommitReportingPlugin) calculatePriceUpdates(ctx context.Context, gasPriceObs map[uint64][]*big.Int, tokenPriceObs map[cciptypes.Address][]*big.Int, latestGasPrice map[uint64]update, latestTokenPrices map[cciptypes.Address]update) ([]cciptypes.GasPrice, []cciptypes.TokenPrice, error) {
 	var tokenPriceUpdates []cciptypes.TokenPrice
 	for token, tokenPriceObservations := range tokenPriceObs {
 		medianPrice := ccipcalc.BigIntSortedMiddle(tokenPriceObservations)
@@ -488,7 +488,7 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(gasPriceObs map[uint64][]*
 
 	var gasPriceUpdate []cciptypes.GasPrice
 	for chainSelector, gasPriceObservations := range gasPriceObs {
-		newGasPrice, err := r.gasPriceEstimator.Median(gasPriceObservations) // Compute the median price
+		newGasPrice, err := r.gasPriceEstimator.Median(ctx, gasPriceObservations) // Compute the median price
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to calculate median gas price for chain selector %d: %w", chainSelector, err)
 		}
@@ -497,7 +497,7 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(gasPriceObs map[uint64][]*
 		latestGasPrice, exists := latestGasPrice[chainSelector]
 		if exists && latestGasPrice.value != nil {
 			gasPriceUpdatedRecently := time.Since(latestGasPrice.timestamp) < r.offchainConfig.GasPriceHeartBeat
-			gasPriceDeviated, err := r.gasPriceEstimator.Deviates(newGasPrice, latestGasPrice.value)
+			gasPriceDeviated, err := r.gasPriceEstimator.Deviates(ctx, newGasPrice, latestGasPrice.value)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -708,7 +708,7 @@ func (r *CommitReportingPlugin) isStaleGasPrice(ctx context.Context, lggr logger
 			return false
 		}
 
-		gasPriceDeviated, err := r.gasPriceEstimator.Deviates(gasPriceUpdate.Value, latestUpdate.value)
+		gasPriceDeviated, err := r.gasPriceEstimator.Deviates(ctx, gasPriceUpdate.Value, latestUpdate.value)
 		if err != nil {
 			lggr.Errorw("Gas price is stale because deviation check failed", "err", err)
 			return true

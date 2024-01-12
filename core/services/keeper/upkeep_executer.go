@@ -162,7 +162,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps(ctx context.Context) {
 	}
 
 	var activeUpkeeps []UpkeepRegistration
-	turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.TurnLookBack())
+	turnBinary, err2 := ex.turnBlockHashBinary(ctx, registry, head, ex.config.TurnLookBack())
 	if err2 != nil {
 		ex.logger.Error(errors.Wrap(err2, "unable to get turn block number hash"))
 		return
@@ -247,9 +247,9 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	}
 }
 
-func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
+func (ex *UpkeepExecuter) turnBlockHashBinary(ctx context.Context, registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
 	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
-	block, err := ex.ethClient.HeadByNumber(context.Background(), big.NewInt(turnBlock))
+	block, err := ex.ethClient.HeadByNumber(ctx, big.NewInt(turnBlock))
 	if err != nil {
 		return "", err
 	}

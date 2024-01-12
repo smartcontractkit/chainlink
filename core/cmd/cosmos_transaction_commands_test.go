@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
-var nativeToken = "cosm"
+const nativeToken = "cosm"
 
 func TestMain(m *testing.M) {
 
@@ -40,6 +40,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestShell_SendCosmosCoins(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	// TODO(BCI-978): cleanup once SetupLocalCosmosNode is updated
 	chainID := cosmostest.RandomChainID()

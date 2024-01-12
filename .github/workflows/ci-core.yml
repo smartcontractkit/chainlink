@@ -181,7 +181,7 @@ jobs:
           echo "COUNT=50" >> $GITHUB_ENV
       - name: Install gotestloghelper
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.50.0
       - name: Run tests
         if: ${{ needs.filter.outputs.changes == 'true' }}
         id: run-tests

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -101,6 +102,7 @@ func testTransmitter(
 	expectedSigsEnabled bool,
 	report []byte,
 ) {
+	ctx := tests.Context(t)
 	uni := newTestUniverse[[]byte](t, nil)
 
 	c, err := uni.wrapper.LatestConfigDetails(nil, pluginType)
@@ -123,7 +125,7 @@ func testTransmitter(
 	seqNr := uint64(1)
 	attributedSigs := uni.SignReport(t, configDigest, rwi, seqNr)
 
-	account, err := uni.transmitterWithSigs.FromAccount()
+	account, err := uni.transmitterWithSigs.FromAccount(ctx)
 	require.NoError(t, err, "failed to get from account")
 	require.Equal(t, ocrtypes.Account(uni.transmitters[0].Hex()), account, "from account mismatch")
 	if withSigs {
