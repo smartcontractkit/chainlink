@@ -34,9 +34,9 @@ spec:
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}-db
-          ports:
-            - protocol: TCP
-              port: 5432
+      ports:
+        - protocol: TCP
+          port: 5432
     # Allow all node pods to access the geth pods.
     - to:
         - podSelector:
