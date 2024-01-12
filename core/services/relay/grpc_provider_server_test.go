@@ -13,7 +13,7 @@ import (
 
 func TestProviderServer(t *testing.T) {
 	r := &mockRelayer{}
-	sa := NewServerAdapter(r, mockRelayerExt{})
+	sa := NewServerAdapter(r)
 	mp, _ := sa.NewPluginProvider(testutils.Context(t), types.RelayArgs{ProviderType: string(types.Median)}, types.PluginArgs{})
 
 	lggr := logger.TestLogger(t)

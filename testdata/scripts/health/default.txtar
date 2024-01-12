@@ -29,6 +29,8 @@ fj293fbBnlQ!f9vNs
 -- config.toml.tmpl --
 [Webserver]
 HTTPPort = $PORT
+[WebServer.TLS]
+HTTPSPort = 0
 
 -- out.txt --
 ok JobSpawner

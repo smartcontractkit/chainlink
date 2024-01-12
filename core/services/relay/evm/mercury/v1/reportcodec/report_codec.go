@@ -1,6 +1,7 @@
 package reportcodec
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -35,7 +36,7 @@ func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(rf v1.ReportFields) (ocrtypes.Report, error) {
+func (r *ReportCodec) BuildReport(ctx context.Context, rf v1.ReportFields) (ocrtypes.Report, error) {
 	var merr error
 	if rf.BenchmarkPrice == nil {
 		merr = errors.Join(merr, errors.New("benchmarkPrice may not be nil"))
@@ -61,11 +62,11 @@ func (r *ReportCodec) BuildReport(rf v1.ReportFields) (ocrtypes.Report, error) {
 
 // Maximum length in bytes of Report returned by BuildReport. Used for
 // defending against spam attacks.
-func (r *ReportCodec) MaxReportLength(n int) (int, error) {
+func (r *ReportCodec) MaxReportLength(ctx context.Context, n int) (int, error) {
 	return maxReportLength, nil
 }
 
-func (r *ReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int64, error) {
+func (r *ReportCodec) CurrentBlockNumFromReport(ctx context.Context, report ocrtypes.Report) (int64, error) {
 	decoded, err := r.Decode(report)
 	if err != nil {
 		return 0, err

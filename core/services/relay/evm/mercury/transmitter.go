@@ -415,7 +415,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 }
 
 // FromAccount returns the stringified (hex) CSA public key
-func (mt *mercuryTransmitter) FromAccount() (ocrtypes.Account, error) {
+func (mt *mercuryTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(mt.fromAccount), nil
 }
 

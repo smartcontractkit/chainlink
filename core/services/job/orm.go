@@ -887,6 +887,7 @@ func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSp
 	return LoadConfigVarsLocalOCR(evmOcrCfg, os, ocrCfg), nil
 }
 
+// TODO why does this even exist?
 func (o *orm) FindJobTx(ctx context.Context, id int32) (Job, error) {
 	return o.FindJob(ctx, id)
 }

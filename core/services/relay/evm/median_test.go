@@ -32,7 +32,7 @@ func TestNewMedianProvider(t *testing.T) {
 		rc, err2 := json.Marshal(&relayConfigBadChainID)
 		rargs2 := commontypes.RelayArgs{ContractID: contractID.String(), RelayConfig: rc}
 		require.NoError(t, err2)
-		_, err2 = relayer.NewMedianProvider(rargs2, pargs)
+		_, err2 = relayer.NewMedianProvider(testutils.Context(t), rargs2, pargs)
 		assert.ErrorContains(t, err2, "chain id in spec does not match")
 	})
 
@@ -41,7 +41,7 @@ func TestNewMedianProvider(t *testing.T) {
 		rc, err2 := json.Marshal(&relayConfig)
 		require.NoError(t, err2)
 		rargsBadContractID := commontypes.RelayArgs{ContractID: "NotAContractID", RelayConfig: rc}
-		_, err2 = relayer.NewMedianProvider(rargsBadContractID, pargs)
+		_, err2 = relayer.NewMedianProvider(testutils.Context(t), rargsBadContractID, pargs)
 		assert.ErrorContains(t, err2, "invalid contractID")
 	})
 }

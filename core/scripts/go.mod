@@ -5,6 +5,8 @@ go 1.21.7
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
+replace github.com/smartcontractkit/libocr => github.com/jmank88/libocr v0.0.0-20240425120538-09fa8c2edfb1
+
 require (
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/docker/go-connections v0.4.0
@@ -20,9 +22,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240424132620-add4946c1c73
-	github.com/smartcontractkit/chainlink-vrf v0.0.0-20240222010609-cd67d123c772
+	github.com/smartcontractkit/chainlink-automation v1.0.4-0.20240425153817-1ba5b9d03697
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240425103110-dbf028ff5724
+	github.com/smartcontractkit/chainlink-vrf v0.0.0-20240425104933-465ce85fe931
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
 	github.com/spf13/cobra v1.6.1
@@ -53,7 +55,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/NethermindEth/juno v0.3.1 // indirect
-	github.com/NethermindEth/starknet.go v0.6.1-0.20231218140327-915109ab5bc1 // indirect
+	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
 	github.com/XSAM/otelsql v0.27.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
@@ -256,13 +258,13 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.10 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419213354-ea34a948e2ee // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540 // indirect
-	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240422130241-13c17a91b2ab // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240422172640-59d47c73ba58 // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240325075535-0f7eb05ee595 // indirect
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
-	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240425111720-534241c6da15 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240425112624-15ce220ad094 // indirect
+	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240425122245-fceb89c286e2 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240425171656-b77da610333c // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240425153944-9f020809dee0 // indirect
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20240425104007-9b8b97a46619 // indirect
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20240425104007-9b8b97a46619 // indirect
 	github.com/smartcontractkit/wsrpc v0.8.1 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.6.0 // indirect

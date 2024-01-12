@@ -91,7 +91,7 @@ func formatRequestId(requestId []byte) string {
 }
 
 // NewReportingPlugin complies with ReportingPluginFactory
-func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+func (f FunctionsReportingPluginFactory) NewReportingPlugin(ctx context.Context, rpConfig types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	pluginConfig, err := config.DecodeReportingPluginConfig(rpConfig.OffchainConfig)
 	if err != nil {
 		f.Logger.Error("unable to decode reporting plugin config", commontypes.LogFields{

@@ -68,9 +68,10 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 	var count int
 	var err error
 
+	ctx := c.Request.Context()
 	if id == "" {
 		// fetch all nodes
-		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size)
+		nodes, count, err = n.nodeSet.NodeStatuses(ctx, offset, size)
 	} else {
 		// fetch nodes for chain ID
 		// backward compatibility
@@ -80,7 +81,7 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 			rid.ChainID = id
 			rid.Network = n.nodeSet.network
 		}
-		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size, rid)
+		nodes, count, err = n.nodeSet.NodeStatuses(ctx, offset, size, rid)
 	}
 
 	var resources []R

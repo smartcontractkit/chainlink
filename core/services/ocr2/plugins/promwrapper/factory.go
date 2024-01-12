@@ -1,6 +1,7 @@
 package promwrapper
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -15,8 +16,8 @@ type promFactory struct {
 	chainID   *big.Int
 }
 
-func (p *promFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	plugin, info, err := p.wrapped.NewReportingPlugin(config)
+func (p *promFactory) NewReportingPlugin(ctx context.Context, config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+	plugin, info, err := p.wrapped.NewReportingPlugin(ctx, config)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
