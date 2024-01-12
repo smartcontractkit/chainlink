@@ -26,7 +26,6 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -35,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -49,7 +49,7 @@ var (
 	multiplier int64 = 100000000
 )
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *channel_config_store.ChannelConfigStore, common.Address) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *channel_config_verifier_proxy.ChannelVerifierProxy, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
@@ -58,7 +58,9 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 	t.Cleanup(stopMining)
 
 	// Deploy contracts
-	verifierAddress, _, verifierContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
+	verifierAddress, _, verifierContract, err := channel_config_verifier_proxy.DeployChannelVerifierProxy(steve, backend)
+	require.NoError(t, err)
+	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
 	require.NoError(t, err)
 
 	// linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend)
@@ -86,7 +88,7 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 
 	backend.Commit()
 
-	return steve, backend, verifierContract, verifierAddress
+	return steve, backend, verifierContract, verifierAddress, configStoreContract, configStoreAddress
 }
 
 func detectPanicLogs(t *testing.T, logObservers []*observer.ObservedLogs) {
@@ -180,7 +182,7 @@ func TestIntegration_Streams(t *testing.T) {
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 	chainID := testutils.SimulatedChainID
 
-	steve, backend, configContract, configAddress := setupBlockchain(t)
+	steve, backend, verifierContract, verifierAddress, configStoreContract, configStoreAddress := setupBlockchain(t)
 	// TODO
 
 	// Setup bootstrap + oracle nodes
@@ -214,7 +216,7 @@ func TestIntegration_Streams(t *testing.T) {
 		logObservers = append(logObservers, observedLogs)
 	}
 
-	addBootstrapJob(t, bootstrapNode, chainID, configAddress, "job-1")
+	addBootstrapJob(t, bootstrapNode, chainID, configStoreAddress, "job-1")
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -253,7 +255,8 @@ func TestIntegration_Streams(t *testing.T) {
 		addLLOJob(
 			t,
 			node,
-			configAddress,
+			verifierAddress,
+			configStoreAddress,
 			bootstrapPeerID,
 			bootstrapNodePort,
 			serverURL,
@@ -301,7 +304,7 @@ func TestIntegration_Streams(t *testing.T) {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
 
-	cfg := ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple{
+	cfg := channel_config_verifier_proxy.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple{
 		signerAddresses,
 		offchainTransmitters,
 		f,
@@ -378,7 +381,8 @@ observationSource = """
 func addLLOJob(
 	t *testing.T,
 	node Node,
-	verifierAddress common.Address,
+	verifierAddress,
+	configStoreAddress common.Address,
 	bootstrapPeerID string,
 	bootstrapNodePort int,
 	serverURL string,
@@ -407,20 +411,22 @@ transmitterID = "%[5]x"
 [pluginConfig]
 serverURL = "%[6]s"
 serverPubKey = "%[7]x"
-fromBlock = %[8]d
+channelDefinitionsContractFromBlock = %[8]d
+channelDefinitionsContractAddress = "%[9]s"
 
 [relayConfig]
-chainID = %[9]d
+chainID = %[10]d
 
 		`,
 		jobName,
-		verifierAddress,
+		verifierAddress.Hex(),
 		node.KeyBundle.ID(),
 		fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
 		clientPubKey,
 		serverURL,
 		serverPubKey,
 		fromBlock,
+		configStoreAddress.Hex(),
 		chainID,
 	))
 }
