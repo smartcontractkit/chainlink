@@ -21,12 +21,17 @@ func sendSlackNotification(header string, l zerolog.Logger, config *tc.TestConfi
 
 	headerText := ":chainlink-keepers: Automation Load Test " + header + " :white_check_mark:"
 
-	grafanaUrl, err := config.GetGrafanaURL()
+	grafanaUrl, err := config.GetGrafanaBaseURL()
 	if err != nil {
 		return "", err
 	}
 
-	formattedDashboardUrl := fmt.Sprintf("%s?orgId=1&from=%s&to=%s&var-namespace=%s&var-number_of_nodes=%s", grafanaUrl, startingTime, endingTime, namespace, numberOfNodes)
+	dashboardUrl, err := config.GetGrafanaDashboardURL()
+	if err != nil {
+		return "", err
+	}
+
+	formattedDashboardUrl := fmt.Sprintf("%s%s?orgId=1&from=%s&to=%s&var-namespace=%s&var-number_of_nodes=%s", grafanaUrl, dashboardUrl, startingTime, endingTime, namespace, numberOfNodes)
 	l.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
 	var notificationBlocks []slack.Block

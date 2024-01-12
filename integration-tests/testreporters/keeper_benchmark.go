@@ -263,12 +263,17 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 		return err
 	}
 
-	grafanaUrl, err := grafanaUrlProvider.GetGrafanaURL()
+	grafanaUrl, err := grafanaUrlProvider.GetGrafanaBaseURL()
 	if err != nil {
 		return err
 	}
 
-	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%d&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, k.Summary.StartTime, k.Summary.EndTime, k.namespace)
+	dashboardUrl, err := grafanaUrlProvider.GetGrafanaDashboardURL()
+	if err != nil {
+		return err
+	}
+
+	formattedDashboardUrl := fmt.Sprintf("%s%s?from=%d&to=%d&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, dashboardUrl, k.Summary.StartTime, k.Summary.EndTime, k.namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
 	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{

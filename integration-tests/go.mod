@@ -25,7 +25,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.1
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240104174432-88b0f2a535a6
-	github.com/smartcontractkit/chainlink-testing-framework v1.22.3-0.20240110131136-586f0d9356d3
+	github.com/smartcontractkit/chainlink-testing-framework v1.22.4-0.20240112204859-4de19b861eed
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231130143053-c5102a9c0fb7
@@ -48,6 +48,7 @@ require (
 exclude github.com/hashicorp/consul v1.2.1
 
 replace (
+	github.com/smartcontractkit/chainlink-testing-framework => ../../chainlink-testing-framework
 	github.com/testcontainers/testcontainers-go => github.com/Tofel/testcontainers-go v0.0.0-20231130110817-e6fbf9498b56
 	// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 	k8s.io/api => k8s.io/api v0.25.11

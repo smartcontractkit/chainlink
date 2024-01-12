@@ -581,13 +581,18 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, c
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}
 
-	grafanaUrl, err := config.GetGrafanaURL()
+	grafanaUrl, err := config.GetGrafanaBaseURL()
+	if err != nil {
+		return err
+	}
+
+	dashboardUrl, err := config.GetGrafanaDashboardURL()
 	if err != nil {
 		return err
 	}
 
 	headerText := ":white_check_mark: Automation Benchmark Test STARTED :white_check_mark:"
-	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
+	formattedDashboardUrl := fmt.Sprintf("%s%s?from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, dashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
 	notificationBlocks := []slack.Block{}

@@ -59,12 +59,26 @@ func init() {
 }
 
 // Returns Grafana URL from Logging config
-func (c *TestConfig) GetGrafanaURL() (string, error) {
-	if c.Logging.Grafana == nil || c.Logging.Grafana.Url == nil {
-		return "", errors.New("grafana url not set")
+func (c *TestConfig) GetGrafanaBaseURL() (string, error) {
+	if c.Logging.Grafana == nil || c.Logging.Grafana.BaseUrl == nil {
+		return "", errors.New("grafana base url not set")
 	}
 
-	return *c.Logging.Grafana.Url, nil
+	return strings.TrimSuffix(*c.Logging.Grafana.BaseUrl, "/"), nil
+}
+
+// Returns Grafana Dashboard URL from Logging config
+func (c *TestConfig) GetGrafanaDashboardURL() (string, error) {
+	if c.Logging.Grafana == nil || c.Logging.Grafana.DashboardUrl == nil {
+		return "", errors.New("grafana dashboard url not set")
+	}
+
+	url := *c.Logging.Grafana.DashboardUrl
+	if !strings.HasPrefix(url, "/") {
+		url = "/" + url
+	}
+
+	return url, nil
 }
 
 // Saves Test Config to a local file
@@ -96,18 +110,6 @@ type Common struct {
 func (c *Common) Validate() error {
 	if c.ChainlinkNodeFunding != nil && *c.ChainlinkNodeFunding < 0 {
 		return fmt.Errorf("chainlink node funding must be positive")
-	}
-
-	return nil
-}
-
-func (c *Common) ApplyOverrides(from *Common) error {
-	if from == nil {
-		return nil
-	}
-
-	if from.ChainlinkNodeFunding != nil {
-		c.ChainlinkNodeFunding = from.ChainlinkNodeFunding
 	}
 
 	return nil
@@ -166,45 +168,8 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	}
 
 	testConfig := TestConfig{}
-	maybeTestConfigs := []TestConfig{}
-
+	testConfig.ConfigurationName = configurationName
 	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
-
-	var byteToTestConfig = func(filename string, content []byte) (TestConfig, error) {
-		var readConfig TestConfig
-		err := toml.Unmarshal(content, &readConfig)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error unmarshaling config")
-		}
-
-		logger.Debug().Msgf("Successfully unmarshalled %s config file", filename)
-		maybeTestConfigs = append(maybeTestConfigs, readConfig)
-
-		var someToml map[string]interface{}
-		err = toml.Unmarshal(content, &someToml)
-		if err != nil {
-			return TestConfig{}, err
-		}
-
-		if _, ok := someToml[configurationName]; !ok {
-			logger.Debug().Msgf("Config file %s does not contain configuration named '%s', will read only default configuration.", filename, configurationName)
-			return readConfig, nil
-		}
-
-		marshalled, err := toml.Marshal(someToml[configurationName])
-		if err != nil {
-			return TestConfig{}, err
-		}
-
-		err = toml.Unmarshal(marshalled, &readConfig)
-		if err != nil {
-			return TestConfig{}, err
-		}
-
-		logger.Debug().Msgf("Configuration named '%s' read successfully.", configurationName)
-
-		return readConfig, nil
-	}
 
 	// read embedded configs is build tag "embed" is set
 	// this makes our life much easier when using a binary
@@ -220,12 +185,10 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
 
-			readConfig, err := byteToTestConfig(fileName, file)
+			err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, file)
 			if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config")
 			}
-
-			maybeTestConfigs = append(maybeTestConfigs, readConfig)
 		}
 	}
 
@@ -247,49 +210,35 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
 
-		readConfig, err := byteToTestConfig(fileName, content)
+		err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
-
-		maybeTestConfigs = append(maybeTestConfigs, readConfig)
 	}
 
+	logger.Info().Msg("Reading configs from Base64 override env var")
 	configEncoded, isSet := os.LookupEnv(Base64OverrideEnvVarName)
 	if isSet && configEncoded != "" {
-		logger.Debug().Msgf("Base64 config override from environment variable '%s' found", Base64OverrideEnvVarName)
+		logger.Debug().Msgf("Found base64 config override environment variable '%s' found", Base64OverrideEnvVarName)
 		decoded, err := base64.StdEncoding.DecodeString(configEncoded)
 		if err != nil {
 			return TestConfig{}, err
 		}
 
-		var base64override TestConfig
-		err = toml.Unmarshal(decoded, &base64override)
+		err = toml.Unmarshal(decoded, &testConfig)
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
 		}
-
-		maybeTestConfigs = append(maybeTestConfigs, base64override)
 	} else {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	// currently we need to read that kind of secrets only for network configuration
-	testConfig.Network = &ctf_config.NetworkConfig{}
-	err := testConfig.Network.ApplySecrets()
+	// it neede some custom logic, so we do it separately
+	err := testConfig.readNetworkConfiguration()
 	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error applying secrets to network config")
+		return TestConfig{}, errors.Wrapf(err, "error reading network config")
 	}
 
-	logger.Debug().Msg("Applying overrides to test config")
-	for i := range maybeTestConfigs {
-		err := testConfig.ApplyOverrides(&maybeTestConfigs[i])
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error applying overrides to test config")
-		}
-	}
-
-	testConfig.ConfigurationName = configurationName
 	logger.Debug().Msg("Validating test config")
 	err = testConfig.Validate()
 	if err != nil {
@@ -304,175 +253,19 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	return testConfig, nil
 }
 
-func (c *TestConfig) ApplyOverrides(from *TestConfig) error {
-	if from == nil {
-		return nil
+func (c *TestConfig) readNetworkConfiguration() error {
+	// currently we need to read that kind of secrets only for network configuration
+	if c == nil {
+		c.Network = &ctf_config.NetworkConfig{}
+	}
+	err := c.Network.Default()
+	if err != nil {
+		return errors.Wrapf(err, "error reading default network config")
 	}
 
-	if from.ChainlinkImage != nil {
-		if c.ChainlinkImage == nil {
-			c.ChainlinkImage = from.ChainlinkImage
-		} else {
-			err := c.ChainlinkImage.ApplyOverrides(from.ChainlinkImage)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to chainlink image config")
-			}
-		}
-	}
-
-	if from.ChainlinkUpgradeImage != nil {
-		if c.ChainlinkUpgradeImage == nil {
-			c.ChainlinkUpgradeImage = from.ChainlinkUpgradeImage
-		} else {
-			err := c.ChainlinkUpgradeImage.ApplyOverrides(from.ChainlinkUpgradeImage)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to chainlink image config")
-			}
-		}
-	}
-
-	if from.Logging != nil {
-		if c.Logging == nil {
-			c.Logging = from.Logging
-		} else {
-			err := c.Logging.ApplyOverrides(from.Logging)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to logging config")
-			}
-		}
-	}
-
-	if from.Network != nil {
-		if c.Network == nil {
-			c.Network = from.Network
-		} else {
-			err := c.Network.ApplyOverrides(from.Network)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to network config")
-			}
-		}
-	}
-
-	if from.Pyroscope != nil {
-		if c.Pyroscope == nil {
-			c.Pyroscope = from.Pyroscope
-		} else {
-			err := c.Pyroscope.ApplyOverrides(from.Pyroscope)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to pyroscope config")
-			}
-		}
-	}
-
-	if from.PrivateEthereumNetwork != nil {
-		if c.PrivateEthereumNetwork == nil {
-			c.PrivateEthereumNetwork = from.PrivateEthereumNetwork
-		} else {
-			err := c.PrivateEthereumNetwork.ApplyOverrides(from.PrivateEthereumNetwork)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to private ethereum network config")
-			}
-		}
+	// this is the only value we need to generate dynamically before starting a new simulated chain
+	if c.PrivateEthereumNetwork != nil && c.PrivateEthereumNetwork.EthereumChainConfig != nil {
 		c.PrivateEthereumNetwork.EthereumChainConfig.GenerateGenesisTimestamp()
-	}
-
-	if from.Common != nil {
-		if c.Common == nil {
-			c.Common = from.Common
-		} else {
-			err := c.Common.ApplyOverrides(from.Common)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to common config")
-			}
-		}
-	}
-
-	if from.OCR != nil {
-		if c.OCR == nil {
-			c.OCR = from.OCR
-		} else {
-			err := c.OCR.ApplyOverrides(from.OCR)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to OCR config")
-			}
-		}
-	}
-
-	if from.VRF != nil {
-		if c.VRF == nil {
-			c.VRF = from.VRF
-		} else {
-			err := c.VRF.ApplyOverrides(from.VRF)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to VRF config")
-			}
-		}
-	}
-
-	if from.VRFv2 != nil {
-		if c.VRFv2 == nil {
-			c.VRFv2 = from.VRFv2
-		} else {
-			err := c.VRFv2.ApplyOverrides(from.VRFv2)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to VRFv2 config")
-			}
-		}
-	}
-
-	if from.VRFv2Plus != nil {
-		if c.VRFv2Plus == nil {
-			c.VRFv2Plus = from.VRFv2Plus
-		} else {
-			err := c.VRFv2Plus.ApplyOverrides(from.VRFv2Plus)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to VRFv2Plus config")
-			}
-		}
-	}
-
-	if from.Keeper != nil {
-		if c.Keeper == nil {
-			c.Keeper = from.Keeper
-		} else {
-			err := c.Keeper.ApplyOverrides(from.Keeper)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to Keeper config")
-			}
-		}
-	}
-
-	if from.Automation != nil {
-		if c.Automation == nil {
-			c.Automation = from.Automation
-		} else {
-			err := c.Automation.ApplyOverrides(from.Automation)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to Automation config")
-			}
-		}
-	}
-
-	if from.LogPoller != nil {
-		if c.LogPoller == nil {
-			c.LogPoller = from.LogPoller
-		} else {
-			err := c.LogPoller.ApplyOverrides(from.LogPoller)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to LogPoller config")
-			}
-		}
-	}
-
-	if from.Functions != nil {
-		if c.Functions == nil {
-			c.Functions = from.Functions
-		} else {
-			err := c.Functions.ApplyOverrides(from.Functions)
-			if err != nil {
-				return errors.Wrapf(err, "error applying overrides to Functions config")
-			}
-		}
 	}
 
 	return nil

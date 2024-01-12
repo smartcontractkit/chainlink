@@ -9,7 +9,7 @@ func LokiConfigFromToml(config *TestConfig) *wasp.LokiConfig {
 	lokiConfig := wasp.NewEnvLokiConfig()
 	lokiConfig.BasicAuth = *config.Logging.Loki.BasicAuth
 	lokiConfig.TenantID = *config.Logging.Loki.TenantId
-	lokiConfig.URL = *config.Logging.Loki.Url
+	lokiConfig.URL = *config.Logging.Loki.Endpoint
 
 	return lokiConfig
 }

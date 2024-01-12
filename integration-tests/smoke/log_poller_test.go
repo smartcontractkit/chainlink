@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -81,4 +82,19 @@ func executeLogPollerReplayTest(t *testing.T, duration string) {
 	cfg.LogPoller.General.EventsToEmit = eventsToEmit
 
 	logpoller.ExecuteLogPollerReplay(t, &cfg, duration)
+}
+
+type Config struct {
+	Secret *string `toml:"secret"`
+}
+
+func (c *Config) ReadSecret() error {
+	secret, isSet := os.LookupEnv("SECRET")
+	if !isSet {
+		return nil
+	}
+
+	c.Secret = &secret
+
+	return nil
 }
