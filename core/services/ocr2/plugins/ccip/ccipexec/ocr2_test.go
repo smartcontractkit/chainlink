@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestExecutionReportingPlugin_Observation(t *testing.T) {
@@ -259,7 +258,7 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	plugin := ExecutionReportingPlugin{
 		offRampReader:   mockOffRampReader,
 		lggr:            logger.TestLogger(t),
-		inflightReports: newInflightExecReportsContainer(models.MustMakeDuration(1 * time.Hour).Duration()),
+		inflightReports: newInflightExecReportsContainer(1 * time.Hour),
 	}
 
 	mockedExecState := mockOffRampReader.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(ccipdata.ExecutionStateUntouched), nil).Once()
@@ -306,7 +305,7 @@ func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 		commitStoreReader: mockCommitStoreReader,
 		offRampReader:     mockOffRampReader,
 		lggr:              logger.TestLogger(t),
-		inflightReports:   newInflightExecReportsContainer(models.MustMakeDuration(1 * time.Hour).Duration()),
+		inflightReports:   newInflightExecReportsContainer(1 * time.Hour),
 	}
 
 	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)

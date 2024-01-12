@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
@@ -67,7 +68,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -352,8 +352,19 @@ func setupNodeCCIP(
 		c.OCR2.Enabled = &trueRef
 		c.Feature.LogPoller = &trueRef
 		c.P2P.V2.Enabled = &trueRef
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+
+		dur, err := config.NewDuration(500 * time.Millisecond)
+		if err != nil {
+			panic(err)
+		}
+		c.P2P.V2.DeltaDial = &dur
+
+		dur2, err := config.NewDuration(5 * time.Second)
+		if err != nil {
+			panic(err)
+		}
+
+		c.P2P.V2.DeltaReconcile = &dur2
 		c.P2P.V2.ListenAddresses = &p2pAddresses
 		c.P2P.V2.AnnounceAddresses = &p2pAddresses
 
@@ -372,8 +383,6 @@ func setupNodeCCIP(
 	})
 
 	lggr := logger.TestLogger(t)
-
-	eventBroadcaster := pg.NewEventBroadcaster(config.Database().URL(), 0, 0, lggr, uuid.New())
 
 	// The in-memory geth sim does not let you create a custom ChainID, it will always be 1337.
 	// In particular this means that if you sign an eip155 tx, the chainID used MUST be 1337
@@ -397,8 +406,7 @@ func setupNodeCCIP(
 	mailMon := mailbox.NewMonitor("CCIP", lggr.Named("Mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:        config,
-			EventBroadcaster: eventBroadcaster,
+			AppConfig: config,
 			GenEthClient: func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {
 					return sourceClient
@@ -430,7 +438,6 @@ func setupNodeCCIP(
 
 	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     config,
-		EventBroadcaster:           eventBroadcaster,
 		SqlxDB:                     db,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
@@ -488,7 +495,7 @@ func createConfigV2Chain(chainId *big.Int) *v2.EVMConfig {
 	sourceC.GasEstimator.LimitDefault = &defaultGasLimit
 	fixedPrice := "FixedPrice"
 	sourceC.GasEstimator.Mode = &fixedPrice
-	d, _ := models.MakeDuration(100 * time.Millisecond)
+	d, _ := config.NewDuration(100 * time.Millisecond)
 	sourceC.LogPollInterval = &d
 	fd := uint32(2)
 	sourceC.FinalityDepth = &fd

@@ -43,7 +43,7 @@ func (d *Delegate) AfterJobCreated(jb job.Job)                 {}
 func (d *Delegate) BeforeJobDeleted(jb job.Job)                {}
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
 
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
 	if !jb.Name.Valid {
 		return nil, errors.New("job name is required to be present for stream specs")
 	}
