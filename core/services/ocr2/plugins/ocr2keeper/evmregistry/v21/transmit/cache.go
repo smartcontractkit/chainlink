@@ -28,7 +28,7 @@ func (c *transmitEventCache) get(block ocr2keepers.BlockNumber, logID string) (o
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	i := int64(block) % int64(c.cap)
+	i := int64(block) % c.cap
 	b := c.buffer[i]
 	if b.block != block {
 		return ocr2keepers.TransmitEvent{}, false
@@ -45,7 +45,7 @@ func (c *transmitEventCache) add(logID string, e ocr2keepers.TransmitEvent) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	i := int64(e.TransmitBlock) % int64(c.cap)
+	i := int64(e.TransmitBlock) % c.cap
 	b := c.buffer[i]
 	isBlockEmpty := len(b.records) == 0
 	isNewBlock := b.block < e.TransmitBlock

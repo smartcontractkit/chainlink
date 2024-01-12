@@ -271,7 +271,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 1)
 		assert.Len(t, callbacks, 0)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -333,7 +333,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			assert.False(t, b.ShouldStore)
 		}
 		assert.Len(t, callbacks, 3)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -400,7 +400,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -471,7 +471,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -533,7 +533,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -635,7 +635,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 0)
 		assert.Len(t, callbacks, 0)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -705,7 +705,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			assert.True(t, b.ShouldStore)
 		}
 		assert.Len(t, callbacks, 0)
-		assert.Equal(t, uint64(latestHeadNumber-blockhashLookback+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-blockhashLookback+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(blockhashLookback))
 	})
 
@@ -772,7 +772,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 			assert.True(t, b.ShouldStore)
 		}
 		assert.Len(t, callbacks, 2)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -835,7 +835,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 1)
 		assert.Len(t, callbacks, 1)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -901,7 +901,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, blocks, 2)
 		assert.Len(t, callbacks, 2)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
 	})
 
@@ -956,7 +956,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		)
 
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Equal(t, common.HexToHash(fmt.Sprintf("0x00%d", 1)), recentBlocks[0])
 		assert.Equal(t, common.HexToHash(fmt.Sprintf("0x00%d", lookbackBlocks)), recentBlocks[len(recentBlocks)-1])
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
@@ -1013,7 +1013,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		)
 
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(latestHeadNumber-lookbackBlocks+1), recentHeightStart)
+		assert.Equal(t, latestHeadNumber-lookbackBlocks+1, recentHeightStart)
 		assert.Equal(t, common.HexToHash(fmt.Sprintf("0x00%d", 1)), recentBlocks[0])
 		assert.Equal(t, common.HexToHash(fmt.Sprintf("0x00%d", lookbackBlocks)), recentBlocks[len(recentBlocks)-1])
 		assert.Len(t, recentBlocks, int(lookbackBlocks))
@@ -1035,7 +1035,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		lp.On("LatestBlock", mock.Anything).
 			Return(logpoller.LogPollerBlock{BlockNumber: int64(latestHeadNumber)}, nil)
 
-		lp.On("GetBlocksRange", mock.Anything, append(requestedBlocks, uint64(latestHeadNumber-lookbackBlocks+1), uint64(latestHeadNumber)), mock.Anything).
+		lp.On("GetBlocksRange", mock.Anything, append(requestedBlocks, latestHeadNumber-lookbackBlocks+1, latestHeadNumber), mock.Anything).
 			Return(nil, errors.New("GetBlocks error"))
 		lp.On(
 			"LogsWithSigs",

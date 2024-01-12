@@ -20,6 +20,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -66,7 +67,7 @@ var (
 			},
 			Database: toml.Database{
 				Listener: toml.DatabaseListener{
-					FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
+					FallbackPollInterval: commonconfig.MustNewDuration(2 * time.Minute),
 				},
 			},
 			Log: toml.Log{
@@ -75,16 +76,16 @@ var (
 			},
 			JobPipeline: toml.JobPipeline{
 				HTTPRequest: toml.JobPipelineHTTPRequest{
-					DefaultTimeout: models.MustNewDuration(30 * time.Second),
+					DefaultTimeout: commonconfig.MustNewDuration(30 * time.Second),
 				},
 			},
 			OCR2: toml.OCR2{
 				Enabled:         ptr(true),
-				DatabaseTimeout: models.MustNewDuration(20 * time.Second),
+				DatabaseTimeout: commonconfig.MustNewDuration(20 * time.Second),
 			},
 			OCR: toml.OCR{
 				Enabled:           ptr(true),
-				BlockchainTimeout: models.MustNewDuration(5 * time.Second),
+				BlockchainTimeout: commonconfig.MustNewDuration(5 * time.Second),
 			},
 			P2P: toml.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
@@ -194,10 +195,10 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
-	zeroSeconds := models.MustMakeDuration(time.Second * 0)
-	second := models.MustMakeDuration(time.Second)
-	minute := models.MustMakeDuration(time.Minute)
-	hour := models.MustMakeDuration(time.Hour)
+	zeroSeconds := *commonconfig.MustNewDuration(time.Second * 0)
+	second := *commonconfig.MustNewDuration(time.Second)
+	minute := *commonconfig.MustNewDuration(time.Minute)
+	hour := *commonconfig.MustNewDuration(time.Hour)
 	mustPeerID := func(s string) *p2pkey.PeerID {
 		id, err := p2pkey.MakePeerID(s)
 		require.NoError(t, err)
@@ -219,7 +220,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Core: toml.Core{
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
-			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
+			ShutdownGracePeriod: commonconfig.MustNewDuration(10 * time.Second),
 			Insecure: toml.Insecure{
 				DevWebServer:         ptr(false),
 				OCRDevelopmentMode:   ptr(false),
@@ -261,17 +262,17 @@ func TestConfig_Marshal(t *testing.T) {
 		CCIP:         ptr(false),
 	}
 	full.Database = toml.Database{
-		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
-		DefaultLockTimeout:            models.MustNewDuration(time.Hour),
-		DefaultQueryTimeout:           models.MustNewDuration(time.Second),
+		DefaultIdleInTxSessionTimeout: commonconfig.MustNewDuration(time.Minute),
+		DefaultLockTimeout:            commonconfig.MustNewDuration(time.Hour),
+		DefaultQueryTimeout:           commonconfig.MustNewDuration(time.Second),
 		LogQueries:                    ptr(true),
 		MigrateOnStartup:              ptr(true),
 		MaxIdleConns:                  ptr[int64](7),
 		MaxOpenConns:                  ptr[int64](13),
 		Listener: toml.DatabaseListener{
-			MaxReconnectDuration: models.MustNewDuration(time.Minute),
-			MinReconnectInterval: models.MustNewDuration(5 * time.Minute),
-			FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
+			MaxReconnectDuration: commonconfig.MustNewDuration(time.Minute),
+			MinReconnectInterval: commonconfig.MustNewDuration(5 * time.Minute),
+			FallbackPollInterval: commonconfig.MustNewDuration(2 * time.Minute),
 		},
 		Lock: toml.DatabaseLock{
 			Enabled:              ptr(false),
@@ -290,10 +291,10 @@ func TestConfig_Marshal(t *testing.T) {
 		Logging:      ptr(true),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
-		SendInterval: models.MustNewDuration(time.Minute),
-		SendTimeout:  models.MustNewDuration(5 * time.Second),
+		SendInterval: commonconfig.MustNewDuration(time.Minute),
+		SendTimeout:  commonconfig.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
-		URL:          ptr(models.URL{}),
+		URL:          ptr(commonconfig.URL{}),
 		ServerPubKey: ptr(""),
 		Endpoints: []toml.TelemetryIngressEndpoint{{
 			Network:      ptr("EVM"),
@@ -318,14 +319,14 @@ func TestConfig_Marshal(t *testing.T) {
 		AuthenticationMethod:    ptr("local"),
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
-		BridgeCacheTTL:          models.MustNewDuration(10 * time.Second),
-		HTTPWriteTimeout:        models.MustNewDuration(time.Minute),
+		BridgeCacheTTL:          commonconfig.MustNewDuration(10 * time.Second),
+		HTTPWriteTimeout:        commonconfig.MustNewDuration(time.Minute),
 		HTTPPort:                ptr[uint16](56),
 		SecureCookies:           ptr(true),
-		SessionTimeout:          models.MustNewDuration(time.Hour),
-		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
+		SessionTimeout:          commonconfig.MustNewDuration(time.Hour),
+		SessionReaperExpiration: commonconfig.MustNewDuration(7 * 24 * time.Hour),
 		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
-		StartTimeout:            models.MustNewDuration(15 * time.Second),
+		StartTimeout:            commonconfig.MustNewDuration(15 * time.Second),
 		ListenIP:                mustIP("192.158.1.37"),
 		MFA: toml.WebServerMFA{
 			RPID:     ptr("test-rpid"),
@@ -333,8 +334,8 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		LDAP: toml.WebServerLDAP{
 			ServerTLS:                   ptr(true),
-			SessionTimeout:              models.MustNewDuration(15 * time.Minute),
-			QueryTimeout:                models.MustNewDuration(2 * time.Minute),
+			SessionTimeout:              commonconfig.MustNewDuration(15 * time.Minute),
+			QueryTimeout:                commonconfig.MustNewDuration(2 * time.Minute),
 			BaseUserAttr:                ptr("uid"),
 			BaseDN:                      ptr("dc=custom,dc=example,dc=com"),
 			UsersDN:                     ptr("ou=users"),
@@ -346,15 +347,15 @@ func TestConfig_Marshal(t *testing.T) {
 			RunUserGroupCN:              ptr("NodeRunners"),
 			ReadUserGroupCN:             ptr("NodeReadOnly"),
 			UserApiTokenEnabled:         ptr(false),
-			UserAPITokenDuration:        models.MustNewDuration(240 * time.Hour),
-			UpstreamSyncInterval:        models.MustNewDuration(0 * time.Second),
-			UpstreamSyncRateLimit:       models.MustNewDuration(2 * time.Minute),
+			UserAPITokenDuration:        commonconfig.MustNewDuration(240 * time.Hour),
+			UpstreamSyncInterval:        commonconfig.MustNewDuration(0 * time.Second),
+			UpstreamSyncRateLimit:       commonconfig.MustNewDuration(2 * time.Minute),
 		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
-			AuthenticatedPeriod:   models.MustNewDuration(time.Second),
+			AuthenticatedPeriod:   commonconfig.MustNewDuration(time.Second),
 			Unauthenticated:       ptr[int64](7),
-			UnauthenticatedPeriod: models.MustNewDuration(time.Minute),
+			UnauthenticatedPeriod: commonconfig.MustNewDuration(time.Minute),
 		},
 		TLS: toml.WebServerTLS{
 			CertPath:      ptr("tls/cert/path"),
@@ -367,14 +368,14 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.JobPipeline = toml.JobPipeline{
 		ExternalInitiatorsEnabled: ptr(true),
-		MaxRunDuration:            models.MustNewDuration(time.Hour),
+		MaxRunDuration:            commonconfig.MustNewDuration(time.Hour),
 		MaxSuccessfulRuns:         ptr[uint64](123456),
-		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
-		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
+		ReaperInterval:            commonconfig.MustNewDuration(4 * time.Hour),
+		ReaperThreshold:           commonconfig.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
 			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
-			DefaultTimeout: models.MustNewDuration(time.Minute),
+			DefaultTimeout: commonconfig.MustNewDuration(time.Minute),
 		},
 	}
 	full.FluxMonitor = toml.FluxMonitor{
@@ -384,11 +385,11 @@ func TestConfig_Marshal(t *testing.T) {
 	full.OCR2 = toml.OCR2{
 		Enabled:                            ptr(true),
 		ContractConfirmations:              ptr[uint32](11),
-		BlockchainTimeout:                  models.MustNewDuration(3 * time.Second),
-		ContractPollInterval:               models.MustNewDuration(time.Hour),
-		ContractSubscribeInterval:          models.MustNewDuration(time.Minute),
-		ContractTransmitterTransmitTimeout: models.MustNewDuration(time.Minute),
-		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
+		BlockchainTimeout:                  commonconfig.MustNewDuration(3 * time.Second),
+		ContractPollInterval:               commonconfig.MustNewDuration(time.Hour),
+		ContractSubscribeInterval:          commonconfig.MustNewDuration(time.Minute),
+		ContractTransmitterTransmitTimeout: commonconfig.MustNewDuration(time.Minute),
+		DatabaseTimeout:                    commonconfig.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
 		CaptureAutomationCustomTelemetry:   ptr(true),
@@ -398,10 +399,10 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.OCR = toml.OCR{
 		Enabled:                      ptr(true),
-		ObservationTimeout:           models.MustNewDuration(11 * time.Second),
-		BlockchainTimeout:            models.MustNewDuration(3 * time.Second),
-		ContractPollInterval:         models.MustNewDuration(time.Hour),
-		ContractSubscribeInterval:    models.MustNewDuration(time.Minute),
+		ObservationTimeout:           commonconfig.MustNewDuration(11 * time.Second),
+		BlockchainTimeout:            commonconfig.MustNewDuration(3 * time.Second),
+		ContractPollInterval:         commonconfig.MustNewDuration(time.Hour),
+		ContractSubscribeInterval:    commonconfig.MustNewDuration(time.Minute),
 		DefaultTransactionQueueDepth: ptr[uint32](12),
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
@@ -421,8 +422,8 @@ func TestConfig_Marshal(t *testing.T) {
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
 			},
-			DeltaDial:       models.MustNewDuration(time.Minute),
-			DeltaReconcile:  models.MustNewDuration(time.Second),
+			DeltaDial:       commonconfig.MustNewDuration(time.Minute),
+			DeltaReconcile:  commonconfig.MustNewDuration(time.Second),
 			ListenAddresses: &[]string{"foo", "bar"},
 		},
 	}
@@ -436,7 +437,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Registry: toml.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
-			SyncInterval:        models.MustNewDuration(time.Hour),
+			SyncInterval:        commonconfig.MustNewDuration(time.Hour),
 			SyncUpkeepQueueSize: ptr[uint32](31),
 			MaxPerformDataSize:  ptr[uint32](5000),
 		},
@@ -444,9 +445,9 @@ func TestConfig_Marshal(t *testing.T) {
 	full.AutoPprof = toml.AutoPprof{
 		Enabled:              ptr(true),
 		ProfileRoot:          ptr("prof/root"),
-		PollInterval:         models.MustNewDuration(time.Minute),
-		GatherDuration:       models.MustNewDuration(12 * time.Second),
-		GatherTraceDuration:  models.MustNewDuration(13 * time.Second),
+		PollInterval:         commonconfig.MustNewDuration(time.Minute),
+		GatherDuration:       commonconfig.MustNewDuration(12 * time.Second),
+		GatherTraceDuration:  commonconfig.MustNewDuration(13 * time.Second),
 		MaxProfileSize:       ptr[utils.FileSize](utils.GB),
 		CPUProfileRate:       ptr[int64](7),
 		MemProfileRate:       ptr[int64](9),
@@ -565,8 +566,8 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              ptr[uint16](11),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
-					DeltaCOverride:                     models.MustNewDuration(time.Hour),
-					DeltaCJitterOverride:               models.MustNewDuration(time.Second),
+					DeltaCOverride:                     commonconfig.MustNewDuration(time.Hour),
+					DeltaCJitterOverride:               commonconfig.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
 				},
 				OCR2: evmcfg.OCR2{
@@ -663,9 +664,12 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
-			LatestReportTTL:      models.MustNewDuration(100 * time.Second),
-			MaxStaleAge:          models.MustNewDuration(101 * time.Second),
-			LatestReportDeadline: models.MustNewDuration(102 * time.Second),
+			LatestReportTTL:      commonconfig.MustNewDuration(100 * time.Second),
+			MaxStaleAge:          commonconfig.MustNewDuration(101 * time.Second),
+			LatestReportDeadline: commonconfig.MustNewDuration(102 * time.Second),
+		},
+		TLS: toml.MercuryTLS{
+			CertFile: ptr("/path/to/cert.pem"),
 		},
 	}
 
@@ -1099,6 +1103,9 @@ URL = 'http://stark.node'
 LatestReportTTL = '1m40s'
 MaxStaleAge = '1m41s'
 LatestReportDeadline = '1m42s'
+
+[Mercury.TLS]
+CertFile = '/path/to/cert.pem'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},
@@ -1125,7 +1132,7 @@ func TestConfig_full(t *testing.T) {
 	for c := range got.EVM {
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
-				got.EVM[c].Nodes[n].WSURL = new(models.URL)
+				got.EVM[c].Nodes[n].WSURL = new(commonconfig.URL)
 			}
 			if got.EVM[c].Nodes[n].SendOnly == nil {
 				got.EVM[c].Nodes[n].SendOnly = ptr(true)
@@ -1144,7 +1151,7 @@ func TestConfig_full(t *testing.T) {
 	// Except for TelemetryIngress.URL as this will be removed in the future
 	// and its only use is to signal to NOPs that these fields are no longer allowed
 	if got.TelemetryIngress.URL == nil {
-		got.TelemetryIngress.URL = new(models.URL)
+		got.TelemetryIngress.URL = new(commonconfig.URL)
 	}
 
 	cfgtest.AssertFieldsNotNil(t, got)
@@ -1257,8 +1264,8 @@ func TestConfig_Validate(t *testing.T) {
 	}
 }
 
-func mustURL(s string) *models.URL {
-	var u models.URL
+func mustURL(s string) *commonconfig.URL {
+	var u commonconfig.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
 	}

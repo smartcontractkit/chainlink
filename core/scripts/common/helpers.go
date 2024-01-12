@@ -251,6 +251,8 @@ func automationExplorerNetworkName(chainID int64) (prefix string) {
 		prefix = "arbitrum-goerli"
 	case ArbitrumOneChainID: // Arbitrum mainnet
 		prefix = "arbitrum"
+	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
+		prefix = "arbitrum-sepolia"
 
 	case 56: // BSC mainnet
 		prefix = "bsc"
