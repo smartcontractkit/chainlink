@@ -70,7 +70,7 @@ func TestChainScopedConfig(t *testing.T) {
 					ChainID: id,
 					Chain: toml.Defaults(id, &toml.Chain{
 						GasEstimator: toml.GasEstimator{
-							BumpTxDepth: ptr(uint32(override)),
+							BumpTxDepth: ptr(override),
 						},
 					}),
 				}

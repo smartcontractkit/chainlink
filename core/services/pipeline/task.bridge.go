@@ -74,7 +74,7 @@ var _ Task = (*BridgeTask)(nil)
 
 var zeroURL = new(url.URL)
 
-const stalenessCap = time.Duration(30 * time.Minute)
+const stalenessCap = 30 * time.Minute
 
 func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
@@ -166,7 +166,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	var cachedResponse bool
-	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
+	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	if err != nil {
 		promBridgeErrors.WithLabelValues(t.Name).Inc()
 		if cacheTTL == 0 {
