@@ -92,8 +92,8 @@ const (
 	// nodeStateClosed is after the connection has been closed and the node is at the end of its lifecycle
 	nodeStateClosed
 	// nodeStateSyncing is a node that is actively back-filling blockchain. Usually, it's a newly set up node that is
-	// still syncing the chain. The main difference from `nodeStateOutOfSync` is that it represents position relative
-	// to other primary nodes configured in the Core. In contrast, `nodeStateSyncing` represents the internal state of
+	// still syncing the chain. The main difference from `nodeStateOutOfSync` is that it represents state relative
+	// to other primary nodes configured in the MultiNode. In contrast, `nodeStateSyncing` represents the internal state of
 	// the node (RPC).
 	nodeStateSyncing
 	// nodeStateLen tracks the number of states
@@ -180,7 +180,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateOutOfSync:
+	case nodeStateOutOfSync, nodeStateSyncing:
 		n.state = nodeStateAlive
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))

@@ -218,12 +218,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) start(startCtx context.Context) {
 	}
 
 	if err := n.rpc.Dial(startCtx); err != nil {
-		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err, "nodeState", n.State())
+		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err)
 		n.declareUnreachable()
 		return
 	}
-
 	n.setState(nodeStateDialed)
+
 	state := n.verifyConn(startCtx, n.lfcLog)
 	n.declareState(state)
 }
@@ -248,7 +248,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 	var err error
 	if chainID, err = n.rpc.ChainID(callerCtx); err != nil {
 		promFailed()
-		lggr.Errorw("Failed to verify chain ID for node", "err", err, "nodeState", n.State(), "node", n.name)
+		lggr.Errorw("Failed to verify chain ID for node", "err", err, "nodeState", n.State())
 		return nodeStateUnreachable
 	} else if chainID.String() != n.chainID.String() {
 		promFailed()
@@ -270,7 +270,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 
 // createVerifiedConn - establishes new connection with the RPC and verifies that it's valid: chainID matches, and it's not syncing.
 // Returns desired state if one of the verifications fails. Otherwise, returns nodeStateAlive.
-// Sets nodeState to Dialed after successful dial.
 func (n *node[CHAIN_ID, HEAD, RPC]) createVerifiedConn(ctx context.Context, lggr logger.Logger) nodeState {
 	if err := n.rpc.Dial(ctx); err != nil {
 		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err, "nodeState", n.State())
@@ -280,6 +279,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) createVerifiedConn(ctx context.Context, lggr
 	return n.verifyConn(ctx, lggr)
 }
 
+// verifyConn - verifies that current connection is valid: chainID matches, and it's not syncing.
+// Returns desired state if one of the verifications fails. Otherwise, returns nodeStateAlive.
 func (n *node[CHAIN_ID, HEAD, RPC]) verifyConn(ctx context.Context, lggr logger.Logger) nodeState {
 	state := n.verifyChainID(ctx, lggr)
 	if state != nodeStateAlive {
@@ -288,7 +289,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyConn(ctx context.Context, lggr logger.
 
 	isSyncing, err := n.rpc.IsSyncing(ctx)
 	if err != nil {
-		lggr.Errorw(fmt.Sprintf("Unexpected error while verifying RPC node synchronization status; %v", err), "err", err, "nodeState", n.State())
+		lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
 		return nodeStateUnreachable
 	}
 

@@ -467,10 +467,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 		case <-n.nodeCtx.Done():
 			return
 		case <-time.After(recheckBackoff.Duration()):
-			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
+			lggr.Tracew("Trying to recheck if the node is still syncing", "nodeState", n.State())
 			isSyncing, err := n.rpc.IsSyncing(n.nodeCtx)
 			if err != nil {
-				lggr.Errorw(fmt.Sprintf("Unexpected error while verifying RPC node synchronization status; %v", err), "err", err, "nodeState", n.State())
+				lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
 				n.declareUnreachable()
 				return
 			}
@@ -483,6 +483,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			lggr.Infow(fmt.Sprintf("Successfully verified RPC node. Node was syncing for %s", time.Since(syncingAt)), "nodeState", n.State())
 			n.declareAlive()
 			return
+		case <-time.After(zombieNodeCheckInterval(n.noNewHeadsThreshold)):
+			if n.nLiveNodes != nil {
+				if l, _, _ := n.nLiveNodes(); l < 1 {
+					lggr.Critical("RPC endpoint is still syncing, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
+					n.declareInSync()
+					return
+				}
+			}
 		}
 
 	}

@@ -1354,6 +1354,34 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 			return node.State() == nodeStateSyncing
 		})
 	})
+	t.Run("becomes alive if there is no other nodes", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		nodeChainID := types.RandomID()
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		node := newDialedNode(t, testNodeOpts{
+			noNewHeadsThreshold: tests.TestInterval,
+			rpc:                 rpc,
+			chainID:             nodeChainID,
+			lggr:                lggr,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
+			return 0, 100, big.NewInt(200)
+		}
+
+		rpc.On("Dial", mock.Anything).Return(nil).Once()
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
+		rpc.On("IsSyncing", mock.Anything).Return(true, nil).Once()
+
+		setupRPCForAliveLoop(t, rpc)
+
+		node.declareSyncing()
+		tests.AssertLogEventually(t, observedLogs, "RPC endpoint is still syncing, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateAlive
+		})
+	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
