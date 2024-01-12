@@ -133,10 +133,6 @@ contract VRFV2OwnerTestConsumer is VRFConsumerBaseV2, ConfirmedOwner {
   }
 
   function topUpSubscription(uint256 amount) public onlyOwner {
-    LINKTOKEN.transferAndCall(
-      address(COORDINATOR),
-      amount,
-      abi.encode(subId)
-    );
+    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(subId));
   }
 }
