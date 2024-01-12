@@ -7,7 +7,9 @@ name: "Build and Publish from PR"
 ##
 
 on:
-  pull_request:
+  push:
+    branches:
+      - this-workflow-is-disabled-for-ccip
 
 jobs:
   build-publish-untrusted:
