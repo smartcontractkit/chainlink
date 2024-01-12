@@ -12,7 +12,7 @@ type AdapterStatus struct {
 	ProviderStatusCode *int    `json:"providerStatusCode"`
 }
 
-func BestEffortExtractEAStatus(responseBytes []byte) (int, bool) {
+func BestEffortExtractEAStatus(responseBytes []byte) (code int, ok bool) {
 	var status AdapterStatus
 	err := json.Unmarshal(responseBytes, &status)
 	if err != nil {
