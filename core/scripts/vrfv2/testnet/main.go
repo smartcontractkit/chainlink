@@ -886,7 +886,7 @@ func main() {
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
-			requestRandTX, err := consumer.RequestRandomWords(
+			requestRandTX, errRequestRandomWords := consumer.RequestRandomWords(
 				e.Owner,
 				uint16(*requestConfirmations),
 				keyHashBytes,
@@ -895,7 +895,7 @@ func main() {
 				uint16(*requests),
 				decimal.RequireFromString(*subFundingAmountJuels).BigInt(),
 			)
-			helpers.PanicErr(err)
+			helpers.PanicErr(errRequestRandomWords)
 			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, requestRandTX.Hash()))
 			txes = append(txes, requestRandTX)
 		}
@@ -921,8 +921,8 @@ func main() {
 
 		go func() {
 			subCreatedChan := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated)
-			subCreatedSubscription, err := coordinator.WatchSubscriptionCreated(nil, subCreatedChan, nil)
-			helpers.PanicErr(err)
+			subCreatedSubscription, errw := coordinator.WatchSubscriptionCreated(nil, subCreatedChan, nil)
+			helpers.PanicErr(errw)
 			defer subCreatedSubscription.Unsubscribe()
 			subscriptionCreatedEvent := <-subCreatedChan
 			subId = subscriptionCreatedEvent.SubId
