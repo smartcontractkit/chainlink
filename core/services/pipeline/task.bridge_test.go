@@ -1055,7 +1055,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.WebServer.BridgeCacheTTL = models.MustNewDuration(1 * time.Minute)
+		c.WebServer.BridgeCacheTTL = commonconfig.MustNewDuration(1 * time.Minute)
 	})
 
 	testAdapterResponse := &adapterResponse{
