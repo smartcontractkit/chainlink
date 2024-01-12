@@ -1060,7 +1060,7 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	qopts = append(qopts, pg.WithParentCtx(ctx))
 	minRequestedBlock := int64(mathutil.Min(numbers[0], numbers[1:]...))
 	maxRequestedBlock := int64(mathutil.Max(numbers[0], numbers[1:]...))
-	lpBlocks, err := lp.orm.GetBlocksRange(int64(minRequestedBlock), int64(maxRequestedBlock), qopts...)
+	lpBlocks, err := lp.orm.GetBlocksRange(minRequestedBlock, maxRequestedBlock, qopts...)
 	if err != nil {
 		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
 	} else {

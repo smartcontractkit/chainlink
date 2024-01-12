@@ -164,13 +164,13 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			{"gas tip < fee cap", assets.GWei(4), assets.GWei(5), nil, ""},
 			{"gas tip > fee cap", assets.GWei(6), assets.GWei(5), nil, "gas fee cap must be greater than or equal to gas tip cap (fee cap: 5 gwei, tip cap: 6 gwei)"},
 			{"fee cap exceeds max allowed", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(4))
+				c.EVM[0].GasEstimator.PriceMax = assets.GWei(4)
 			}, "specified gas fee cap of 5 gwei would exceed max configured gas price of 4 gwei"},
 			{"ignores global min gas price", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.PriceMin = (*assets.Wei)(assets.GWei(6))
+				c.EVM[0].GasEstimator.PriceMin = assets.GWei(6)
 			}, ""},
 			{"tip cap below min allowed", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.TipCapMin = (*assets.Wei)(assets.GWei(6))
+				c.EVM[0].GasEstimator.TipCapMin = assets.GWei(6)
 			}, "specified gas tip cap of 5 gwei is below min configured gas tip of 6 gwei"},
 		}
 

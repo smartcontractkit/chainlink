@@ -47,7 +47,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if !jb.Name.Valid {
 		return nil, errors.New("job name is required to be present for stream specs")
 	}
-	id := StreamID(jb.Name.String)
+	id := jb.Name.String
 	lggr := d.lggr.Named(id).With("streamID", id)
 
 	rrs := ocrcommon.NewResultRunSaver(d.runner, lggr, d.cfg.MaxSuccessfulRuns(), d.cfg.ResultWriteQueueDepth())

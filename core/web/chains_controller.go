@@ -45,7 +45,7 @@ func newChainsController[R jsonapi.EntityNamer](network relay.Network, chainStat
 	newResource func(types.ChainStatus) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[R] {
 	return &chainsController[R]{
 		network:       network,
-		resourceName:  string(network) + "_chain",
+		resourceName:  network + "_chain",
 		chainStats:    chainStats,
 		errNotEnabled: errNotEnabled,
 		newResource:   newResource,

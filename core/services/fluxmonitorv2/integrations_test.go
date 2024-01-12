@@ -519,7 +519,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			s = fmt.Sprintf(s, fa.aggregatorContractAddress, 2*time.Second)
 
 			requestBody, err := json.Marshal(web.CreateJobRequest{
-				TOML: string(s),
+				TOML: s,
 			})
 			assert.NoError(t, err)
 
@@ -676,7 +676,7 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
+		TOML: s,
 	})
 	assert.NoError(t, err)
 
@@ -786,7 +786,7 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
+		TOML: s,
 	})
 	assert.NoError(t, err)
 
@@ -896,7 +896,7 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
+		TOML: s,
 	})
 	assert.NoError(t, err)
 
@@ -991,7 +991,7 @@ ds1 -> ds1_parse -> ds1_multiply
 
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), "200ms", mockServer.URL)
 	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
+		TOML: s,
 	})
 	assert.NoError(t, err)
 

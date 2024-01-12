@@ -380,7 +380,7 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: config.ErrInvalidChainType.Error()})
 	}
 
-	if c.GasEstimator.BumpTxDepth != nil && uint32(*c.GasEstimator.BumpTxDepth) > *c.Transactions.MaxInFlight {
+	if c.GasEstimator.BumpTxDepth != nil && *c.GasEstimator.BumpTxDepth > *c.Transactions.MaxInFlight {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
 			Msg: "must be less than or equal to Transactions.MaxInFlight"})
 	}

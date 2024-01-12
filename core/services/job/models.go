@@ -236,7 +236,7 @@ func (pr *PipelineRun) SetID(value string) error {
 	if err != nil {
 		return err
 	}
-	pr.ID = int64(ID)
+	pr.ID = ID
 	return nil
 }
 
