@@ -37,4 +37,3 @@ contract ArbitrumCrossDomainForwarder is CrossDomainForwarder {
     _;
   }
 }
-

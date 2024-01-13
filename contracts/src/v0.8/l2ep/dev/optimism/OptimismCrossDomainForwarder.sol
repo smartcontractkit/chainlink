@@ -58,4 +58,3 @@ contract OptimismCrossDomainForwarder is CrossDomainForwarder {
     _;
   }
 }
-

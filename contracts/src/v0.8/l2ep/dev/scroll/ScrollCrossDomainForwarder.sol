@@ -54,4 +54,3 @@ contract ScrollCrossDomainForwarder is CrossDomainForwarder {
     _;
   }
 }
-
