@@ -3,8 +3,6 @@ pragma solidity 0.8.19;
 
 import {TypeAndVersionInterface} from ".././../interfaces/TypeAndVersionInterface.sol";
 import {DelegateForwarderInterface} from "./interfaces/DelegateForwarderInterface.sol";
-
-// solhint-disable-next-line no-unused-import
 import {ForwarderInterface} from "./interfaces/ForwarderInterface.sol";
 
 import {CrossDomainForwarder} from "./CrossDomainForwarder.sol";
@@ -16,7 +14,12 @@ import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils
 /// @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
 /// @dev Any other L2 contract which uses this contract's address as a privileged position,
 /// can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
-abstract contract CrossDomainGovernor is DelegateForwarderInterface, TypeAndVersionInterface, CrossDomainForwarder {
+abstract contract CrossDomainGovernor is
+  DelegateForwarderInterface,
+  TypeAndVersionInterface,
+  ForwarderInterface,
+  CrossDomainOwnable
+{
   /// @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
   constructor(address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {}
 

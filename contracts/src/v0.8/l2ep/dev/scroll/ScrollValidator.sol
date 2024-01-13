@@ -12,7 +12,7 @@ contract ScrollValidator is GasLimitValidator {
   string public constant override typeAndVersion = "ScrollValidator 1.0.0";
 
   /// @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address
-  /// @param l2UptimeFeedAddr the address of the ScrollSequencerUptimeFeed contract address
+  /// @param l2UptimeFeedAddr the address of the SequencerUptimeFeed contract address
   /// @param gasLimit the gasLimit to use for sending a message from L1 to L2
   constructor(
     address l1CrossDomainMessengerAddress,

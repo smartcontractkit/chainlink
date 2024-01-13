@@ -2,12 +2,9 @@
 pragma solidity 0.8.19;
 
 import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
-import {AggregatorValidatorInterface} from "../../../shared/interfaces/AggregatorValidatorInterface.sol";
 import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {IArbitrumDelayedInbox} from "../interfaces/IArbitrumDelayedInbox.sol";
 
-import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 import {Validator} from "../Validator.sol";
 
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";

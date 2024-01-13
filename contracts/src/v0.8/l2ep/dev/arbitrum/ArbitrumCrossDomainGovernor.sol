@@ -18,7 +18,7 @@ contract ArbitrumCrossDomainGovernor is CrossDomainGovernor {
   /// @dev Empty constructor required due to inheriting from abstract contract CrossDomainGovernor
   constructor(address l1OwnerAddr) CrossDomainGovernor(l1OwnerAddr) {}
 
-  /// @notice The address of the Cross Domain Messenger contract
+  /// @notice The L2 xDomain `msg.sender`, generated from L1 sender address
   function crossDomainMessenger() external view override returns (address) {
     return AddressAliasHelper.applyL1ToL2Alias(l1Owner());
   }
