@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-
 import {CrossDomainForwarder} from "../CrossDomainForwarder.sol";
 
 import {iOVM_CrossDomainMessenger} from "../../../vendor/@eth-optimism/contracts/v0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /// @title OptimismCrossDomainForwarder - L1 xDomain account representation
 /// @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
@@ -61,3 +58,4 @@ contract OptimismCrossDomainForwarder is CrossDomainForwarder {
     _;
   }
 }
+

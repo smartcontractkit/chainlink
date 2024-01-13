@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-
 import {CrossDomainForwarder} from "../CrossDomainForwarder.sol";
 
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
@@ -40,3 +38,4 @@ contract ArbitrumCrossDomainForwarder is CrossDomainForwarder {
     _;
   }
 }
+

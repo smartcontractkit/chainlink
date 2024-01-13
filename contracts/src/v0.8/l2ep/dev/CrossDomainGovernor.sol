@@ -5,7 +5,6 @@ import {TypeAndVersionInterface} from ".././../interfaces/TypeAndVersionInterfac
 import {DelegateForwarderInterface} from "./interfaces/DelegateForwarderInterface.sol";
 import {ForwarderInterface} from "./interfaces/ForwarderInterface.sol";
 
-import {CrossDomainForwarder} from "./CrossDomainForwarder.sol";
 import {CrossDomainOwnable} from "./CrossDomainOwnable.sol";
 
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";

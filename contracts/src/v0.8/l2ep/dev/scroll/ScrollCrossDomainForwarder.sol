@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
 
 import {CrossDomainForwarder} from "../CrossDomainForwarder.sol";
 
 import {IScrollMessenger} from "@scroll-tech/contracts/libraries/IScrollMessenger.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /// @title ScrollCrossDomainForwarder - L1 xDomain account representation
 /// @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
@@ -58,3 +56,4 @@ contract ScrollCrossDomainForwarder is CrossDomainForwarder {
     _;
   }
 }
+
