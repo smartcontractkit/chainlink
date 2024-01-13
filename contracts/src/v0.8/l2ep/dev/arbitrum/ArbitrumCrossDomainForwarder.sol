@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 import {CrossDomainForwarder} from "../CrossDomainForwarder.sol";
 
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /// @title ArbitrumCrossDomainForwarder - L1 xDomain account representation
 /// @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {ForwarderInterface} from "../interfaces/ForwarderInterface.sol";
-
 import {CrossDomainForwarder} from "../CrossDomainForwarder.sol";
 
 import {IScrollMessenger} from "@scroll-tech/contracts/libraries/IScrollMessenger.sol";
