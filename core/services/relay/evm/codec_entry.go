@@ -53,14 +53,14 @@ func (entry *codecEntry) Init() error {
 			return fmt.Errorf("%w: empty field names are not supported for multiple returns", commontypes.ErrInvalidType)
 		}
 
-		tag := reflect.StructTag(`json:"` + arg.Name + `"`)
 		name := strings.ToUpper(arg.Name[:1]) + arg.Name[1:]
 		if seenNames[name] {
 			return fmt.Errorf("%w: duplicate field name %s, first letter casing is ignored", commontypes.ErrInvalidType, name)
 		}
+
 		seenNames[name] = true
-		native[i] = reflect.StructField{Name: name, Type: nativeArg, Tag: tag}
-		checked[i] = reflect.StructField{Name: name, Type: checkedArg, Tag: tag}
+		native[i] = reflect.StructField{Name: name, Type: nativeArg}
+		checked[i] = reflect.StructField{Name: name, Type: checkedArg}
 	}
 
 	entry.nativeType = reflect.StructOf(native)
