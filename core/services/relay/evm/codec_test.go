@@ -53,6 +53,10 @@ func (it *codecInterfaceTester) Setup(_ *testing.T) {}
 
 func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 	account := [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	// fuzz tests can make -ve numbers
+	if i < 0 {
+		i = -i
+	}
 	account[i%20] += byte(i)
 	account[(i+3)%20] += byte(i + 3)
 	return account[:]

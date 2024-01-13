@@ -14,7 +14,14 @@ type encoder struct {
 
 var _ commontypes.Encoder = &encoder{}
 
-func (e *encoder) Encode(ctx context.Context, item any, itemType string) ([]byte, error) {
+func (e *encoder) Encode(ctx context.Context, item any, itemType string) (res []byte, err error) {
+	// nil values can cause abi.Arguments.Pack to panic.
+	defer func() {
+		if r := recover(); r != nil {
+			res = nil
+			err = fmt.Errorf("%w: cannot encode type", commontypes.ErrInvalidType)
+		}
+	}()
 	info, ok := e.Definitions[itemType]
 	if !ok {
 		return nil, fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
