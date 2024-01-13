@@ -50,7 +50,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup node
-        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.0.0
+        uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
         with:
@@ -97,7 +97,7 @@ jobs:
         working-directory: ./.github/actions/setup-postgres
       - name: Store logs artifacts
         if: always()
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: ${{ matrix.cmd }}_logs
           path: |
@@ -136,7 +136,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup node
-        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.0.0
+        uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
         with:
@@ -154,7 +154,7 @@ jobs:
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           path: ./artifacts
       - name: Build flakey test runner

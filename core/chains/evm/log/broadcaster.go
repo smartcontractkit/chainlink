@@ -564,7 +564,7 @@ func (b *broadcaster) onNewHeads() {
 
 		b.lastSeenHeadNumber.Store(latestHead.Number)
 
-		keptLogsDepth := uint32(b.config.FinalityDepth())
+		keptLogsDepth := b.config.FinalityDepth()
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
 			keptLogsDepth = b.registrations.highestNumConfirmations
 		}

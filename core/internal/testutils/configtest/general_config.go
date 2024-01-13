@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -45,21 +46,21 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 	c.Insecure.OCRDevelopmentMode = ptr(true)
 	c.InsecureFastScrypt = ptr(true)
-	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
+	c.ShutdownGracePeriod = commonconfig.MustNewDuration(testutils.DefaultWaitTimeout)
 
 	c.Database.Dialect = dialects.TransactionWrappedPostgres
 	c.Database.Lock.Enabled = ptr(false)
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)
 	c.Database.MigrateOnStartup = ptr(false)
-	c.Database.DefaultLockTimeout = models.MustNewDuration(1 * time.Minute)
+	c.Database.DefaultLockTimeout = commonconfig.MustNewDuration(1 * time.Minute)
 
-	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
+	c.JobPipeline.ReaperInterval = commonconfig.MustNewDuration(0)
 
 	c.P2P.V2.Enabled = ptr(false)
 
-	c.WebServer.SessionTimeout = models.MustNewDuration(2 * time.Minute)
-	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
+	c.WebServer.SessionTimeout = commonconfig.MustNewDuration(2 * time.Minute)
+	c.WebServer.BridgeResponseURL = commonconfig.MustParseURL("http://localhost:6688")
 	testIP := net.ParseIP("127.0.0.1")
 	c.WebServer.ListenIP = &testIP
 	c.WebServer.TLS.ListenIP = &testIP
@@ -71,8 +72,8 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 		Nodes: evmcfg.EVMNodes{
 			&evmcfg.Node{
 				Name:     ptr("test"),
-				WSURL:    &models.URL{},
-				HTTPURL:  &models.URL{},
+				WSURL:    &commonconfig.URL{},
+				HTTPURL:  &commonconfig.URL{},
 				SendOnly: new(bool),
 				Order:    ptr[int32](100),
 			},
@@ -112,8 +113,8 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 
 var validTestNode = evmcfg.Node{
 	Name:     ptr("simulated-node"),
-	WSURL:    models.MustParseURL("WSS://simulated-wss.com/ws"),
-	HTTPURL:  models.MustParseURL("http://simulated.com"),
+	WSURL:    commonconfig.MustParseURL("WSS://simulated-wss.com/ws"),
+	HTTPURL:  commonconfig.MustParseURL("http://simulated.com"),
 	SendOnly: nil,
 	Order:    ptr(int32(1)),
 }

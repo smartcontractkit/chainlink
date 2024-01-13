@@ -357,7 +357,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 			err = reportcodecv1.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -421,7 +421,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 			err = reportcodecv1.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -691,7 +691,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 			err = reportcodecv2.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -971,7 +971,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 			err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 

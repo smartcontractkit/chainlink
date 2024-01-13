@@ -574,3 +574,8 @@ MaxStaleAge = "1h" # Default
 # LatestReportDeadline controls how long to wait for a response from the
 # mercury server before retrying. Setting this to zero will wait indefinitely.
 LatestReportDeadline = "5s" # Default
+
+# Mercury.TLS controls client settings for when the node talks to traditional web servers or load balancers.
+[Mercury.TLS]
+# CertFile is the path to a PEM file of trusted root certificate authority certificates
+CertFile = "/path/to/client/certs.pem" # Example

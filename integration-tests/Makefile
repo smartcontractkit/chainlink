@@ -74,12 +74,12 @@ build_test_image:
 #Build a chainlink docker image for local testing and push to k3d registry
 .PHONY: build_push_docker_image
 build_push_docker_image:
-	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t 127.0.0.1:5000/chainlink:develop ../ ; docker push 127.0.0.1:5000/chainlink:develop
 
 #Build a chainlink docker image in plugin mode for local testing and push to k3d registry
 .PHONY: build_push_plugin_docker_image
 build_push_plugin_docker_image:
-	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
+	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t 127.0.0.1:5000/chainlink:develop ../ ; docker push 127.0.0.1:5000/chainlink:develop
 
 # Spins up containers needed to collect traces for local testing
 .PHONY: run_tracing
@@ -197,7 +197,7 @@ build_docker_image:
 # example usage: make build_docker_image image=chainlink tag=latest
 .PHONY: build_plugin_docker_image
 build_plugin_docker_image:
-	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../
+	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t 127.0.0.1:5000/chainlink:develop ../
 
 # image: the name for the chainlink image being built, example: image=chainlink
 # tag: the tag for the chainlink image being built, example: tag=latest
