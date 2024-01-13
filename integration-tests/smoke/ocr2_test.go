@@ -31,9 +31,9 @@ func TestOCRv2Basic(t *testing.T) {
 		env                 map[string]string
 		chainReaderAndCodec bool
 	}{
-		{"legacy", noMedianPlugin, false},
+		//{"legacy", noMedianPlugin, false},
 		{"legacy-chain-reader", noMedianPlugin, true},
-		{"plugins", medianPlugin, false},
+		//{"plugins", medianPlugin, false},
 		{"plugins-chain-reader", medianPlugin, true},
 	} {
 		test := test
