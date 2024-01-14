@@ -49,7 +49,7 @@ func runTemplate(name, rawTemplate, outputFile string, input any) {
 		panic(err)
 	}
 
-	res, err := format.Source([]byte(br.Bytes()))
+	res, err := format.Source(br.Bytes())
 	if err != nil {
 		panic(err)
 	}
