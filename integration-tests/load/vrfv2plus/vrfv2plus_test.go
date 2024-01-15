@@ -158,10 +158,13 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		vrfv2PlusConfig.General.SubscriptionFundingAmountLink = testConfig.VRFv2Plus.NewEnvConfig.Funding.SubFundsLink
 		vrfv2PlusConfig.General.SubscriptionFundingAmountNative = testConfig.VRFv2Plus.NewEnvConfig.Funding.SubFundsNative
+
+		network, err := actions.EthereumNetworkConfigFromConfig(l, &testConfig)
+		require.NoError(t, err, "Error building ethereum network config")
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(&testConfig).
-			WithGeth().
+			WithPrivateEthereumNetwork(network).
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
 			WithCustomCleanup(
