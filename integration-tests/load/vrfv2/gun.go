@@ -47,11 +47,11 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		//the same consumer is used for all requests and in all subs
 		m.contracts.LoadTestConsumers[0],
 		m.contracts.Coordinator,
-		&vrfv2_actions.VRFV2Data{VRFV2KeyData: vrfv2_actions.VRFV2KeyData{KeyHash: m.keyHash}},
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
-		randomnessRequestCountPerRequest,
+		&vrfv2_actions.VRFV2Data{VRFV2KeyData: vrfv2_actions.VRFV2KeyData{KeyHash: m.keyHash}},
 		m.testConfig,
+		randomnessRequestCountPerRequest,
 		vrfv2Config.RandomWordsFulfilledEventTimeout.Duration,
 		m.logger,
 	)

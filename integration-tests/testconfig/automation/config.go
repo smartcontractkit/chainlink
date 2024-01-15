@@ -10,26 +10,6 @@ type Config struct {
 	Load    []Load   `toml:"Load"`
 }
 
-func (c *Config) ApplyOverrides(from *Config) error {
-	if from == nil {
-		return nil
-	}
-	if from.General != nil && c.General == nil {
-		c.General = from.General
-	} else if from.General != nil && c.General != nil {
-		if err := c.General.ApplyOverrides(from.General); err != nil {
-			return err
-		}
-	}
-	if len(from.Load) > 0 && len(c.Load) == 0 {
-		c.Load = from.Load
-	} else if len(from.Load) > 0 && len(c.Load) > 0 {
-		from.Load = append(from.Load, c.Load...)
-	}
-
-	return nil
-}
-
 func (c *Config) Validate() error {
 	if c.General != nil {
 		if err := c.General.Validate(); err != nil {
@@ -54,32 +34,6 @@ type General struct {
 	SpecType              *string `toml:"spec_type"`
 	ChainlinkNodeLogLevel *string `toml:"chainlink_node_log_level"`
 	UsePrometheus         *bool   `toml:"use_prometheus"`
-}
-
-func (c *General) ApplyOverrides(from *General) error {
-	if from == nil {
-		return nil
-	}
-	if from.NumberOfNodes != nil {
-		c.NumberOfNodes = from.NumberOfNodes
-	}
-	if from.Duration != nil {
-		c.Duration = from.Duration
-	}
-	if from.BlockTime != nil {
-		c.BlockTime = from.BlockTime
-	}
-	if from.SpecType != nil {
-		c.SpecType = from.SpecType
-	}
-	if from.ChainlinkNodeLogLevel != nil {
-		c.ChainlinkNodeLogLevel = from.ChainlinkNodeLogLevel
-	}
-	if from.UsePrometheus != nil {
-		c.UsePrometheus = from.UsePrometheus
-	}
-
-	return nil
 }
 
 func (c *General) Validate() error {
@@ -111,38 +65,6 @@ type Load struct {
 	PerformBurnAmount             *big.Int `toml:"perform_burn_amount"`
 	SharedTrigger                 *bool    `toml:"shared_trigger"`
 	UpkeepGasLimit                *uint32  `toml:"upkeep_gas_limit"`
-}
-
-func (c *Load) ApplyOverrides(from *Load) error {
-	if from == nil {
-		return nil
-	}
-	if from.NumberOfUpkeeps != nil {
-		c.NumberOfUpkeeps = from.NumberOfUpkeeps
-	}
-	if from.NumberOfEvents != nil {
-		c.NumberOfEvents = from.NumberOfEvents
-	}
-	if from.NumberOfSpamMatchingEvents != nil {
-		c.NumberOfSpamMatchingEvents = from.NumberOfSpamMatchingEvents
-	}
-	if from.NumberOfSpamNonMatchingEvents != nil {
-		c.NumberOfSpamNonMatchingEvents = from.NumberOfSpamNonMatchingEvents
-	}
-	if from.CheckBurnAmount != nil {
-		c.CheckBurnAmount = from.CheckBurnAmount
-	}
-	if from.PerformBurnAmount != nil {
-		c.PerformBurnAmount = from.PerformBurnAmount
-	}
-	if from.SharedTrigger != nil {
-		c.SharedTrigger = from.SharedTrigger
-	}
-	if from.UpkeepGasLimit != nil {
-		c.UpkeepGasLimit = from.UpkeepGasLimit
-	}
-
-	return nil
 }
 
 func (c *Load) Validate() error {

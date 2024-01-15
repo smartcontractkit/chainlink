@@ -14,49 +14,6 @@ type Config struct {
 	Performance       *vrfv2.PerformanceConfig `toml:"Performance"`
 }
 
-func (c *Config) ApplyOverrides(from *Config) error {
-	if from == nil {
-		return nil
-	}
-	if c.Common == nil && from.Common != nil {
-		c.Common = from.Common
-	} else if c.Common != nil && from.Common != nil {
-		if err := c.Common.ApplyOverrides(from.Common); err != nil {
-			return err
-		}
-	}
-	if c.General == nil && from.General != nil {
-		c.General = from.General
-	} else if c.General != nil && from.General != nil {
-		if err := c.General.ApplyOverrides(from.General); err != nil {
-			return err
-		}
-	}
-	if c.ExistingEnvConfig == nil && from.ExistingEnvConfig != nil {
-		c.ExistingEnvConfig = from.ExistingEnvConfig
-	} else if c.ExistingEnvConfig != nil && from.ExistingEnvConfig != nil {
-		if err := c.ExistingEnvConfig.ApplyOverrides(from.ExistingEnvConfig); err != nil {
-			return err
-		}
-	}
-	if c.NewEnvConfig == nil && from.NewEnvConfig != nil {
-		c.NewEnvConfig = from.NewEnvConfig
-	} else if c.NewEnvConfig != nil && from.NewEnvConfig != nil {
-		if err := c.NewEnvConfig.ApplyOverrides(from.NewEnvConfig); err != nil {
-			return err
-		}
-	}
-	if c.Performance == nil && from.Performance != nil {
-		c.Performance = from.Performance
-	} else if c.Performance != nil && from.Performance != nil {
-		if err := c.Performance.ApplyOverrides(from.Performance); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *Config) Validate() error {
 	if c.Common != nil {
 		if err := c.Common.Validate(); err != nil {
@@ -94,13 +51,6 @@ type Common struct {
 	*vrfv2.Common
 }
 
-func (c *Common) ApplyOverrides(from *Common) error {
-	if from == nil {
-		return nil
-	}
-	return c.Common.ApplyOverrides(from.Common)
-}
-
 func (c *Common) Validate() error {
 	if c.Common == nil {
 		return nil
@@ -113,26 +63,6 @@ type General struct {
 	SubscriptionFundingAmountNative *float64 `toml:"subscription_funding_amount_native"` // Amount of LINK to fund the subscription with
 	FulfillmentFlatFeeLinkPPM       *uint32  `toml:"fulfillment_flat_fee_link_ppm"`      // Flat fee in ppm for LINK for the VRF Coordinator config
 	FulfillmentFlatFeeNativePPM     *uint32  `toml:"fulfillment_flat_fee_native_ppm"`    // Flat fee in ppm for native currency for the VRF Coordinator config
-}
-
-func (c *General) ApplyOverrides(from *General) error {
-	if from == nil {
-		return nil
-	}
-	if err := c.General.ApplyOverrides(from.General); err != nil {
-		return err
-	}
-	if from.SubscriptionFundingAmountNative != nil {
-		c.SubscriptionFundingAmountNative = from.SubscriptionFundingAmountNative
-	}
-	if from.FulfillmentFlatFeeLinkPPM != nil {
-		c.FulfillmentFlatFeeLinkPPM = from.FulfillmentFlatFeeLinkPPM
-	}
-	if from.FulfillmentFlatFeeNativePPM != nil {
-		c.FulfillmentFlatFeeNativePPM = from.FulfillmentFlatFeeNativePPM
-	}
-
-	return nil
 }
 
 func (c *General) Validate() error {
@@ -156,16 +86,6 @@ type NewEnvConfig struct {
 	*Funding
 }
 
-func (c *NewEnvConfig) ApplyOverrides(from *NewEnvConfig) error {
-	if from == nil {
-		return nil
-	}
-	if c.Funding == nil {
-		return nil
-	}
-	return c.Funding.ApplyOverrides(from.Funding)
-}
-
 func (c *NewEnvConfig) Validate() error {
 	if c.Funding == nil {
 		return nil
@@ -177,28 +97,6 @@ func (c *NewEnvConfig) Validate() error {
 type ExistingEnvConfig struct {
 	*vrfv2.ExistingEnvConfig
 	*Funding
-}
-
-func (c *ExistingEnvConfig) ApplyOverrides(from *ExistingEnvConfig) error {
-	if from == nil {
-		return nil
-	}
-	if from.ExistingEnvConfig != nil && c.ExistingEnvConfig == nil {
-		c.ExistingEnvConfig = from.ExistingEnvConfig
-	} else if from.ExistingEnvConfig != nil && c.ExistingEnvConfig != nil {
-		if err := c.ExistingEnvConfig.ApplyOverrides(from.ExistingEnvConfig); err != nil {
-			return err
-		}
-	}
-	if from.Funding != nil && c.Funding == nil {
-		c.Funding = from.Funding
-	} else if from.Funding != nil && c.Funding != nil {
-		if err := c.Funding.ApplyOverrides(from.Funding); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *ExistingEnvConfig) Validate() error {
@@ -222,20 +120,6 @@ type Funding struct {
 	NodeSendingKeyFundingMin *float64 `toml:"node_sending_key_funding_min"`
 }
 
-func (c *Funding) ApplyOverrides(from *Funding) error {
-	if from == nil {
-		return nil
-	}
-	if from.NodeSendingKeyFunding != nil {
-		c.NodeSendingKeyFunding = from.NodeSendingKeyFunding
-	}
-	if from.NodeSendingKeyFundingMin != nil {
-		c.NodeSendingKeyFundingMin = from.NodeSendingKeyFundingMin
-	}
-
-	return c.SubFunding.ApplyOverrides(from.SubFunding)
-}
-
 func (c *Funding) Validate() error {
 	if c.NodeSendingKeyFunding != nil && *c.NodeSendingKeyFunding <= 0 {
 		return errors.New("when set node_sending_key_funding must be a positive value")
@@ -250,20 +134,6 @@ func (c *Funding) Validate() error {
 type SubFunding struct {
 	SubFundsLink   *float64 `toml:"sub_funds_link"`
 	SubFundsNative *float64 `toml:"sub_funds_native"`
-}
-
-func (c *SubFunding) ApplyOverrides(from *SubFunding) error {
-	if from == nil {
-		return nil
-	}
-	if from.SubFundsLink != nil {
-		c.SubFundsLink = from.SubFundsLink
-	}
-	if from.SubFundsNative != nil {
-		c.SubFundsNative = from.SubFundsNative
-	}
-
-	return nil
 }
 
 func (c *SubFunding) Validate() error {

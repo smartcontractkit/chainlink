@@ -20,49 +20,6 @@ type Config struct {
 	Performance       *PerformanceConfig `toml:"Performance"`
 }
 
-func (c *Config) ApplyOverrides(from *Config) error {
-	if from == nil {
-		return nil
-	}
-	if c.Common == nil && from.Common != nil {
-		c.Common = from.Common
-	} else if c.Common != nil && from.Common != nil {
-		if err := c.Common.ApplyOverrides(from.Common); err != nil {
-			return err
-		}
-	}
-	if c.General == nil && from.General != nil {
-		c.General = from.General
-	} else if c.General != nil && from.General != nil {
-		if err := c.General.ApplyOverrides(from.General); err != nil {
-			return err
-		}
-	}
-	if c.ExistingEnvConfig == nil && from.ExistingEnvConfig != nil {
-		c.ExistingEnvConfig = from.ExistingEnvConfig
-	} else if c.ExistingEnvConfig != nil && from.ExistingEnvConfig != nil {
-		if err := c.ExistingEnvConfig.ApplyOverrides(from.ExistingEnvConfig); err != nil {
-			return err
-		}
-	}
-	if c.NewEnvConfig == nil && from.NewEnvConfig != nil {
-		c.NewEnvConfig = from.NewEnvConfig
-	} else if c.NewEnvConfig != nil && from.NewEnvConfig != nil {
-		if err := c.NewEnvConfig.ApplyOverrides(from.NewEnvConfig); err != nil {
-			return err
-		}
-	}
-	if c.Performance == nil && from.Performance != nil {
-		c.Performance = from.Performance
-	} else if c.Performance != nil && from.Performance != nil {
-		if err := c.Performance.ApplyOverrides(from.Performance); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *Config) Validate() error {
 	if c.Common != nil {
 		if err := c.Common.Validate(); err != nil {
@@ -100,17 +57,6 @@ type Common struct {
 	CancelSubsAfterTestRun *bool `toml:"cancel_subs_after_test_run"`
 }
 
-func (c *Common) ApplyOverrides(from *Common) error {
-	if from == nil {
-		return nil
-	}
-	if from.CancelSubsAfterTestRun != nil {
-		c.CancelSubsAfterTestRun = from.CancelSubsAfterTestRun
-	}
-
-	return nil
-}
-
 func (c *Common) Validate() error {
 	return nil
 }
@@ -127,26 +73,6 @@ type PerformanceConfig struct {
 	LinkAddress        *string
 	SubID              *uint64
 	KeyHash            *string
-}
-
-func (c *PerformanceConfig) ApplyOverrides(from *PerformanceConfig) error {
-	if from == nil {
-		return nil
-	}
-	if from.TestDuration != nil {
-		c.TestDuration = from.TestDuration
-	}
-	if from.RPS != nil {
-		c.RPS = from.RPS
-	}
-	if from.RateLimitUnitDuration != nil {
-		c.RateLimitUnitDuration = from.RateLimitUnitDuration
-	}
-	if from.UseExistingEnv != nil {
-		c.UseExistingEnv = from.UseExistingEnv
-	}
-
-	return nil
 }
 
 func (c *PerformanceConfig) Validate() error {
@@ -175,42 +101,6 @@ type ExistingEnvConfig struct {
 	CreateFundSubsAndAddConsumers *bool    `toml:"create_fund_subs_and_add_consumers"`
 	NodeSendingKeys               []string `toml:"node_sending_keys"`
 	*Funding
-}
-
-func (c *ExistingEnvConfig) ApplyOverrides(from *ExistingEnvConfig) error {
-	if from == nil {
-		return nil
-	}
-	if from.CoordinatorAddress != nil {
-		c.CoordinatorAddress = from.CoordinatorAddress
-	}
-	if from.ConsumerAddress != nil {
-		c.ConsumerAddress = from.ConsumerAddress
-	}
-	if from.LinkAddress != nil {
-		c.LinkAddress = from.LinkAddress
-	}
-	if from.SubID != nil {
-		c.SubID = from.SubID
-	}
-	if from.KeyHash != nil {
-		c.KeyHash = from.KeyHash
-	}
-	if from.CreateFundSubsAndAddConsumers != nil {
-		c.CreateFundSubsAndAddConsumers = from.CreateFundSubsAndAddConsumers
-	}
-	if from.NodeSendingKeys != nil {
-		c.NodeSendingKeys = from.NodeSendingKeys
-	}
-	if from.Funding != nil && c.Funding == nil {
-		c.Funding = from.Funding
-	} else if from.Funding != nil && c.Funding != nil {
-		if err := c.Funding.ApplyOverrides(from.Funding); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *ExistingEnvConfig) Validate() error {
@@ -274,14 +164,6 @@ type NewEnvConfig struct {
 	*Funding
 }
 
-func (c *NewEnvConfig) ApplyOverrides(from *NewEnvConfig) error {
-	if from == nil {
-		return nil
-	}
-
-	return c.Funding.ApplyOverrides(from.Funding)
-}
-
 func (c *NewEnvConfig) Validate() error {
 	if c.Funding != nil {
 		return c.Funding.Validate()
@@ -294,27 +176,6 @@ type Funding struct {
 	*SubFunding
 	NodeSendingKeyFunding    *float64 `toml:"node_sending_key_funding"`
 	NodeSendingKeyFundingMin *float64 `toml:"node_sending_key_funding_min"`
-}
-
-func (c *Funding) ApplyOverrides(from *Funding) error {
-	if from == nil {
-		return nil
-	}
-	if from.NodeSendingKeyFunding != nil {
-		c.NodeSendingKeyFunding = from.NodeSendingKeyFunding
-	}
-	if from.NodeSendingKeyFundingMin != nil {
-		c.NodeSendingKeyFundingMin = from.NodeSendingKeyFundingMin
-	}
-	if from.SubFundsLink != nil && c.SubFundsLink == nil {
-		c.SubFundsLink = from.SubFundsLink
-	} else if from.SubFundsLink != nil && c.SubFundsLink != nil {
-		if err := c.SubFunding.ApplyOverrides(from.SubFunding); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *Funding) Validate() error {
@@ -330,17 +191,6 @@ func (c *Funding) Validate() error {
 
 type SubFunding struct {
 	SubFundsLink *float64 `toml:"sub_funds_link"`
-}
-
-func (c *SubFunding) ApplyOverrides(from *SubFunding) error {
-	if from == nil {
-		return nil
-	}
-	if from.SubFundsLink != nil {
-		c.SubFundsLink = from.SubFundsLink
-	}
-
-	return nil
 }
 
 func (c *SubFunding) Validate() error {
@@ -386,101 +236,6 @@ type General struct {
 	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`
 	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
 	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`
-}
-
-func (c *General) ApplyOverrides(from *General) error {
-	if from == nil {
-		return nil
-	}
-	if from.CLNodeMaxGasPriceGWei != nil {
-		c.CLNodeMaxGasPriceGWei = from.CLNodeMaxGasPriceGWei
-	}
-	if from.LinkNativeFeedResponse != nil {
-		c.LinkNativeFeedResponse = from.LinkNativeFeedResponse
-	}
-	if from.MinimumConfirmations != nil {
-		c.MinimumConfirmations = from.MinimumConfirmations
-	}
-	if from.SubscriptionFundingAmountLink != nil {
-		c.SubscriptionFundingAmountLink = from.SubscriptionFundingAmountLink
-	}
-	if from.NumberOfWords != nil {
-		c.NumberOfWords = from.NumberOfWords
-	}
-	if from.CallbackGasLimit != nil {
-		c.CallbackGasLimit = from.CallbackGasLimit
-	}
-	if from.MaxGasLimitCoordinatorConfig != nil {
-		c.MaxGasLimitCoordinatorConfig = from.MaxGasLimitCoordinatorConfig
-	}
-	if from.FallbackWeiPerUnitLink != nil {
-		c.FallbackWeiPerUnitLink = from.FallbackWeiPerUnitLink
-	}
-	if from.StalenessSeconds != nil {
-		c.StalenessSeconds = from.StalenessSeconds
-	}
-	if from.GasAfterPaymentCalculation != nil {
-		c.GasAfterPaymentCalculation = from.GasAfterPaymentCalculation
-	}
-	if from.FulfillmentFlatFeeLinkPPMTier1 != nil {
-		c.FulfillmentFlatFeeLinkPPMTier1 = from.FulfillmentFlatFeeLinkPPMTier1
-	}
-	if from.FulfillmentFlatFeeLinkPPMTier2 != nil {
-		c.FulfillmentFlatFeeLinkPPMTier2 = from.FulfillmentFlatFeeLinkPPMTier2
-	}
-	if from.FulfillmentFlatFeeLinkPPMTier3 != nil {
-		c.FulfillmentFlatFeeLinkPPMTier3 = from.FulfillmentFlatFeeLinkPPMTier3
-	}
-	if from.FulfillmentFlatFeeLinkPPMTier4 != nil {
-		c.FulfillmentFlatFeeLinkPPMTier4 = from.FulfillmentFlatFeeLinkPPMTier4
-	}
-	if from.FulfillmentFlatFeeLinkPPMTier5 != nil {
-		c.FulfillmentFlatFeeLinkPPMTier5 = from.FulfillmentFlatFeeLinkPPMTier5
-	}
-	if from.ReqsForTier2 != nil {
-		c.ReqsForTier2 = from.ReqsForTier2
-	}
-	if from.ReqsForTier3 != nil {
-		c.ReqsForTier3 = from.ReqsForTier3
-	}
-	if from.ReqsForTier4 != nil {
-		c.ReqsForTier4 = from.ReqsForTier4
-	}
-	if from.ReqsForTier5 != nil {
-		c.ReqsForTier5 = from.ReqsForTier5
-	}
-	if from.NumberOfSubToCreate != nil {
-		c.NumberOfSubToCreate = from.NumberOfSubToCreate
-	}
-	if from.RandomnessRequestCountPerRequest != nil {
-		c.RandomnessRequestCountPerRequest = from.RandomnessRequestCountPerRequest
-	}
-	if from.RandomnessRequestCountPerRequestDeviation != nil {
-		c.RandomnessRequestCountPerRequestDeviation = from.RandomnessRequestCountPerRequestDeviation
-	}
-	if from.RandomWordsFulfilledEventTimeout != nil {
-		c.RandomWordsFulfilledEventTimeout = from.RandomWordsFulfilledEventTimeout
-	}
-	if from.WrapperGasOverhead != nil {
-		c.WrapperGasOverhead = from.WrapperGasOverhead
-	}
-	if from.CoordinatorGasOverhead != nil {
-		c.CoordinatorGasOverhead = from.CoordinatorGasOverhead
-	}
-	if from.WrapperPremiumPercentage != nil {
-		c.WrapperPremiumPercentage = from.WrapperPremiumPercentage
-	}
-	if from.WrapperMaxNumberOfWords != nil {
-		c.WrapperMaxNumberOfWords = from.WrapperMaxNumberOfWords
-	}
-	if from.WrapperConsumerFundingAmountNativeToken != nil {
-		c.WrapperConsumerFundingAmountNativeToken = from.WrapperConsumerFundingAmountNativeToken
-	}
-	if from.WrapperConsumerFundingAmountLink != nil {
-		c.WrapperConsumerFundingAmountLink = from.WrapperConsumerFundingAmountLink
-	}
-
-	return nil
 }
 
 func (c *General) Validate() error {

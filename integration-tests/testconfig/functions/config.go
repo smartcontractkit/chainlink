@@ -40,61 +40,6 @@ type Common struct {
 	Secrets *string `toml:"secrets"`
 }
 
-func (c *Common) ApplyOverrides(from *Common) error {
-	if from == nil {
-		return nil
-	}
-	if from.NodeFunds != nil {
-		c.NodeFunds = from.NodeFunds
-	}
-	if from.SubFunds != nil {
-		c.SubFunds = from.SubFunds
-	}
-	if from.LINKTokenAddr != nil {
-		c.LINKTokenAddr = from.LINKTokenAddr
-	}
-	if from.Coordinator != nil {
-		c.Coordinator = from.Coordinator
-	}
-	if from.Router != nil {
-		c.Router = from.Router
-	}
-	if from.LoadTestClient != nil {
-		c.LoadTestClient = from.LoadTestClient
-	}
-	if from.SubscriptionID != nil {
-		c.SubscriptionID = from.SubscriptionID
-	}
-	if from.DONID != nil {
-		c.DONID = from.DONID
-	}
-	if from.GatewayURL != nil {
-		c.GatewayURL = from.GatewayURL
-	}
-	if from.Receiver != nil {
-		c.Receiver = from.Receiver
-	}
-	if from.FunctionsCallPayloadHTTP != nil {
-		c.FunctionsCallPayloadHTTP = from.FunctionsCallPayloadHTTP
-	}
-	if from.FunctionsCallPayloadWithSecrets != nil {
-		c.FunctionsCallPayloadWithSecrets = from.FunctionsCallPayloadWithSecrets
-	}
-	if from.FunctionsCallPayloadReal != nil {
-		c.FunctionsCallPayloadReal = from.FunctionsCallPayloadReal
-	}
-	if from.SecretsSlotID != nil {
-		c.SecretsSlotID = from.SecretsSlotID
-	}
-	if from.SecretsVersionID != nil {
-		c.SecretsVersionID = from.SecretsVersionID
-	}
-	if from.Secrets != nil {
-		c.Secrets = from.Secrets
-	}
-	return nil
-}
-
 func (c *Common) Validate() error {
 	if c.SubFunds == nil {
 		return errors.New("sub_funds must be set")
@@ -141,22 +86,6 @@ type Performance struct {
 	Duration        *blockchain.StrDuration `toml:"duration"`
 }
 
-func (c *Performance) ApplyOverrides(from *Performance) error {
-	if from == nil {
-		return nil
-	}
-	if from.RPS != nil {
-		c.RPS = from.RPS
-	}
-	if from.RequestsPerCall != nil {
-		c.RequestsPerCall = from.RequestsPerCall
-	}
-	if from.Duration != nil {
-		c.Duration = from.Duration
-	}
-	return nil
-}
-
 func (c *Performance) Validate() error {
 	if c.RPS == nil || *c.RPS < 1 {
 		return errors.New("rps must be greater than 0")
@@ -167,31 +96,6 @@ func (c *Performance) Validate() error {
 	if c.Duration == nil || c.Duration.Duration < 1 {
 		return errors.New("duration must be greater than 0")
 	}
-	return nil
-}
-
-func (c *Config) ApplyOverrides(from *Config) error {
-	if from == nil {
-		return nil
-	}
-	if from.Common != nil {
-		if c.Common == nil {
-			c.Common = from.Common
-		}
-		if err := c.Common.ApplyOverrides(from.Common); err != nil {
-			return err
-		}
-	}
-
-	if from.Performance != nil {
-		if c.Performance == nil {
-			c.Performance = from.Performance
-		}
-		if err := c.Performance.ApplyOverrides(from.Performance); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

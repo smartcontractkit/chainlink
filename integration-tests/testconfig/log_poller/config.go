@@ -27,42 +27,6 @@ type Config struct {
 	LoopedConfig *LoopedConfig `toml:"Looped"`
 }
 
-func (c *Config) ApplyOverrides(from *Config) error {
-	if from == nil {
-		return nil
-	}
-	if c.General == nil {
-		c.General = from.General
-	} else {
-		if err := c.General.ApplyOverrides(from.General); err != nil {
-			return err
-		}
-	}
-	if c.ChaosConfig == nil {
-		c.ChaosConfig = from.ChaosConfig
-	} else {
-		if err := c.ChaosConfig.ApplyOverrides(from.ChaosConfig); err != nil {
-			return err
-		}
-	}
-	if c.Wasp == nil {
-		c.Wasp = from.Wasp
-	} else {
-		if err := c.Wasp.ApplyOverrides(from.Wasp); err != nil {
-			return err
-		}
-	}
-	if c.LoopedConfig == nil {
-		c.LoopedConfig = from.LoopedConfig
-	} else {
-		if err := c.LoopedConfig.ApplyOverrides(from.LoopedConfig); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *Config) Validate() error {
 	if c.General == nil {
 		return fmt.Errorf("General config must be set")
@@ -110,23 +74,6 @@ type LoopedConfig struct {
 	MaxEmitWaitTimeMs *int `toml:"max_emit_wait_time_ms"`
 }
 
-func (l *LoopedConfig) ApplyOverrides(from *LoopedConfig) error {
-	if from == nil {
-		return nil
-	}
-	if from.ExecutionCount != nil {
-		l.ExecutionCount = from.ExecutionCount
-	}
-	if from.MinEmitWaitTimeMs != nil {
-		l.MinEmitWaitTimeMs = from.MinEmitWaitTimeMs
-	}
-	if from.MaxEmitWaitTimeMs != nil {
-		l.MaxEmitWaitTimeMs = from.MaxEmitWaitTimeMs
-	}
-
-	return nil
-}
-
 func (l *LoopedConfig) Validate() error {
 	if l.ExecutionCount == nil || *l.ExecutionCount == 0 {
 		return fmt.Errorf("execution_count must be set and > 0")
@@ -151,26 +98,6 @@ type General struct {
 	UseFinalityTag *bool       `toml:"use_finality_tag"`
 }
 
-func (g *General) ApplyOverrides(from *General) error {
-	if from == nil {
-		return nil
-	}
-	if from.Generator != nil {
-		g.Generator = from.Generator
-	}
-	if from.Contracts != nil {
-		g.Contracts = from.Contracts
-	}
-	if from.EventsPerTx != nil {
-		g.EventsPerTx = from.EventsPerTx
-	}
-	if from.UseFinalityTag != nil {
-		g.UseFinalityTag = from.UseFinalityTag
-	}
-
-	return nil
-}
-
 func (g *General) Validate() error {
 	if g.Generator == nil || *g.Generator == "" {
 		return fmt.Errorf("generator is empty")
@@ -191,17 +118,6 @@ type ChaosConfig struct {
 	ExperimentCount *int `toml:"experiment_count"`
 }
 
-func (c *ChaosConfig) ApplyOverrides(from *ChaosConfig) error {
-	if from == nil {
-		return nil
-	}
-	if from.ExperimentCount != nil {
-		c.ExperimentCount = from.ExperimentCount
-	}
-
-	return nil
-}
-
 func (c *ChaosConfig) Validate() error {
 	if c.ExperimentCount != nil && *c.ExperimentCount == 0 {
 		return fmt.Errorf("experiment_count must be > 0")
@@ -216,28 +132,6 @@ type WaspConfig struct {
 	RateLimitUnitDuration *blockchain.StrDuration `toml:"rate_limit_unit_duration"`
 	Duration              *blockchain.StrDuration `toml:"duration"`
 	CallTimeout           *blockchain.StrDuration `toml:"call_timeout"`
-}
-
-func (w *WaspConfig) ApplyOverrides(from *WaspConfig) error {
-	if from == nil {
-		return nil
-	}
-	if from.RPS != nil {
-		w.RPS = from.RPS
-	}
-	if from.LPS != nil {
-		w.LPS = from.LPS
-	}
-	if from.RateLimitUnitDuration != nil {
-		w.RateLimitUnitDuration = from.RateLimitUnitDuration
-	}
-	if from.Duration != nil {
-		w.Duration = from.Duration
-	}
-	if from.CallTimeout != nil {
-		w.CallTimeout = from.CallTimeout
-	}
-	return nil
 }
 
 func (w *WaspConfig) Validate() error {

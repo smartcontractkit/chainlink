@@ -10,21 +10,6 @@ type Config struct {
 	Common *Common `toml:"Common"`
 }
 
-func (c *Config) ApplyOverrides(from *Config) error {
-	if from == nil {
-		return nil
-	}
-	if from.Common != nil {
-		if c.Common == nil {
-			c.Common = from.Common
-		}
-		if err := c.Common.ApplyOverrides(from.Common); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (c *Config) Validate() error {
 	if c.Common == nil {
 		return nil
@@ -51,67 +36,6 @@ type Common struct {
 	EthFeedAddress     *string  `toml:"eth_feed_address"`
 	GasFeedAddress     *string  `toml:"gas_feed_address"`
 	TestInputs         []string `toml:"test_inputs"`
-}
-
-func (c *Common) ApplyOverrides(from *Common) error {
-	if from == nil {
-		return nil
-	}
-	if from.RegistryToTest != nil {
-		c.RegistryToTest = from.RegistryToTest
-	}
-	if from.NumberOfRegistries != nil {
-		c.NumberOfRegistries = from.NumberOfRegistries
-	}
-	if from.NumberOfNodes != nil {
-		c.NumberOfNodes = from.NumberOfNodes
-	}
-	if from.NumberOfUpkeeps != nil {
-		c.NumberOfUpkeeps = from.NumberOfUpkeeps
-	}
-	if from.UpkeepGasLimit != nil {
-		c.UpkeepGasLimit = from.UpkeepGasLimit
-	}
-	if from.CheckGasToBurn != nil {
-		c.CheckGasToBurn = from.CheckGasToBurn
-	}
-	if from.PerformGasToBurn != nil {
-		c.PerformGasToBurn = from.PerformGasToBurn
-	}
-	if from.MaxPerformGas != nil {
-		c.MaxPerformGas = from.MaxPerformGas
-	}
-	if from.BlockRange != nil {
-		c.BlockRange = from.BlockRange
-	}
-	if from.BlockInterval != nil {
-		c.BlockInterval = from.BlockInterval
-	}
-	if from.ForceSingleTxKey != nil {
-		c.ForceSingleTxKey = from.ForceSingleTxKey
-	}
-	if from.DeleteJobsOnEnd != nil {
-		c.DeleteJobsOnEnd = from.DeleteJobsOnEnd
-	}
-	if from.RegistryAddress != nil {
-		c.RegistryAddress = from.RegistryAddress
-	}
-	if from.RegistrarAddress != nil {
-		c.RegistrarAddress = from.RegistrarAddress
-	}
-	if from.LinkTokenAddress != nil {
-		c.LinkTokenAddress = from.LinkTokenAddress
-	}
-	if from.EthFeedAddress != nil {
-		c.EthFeedAddress = from.EthFeedAddress
-	}
-	if from.GasFeedAddress != nil {
-		c.GasFeedAddress = from.GasFeedAddress
-	}
-	if from.TestInputs != nil {
-		c.TestInputs = from.TestInputs
-	}
-	return nil
 }
 
 func (c *Common) Validate() error {
