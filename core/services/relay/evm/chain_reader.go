@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"

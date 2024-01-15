@@ -32,6 +32,11 @@ func (entry *codecEntry) Init() error {
 	native := make([]reflect.StructField, argLen)
 	checked := make([]reflect.StructField, argLen)
 
+	// Single returns that aren't named will return that type
+	// whereas named parameters will return a struct with the fields
+	// Eg: function foo() returns (int256) ... will return a *big.Int for the native type
+	// function foo() returns (int256 i) ... will return a struct { I *big.Int } for the native type
+	// function foo() returns (int256 i1, int256 i2) ... will return a struct { I1 *big.Int, I2 *big.Int } for the native type
 	if len(args) == 1 && args[0].Name == "" {
 		nativeArg, checkedArg, err := getNativeAndCheckedTypesForArg(&args[0])
 		if err != nil {
