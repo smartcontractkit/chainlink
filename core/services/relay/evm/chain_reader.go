@@ -126,10 +126,10 @@ func (cr *chainReader) HealthReport() map[string]error {
 }
 
 func (cr *chainReader) CreateContractType(contractName, methodName string, forEncoding bool) (any, error) {
-	return cr.codec.CreateType(WrapItemType(contractName, methodName, forEncoding), forEncoding)
+	return cr.codec.CreateType(wrapItemType(contractName, methodName, forEncoding), forEncoding)
 }
 
-func WrapItemType(contractName, methodName string, isParams bool) string {
+func wrapItemType(contractName, methodName string, isParams bool) string {
 	if isParams {
 		return fmt.Sprintf("params.%s.%s", contractName, methodName)
 	}
@@ -187,7 +187,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	ce := cr.parsed.encoderDefs[WrapItemType(contractName, eventName, true)]
+	ce := cr.parsed.encoderDefs[wrapItemType(contractName, eventName, true)]
 	inMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
@@ -205,7 +205,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		inputInfo:     ce,
 		inputModifier: inMod,
 		topicInfo:     topicInfo,
-		id:            WrapItemType(contractName, eventName, false) + uuid.NewString(),
+		id:            wrapItemType(contractName, eventName, false) + uuid.NewString(),
 	})
 
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
@@ -233,7 +233,7 @@ func (cr *chainReader) addEncoderDef(contractName, methodName string, args abi.A
 		return err
 	}
 	input.mod = inputMod
-	cr.parsed.encoderDefs[WrapItemType(contractName, methodName, true)] = input
+	cr.parsed.encoderDefs[wrapItemType(contractName, methodName, true)] = input
 	return nil
 }
 
@@ -244,7 +244,7 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 		return err
 	}
 	output.mod = mod
-	cr.parsed.decoderDefs[WrapItemType(contractName, methodName, false)] = output
+	cr.parsed.decoderDefs[wrapItemType(contractName, methodName, false)] = output
 	return output.Init()
 }
 
@@ -267,8 +267,8 @@ func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Ar
 		filterWith := topicFieldDefs[abi.ToCamelCase(input.Name)]
 		if filterWith {
 			// When presenting the filter off-chain,
-			// the user will provide the unindexed version of the input
-			// Topics will be hashed if needed to determine what to look up
+			// the user will provide the unhashed version of the input
+			// The reader will hash topics if needed.
 			inputUnindexed := input
 			inputUnindexed.Indexed = false
 			filterArgs = append(filterArgs, inputUnindexed)

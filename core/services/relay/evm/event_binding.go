@@ -165,7 +165,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 }
 
 func (e *eventBinding) convertToOffChainType(params any) (any, error) {
-	itemType := WrapItemType(e.contractName, e.eventName, true)
+	itemType := wrapItemType(e.contractName, e.eventName, true)
 	offChain, err := e.codec.CreateType(itemType, true)
 	if err != nil {
 		return nil, err
@@ -235,7 +235,7 @@ func (e *eventBinding) encodeParams(item reflect.Value) ([]common.Hash, error) {
 }
 
 func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
-	dataType := WrapItemType(e.contractName, e.eventName, false)
+	dataType := wrapItemType(e.contractName, e.eventName, false)
 	if err := e.codec.Decode(ctx, log.Data, into, dataType); err != nil {
 		return err
 	}

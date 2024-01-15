@@ -42,14 +42,14 @@ func (entry *codecEntry) Init() error {
 		return nil
 	}
 
-	numIndecies := 0
+	numIndices := 0
 	seenNames := map[string]bool{}
 	for i, arg := range args {
 		if arg.Indexed {
-			if numIndecies == 3 {
+			if numIndices == maxTopicFields {
 				return fmt.Errorf("%w: too many indexed arguments", commontypes.ErrInvalidConfig)
 			}
-			numIndecies++
+			numIndices++
 		}
 
 		tmp := arg
