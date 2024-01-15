@@ -5,7 +5,8 @@ import (
 	"reflect"
 
 	"github.com/fxamacker/cbor/v2"
-
+	
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -55,7 +56,7 @@ func (i *{{.Prefix}}int{{.Size}}) Verify() error {
 		return types.ErrInvalidType
 	}
 	{{ else }}
-	if bi.BitLen() > {{.Size}} {
+	if bi.BitLen() > {{.Size}} || bi.Sign() < 0 {
 		return types.ErrInvalidType
 	}
 	{{ end }}
@@ -66,8 +67,8 @@ func (i *{{.Prefix}}int{{.Size}}) private() {}
 
 func init() {
 	typeMap["{{.Prefix}}int{{.Size}}"] = &ABIEncodingType {
-		Native: reflect.TypeOf((*big.Int)(nil)),
-		Checked: reflect.TypeOf((*{{.Prefix}}int{{.Size}})(nil)),
+		native: reflect.TypeOf((*big.Int)(nil)),
+		checked: reflect.TypeOf((*{{.Prefix}}int{{.Size}})(nil)),
 	}
 }
 {{ end }}

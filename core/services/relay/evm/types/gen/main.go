@@ -31,7 +31,7 @@ func genInts() {
 			continue
 		}
 
-		signed := &IntType{Size: i, Signed: false}
+		signed := &IntType{Size: i, Signed: true}
 		unsigned := &IntType{Prefix: "u", Size: i}
 		intTypes = append(intTypes, signed, unsigned)
 	}

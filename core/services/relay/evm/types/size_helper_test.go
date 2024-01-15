@@ -1,4 +1,4 @@
-package evm_test
+package types_test
 
 import (
 	"math/big"
@@ -10,7 +10,7 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 const anyNumElements = 10
@@ -189,12 +189,12 @@ func TestGetMaxSize(t *testing.T) {
 	t.Run("Nested dynamic types return errors", func(t *testing.T) {
 		t.Run("Slice in slice", func(t *testing.T) {
 			args := abi.Arguments{{Name: "B", Type: mustType(t, "int32[][]")}}
-			_, err := evm.GetMaxSize(anyNumElements, args)
+			_, err := types.GetMaxSize(anyNumElements, args)
 			assert.IsType(t, commontypes.ErrInvalidType, err)
 		})
 		t.Run("Slice in array", func(t *testing.T) {
 			args := abi.Arguments{{Name: "B", Type: mustType(t, "int32[][2]")}}
-			_, err := evm.GetMaxSize(anyNumElements, args)
+			_, err := types.GetMaxSize(anyNumElements, args)
 			assert.IsType(t, commontypes.ErrInvalidType, err)
 		})
 	})
@@ -237,14 +237,14 @@ func TestGetMaxSize(t *testing.T) {
 		require.NoError(t, err)
 
 		args := abi.Arguments{{Name: "t2", Type: t2}}
-		_, err = evm.GetMaxSize(anyNumElements, args)
+		_, err = types.GetMaxSize(anyNumElements, args)
 		assert.IsType(t, commontypes.ErrInvalidType, err)
 	})
 }
 
 func runSizeTest(t *testing.T, n int, args abi.Arguments, params ...any) {
 
-	actual, err := evm.GetMaxSize(n, args)
+	actual, err := types.GetMaxSize(n, args)
 	require.NoError(t, err)
 
 	expected, err := args.Pack(params...)
