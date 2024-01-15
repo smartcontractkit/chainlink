@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink/integration-tests
+module github.com/smartcontractkit/ccip/integration-tests
 
 go 1.21.4
 
@@ -483,4 +483,8 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
+	github.com/smartcontractkit/chainlink/integration-tests => ../integration-tests
+
+    k8s.io/apimachinery => k8s.io/apimachinery v0.25.11
 )
