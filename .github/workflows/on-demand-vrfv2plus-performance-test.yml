@@ -78,7 +78,7 @@ jobs:
 
           echo "$decoded_toml" >> final_config.toml
           cat config.toml >> final_config.toml
-          BASE64_CONFIG_OVERRIDE=$(cat final_config | base64 -w 0)
+          BASE64_CONFIG_OVERRIDE=$(cat final_config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Send details to Step Summary
