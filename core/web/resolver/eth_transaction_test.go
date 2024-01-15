@@ -89,7 +89,6 @@ func TestResolver_EthTransaction(t *testing.T) {
 				}, nil)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
-				//f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
 					Relayers: []loop.Relayer{
 						testutils.MockRelayer{ChainStatus: types.ChainStatus{
@@ -155,7 +154,6 @@ func TestResolver_EthTransaction(t *testing.T) {
 				}, nil)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
-				//f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
 					Relayers: []loop.Relayer{
 						testutils.MockRelayer{ChainStatus: types.ChainStatus{

@@ -174,7 +174,6 @@ func TestResolver_ETHKeys(t *testing.T) {
 				}
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				//f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
 			},
 			query: query,
@@ -340,7 +339,6 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
-				//f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.scfg.On("EVM").Return(&evmMockConfig)
 			},
 			query: query,
@@ -401,7 +399,6 @@ func TestResolver_ETHKeys(t *testing.T) {
 				}
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				//f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
 				f.Mocks.scfg.On("EVM").Return(&evmMockConfig)
 			},

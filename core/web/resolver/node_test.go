@@ -163,5 +163,3 @@ func Test_NodeQuery(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
-
-func ptr[T any](t T) *T { return &t }
