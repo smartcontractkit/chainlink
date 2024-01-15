@@ -213,7 +213,7 @@ jobs:
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
 
-          MATRIX_JSON_LP=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log-poller ubuntu-latest 1)
+          MATRIX_JSON_LP=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
           echo "LP_JOB_MATRIX_JSON=${MATRIX_JSON_LP}" >> $GITHUB_ENV
 
           # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
