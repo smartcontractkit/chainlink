@@ -719,10 +719,10 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		wg.Add(len(c.nodes))
 		c.wg.Add(1)
 		go func() {
+			// wait for primary nodes to finish the broadcast before closing the channel
 			wg.Wait()
-			c.wg.Done()
 			close(inTxResults)
-
+			c.wg.Done()
 		}()
 
 		for _, n := range c.nodes {
