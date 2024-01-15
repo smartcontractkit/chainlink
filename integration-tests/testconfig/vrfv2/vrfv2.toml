@@ -50,11 +50,11 @@ number_of_sub_to_create = 1
 rate_limit_unit_duration = "3s"
 rps = 1
 
-[VRFv2.NewEnv]
+[Load.VRFv2.NewEnv]
 sub_funds_link = 1000
 node_sending_key_funding = 1000
 
-[VRFv2.ExistingEnv]
+[Load.VRFv2.ExistingEnv]
 coordinator_address = ""
 consumer_address = ""
 sub_id = 1
