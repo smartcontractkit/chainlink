@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -50,11 +51,13 @@ type VRFCoordinatorV2 interface {
 		oracleAddr string,
 		publicProvingKey [2]*big.Int,
 	) error
+	TransferOwnership(to common.Address) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
 	CreateSubscription() (*types.Transaction, error)
 	AddConsumer(subId uint64, consumerAddress string) error
 	Address() string
 	GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error)
+	GetOwner(ctx context.Context) (common.Address, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
 	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
 	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
@@ -62,7 +65,40 @@ type VRFCoordinatorV2 interface {
 	WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
 	WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
+	WaitForSubscriptionConsumerAdded(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionConsumerAdded, error)
+	WaitForSubscriptionCreatedEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated, error)
+	WaitForSubscriptionFunded(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionFunded, error)
 	OracleWithdraw(recipient common.Address, amount *big.Int) error
+}
+
+type VRFCoordinatorTestV2 interface {
+	//GetRequestConfig(ctx context.Context) (GetRequestConfig, error)
+	//SetConfig(
+	//	minimumRequestConfirmations uint16,
+	//	maxGasLimit uint32,
+	//	stalenessSeconds uint32,
+	//	gasAfterPaymentCalculation uint32,
+	//	fallbackWeiPerUnitLink *big.Int,
+	//	feeConfig vrf_coordinator_test_v2.VRFCoordinatorTestV2FeeConfig,
+	//) error
+	//RegisterProvingKey(
+	//	oracleAddr string,
+	//	publicProvingKey [2]*big.Int,
+	//) error
+	//TransferOwnership(to common.Address) error
+	//HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
+	//CreateSubscription() (*types.Transaction, error)
+	//AddConsumer(subId uint64, consumerAddress string) error
+	Address() string
+	//GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_test_v2.GetSubscription, error)
+	//PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
+	//OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
+	//CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
+	//FindSubscriptionID(subID uint64) (uint64, error)
+	//WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_test_v2.VRFCoordinatorTestV2RandomWordsFulfilled, error)
+	//WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_test_v2.VRFCoordinatorTestV2RandomWordsRequested, error)
+	//WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_test_v2.VRFCoordinatorTestV2SubscriptionCanceled, error)
+	//OracleWithdraw(recipient common.Address, amount *big.Int) error
 }
 
 type VRFCoordinatorV2_5 interface {
@@ -150,6 +186,13 @@ type VRFV2PlusWrapper interface {
 	GetSubID(ctx context.Context) (*big.Int, error)
 }
 
+type VRFOwner interface {
+	Address() string
+	SetAuthorizedSenders(senders []common.Address) error
+	AcceptVRFOwnership() error
+	WaitForRandomWordsForcedEvent(requestIDs []*big.Int, subIds []uint64, senders []common.Address, timeout time.Duration) (*vrf_owner.VRFOwnerRandomWordsForced, error)
+}
+
 type VRFConsumer interface {
 	Address() string
 	RequestRandomness(hash [32]byte, fee *big.Int) error
@@ -180,6 +223,15 @@ type VRFv2Consumer interface {
 type VRFv2LoadTestConsumer interface {
 	Address() string
 	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) (*types.Transaction, error)
+	RequestRandomWordsWithForceFulfill(
+		keyHash [32]byte,
+		requestConfirmations uint16,
+		callbackGasLimit uint32,
+		numWords uint32,
+		requestCount uint16,
+		subTopUpAmount *big.Int,
+		linkAddress common.Address,
+	) (*types.Transaction, error)
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)

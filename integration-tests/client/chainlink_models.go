@@ -628,7 +628,8 @@ func (d *PipelineSpec) String() (string, error) {
 
 // VRFV2TxPipelineSpec VRFv2 request with tx callback
 type VRFV2PlusTxPipelineSpec struct {
-	Address string
+	Address               string
+	EstimateGasMultiplier float64
 }
 
 // Type returns the type of the pipeline
@@ -650,9 +651,10 @@ generate_proof [type=vrfv2plus
                 topics="$(jobRun.logTopics)"]
 estimate_gas [type=estimategaslimit
              to="{{ .Address }}"
-             multiplier="1.1"
+             multiplier="{{ .EstimateGasMultiplier }}"
              data="$(generate_proof.output)"]
 simulate_fulfillment [type=ethcall
+					  from="{{ .FromAddress }}"	
                       to="{{ .Address }}"
                       gas="$(estimate_gas)"
                       gasPrice="$(jobSpec.maxGasPrice)"
@@ -665,7 +667,9 @@ decode_log->generate_proof->estimate_gas->simulate_fulfillment`
 
 // VRFV2TxPipelineSpec VRFv2 request with tx callback
 type VRFV2TxPipelineSpec struct {
-	Address string
+	Address               string
+	EstimateGasMultiplier float64
+	FromAddress           string
 }
 
 // Type returns the type of the pipeline
@@ -687,9 +691,10 @@ vrf          [type=vrfv2
              topics="$(jobRun.logTopics)"]
 estimate_gas [type=estimategaslimit
              to="{{ .Address }}"
-             multiplier="1.1"
+             multiplier="{{ .EstimateGasMultiplier }}"
              data="$(vrf.output)"]
 simulate [type=ethcall
+          from="{{ .FromAddress }}"
           to="{{ .Address }}"
           gas="$(estimate_gas)"
           gasPrice="$(jobSpec.maxGasPrice)"
@@ -1158,17 +1163,24 @@ observationSource = """
 
 // VRFV2JobSpec represents a VRFV2 job
 type VRFV2JobSpec struct {
-	Name                     string        `toml:"name"`
-	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
-	ExternalJobID            string        `toml:"externalJobID"`
-	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
-	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
-	FromAddresses            []string      `toml:"fromAddresses"`
-	EVMChainID               string        `toml:"evmChainID"`
-	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
-	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
-	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
+	Name                          string        `toml:"name"`
+	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
+	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	ExternalJobID                 string        `toml:"externalJobID"`
+	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
+	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
+	FromAddresses                 []string      `toml:"fromAddresses"`
+	EVMChainID                    string        `toml:"evmChainID"`
+	UseVRFOwner                   bool          `toml:"useVRFOwner"`
+	VRFOwner                      string        `toml:"vrfOwnerAddress"`
+	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
+	CustomRevertsPipelineEnabled  bool          `toml:"customRevertsPipelineEnabled"`
+	PollPeriod                    time.Duration `toml:"pollPeriod"`
+	RequestTimeout                time.Duration `toml:"requestTimeout"`
+	BatchFulfillmentEnabled       bool          `toml:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64       `toml:"batchFulfillmentGasMultiplier"`
+	BackOffInitialDelay           time.Duration `toml:"backOffInitialDelay"`
+	BackOffMaxDelay               time.Duration `toml:"backOffMaxDelay"`
 }
 
 // Type returns the type of the job
@@ -1180,6 +1192,7 @@ func (v *VRFV2JobSpec) String() (string, error) {
 type                     = "vrf"
 schemaVersion            = 1
 name                     = "{{.Name}}"
+forwardingAllowed        = {{.ForwardingAllowed}}
 coordinatorAddress       = "{{.CoordinatorAddress}}"
 fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
@@ -1189,6 +1202,10 @@ externalJobID            = "{{.ExternalJobID}}"
 batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
 backoffInitialDelay     = "{{.BackOffInitialDelay}}"
 backoffMaxDelay         = "{{.BackOffMaxDelay}}"
+pollPeriod              = "{{.PollPeriod}}"
+requestTimeout          = "{{.RequestTimeout}}"
+customRevertsPipelineEnabled = true
+{{ if .UseVRFOwner }}vrfOwnerAddress                = "{{.VRFOwner}}"{{ else }}{{ end }}
 observationSource = """
 {{.ObservationSource}}
 """
