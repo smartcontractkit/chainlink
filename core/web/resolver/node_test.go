@@ -6,20 +6,16 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestResolver_Nodes(t *testing.T) {
 	t.Parallel()
 
 	var (
-		chainID = *big.NewI(1)
-
 		query = `
 			query GetNodes {
 				nodes {
@@ -49,7 +45,7 @@ func TestResolver_Nodes(t *testing.T) {
 						{
 							ChainID: "1",
 							Name:    "node-name",
-							Config:  "",
+							Config:  "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",
 							State:   "alive",
 						},
 					},
@@ -122,21 +118,20 @@ func Test_NodeQuery(t *testing.T) {
 			}
 		}`
 
-	var name = "node-name"
-
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "node"),
 		{
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(toml.EVMConfig{Nodes: []*toml.Node{{
-					Name:    &name,
-					WSURL:   models.MustParseURL("ws://some-url"),
-					HTTPURL: models.MustParseURL("http://some-url"),
-					Order:   ptr(int32(11)),
-				}}})
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{
+					testutils.MockRelayer{NodeStatuses: []types.NodeStatus{
+						{
+							Name:   "node-name",
+							Config: "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",
+						},
+					}},
+				}})
 			},
 			query: query,
 			result: `
@@ -153,7 +148,7 @@ func Test_NodeQuery(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
 			},
 			query: query,
 			result: `

@@ -8,7 +8,8 @@ import (
 )
 
 type MockRelayer struct {
-	ChainStatus commontypes.ChainStatus
+	ChainStatus  commontypes.ChainStatus
+	NodeStatuses []commontypes.NodeStatus
 }
 
 func (m MockRelayer) Name() string {
@@ -36,7 +37,7 @@ func (m MockRelayer) GetChainStatus(ctx context.Context) (commontypes.ChainStatu
 }
 
 func (m MockRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []commontypes.NodeStatus, nextPageToken string, total int, err error) {
-	panic("not implemented")
+	return m.NodeStatuses, "", len(m.NodeStatuses), nil
 }
 
 func (m MockRelayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
