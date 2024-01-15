@@ -48,7 +48,6 @@ require (
 exclude github.com/hashicorp/consul v1.2.1
 
 replace (
-	github.com/smartcontractkit/chainlink-testing-framework => ../../chainlink-testing-framework
 	github.com/testcontainers/testcontainers-go => github.com/Tofel/testcontainers-go v0.0.0-20231130110817-e6fbf9498b56
 	// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 	k8s.io/api => k8s.io/api v0.25.11
