@@ -11,11 +11,10 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -1100,7 +1099,7 @@ func setupKeeperTest(t *testing.T) (
 ) {
 	clNodeConfig := node.NewConfig(node.NewBaseConfig(), node.WithP2Pv2())
 	turnLookBack := int64(0)
-	syncInterval := models.MustMakeDuration(5 * time.Second)
+	syncInterval := *commonconfig.MustNewDuration(5 * time.Second)
 	performGasOverhead := uint32(150000)
 	clNodeConfig.Keeper.TurnLookBack = &turnLookBack
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
@@ -1113,7 +1112,6 @@ func setupKeeperTest(t *testing.T) (
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 

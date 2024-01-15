@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	models "github.com/smartcontractkit/chainlink/v2/core/store/models"
+	config "github.com/smartcontractkit/chainlink-common/pkg/config"
 	mock "github.com/stretchr/testify/mock"
 
 	time "time"
@@ -33,18 +33,18 @@ func (_m *Config) DefaultHTTPLimit() int64 {
 }
 
 // DefaultHTTPTimeout provides a mock function with given fields:
-func (_m *Config) DefaultHTTPTimeout() models.Duration {
+func (_m *Config) DefaultHTTPTimeout() config.Duration {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for DefaultHTTPTimeout")
 	}
 
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+	var r0 config.Duration
+	if rf, ok := ret.Get(0).(func() config.Duration); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(models.Duration)
+		r0 = ret.Get(0).(config.Duration)
 	}
 
 	return r0

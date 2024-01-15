@@ -20,6 +20,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -38,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func firstHead(t *testing.T, db *sqlx.DB) (h evmtypes.Head) {
@@ -426,7 +426,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		c.EVM[0].FinalityDepth = ptr[uint32](50)
 		// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
-		c.EVM[0].HeadTracker.SamplingInterval = models.MustNewDuration(2500 * time.Millisecond)
+		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(2500 * time.Millisecond)
 	})
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -554,7 +554,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		c.EVM[0].FinalityDepth = ptr[uint32](50)
 		// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
-		c.EVM[0].HeadTracker.SamplingInterval = models.MustNewDuration(0)
+		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(0)
 	})
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)

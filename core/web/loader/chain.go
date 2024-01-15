@@ -22,7 +22,7 @@ func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 	// Collect the keys to search for
 	var chainIDs []relay.ChainID
 	for ix, key := range keys {
-		chainIDs = append(chainIDs, relay.ChainID(key.String()))
+		chainIDs = append(chainIDs, key.String())
 		keyOrder[key.String()] = ix
 	}
 

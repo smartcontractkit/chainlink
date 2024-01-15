@@ -163,6 +163,17 @@ func NewApp(s *Shell) *cli.App {
 			Subcommands: initRemoteConfigSubCmds(s),
 		},
 		{
+			Name:   "health",
+			Usage:  "Prints a health report",
+			Action: s.Health,
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "json, j",
+					Usage: "json output",
+				},
+			},
+		},
+		{
 			Name:        "jobs",
 			Usage:       "Commands for managing Jobs",
 			Subcommands: initJobsSubCmds(s),

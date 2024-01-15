@@ -1589,6 +1589,19 @@ LatestReportDeadline = "5s" # Default
 LatestReportDeadline controls how long to wait for a response from the
 mercury server before retrying. Setting this to zero will wait indefinitely.
 
+## Mercury.TLS
+```toml
+[Mercury.TLS]
+CertFile = "/path/to/client/certs.pem" # Example
+```
+Mercury.TLS controls client settings for when the node talks to traditional web servers or load balancers.
+
+### CertFile
+```toml
+CertFile = "/path/to/client/certs.pem" # Example
+```
+CertFile is the path to a PEM file of trusted root certificate authority certificates
+
 ## EVM
 EVM defaults depend on ChainID:
 

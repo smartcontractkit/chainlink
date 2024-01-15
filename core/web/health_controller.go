@@ -76,7 +76,7 @@ func (hc *HealthController) Health(c *gin.Context) {
 	healthy, errors := checker.IsHealthy()
 
 	if !healthy {
-		status = http.StatusServiceUnavailable
+		status = http.StatusMultiStatus
 	}
 
 	c.Status(status)
