@@ -72,7 +72,7 @@ jobs:
           cat << EOF > config.toml
           [Logging.Loki]
           tenant_id="$LOKI_TENANT_ID"
-          url="$LOKI_URL"
+          endpoint="$LOKI_URL"
           basic_auth="$LOKI_BASIC_AUTH"
           EOF
 
