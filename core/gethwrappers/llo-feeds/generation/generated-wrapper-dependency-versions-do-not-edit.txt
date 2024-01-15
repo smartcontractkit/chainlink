@@ -1,6 +1,7 @@
 GETH_VERSION: 1.12.2
 channel_config_store: ../../../contracts/solc/v0.8.16/ChannelConfigStore/ChannelConfigStore.abi ../../../contracts/solc/v0.8.16/ChannelConfigStore/ChannelConfigStore.bin 94d59ca139e95f82d2ce5e494a56bd5c24472fe14a60e8972ed2e29138347b20
 channel_config_verifier_proxy: ../../../contracts/solc/v0.8.16/ChannelVerifierProxy/ChannelVerifierProxy.abi ../../../contracts/solc/v0.8.16/ChannelVerifierProxy/ChannelVerifierProxy.bin 655658e5f61dfadfe3268de04f948b7e690ad03ca45676e645d6cd6018154661
+channel_verifier: ../../../contracts/solc/v0.8.16/ChannelVerifier/ChannelVerifier.abi ../../../contracts/solc/v0.8.16/ChannelVerifier/ChannelVerifier.bin 5d97a1fd755625947bfbeb8932b40b238de926ea60a03e841d90a884d9678a06
 errored_verifier: ../../../contracts/solc/v0.8.16/ErroredVerifier/ErroredVerifier.abi ../../../contracts/solc/v0.8.16/ErroredVerifier/ErroredVerifier.bin 510d18a58bfda646be35e46491baf73041eb333a349615465b20e2b5b41c5f73
 exposed_verifier: ../../../contracts/solc/v0.8.16/ExposedVerifier/ExposedVerifier.abi ../../../contracts/solc/v0.8.16/ExposedVerifier/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
 fee_manager: ../../../contracts/solc/v0.8.16/FeeManager/FeeManager.abi ../../../contracts/solc/v0.8.16/FeeManager/FeeManager.bin 1b852df75bfabcc2b57539e84309cd57f9e693a2bb6b25a50e4a6101ccf32c49
