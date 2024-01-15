@@ -3,6 +3,7 @@ package plugins
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -59,4 +60,8 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, map[string]string{"attribute": "value"}, registeredLoop.EnvCfg.TracingAttributes)
 	require.Equal(t, 0.1, registeredLoop.EnvCfg.TracingSamplingRatio)
 	require.Equal(t, "/path/to/cert.pem", registeredLoop.EnvCfg.TracingTLSCertPath)
+
+	gc := registeredLoop.Cmd()
+	assert.Equal(t, "./COMMAND", gc.Path)
+	assert.ElementsMatch(t, registeredLoop.EnvCfg.AsCmdEnv(), gc.Env)
 }
