@@ -211,7 +211,7 @@ jobs:
           cd ./integration-tests
           MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
-          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER)
+          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
 
           MATRIX_JSON_LP=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log-poller ubuntu-latest 1)
           echo "LP_JOB_MATRIX_JSON=${MATRIX_JSON_LP}" >> $GITHUB_ENV
@@ -224,10 +224,10 @@ jobs:
             echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
             target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
             if [[ "$target_branch" == "develop" ]]; then
-              echo "only run log poller and automation tests"
+              echo "only run automation tests"
               echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
             else
-              echo "run both log poller, automation and keepers tests"
+              echo "run both automation and keepers tests"
               echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
             fi
           fi
