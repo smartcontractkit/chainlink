@@ -32,17 +32,11 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
           decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
-
           CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
           echo ::add-mask::$CHAINLINK_IMAGE
           CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)          
           NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
           ETH2_EL_CLIENT=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*execution_layer[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
-
-          echo "IMAGE: $CHAINLINK_IMAGE"
-          echo "VERSION: $CHAINLINK_VERSION"
-          echo "NETWORKS: $NETWORKS"
-          echo "ETH2_EL_CLIENT: $ETH2_EL_CLIENT"
 
           if [ -n "$CHAINLINK_IMAGE" ]; then
             echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
@@ -73,19 +67,19 @@ jobs:
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
           echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY          
-      # - name: Run Tests
-      #   uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
-      #   with:
-      #     test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run TestVRFv2Basic ./smoke/vrfv2_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
-      #     test_download_vendor_packages_command: cd ./integration-tests && go mod download
-      #     cl_repo: ${{ env.CHAINLINK_IMAGE }}
-      #     cl_image_tag: ${{ env.CHAINLINK_VERSION }}
-      #     aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      #     artifacts_name: vrf-test-logs
-      #     artifacts_location: ./integration-tests/smoke/logs/
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     go_mod_path: ./integration-tests/go.mod
-      #     should_cleanup: false
-      #     QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      #     QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
-      #     QA_KUBECONFIG: ""
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
+        with:
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run TestVRFv2Basic ./smoke/vrfv2_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: vrf-test-logs
+          artifacts_location: ./integration-tests/smoke/logs/
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          should_cleanup: false
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
+          QA_KUBECONFIG: ""

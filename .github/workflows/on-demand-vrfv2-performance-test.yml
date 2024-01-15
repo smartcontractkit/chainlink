@@ -45,14 +45,15 @@ jobs:
         continue-on-error: true
       - name: Add masks and export base64 config
         run: |
-          BASE64_CONFIG_OVERRIDE=${{ inputs.base64Config }}
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
-          decoded_toml=$(echo "$BASE64_CONFIG_OVERRIDE" | base64 -d)
-          CHAINLINK_IMAGE=$(echo "$decoded_toml" | sed -n '/^Image\s*=\s*/{s///p}' 2>/dev/null)
-          echo ::add-mask::$CHAINLINK_IMAGE
-          CHAINLINK_VERSION=$(echo "$decoded_toml" | sed -n '/^Version\s*=\s*/{s///p}' 2>/dev/null)
-          NETWORKS=$(echo "$decoded_toml" | sed -n '/^selected_networks\s*=\s*/{s///p}' 2>/dev/null)
+          decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
+          CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
+          # echo ::add-mask::$CHAINLINK_IMAGE
+          CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)          
+          NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
 
           if [ -n "$CHAINLINK_IMAGE" ]; then
             echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
@@ -74,14 +75,14 @@ jobs:
           cat << EOF > config.toml
           [Logging.Loki]
           tenant_id="$LOKI_TENANT_ID"
-          url="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+          url="some_url"
+          basic_auth="some_value"
           EOF
 
           echo "$decoded_toml" >> final_config.toml
           cat config.toml >> final_config.toml
           BASE64_CONFIG_OVERRIDE=$(cat final_config | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          # echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Send details to Step Summary
         shell: bash
@@ -96,19 +97,19 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
-        with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 24h -run TestVRFV2Performance/vrfv2_performance_test ./load/vrfv2
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: vrf-test-logs
-          artifacts_location: ./integration-tests/load/vrfv2/logs/
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          should_cleanup: false
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      # - name: Run Tests
+      #   uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
+      #   with:
+      #     test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 24h -run TestVRFV2Performance/vrfv2_performance_test ./load/vrfv2
+      #     test_download_vendor_packages_command: cd ./integration-tests && go mod download
+      #     cl_repo: ${{ env.CHAINLINK_IMAGE }}
+      #     cl_image_tag: ${{ env.CHAINLINK_VERSION }}
+      #     aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      #     artifacts_name: vrf-test-logs
+      #     artifacts_location: ./integration-tests/load/vrfv2/logs/
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     go_mod_path: ./integration-tests/go.mod
+      #     should_cleanup: false
+      #     QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      #     QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      #     QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}

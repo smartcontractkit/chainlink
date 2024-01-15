@@ -81,7 +81,7 @@ jobs:
           # load reusable functions
           source ./.github/scripts/functions.sh
         
-          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")      
 
           cat << EOF > config.toml
           [Network]

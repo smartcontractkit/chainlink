@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Add masks and export base64 config
         run: |
-          BASE64_CONFIG_OVERRIDE=${{ inputs.base64Config }}
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Checkout the repo

@@ -44,15 +44,15 @@ jobs:
           echo ::add-mask::$SLACK_USER
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
 
-          BASE64_CONFIG_OVERRIDE=${{ inputs.base64Config }}
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
-          decoded_toml=$(echo "$BASE64_CONFIG_OVERRIDE" | base64 -d)
-          CHAINLINK_IMAGE=$(echo "$decoded_toml" | sed -n '/^Image\s*=\s*/{s///p}' 2>/dev/null)
+          decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
+          CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
           echo ::add-mask::$CHAINLINK_IMAGE
-          CHAINLINK_VERSION=$(echo "$decoded_toml" | sed -n '/^Version\s*=\s*/{s///p}' 2>/dev/null)
-          NETWORKS=$(echo "$decoded_toml" | sed -n '/^selected_networks\s*=\s*/{s///p}' 2>/dev/null)
+          CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)          
+          NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
 
           if [ -n "$CHAINLINK_IMAGE" ]; then
             echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
