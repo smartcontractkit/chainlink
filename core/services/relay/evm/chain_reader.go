@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -173,7 +174,6 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	}
 
 	filterArgs, topicInfo, indexArgNames := setupEventInput(event, chainReaderDefinition)
-
 	if err := verifyEventInputsUsed(chainReaderDefinition, indexArgNames); err != nil {
 		return err
 	}
@@ -187,13 +187,8 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	ce := cr.parsed.encoderDefs[wrapItemType(contractName, eventName, true)]
-	inMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
+	inputInfo, inputModifier, err := cr.getEventInput(chainReaderDefinition, contractName, eventName)
 	if err != nil {
-		return err
-	}
-
-	if _, err = inMod.RetypeForOffChain(reflect.PointerTo(ce.checkedType), ""); err != nil {
 		return err
 	}
 
@@ -202,13 +197,29 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		eventName:     eventName,
 		lp:            cr.lp,
 		hash:          event.ID,
-		inputInfo:     ce,
-		inputModifier: inMod,
+		inputInfo:     inputInfo,
+		inputModifier: inputModifier,
 		topicInfo:     topicInfo,
 		id:            wrapItemType(contractName, eventName, false) + uuid.NewString(),
 	})
 
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
+}
+
+func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
+	*codecEntry, codec.Modifier, error) {
+	inputInfo := cr.parsed.encoderDefs[wrapItemType(contractName, eventName, true)]
+	inMod, err := def.InputModifications.ToModifier(evmDecoderHooks...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// initialize the modification
+	if _, err = inMod.RetypeForOffChain(reflect.PointerTo(inputInfo.checkedType), ""); err != nil {
+		return nil, nil, err
+	}
+
+	return inputInfo, inMod, nil
 }
 
 func verifyEventInputsUsed(chainReaderDefinition types.ChainReaderDefinition, indexArgNames map[string]bool) error {
