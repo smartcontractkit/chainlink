@@ -69,7 +69,7 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 // CommitReportToEthTxMeta generates a txmgr.EthTxMeta from the given commit report.
 // sequence numbers of the committed messages will be added to tx metadata
 func commitReportToEthTxMeta(commitReport ccipdata.CommitStoreReport) (*txmgr.TxMeta, error) {
-	n := uint64(commitReport.Interval.Max-commitReport.Interval.Min) + 1
+	n := (commitReport.Interval.Max - commitReport.Interval.Min) + 1
 	seqRange := make([]uint64, n)
 	for i := uint64(0); i < n; i++ {
 		seqRange[i] = i + commitReport.Interval.Min
