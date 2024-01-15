@@ -34,7 +34,7 @@ func Test_parseLogs(t *testing.T) {
 	// Make sure everything is parsed according to the parse func
 	for i, ev := range parsedEvents {
 		assert.Equal(t, i+1, int(ev.Data))
-		assert.Equal(t, int(i)*1000, int(ev.BlockNumber))
+		assert.Equal(t, i*1000, int(ev.BlockNumber))
 		assert.Greater(t, ev.BlockTimestamp, time.Now().Add(-time.Minute))
 	}
 }
