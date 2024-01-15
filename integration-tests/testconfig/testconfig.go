@@ -258,6 +258,8 @@ func (c *TestConfig) readNetworkConfiguration() error {
 	if c == nil {
 		c.Network = &ctf_config.NetworkConfig{}
 	}
+
+	c.Network.UpperCaseNetworkNames()
 	err := c.Network.Default()
 	if err != nil {
 		return errors.Wrapf(err, "error reading default network config")
