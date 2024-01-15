@@ -162,13 +162,17 @@ jobs:
             echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
             echo "upgrade_image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
           else
-            echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
+            READ_CL_IMAGE=$(jq -r '.inputs.chainlinkImage' $GITHUB_EVENT_PATH)
+            echo ::add-mask::$READ_CL_IMAGE
+            echo "image=$READ_CL_IMAGE" >>$GITHUB_OUTPUT
             echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
             echo "upgrade_version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
-            echo "upgrade_image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
+            echo "upgrade_image=$READ_CL_IMAGE" >>$GITHUB_OUTPUT
           fi
           if [[ "${{ matrix.tests.name }}" == "upgrade" ]]; then
-            echo "image=${{ inputs.chainlinkImageUpdate }}" >>$GITHUB_OUTPUT
+            READ_CL_UPGR_IMAGE=$(jq -r '.inputs.chainlinkImageUpdate' $GITHUB_EVENT_PATH)
+            echo ::add-mask::$READ_CL_UPGR_IMAGE
+            echo "image=$READ_CL_UPGR_IMAGE" >>$GITHUB_OUTPUT
             echo "version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
           fi
       - name: Prepare Base64 TOML config
@@ -183,6 +187,8 @@ jobs:
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}          
         run: |
           echo ::add-mask::$UPGRADE_IMAGE
+          echo ::add-mask::$OLD_IMAGE
+
           # load reusable functions
           source ./.github/scripts/functions.sh
           
