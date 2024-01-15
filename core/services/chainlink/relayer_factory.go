@@ -127,15 +127,12 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 				return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 			}
 
-			solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  relayID.Name(),
-				Cmd: cmdName,
-			})
+			rl, err := r.Register(relayID.Name(), cmdName)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 			}
 
-			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), signer)
+			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, rl.Cmd, string(cfgTOML), signer)
 
 		} else {
 			// fallback to embedded chain
@@ -196,16 +193,13 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 				return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
 			}
 
-			starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  relayID.Name(),
-				Cmd: cmdName,
-			})
+			rl, err := r.Register(relayID.Name(), cmdName)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
 			}
 			// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
 			// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-			starknetRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, starknetCmdFn, string(cfgTOML), loopKs)
+			starknetRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, rl.Cmd, string(cfgTOML), loopKs)
 		} else {
 			// fallback to embedded chain
 			opts := starkchain.ChainOpts{

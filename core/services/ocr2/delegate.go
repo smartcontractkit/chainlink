@@ -589,7 +589,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	}
 
 	pluginLggr := lggr.Named(p.PluginName).Named(spec.ContractID).Named(spec.GetID())
-	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()), command)
+	loop, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()), command)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register loop: %w", err)
 	}
@@ -633,7 +633,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
 	ta := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 
-	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
+	plugin := reportingplugins.NewLOOPPService(pluginLggr, d.cfg.GRPCOpts(), loop.Cmd, pluginConfig, providerClientConn, pr, ta, errorLog)
 	oracleArgs.ReportingPluginFactory = plugin
 	srvs = append(srvs, plugin)
 

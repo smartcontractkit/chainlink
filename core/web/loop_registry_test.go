@@ -76,15 +76,15 @@ func TestLoopRegistry(t *testing.T) {
 
 	// note we expect this to be an ordered result
 	expectedLabels := []model.LabelSet{
-		model.LabelSet{"__metrics_path__": model.LabelValue(expectedCoreEndPoint)},
-		model.LabelSet{"__metrics_path__": model.LabelValue(expectedLooppEndPoint)},
+		{"__metrics_path__": model.LabelValue(expectedCoreEndPoint)},
+		{"__metrics_path__": model.LabelValue(expectedLooppEndPoint)},
 	}
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// register a mock loop
-	loop, err := app.GetLoopRegistry().Register("mockLoopImpl")
+	loop, err := app.GetLoopRegistry().Register("mockLoopImpl", "NOOP-COMMAND")
 	require.NoError(t, err)
 	require.NotNil(t, loop)
 	require.Len(t, app.GetLoopRegistry().List(), 1)

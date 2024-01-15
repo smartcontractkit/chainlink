@@ -11,16 +11,16 @@ import (
 func TestPluginPortManager(t *testing.T) {
 	// register one
 	m := NewLoopRegistry(logger.TestLogger(t), nil)
-	pFoo, err := m.Register("foo")
+	pFoo, err := m.Register("foo", "./COMMAND")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
 	require.Greater(t, pFoo.EnvCfg.PrometheusPort, 0)
 	// test duplicate
-	pNil, err := m.Register("foo")
+	pNil, err := m.Register("foo", "./COMMAND")
 	require.ErrorIs(t, err, ErrExists)
 	require.Nil(t, pNil)
 	// ensure increasing port assignment
-	pBar, err := m.Register("bar")
+	pBar, err := m.Register("bar", "./COMMAND")
 	require.NoError(t, err)
 	require.Equal(t, "bar", pBar.Name)
 	require.Equal(t, pFoo.EnvCfg.PrometheusPort+1, pBar.EnvCfg.PrometheusPort)
@@ -51,7 +51,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	}
 
 	// Test case 1: Register new loop
-	registeredLoop, err := loopRegistry.Register("testID")
+	registeredLoop, err := loopRegistry.Register("testID", "./COMMAND")
 	require.Nil(t, err)
 	require.Equal(t, "testID", registeredLoop.Name)
 	require.True(t, registeredLoop.EnvCfg.TracingEnabled)

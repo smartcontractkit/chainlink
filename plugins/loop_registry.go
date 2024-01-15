@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"errors"
+	"os/exec"
 	"sort"
 	"sync"
 
@@ -20,6 +21,13 @@ var ErrExists = errors.New("plugin already registered")
 type RegisteredLoop struct {
 	Name   string
 	EnvCfg loop.EnvConfig
+	cmd    string
+}
+
+func (r *RegisteredLoop) Cmd() *exec.Cmd {
+	cmd := exec.Command(r.cmd) //#nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
+	cmd.Env = append(cmd.Env, r.EnvCfg.AsCmdEnv()...)
+	return cmd
 }
 
 // LoopRegistry is responsible for assigning ports to plugins that are to be used for the
@@ -42,7 +50,7 @@ func NewLoopRegistry(lggr logger.Logger, tracingConfig config.Tracing) *LoopRegi
 
 // Register creates a port of the plugin. It is not idempotent. Duplicate calls to Register will return [ErrExists]
 // Safe for concurrent use.
-func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
+func (m *LoopRegistry) Register(id string, cmd string) (*RegisteredLoop, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -60,7 +68,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TracingAttributes = m.cfgTracing.Attributes()
 	}
 
-	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
+	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg, cmd: cmd}
 	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort)
 	return m.registry[id], nil
 }

@@ -162,13 +162,13 @@ func NewMedianServices(ctx context.Context,
 	if medianLoopEnabled {
 		// use unique logger names so we can use it to register a loop
 		medianLggr := lggr.Named("Median").Named(spec.ContractID).Named(spec.GetID())
-		cmdFn, telem, err2 := cfg.RegisterLOOP(medianLggr.Name(), medianPluginCmd)
+		loopp, err2 := cfg.RegisterLOOP(medianLggr.Name(), medianPluginCmd)
 		if err2 != nil {
 			err = fmt.Errorf("failed to register loop: %w", err2)
 			abort()
 			return
 		}
-		median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		median := loop.NewMedianService(lggr, cfg.GRPCOpts(), loopp.Cmd, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
