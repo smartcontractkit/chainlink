@@ -44,24 +44,24 @@ jobs:
           echo "NETWORKS: $NETWORKS"
           echo "ETH2_EL_CLIENT: $ETH2_EL_CLIENT"
 
-          # if [ -n "$CHAINLINK_IMAGE" ]; then
-          #   echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
-          # else
-          #   echo "No Chainlink Image found in base64-ed config. Exiting"
-          #   exit 1
-          # fi
-          # if [ -n "$CHAINLINK_VERSION" ]; then
-          #   echo "CHAINLINK_VERSION=$CHAINLINK_VERSION" >> $GITHUB_ENV
-          # else
-          #   echo "No Chainlink Version found in base64-ed config. Exiting"
-          #   exit 1            
-          # fi   
-          # if [ -n "$NETWORKS" ]; then
-          #   echo "NETWORKS=$NETWORKS" >> $GITHUB_ENV           
-          # fi      
-          # if [ -n "$ETH2_EL_CLIENT" ]; then
-          #   echo "ETH2_EL_CLIENT=$ETH2_EL_CLIENT" >> $GITHUB_ENV           
-          # fi                
+          if [ -n "$CHAINLINK_IMAGE" ]; then
+            echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
+          else
+            echo "No Chainlink Image found in base64-ed config. Exiting"
+            exit 1
+          fi
+          if [ -n "$CHAINLINK_VERSION" ]; then
+            echo "CHAINLINK_VERSION=$CHAINLINK_VERSION" >> $GITHUB_ENV
+          else
+            echo "No Chainlink Version found in base64-ed config. Exiting"
+            exit 1            
+          fi   
+          if [ -n "$NETWORKS" ]; then
+            echo "NETWORKS=$NETWORKS" >> $GITHUB_ENV           
+          fi      
+          if [ -n "$ETH2_EL_CLIENT" ]; then
+            echo "ETH2_EL_CLIENT=$ETH2_EL_CLIENT" >> $GITHUB_ENV           
+          fi                
       - name: Send details to Step Summary
         shell: bash
         run: |
