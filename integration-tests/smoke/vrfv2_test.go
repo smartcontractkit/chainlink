@@ -607,11 +607,6 @@ func TestVRFOwner(t *testing.T) {
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfv2_actions.ErrWaitTXsComplete)
 
-		//subBalanceBeforeRequest := subscription.Balance
-		//
-		//jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2Data.VRFJob.Data.ID)
-		//require.NoError(t, err, "error reading job runs")
-
 		consumerLinkBalance, err := linkToken.BalanceOf(testcontext.Get(t), vrfv2Contracts.LoadTestConsumers[0].Address())
 		require.NoError(t, err, "error getting consumer link balance")
 		l.Info().
@@ -633,26 +628,5 @@ func TestVRFOwner(t *testing.T) {
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-
-		//expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
-		//subscription, err = vrfv2Contracts.Coordinator.GetSubscription(context.Background(), subID)
-		//require.NoError(t, err, "error getting subscription information")
-		//subBalanceAfterRequest := subscription.Balance
-		//require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
-		//
-		//jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2Data.VRFJob.Data.ID)
-		//require.NoError(t, err, "error reading job runs")
-		//require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
-		//
-		//status, err := vrfv2Contracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
-		//require.NoError(t, err, "error getting rand request status")
-		//require.True(t, status.Fulfilled)
-		//l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
-		//
-		//require.Equal(t, testConfig.NumberOfWords, uint32(len(status.RandomWords)))
-		//for _, w := range status.RandomWords {
-		//	l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
-		//	require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
-		//}
 	})
 }
