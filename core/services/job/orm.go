@@ -697,7 +697,7 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 
 		return nil
 	})
-	return jobs, int(count), err
+	return jobs, count, err
 }
 
 func LoadDefaultVRFPollPeriod(vrfs VRFSpec) *VRFSpec {
