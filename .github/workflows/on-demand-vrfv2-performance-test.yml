@@ -51,7 +51,7 @@ jobs:
 
           decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
           CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
-          # echo ::add-mask::$CHAINLINK_IMAGE
+          echo ::add-mask::$CHAINLINK_IMAGE
           CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)          
           NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
 
@@ -75,8 +75,8 @@ jobs:
           cat << EOF > config.toml
           [Logging.Loki]
           tenant_id="$LOKI_TENANT_ID"
-          url="some_url"
-          basic_auth="some_value"
+          url="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
           EOF
 
           echo "$decoded_toml" >> final_config.toml
