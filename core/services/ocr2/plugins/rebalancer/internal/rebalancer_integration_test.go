@@ -17,6 +17,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/test-go/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/no_op_ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestRebalancer_Integration(t *testing.T) {
@@ -61,8 +61,8 @@ func setupNodeOCR2(
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.V2.Enabled = ptr(true)
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
 		if len(p2pV2Bootstrappers) > 0 {
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
@@ -71,10 +71,10 @@ func setupNodeOCR2(
 		c.OCR.Enabled = ptr(false)
 		c.OCR2.Enabled = ptr(true)
 
-		c.EVM[0].LogPollInterval = models.MustNewDuration(500 * time.Millisecond)
+		c.EVM[0].LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
-		c.OCR2.ContractPollInterval = models.MustNewDuration(5 * time.Second)
+		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
