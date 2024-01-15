@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 )
 
 var (
@@ -585,7 +584,6 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	vrfv2Data *VRFV2Data,
 	testConfig *tc.TestConfig,
 	randomnessRequestCountPerRequest uint16,
-	vrfv2Config vrfv2_config.General,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {

@@ -150,7 +150,6 @@ func TestVRFv2Basic(t *testing.T) {
 			vrfv2Data,
 			&configCopy,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2.General,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
