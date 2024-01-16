@@ -715,22 +715,26 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 		// signal when all the primary nodes done broadcasting tx
 		inTxResults := make(chan sendTxResult, len(c.nodes))
-		var wg sync.WaitGroup
-		wg.Add(len(c.nodes))
+		var primaryBroadcastWg sync.WaitGroup
+		primaryBroadcastWg.Add(len(c.nodes))
 		c.wg.Add(1)
 		go func() {
 			// wait for primary nodes to finish the broadcast before closing the channel
-			wg.Wait()
+			primaryBroadcastWg.Wait()
 			close(inTxResults)
 			c.wg.Done()
 		}()
 
 		for _, n := range c.nodes {
-			go c.broadcastTxAsync(ctx, n, tx, inTxResults, &wg)
+			go c.broadcastTxAsync(ctx, n, tx, inTxResults, &primaryBroadcastWg)
 		}
 
 		txResultsToReport := make(chan sendTxResult, len(c.nodes))
-		go fanOut(inTxResults, txResultsToReport, txResults)
+		c.wg.Add(1)
+		go func() {
+			fanOut(inTxResults, txResultsToReport, txResults)
+			c.wg.Done()
+		}()
 
 		c.wg.Add(1)
 		go c.reportSendTxAnomalies(tx, txResultsToReport)
