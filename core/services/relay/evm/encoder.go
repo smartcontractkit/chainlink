@@ -46,15 +46,23 @@ func encode(item reflect.Value, info *codecEntry) ([]byte, error) {
 	}
 	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
-		return encodeArray(item, info)
+		native, err := representArray(item, info)
+		if err != nil {
+			return nil, err
+		}
+		return pack(info, native)
 	case reflect.Struct, reflect.Map:
-		return encodeItem(item, info)
+		values, err := unrollItem(item, info)
+		if err != nil {
+			return nil, err
+		}
+		return pack(info, values...)
 	default:
 		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
 	}
 }
 
-func encodeArray(item reflect.Value, info *codecEntry) ([]byte, error) {
+func representArray(item reflect.Value, info *codecEntry) (any, error) {
 	length := item.Len()
 	var native reflect.Value
 	switch info.checkedType.Kind() {
@@ -78,11 +86,10 @@ func encodeArray(item reflect.Value, info *codecEntry) ([]byte, error) {
 		}
 		native.Index(i).Set(reflect.NewAt(nativeElm, tmp.UnsafePointer()).Elem())
 	}
-
-	return pack(info, native.Interface())
+	return native.Interface(), nil
 }
 
-func encodeItem(item reflect.Value, info *codecEntry) ([]byte, error) {
+func unrollItem(item reflect.Value, info *codecEntry) ([]any, error) {
 	if item.Type() == reflect.PointerTo(info.checkedType) {
 		item = reflect.NewAt(info.nativeType, item.UnsafePointer())
 	} else if item.Type() != reflect.PointerTo(info.nativeType) {
@@ -102,8 +109,7 @@ func encodeItem(item reflect.Value, info *codecEntry) ([]byte, error) {
 			values[i] = item.Field(i).Interface()
 		}
 	}
-
-	return pack(info, values...)
+	return values, nil
 }
 
 func pack(info *codecEntry, values ...any) ([]byte, error) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
@@ -32,8 +33,13 @@ func (entry *codecEntry) Init() error {
 	native := make([]reflect.StructField, argLen)
 	checked := make([]reflect.StructField, argLen)
 
+	// Single returns that aren't named will return that type
+	// whereas named parameters will return a struct with the fields
+	// Eg: function foo() returns (int256) ... will return a *big.Int for the native type
+	// function foo() returns (int256 i) ... will return a struct { I *big.Int } for the native type
+	// function foo() returns (int256 i1, int256 i2) ... will return a struct { I1 *big.Int, I2 *big.Int } for the native type
 	if len(args) == 1 && args[0].Name == "" {
-		nativeArg, checkedArg, err := getNativeAndCheckedTypes(&args[0].Type)
+		nativeArg, checkedArg, err := getNativeAndCheckedTypesForArg(&args[0])
 		if err != nil {
 			return err
 		}
@@ -42,10 +48,18 @@ func (entry *codecEntry) Init() error {
 		return nil
 	}
 
+	numIndices := 0
 	seenNames := map[string]bool{}
 	for i, arg := range args {
-		tmp := arg.Type
-		nativeArg, checkedArg, err := getNativeAndCheckedTypes(&tmp)
+		if arg.Indexed {
+			if numIndices == maxTopicFields {
+				return fmt.Errorf("%w: too many indexed arguments", commontypes.ErrInvalidConfig)
+			}
+			numIndices++
+		}
+
+		tmp := arg
+		nativeArg, checkedArg, err := getNativeAndCheckedTypesForArg(&tmp)
 		if err != nil {
 			return err
 		}
@@ -55,9 +69,8 @@ func (entry *codecEntry) Init() error {
 
 		name := strings.ToUpper(arg.Name[:1]) + arg.Name[1:]
 		if seenNames[name] {
-			return fmt.Errorf("%w: duplicate field name %s, first letter casing is ignored", commontypes.ErrInvalidType, name)
+			return fmt.Errorf("%w: duplicate field name %s, after ToCamelCase", commontypes.ErrInvalidConfig, name)
 		}
-
 		seenNames[name] = true
 		native[i] = reflect.StructField{Name: name, Type: nativeArg}
 		checked[i] = reflect.StructField{Name: name, Type: checkedArg}
@@ -94,6 +107,28 @@ func UnwrapArgs(args abi.Arguments) abi.Arguments {
 		}
 	}
 	return args
+}
+
+func getNativeAndCheckedTypesForArg(arg *abi.Argument) (reflect.Type, reflect.Type, error) {
+	tmp := arg.Type
+	if arg.Indexed {
+		switch arg.Type.T {
+		case abi.StringTy:
+			return reflect.TypeOf(common.Hash{}), reflect.TypeOf(common.Hash{}), nil
+		case abi.ArrayTy:
+			u8, _ := types.GetAbiEncodingType("uint8")
+			if arg.Type.Elem.GetType() == u8.Native {
+				return reflect.TypeOf(common.Hash{}), reflect.TypeOf(common.Hash{}), nil
+			}
+			fallthrough
+		case abi.SliceTy, abi.TupleTy, abi.FixedBytesTy, abi.FixedPointTy, abi.FunctionTy:
+			// https://github.com/ethereum/go-ethereum/blob/release/1.12/accounts/abi/topics.go#L78
+			return nil, nil, fmt.Errorf("%w: unsupported indexed type: %v", commontypes.ErrInvalidConfig, arg.Type)
+		default:
+		}
+	}
+
+	return getNativeAndCheckedTypes(&tmp)
 }
 
 func getNativeAndCheckedTypes(curType *abi.Type) (reflect.Type, reflect.Type, error) {

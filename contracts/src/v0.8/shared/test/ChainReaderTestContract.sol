@@ -24,7 +24,7 @@ struct InnerTestStruct {
 
 contract LatestValueHolder {
   event Triggered(
-    int32 field,
+    int32 indexed field,
     string differentField,
     uint8 oracleId,
     uint8[32] oracleIds,
@@ -32,6 +32,19 @@ contract LatestValueHolder {
     address[] Accounts,
     int192 bigField,
     MidLevelTestStruct nestedStruct
+  );
+
+  event TriggeredEventWithDynamicTopic(
+    string indexed fieldHash,
+    string field
+  );
+
+
+  // First topic is event hash
+  event TriggeredWithFourTopics(
+    int32 indexed field1,
+    int32 indexed field2,
+    int32 indexed field3
   );
 
   TestStruct[] private seen;
@@ -99,5 +112,20 @@ contract LatestValueHolder {
     MidLevelTestStruct calldata nestedStruct
   ) public {
     emit Triggered(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
+  }
+
+    function TriggerEventWithDynamicTopic(
+      string calldata field
+    ) public {
+        emit TriggeredEventWithDynamicTopic(field, field);
+    }
+
+  // first topic is the event signature
+  function TriggerWithFourTopics(
+    int32 field1,
+    int32 field2,
+    int32 field3
+  ) public {
+    emit TriggeredWithFourTopics(field1, field2, field3);
   }
 }

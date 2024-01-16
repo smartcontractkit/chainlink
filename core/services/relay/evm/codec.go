@@ -27,6 +27,13 @@ import (
 // it was a *big.Int
 var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
 
+// NewCodec creates a new [commontypes.RemoteCodec] for EVM.
+// Note that names in the ABI are converted to Go names using [abi.ToCamelCase],
+// this is per convention in [abi.MakeTopics], [abi.Arguments.Pack] etc.
+// This allows names on-chain to be in go convention when generated.
+// It means that if you need to use a [codec.Modifier] to reference a field
+// you need to use the Go name instead of the name on-chain.
+// eg: rename FooBar -> Bar, not foo_bar_ to Bar if the name on-chain is foo_bar_
 func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 	parsed := &parsedTypes{
 		encoderDefs: map[string]*codecEntry{},

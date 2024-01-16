@@ -45,6 +45,9 @@ type ChainReaderDefinition struct {
 	ReadType            `json:"readType"`
 	InputModifications  codec.ModifiersConfig `json:"input_modifications"`
 	OutputModifications codec.ModifiersConfig `json:"output_modifications"`
+
+	// EventInputFields allows you to choose which indexed fields are expected from the input
+	EventInputFields []string `json:"eventInputFields"`
 }
 
 type ReadType int64
