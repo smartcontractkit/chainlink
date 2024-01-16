@@ -145,9 +145,8 @@ func DeployVRFV2Contracts(
 			return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 		}
 		return &VRFV2Contracts{coordinator, vrfOwner, bhs, consumers}, nil
-	} else {
-		return &VRFV2Contracts{coordinator, nil, bhs, consumers}, nil
 	}
+	return &VRFV2Contracts{coordinator, nil, bhs, consumers}, nil
 }
 
 func DeployVRFV2Consumers(contractDeployer contracts.ContractDeployer, coordinatorAddress string, consumerContractsAmount int) ([]contracts.VRFv2LoadTestConsumer, error) {
@@ -862,18 +861,30 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 	//
 	//LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
 
-	subCanceledEvent, err := coordinator.WaitForSubscriptionCanceledEvent(
+	subConsumerRemoved, err := coordinator.WaitForSubscriptionConsumerRemoved(
 		nil,
 		time.Second*30,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", "error waiting subCanceledEvent", err)
+		return nil, fmt.Errorf("%s, err %w", "error waiting SubscriptionConsumerRemoved", err)
 	}
 	l.Info().
-		Uint64("SubID", subCanceledEvent.SubId).
-		Str("Sending funds to", subCanceledEvent.To.String()).
-		Str("Amount", subCanceledEvent.Amount.String()).
-		Msg("subCanceledEvent")
+		Uint64("SubID", subConsumerRemoved.SubId).
+		Str("Consumer", subConsumerRemoved.Consumer.String()).
+		Msg("SubscriptionConsumerRemoved")
+
+	//subCanceledEvent, err := coordinator.WaitForSubscriptionCanceledEvent(
+	//	nil,
+	//	time.Second*30,
+	//)
+	//if err != nil {
+	//	return nil, fmt.Errorf("%s, err %w", "error waiting subCanceledEvent", err)
+	//}
+	//l.Info().
+	//	Uint64("SubID", subCanceledEvent.SubId).
+	//	Str("Sending funds to", subCanceledEvent.To.String()).
+	//	Str("Amount", subCanceledEvent.Amount.String()).
+	//	Msg("subCanceledEvent")
 
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
 		nil,
