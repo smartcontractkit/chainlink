@@ -10,8 +10,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	prices "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 
 	time "time"
@@ -50,30 +48,6 @@ func (_m *CommitStoreReader) ChangeConfig(onchainConfig []byte, offchainConfig [
 	}
 
 	return r0, r1
-}
-
-// Close provides a mock function with given fields: qopts
-func (_m *CommitStoreReader) Close(qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Close")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(...pg.QOpt) error); ok {
-		r0 = rf(qopts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // DecodeCommitReport provides a mock function with given fields: report
@@ -367,30 +341,6 @@ func (_m *CommitStoreReader) OffchainConfig() ccipdata.CommitOffchainConfig {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(ccipdata.CommitOffchainConfig)
-	}
-
-	return r0
-}
-
-// RegisterFilters provides a mock function with given fields: qopts
-func (_m *CommitStoreReader) RegisterFilters(qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RegisterFilters")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(...pg.QOpt) error); ok {
-		r0 = rf(qopts...)
-	} else {
-		r0 = ret.Error(0)
 	}
 
 	return r0

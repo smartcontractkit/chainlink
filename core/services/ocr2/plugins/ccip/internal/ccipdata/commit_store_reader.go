@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type CommitStoreInterval struct {
@@ -87,7 +86,6 @@ func NewCommitOffchainConfig(
 
 //go:generate mockery --quiet --name CommitStoreReader --filename commit_store_reader_mock.go --case=underscore
 type CommitStoreReader interface {
-	Closer
 	GetExpectedNextSequenceNumber(context context.Context) (uint64, error)
 	GetLatestPriceEpochAndRound(context context.Context) (uint64, error)
 	// GetCommitReportMatchingSeqNum returns accepted commit report that satisfies Interval.Min <= seqNum <= Interval.Max. Returned slice should be empty or have exactly one element
@@ -105,7 +103,6 @@ type CommitStoreReader interface {
 	DecodeCommitReport(report []byte) (CommitStoreReport, error)
 	VerifyExecutionReport(ctx context.Context, report ExecReport) (bool, error)
 	GetCommitStoreStaticConfig(ctx context.Context) (CommitStoreStaticConfig, error)
-	RegisterFilters(qopts ...pg.QOpt) error
 }
 
 // FetchCommitStoreStaticConfig provides access to a commitStore's static config, which is required to access the source chain ID.

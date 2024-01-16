@@ -34,7 +34,7 @@ func NewEvmPriceRegistry(lp logpoller.LogPoller, ec client.Client, lggr logger.L
 }
 
 func (p *EvmPriceRegistry) NewPriceRegistryReader(_ context.Context, addr common.Address) (ccipdata.PriceRegistryReader, error) {
-	destPriceRegistryReader, err := factory.NewPriceRegistryReader(p.lggr, addr, p.lp, p.ec)
+	destPriceRegistryReader, err := factory.NewPriceRegistryReader(p.lggr, factory.NewEvmVersionFinder(), addr, p.lp, p.ec)
 	if err != nil {
 		return nil, err
 	}

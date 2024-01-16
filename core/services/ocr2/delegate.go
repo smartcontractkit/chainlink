@@ -318,7 +318,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
 	case types.CCIPCommit:
-		err = ccipcommit.UnregisterCommitPluginLpFilters(context.Background(), d.lggr, jb, d.pipelineRunner, d.legacyChains, pg.WithQueryer(q))
+		err = ccipcommit.UnregisterCommitPluginLpFilters(context.Background(), d.lggr, jb, d.legacyChains, pg.WithQueryer(q))
 		if err != nil {
 			d.lggr.Errorw("failed to unregister ccip commit plugin filters", "err", err, "spec", spec)
 		}
