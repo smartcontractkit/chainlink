@@ -47,7 +47,7 @@ type PriceRegistry struct {
 	tokenDecimalsCache sync.Map
 }
 
-func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp logpoller.LogPoller, ec client.Client) (*PriceRegistry, error) {
+func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp logpoller.LogPoller, ec client.Client, registerFilters bool) (*PriceRegistry, error) {
 	priceRegistry, err := price_registry_1_0_0.NewPriceRegistry(priceRegistryAddr, ec)
 	if err != nil {
 		return nil, err
@@ -72,9 +72,11 @@ func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp l
 			EventSigs: []common.Hash{feeTokenRemoved},
 			Addresses: []common.Address{priceRegistryAddr},
 		}}
-	err = logpollerutil.RegisterLpFilters(lp, filters)
-	if err != nil {
-		return nil, err
+	if registerFilters {
+		err = logpollerutil.RegisterLpFilters(lp, filters)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &PriceRegistry{
 		priceRegistry: priceRegistry,
@@ -133,8 +135,8 @@ func (p *PriceRegistry) GetFeeTokens(ctx context.Context) ([]common.Address, err
 	return feeTokens, nil
 }
 
-func (p *PriceRegistry) Close(opts ...pg.QOpt) error {
-	return logpollerutil.UnregisterLpFilters(p.lp, p.filters, opts...)
+func (p *PriceRegistry) Close() error {
+	return logpollerutil.UnregisterLpFilters(p.lp, p.filters)
 }
 
 func (p *PriceRegistry) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.TokenPriceUpdate], error) {

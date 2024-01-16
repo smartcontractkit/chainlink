@@ -35,7 +35,7 @@ type onRampReaderTH struct {
 
 func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
 	_, bc := ccipdata.NewSimulation(t)
-	_, err := factory.NewOnRampReader(logger.TestLogger(t), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), common.Address{}, lpmocks.NewLogPoller(t), bc)
+	_, err := factory.NewOnRampReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), common.Address{}, lpmocks.NewLogPoller(t), bc)
 	assert.EqualError(t, err, "unable to read type and version: no contract code at given address")
 }
 
@@ -97,7 +97,7 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 	}
 
 	// Create the version-specific reader.
-	reader, err := factory.NewOnRampReader(log, testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), onRampAddress, lp, bc)
+	reader, err := factory.NewOnRampReader(log, factory.NewEvmVersionFinder(), testutils.SimulatedChainID.Uint64(), testutils.SimulatedChainID.Uint64(), onRampAddress, lp, bc)
 	require.NoError(t, err)
 
 	return onRampReaderTH{
@@ -446,7 +446,7 @@ func TestNewOnRampReader(t *testing.T) {
 			require.NoError(t, err)
 			c := evmclientmocks.NewClient(t)
 			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
-			_, err = factory.NewOnRampReader(logger.TestLogger(t), 1, 2, common.Address{}, lpmocks.NewLogPoller(t), c)
+			_, err = factory.NewOnRampReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), 1, 2, common.Address{}, lpmocks.NewLogPoller(t), c)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {

@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -39,7 +37,6 @@ type GasPriceUpdate struct {
 
 //go:generate mockery --quiet --name PriceRegistryReader --filename price_registry_reader_mock.go --case=underscore
 type PriceRegistryReader interface {
-	Close(qopts ...pg.QOpt) error
 	// GetTokenPriceUpdatesCreatedAfter returns all the token price updates that happened after the provided timestamp.
 	// The returned updates are sorted by timestamp in ascending order.
 	GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]Event[TokenPriceUpdate], error)
@@ -51,4 +48,5 @@ type PriceRegistryReader interface {
 	GetTokenPrices(ctx context.Context, wantedTokens []common.Address) ([]TokenPriceUpdate, error)
 	// TODO: consider moving this method to a different interface since it's not related to the price registry
 	GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error)
+	Close() error
 }
