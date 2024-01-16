@@ -50,7 +50,7 @@ func TestAllowlist_UpdateAndCheck(t *testing.T) {
 	}
 
 	orm := fmocks.NewORM(t)
-	orm.On("CreateAllowedSender", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Return(nil)
+	orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Return(nil)
 
 	allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 
 	orm := fmocks.NewORM(t)
 	orm.On("GetAllowedSenders", uint(0), uint(1000)).Return([]common.Address{}, nil)
-	orm.On("CreateAllowedSender", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Return(nil)
+	orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Return(nil)
 
 	allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 		}
 
 		orm := fmocks.NewORM(t)
-		orm.On("CreateAllowedSender", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(16).Return(nil)
+		orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(16).Return(nil)
 
 		allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 		require.NoError(t, err)

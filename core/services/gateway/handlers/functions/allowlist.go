@@ -228,7 +228,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		storageWg.Add(1)
 		go func(allowedSendersBatch []common.Address) {
 			defer storageWg.Done()
-			err = a.orm.CreateAllowedSender(allowedSendersBatch)
+			err = a.orm.CreateAllowedSenders(allowedSendersBatch)
 			if err != nil {
 				a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 			}

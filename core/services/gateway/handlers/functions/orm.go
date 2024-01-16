@@ -22,7 +22,7 @@ type ORM interface {
 	UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error
 
 	GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error)
-	CreateAllowedSender(allowedSenders []common.Address, qopts ...pg.QOpt) error
+	CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.QOpt) error
 }
 
 type orm struct {
@@ -156,7 +156,7 @@ func (o *orm) GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.
 	return addresses, nil
 }
 
-func (o *orm) CreateAllowedSender(allowedSender []common.Address, qopts ...pg.QOpt) error {
+func (o *orm) CreateAllowedSenders(allowedSender []common.Address, qopts ...pg.QOpt) error {
 	var valuesPlaceholder []string
 	for i := 1; i <= len(allowedSender)*2; i += 2 {
 		valuesPlaceholder = append(valuesPlaceholder, fmt.Sprintf("($%d, $%d)", i, i+1))

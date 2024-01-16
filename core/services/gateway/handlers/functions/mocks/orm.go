@@ -15,8 +15,8 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateAllowedSender provides a mock function with given fields: allowedSenders, qopts
-func (_m *ORM) CreateAllowedSender(allowedSenders []common.Address, qopts ...pg.QOpt) error {
+// CreateAllowedSenders provides a mock function with given fields: allowedSenders, qopts
+func (_m *ORM) CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -27,7 +27,7 @@ func (_m *ORM) CreateAllowedSender(allowedSenders []common.Address, qopts ...pg.
 	ret := _m.Called(_ca...)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreateAllowedSender")
+		panic("no return value specified for CreateAllowedSenders")
 	}
 
 	var r0 error

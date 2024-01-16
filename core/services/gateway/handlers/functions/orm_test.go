@@ -58,7 +58,7 @@ func seedAllowedSenders(t *testing.T, orm functions.ORM, amount int) []common.Ad
 		storedAllowedSenders[i] = address
 	}
 
-	err := orm.CreateAllowedSender(storedAllowedSenders)
+	err := orm.CreateAllowedSenders(storedAllowedSenders)
 	require.NoError(t, err)
 
 	return storedAllowedSenders
@@ -266,14 +266,14 @@ func TestORM_GetAllowedSenders(t *testing.T) {
 	})
 }
 
-func TestORM_CreateAllowedSender(t *testing.T) {
+func TestORM_CreateAllowedSenders(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-create_an_allowed_sender", func(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := testutils.NewAddress()
-		err = orm.CreateAllowedSender([]common.Address{expected})
+		err = orm.CreateAllowedSenders([]common.Address{expected})
 		require.NoError(t, err)
 
 		results, err := orm.GetAllowedSenders(0, 1)
@@ -286,10 +286,10 @@ func TestORM_CreateAllowedSender(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := testutils.NewAddress()
-		err = orm.CreateAllowedSender([]common.Address{expected})
+		err = orm.CreateAllowedSenders([]common.Address{expected})
 		require.NoError(t, err)
 
-		err = orm.CreateAllowedSender([]common.Address{expected})
+		err = orm.CreateAllowedSenders([]common.Address{expected})
 		require.NoError(t, err)
 
 		results, err := orm.GetAllowedSenders(0, 5)
@@ -302,7 +302,7 @@ func TestORM_CreateAllowedSender(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := []common.Address{testutils.NewAddress(), testutils.NewAddress()}
-		err = orm.CreateAllowedSender(expected)
+		err = orm.CreateAllowedSenders(expected)
 		require.NoError(t, err)
 
 		results, err := orm.GetAllowedSenders(0, 2)
@@ -320,7 +320,7 @@ func TestORM_CreateAllowedSender(t *testing.T) {
 		expected := []common.Address{addr1, addr2}
 
 		duplicatedAddressInput := []common.Address{addr1, addr1, addr1, addr2}
-		err = orm.CreateAllowedSender(duplicatedAddressInput)
+		err = orm.CreateAllowedSenders(duplicatedAddressInput)
 		require.NoError(t, err)
 
 		results, err := orm.GetAllowedSenders(0, 10)
