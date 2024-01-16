@@ -16,8 +16,8 @@ spec:
               app: {{ $.Release.Name }}
         # Allow http and websocket connections from the runner pods.
         - podSelector:
-          matchLabels:
-            app: runner
+            matchLabels:
+              app: runner
       ports:
         - protocol: TCP
           port: 8544
