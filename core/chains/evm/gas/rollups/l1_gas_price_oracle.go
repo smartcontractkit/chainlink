@@ -70,7 +70,7 @@ const (
 	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
 	// GasOracle_l1BaseFee is the a hex encoded call to:
 	// `function l1BaseFee() external view returns (uint256);`
-	ScrollGasOracle_l1BaseFee = ""
+	ScrollGasOracle_l1BaseFee = "519b4bd3"
 
 	// Interval at which to poll for L1BaseFee. A good starting point is the L1 block time.
 	PollPeriod = 12 * time.Second
