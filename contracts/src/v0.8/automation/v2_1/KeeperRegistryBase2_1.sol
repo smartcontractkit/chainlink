@@ -411,6 +411,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 blockHash;
   }
 
+  event GasDetails(uint8 mode, uint256 l1DataSize, uint256 estimatedL1Fee, uint256 linkNative, uint256 batchSize);
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event DedupKeyAdded(bytes32 indexed dedupKey);
@@ -574,7 +575,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 linkNative,
     uint16 numBatchedUpkeeps,
     bool isExecution
-  ) internal view returns (uint96, uint96) {
+  ) internal returns (uint96, uint96) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
@@ -610,6 +611,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
         txCallData = new bytes(4 * s_storage.maxPerformDataSize);
       }
       l1CostWei = SCROLL_ORACLE.getL1Fee(txCallData);
+      emit GasDetails(uint8(i_mode), txCallData.length, l1CostWei, linkNative, numBatchedUpkeeps);
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
@@ -639,7 +641,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 fastGasWei,
     uint256 linkNative,
     bool isExecution // Whether this is an actual perform execution or just a simulation
-  ) internal view returns (uint96) {
+  ) internal returns (uint96) {
     uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,

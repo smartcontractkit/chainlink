@@ -452,34 +452,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice calculates the minimum balance required for an upkeep to remain eligible
-   * @param id the upkeep id to calculate minimum balance for
-   */
-  function getMinBalance(uint256 id) external view returns (uint96) {
-    return getMinBalanceForUpkeep(id);
-  }
-
-  /**
-   * @notice calculates the minimum balance required for an upkeep to remain eligible
-   * @param id the upkeep id to calculate minimum balance for
-   * @dev this will be deprecated in a future version in favor of getMinBalance
-   */
-  function getMinBalanceForUpkeep(uint256 id) public view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(_getTriggerType(id), s_upkeep[id].performGas);
-  }
-
-  /**
-   * @notice calculates the maximum payment for a given gas limit
-   * @param gasLimit the gas to calculate payment for
-   */
-  function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
-    HotVars memory hotVars = s_hotVars;
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return
-      _getMaxLinkPayment(hotVars, triggerType, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
-  }
-
-  /**
    * @notice retrieves the migration permission for a peer registry
    */
   function getPeerRegistryMigrationPermission(address peer) external view returns (MigrationPermission) {
