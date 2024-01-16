@@ -3,6 +3,7 @@ package evm
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -66,8 +67,7 @@ func (entry *codecEntry) Init() error {
 			return fmt.Errorf("%w: empty field names are not supported for multiple returns", commontypes.ErrInvalidType)
 		}
 
-		// To match decoding in abi
-		name := abi.ToCamelCase(arg.Name)
+		name := strings.ToUpper(arg.Name[:1]) + arg.Name[1:]
 		if seenNames[name] {
 			return fmt.Errorf("%w: duplicate field name %s, after ToCamelCase", commontypes.ErrInvalidConfig, name)
 		}

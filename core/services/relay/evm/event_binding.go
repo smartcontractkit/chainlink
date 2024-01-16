@@ -249,8 +249,8 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 		topics[i] = common.Hash(log.Topics[i+1])
 	}
 
-	topicsInto := reflect.New(e.topicInfo.nativeType).Interface()
-	if err := abi.ParseTopics(topicsInto, e.topicInfo.Args, topics); err != nil {
+	topicsInto := map[string]any{}
+	if err := abi.ParseTopicsIntoMap(topicsInto, e.topicInfo.Args, topics); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
 
