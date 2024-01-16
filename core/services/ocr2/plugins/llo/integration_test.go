@@ -49,7 +49,7 @@ var (
 	multiplier int64 = 100000000
 )
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *channel_config_verifier_proxy.ChannelVerifierProxy, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *channel_verifier.ChannelVerifier, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
@@ -58,7 +58,7 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 	t.Cleanup(stopMining)
 
 	// Deploy contracts
-	verifierAddress, _, verifierContract, err := channel_config_verifier_proxy.DeployChannelVerifierProxy(steve, backend)
+	verifierAddress, _, verifierContract, err := channel_verifier.DeployChannelVerifier(steve, backend)
 	require.NoError(t, err)
 	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
 	require.NoError(t, err)

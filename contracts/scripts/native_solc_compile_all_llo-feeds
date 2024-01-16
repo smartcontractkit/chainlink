@@ -40,4 +40,4 @@ compileContract llo-feeds/test/mocks/ExposedVerifier.sol
 
 # Streams
 compileContract llo-feeds/dev/ChannelConfigStore.sol
-compileContract llo-feeds/dev/ChannelVerifierProxy.sol
+compileContract llo-feeds/dev/ChannelVerifier.sol
