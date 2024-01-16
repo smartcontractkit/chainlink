@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
@@ -36,6 +37,7 @@ type VRFCoordinator interface {
 }
 
 type VRFCoordinatorV2 interface {
+	GetRequestConfig(ctx context.Context) (GetRequestConfig, error)
 	SetConfig(
 		minimumRequestConfirmations uint16,
 		maxGasLimit uint32,
@@ -77,7 +79,6 @@ type VRFCoordinatorV2_5 interface {
 		feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig,
 	) error
 	RegisterProvingKey(
-		oracleAddr string,
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
@@ -92,8 +93,8 @@ type VRFCoordinatorV2_5 interface {
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error)
 	OwnerCancelSubscription(subID *big.Int) (*types.Transaction, error)
 	CancelSubscription(subID *big.Int, to common.Address) (*types.Transaction, error)
-	OracleWithdraw(recipient common.Address, amount *big.Int) error
-	OracleWithdrawNative(recipient common.Address, amount *big.Int) error
+	Withdraw(recipient common.Address) error
+	WithdrawNative(recipient common.Address) error
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
 	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	FindSubscriptionID(subID *big.Int) (*big.Int, error)
@@ -118,7 +119,6 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 		feeConfig vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
 	) error
 	RegisterProvingKey(
-		oracleAddr string,
 		publicProvingKey [2]*big.Int,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
@@ -136,6 +136,12 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 	WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error)
 	WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []*big.Int, sender []common.Address, timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsRequested, error)
+}
+
+type VRFV2Wrapper interface {
+	Address() string
+	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8) error
+	GetSubID(ctx context.Context) (uint64, error)
 }
 
 type VRFV2PlusWrapper interface {
@@ -178,6 +184,16 @@ type VRFv2LoadTestConsumer interface {
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
 	ResetMetrics() error
+}
+
+type VRFv2WrapperLoadTestConsumer interface {
+	Address() string
+	Fund(ethAmount *big.Float) error
+	RequestRandomness(requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) (*types.Transaction, error)
+	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrfv2_wrapper_load_test_consumer.GetRequestStatus, error)
+	GetLastRequestId(ctx context.Context) (*big.Int, error)
+	GetWrapper(ctx context.Context) (common.Address, error)
+	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
 }
 
 type VRFv2PlusLoadTestConsumer interface {

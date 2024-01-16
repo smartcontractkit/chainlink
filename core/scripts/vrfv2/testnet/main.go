@@ -26,6 +26,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -743,7 +744,7 @@ func main() {
 		helpers.ParseArgs(addSubConsCmd, os.Args[2:], "coordinator-address", "sub-id", "consumer-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		v2scripts.EoaAddConsumerToSub(e, *coordinator, uint64(*subID), *consumerAddress)
+		v2scripts.EoaAddConsumerToSub(e, *coordinator, *subID, *consumerAddress)
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
@@ -773,7 +774,7 @@ func main() {
 		bal, err := linkToken.BalanceOf(nil, e.Owner.From)
 		helpers.PanicErr(err)
 		fmt.Println("OWNER BALANCE", bal, e.Owner.From.String(), amount.String())
-		b, err := utils.ABIEncode(`[{"type":"uint64"}]`, created.SubId)
+		b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, created.SubId)
 		helpers.PanicErr(err)
 		e.Owner.GasLimit = 500000
 		tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)

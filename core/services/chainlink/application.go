@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -51,13 +53,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -115,7 +117,6 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	relayers                 *CoreRelayerChainInteroperators
-	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
@@ -129,7 +130,7 @@ type ChainlinkApplication struct {
 	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	SessionReaper            utils.SleeperTask
+	SessionReaper            *utils.SleeperTask
 	shutdownOnce             sync.Once
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
@@ -149,7 +150,6 @@ type ChainlinkApplication struct {
 type ApplicationOpts struct {
 	Config                     GeneralConfig
 	Logger                     logger.Logger
-	EventBroadcaster           pg.EventBroadcaster
 	MailMon                    *mailbox.Monitor
 	SqlxDB                     *sqlx.DB
 	KeyStore                   keystore.Master
@@ -177,7 +177,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.SqlxDB
 	cfg := opts.Config
 	relayerChainInterops := opts.RelayerChainInteroperators
-	eventBroadcaster := opts.EventBroadcaster
 	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
 	globalLogger := logger.Sugared(opts.Logger)
@@ -253,7 +252,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, fmt.Errorf("no evm chains found")
 	}
 
-	srvcs = append(srvcs, eventBroadcaster, mailMon)
+	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, legacyEVMChains, globalLogger)
 	srvcs = append(srvcs, promReporter)
@@ -266,7 +265,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// localDB auth or remote LDAP auth
 	authMethod := cfg.WebServer().AuthenticationMethod()
 	var authenticationProvider sessions.AuthenticationProvider
-	var sessionReaper utils.SleeperTask
+	var sessionReaper *utils.SleeperTask
 
 	switch sessions.AuthenticationProviderName(authMethod) {
 	case sessions.LDAPAuth:
@@ -292,6 +291,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
+		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -343,7 +343,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			job.Gateway: gateway.NewDelegate(
 				legacyEVMChains,
 				keyStore.Eth(),
+				db,
+				cfg.Database(),
 				globalLogger),
+			job.Stream: streams.NewDelegate(
+				globalLogger,
+				streamRegistry,
+				pipelineRunner,
+				cfg.JobPipeline()),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -413,7 +420,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
-			eventBroadcaster,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
@@ -478,7 +484,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	return &ChainlinkApplication{
 		relayers:                 opts.RelayerChainInteroperators,
-		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
@@ -740,14 +745,14 @@ func (app *ChainlinkApplication) RunJobV2(
 				Data: bytes.Join([][]byte{
 					jb.VRFSpec.PublicKey.MustHash().Bytes(),  // key hash
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
-					utils.NewHash().Bytes(),                  // sender
-					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					evmutils.NewHash().Bytes(),               // sender
+					evmutils.NewHash().Bytes(),               // fee
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
-				TxHash:      utils.NewHash(),
+				TxHash:      evmutils.NewHash(),
 				BlockNumber: 10,
-				BlockHash:   utils.NewHash(),
+				BlockHash:   evmutils.NewHash(),
 			}
 			vars = map[string]interface{}{
 				"jobSpec": map[string]interface{}{
@@ -805,10 +810,6 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 
 func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
 	return app.relayers
-}
-
-func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
-	return app.EventBroadcaster
 }
 
 func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {

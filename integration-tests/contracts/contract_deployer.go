@@ -1,10 +1,14 @@
 package contracts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -112,12 +116,14 @@ type ContractDeployer interface {
 	DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error)
 	DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error)
 	DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error)
+	DeployVRFV2WrapperLoadTestConsumer(linkAddr string, vrfV2WrapperAddr string) (VRFv2WrapperLoadTestConsumer, error)
 	DeployVRFv2PlusLoadTestConsumer(coordinatorAddr string) (VRFv2PlusLoadTestConsumer, error)
 	DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)
 	DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error)
+	DeployVRFV2Wrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2Wrapper, error)
 	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2PlusWrapper, error)
 	DeployDKG() (DKG, error)
 	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string) (VRFCoordinatorV3, error)
@@ -145,6 +151,7 @@ type ContractDeployer interface {
 	DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
 	DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error)
 	DeployLogEmitterContract() (LogEmitter, error)
+	DeployMultiCallContract() (common.Address, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -1710,4 +1717,33 @@ func (e *EthereumContractDeployer) DeployLogEmitterContract() (LogEmitter, error
 		address:  *address,
 		l:        e.l,
 	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMultiCallContract() (common.Address, error) {
+	multiCallABI, err := abi.JSON(strings.NewReader(MultiCallABI))
+	if err != nil {
+		return common.Address{}, err
+	}
+	address, tx, _, err := e.client.DeployContract("MultiCall Contract", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		address, tx, contract, err := bind.DeployContract(auth, multiCallABI, common.FromHex(MultiCallBIN), backend)
+		if err != nil {
+			return common.Address{}, nil, nil, err
+		}
+		return address, tx, contract, err
+	})
+	if err != nil {
+		return common.Address{}, err
+	}
+	r, err := bind.WaitMined(context.Background(), e.client.DeployBackend(), tx)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if r.Status != types.ReceiptStatusSuccessful {
+		return common.Address{}, fmt.Errorf("deploy multicall failed")
+	}
+	return *address, nil
+
 }

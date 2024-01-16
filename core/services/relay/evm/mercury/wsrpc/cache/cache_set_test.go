@@ -13,7 +13,8 @@ import (
 
 func Test_CacheSet(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	cs := newCacheSet(lggr, Config{})
+	cs := newCacheSet(lggr, Config{LatestReportTTL: 1})
+	disabledCs := newCacheSet(lggr, Config{LatestReportTTL: 0})
 	ctx := testutils.Context(t)
 	servicetest.Run(t, cs)
 
@@ -22,6 +23,16 @@ func Test_CacheSet(t *testing.T) {
 
 		var err error
 		var f Fetcher
+		t.Run("with caching disabled, returns nil, nil", func(t *testing.T) {
+			assert.Len(t, disabledCs.caches, 0)
+
+			f, err = disabledCs.Get(ctx, c)
+			require.NoError(t, err)
+
+			assert.Nil(t, f)
+			assert.Len(t, disabledCs.caches, 0)
+		})
+
 		t.Run("with virgin cacheset, makes new entry and returns it", func(t *testing.T) {
 			assert.Len(t, cs.caches, 0)
 

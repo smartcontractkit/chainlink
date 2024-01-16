@@ -176,8 +176,8 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 
 	lggr := b.lggr.With("id", id.String())
 
-	maxBlockLogs := int(b.maxBlockLogs)
-	maxUpkeepLogs := int(b.maxUpkeepLogsPerBlock)
+	maxBlockLogs := b.maxBlockLogs
+	maxUpkeepLogs := b.maxUpkeepLogsPerBlock
 
 	latestBlock := b.latestBlockSeen()
 	added, dropped := 0, 0

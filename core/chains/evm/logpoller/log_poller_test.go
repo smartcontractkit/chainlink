@@ -20,25 +20,25 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func logRuntime(t testing.TB, start time.Time) {
@@ -1294,7 +1294,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	require.ErrorContains(t, err, "Invalid replay block number")
 
 	// Force a db error while loading the filters (tx aborted, already rolled back)
-	require.Error(t, utils.JustError(db.Exec(`invalid query`)))
+	require.Error(t, commonutils.JustError(db.Exec(`invalid query`)))
 	go func() {
 		err = lp.Replay(ctx, 2)
 		assert.ErrorContains(t, err, "current transaction is aborted")
@@ -1321,61 +1321,6 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
 	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
 	assert.Contains(t, logMsgs, "Backup log poller ran before filters loaded, skipping")
-}
-
-func TestNotifyAfterInsert(t *testing.T) {
-	t.Parallel()
-
-	// Use a non-transactional db for this test because notify events
-	// are not delivered until the transaction is committed.
-	var dbURL string
-	_, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		dbURL = s.Database.URL.URL().String()
-	})
-
-	lggr, _ := logger.TestObserved(t, zapcore.WarnLevel)
-	chainID := big.NewInt(1337)
-	o := logpoller.NewORM(chainID, sqlxDB, lggr, pgtest.NewQConfig(true))
-
-	listener := pq.NewListener(dbURL, time.Second, time.Second, nil)
-	err := listener.Listen(pg.ChannelInsertOnEVMLogs)
-	require.NoError(t, err)
-
-	log := logpoller.Log{
-		EvmChainId:     ubig.New(chainID),
-		LogIndex:       10,
-		BlockHash:      testutils.Random32Byte(),
-		BlockNumber:    100,
-		BlockTimestamp: time.Now(),
-		Topics: pq.ByteaArray{
-			testutils.NewAddress().Bytes(),
-			testutils.NewAddress().Bytes(),
-		},
-		EventSig:  testutils.Random32Byte(),
-		Address:   testutils.NewAddress(),
-		TxHash:    testutils.Random32Byte(),
-		Data:      []byte("test_data"),
-		CreatedAt: time.Now(),
-	}
-
-	err = o.InsertLogs([]logpoller.Log{log})
-	require.NoError(t, err)
-
-	testutils.AssertEventually(t, func() bool {
-		select {
-		case event := <-listener.Notify:
-			expectedPayload := fmt.Sprintf(
-				"%s:%s,%s",
-				hexutil.Encode(log.Address.Bytes())[2:], // strip the leading 0x
-				hexutil.Encode(log.Topics[0])[2:],
-				hexutil.Encode(log.Topics[1])[2:],
-			)
-			require.Equal(t, event.Extra, expectedPayload)
-			return true
-		default:
-			return false
-		}
-	})
 }
 
 type getLogErrData struct {

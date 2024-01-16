@@ -12,20 +12,21 @@ var (
 	ErrInvalidJobType       = errors.New("invalid job type")
 	ErrInvalidSchemaVersion = errors.New("invalid schema version")
 	jobTypes                = map[Type]struct{}{
+		BlockHeaderFeeder:       {},
+		BlockhashStore:          {},
+		Bootstrap:               {},
 		Cron:                    {},
 		DirectRequest:           {},
 		FluxMonitor:             {},
-		OffchainReporting:       {},
-		OffchainReporting2:      {},
-		Keeper:                  {},
-		VRF:                     {},
-		Webhook:                 {},
-		BlockhashStore:          {},
-		Bootstrap:               {},
-		BlockHeaderFeeder:       {},
 		Gateway:                 {},
+		Keeper:                  {},
 		LegacyGasStationServer:  {},
 		LegacyGasStationSidecar: {},
+		OffchainReporting2:      {},
+		OffchainReporting:       {},
+		Stream:                  {},
+		VRF:                     {},
+		Webhook:                 {},
 	}
 )
 

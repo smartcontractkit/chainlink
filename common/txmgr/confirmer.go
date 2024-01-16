@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
@@ -869,7 +869,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
 			"fee", attempt.TxFee,
 			"feeLimit", etx.FeeLimit,
-			"signedRawTx", utils.EnsureHexPrefix(hex.EncodeToString(attempt.SignedRawTx)),
+			"signedRawTx", commonhex.EnsurePrefix(hex.EncodeToString(attempt.SignedRawTx)),
 			"blockHeight", blockHeight,
 		)
 		ec.SvcErrBuffer.Append(sendError)

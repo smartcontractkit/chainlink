@@ -10,7 +10,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 const (
@@ -65,11 +65,11 @@ type WaspConfig struct {
 }
 
 type Load struct {
-	RPS                   int64            `toml:"rps"`
-	LPS                   int64            `toml:"lps"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
-	Duration              *models.Duration `toml:"duration"`
-	CallTimeout           *models.Duration `toml:"call_timeout"`
+	RPS                   int64                  `toml:"rps"`
+	LPS                   int64                  `toml:"lps"`
+	RateLimitUnitDuration *commonconfig.Duration `toml:"rate_limit_unit_duration"`
+	Duration              *commonconfig.Duration `toml:"duration"`
+	CallTimeout           *commonconfig.Duration `toml:"call_timeout"`
 }
 
 func ReadConfig(configName string) (*Config, error) {
@@ -105,7 +105,7 @@ func (c *Config) OverrideFromEnv() error {
 	}
 
 	if duration := os.Getenv("LOAD_DURATION"); duration != "" {
-		d, err := models.ParseDuration(duration)
+		d, err := commonconfig.ParseDuration(duration)
 		if err != nil {
 			return err
 		}

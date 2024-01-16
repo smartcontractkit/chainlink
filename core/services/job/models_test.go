@@ -30,7 +30,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 				Relay:   relay.EVM,
 				ChainID: "1",
 			},
-			want: relay.ID{Network: relay.EVM, ChainID: relay.ChainID("1")},
+			want: relay.ID{Network: relay.EVM, ChainID: "1"},
 		},
 		{
 			name: "evm implicitly configured",
@@ -38,7 +38,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 				Relay:       relay.EVM,
 				RelayConfig: map[string]any{"chainID": 1},
 			},
-			want: relay.ID{Network: relay.EVM, ChainID: relay.ChainID("1")},
+			want: relay.ID{Network: relay.EVM, ChainID: "1"},
 		},
 		{
 			name: "evm implicitly configured with bad value",

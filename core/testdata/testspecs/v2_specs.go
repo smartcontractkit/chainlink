@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -827,4 +827,35 @@ storeBlockhashesBatchSize = %d
 		params.StoreBlockhashesBatchSize)
 
 	return BlockHeaderFeederSpec{BlockHeaderFeederSpecParams: params, toml: toml}
+}
+
+type StreamSpecParams struct {
+	Name string
+}
+
+type StreamSpec struct {
+	StreamSpecParams
+	toml string
+}
+
+// Toml returns the BlockhashStoreSpec in TOML string form.
+func (b StreamSpec) Toml() string {
+	return b.toml
+}
+
+func GenerateStreamSpec(params StreamSpecParams) StreamSpec {
+	template := `
+type = "stream"
+schemaVersion = 1
+name = "%s"
+observationSource = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+`
+
+	toml := fmt.Sprintf(template, params.Name)
+	return StreamSpec{StreamSpecParams: params, toml: toml}
 }

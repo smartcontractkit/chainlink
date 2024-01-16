@@ -12,18 +12,19 @@ import (
 type Network = string
 type ChainID = string
 
-var (
-	EVM             Network = "evm"
-	Cosmos          Network = "cosmos"
-	Solana          Network = "solana"
-	StarkNet        Network = "starknet"
-	SupportedRelays         = map[Network]struct{}{
-		EVM:      {},
-		Cosmos:   {},
-		Solana:   {},
-		StarkNet: {},
-	}
+const (
+	EVM      = "evm"
+	Cosmos   = "cosmos"
+	Solana   = "solana"
+	StarkNet = "starknet"
 )
+
+var SupportedRelays = map[Network]struct{}{
+	EVM:      {},
+	Cosmos:   {},
+	Solana:   {},
+	StarkNet: {},
+}
 
 // ID uniquely identifies a relayer by network and chain id
 type ID struct {
@@ -54,9 +55,9 @@ func (i *ID) UnmarshalString(s string) error {
 	// ignore the `.` in the match by dropping last rune
 	network := s[idxs[0] : idxs[1]-1]
 	chainID := s[idxs[1]:]
-	newID := &ID{ChainID: ChainID(chainID)}
+	newID := &ID{ChainID: chainID}
 	for n := range SupportedRelays {
-		if Network(network) == n {
+		if network == n {
 			newID.Network = n
 			break
 		}
