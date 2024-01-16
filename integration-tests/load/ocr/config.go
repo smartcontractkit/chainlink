@@ -18,13 +18,18 @@ const (
 )
 
 type PerformanceConfig struct {
-	Load   *Load   `toml:"Load"`
-	Volume *Volume `toml:"Volume"`
-	Common *Common `toml:"Common"`
+	Env    *Env    `toml:"env"`
+	Load   *Load   `toml:"load"`
+	Volume *Volume `toml:"volume"`
+	Common *Common `toml:"common"`
 }
 
 type Common struct {
 	ETHFunds int `toml:"eth_funds"`
+}
+
+type Env struct {
+	Namespace string `toml:"namespace"`
 }
 
 type Load struct {

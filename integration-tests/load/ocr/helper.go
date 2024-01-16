@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
-func SetupCluster(
+func SetupClusterContracts(
 	cc blockchain.EVMClient,
 	cd contracts.ContractDeployer,
 	workerNodes []*client.ChainlinkK8sClient,

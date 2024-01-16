@@ -19,7 +19,7 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: {{ .Values.db.capacity }}
+            storage: {{ $.Values.db.capacity }}
   {{ end }}
   selector:
     matchLabels:
