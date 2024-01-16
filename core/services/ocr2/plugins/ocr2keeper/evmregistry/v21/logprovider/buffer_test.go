@@ -198,6 +198,29 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		require.Equal(t, 2, len(buf.blocks[0].logs))
 	})
 
+	t.Run("enqueue logs overflow with dynamic limits", func(t *testing.T) {
+		buf := newLogEventBuffer(logger.TestLogger(t), 2, 2)
+
+		require.Equal(t, 2, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 2},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 3},
+		))
+		buf.SetLimits(3)
+		require.Equal(t, 3, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 2},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 3},
+		))
+
+		buf.lock.Lock()
+		defer buf.lock.Unlock()
+		require.Equal(t, 2, len(buf.blocks[0].logs))
+		require.Equal(t, 3, len(buf.blocks[1].logs))
+	})
+
 	t.Run("enqueue block overflow", func(t *testing.T) {
 		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
 
