@@ -7,6 +7,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
 	cosmossdk.io/errors v1.0.0
+	github.com/AlekSi/pointer v1.1.0
 	github.com/K-Phoen/grabana v0.21.17
 	github.com/cli/go-gh/v2 v2.0.0
 	github.com/ethereum/go-ethereum v1.12.2
@@ -20,14 +21,17 @@ require (
 	github.com/onsi/gomega v1.30.0
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/common v0.45.0
 	github.com/rs/zerolog v1.30.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/segmentio/ksuid v1.0.4
 	github.com/slack-go/slack v0.12.2
+	github.com/smartcontractkit/chain-selectors v1.0.6
 	github.com/smartcontractkit/chainlink-automation v1.0.1
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240108182329-237f56daad6b
 	github.com/smartcontractkit/chainlink-testing-framework v1.22.0
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
+	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231130143053-c5102a9c0fb7
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
@@ -37,8 +41,11 @@ require (
 	github.com/testcontainers/testcontainers-go v0.23.0
 	github.com/umbracle/ethgo v0.1.3
 	go.dedis.ch/kyber/v3 v3.1.0
+	go.uber.org/atomic v1.11.0
+	go.uber.org/multierr v1.11.0
 	go.uber.org/ratelimit v0.2.0
 	go.uber.org/zap v1.26.0
+	golang.org/x/crypto v0.16.0
 	golang.org/x/sync v0.5.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
@@ -244,6 +251,7 @@ require (
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
 	github.com/hashicorp/consul/api v1.25.1 // indirect
+	github.com/hashicorp/consul/sdk v0.14.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
@@ -259,6 +267,7 @@ require (
 	github.com/hashicorp/serf v0.10.1 // indirect
 	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce // indirect
 	github.com/hdevalence/ed25519consensus v0.1.0 // indirect
+	github.com/holiman/billy v0.0.0-20230718173358-1c7e68d277a7 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/holiman/uint256 v1.2.3 // indirect
 	github.com/huandu/skiplist v1.2.0 // indirect
@@ -290,6 +299,7 @@ require (
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
+	github.com/linxGnu/grocksdb v1.7.16 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -342,7 +352,6 @@ require (
 	github.com/prometheus/alertmanager v0.26.0 // indirect
 	github.com/prometheus/client_golang v1.17.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
-	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/common/sigv4 v0.1.0 // indirect
 	github.com/prometheus/exporter-toolkit v0.10.1-0.20230714054209-2f4150c63f97 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
@@ -380,9 +389,9 @@ require (
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
-	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125 // indirect
+	github.com/test-go/testify v1.1.4 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/tidwall/gjson v1.17.0 // indirect
@@ -421,12 +430,9 @@ require (
 	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.starlark.net v0.0.0-20220817180228-f738f5508c12 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/goleak v1.3.0 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
 	go4.org/netipx v0.0.0-20230125063823-8449b0a6169f // indirect
 	golang.org/x/arch v0.6.0 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
@@ -486,5 +492,5 @@ replace (
 
 	github.com/smartcontractkit/chainlink/integration-tests => ../integration-tests
 
-    k8s.io/apimachinery => k8s.io/apimachinery v0.25.11
+	k8s.io/apimachinery => k8s.io/apimachinery v0.25.11
 )
