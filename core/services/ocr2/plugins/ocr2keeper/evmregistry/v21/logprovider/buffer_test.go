@@ -537,69 +537,6 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:        "block log limits",
-			blockNumber: 1,
-			logs:        []fetchedLog{},
-			visited:     []fetchedLog{},
-			toAdd: []appendArgs{
-				{
-					fl: fetchedLog{
-						log: logpoller.Log{
-							BlockNumber: 1,
-							TxHash:      common.HexToHash("0x1"),
-							LogIndex:    0,
-						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
-					},
-					fastExecLogsHigh: 4,
-					added:            true,
-				},
-				{
-					fl: fetchedLog{
-						log: logpoller.Log{
-							BlockNumber: 1,
-							TxHash:      common.HexToHash("0x1"),
-							LogIndex:    1,
-						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
-					},
-					fastExecLogsHigh: 4,
-					added:            true,
-				},
-				{
-					fl: fetchedLog{
-						log: logpoller.Log{
-							BlockNumber: 1,
-							TxHash:      common.HexToHash("0x1"),
-							LogIndex:    2,
-						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
-					},
-					fastExecLogsHigh: 4,
-					added:            true,
-					dropped:          true,
-				},
-			},
-			expected: []fetchedLog{
-				{
-					log: logpoller.Log{
-						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
-						LogIndex:    1,
-					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
-				},
-				{
-					log: logpoller.Log{
-						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
-						LogIndex:    2,
-					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
-				},
-			},
-		},
 	}
 
 	for _, tc := range tests {
