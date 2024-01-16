@@ -543,7 +543,7 @@ func createChains(t *testing.T, numChains int) (owner *bind.TransactOpts, chains
 	owner = testutils.MustNewSimTransactor(t)
 	chains = make(map[int64]*backends.SimulatedBackend)
 	for i := 0; i < numChains; i++ {
-		chainID := int64(mainChainID + int64(i))
+		chainID := mainChainID + int64(i)
 		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
 			owner.From: core.GenesisAccount{
 				Balance: assets.Ether(10000).ToInt(),

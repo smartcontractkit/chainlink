@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
 	integrationclient "github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -194,6 +195,7 @@ func DeployLocalCluster(
 	// a func to start the CL nodes asynchronously
 	deployCL := func() error {
 		noOfNodes := pointer.GetInt(testInputs.EnvInput.Chainlink.NoOfNodes)
+		// if individual nodes are specified, then deploy them with specified configs
 		if len(testInputs.EnvInput.Chainlink.Nodes) > 0 {
 			for _, clNode := range testInputs.EnvInput.Chainlink.Nodes {
 				toml, _, err := setNodeConfig(
@@ -216,23 +218,33 @@ func DeployLocalCluster(
 				ccipNode.SetTestLogger(t)
 				env.ClCluster.Nodes = append(env.ClCluster.Nodes, ccipNode)
 			}
-			return env.ClCluster.Start()
+		} else {
+			// if no individual nodes are specified, then deploy the number of nodes specified in the env input with common config
+			for i := 0; i < noOfNodes; i++ {
+				toml, _, err := setNodeConfig(
+					selectedNetworks,
+					testInputs.EnvInput.Chainlink.Common.BaseConfigTOML,
+					testInputs.EnvInput.Chainlink.Common.CommonChainConfigTOML,
+					testInputs.EnvInput.Chainlink.Common.ChainConfigTOMLByChain,
+				)
+				if err != nil {
+					return err
+				}
+				ccipNode, err := test_env.NewClNode(
+					[]string{env.Network.Name},
+					testInputs.EnvInput.Chainlink.Common.Image,
+					testInputs.EnvInput.Chainlink.Common.Tag,
+					toml, test_env.WithPgDBOptions(
+						ctftestenv.WithPostgresImageName(testInputs.EnvInput.Chainlink.Common.DBImage),
+						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.Chainlink.Common.DBTag)))
+				if err != nil {
+					return err
+				}
+				ccipNode.SetTestLogger(t)
+				env.ClCluster.Nodes = append(env.ClCluster.Nodes, ccipNode)
+			}
 		}
-		toml, _, err := setNodeConfig(
-			selectedNetworks,
-			testInputs.EnvInput.Chainlink.Common.BaseConfigTOML,
-			testInputs.EnvInput.Chainlink.Common.CommonChainConfigTOML,
-			testInputs.EnvInput.Chainlink.Common.ChainConfigTOMLByChain,
-		)
-		if err != nil {
-			return err
-		}
-		return env.StartClCluster(toml, noOfNodes, "",
-			test_env.WithImage(testInputs.EnvInput.Chainlink.Common.Image),
-			test_env.WithVersion(testInputs.EnvInput.Chainlink.Common.Tag),
-			test_env.WithPgDBOptions(
-				ctftestenv.WithPostgresImageName(testInputs.EnvInput.Chainlink.Common.DBImage),
-				ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.Chainlink.Common.DBTag)))
+		return env.ClCluster.Start()
 	}
 	return env, deployCL
 }
