@@ -8,47 +8,13 @@ spec:
       app: {{ $.Release.Name }}
   policyTypes:
     - Ingress
-    - Egress
   ingress:
     # Allow all ingress traffic between the node pods and from runner pod.
     - from:
-        - podSelector:
-            matchLabels:
-              app: {{ $.Release.Name }}
-        - podSelector:
-            matchLabels:
-              app: runner
-  egress:
-    - to:
-        # Allow all egress traffic between the node pods and to runner pod.
-        - podSelector:
-            matchLabels:
-              app: {{ $.Release.Name }}
-        - podSelector:
-            matchLabels:
-              app: runner
-      # Allow all node pods to access the database pods.
-        - podSelector:
-            matchLabels:
-              app: {{ $.Release.Name }}-db
-      ports:
-        - protocol: TCP
-          port: 5432
-    - to:
-        # Allow all node pods to access the geth pods.
-        - podSelector:
-            matchLabels:
-              app: geth
-      ports:
-        - protocol: TCP
-          port: 8544
-        - protocol: TCP
-          port: 8546  
-    # Allow all node pods to access the mockserver pods.
-    - to:
-        - podSelector:
-            matchLabels:
-              app: mockserver
-      ports:
-        - protocol: TCP
-          port: 1080
+      - podSelector:
+          matchLabels:
+            app: {{ $.Release.Name }}
+      - podSelector:
+          matchLabels:
+            app: runner
+ 
