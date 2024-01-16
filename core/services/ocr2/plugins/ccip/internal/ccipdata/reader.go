@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -29,10 +28,6 @@ type Meta struct {
 	BlockNumber    int64
 	TxHash         common.Hash
 	LogIndex       uint
-}
-
-type Closer interface {
-	Close(qopts ...pg.QOpt) error
 }
 
 func LogsConfirmations(finalized bool) logpoller.Confirmations {

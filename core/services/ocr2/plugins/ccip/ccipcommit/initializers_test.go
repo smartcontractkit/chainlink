@@ -12,7 +12,6 @@ import (
 	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 )
 
 func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
@@ -58,7 +57,6 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			chainSet := &legacyEvmORMMocks.LegacyChainContainer{}
-			prMock := &pipelinemocks.Runner{}
 
 			if tc.spec != nil {
 				if chainID, ok := tc.spec.RelayConfig["chainID"]; ok {
@@ -68,7 +66,7 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 				}
 			}
 
-			err := UnregisterCommitPluginLpFilters(context.Background(), lggr, job.Job{OCR2OracleSpec: tc.spec}, prMock, chainSet)
+			err := UnregisterCommitPluginLpFilters(context.Background(), lggr, job.Job{OCR2OracleSpec: tc.spec}, chainSet)
 			if tc.expectingErr {
 				assert.Error(t, err)
 			} else {

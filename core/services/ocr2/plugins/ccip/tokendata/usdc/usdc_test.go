@@ -33,8 +33,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 	attestationURI, err := url.ParseRequestURI("https://iris-api-sandbox.circle.com")
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	usdcReader, err := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, nil)
-	require.NoError(t, err)
+	usdcReader := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, nil)
 	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0)
 
 	attestation, err := usdcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(usdcMessageHash)))
@@ -57,8 +56,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	lp := mocks.NewLogPoller(t)
-	usdcReader, err := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, lp)
-	require.NoError(t, err)
+	usdcReader := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, lp)
 	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0)
 	attestation, err := usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
 	require.NoError(t, err)
@@ -193,8 +191,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 			lp := mocks.NewLogPoller(t)
-			usdcReader, err := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, lp)
-			require.NoError(t, err)
+			usdcReader := ccipdata.NewUSDCReader(lggr, mockMsgTransmitter, lp)
 			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds)
 			lp.On("RegisterFilter", mock.Anything).Return(nil)
 			require.NoError(t, usdcReader.RegisterFilters())

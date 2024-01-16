@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/http"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -232,12 +231,4 @@ func (s *TokenDataReader) inCoolDownPeriod() bool {
 	s.coolDownMu.RLock()
 	defer s.coolDownMu.RUnlock()
 	return time.Now().Before(s.coolDownUntil)
-}
-
-func (s *TokenDataReader) Close(qopts ...pg.QOpt) error {
-	return s.usdcReader.Close(qopts...)
-}
-
-func (s *TokenDataReader) RegisterFilters(qopts ...pg.QOpt) error {
-	return s.usdcReader.RegisterFilters(qopts...)
 }

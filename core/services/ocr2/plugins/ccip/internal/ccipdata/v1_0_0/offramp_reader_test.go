@@ -4,10 +4,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -37,13 +35,4 @@ func TestExecutionReportEncodingV100(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, report.Proofs, decodeCommitReport.Proofs)
 	require.Equal(t, report, decodeCommitReport)
-}
-
-func TestOffRampFiltersV100(t *testing.T) {
-	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
-		c, err := v1_0_0.NewOffRamp(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
-		require.NoError(t, err)
-		require.NoError(t, c.RegisterFilters())
-		return c
-	}, 3)
 }
