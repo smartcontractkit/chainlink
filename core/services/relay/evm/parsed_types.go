@@ -6,11 +6,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type parsedTypes struct {
-	encoderDefs map[string]*codecEntry
-	decoderDefs map[string]*codecEntry
+	encoderDefs map[string]types.CodecEntry
+	decoderDefs map[string]types.CodecEntry
 }
 
 func (parsed *parsedTypes) toCodec() (commontypes.RemoteCodec, error) {
@@ -36,10 +38,10 @@ func (parsed *parsedTypes) toCodec() (commontypes.RemoteCodec, error) {
 
 // addEntries extracts the mods from codecEntry and adds them to modByTypeName use with codec.NewByItemTypeModifier
 // Since each input/output can have its own modifications, we need to keep track of them by type name
-func addEntries(defs map[string]*codecEntry, modByTypeName map[string]codec.Modifier) error {
+func addEntries(defs map[string]types.CodecEntry, modByTypeName map[string]codec.Modifier) error {
 	for k, def := range defs {
-		modByTypeName[k] = def.mod
-		_, err := def.mod.RetypeForOffChain(reflect.PointerTo(def.checkedType), k)
+		modByTypeName[k] = def.Modifier()
+		_, err := def.Modifier().RetypeForOffChain(reflect.PointerTo(def.CheckedType()), k)
 		if err != nil {
 			return fmt.Errorf("%w: cannot retype %v: %w", commontypes.ErrInvalidConfig, k, err)
 		}

@@ -36,8 +36,8 @@ var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.Big
 // eg: rename FooBar -> Bar, not foo_bar_ to Bar if the name on-chain is foo_bar_
 func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 	parsed := &parsedTypes{
-		encoderDefs: map[string]*codecEntry{},
-		decoderDefs: map[string]*codecEntry{},
+		encoderDefs: map[string]types.CodecEntry{},
+		decoderDefs: map[string]types.CodecEntry{},
 	}
 
 	for k, v := range conf.Configs {
@@ -51,7 +51,7 @@ func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 			return nil, err
 		}
 
-		item := &codecEntry{Args: args, mod: mod}
+		item := types.NewCodecEntry(args, nil, mod)
 		if err = item.Init(); err != nil {
 			return nil, err
 		}
@@ -70,7 +70,7 @@ type evmCodec struct {
 }
 
 func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
-	var itemTypes map[string]*codecEntry
+	var itemTypes map[string]types.CodecEntry
 	if forEncoding {
 		itemTypes = c.encoderDefs
 	} else {
@@ -82,7 +82,7 @@ func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
 		return nil, fmt.Errorf("%w: cannot find type name %s", commontypes.ErrInvalidType, itemType)
 	}
 
-	return reflect.New(def.checkedType).Interface(), nil
+	return reflect.New(def.CheckedType()).Interface(), nil
 }
 
 var bigIntType = reflect.TypeOf((*big.Int)(nil))

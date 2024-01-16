@@ -45,7 +45,7 @@ func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain leg
 		lp:               lp,
 		client:           chain.Client(),
 		contractBindings: contractBindings{},
-		parsed:           &parsedTypes{encoderDefs: map[string]*codecEntry{}, decoderDefs: map[string]*codecEntry{}},
+		parsed:           &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	var err error
@@ -208,7 +208,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 }
 
 func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
-	*codecEntry, codec.Modifier, error) {
+	types.CodecEntry, codec.Modifier, error) {
 	inputInfo := cr.parsed.encoderDefs[wrapItemType(contractName, eventName, true)]
 	inMod, err := def.InputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
@@ -216,7 +216,7 @@ func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractNa
 	}
 
 	// initialize the modification
-	if _, err = inMod.RetypeForOffChain(reflect.PointerTo(inputInfo.checkedType), ""); err != nil {
+	if _, err = inMod.RetypeForOffChain(reflect.PointerTo(inputInfo.CheckedType()), ""); err != nil {
 		return nil, nil, err
 	}
 
@@ -234,41 +234,39 @@ func verifyEventInputsUsed(chainReaderDefinition types.ChainReaderDefinition, in
 
 func (cr *chainReader) addEncoderDef(contractName, methodName string, args abi.Arguments, prefix []byte, chainReaderDefinition types.ChainReaderDefinition) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	input := &codecEntry{Args: args, encodingPrefix: prefix}
+	inputMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
+	if err != nil {
+		return err
+	}
+	input := types.NewCodecEntry(args, prefix, inputMod)
 
 	if err := input.Init(); err != nil {
 		return err
 	}
 
-	inputMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
-	if err != nil {
-		return err
-	}
-	input.mod = inputMod
 	cr.parsed.encoderDefs[wrapItemType(contractName, methodName, true)] = input
 	return nil
 }
 
 func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs abi.Arguments, def types.ChainReaderDefinition) error {
-	output := &codecEntry{Args: outputs}
 	mod, err := def.OutputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}
-	output.mod = mod
+	output := types.NewCodecEntry(outputs, nil, mod)
 	cr.parsed.decoderDefs[wrapItemType(contractName, methodName, false)] = output
 	return output.Init()
 }
 
-func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Argument, *codecEntry, map[string]bool) {
+func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Argument, types.CodecEntry, map[string]bool) {
 	topicFieldDefs := map[string]bool{}
 	for _, value := range def.EventInputFields {
 		capFirstValue := abi.ToCamelCase(value)
 		topicFieldDefs[capFirstValue] = true
 	}
 
-	filterArgs := make([]abi.Argument, 0, maxTopicFields)
-	info := &codecEntry{}
+	filterArgs := make([]abi.Argument, 0, types.MaxTopicFields)
+	inputArgs := make([]abi.Argument, 0, len(event.Inputs))
 	indexArgNames := map[string]bool{}
 
 	for _, input := range event.Inputs {
@@ -286,9 +284,9 @@ func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Ar
 			filterArgs = append(filterArgs, inputUnindexed)
 		}
 
-		info.Args = append(info.Args, input)
+		inputArgs = append(inputArgs, input)
 		indexArgNames[abi.ToCamelCase(input.Name)] = true
 	}
 
-	return filterArgs, info, indexArgNames
+	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
 }

@@ -15,10 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
-
-// Max four topics on EVM, the first topic is always the event signature, so 3 topics left for fields
-const maxTopicFields = 3
 
 type eventBinding struct {
 	address        common.Address
@@ -31,9 +29,9 @@ type eventBinding struct {
 	bound          bool
 	registerCalled bool
 	lock           sync.Mutex
-	inputInfo      *codecEntry
+	inputInfo      types.CodecEntry
 	inputModifier  codec.Modifier
-	topicInfo      *codecEntry
+	topicInfo      types.CodecEntry
 	// used to allow Register and Unregister to be unique in case two bindings have the same event.
 	// otherwise, if one unregisters, it'll unregister both with the LogPoller.
 	id string
@@ -88,7 +86,7 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 		confs = logpoller.Unconfirmed
 	}
 
-	if len(e.inputInfo.Args) == 0 {
+	if len(e.inputInfo.Args()) == 0 {
 		return e.getLatestValueWithoutFilters(ctx, confs, into)
 	}
 
@@ -131,7 +129,11 @@ func (e *eventBinding) getLatestValueWithFilters(
 		return err
 	}
 
-	nativeParams := reflect.NewAt(e.inputInfo.nativeType, reflect.ValueOf(checkedParams).UnsafePointer())
+	nativeParams, err := e.inputInfo.ToNative(reflect.ValueOf(checkedParams))
+	if err != nil {
+		return err
+	}
+
 	filtersAndIndices, err := e.encodeParams(nativeParams)
 	if err != nil {
 		return err
@@ -240,7 +242,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 		return err
 	}
 
-	topics := make([]common.Hash, len(e.topicInfo.Args))
+	topics := make([]common.Hash, len(e.topicInfo.Args()))
 	if len(log.Topics) < len(topics)+1 {
 		return fmt.Errorf("%w: not enough topics to decode", commontypes.ErrInvalidType)
 	}
@@ -250,7 +252,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 	}
 
 	topicsInto := map[string]any{}
-	if err := abi.ParseTopicsIntoMap(topicsInto, e.topicInfo.Args, topics); err != nil {
+	if err := abi.ParseTopicsIntoMap(topicsInto, e.topicInfo.Args(), topics); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
 

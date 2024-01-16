@@ -8,15 +8,17 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type decoder struct {
-	Definitions map[string]*codecEntry
+	Definitions map[string]types.CodecEntry
 }
 
 var _ commontypes.Decoder = &decoder{}
 
-func (m *decoder) Decode(ctx context.Context, raw []byte, into any, itemType string) error {
+func (m *decoder) Decode(_ context.Context, raw []byte, into any, itemType string) error {
 	info, ok := m.Definitions[itemType]
 	if !ok {
 		return fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
@@ -51,14 +53,19 @@ func (m *decoder) decodeArray(into any, rDecode reflect.Value) error {
 	return setElements(length, rDecode, iInto)
 }
 
-func (m *decoder) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
-	return m.Definitions[itemType].GetMaxSize(n)
+func (m *decoder) GetMaxDecodingSize(_ context.Context, n int, itemType string) (int, error) {
+	entry, ok := m.Definitions[itemType]
+	if !ok {
+		return 0, fmt.Errorf("%w: nil entry", commontypes.ErrInvalidType)
+	}
+	return entry.GetMaxSize(n)
 }
 
-func extractDecoding(info *codecEntry, raw []byte) (any, error) {
+func extractDecoding(info types.CodecEntry, raw []byte) (any, error) {
 	unpacked := map[string]any{}
-	if err := info.Args.UnpackIntoMap(unpacked, raw); err != nil {
-		return nil, fmt.Errorf("%w: %w: for args %#v", commontypes.ErrInvalidEncoding, err, info.Args)
+	args := info.Args()
+	if err := args.UnpackIntoMap(unpacked, raw); err != nil {
+		return nil, fmt.Errorf("%w: %w: for args %#v", commontypes.ErrInvalidEncoding, err, args)
 	}
 	var decode any = unpacked
 

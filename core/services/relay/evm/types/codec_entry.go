@@ -1,4 +1,4 @@
-package evm
+package types
 
 import (
 	"fmt"
@@ -11,16 +11,78 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+// MaxTopicFields is three because the EVM has a m of ax four topics, but the first topic is always the event signature.
+const MaxTopicFields = 3
+
+type CodecEntry interface {
+	Init() error
+	Args() abi.Arguments
+	EncodingPrefix() []byte
+	GetMaxSize(n int) (int, error)
+	Modifier() codec.Modifier
+
+	// CheckedType provides a type that can be used to decode into with type-safety around sizes of integers etc.
+	CheckedType() reflect.Type
+
+	// ToNative converts a pointer to checked value into a pointer of a type to use with the go-ethereum ABI encoder
+	// Note that modification of the returned value will modify the original checked value and vice versa.
+	ToNative(checked reflect.Value) (reflect.Value, error)
+
+	// IsNativePointer returns if the type is a pointer to the native type
+	IsNativePointer(item reflect.Type) bool
+}
+
+func NewCodecEntry(args abi.Arguments, encodingPrefix []byte, mod codec.Modifier) CodecEntry {
+	if mod == nil {
+		mod = codec.MultiModifier{}
+	}
+	return &codecEntry{args: args, encodingPrefix: encodingPrefix, mod: mod}
+}
+
 type codecEntry struct {
-	Args           abi.Arguments
+	args           abi.Arguments
 	encodingPrefix []byte
 	checkedType    reflect.Type
 	nativeType     reflect.Type
 	mod            codec.Modifier
+}
+
+func (entry *codecEntry) CheckedType() reflect.Type {
+	return entry.checkedType
+}
+
+func (entry *codecEntry) NativeType() reflect.Type {
+	return entry.nativeType
+}
+
+func (entry *codecEntry) ToNative(checked reflect.Value) (reflect.Value, error) {
+	if checked.Type() != reflect.PointerTo(entry.checkedType) {
+		return reflect.Value{}, fmt.Errorf("%w: checked type %v does not match expected type %v", commontypes.ErrInvalidType, reflect.TypeOf(checked), entry.checkedType)
+	}
+
+	return reflect.NewAt(entry.nativeType, checked.UnsafePointer()), nil
+}
+
+func (entry *codecEntry) IsNativePointer(item reflect.Type) bool {
+	return item == reflect.PointerTo(entry.nativeType)
+}
+
+func (entry *codecEntry) Modifier() codec.Modifier {
+	return entry.mod
+}
+
+func (entry *codecEntry) Args() abi.Arguments {
+	tmp := make(abi.Arguments, len(entry.args))
+	copy(tmp, entry.args)
+	return tmp
+}
+
+func (entry *codecEntry) EncodingPrefix() []byte {
+	tmp := make([]byte, len(entry.encodingPrefix))
+	copy(tmp, entry.encodingPrefix)
+	return tmp
 }
 
 func (entry *codecEntry) Init() error {
@@ -28,7 +90,7 @@ func (entry *codecEntry) Init() error {
 		return nil
 	}
 
-	args := UnwrapArgs(entry.Args)
+	args := unwrapArgs(entry.args)
 	argLen := len(args)
 	native := make([]reflect.StructField, argLen)
 	checked := make([]reflect.StructField, argLen)
@@ -52,7 +114,7 @@ func (entry *codecEntry) Init() error {
 	seenNames := map[string]bool{}
 	for i, arg := range args {
 		if arg.Indexed {
-			if numIndices == maxTopicFields {
+			if numIndices == MaxTopicFields {
 				return fmt.Errorf("%w: too many indexed arguments", commontypes.ErrInvalidConfig)
 			}
 			numIndices++
@@ -82,13 +144,10 @@ func (entry *codecEntry) Init() error {
 }
 
 func (entry *codecEntry) GetMaxSize(n int) (int, error) {
-	if entry == nil {
-		return 0, fmt.Errorf("%w: nil entry", commontypes.ErrInvalidType)
-	}
-	return GetMaxSize(n, entry.Args)
+	return GetMaxSize(n, entry.args)
 }
 
-func UnwrapArgs(args abi.Arguments) abi.Arguments {
+func unwrapArgs(args abi.Arguments) abi.Arguments {
 	// Unwrap an unnamed tuple so that callers don't need to wrap it
 	// Eg: If you have struct Foo { ... } and return an unnamed Foo, you should be able ot decode to a go Foo{} directly
 	if len(args) != 1 || args[0].Name != "" {
@@ -116,8 +175,8 @@ func getNativeAndCheckedTypesForArg(arg *abi.Argument) (reflect.Type, reflect.Ty
 		case abi.StringTy:
 			return reflect.TypeOf(common.Hash{}), reflect.TypeOf(common.Hash{}), nil
 		case abi.ArrayTy:
-			u8, _ := types.GetAbiEncodingType("uint8")
-			if arg.Type.Elem.GetType() == u8.Native {
+			u8, _ := GetAbiEncodingType("uint8")
+			if arg.Type.Elem.GetType() == u8.native {
 				return reflect.TypeOf(common.Hash{}), reflect.TypeOf(common.Hash{}), nil
 			}
 			fallthrough
@@ -152,9 +211,9 @@ func getNativeAndCheckedTypes(curType *abi.Type) (reflect.Type, reflect.Type, er
 				"%w: cannot create type for kind %v", commontypes.ErrInvalidType, curType.GetType().Kind())
 		}
 	}
-	base, ok := types.GetAbiEncodingType(curType.String())
+	base, ok := GetAbiEncodingType(curType.String())
 	if ok {
-		return converter(base.Native), converter(base.Checked), nil
+		return converter(base.native), converter(base.checked), nil
 	}
 
 	return createTupleType(curType, converter)
