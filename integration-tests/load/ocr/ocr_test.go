@@ -33,19 +33,20 @@ func TestOCRLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := config.OCR
-	SimulateEAActivity(l, cfg.Volume.EAChangeInterval.Duration, ocrInstances, workerNodes, msClient)
+	cfgl := config.Logging.Loki
+	SimulateEAActivity(l, cfg.Load.EAChangeInterval.Duration, ocrInstances, workerNodes, msClient)
 
 	p := wasp.NewProfile()
 	p.Add(wasp.NewGenerator(&wasp.Config{
 		T:                     t,
 		GenName:               "ocr",
 		LoadType:              wasp.RPS,
-		CallTimeout:           cfg.Volume.VerificationTimeout.Duration,
-		RateLimitUnitDuration: cfg.Volume.RateLimitUnitDuration.Duration,
-		Schedule:              wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration),
+		CallTimeout:           cfg.Load.VerificationTimeout.Duration,
+		RateLimitUnitDuration: cfg.Load.RateLimitUnitDuration.Duration,
+		Schedule:              wasp.Plain(*cfg.Load.Rate, cfg.Load.TestDuration.Duration),
 		Gun:                   NewGun(l, cc, ocrInstances),
 		Labels:                CommonTestLabels,
-		LokiConfig:            tc.LokiConfigFromToml(&config),
+		LokiConfig:            wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}))
 	_, err = p.Run(true)
 	require.NoError(t, err)
@@ -61,6 +62,7 @@ func TestOCRVolume(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := config.OCR
+	cfgl := config.Logging.Loki
 
 	p := wasp.NewProfile()
 	p.Add(wasp.NewGenerator(&wasp.Config{
@@ -68,10 +70,10 @@ func TestOCRVolume(t *testing.T) {
 		GenName:     "ocr",
 		LoadType:    wasp.VU,
 		CallTimeout: cfg.Volume.VerificationTimeout.Duration,
-		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Common.TestDuration.Duration),
+		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Volume.TestDuration.Duration),
 		VU:          NewVU(l, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, cc, lt, cd, bootstrapNode, workerNodes, msClient),
 		Labels:      CommonTestLabels,
-		LokiConfig:  tc.LokiConfigFromToml(&config),
+		LokiConfig:  wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}))
 	_, err = p.Run(true)
 	require.NoError(t, err)

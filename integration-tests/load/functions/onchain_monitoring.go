@@ -34,7 +34,9 @@ func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string,
 		updatedLabels["type"] = LokiTypeLabel
 		updatedLabels["go_test_name"] = t.Name()
 		updatedLabels["gen_name"] = "performance"
-		lc, err := wasp.NewLokiClient(tc.LokiConfigFromToml(config))
+		cfgl := config.Logging.Loki
+		lokiConfig := wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken)
+		lc, err := wasp.NewLokiClient(lokiConfig)
 		if err != nil {
 			log.Error().Err(err).Msg(ErrLokiClient)
 			return

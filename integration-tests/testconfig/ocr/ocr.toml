@@ -5,10 +5,10 @@ chainlink_node_funding = 0.5
 # load test specific configuration
 [Load.OCR]
 [Load.OCR.Common]
-test_duration = "3m"
 eth_funds = 3
 
-[Load.OCR.Volume]
+[Load.OCR.Load]
+test_duration = "3m"
 rate_limit_unit_duration = "1m"
 rate = 3
 verification_interval = "5s"
@@ -18,10 +18,10 @@ ea_change_interval = "5s"
 # volume test specific configuration
 [Volume.OCR]
 [Volume.OCR.Common]
-test_duration = "3m"
 eth_funds = 3
 
 [Volume.OCR.Volume]
+test_duration = "3m"
 rate_limit_unit_duration = "1m"
 vu_requests_per_unit = 10
 rate = 1

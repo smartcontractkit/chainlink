@@ -47,11 +47,12 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	require.NoError(t, err)
 	testConfig, err := tc.GetConfig(testType, tc.VRFv2Plus)
 	require.NoError(t, err)
+	cfgl := testConfig.Logging.Loki
 
 	vrfv2PlusConfig := testConfig.VRFv2Plus
 	testReporter := &testreporters.VRFV2PlusTestReporter{}
 
-	lc, err := wasp.NewLokiClient(tc.LokiConfigFromToml(&testConfig))
+	lc, err := wasp.NewLokiClient(wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken))
 	if err != nil {
 		l.Error().Err(err).Msg(ErrLokiClient)
 		return
@@ -231,7 +232,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			l,
 		),
 		Labels:      labels,
-		LokiConfig:  tc.LokiConfigFromToml(&testConfig),
+		LokiConfig:  wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 		CallTimeout: 2 * time.Minute,
 	}
 	require.Len(t, vrfv2PlusContracts.LoadTestConsumers, 1, "only one consumer should be created for Load Test")

@@ -16,6 +16,8 @@ log_producer_retry_limit=10
 tenant_id="tenant_id"
 url="https://loki.url"
 basic_auth="loki-basic-auth"
+# legacy, you only need this to access the cloud version
+# bearer_token="bearer_token"
 
 [Logging.Grafana]
 # url of your grafana dashboard
