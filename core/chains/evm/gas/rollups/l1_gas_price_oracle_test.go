@@ -101,7 +101,7 @@ func TestL1GasPriceOracle(t *testing.T) {
 		assert.Equal(t, assets.NewWei(l1BaseFee), gasPrice)
 	})
 
-	t.Run("Calling GasPrice on started Scroll L1Oracle returns Kroma l1GasPrice", func(t *testing.T) {
+	t.Run("Calling GasPrice on started Scroll L1Oracle returns Scroll l1GasPrice", func(t *testing.T) {
 		l1BaseFee := big.NewInt(200)
 
 		ethClient := mocks.NewETHClient(t)
