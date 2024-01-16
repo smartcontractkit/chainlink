@@ -49,7 +49,7 @@ func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain leg
 	}
 
 	var err error
-	if err = cr.init(config.ChainContractReaders); err != nil {
+	if err = cr.init(config.Contracts); err != nil {
 		return nil, err
 	}
 
@@ -89,15 +89,15 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			return err
 		}
 
-		for typeName, chainReaderDefinition := range chainContractReader.ChainReaderDefinitions {
+		for typeName, chainReaderDefinition := range chainContractReader.Configs {
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
-				err = cr.addMethod(contractName, typeName, contractAbi, chainReaderDefinition)
+				err = cr.addMethod(contractName, typeName, contractAbi, *chainReaderDefinition)
 			case types.Event:
-				err = cr.addEvent(contractName, typeName, contractAbi, chainReaderDefinition)
+				err = cr.addEvent(contractName, typeName, contractAbi, *chainReaderDefinition)
 			default:
 				return fmt.Errorf(
-					"%w: invalid chain reader definition read type: %d",
+					"%w: invalid chain reader definition read type: %s",
 					commontypes.ErrInvalidConfig,
 					chainReaderDefinition.ReadType)
 			}

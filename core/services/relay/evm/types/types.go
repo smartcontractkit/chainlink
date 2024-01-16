@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,43 +20,89 @@ import (
 )
 
 type ChainReaderConfig struct {
-	// ChainContractReaders key is contract name
-	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
+	// Contracts key is contract name
+	Contracts map[string]ChainContractReader `json:"contracts" toml:"contracts"`
 }
 
 type CodecConfig struct {
-	// ChainCodecConfigs is the type's name for the codec
-	ChainCodecConfigs map[string]ChainCodedConfig `json:"chainCodecConfig"`
+	// Configs key is the type's name for the codec
+	Configs map[string]ChainCodecConfig `json:"configs" toml:"configs"`
 }
 
-type ChainCodedConfig struct {
-	TypeAbi         string `json:"typeAbi"`
-	ModifierConfigs codec.ModifiersConfig
+type ChainCodecConfig struct {
+	TypeABI         string                `json:"typeAbi" toml:"typeABI"`
+	ModifierConfigs codec.ModifiersConfig `toml:"modifierConfigs,omitempty"`
 }
 
 type ChainContractReader struct {
-	ContractABI string `json:"contractABI"`
+	ContractABI string `json:"contractABI" toml:"contractABI"`
 	// key is genericName from config
-	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
+	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
 }
 
-type ChainReaderDefinition struct {
-	ChainSpecificName   string `json:"chainSpecificName"` // chain specific contract method name or event type.
-	CacheEnabled        bool   `json:"cacheEnabled"`
-	ReadType            `json:"readType"`
-	InputModifications  codec.ModifiersConfig `json:"input_modifications"`
-	OutputModifications codec.ModifiersConfig `json:"output_modifications"`
+type ChainReaderDefinition chainReaderDefinitionFields
+
+// chainReaderDefinitionFields has the fields for ChainReaderDefinition but no methods.
+// This is necessary because package json recognizes the text encoding methods used for TOML,
+// and would infinitely recurse on itself.
+type chainReaderDefinitionFields struct {
+	CacheEnabled bool `json:"cacheEnabled,omitempty"`
+	// chain specific contract method name or event type.
+	ChainSpecificName   string                `json:"chainSpecificName"`
+	ReadType            ReadType              `json:"readType,omitempty"`
+	InputModifications  codec.ModifiersConfig `json:"input_modifications,omitempty"`
+	OutputModifications codec.ModifiersConfig `json:"output_modifications,omitempty"`
 
 	// EventInputFields allows you to choose which indexed fields are expected from the input
-	EventInputFields []string `json:"eventInputFields"`
+	EventInputFields []string `json:"eventInputFields,omitempty"`
 }
 
-type ReadType int64
+func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
+	var b bytes.Buffer
+	e := json.NewEncoder(&b)
+	e.SetIndent("", "  ")
+	if err := e.Encode((*chainReaderDefinitionFields)(d)); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func (d *ChainReaderDefinition) UnmarshalText(b []byte) error {
+	return json.Unmarshal(b, (*chainReaderDefinitionFields)(d))
+}
+
+type ReadType int
 
 const (
-	Method ReadType = 0
-	Event  ReadType = 1
+	Method ReadType = iota
+	Event
 )
+
+func (r ReadType) String() string {
+	switch r {
+	case Method:
+		return "method"
+	case Event:
+		return "event"
+	}
+	return fmt.Sprintf("ReadType(%d)", r)
+}
+
+func (r ReadType) MarshalText() ([]byte, error) {
+	return []byte(r.String()), nil
+}
+
+func (r *ReadType) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "method":
+		*r = Method
+		return nil
+	case "event":
+		*r = Event
+		return nil
+	}
+	return fmt.Errorf("unrecognized ReadType: %s", string(text))
+}
 
 type RelayConfig struct {
 	ChainID                *big.Big           `json:"chainID"`

@@ -40,9 +40,9 @@ func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 		decoderDefs: map[string]*codecEntry{},
 	}
 
-	for k, v := range conf.ChainCodecConfigs {
+	for k, v := range conf.Configs {
 		args := abi.Arguments{}
-		if err := json.Unmarshal(([]byte)(v.TypeAbi), &args); err != nil {
+		if err := json.Unmarshal(([]byte)(v.TypeABI), &args); err != nil {
 			return nil, err
 		}
 
