@@ -15,30 +15,27 @@ spec:
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
-    - from:
-      - podSelector:
-          matchLabels:
-            app: runner
-  egress:
-    # Allow all egress traffic between the node pods and to runner pod.
-    - to:
-        - podSelector:
-            matchLabels:
-              app: {{ $.Release.Name }}
-    - to:
         - podSelector:
             matchLabels:
               app: runner
-    # Allow all node pods to access the database pods.
+  egress:
     - to:
+        # Allow all egress traffic between the node pods and to runner pod.
+        - podSelector:
+            matchLabels:
+              app: {{ $.Release.Name }}
+        - podSelector:
+            matchLabels:
+              app: runner
+      # Allow all node pods to access the database pods.
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}-db
       ports:
         - protocol: TCP
           port: 5432
-    # Allow all node pods to access the geth pods.
     - to:
+        # Allow all node pods to access the geth pods.
         - podSelector:
             matchLabels:
               app: geth

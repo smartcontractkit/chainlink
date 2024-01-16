@@ -9,16 +9,12 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Allow http traffic from the node pods.
     - from:
+        # Allow http traffic from the node pods.
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
-      ports:
-        - protocol: TCP
-          port: 1080
-    # Allow http traffic from the runner pods.
-    - from:
+        # Allow http traffic from the runner pods.
         - podSelector:
             matchLabels:
               app: runner

@@ -9,21 +9,15 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Allow http and websocket connections from the node pods.
     - from:
+        # Allow http and websocket connections from the node pods.
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
-      ports:
-        - protocol: TCP
-          port: 8544
-        - protocol: TCP
-          port: 8546
-    # Allow http and websocket connections from the runner pods.
-    - from:
+        # Allow http and websocket connections from the runner pods.
         - podSelector:
-            matchLabels:
-              app: runner
+          matchLabels:
+            app: runner
       ports:
         - protocol: TCP
           port: 8544

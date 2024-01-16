@@ -9,16 +9,12 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Allow all node pods to access the database pods.
     - from:
+        # Allow all node pods to access the database pods.
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
-      ports:
-        - protocol: TCP
-          port: 5432
-    # Allow all runner pods to access the database pods.
-    - from:
+        # Allow all runner pods to access the database pods.
         - podSelector:
             matchLabels:
               app: runner
