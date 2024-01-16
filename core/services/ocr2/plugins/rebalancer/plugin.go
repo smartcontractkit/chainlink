@@ -19,8 +19,9 @@ import (
 
 type Plugin struct {
 	f                       int
+	rootNetwork             models.NetworkSelector
+	rootAddress             models.Address
 	closePluginTimeout      time.Duration
-	rootNetwork             models.NetworkID
 	liquidityManagers       *liquiditymanager.Registry
 	liquidityManagerFactory liquiditymanager.Factory
 	liquidityGraph          liquiditygraph.LiquidityGraph
@@ -32,7 +33,7 @@ type Plugin struct {
 func NewPlugin(
 	f int,
 	closePluginTimeout time.Duration,
-	liquidityManagerNetwork models.NetworkID,
+	liquidityManagerNetwork models.NetworkSelector,
 	liquidityManagerAddress models.Address,
 	liquidityManagerFactory liquiditymanager.Factory,
 	liquidityGraph liquiditygraph.LiquidityGraph,
@@ -45,8 +46,9 @@ func NewPlugin(
 
 	return &Plugin{
 		f:                       f,
-		closePluginTimeout:      closePluginTimeout,
 		rootNetwork:             liquidityManagerNetwork,
+		rootAddress:             liquidityManagerAddress,
+		closePluginTimeout:      closePluginTimeout,
 		liquidityManagers:       liquidityManagers,
 		liquidityManagerFactory: liquidityManagerFactory,
 		liquidityGraph:          liquidityGraph,
@@ -128,6 +130,7 @@ func (p *Plugin) Outcome(outctx ocr3types.OutcomeContext, query ocrtypes.Query, 
 func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[models.ReportMetadata], error) {
 	lggr := p.lggr.With("seqNr", seqNr)
 	lggr.Infow("in reports", "seqNr", seqNr)
+
 	obs, err := models.DecodeObservation(outcome)
 	if err != nil {
 		return nil, fmt.Errorf("decode outcome: %w", err)
@@ -137,6 +140,7 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 		"pendingTransfers", obs.PendingTransfers,
 		"liquidityGraph", p.liquidityGraph,
 		"liquidityPerChain", obs.LiquidityPerChain)
+
 	transfersToReachBalance, err := p.liquidityRebalancer.ComputeTransfersToBalance(
 		p.liquidityGraph, obs.PendingTransfers, obs.LiquidityPerChain)
 	if err != nil {
@@ -144,7 +148,7 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 	}
 
 	// group transfers by source chain
-	transfersBySourceNet := make(map[models.NetworkID][]models.Transfer)
+	transfersBySourceNet := make(map[models.NetworkSelector][]models.Transfer)
 	for _, tr := range transfersToReachBalance {
 		transfersBySourceNet[tr.From] = append(transfersBySourceNet[tr.From], tr)
 	}
@@ -170,7 +174,6 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 	}
 
 	lggr.Infow("generated reports", "numReports", len(reports))
-
 	return reports, nil
 }
 
@@ -182,7 +185,7 @@ func (p *Plugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, r
 		return false, fmt.Errorf("decode report metadata: %w", err)
 	}
 
-	fmt.Println(report.Transfers)
+	p.lggr.Infow("accepting report", "transfers", len(report.Transfers))
 	// todo: check if reportMeta.transfers are valid
 
 	return true, nil
@@ -205,7 +208,6 @@ func (p *Plugin) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64,
 
 func (p *Plugin) Close() error {
 	p.lggr.Infow("closing plugin")
-
 	ctx, cf := context.WithTimeout(context.Background(), p.closePluginTimeout)
 	defer cf()
 
@@ -224,6 +226,7 @@ func (p *Plugin) Close() error {
 	return nil
 }
 
+// todo: consider placing the graph exploration logic under graph package to keep the plugin logic cleaner
 func (p *Plugin) syncGraphEdges(ctx context.Context) error {
 	// todo: if there wasn't any change to the graph stop earlier
 	p.lggr.Infow("syncing graph edges")
@@ -277,7 +280,6 @@ func (p *Plugin) syncGraphBalances(ctx context.Context) ([]models.NetworkLiquidi
 }
 
 func (p *Plugin) loadPendingTransfers(ctx context.Context) ([]models.PendingTransfer, error) {
-	// todo: do not load pending transfers all the time
 	p.lggr.Infow("loading pending transfers")
 
 	pendingTransfers := make([]models.PendingTransfer, 0)
@@ -287,7 +289,14 @@ func (p *Plugin) loadPendingTransfers(ctx context.Context) ([]models.PendingTran
 			return nil, fmt.Errorf("init liquidity manager: %w", err)
 		}
 
-		netPendingTransfers, err := lm.GetPendingTransfers(ctx)
+		// todo: place in config and set a proper value
+		dateToStartLookingFrom := time.Now().Add(-10 * 24 * time.Hour)
+
+		if mostRecentTransfer, exists := p.pendingTransfers.LatestNetworkTransfer(networkID); exists {
+			dateToStartLookingFrom = mostRecentTransfer.Date
+		}
+
+		netPendingTransfers, err := lm.GetPendingTransfers(ctx, dateToStartLookingFrom)
 		if err != nil {
 			return nil, fmt.Errorf("get pending %v transfers: %w", networkID, err)
 		}
@@ -295,12 +304,12 @@ func (p *Plugin) loadPendingTransfers(ctx context.Context) ([]models.PendingTran
 		pendingTransfers = append(pendingTransfers, netPendingTransfers...)
 	}
 
-	p.pendingTransfers.Set(pendingTransfers)
+	p.pendingTransfers.Add(pendingTransfers)
 	return pendingTransfers, nil
 }
 
 func (p *Plugin) computeMedianLiquidityPerChain(observations []models.Observation) []models.NetworkLiquidity {
-	liqObsPerChain := make(map[models.NetworkID][]*big.Int)
+	liqObsPerChain := make(map[models.NetworkSelector][]*big.Int)
 	for _, ob := range observations {
 		for _, chainLiq := range ob.LiquidityPerChain {
 			liqObsPerChain[chainLiq.Network] = append(liqObsPerChain[chainLiq.Network], chainLiq.Liquidity)
@@ -311,12 +320,10 @@ func (p *Plugin) computeMedianLiquidityPerChain(observations []models.Observatio
 	for chainID, liqs := range liqObsPerChain {
 		medians = append(medians, models.NewNetworkLiquidity(chainID, bigIntSortedMiddle(liqs)))
 	}
-
 	// sort by network id for deterministic results
 	sort.Slice(medians, func(i, j int) bool {
 		return medians[i].Network < medians[j].Network
 	})
-
 	return medians
 }
 

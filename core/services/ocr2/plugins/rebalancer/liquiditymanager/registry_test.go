@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	utils2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
 
@@ -15,24 +15,24 @@ func TestRegistry(t *testing.T) {
 	r := NewRegistry()
 	assert.Empty(t, r.GetAll())
 
-	netID1 := models.NetworkID(1)
-	addr1 := models.Address(utils.RandomAddress())
+	netSel1 := models.NetworkSelector(1)
+	addr1 := models.Address(utils2.RandomAddress())
 
-	netID2 := models.NetworkID(2)
-	addr2 := models.Address(utils.RandomAddress())
+	netSel2 := models.NetworkSelector(2)
+	addr2 := models.Address(utils2.RandomAddress())
 
-	r.Add(netID1, addr1)
+	r.Add(netSel1, addr1)
 	assert.Len(t, r.GetAll(), 1)
-	addr, exists := r.Get(netID1)
+	addr, exists := r.Get(netSel1)
 	assert.True(t, exists)
 	assert.Equal(t, addr1, addr)
 
-	_, exists = r.Get(netID2)
+	_, exists = r.Get(netSel2)
 	assert.False(t, exists)
 
-	r.Add(netID1, addr2)
+	r.Add(netSel1, addr2)
 	assert.Len(t, r.GetAll(), 1)
-	addr, exists = r.Get(netID1)
+	addr, exists = r.Get(netSel1)
 	assert.True(t, exists)
 	assert.Equal(t, addr2, addr, "address should be overwritten")
 }
@@ -59,9 +59,9 @@ func runRandomRegistryOperations(r *Registry, numOps int) {
 	for i := 0; i < numOps; i++ {
 		switch ops[rand.Intn(len(ops))] {
 		case "add":
-			r.Add(models.NetworkID(rand.Intn(numOps)), models.Address(utils.RandomAddress()))
+			r.Add(models.NetworkSelector(rand.Intn(numOps)), models.Address(utils2.RandomAddress()))
 		case "get":
-			_, _ = r.Get(models.NetworkID(rand.Intn(numOps)))
+			_, _ = r.Get(models.NetworkSelector(rand.Intn(numOps)))
 		case "getAll":
 			r.GetAll()
 		}

@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/multierr"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -47,7 +49,7 @@ func init() {
 	ConfigSet = defaultABI.Events["ConfigSet"].ID
 }
 
-type CombinerFn func(masterConfig ocrtypes.ContractConfig, followerConfigs []ocrtypes.ContractConfig) (ocrtypes.ContractConfig, error)
+type CombinerFn func(masterChain relay.ID, contractConfigs map[relay.ID]ocrtypes.ContractConfig) (ocrtypes.ContractConfig, error)
 
 type multichainConfigTracker struct {
 	services.StateMachine
@@ -61,6 +63,8 @@ type multichainConfigTracker struct {
 	contractAddresses map[relay.ID]common.Address
 	masterContract    no_op_ocr3.NoOpOCR3Interface
 	combiner          CombinerFn
+	fromBlocks        map[string]int64
+	replaying         atomic.Bool
 }
 
 func NewMultichainConfigTracker(
@@ -71,6 +75,7 @@ func NewMultichainConfigTracker(
 	masterContract common.Address,
 	lmFactory liquiditymanager.Factory,
 	combiner CombinerFn,
+	fromBlocks map[string]int64,
 ) (*multichainConfigTracker, error) {
 	// Ensure master chain is in the log pollers
 	if _, ok := logPollers[masterChain]; !ok {
@@ -94,7 +99,7 @@ func NewMultichainConfigTracker(
 		return nil, fmt.Errorf("failed to parse network ID %s: %w", masterChain, err)
 	}
 	masterLM, err := lmFactory.NewLiquidityManager(
-		models.NetworkID(masterChainID),
+		models.NetworkSelector(masterChainID), // todo: probably need to find selector from chain id first
 		models.Address(masterContract))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create master liquidity manager: %w", err)
@@ -121,7 +126,7 @@ func NewMultichainConfigTracker(
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to parse network ID %s: %w", id, err2)
 		}
-		address, ok := all[models.NetworkID(nid)]
+		address, ok := all[models.NetworkSelector(nid)]
 		if !ok {
 			return nil, fmt.Errorf("no liquidity manager found for network ID %d", nid)
 		}
@@ -150,6 +155,7 @@ func NewMultichainConfigTracker(
 		masterClient:      masterClient,
 		contractAddresses: contracts,
 		masterContract:    wrapper,
+		fromBlocks:        fromBlocks,
 	}, nil
 }
 
@@ -157,7 +163,32 @@ func (m *multichainConfigTracker) GetContractAddresses() map[relay.ID]common.Add
 	return m.contractAddresses
 }
 
-func (m *multichainConfigTracker) Start() {}
+func (m *multichainConfigTracker) Start() {
+	_ = m.StartOnce("MultichainConfigTracker", func() error {
+		if m.fromBlocks != nil {
+			m.replaying.Store(true)
+			defer m.replaying.Store(false)
+
+			// TODO: replay multiple chains in parallel?
+			var errs error
+			for id, fromBlock := range m.fromBlocks {
+				err := m.ReplayChain(context.Background(), relay.NewID("evm", id), fromBlock)
+				if err != nil {
+					m.lggr.Errorw("failed to replay chain", "chain", id, "fromBlock", fromBlock, "err", err)
+					errs = multierr.Append(errs, err)
+				} else {
+					m.lggr.Infow("successfully replayed chain", "chain", id, "fromBlock", fromBlock)
+				}
+			}
+
+			if errs != nil {
+				m.lggr.Errorw("failed to replay some chains", "err", errs)
+				return errs
+			}
+		}
+		return nil
+	})
+}
 
 func (m *multichainConfigTracker) Close() error {
 	return nil
@@ -198,6 +229,11 @@ func (m *multichainConfigTracker) LatestBlockHeight(ctx context.Context) (blockH
 // LatestConfig fetches the config from the master chain and then fetches the
 // remaining configurations from all the other chains.
 func (m *multichainConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+	// if we're still replaying the follower chains we won't have their configs
+	if m.replaying.Load() {
+		return ocrtypes.ContractConfig{}, errors.New("cannot call LatestConfig while replaying")
+	}
+
 	lgs, err := m.logPollers[m.masterChain].Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, m.contractAddresses[m.masterChain], pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
@@ -213,31 +249,28 @@ func (m *multichainConfigTracker) LatestConfig(ctx context.Context, changedInBlo
 	m.lggr.Infow("LatestConfig from master chain", "latestConfig", masterConfig)
 
 	// check all other chains for their config
-	var followerConfigs []ocrtypes.ContractConfig
+	contractConfigs := map[relay.ID]ocrtypes.ContractConfig{
+		m.masterChain: masterConfig,
+	}
 	for id, lp := range m.logPollers {
 		if id == m.masterChain {
 			continue
 		}
 
-		lgs, err2 := lp.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, m.contractAddresses[id], pg.WithParentCtx(ctx))
+		lg, err2 := lp.LatestLogByEventSigWithConfs(ConfigSet, m.contractAddresses[id], 1, pg.WithParentCtx(ctx))
 		if err2 != nil {
 			return ocrtypes.ContractConfig{}, err2
 		}
 
-		if len(lgs) == 0 {
-			return ocrtypes.ContractConfig{}, fmt.Errorf("no logs found for config on contract %s (chain %s) at block %d",
-				m.contractAddresses[id].Hex(), id.String(), changedInBlock)
-		}
-
-		configSet, err2 := configFromLog(lgs[len(lgs)-1].Data)
+		configSet, err2 := configFromLog(lg.Data)
 		if err2 != nil {
 			return ocrtypes.ContractConfig{}, err2
 		}
-		followerConfigs = append(followerConfigs, configSet)
+		contractConfigs[id] = configSet
 	}
 
 	// at this point we can combine the configs into a single one
-	combined, err := m.combiner(masterConfig, followerConfigs)
+	combined, err := m.combiner(m.masterChain, contractConfigs)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, fmt.Errorf("error combining configs: %w", err)
 	}

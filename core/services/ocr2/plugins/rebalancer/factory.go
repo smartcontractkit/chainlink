@@ -19,18 +19,20 @@ const (
 )
 
 type PluginFactory struct {
-	lggr   logger.Logger
-	config models.PluginConfig
+	lggr      logger.Logger
+	config    models.PluginConfig
+	lmFactory liquiditymanager.Factory
 }
 
-func NewPluginFactory(lggr logger.Logger, pluginConfigBytes []byte) (*PluginFactory, error) {
+func NewPluginFactory(lggr logger.Logger, pluginConfigBytes []byte, lmFactory liquiditymanager.Factory) (*PluginFactory, error) {
 	var pluginConfig models.PluginConfig
 	if err := json.Unmarshal(pluginConfigBytes, &pluginConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal plugin config: %w", err)
 	}
 	return &PluginFactory{
-		lggr:   lggr.Named(PluginName),
-		config: pluginConfig,
+		lggr:      lggr.Named(PluginName),
+		config:    pluginConfig,
+		lmFactory: lmFactory,
 	}, nil
 }
 
@@ -55,7 +57,6 @@ func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig
 	}
 
 	liquidityGraph := liquiditygraph.NewGraph()
-	liquidityManagerFactory := liquiditymanager.NewBaseLiquidityManagerFactory()
 
 	closePluginTimeout := 30 * time.Second
 	if p.config.ClosePluginTimeoutSec > 0 {
@@ -67,7 +68,7 @@ func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig
 			closePluginTimeout,
 			p.config.LiquidityManagerNetwork,
 			p.config.LiquidityManagerAddress,
-			liquidityManagerFactory,
+			p.lmFactory,
 			liquidityGraph,
 			liquidityRebalancer,
 			p.lggr,

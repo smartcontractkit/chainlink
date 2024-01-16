@@ -10,7 +10,7 @@ const PluginName = "liquidityRebalancer"
 
 type PluginConfig struct {
 	LiquidityManagerAddress Address          `json:"liquidityManagerAddress"`
-	LiquidityManagerNetwork NetworkID        `json:"liquidityManagerNetwork"`
+	LiquidityManagerNetwork NetworkSelector  `json:"liquidityManagerNetwork"`
 	ClosePluginTimeoutSec   int              `json:"closePluginTimeoutSec"`
 	RebalancerConfig        RebalancerConfig `json:"rebalancerConfig"`
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -36,10 +37,10 @@ func TestMultichainTransmitter(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedTransmitters := []string{
-		unis[0].transmitters[0].From.String(),
-		unis[1].transmitters[0].From.String(),
-		unis[2].transmitters[0].From.String(),
-		unis[3].transmitters[0].From.String(),
+		ocr3impls.EncodeTransmitter(relay.NewID(relay.EVM, "0"), ocrtypes.Account(unis[0].transmitters[0].From.String())),
+		ocr3impls.EncodeTransmitter(relay.NewID(relay.EVM, "1"), ocrtypes.Account(unis[1].transmitters[0].From.String())),
+		ocr3impls.EncodeTransmitter(relay.NewID(relay.EVM, "2"), ocrtypes.Account(unis[2].transmitters[0].From.String())),
+		ocr3impls.EncodeTransmitter(relay.NewID(relay.EVM, "3"), ocrtypes.Account(unis[3].transmitters[0].From.String())),
 	}
 	slices.Sort(expectedTransmitters)
 	expectedFromAccount := strings.Join(expectedTransmitters, ",")
@@ -66,7 +67,6 @@ func TestMultichainTransmitter(t *testing.T) {
 		attributedSigs := unis[i].SignReport(t, c.ConfigDigest, reports[i], seqNum)
 		err = mct.Transmit(testutils.Context(t), c.ConfigDigest, seqNum, reports[i], attributedSigs)
 		require.NoError(t, err)
-		// TODO: for some reason this event isn't being emitted in the simulated backend
 		events := unis[i].TransmittedEvents(t)
 		require.Len(t, events, 1)
 		require.Equal(t, c.ConfigDigest, events[0].ConfigDigest, "config digest mismatch")

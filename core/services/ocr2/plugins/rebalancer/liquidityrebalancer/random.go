@@ -70,7 +70,7 @@ func (r *randomRebalancer) ComputeTransfersToBalance(
 	return transfers, nil
 }
 
-func pickRandom(rng *mathrand.Rand, networks []models.NetworkID) models.NetworkID {
+func pickRandom(rng *mathrand.Rand, networks []models.NetworkSelector) models.NetworkSelector {
 	randIndex := rng.Intn(len(networks))
 	return networks[randIndex]
 }

@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -14,9 +15,10 @@ import (
 func TestPendingTransfersCache(t *testing.T) {
 	c := NewPendingTransfersCache()
 
-	from1to2 := models.NewTransfer(models.NetworkID(1), models.NetworkID(2), big.NewInt(10))
-	from1to3 := models.NewTransfer(models.NetworkID(1), models.NetworkID(3), big.NewInt(20))
-	from2to3 := models.NewTransfer(models.NetworkID(2), models.NetworkID(3), big.NewInt(30))
+	date := time.Now()
+	from1to2 := models.NewTransfer(models.NetworkSelector(1), models.NetworkSelector(2), big.NewInt(10), date)
+	from1to3 := models.NewTransfer(models.NetworkSelector(1), models.NetworkSelector(3), big.NewInt(20), date)
+	from2to3 := models.NewTransfer(models.NetworkSelector(2), models.NetworkSelector(3), big.NewInt(30), date)
 
 	c.Add([]models.PendingTransfer{
 		models.NewPendingTransfer(from1to2),
@@ -56,9 +58,10 @@ func TestPendingTransfersThreadSafety(t *testing.T) {
 
 func runRandomRegistryOperations(c *PendingTransfersCache, numOps int) {
 	ops := []string{"add", "set", "contains"}
+	date := time.Now()
 	for i := 0; i < numOps; i++ {
-		tr1 := models.NewTransfer(models.NetworkID(rand.Intn(numOps)), models.NetworkID(rand.Intn(numOps)), big.NewInt(int64(numOps*rand.Intn(10))))
-		tr2 := models.NewTransfer(models.NetworkID(rand.Intn(numOps)), models.NetworkID(rand.Intn(numOps)), big.NewInt(int64(numOps*rand.Intn(10))))
+		tr1 := models.NewTransfer(models.NetworkSelector(rand.Intn(numOps)), models.NetworkSelector(rand.Intn(numOps)), big.NewInt(int64(numOps*rand.Intn(10))), date)
+		tr2 := models.NewTransfer(models.NetworkSelector(rand.Intn(numOps)), models.NetworkSelector(rand.Intn(numOps)), big.NewInt(int64(numOps*rand.Intn(10))), date)
 		transfers := []models.PendingTransfer{models.NewPendingTransfer(tr1), models.NewPendingTransfer(tr2)}
 
 		switch ops[rand.Intn(len(ops))] {
