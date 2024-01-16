@@ -10,8 +10,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	time "time"
 )
 
@@ -40,23 +38,17 @@ func (_m *PriceRegistryReader) Address() common.Address {
 	return r0
 }
 
-// Close provides a mock function with given fields: qopts
-func (_m *PriceRegistryReader) Close(qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// Close provides a mock function with given fields:
+func (_m *PriceRegistryReader) Close() error {
+	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Close")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(...pg.QOpt) error); ok {
-		r0 = rf(qopts...)
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
 	}

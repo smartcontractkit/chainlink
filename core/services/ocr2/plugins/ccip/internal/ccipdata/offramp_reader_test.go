@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -36,21 +35,6 @@ import (
 type offRampReaderTH struct {
 	user   *bind.TransactOpts
 	reader ccipdata.OffRampReader
-}
-
-func TestOffRampFilters(t *testing.T) {
-	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
-		c, err := v1_0_0.NewOffRamp(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
-		require.NoError(t, err)
-		require.NoError(t, c.RegisterFilters())
-		return c
-	}, 3)
-	ccipdata.AssertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
-		c, err := v1_2_0.NewOffRamp(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
-		require.NoError(t, err)
-		require.NoError(t, c.RegisterFilters())
-		return c
-	}, 3)
 }
 
 func TestExecOnchainConfig100(t *testing.T) {
@@ -195,7 +179,7 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 	}
 
 	// Create the version-specific reader.
-	reader, err := factory.NewOffRampReader(log, offRampAddress, bc, lp, nil)
+	reader, err := factory.NewOffRampReader(log, factory.NewEvmVersionFinder(), offRampAddress, bc, lp, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, offRampAddress, reader.Address())
 
@@ -407,7 +391,7 @@ func TestNewOffRampReader(t *testing.T) {
 			require.NoError(t, err)
 			c := evmclientmocks.NewClient(t)
 			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
-			_, err = factory.NewOffRampReader(logger.TestLogger(t), common.Address{}, c, lpmocks.NewLogPoller(t), nil)
+			_, err = factory.NewOffRampReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), common.Address{}, c, lpmocks.NewLogPoller(t), nil, true)
 			if tc.expectedErr != "" {
 				assert.EqualError(t, err, tc.expectedErr)
 			} else {

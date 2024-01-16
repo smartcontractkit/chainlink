@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -83,8 +82,6 @@ type TokenBucketRateLimit struct {
 
 //go:generate mockery --quiet --name OffRampReader --filename offramp_reader_mock.go --case=underscore
 type OffRampReader interface {
-	Closer
-	RegisterFilters(qopts ...pg.QOpt) error
 	// EncodeExecutionReport will error if messages are not a compatible version.
 	EncodeExecutionReport(report ExecReport) ([]byte, error)
 	// DecodeExecutionReport will error if messages are not a compatible version.
