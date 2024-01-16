@@ -200,7 +200,6 @@ func TestContractTransmitter(t *testing.T) {
 		require.Equal(t, seqNum, lcde.SequenceNumber, "seq number mismatch")
 
 		// check for transmitted event
-		// TODO: for some reason this event isn't being emitted in the simulated backend
 		events := uni.TransmittedEvents(t)
 		require.Len(t, events, 1, "expected one transmitted event")
 		event := events[0]
@@ -239,7 +238,6 @@ func TestContractTransmitter(t *testing.T) {
 		require.Equal(t, seqNum, lcde.SequenceNumber, "seq number mismatch")
 
 		// check for transmitted event
-		// TODO: for some reason this event isn't being emitted in the simulated backend
 		events := uni.TransmittedEvents(t)
 		require.Len(t, events, 1, "expected one transmitted event")
 		event := events[0]

@@ -36,12 +36,12 @@ func NewMultichainTransmitterOCR3[RI MultichainMeta](
 // FromAccount implements ocr3types.ContractTransmitter.
 func (m *multichainTransmitterOCR3[RI]) FromAccount() (types.Account, error) {
 	var accounts []string
-	for _, t := range m.transmitters {
+	for relayID, t := range m.transmitters {
 		account, err := t.FromAccount()
 		if err != nil {
 			return "", err
 		}
-		accounts = append(accounts, string(account))
+		accounts = append(accounts, EncodeTransmitter(relayID, account))
 	}
 	return types.Account(JoinTransmitters(accounts)), nil
 }

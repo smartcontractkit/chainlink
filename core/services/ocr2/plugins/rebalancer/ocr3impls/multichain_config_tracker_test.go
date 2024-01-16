@@ -60,6 +60,7 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 			uni.wrapper.Address(),
 			mockLMFactory,
 			ocr3impls.TransmitterCombiner,
+			nil,
 		)
 		require.Error(t, err, "expected error creating multichain config tracker")
 	})
@@ -81,6 +82,7 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 			uni.wrapper.Address(),
 			mockLMFactory,
 			nil,
+			nil,
 		)
 		require.Error(t, err, "expected error creating multichain config tracker")
 	})
@@ -101,6 +103,7 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 			uni.wrapper.Address(),
 			nil,
 			ocr3impls.TransmitterCombiner,
+			nil,
 		)
 		require.Error(t, err, "expected error creating multichain config tracker")
 	})
@@ -119,12 +122,12 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	// for this test only one LM is "deployed"
 	// so the discovery will return a single LM which is the master LM
 	reg := liquiditymanager.NewRegistry()
-	reg.Add(models.NetworkID(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address()))
+	reg.Add(models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address()))
 	mockMasterLM := mocks.NewLiquidityManager(t)
 	mockMasterLM.On("Discover", mock.Anything, mock.Anything).Return(reg, liquiditygraph.NewGraph(), nil)
 	defer mockMasterLM.AssertExpectations(t)
 	mockLMFactory := mocks.NewFactory(t)
-	mockLMFactory.On("NewLiquidityManager", models.NetworkID(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address())).
+	mockLMFactory.On("NewLiquidityManager", models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address())).
 		Return(mockMasterLM, nil)
 	defer mockLMFactory.AssertExpectations(t)
 	tracker, err := ocr3impls.NewMultichainConfigTracker(
@@ -135,6 +138,7 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 		uni.wrapper.Address(),
 		mockLMFactory,
 		ocr3impls.TransmitterCombiner,
+		nil,
 	)
 	require.NoError(t, err, "failed to create multichain config tracker")
 
@@ -168,7 +172,7 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	expectedTransmitters := func() []ocrtypes.Account {
 		var accounts []ocrtypes.Account
 		for _, tm := range uni.transmitters {
-			accounts = append(accounts, ocrtypes.Account(tm.From.Hex()))
+			accounts = append(accounts, ocrtypes.Account(ocr3impls.EncodeTransmitter(masterChain, ocrtypes.Account(tm.From.Hex()))))
 		}
 		return accounts
 	}()
@@ -192,6 +196,10 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 		require.NoError(t, lp2.Close())
 	})
 
+	// finality depth
+	uni2.backend.Commit()
+	uni2.backend.Commit()
+
 	// start the log pollers
 	require.NoError(t, lp1.Start(testutils.Context(t)))
 	require.NoError(t, lp2.Start(testutils.Context(t)))
@@ -208,13 +216,13 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 		ChainID: testutils.NewRandomEVMChainID().String(),
 	}
 	reg := liquiditymanager.NewRegistry()
-	reg.Add(models.NetworkID(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address()))
-	reg.Add(models.NetworkID(mustStrToI64(t, secondChain.ChainID)), models.Address(uni2.wrapper.Address()))
+	reg.Add(models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address()))
+	reg.Add(models.NetworkSelector(mustStrToI64(t, secondChain.ChainID)), models.Address(uni2.wrapper.Address()))
 	mockMasterLM := mocks.NewLiquidityManager(t)
 	mockMasterLM.On("Discover", mock.Anything, mock.Anything).Return(reg, liquiditygraph.NewGraph(), nil)
 	defer mockMasterLM.AssertExpectations(t)
 	mockLMFactory := mocks.NewFactory(t)
-	mockLMFactory.On("NewLiquidityManager", models.NetworkID(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address())).
+	mockLMFactory.On("NewLiquidityManager", models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address())).
 		Return(mockMasterLM, nil)
 	defer mockLMFactory.AssertExpectations(t)
 	tracker, err := ocr3impls.NewMultichainConfigTracker(
@@ -228,6 +236,7 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 		uni1.wrapper.Address(),
 		mockLMFactory,
 		ocr3impls.TransmitterCombiner,
+		nil, // we call replay explicitly below
 	)
 	require.NoError(t, err, "failed to create multichain config tracker")
 
@@ -263,7 +272,8 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 	expectedTransmitters := func() []ocrtypes.Account {
 		var accounts []ocrtypes.Account
 		for i := range uni1.transmitters {
-			t1, t2 := uni1.transmitters[i].From.Hex(), uni2.transmitters[i].From.Hex()
+			t1 := ocr3impls.EncodeTransmitter(masterChain, ocrtypes.Account(uni1.transmitters[i].From.Hex()))
+			t2 := ocr3impls.EncodeTransmitter(secondChain, ocrtypes.Account(uni2.transmitters[i].From.Hex()))
 			accounts = append(accounts, ocrtypes.Account(ocr3impls.JoinTransmitters([]string{t1, t2})))
 		}
 		return accounts

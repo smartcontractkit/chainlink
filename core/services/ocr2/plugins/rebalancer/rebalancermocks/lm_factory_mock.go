@@ -15,7 +15,7 @@ type Factory struct {
 }
 
 // NewLiquidityManager provides a mock function with given fields: networkID, address
-func (_m *Factory) NewLiquidityManager(networkID models.NetworkID, address models.Address) (liquiditymanager.LiquidityManager, error) {
+func (_m *Factory) NewLiquidityManager(networkID models.NetworkSelector, address models.Address) (liquiditymanager.LiquidityManager, error) {
 	ret := _m.Called(networkID, address)
 
 	if len(ret) == 0 {
@@ -24,10 +24,10 @@ func (_m *Factory) NewLiquidityManager(networkID models.NetworkID, address model
 
 	var r0 liquiditymanager.LiquidityManager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(models.NetworkID, models.Address) (liquiditymanager.LiquidityManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(models.NetworkSelector, models.Address) (liquiditymanager.LiquidityManager, error)); ok {
 		return rf(networkID, address)
 	}
-	if rf, ok := ret.Get(0).(func(models.NetworkID, models.Address) liquiditymanager.LiquidityManager); ok {
+	if rf, ok := ret.Get(0).(func(models.NetworkSelector, models.Address) liquiditymanager.LiquidityManager); ok {
 		r0 = rf(networkID, address)
 	} else {
 		if ret.Get(0) != nil {
@@ -35,7 +35,7 @@ func (_m *Factory) NewLiquidityManager(networkID models.NetworkID, address model
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(models.NetworkID, models.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(models.NetworkSelector, models.Address) error); ok {
 		r1 = rf(networkID, address)
 	} else {
 		r1 = ret.Error(1)

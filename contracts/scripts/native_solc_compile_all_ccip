@@ -63,7 +63,7 @@ compileContract ccip/test/helpers/CustomTokenPool.sol
 compileContract ccip/test/helpers/receivers/MaybeRevertMessageReceiver.sol
 compileContract ccip/test/mocks/MockARM.sol
 compileContract ccip/test/WETH9.sol
+compileContract ccip/test/rebalancer/DummyLiquidityManager.sol
 
 # Customer contracts
 compileContract ccip/pools/USDC/USDCTokenPool.sol
-

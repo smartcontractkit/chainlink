@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/test-go/testify/require"
 
@@ -26,7 +27,7 @@ func TestMarshalReportMetadata(t *testing.T) {
 
 		rm = models.ReportMetadata{
 			Transfers: []models.Transfer{
-				models.NewTransfer(1, 2, big.NewInt(3)),
+				models.NewTransfer(1, 2, big.NewInt(3), time.Now().UTC()),
 			},
 			LiquidityManagerAddress: models.Address(testutils.NewAddress()),
 			NetworkID:               1,

@@ -19,10 +19,17 @@ func NewPendingTransfersCache() *PendingTransfersCache {
 }
 
 func (c *PendingTransfersCache) Add(transfers []models.PendingTransfer) {
+	// exclude transfers that are already present
+	newTransfers := make([]models.PendingTransfer, 0, len(transfers))
+	for _, tr := range transfers {
+		if !c.ContainsTransfer(tr.Transfer) {
+			newTransfers = append(newTransfers, tr)
+		}
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	c.mem = append(c.mem, transfers...)
+	c.mem = append(c.mem, newTransfers...)
 }
 
 func (c *PendingTransfersCache) Set(transfers []models.PendingTransfer) {
@@ -42,4 +49,23 @@ func (c *PendingTransfersCache) ContainsTransfer(tr models.Transfer) bool {
 		}
 	}
 	return false
+}
+
+func (c *PendingTransfersCache) LatestNetworkTransfer(net models.NetworkSelector) (models.PendingTransfer, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if len(c.mem) == 0 {
+		return models.PendingTransfer{}, false
+	}
+
+	var mostRecentTransfer models.PendingTransfer
+	for _, tr := range c.mem {
+		if tr.From == net && tr.Date.After(mostRecentTransfer.Date) {
+			mostRecentTransfer = tr
+		}
+	}
+
+	found := !mostRecentTransfer.Equals(models.Transfer{})
+	return mostRecentTransfer, found
 }

@@ -58,6 +58,10 @@ type RelayConfig struct {
 
 	// Mercury-specific
 	FeedID *common.Hash `json:"feedID"`
+
+	// Rebalancer specific
+	// FromBlocks specifies the block numbers to replay from for each chain.
+	FromBlocks map[string]int64 `json:"fromBlocks"`
 }
 
 type RelayOpts struct {

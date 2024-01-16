@@ -1,7 +1,11 @@
 package internal_test
 
 import (
+	"context"
 	"fmt"
+	"math/big"
+	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,6 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/event"
+	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -17,49 +24,59 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/test-go/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/no_op_ocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/dummy_liquidity_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
+)
+
+const (
+	mainChainID = int64(1337)
 )
 
 func TestRebalancer_Integration(t *testing.T) {
-	newTestUniverse(t)
+	newTestUniverse(t, 3)
 }
 
-type ocr2Node struct {
-	app                  *cltest.TestApplication
-	peerID               string
-	transmitter          common.Address
-	effectiveTransmitter common.Address
-	keybundle            ocr2key.KeyBundle
-	sendingKeys          []string
+type ocr3Node struct {
+	app          chainlink.Application
+	peerID       string
+	transmitters map[int64]common.Address
+	keybundle    ocr2key.KeyBundle
 }
 
-func setupNodeOCR2(
+func setupNodeOCR3(
 	t *testing.T,
 	owner *bind.TransactOpts,
 	port int,
-	dbName string,
-	b *backends.SimulatedBackend,
-	useForwarders bool,
+	chainIDToBackend map[int64]*backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
-) *ocr2Node {
-	p2pKey := keystest.NewP2PKeyV2(t)
-	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+) *ocr3Node {
+	// Do not want to load fixtures as they contain a dummy chainID.
+	config, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
 		c.Feature.LogPoller = ptr(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
@@ -69,89 +86,136 @@ func setupNodeOCR2(
 		}
 
 		c.OCR.Enabled = ptr(false)
+		c.OCR.DefaultTransactionQueueDepth = ptr(uint32(200))
 		c.OCR2.Enabled = ptr(true)
 
-		c.EVM[0].LogPollInterval = models.MustNewDuration(500 * time.Millisecond)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
-		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
+		var chains v2toml.EVMConfigs
+		for chainID := range chainIDToBackend {
+			chains = append(chains, createConfigV2Chain(big.NewInt(chainID)))
+		}
+		c.EVM = chains
 		c.OCR2.ContractPollInterval = models.MustNewDuration(5 * time.Second)
 	})
 
-	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
+	lggr := logger.TestLogger(t)
+	eventBroadcaster := pg.NewEventBroadcaster(config.Database().URL(), 0, 0, lggr, uuid.New())
+	clients := make(map[int64]client.Client)
 
-	var sendingKeys []ethkey.KeyV2
-	{
-		var err error
-		sendingKeys, err = app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
-		require.NoError(t, err)
-		require.Len(t, sendingKeys, 1)
-	}
-	transmitter := sendingKeys[0].Address
-	effectiveTransmitter := sendingKeys[0].Address
-
-	// Fund the sending keys with some ETH.
-	var sendingKeyStrings []string
-	for _, k := range sendingKeys {
-		sendingKeyStrings = append(sendingKeyStrings, k.Address.String())
-		n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
-		require.NoError(t, err)
-
-		tx := cltest.NewLegacyTransaction(
-			n, k.Address,
-			assets.Ether(1).ToInt(),
-			21000,
-			assets.GWei(1).ToInt(),
-			nil)
-		signedTx, err := owner.Signer(owner.From, tx)
-		require.NoError(t, err)
-		err = b.SendTransaction(testutils.Context(t), signedTx)
-		require.NoError(t, err)
-		b.Commit()
+	for chainID, backend := range chainIDToBackend {
+		clients[chainID] = client.NewSimulatedBackendClient(t, backend, big.NewInt(chainID))
 	}
 
-	kb, err := app.GetKeyStore().OCR2().Create("evm")
+	master := keystore.New(db, utils.FastScryptParams, lggr, config.Database())
+
+	keystore := KeystoreSim{
+		eks: master.Eth(),
+		csa: master.CSA(),
+	}
+	mailMon := mailbox.NewMonitor("Rebalancer", lggr.Named("mailbox"))
+	evmOpts := chainlink.EVMFactoryConfig{
+		ChainOpts: legacyevm.ChainOpts{
+			AppConfig:        config,
+			EventBroadcaster: eventBroadcaster,
+			GenEthClient: func(i *big.Int) client.Client {
+				client, ok := clients[i.Int64()]
+				if !ok {
+					t.Fatal("no backend for chainID", i)
+				}
+				return client
+			},
+			MailMon: mailMon,
+			DB:      db,
+		},
+		CSAETHKeystore: keystore,
+	}
+	relayerFactory := chainlink.RelayerFactory{
+		Logger:       lggr,
+		LoopRegistry: plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing()),
+		GRPCOpts:     loop.GRPCOpts{},
+	}
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testutils.Context(t), relayerFactory, evmOpts)}
+	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	require.NoError(t, err)
 
-	return &ocr2Node{
-		app:                  app,
-		peerID:               p2pKey.PeerID().Raw(),
-		transmitter:          transmitter,
-		effectiveTransmitter: effectiveTransmitter,
-		keybundle:            kb,
-		sendingKeys:          sendingKeyStrings,
+	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
+		Config:                     config,
+		EventBroadcaster:           eventBroadcaster,
+		SqlxDB:                     db,
+		KeyStore:                   master,
+		RelayerChainInteroperators: rci,
+		Logger:                     lggr,
+		ExternalInitiatorManager:   nil,
+		CloseLogger:                lggr.Sync,
+		UnrestrictedHTTPClient:     &http.Client{},
+		RestrictedHTTPClient:       &http.Client{},
+		AuditLogger:                audit.NoopLogger,
+		MailMon:                    mailMon,
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing()),
+	})
+	require.NoError(t, err)
+	require.NoError(t, app.GetKeyStore().Unlock("password"))
+	_, err = app.GetKeyStore().P2P().Create()
+	require.NoError(t, err)
+
+	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
+	require.NoError(t, err)
+	require.Len(t, p2pIDs, 1)
+	peerID := p2pIDs[0].PeerID()
+
+	// create a transmitter for each chain
+	transmitters := make(map[int64]common.Address)
+	for chainID, backend := range chainIDToBackend {
+		addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(big.NewInt(chainID))
+		require.NoError(t, err2)
+		if len(addrs) == 1 {
+			// just fund the address
+			fundAddress(t, owner, addrs[0], assets.Ether(10).ToInt(), backend)
+			transmitters[chainID] = addrs[0]
+		} else {
+			// create key and fund it
+			_, err3 := app.GetKeyStore().Eth().Create(big.NewInt(chainID))
+			require.NoError(t, err3, "failed to create key for chain", chainID)
+			sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(big.NewInt(chainID))
+			require.NoError(t, err3)
+			require.Len(t, sendingKeys, 1)
+			fundAddress(t, owner, sendingKeys[0], assets.Ether(10).ToInt(), backend)
+			transmitters[chainID] = sendingKeys[0]
+		}
+	}
+	require.Len(t, transmitters, len(chainIDToBackend))
+
+	keybundle, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
+	require.NoError(t, err)
+
+	return &ocr3Node{
+		app:          app,
+		peerID:       peerID.Raw(),
+		transmitters: transmitters,
+		keybundle:    keybundle,
 	}
 }
 
-func newTestUniverse(t *testing.T) {
-	ctx := testutils.Context(t)
-	owner := testutils.MustNewSimTransactor(t)
-	mainBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
-		owner.From: core.GenesisAccount{
-			Balance: assets.Ether(1000).ToInt(),
-		},
-	}, 30e6)
+func newTestUniverse(t *testing.T, numChains int) {
+	// create chains and deploy contracts
+	owner, chains := createChains(t, numChains)
 
-	// deploy the ocr3 contract
-	addr, _, _, err := no_op_ocr3.DeployNoOpOCR3(owner, mainBackend)
-	require.NoError(t, err, "failed to deploy NoOpOCR3 contract")
-	mainBackend.Commit()
-	wrapper, err := no_op_ocr3.NewNoOpOCR3(addr, mainBackend)
-	require.NoError(t, err, "failed to create NoOpOCR3 wrapper")
+	contractAddresses, contractWrappers := deployContracts(t, owner, chains)
+	createConnectedNetwork(t, owner, chains, contractWrappers)
+	mainContract := contractAddresses[mainChainID]
 
 	t.Log("Creating bootstrap node")
 	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", mainBackend, false, nil)
+	bootstrapNode := setupNodeOCR3(t, owner, bootstrapNodePort, chains, nil)
 	numNodes := 4
 
 	t.Log("creating ocr3 nodes")
 	var (
-		oracles               []confighelper2.OracleIdentityExtra
-		transmitters          []common.Address
-		effectiveTransmitters []common.Address
-		onchainPubKeys        []common.Address
-		kbs                   []ocr2key.KeyBundle
-		apps                  []*cltest.TestApplication
-		sendingKeys           [][]string
+		oracles        = make(map[int64][]confighelper2.OracleIdentityExtra)
+		transmitters   = make(map[int64][]common.Address)
+		onchainPubKeys []common.Address
+		kbs            []ocr2key.KeyBundle
+		apps           []chainlink.Application
+		nodes          []*ocr3Node
 	)
 	ports := freeport.GetN(t, numNodes)
 	for i := 0; i < numNodes; i++ {
@@ -161,47 +225,75 @@ func newTestUniverse(t *testing.T) {
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
-		node := setupNodeOCR2(t, owner, ports[i], fmt.Sprintf("ocr2vrforacle%d", i), mainBackend, false, bootstrappers)
-		sendingKeys = append(sendingKeys, node.sendingKeys)
+		node := setupNodeOCR3(t, owner, ports[i], chains, bootstrappers)
 
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
-		transmitters = append(transmitters, node.transmitter)
-		effectiveTransmitters = append(effectiveTransmitters, node.effectiveTransmitter)
+		for chainID, transmitter := range node.transmitters {
+			transmitters[chainID] = append(transmitters[chainID], transmitter)
+		}
 		onchainPubKeys = append(onchainPubKeys, common.BytesToAddress(node.keybundle.PublicKey()))
-		oracles = append(oracles, confighelper2.OracleIdentityExtra{
-			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  node.keybundle.PublicKey(),
-				TransmitAccount:   ocrtypes.Account(node.transmitter.String()),
-				OffchainPublicKey: node.keybundle.OffchainPublicKey(),
-				PeerID:            node.peerID,
-			},
-			ConfigEncryptionPublicKey: node.keybundle.ConfigEncryptionPublicKey(),
-		})
+		for chainID, transmitter := range node.transmitters {
+			identity := confighelper2.OracleIdentityExtra{
+				OracleIdentity: confighelper2.OracleIdentity{
+					OnchainPublicKey:  node.keybundle.PublicKey(),
+					TransmitAccount:   ocrtypes.Account(transmitter.Hex()),
+					OffchainPublicKey: node.keybundle.OffchainPublicKey(),
+					PeerID:            node.peerID,
+				},
+				ConfigEncryptionPublicKey: node.keybundle.ConfigEncryptionPublicKey(),
+			}
+			oracles[chainID] = append(oracles[chainID], identity)
+		}
+		nodes = append(nodes, node)
 	}
 
 	t.Log("starting ticker to commit blocks")
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
+	tickCtx, tickCancel := context.WithCancel(testutils.Context(t))
+	defer tickCancel()
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		for range tick.C {
-			mainBackend.Commit()
+		defer wg.Done()
+		for {
+			select {
+			case <-tick.C:
+				for _, backend := range chains {
+					backend.Commit()
+				}
+			case <-tickCtx.Done():
+				return
+			}
 		}
 	}()
-
-	blockBeforeConfig, err := mainBackend.BlockByNumber(ctx, nil)
-	require.NoError(t, err)
+	t.Cleanup(func() {
+		tickCancel()
+		wg.Wait()
+	})
 
 	t.Log("setting config")
-	setRebalancerConfig(t, owner, wrapper, mainBackend, onchainPubKeys, effectiveTransmitters, oracles)
+	blocksBeforeConfig := setRebalancerConfigs(
+		t,
+		owner,
+		contractWrappers,
+		chains,
+		onchainPubKeys,
+		transmitters,
+		oracles)
+	mainFromBlock := blocksBeforeConfig[mainChainID]
 
 	t.Log("adding bootstrap node job")
-	err = bootstrapNode.app.Start(ctx)
+	err := bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err, "failed to start bootstrap node")
+	t.Cleanup(func() {
+		require.NoError(t, bootstrapNode.app.Stop())
+	})
 
 	evmChains := bootstrapNode.app.GetRelayers().LegacyEVMChains()
 	require.NotNil(t, evmChains)
-	require.Len(t, evmChains.Slice(), 1)
+	require.Len(t, evmChains.Slice(), numChains)
 	bootstrapJobSpec := fmt.Sprintf(
 		`
 type = "bootstrap"
@@ -213,21 +305,21 @@ contractID = "%s"
 [relayConfig]
 chainID = 1337
 fromBlock = %d
-`, addr.Hex(), blockBeforeConfig.Number().Uint64())
+`, mainContract.Hex(), mainFromBlock)
 	t.Log("creating bootstrap job with spec:\n", bootstrapJobSpec)
 	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(bootstrapJobSpec)
 	require.NoError(t, err, "failed to validate bootstrap job")
-	err = bootstrapNode.app.AddJobV2(ctx, &ocrJob)
+	err = bootstrapNode.app.AddJobV2(testutils.Context(t), &ocrJob)
 	require.NoError(t, err, "failed to add bootstrap job")
 
 	t.Log("creating ocr3 jobs")
 	for i := 0; i < numNodes; i++ {
-		var sendingKeysString = fmt.Sprintf(`"%s"`, sendingKeys[i][0])
-		for x := 1; x < len(sendingKeys[i]); x++ {
-			sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, sendingKeys[i][x])
-		}
 		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
+		tapp := apps[i]
+		t.Cleanup(func() {
+			require.NoError(t, tapp.Stop())
+		})
 
 		jobSpec := fmt.Sprintf(
 			`
@@ -245,7 +337,11 @@ contractConfigTrackerPollInterval = "5s"
 
 [relayConfig]
 chainID              	= 1337
+# This is the fromBlock for the main chain
 fromBlock               = %d
+[relayConfig.fromBlocks]
+# these are the fromBlock values for the follower chains
+%s
 
 [pluginConfig]
 liquidityManagerAddress = "%s"
@@ -257,27 +353,46 @@ type = "random"
 maxNumTransfers = 5
 checkSourceDestEqual = false
 `,
-			addr.Hex(),
+			mainContract.Hex(),
 			kbs[i].ID(),
-			transmitters[i].Hex(),
-			blockBeforeConfig.Number().Uint64(),
-			addr.Hex(),
+			nodes[i].transmitters[1337].Hex(),
+			mainFromBlock,
+			buildFollowerChainsFromBlocksToml(blocksBeforeConfig),
+			mainContract.Hex(),
 			testutils.SimulatedChainID)
 		t.Log("Creating rebalancer job with spec:\n", jobSpec)
-		ocrJob2, err2 := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), jobSpec)
+		ocrJob2, err2 := validate.ValidatedOracleSpecToml(
+			apps[i].GetConfig().OCR2(),
+			apps[i].GetConfig().Insecure(),
+			jobSpec)
 		require.NoError(t, err2, "failed to validate rebalancer job")
-		err2 = apps[i].AddJobV2(ctx, &ocrJob2)
+		err2 = apps[i].AddJobV2(testutils.Context(t), &ocrJob2)
 		require.NoError(t, err2, "failed to add rebalancer job")
 	}
 
 	t.Log("waiting for a transmission")
+	waitForTransmissions(t, contractWrappers)
+}
+
+func waitForTransmissions(
+	t *testing.T,
+	wrappers map[int64]*dummy_liquidity_manager.DummyLiquidityManager,
+) {
 	start := uint64(1)
-	sink := make(chan *no_op_ocr3.NoOpOCR3Transmitted)
-	sub, err := wrapper.WatchTransmitted(&bind.WatchOpts{
-		Start: &start,
-	}, sink)
-	require.NoError(t, err, "failed to create subscription")
-	defer sub.Unsubscribe()
+	sink := make(chan *dummy_liquidity_manager.DummyLiquidityManagerTransmitted)
+	var subs []event.Subscription
+	for _, wrapper := range wrappers {
+		sub, err := wrapper.WatchTransmitted(&bind.WatchOpts{
+			Start: &start,
+		}, sink)
+		require.NoError(t, err, "failed to create subscription")
+		subs = append(subs, sub)
+	}
+	defer func() {
+		for _, sub := range subs {
+			sub.Unsubscribe()
+		}
+	}()
 	ticker := time.NewTicker(1 * time.Second)
 outer:
 	for {
@@ -289,18 +404,22 @@ outer:
 			t.Log("waiting for transmission event")
 		}
 	}
-
-	t.Log("done")
 }
 
 func setRebalancerConfig(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	wrapper *no_op_ocr3.NoOpOCR3,
-	mainBackend *backends.SimulatedBackend,
-	onchainPubKeys,
-	effectiveTransmitters []common.Address,
-	oracles []confighelper2.OracleIdentityExtra) {
+	wrapper *dummy_liquidity_manager.DummyLiquidityManager,
+	chain *backends.SimulatedBackend,
+	onchainPubKeys []common.Address,
+	transmitters []common.Address,
+	oracles []confighelper2.OracleIdentityExtra,
+) (blockBeforeConfig int64) {
+	beforeConfig, err := chain.BlockByNumber(testutils.Context(t), nil)
+	require.NoError(t, err)
+
+	// most of the config on the follower chains does not matter
+	// except for signers + transmitters
 	var schedule []int
 	for range oracles {
 		schedule = append(schedule, 1)
@@ -315,7 +434,7 @@ func setRebalancerConfig(
 		20*time.Second, // deltaGrace
 		10*time.Second, // deltaCertifiedCommitRequest
 		10*time.Second, // deltaStage
-		3,
+		3,              // rmax
 		schedule,
 		oracles,
 		offchainConfig,
@@ -326,17 +445,204 @@ func setRebalancerConfig(
 		int(f),
 		onchainConfig)
 	require.NoError(t, err, "failed to create contract config")
-	t.Log("onchain config:", hexutil.Encode(onchainConfig), "offchain config:", hexutil.Encode(offchainConfig))
 	_, err = wrapper.SetOCR3Config(
 		owner,
 		onchainPubKeys,
-		effectiveTransmitters,
+		transmitters,
 		f,
 		onchainConfig,
 		offchainConfigVersion,
 		offchainConfig)
 	require.NoError(t, err, "failed to set config")
-	mainBackend.Commit()
+	chain.Commit()
+
+	return beforeConfig.Number().Int64()
+}
+
+func setRebalancerConfigs(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	wrappers map[int64]*dummy_liquidity_manager.DummyLiquidityManager,
+	chains map[int64]*backends.SimulatedBackend,
+	onchainPubKeys []common.Address,
+	transmitters map[int64][]common.Address,
+	oracles map[int64][]confighelper2.OracleIdentityExtra) (blocksBeforeConfig map[int64]int64) {
+	blocksBeforeConfig = make(map[int64]int64)
+	for chainID, wrapper := range wrappers {
+		blocksBeforeConfig[chainID] = setRebalancerConfig(
+			t,
+			owner,
+			wrapper,
+			chains[chainID],
+			onchainPubKeys,
+			transmitters[chainID],
+			oracles[chainID],
+		)
+	}
+	return
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func createConfigV2Chain(chainID *big.Int) *v2toml.EVMConfig {
+	chain := v2toml.Defaults((*evmutils.Big)(chainID))
+	chain.GasEstimator.LimitDefault = ptr(uint32(4e6))
+	chain.LogPollInterval = models.MustNewDuration(500 * time.Millisecond)
+	chain.Transactions.ForwardersEnabled = ptr(false)
+	chain.FinalityDepth = ptr(uint32(2))
+	return &v2toml.EVMConfig{
+		ChainID: (*evmutils.Big)(chainID),
+		Enabled: ptr(true),
+		Chain:   chain,
+		Nodes:   v2toml.EVMNodes{&v2toml.Node{}},
+	}
+}
+
+type KeystoreSim struct {
+	eks keystore.Eth
+	csa keystore.CSA
+}
+
+func (e KeystoreSim) Eth() keystore.Eth {
+	return e.eks
+}
+
+func (e KeystoreSim) CSA() keystore.CSA {
+	return e.csa
+}
+
+func (e KeystoreSim) SignTx(address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
+	// always sign with chain id 1337 for the simulated backend
+	return e.eks.SignTx(address, tx, big.NewInt(1337))
+}
+
+func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *backends.SimulatedBackend) {
+	nonce, err := backend.PendingNonceAt(testutils.Context(t), from.From)
+	require.NoError(t, err)
+	gp, err := backend.SuggestGasPrice(testutils.Context(t))
+	require.NoError(t, err)
+	rawTx := gethtypes.NewTx(&gethtypes.LegacyTx{
+		Nonce:    nonce,
+		GasPrice: gp,
+		Gas:      21000,
+		To:       &to,
+		Value:    amount,
+	})
+	signedTx, err := from.Signer(from.From, rawTx)
+	require.NoError(t, err)
+	err = backend.SendTransaction(testutils.Context(t), signedTx)
+	require.NoError(t, err)
+	backend.Commit()
+}
+
+func createChains(t *testing.T, numChains int) (owner *bind.TransactOpts, chains map[int64]*backends.SimulatedBackend) {
+	owner = testutils.MustNewSimTransactor(t)
+	chains = make(map[int64]*backends.SimulatedBackend)
+	for i := 0; i < numChains; i++ {
+		chainID := int64(mainChainID + int64(i))
+		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
+			owner.From: core.GenesisAccount{
+				Balance: assets.Ether(10000).ToInt(),
+			},
+		}, 30e6)
+		chains[chainID] = backend
+	}
+	return
+}
+
+func deployContracts(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	chains map[int64]*backends.SimulatedBackend,
+) (
+	contractAddresses map[int64]common.Address,
+	contractWrappers map[int64]*dummy_liquidity_manager.DummyLiquidityManager,
+) {
+	contractAddresses = make(map[int64]common.Address)
+	contractWrappers = make(map[int64]*dummy_liquidity_manager.DummyLiquidityManager)
+	for chainID, backend := range chains {
+		addr, _, _, err := dummy_liquidity_manager.DeployDummyLiquidityManager(owner, backend, uint64(chainID))
+		require.NoError(t, err, "failed to deploy DummyLiquidityManager contract")
+		contractAddresses[chainID] = addr
+		wrapper, err := dummy_liquidity_manager.NewDummyLiquidityManager(addr, backend)
+		require.NoError(t, err, "failed to create DummyLiquidityManager wrapper")
+		contractWrappers[chainID] = wrapper
+	}
+	return
+}
+
+func buildFollowerChainsFromBlocksToml(fromBlocks map[int64]int64) string {
+	var s string
+	for chainID, fromBlock := range fromBlocks {
+		if chainID == mainChainID {
+			continue
+		}
+		s += fmt.Sprintf("%d = %d\n", chainID, fromBlock)
+	}
+	return s
+}
+
+func createConnectedNetwork(t *testing.T, owner *bind.TransactOpts, chains map[int64]*backends.SimulatedBackend, wrappers map[int64]*dummy_liquidity_manager.DummyLiquidityManager) {
+	// create a connection from the main chain to all follower chains
+	// and from all follower chains to the main chain
+	for chainID, wrapper := range wrappers {
+		if chainID == mainChainID {
+			continue
+		}
+		// follower -> main connection
+		_, err := wrapper.SetCrossChainLiquidityManager(
+			owner,
+			dummy_liquidity_manager.ILiquidityManagerCrossChainLiquidityManagerArgs{
+				RemoteLiquidityManager: wrappers[mainChainID].Address(),
+				RemoteChainSelector:    uint64(mainChainID),
+				Enabled:                true,
+			})
+		require.NoError(t, err, "failed to add neighbor from follower to main chain")
+		chains[chainID].Commit()
+
+		mgr, err := wrapper.GetCrossChainLiquidityManager(&bind.CallOpts{Context: testutils.Context(t)}, uint64(mainChainID))
+		require.NoError(t, err)
+		require.Equal(t, wrappers[mainChainID].Address(), mgr.RemoteLiquidityManager)
+		require.True(t, mgr.Enabled)
+
+		// main -> follower connection
+		_, err = wrappers[mainChainID].SetCrossChainLiquidityManager(
+			owner,
+			dummy_liquidity_manager.ILiquidityManagerCrossChainLiquidityManagerArgs{
+				RemoteLiquidityManager: wrapper.Address(),
+				RemoteChainSelector:    uint64(chainID),
+				Enabled:                true,
+			})
+		require.NoError(t, err, "failed to add neighbor from main to follower chain")
+		chains[mainChainID].Commit()
+
+		mgr, err = wrappers[mainChainID].GetCrossChainLiquidityManager(&bind.CallOpts{Context: testutils.Context(t)}, uint64(chainID))
+		require.NoError(t, err)
+		require.Equal(t, wrapper.Address(), mgr.RemoteLiquidityManager)
+		require.True(t, mgr.Enabled)
+	}
+
+	// sanity check connections
+	for chainID, wrapper := range wrappers {
+		destChains, err := wrapper.GetSupportedDestChains(&bind.CallOpts{Context: testutils.Context(t)})
+		require.NoError(t, err, "couldn't get supported dest chains")
+		t.Log("num dest chains:", len(destChains), "dest chains:", destChains)
+		if chainID == mainChainID {
+			require.Len(t, destChains, len(wrappers)-1)
+		} else {
+			require.Len(t, destChains, 1)
+		}
+		mgrs, err := wrapper.GetAllCrossChainLiquidityMangers(&bind.CallOpts{
+			Context: testutils.Context(t),
+		})
+		require.NoError(t, err, "couldn't get all cross-chain liquidity managers")
+		t.Log("chainID:", chainID, "num neighbors:", len(mgrs))
+		if chainID == mainChainID {
+			// should be connected to all follower chains
+			require.Len(t, mgrs, len(wrappers)-1, "unexpected number of neighbors on main chain")
+		} else {
+			// should be connected to just the main chain
+			require.Len(t, mgrs, 1, "unexpected number of neighbors on follower chain")
+		}
+	}
+}
