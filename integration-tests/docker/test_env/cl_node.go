@@ -150,25 +150,6 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 	return n, nil
 }
 
-func (n *ClNode) SetDefaultHooks() {
-	n.PostStartsHooks = []tc.ContainerHook{
-		func(ctx context.Context, c tc.Container) error {
-			if n.ls != nil {
-				return n.ls.ConnectContainer(ctx, c, "cl-node")
-			}
-			return nil
-		},
-	}
-	n.PostStopsHooks = []tc.ContainerHook{
-		func(ctx context.Context, c tc.Container) error {
-			if n.ls != nil {
-				return n.ls.DisconnectContainer(c)
-			}
-			return nil
-		},
-	}
-}
-
 func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
