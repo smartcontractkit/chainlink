@@ -22,7 +22,7 @@ import (
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
 	Name:    "sql_query_timeout_percent",
-	Help:    "SQL query time as a pecentage of timeout.",
+	Help:    "SQL query time as a percentage of timeout.",
 	Buckets: []float64{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120},
 })
 
