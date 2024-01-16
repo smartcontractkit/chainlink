@@ -76,7 +76,7 @@ const (
 	PollPeriod = 12 * time.Second
 )
 
-var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma}
+var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma, config.ChainScroll}
 
 func IsRollupWithL1Support(chainType config.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
