@@ -134,11 +134,12 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 			UpdateFrequencySec:        1,
 			UpdateTimeoutSec:          1,
 			StoredAllowlistBatchSize:  2,
-			OnchainAllowlistBatchSize: 2,
+			OnchainAllowlistBatchSize: 32,
+			FetchingDelayInRangeSec:   0,
 		}
 
 		orm := fmocks.NewORM(t)
-		orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(16).Return(nil)
+		orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
 
 		allowlist, err := functions.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 		require.NoError(t, err)

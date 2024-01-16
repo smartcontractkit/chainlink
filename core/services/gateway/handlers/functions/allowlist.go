@@ -25,6 +25,7 @@ import (
 const (
 	defaultStoredAllowlistBatchSize  = 1000
 	defaultOnchainAllowlistBatchSize = 100
+	defaultFetchingDelayInRangeSec   = 1
 )
 
 type OnchainAllowlistConfig struct {
@@ -33,8 +34,10 @@ type OnchainAllowlistConfig struct {
 	ContractVersion    uint32         `json:"contractVersion"`
 	BlockConfirmations uint           `json:"blockConfirmations"`
 	// UpdateFrequencySec can be zero to disable periodic updates
-	UpdateFrequencySec        uint `json:"updateFrequencySec"`
-	UpdateTimeoutSec          uint `json:"updateTimeoutSec"`
+	UpdateFrequencySec uint `json:"updateFrequencySec"`
+	UpdateTimeoutSec   uint `json:"updateTimeoutSec"`
+	// FetchingDelayInRangeSec prevents RPC client being rate limited when fetching the allowlist.
+	FetchingDelayInRangeSec   uint `json:"fetchingDelayInRangeSec"`
 	StoredAllowlistBatchSize  uint `json:"storedAllowlistBatchSize"`
 	OnchainAllowlistBatchSize uint `json:"onchainAllowlistBatchSize"`
 }
@@ -77,16 +80,19 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 		return nil, fmt.Errorf("unsupported contract version %d", config.ContractVersion)
 	}
 
-	// if StoredAllowlistBatchSize is not specified used the default value
 	if config.StoredAllowlistBatchSize == 0 {
 		lggr.Info("StoredAllowlistBatchSize not specified, using default size: ", defaultStoredAllowlistBatchSize)
 		config.StoredAllowlistBatchSize = defaultStoredAllowlistBatchSize
 	}
 
-	// if OnchainAllowlistBatchSize is not specified used the default value
 	if config.OnchainAllowlistBatchSize == 0 {
 		lggr.Info("OnchainAllowlistBatchSize not specified, using default size: ", defaultOnchainAllowlistBatchSize)
 		config.OnchainAllowlistBatchSize = defaultOnchainAllowlistBatchSize
+	}
+
+	if config.FetchingDelayInRangeSec == 0 {
+		lggr.Info("FetchingDelayInRangeSec not specified, using default size: ", defaultOnchainAllowlistBatchSize)
+		config.FetchingDelayInRangeSec = defaultFetchingDelayInRangeSec
 	}
 
 	contractV1, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
@@ -115,6 +121,8 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 			return nil
 		}
 
+		a.loadStoredAllowedSenderList()
+
 		updateOnce := func() {
 			timeoutCtx, cancel := utils.ContextFromChanWithTimeout(a.stopCh, time.Duration(a.config.UpdateTimeoutSec)*time.Second)
 			if err := a.UpdateFromContract(timeoutCtx); err != nil {
@@ -122,8 +130,6 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 			}
 			cancel()
 		}
-
-		a.loadStoredAllowedSenderList()
 
 		a.closeWait.Add(1)
 		go func() {
@@ -207,7 +213,11 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	}
 
 	allowedSenderList := make([]common.Address, 0)
+
+	throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
 	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
+		<-throttleTicker.C
+
 		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
 		if idxEnd >= count {
 			idxEnd = count - 1
@@ -223,12 +233,12 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		}
 
 		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
-
 		err = a.orm.CreateAllowedSenders(allowedSendersBatch)
 		if err != nil {
 			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
 	}
+	throttleTicker.Stop()
 
 	a.update(allowedSenderList)
 	return nil
