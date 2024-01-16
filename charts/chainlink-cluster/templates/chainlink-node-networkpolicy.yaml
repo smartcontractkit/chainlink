@@ -17,4 +17,3 @@ spec:
       - podSelector:
           matchLabels:
             app: runner
- 
