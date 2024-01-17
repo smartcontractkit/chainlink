@@ -35,6 +35,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -394,7 +395,7 @@ LatestRoundRequested = '''
 LatestTransmissionDetails = '''
 {
   "chainSpecificName": "latestTransmissionDetails",
-  "output_modifications": [
+  "outputModifications": [
     {
       "Fields": [
         "LatestTimestamp_"

@@ -29,10 +29,9 @@ func (e *encoder) Encode(_ context.Context, item any, itemType string) (res []by
 		return nil, fmt.Errorf("%w: cannot find definition for %s", commontypes.ErrInvalidType, itemType)
 	}
 
-	if item == nil {
-		if len(info.Args()) == 0 {
-			return info.EncodingPrefix(), nil
-		}
+	if len(info.Args()) == 0 {
+		return info.EncodingPrefix(), nil
+	} else if item == nil {
 		return nil, fmt.Errorf("%w: cannot encode nil value for %s", commontypes.ErrInvalidType, itemType)
 	}
 
