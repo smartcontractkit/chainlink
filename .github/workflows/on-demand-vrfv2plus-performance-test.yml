@@ -128,7 +128,7 @@ jobs:
           cl_image_tag: ${{ inputs.chainlinkVersion }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: vrf-test-logs
-          artifacts_location: ./integration-tests/load/vrfv2/logs/
+          artifacts_location: ./integration-tests/load/vrfv2plus/logs/
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           should_cleanup: false
