@@ -165,20 +165,26 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 				ContractABI: chain_reader_example.LatestValueHolderMetaData.ABI,
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
-						ChainSpecificName: "GetElementAtIndex",
+						ChainSpecificName: "getElementAtIndex",
+						OutputModifications: codec.ModifiersConfig{
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+						},
 					},
 					MethodReturningUint64: {
-						ChainSpecificName: "GetPrimitiveValue",
+						ChainSpecificName: "getPrimitiveValue",
 					},
 					DifferentMethodReturningUint64: {
-						ChainSpecificName: "GetDifferentPrimitiveValue",
+						ChainSpecificName: "getDifferentPrimitiveValue",
 					},
 					MethodReturningUint64Slice: {
-						ChainSpecificName: "GetSliceValue",
+						ChainSpecificName: "getSliceValue",
 					},
 					EventName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
+						OutputModifications: codec.ModifiersConfig{
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+						},
 					},
 					EventWithFilterName: {
 						ChainSpecificName: "Triggered",
@@ -199,7 +205,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 						EventInputFields:  []string{"Field1", "Field2", "Field3"},
 					},
 					MethodReturningSeenStruct: {
-						ChainSpecificName: "ReturnSeen",
+						ChainSpecificName: "returnSeen",
 						InputModifications: codec.ModifiersConfig{
 							&codec.HardCodeModifierConfig{
 								OnChainValues: map[string]any{
@@ -209,8 +215,8 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 							},
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{
-								OffChainValues: map[string]any{"ExtraField": anyExtraValue}},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": anyExtraValue}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
 					},
 				},
@@ -219,7 +225,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 				ContractABI: chain_reader_example.LatestValueHolderMetaData.ABI,
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodReturningUint64: {
-						ChainSpecificName: "GetDifferentPrimitiveValue",
+						ChainSpecificName: "getDifferentPrimitiveValue",
 					},
 				},
 			},
@@ -410,8 +416,8 @@ func midToInternalType(m MidLevelTestStruct) chain_reader_example.MidLevelTestSt
 	return chain_reader_example.MidLevelTestStruct{
 		FixedBytes: m.FixedBytes,
 		Inner: chain_reader_example.InnerTestStruct{
-			I: int64(m.Inner.I),
-			S: m.Inner.S,
+			IntVal: int64(m.Inner.I),
+			S:      m.Inner.S,
 		},
 	}
 }

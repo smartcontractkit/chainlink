@@ -90,7 +90,7 @@ LatestRoundRequested = '''
 LatestTransmissionDetails = '''
 {
   "chainSpecificName": "latestTransmissionDetails",
-  "output_modifications": [
+  "outputModifications": [
     {
       "Fields": [
         "LatestTimestamp_"

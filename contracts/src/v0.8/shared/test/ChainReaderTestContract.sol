@@ -18,7 +18,7 @@ struct MidLevelTestStruct {
 }
 
 struct InnerTestStruct {
-  int64 I;
+  int64 IntVal;
   string S;
 }
 
@@ -47,16 +47,16 @@ contract LatestValueHolder {
     int32 indexed field3
   );
 
-  TestStruct[] private seen;
-  uint64[] private arr;
+  TestStruct[] private s_seen;
+  uint64[] private s_arr;
 
   constructor() {
     // See chain_reader_interface_tests.go in chainlink-relay
-    arr.push(3);
-    arr.push(4);
+    s_arr.push(3);
+    s_arr.push(4);
   }
 
-  function AddTestStruct(
+  function addTestStruct(
     int32 field,
     string calldata differentField,
     uint8 oracleId,
@@ -66,10 +66,10 @@ contract LatestValueHolder {
     int192 bigField,
     MidLevelTestStruct calldata nestedStruct
   ) public {
-    seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
+    s_seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
   }
 
-  function ReturnSeen(
+  function returnSeen(
     int32 field,
     string calldata differentField,
     uint8 oracleId,
@@ -82,26 +82,26 @@ contract LatestValueHolder {
     return TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
   }
 
-  function GetElementAtIndex(uint256 i) public view returns (TestStruct memory) {
+  function getElementAtIndex(uint256 i) public view returns (TestStruct memory) {
     // See chain_reader_interface_tests.go in chainlink-relay
-    return seen[i - 1];
+    return s_seen[i - 1];
   }
 
-  function GetPrimitiveValue() public pure returns (uint64) {
+  function getPrimitiveValue() public pure returns (uint64) {
     // See chain_reader_interface_tests.go in chainlink-relay
     return 3;
   }
 
-  function GetDifferentPrimitiveValue() public pure returns (uint64) {
+  function getDifferentPrimitiveValue() public pure returns (uint64) {
     // See chain_reader_interface_tests.go in chainlink-relay
     return 1990;
   }
 
-  function GetSliceValue() public view returns (uint64[] memory) {
-    return arr;
+  function getSliceValue() public view returns (uint64[] memory) {
+    return s_arr;
   }
 
-  function TriggerEvent(
+  function triggerEvent(
     int32 field,
     string calldata differentField,
     uint8 oracleId,
@@ -114,14 +114,14 @@ contract LatestValueHolder {
     emit Triggered(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
   }
 
-    function TriggerEventWithDynamicTopic(
+    function triggerEventWithDynamicTopic(
       string calldata field
     ) public {
         emit TriggeredEventWithDynamicTopic(field, field);
     }
 
   // first topic is the event signature
-  function TriggerWithFourTopics(
+  function triggerWithFourTopics(
     int32 field1,
     int32 field2,
     int32 field3
