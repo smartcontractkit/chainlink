@@ -78,15 +78,22 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		require.NoError(t, err)
 		entry := codecConfig.Configs[k]
 		entry.TypeABI = string(defBytes)
-		if k == TestItemWithConfigExtra {
+
+		if k != sizeItemType {
 			entry.ModifierConfigs = codec.ModifiersConfig{
-				&codec.HardCodeModifierConfig{
-					OnChainValues: map[string]any{
-						"BigField": testStruct.BigField.String(),
-						"Account":  hexutil.Encode(testStruct.Account),
-					},
-					OffChainValues: map[string]any{"ExtraField": anyExtraValue}},
+				&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 			}
+		}
+
+		if k == TestItemWithConfigExtra {
+			hardCode := &codec.HardCodeModifierConfig{
+				OnChainValues: map[string]any{
+					"BigField": testStruct.BigField.String(),
+					"Account":  hexutil.Encode(testStruct.Account),
+				},
+				OffChainValues: map[string]any{"ExtraField": anyExtraValue},
+			}
+			entry.ModifierConfigs = append(entry.ModifierConfigs, hardCode)
 		}
 		codecConfig.Configs[k] = entry
 	}
@@ -150,7 +157,7 @@ func packArgs(t *testing.T, allArgs []any, oargs abi.Arguments, request *EncodeR
 }
 
 var inner = []abi.ArgumentMarshaling{
-	{Name: "I", Type: "int64"},
+	{Name: "IntVal", Type: "int64"},
 	{Name: "S", Type: "string"},
 }
 

@@ -216,7 +216,7 @@ func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractNa
 	}
 
 	// initialize the modification
-	if _, err = inMod.RetypeForOffChain(reflect.PointerTo(inputInfo.CheckedType()), ""); err != nil {
+	if _, err = inMod.RetypeToOffChain(reflect.PointerTo(inputInfo.CheckedType()), ""); err != nil {
 		return nil, nil, err
 	}
 

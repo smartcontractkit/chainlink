@@ -41,7 +41,7 @@ func (parsed *parsedTypes) toCodec() (commontypes.RemoteCodec, error) {
 func addEntries(defs map[string]types.CodecEntry, modByTypeName map[string]codec.Modifier) error {
 	for k, def := range defs {
 		modByTypeName[k] = def.Modifier()
-		_, err := def.Modifier().RetypeForOffChain(reflect.PointerTo(def.CheckedType()), k)
+		_, err := def.Modifier().RetypeToOffChain(reflect.PointerTo(def.CheckedType()), k)
 		if err != nil {
 			return fmt.Errorf("%w: cannot retype %v: %w", commontypes.ErrInvalidConfig, k, err)
 		}

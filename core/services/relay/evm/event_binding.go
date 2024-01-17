@@ -124,7 +124,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 		return err
 	}
 
-	checkedParams, err := e.inputModifier.TransformForOnChain(offChain, "" /* unused */)
+	checkedParams, err := e.inputModifier.TransformToOnChain(offChain, "" /* unused */)
 	if err != nil {
 		return err
 	}
