@@ -13,7 +13,7 @@ spec:
     - from:
       - podSelector:
           matchLabels:
-          app: {{ $.Release.Name }}
+            app: {{ $.Release.Name }}
       - podSelector:
           matchLabels:
             app: runner
