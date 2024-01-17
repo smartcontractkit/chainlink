@@ -23,7 +23,6 @@ import (
 // TODO: figure out if multiple tx attempts are actually stored in the db for each tx
 // TODO: need a way to get id for a tx attempt. since there are some methods where the persistent store creates a tx attempt and doesnt returns it
 // TODO: should txAttempt state transitions be handled by the address state manager?
-// TODO: add RLock and RUnlock to address state usage where applicable
 
 var (
 	// ErrInvalidChainID is returned when the chain ID is invalid
