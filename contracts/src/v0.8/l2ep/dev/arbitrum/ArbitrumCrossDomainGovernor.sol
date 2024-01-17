@@ -19,14 +19,14 @@ contract ArbitrumCrossDomainGovernor is CrossDomainGovernor {
   constructor(address l1OwnerAddr) CrossDomainGovernor(l1OwnerAddr) {}
 
   /// @notice The L2 xDomain `msg.sender`, generated from L1 sender address
-  function crossDomainMessenger() external view override returns (address) {
+  function crossDomainMessenger() public view override returns (address) {
     return AddressAliasHelper.applyL1ToL2Alias(l1Owner());
   }
 
   /// @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyL1Owner() override {
     // solhint-disable-next-line custom-errors
-    require(msg.sender == this.crossDomainMessenger(), "Sender is not the L2 messenger");
+    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
     _;
   }
 
