@@ -134,7 +134,41 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 			UpdateFrequencySec:        1,
 			UpdateTimeoutSec:          1,
 			StoredAllowlistBatchSize:  2,
-			OnchainAllowlistBatchSize: 32,
+			OnchainAllowlistBatchSize: 16,
+			FetchingInRangeEnabled:    true,
+			FetchingDelayInRangeSec:   0,
+		}
+
+		orm := amocks.NewORM(t)
+		orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(2).Return(nil)
+
+		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
+		require.NoError(t, err)
+
+		err = allowlist.UpdateFromContract(ctx)
+		require.NoError(t, err)
+
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			return allowlist.Allow(common.HexToAddress(addr1)) && !allowlist.Allow(common.HexToAddress(addr3))
+		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	})
+
+	t.Run("OK-fetch_complete_list_of_allowed_senders", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testutils.Context(t))
+		client := mocks.NewClient(t)
+		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
+		client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			cancel()
+		}).Return(sampleEncodedAllowlist(t), nil)
+		config := allowlist.OnchainAllowlistConfig{
+			ContractAddress:           common.HexToAddress(addr3),
+			ContractVersion:           1,
+			BlockConfirmations:        1,
+			UpdateFrequencySec:        1,
+			UpdateTimeoutSec:          1,
+			StoredAllowlistBatchSize:  2,
+			OnchainAllowlistBatchSize: 16,
+			FetchingInRangeEnabled:    false,
 			FetchingDelayInRangeSec:   0,
 		}
 

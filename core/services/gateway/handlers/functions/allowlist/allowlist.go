@@ -34,12 +34,14 @@ type OnchainAllowlistConfig struct {
 	ContractVersion    uint32         `json:"contractVersion"`
 	BlockConfirmations uint           `json:"blockConfirmations"`
 	// UpdateFrequencySec can be zero to disable periodic updates
-	UpdateFrequencySec uint `json:"updateFrequencySec"`
-	UpdateTimeoutSec   uint `json:"updateTimeoutSec"`
-	// FetchingDelayInRangeSec prevents RPC client being rate limited when fetching the allowlist.
-	FetchingDelayInRangeSec   uint `json:"fetchingDelayInRangeSec"`
+	UpdateFrequencySec        uint `json:"updateFrequencySec"`
+	UpdateTimeoutSec          uint `json:"updateTimeoutSec"`
 	StoredAllowlistBatchSize  uint `json:"storedAllowlistBatchSize"`
 	OnchainAllowlistBatchSize uint `json:"onchainAllowlistBatchSize"`
+	// FetchingInRangeEnabled is a feature flag that enables fetching allowlist by batches
+	FetchingInRangeEnabled bool `json:"fetchingInRangeEnabled"`
+	// FetchingDelayInRangeSec prevents RPC client being rate limited when fetching the allowlist.
+	FetchingDelayInRangeSec uint `json:"fetchingDelayInRangeSec"`
 }
 
 // OnchainAllowlist maintains an allowlist of addresses fetched from the blockchain (EVM-only).
@@ -202,43 +204,57 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_allow_list.NewTermsOfServiceAllowList")
 	}
-
-	count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
-		Pending:     false,
-		BlockNumber: blockNum,
-		Context:     ctx,
-	})
-	if err != nil {
-		return errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
-	}
-
 	allowedSenderList := make([]common.Address, 0)
 
-	throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
-	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
-		<-throttleTicker.C
-
-		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
-		if idxEnd >= count {
-			idxEnd = count - 1
-		}
-
-		allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
+	if !a.config.FetchingInRangeEnabled {
+		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
 			Pending:     false,
 			BlockNumber: blockNum,
 			Context:     ctx,
-		}, idxStart, idxEnd)
+		})
 		if err != nil {
-			return errors.Wrap(err, "error calling GetAllowedSendersInRange")
+			return errors.Wrap(err, "error calling GetAllAllowedSenders")
 		}
-
-		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
-		err = a.orm.CreateAllowedSenders(allowedSendersBatch)
+		err = a.orm.CreateAllowedSenders(allowedSenderList)
 		if err != nil {
 			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
+	} else {
+		count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
+			Pending:     false,
+			BlockNumber: blockNum,
+			Context:     ctx,
+		})
+		if err != nil {
+			return errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
+		}
+
+		throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
+		for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
+			<-throttleTicker.C
+
+			idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
+			if idxEnd >= count {
+				idxEnd = count - 1
+			}
+
+			allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
+				Pending:     false,
+				BlockNumber: blockNum,
+				Context:     ctx,
+			}, idxStart, idxEnd)
+			if err != nil {
+				return errors.Wrap(err, "error calling GetAllowedSendersInRange")
+			}
+
+			allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
+			err = a.orm.CreateAllowedSenders(allowedSendersBatch)
+			if err != nil {
+				a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+			}
+		}
+		throttleTicker.Stop()
 	}
-	throttleTicker.Stop()
 
 	a.update(allowedSenderList)
 	return nil
