@@ -252,7 +252,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
 	// handle streams lookup
 	if checkResult.UpkeepFailureReason != 0 {
-		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
+		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
 	}
 
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
@@ -375,6 +375,28 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			resolveIneligible("simulate perform upkeep unsuccessful")
 		}
 	}
+}
+
+func getCheckUpkeepFailureReason(reasonIndex uint8) string {
+	// Copied from KeeperRegistryBase2_1.sol
+	reasonStrings := []string{
+		"NONE",
+		"UPKEEP_CANCELLED",
+		"UPKEEP_PAUSED",
+		"TARGET_CHECK_REVERTED",
+		"UPKEEP_NOT_NEEDED",
+		"PERFORM_DATA_EXCEEDS_LIMIT",
+		"INSUFFICIENT_BALANCE",
+		"CALLBACK_REVERTED",
+		"REVERT_DATA_EXCEEDS_LIMIT",
+		"REGISTRY_PAUSED",
+	}
+
+	if int(reasonIndex) < len(reasonStrings) {
+		return reasonStrings[reasonIndex]
+	}
+
+	return fmt.Sprintf("Unknown : %d", reasonIndex)
 }
 
 func mustAutomationCheckResult(upkeepID *big.Int, checkResult iregistry21.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
