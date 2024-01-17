@@ -12,7 +12,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: crib-chainlink-11534
+              kubernetes.io/metadata.name: "{{ $.Release.Namespace }}"
     - to:
         - namespaceSelector:
             matchLabels:
