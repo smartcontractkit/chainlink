@@ -933,6 +933,10 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	//Goerli Base
 	case 84531:
 		mode = uint8(2)
+	//Scroll payment model
+	//Scroll Sepolia
+	case 534351:
+		mode = uint8(3)
 	default:
 		mode = uint8(0)
 	}
