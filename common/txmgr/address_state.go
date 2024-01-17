@@ -63,106 +63,32 @@ func NewAddressState[
 		allTransactions:         map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 	}
 
-	// Load all unstarted transactions from persistent storage
-	offset := 0
-	limit := 50
-	for {
-		txs, count, err := txStore.UnstartedTransactions(offset, limit, as.fromAddress, as.chainID)
-		if err != nil {
-			return nil, fmt.Errorf("address_state: initialization: %w", err)
-		}
-		for i := 0; i < len(txs); i++ {
-			tx := txs[i]
-			as.unstarted.AddTx(&tx)
-			as.allTransactions[tx.ID] = &tx
-			if tx.IdempotencyKey != nil {
-				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
-			}
-		}
-		if count <= offset+limit {
-			break
-		}
-		offset += limit
-	}
-
-	// Load all in progress transactions from persistent storage
+	// Load all transactions from persistent storage
 	ctx := context.Background()
-	tx, err := txStore.GetTxInProgress(ctx, as.fromAddress)
+	txs, err := txStore.AllTransactions(ctx, as.fromAddress, as.chainID)
 	if err != nil {
 		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	as.inprogress = tx
-	if tx != nil {
-		if tx.IdempotencyKey != nil {
-			as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
-		}
-		as.allTransactions[tx.ID] = tx
-	}
-
-	// Load all unconfirmed transactions from persistent storage
-	offset = 0
-	limit = 50
-	for {
-		txs, count, err := txStore.UnconfirmedTransactions(offset, limit, as.fromAddress, as.chainID)
-		if err != nil {
-			return nil, fmt.Errorf("address_state: initialization: %w", err)
-		}
-		for i := 0; i < len(txs); i++ {
-			tx := txs[i]
+	for i := 0; i < len(txs); i++ {
+		tx := txs[i]
+		switch tx.State {
+		case TxUnstarted:
+			as.unstarted.AddTx(&tx)
+		case TxInProgress:
+			as.inprogress = &tx
+		case TxUnconfirmed:
 			as.unconfirmed[tx.ID] = &tx
-			as.allTransactions[tx.ID] = &tx
-			if tx.IdempotencyKey != nil {
-				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
-			}
-		}
-		if count <= offset+limit {
-			break
-		}
-		offset += limit
-	}
-
-	// Load all confirmed transactions from persistent storage
-	offset = 0
-	limit = 50
-	for {
-		txs, count, err := txStore.ConfirmedTransactions(offset, limit, as.fromAddress, as.chainID)
-		if err != nil {
-			return nil, fmt.Errorf("address_state: initialization: %w", err)
-		}
-		for i := 0; i < len(txs); i++ {
-			tx := txs[i]
-			as.confirmed[tx.ID] = &tx
-			as.allTransactions[tx.ID] = &tx
-			if tx.IdempotencyKey != nil {
-				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
-			}
-		}
-		if count <= offset+limit {
-			break
-		}
-		offset += limit
-	}
-
-	// Load all unconfirmed transactions from persistent storage
-	offset = 0
-	limit = 50
-	for {
-		txs, count, err := txStore.ConfirmedMissingReceiptTransactions(offset, limit, as.fromAddress, as.chainID)
-		if err != nil {
-			return nil, fmt.Errorf("address_state: initialization: %w", err)
-		}
-		for i := 0; i < len(txs); i++ {
-			tx := txs[i]
+		case TxConfirmedMissingReceipt:
 			as.confirmedMissingReceipt[tx.ID] = &tx
-			as.allTransactions[tx.ID] = &tx
-			if tx.IdempotencyKey != nil {
-				as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
-			}
+		case TxConfirmed:
+			as.confirmed[tx.ID] = &tx
+		case TxFatalError:
+			as.fatalErrored[tx.ID] = &tx
 		}
-		if count <= offset+limit {
-			break
+		as.allTransactions[tx.ID] = &tx
+		if tx.IdempotencyKey != nil {
+			as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
 		}
-		offset += limit
 	}
 
 	return &as, nil

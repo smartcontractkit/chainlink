@@ -66,10 +66,7 @@ type InMemoryInitializer[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
-	UnstartedTransactions(offset, limit int, fromAddress ADDR, chainID CHAIN_ID) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
-	UnconfirmedTransactions(offset, limit int, fromAddress ADDR, chainID CHAIN_ID) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
-	ConfirmedTransactions(offset, limit int, fromAddress ADDR, chainID CHAIN_ID) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
-	ConfirmedMissingReceiptTransactions(offset, limit int, fromAddress ADDR, chainID CHAIN_ID) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], int, error)
+	AllTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
 }
 
 // TransactionStore contains the persistence layer methods needed to manage Txs and TxAttempts

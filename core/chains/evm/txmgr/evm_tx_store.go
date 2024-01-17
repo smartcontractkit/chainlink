@@ -64,10 +64,7 @@ type TxStoreWebApi interface {
 
 // TxStoreInMemory encapsulates the methods that are used by the txmgr to initialize the in memory tx store.
 type TxStoreInMemory interface {
-	UnstartedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error)
-	UnconfirmedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error)
-	ConfirmedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error)
-	ConfirmedMissingReceiptTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error)
+	AllTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (txs []Tx, err error)
 }
 
 type TestEvmTxStore interface {
@@ -469,69 +466,18 @@ func (o *evmTxStore) TransactionsWithAttempts(offset, limit int) (txs []Tx, coun
 	return
 }
 
-// UnstartedTransactions returns all eth transactions that have no attempts.
-func (o *evmTxStore) UnstartedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error) {
-	sql := `SELECT count(*) FROM evm.txes WHERE state = 'unstarted' AND from_address = $1 AND evm_chain_id = $2`
-	if err = o.q.Get(&count, sql, fromAddress, chainID.String()); err != nil {
+// AllTransactions returns all eth transactions
+func (o *evmTxStore) AllTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (txs []Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := `SELECT * FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 ORDER BY id desc`
+	if err = qq.Select(&dbEtxs, sql, fromAddress, chainID.String()); err != nil {
 		return
 	}
-
-	sql = `SELECT * FROM evm.txes WHERE state = 'unstarted' AND from_address = $1 AND evm_chain_id = $2 ORDER BY id desc LIMIT $3 OFFSET $4`
-	var dbTxs []DbEthTx
-	if err = o.q.Select(&dbTxs, sql, fromAddress, chainID.String(), limit, offset); err != nil {
-		return
-	}
-	txs = dbEthTxsToEvmEthTxs(dbTxs)
-	return
-}
-
-// UnconfirmedTransactions returns all eth transactions that have at least one attempt and in the unconfirmed state.
-func (o *evmTxStore) UnconfirmedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error) {
-	sql := `SELECT count(*) FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) AND state = 'unconfirmed' AND from_address = $1 AND evm_chain_id = $2`
-	if err = o.q.Get(&count, sql, fromAddress, chainID.String()); err != nil {
-		return
-	}
-
-	sql = `SELECT * FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) AND state = 'unconfirmed' AND from_address = $1 AND evm_chain_id = $2 ORDER BY id desc LIMIT $3 OFFSET $4`
-	var dbTxs []DbEthTx
-	if err = o.q.Select(&dbTxs, sql, fromAddress, chainID.String(), limit, offset); err != nil {
-		return
-	}
-	txs = dbEthTxsToEvmEthTxs(dbTxs)
-	err = o.preloadTxAttempts(txs)
-	return
-}
-
-// ConfirmedTransactions returns all eth transactions that have at least one attempt and in the confirmed state.
-func (o *evmTxStore) ConfirmedTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error) {
-	sql := `SELECT count(*) FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) AND state = 'confirmed' AND from_address = $1 AND evm_chain_id = $2`
-	if err = o.q.Get(&count, sql, fromAddress, chainID.String()); err != nil {
-		return
-	}
-
-	sql = `SELECT * FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) AND state = 'confirmed' AND from_address = $1 AND evm_chain_id = $2 ORDER BY id desc LIMIT $3 OFFSET $4`
-	var dbTxs []DbEthTx
-	if err = o.q.Select(&dbTxs, sql, fromAddress, chainID.String(), limit, offset); err != nil {
-		return
-	}
-	txs = dbEthTxsToEvmEthTxs(dbTxs)
-	err = o.preloadTxAttempts(txs)
-	return
-}
-
-// ConfirmedMissingReceiptTransactions returns all eth transactions that have at least one attempt and in the confirmed_missing_receipt state.
-func (o *evmTxStore) ConfirmedMissingReceiptTransactions(offset, limit int, fromAddress common.Address, chainID *big.Int) (txs []Tx, count int, err error) {
-	sql := `SELECT count(*) FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) AND state = 'confirmed_missing_receipt' AND from_address = $1 AND evm_chain_id = $2`
-	if err = o.q.Get(&count, sql, fromAddress, chainID.String()); err != nil {
-		return
-	}
-
-	sql = `SELECT * FROM evm.txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM evm.tx_attempts) AND state = 'confirmed_missing_receipt' AND from_address = $1 AND evm_chain_id = $2 ORDER BY id desc LIMIT $3 OFFSET $4`
-	var dbTxs []DbEthTx
-	if err = o.q.Select(&dbTxs, sql, fromAddress, chainID.String(), limit, offset); err != nil {
-		return
-	}
-	txs = dbEthTxsToEvmEthTxs(dbTxs)
+	txs = dbEthTxsToEvmEthTxs(dbEtxs)
 	err = o.preloadTxAttempts(txs)
 	return
 }
