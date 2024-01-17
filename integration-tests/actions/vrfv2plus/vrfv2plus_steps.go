@@ -461,6 +461,8 @@ func FundSubscriptions(
 	for _, subID := range subIDs {
 		//Native Billing
 		amountWei := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountNative))
+		fmt.Println("Native Billing...")
+		fmt.Println(amountWei.String())
 		err := coordinator.FundSubscriptionWithNative(
 			subID,
 			amountWei,
@@ -470,15 +472,19 @@ func FundSubscriptions(
 		}
 		//Link Billing
 		amountJuels := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountLink))
+		fmt.Println("Link Billing...")
+		fmt.Println(amountJuels.String())
 		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
 		}
 	}
+	fmt.Println("Waiting for events...")
 	err := env.EVMClient.WaitForEvents()
 	if err != nil {
 		return fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
+	fmt.Println("Got events...")
 	return nil
 }
 

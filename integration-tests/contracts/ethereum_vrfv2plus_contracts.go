@@ -325,6 +325,8 @@ func (v *EthereumVRFCoordinatorV2_5) FundSubscriptionWithNative(subId *big.Int, 
 	if err != nil {
 		return err
 	}
+	fmt.Println("Funded with Native")
+	fmt.Println(tx.Hash().Hex())
 	return v.client.ProcessTransaction(tx)
 }
 

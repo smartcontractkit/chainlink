@@ -491,6 +491,7 @@ func CreateSubsAndFund(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
+	fmt.Println("Funding Subscriptions...")
 	err = FundSubscriptions(env, vrfv2Config, linkToken, coordinator, subs)
 	if err != nil {
 		return nil, err
