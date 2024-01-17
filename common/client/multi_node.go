@@ -561,11 +561,8 @@ type sendTxResult struct {
 	ResultCode SendTxReturnCode
 }
 
-// broadcastTxAsync - creates a goroutine that sends transaction to the node. Returns false, if MultiNode is Stopped
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) broadcastTxAsync(ctx context.Context,
-	n SendOnlyNode[CHAIN_ID, RPC_CLIENT], tx TX, txResults chan sendTxResult, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+	n SendOnlyNode[CHAIN_ID, RPC_CLIENT], tx TX) sendTxResult {
 	txErr := n.RPC().SendTransaction(ctx, tx)
 	c.lggr.Debugw("Node sent transaction", "name", n.String(), "tx", tx, "err", txErr)
 	resultCode := c.classifySendTxError(tx, txErr)
@@ -573,24 +570,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		c.lggr.Warnw("RPC returned error", "name", n.String(), "tx", tx, "err", txErr)
 	}
 
-	// we expected txResults to have sufficient buffer, otherwise we are not interested in the response
-	// and can drop it
-	select {
-	case txResults <- sendTxResult{Err: txErr, ResultCode: resultCode}:
-	default:
-	}
-}
-
-func fanOut[T any](source chan T, destinations ...chan T) {
-	for t := range source {
-		for _, dest := range destinations {
-			dest <- t
-		}
-	}
-
-	for _, dest := range destinations {
-		close(dest)
-	}
+	return sendTxResult{Err: txErr, ResultCode: resultCode}
 }
 
 // collectTxResults - refer to SendTransaction comment for implementation details,
@@ -710,29 +690,31 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		c.wg.Add(len(c.sendonlys))
 		// fire-n-forget, as sendOnlyNodes can not be trusted with result reporting
 		for _, n := range c.sendonlys {
-			go c.broadcastTxAsync(ctx, n, tx, nil, &c.wg)
+			go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
+				defer c.wg.Done()
+				c.broadcastTxAsync(ctx, n, tx)
+			}(n)
 		}
 
-		// signal when all the primary nodes done broadcasting tx
-		inTxResults := make(chan sendTxResult, len(c.nodes))
 		var primaryBroadcastWg sync.WaitGroup
 		primaryBroadcastWg.Add(len(c.nodes))
+		txResultsToReport := make(chan sendTxResult, len(c.nodes))
+		for _, n := range c.nodes {
+			go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
+				defer primaryBroadcastWg.Done()
+				result := c.broadcastTxAsync(ctx, n, tx)
+				// both channels are sufficiently buffered, so we won't be locked
+				txResultsToReport <- result
+				txResults <- result
+			}(n)
+		}
+
 		c.wg.Add(1)
 		go func() {
 			// wait for primary nodes to finish the broadcast before closing the channel
 			primaryBroadcastWg.Wait()
-			close(inTxResults)
-			c.wg.Done()
-		}()
-
-		for _, n := range c.nodes {
-			go c.broadcastTxAsync(ctx, n, tx, inTxResults, &primaryBroadcastWg)
-		}
-
-		txResultsToReport := make(chan sendTxResult, len(c.nodes))
-		c.wg.Add(1)
-		go func() {
-			fanOut(inTxResults, txResultsToReport, txResults)
+			close(txResultsToReport)
+			close(txResults)
 			c.wg.Done()
 		}()
 
