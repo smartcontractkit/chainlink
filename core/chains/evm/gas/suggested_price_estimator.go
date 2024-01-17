@@ -122,42 +122,43 @@ func (o *SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	return
 }
 
+// Uses the force refetch chan to trigger a price update and blocks until complete
+func (o *SuggestedPriceEstimator) forceRefresh(ctx context.Context) (err error) {
+	ch := make(chan struct{})
+	select {
+	case o.chForceRefetch <- ch:
+	case <-o.chStop:
+		return errors.New("estimator stopped")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case <-ch:
+	case <-o.chStop:
+		return errors.New("estimator stopped")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	return
+}
+
 func (o *SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
 func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
-	err = errors.New("dynamic fees are not implemented for this layer 2")
+	err = errors.New("dynamic fees are not implemented for this estimator")
 	return
 }
 
 func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
-	err = errors.New("dynamic fees are not implemented for this layer 2")
+	err = errors.New("dynamic fees are not implemented for this estimator")
 	return
 }
 
 func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	chainSpecificGasLimit = GasLimit
-
 	ok := o.IfStarted(func() {
 		if slices.Contains(opts, feetypes.OptForceRefetch) {
-			ch := make(chan struct{})
-			select {
-			case o.chForceRefetch <- ch:
-			case <-o.chStop:
-				err = errors.New("estimator stopped")
-				return
-			case <-ctx.Done():
-				err = ctx.Err()
-				return
-			}
-			select {
-			case <-ch:
-			case <-o.chStop:
-				err = errors.New("estimator stopped")
-				return
-			case <-ctx.Done():
-				err = ctx.Err()
-				return
-			}
+			err = o.forceRefresh(ctx)
 		}
 		if gasPrice = o.getGasPrice(); gasPrice == nil {
 			err = errors.New("failed to estimate gas; gas price not set")
@@ -177,8 +178,32 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 	return
 }
 
-func (o *SuggestedPriceEstimator) BumpLegacyGas(_ context.Context, _ *assets.Wei, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	return nil, 0, errors.New("bump gas is not supported for this chain")
+// Refresh the gas price in case the current one has gone stale.
+// The only reason bumping logic would be called on the SuggestedPriceEstimator is if there was a significant price spike
+// between the last price update and when the tx was submitted. Refreshing the price helps ensure the latest market changes are accounted for.
+func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee *assets.Wei, feeLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (newGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+	chainSpecificGasLimit = feeLimit
+	ok := o.IfStarted(func() {
+		err = o.forceRefresh(ctx)
+		if newGasPrice = o.getGasPrice(); newGasPrice == nil {
+			err = errors.New("failed to refresh and return gas; gas price not set")
+			return
+		}
+		o.logger.Debugw("GasPrice", newGasPrice, "GasLimit", feeLimit)
+	})
+	if !ok {
+		return nil, 0, errors.New("estimator is not started")
+	} else if err != nil {
+		return
+	}
+	if newGasPrice != nil && newGasPrice.Cmp(maxGasPriceWei) > 0 {
+		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", newGasPrice.String(), maxGasPriceWei.String())
+	}
+	// Return the original price if the refreshed price is lower to ensure the bumped gas price is always equal or higher to the previous attempt
+	if originalFee != nil && originalFee.Cmp(newGasPrice) > 0 {
+		return originalFee, chainSpecificGasLimit, nil
+	}
+	return
 }
 
 func (o *SuggestedPriceEstimator) getGasPrice() (GasPrice *assets.Wei) {

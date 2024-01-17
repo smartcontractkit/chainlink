@@ -124,12 +124,12 @@ func TestArbitrumEstimator(t *testing.T) {
 		assert.Equal(t, uint32(0), chainSpecificGasLimit)
 	})
 
-	t.Run("calling BumpLegacyGas always returns error", func(t *testing.T) {
+	t.Run("calling BumpLegacyGas on unstarted arbitrum estimator returns error", func(t *testing.T) {
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, rpcClient, ethClient)
 		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
-		assert.EqualError(t, err, "bump gas is not supported for this chain")
+		assert.EqualError(t, err, "estimator is not started")
 	})
 
 	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
@@ -150,6 +150,26 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "failed to estimate gas; gas price not set")
+	})
+
+	t.Run("calling GetDynamicFee always returns error", func(t *testing.T) {
+		rpcClient := mocks.NewRPCClient(t)
+		ethClient := mocks.NewETHClient(t)
+		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, rpcClient, ethClient)
+		_, _, err := o.GetDynamicFee(testutils.Context(t), gasLimit, maxGasPrice)
+		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
+	})
+
+	t.Run("calling BumpDynamicFee always returns error", func(t *testing.T) {
+		rpcClient := mocks.NewRPCClient(t)
+		ethClient := mocks.NewETHClient(t)
+		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, rpcClient, ethClient)
+		fee := gas.DynamicFee{
+			FeeCap: assets.NewWeiI(42),
+			TipCap: assets.NewWeiI(5),
+		}
+		_, _, err := o.BumpDynamicFee(testutils.Context(t), fee, gasLimit, maxGasPrice, nil)
+		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
 	t.Run("limit computes", func(t *testing.T) {
