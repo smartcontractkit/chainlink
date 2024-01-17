@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
+	looptestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils" //nolint common practice to import test mods with .
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
@@ -26,6 +27,8 @@ const anyExtraValue = 3
 func TestCodec(t *testing.T) {
 	tester := &codecInterfaceTester{}
 	RunCodecInterfaceTests(t, tester)
+	RunCodecInterfaceTests(t, looptestutils.WrapCodecTesterForLoop(tester))
+
 	anyN := 10
 	c := tester.GetCodec(t)
 	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
@@ -79,7 +82,7 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		entry := codecConfig.Configs[k]
 		entry.TypeABI = string(defBytes)
 
-		if k != sizeItemType {
+		if k != sizeItemType && k != NilType {
 			entry.ModifierConfigs = codec.ModifiersConfig{
 				&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 			}
@@ -195,6 +198,7 @@ var codecDefs = map[string][]abi.ArgumentMarshaling{
 		{Name: "OtherStuff", Type: "int256"},
 	},
 	TestItemWithConfigExtra: ts,
+	NilType:                 {},
 }
 
 func parseDefs(t *testing.T) map[string]abi.Arguments {

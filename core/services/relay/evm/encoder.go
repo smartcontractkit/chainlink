@@ -30,7 +30,10 @@ func (e *encoder) Encode(_ context.Context, item any, itemType string) (res []by
 	}
 
 	if item == nil {
-		return info.EncodingPrefix(), nil
+		if len(info.Args()) == 0 {
+			return info.EncodingPrefix(), nil
+		}
+		return nil, fmt.Errorf("%w: cannot encode nil value for %s", commontypes.ErrInvalidType, itemType)
 	}
 
 	return encode(reflect.ValueOf(item), info)
