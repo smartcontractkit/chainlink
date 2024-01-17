@@ -28,57 +28,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   // ================================================================
 
   /**
-   * @notice transfers the address of an admin for an upkeep
-   */
-  function transferUpkeepAdmin(uint256 id, address proposed) external {
-    _requireAdminAndNotCancelled(id);
-    if (proposed == msg.sender) revert ValueNotChanged();
-
-    if (s_proposedAdmin[id] != proposed) {
-      s_proposedAdmin[id] = proposed;
-      emit UpkeepAdminTransferRequested(id, msg.sender, proposed);
-    }
-  }
-
-  /**
-   * @notice accepts the transfer of an upkeep admin
-   */
-  function acceptUpkeepAdmin(uint256 id) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
-    address past = s_upkeepAdmin[id];
-    s_upkeepAdmin[id] = msg.sender;
-    s_proposedAdmin[id] = ZERO_ADDRESS;
-
-    emit UpkeepAdminTransferred(id, past, msg.sender);
-  }
-
-  /**
-   * @notice pauses an upkeep - an upkeep will be neither checked nor performed while paused
-   */
-  function pauseUpkeep(uint256 id) external {
-    _requireAdminAndNotCancelled(id);
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    s_upkeep[id].paused = true;
-    s_upkeepIDs.remove(id);
-    emit UpkeepPaused(id);
-  }
-
-  /**
-   * @notice unpauses an upkeep
-   */
-  function unpauseUpkeep(uint256 id) external {
-    _requireAdminAndNotCancelled(id);
-    Upkeep memory upkeep = s_upkeep[id];
-    if (!upkeep.paused) revert OnlyPausedUpkeep();
-    s_upkeep[id].paused = false;
-    s_upkeepIDs.add(id);
-    emit UpkeepUnpaused(id);
-  }
-
-  /**
    * @notice updates the checkData for an upkeep
    */
   function setUpkeepCheckData(uint256 id, bytes calldata newCheckData) external {
@@ -127,31 +76,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   // ================================================================
   // |                       NODE MANAGEMENT                        |
   // ================================================================
-
-  /**
-   * @notice transfers the address of payee for a transmitter
-   */
-  function transferPayeeship(address transmitter, address proposed) external {
-    if (s_transmitterPayees[transmitter] != msg.sender) revert OnlyCallableByPayee();
-    if (proposed == msg.sender) revert ValueNotChanged();
-
-    if (s_proposedPayee[transmitter] != proposed) {
-      s_proposedPayee[transmitter] = proposed;
-      emit PayeeshipTransferRequested(transmitter, msg.sender, proposed);
-    }
-  }
-
-  /**
-   * @notice accepts the transfer of the payee
-   */
-  function acceptPayeeship(address transmitter) external {
-    if (s_proposedPayee[transmitter] != msg.sender) revert OnlyCallableByProposedPayee();
-    address past = s_transmitterPayees[transmitter];
-    s_transmitterPayees[transmitter] = msg.sender;
-    s_proposedPayee[transmitter] = ZERO_ADDRESS;
-
-    emit PayeeshipTransferred(transmitter, past, msg.sender);
-  }
 
   /**
    * @notice withdraws LINK received as payment for work performed
@@ -217,30 +141,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       }
     }
     emit PayeesUpdated(s_transmittersList, payees);
-  }
-
-  /**
-   * @notice sets the migration permission for a peer registry
-   * @dev this must be done before upkeeps can be migrated to/from another registry
-   */
-  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external onlyOwner {
-    s_peerRegistryMigrationPermission[peer] = permission;
-  }
-
-  /**
-   * @notice pauses the entire registry
-   */
-  function pause() external onlyOwner {
-    s_hotVars.paused = true;
-    emit Paused(msg.sender);
-  }
-
-  /**
-   * @notice unpauses the entire registry
-   */
-  function unpause() external onlyOwner {
-    s_hotVars.paused = false;
-    emit Unpaused(msg.sender);
   }
 
   /**
@@ -449,13 +349,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getBalance(uint256 id) external view returns (uint96 balance) {
     return s_upkeep[id].balance;
-  }
-
-  /**
-   * @notice retrieves the migration permission for a peer registry
-   */
-  function getPeerRegistryMigrationPermission(address peer) external view returns (MigrationPermission) {
-    return s_peerRegistryMigrationPermission[peer];
   }
 
   /**
