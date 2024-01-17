@@ -1,4 +1,4 @@
-package functions
+package allowlist
 
 import (
 	"context"

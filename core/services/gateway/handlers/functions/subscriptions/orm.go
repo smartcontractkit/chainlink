@@ -1,9 +1,8 @@
-package functions
+package subscriptions
 
 import (
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -20,9 +19,6 @@ import (
 type ORM interface {
 	GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error)
 	UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error
-
-	GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error)
-	CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.QOpt) error
 }
 
 type orm struct {
@@ -37,8 +33,7 @@ var (
 )
 
 const (
-	subscriptionsTableName = "functions_subscriptions"
-	allowlistTableName     = "functions_allowlist"
+	tableName = "functions_subscriptions"
 )
 
 type cachedSubscriptionRow struct {
@@ -74,7 +69,7 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 		ORDER BY subscription_id ASC
 		OFFSET $2
 		LIMIT $3;
-	`, subscriptionsTableName)
+	`, tableName)
 	err := o.q.WithOpts(qopts...).Select(&cacheSubscriptionRows, stmt, o.routerContractAddress, offset, limit)
 	if err != nil {
 		return cacheSubscriptions, err
@@ -93,7 +88,7 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 	stmt := fmt.Sprintf(`
 		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (subscription_id, router_contract_address) DO UPDATE
-		SET owner=$2, balance=$3, blocked_balance=$4, proposed_owner=$5, consumers=$6, flags=$7, router_contract_address=$8;`, subscriptionsTableName)
+		SET owner=$2, balance=$3, blocked_balance=$4, proposed_owner=$5, consumers=$6, flags=$7, router_contract_address=$8;`, tableName)
 
 	if subscription.Balance == nil {
 		subscription.Balance = big.NewInt(0)
@@ -135,47 +130,4 @@ func (cs *cachedSubscriptionRow) encode() CachedSubscription {
 			Flags:          [32]byte(cs.Flags),
 		},
 	}
-}
-
-func (o *orm) GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error) {
-	var addresses []common.Address
-	stmt := fmt.Sprintf(`
-		SELECT allowed_address
-		FROM %s
-		WHERE router_contract_address = $1
-		ORDER BY id ASC
-		OFFSET $2
-		LIMIT $3;
-	`, allowlistTableName)
-	err := o.q.WithOpts(qopts...).Select(&addresses, stmt, o.routerContractAddress, offset, limit)
-	if err != nil {
-		return addresses, err
-	}
-	o.lggr.Debugf("Successfully fetched allowed sender list from DB. offset: %d, limit: %d, length: %d", offset, limit, len(addresses))
-
-	return addresses, nil
-}
-
-func (o *orm) CreateAllowedSenders(allowedSender []common.Address, qopts ...pg.QOpt) error {
-	var valuesPlaceholder []string
-	for i := 1; i <= len(allowedSender)*2; i += 2 {
-		valuesPlaceholder = append(valuesPlaceholder, fmt.Sprintf("($%d, $%d)", i, i+1))
-	}
-
-	stmt := fmt.Sprintf(`
-		INSERT INTO %s (allowed_address, router_contract_address)
-		VALUES %s ON CONFLICT (allowed_address, router_contract_address) DO NOTHING;`, allowlistTableName, strings.Join(valuesPlaceholder, ", "))
-
-	var args []interface{}
-	for _, as := range allowedSender {
-		args = append(args, as, o.routerContractAddress)
-	}
-
-	_, err := o.q.WithOpts(qopts...).Exec(stmt, args...)
-	if err != nil {
-		return err
-	}
-	o.lggr.Debugf("Successfully stored allowed sender: %s for routerContractAddress: %s", allowedSender, o.routerContractAddress)
-
-	return nil
 }

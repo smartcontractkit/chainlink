@@ -1,4 +1,4 @@
-package functions_test
+package subscriptions_test
 
 import (
 	"math/big"
@@ -12,14 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 )
 
 var (
 	defaultFlags = [32]byte{0x1, 0x2, 0x3}
 )
 
-func setupORM(t *testing.T) (functions.ORM, error) {
+func setupORM(t *testing.T) (subscriptions.ORM, error) {
 	t.Helper()
 
 	var (
@@ -27,13 +27,13 @@ func setupORM(t *testing.T) (functions.ORM, error) {
 		lggr = logger.TestLogger(t)
 	)
 
-	return functions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
+	return subscriptions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
 }
 
-func seedSubscriptions(t *testing.T, orm functions.ORM, amount int) []functions.CachedSubscription {
-	storedSubscriptions := make([]functions.CachedSubscription, 0)
+func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscriptions.CachedSubscription {
+	storedSubscriptions := make([]subscriptions.CachedSubscription, 0)
 	for i := amount; i > 0; i-- {
-		cs := functions.CachedSubscription{
+		cs := subscriptions.CachedSubscription{
 			SubscriptionID: uint64(i),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -49,19 +49,6 @@ func seedSubscriptions(t *testing.T, orm functions.ORM, amount int) []functions.
 		require.NoError(t, err)
 	}
 	return storedSubscriptions
-}
-
-func seedAllowedSenders(t *testing.T, orm functions.ORM, amount int) []common.Address {
-	storedAllowedSenders := make([]common.Address, amount)
-	for i := 0; i < amount; i++ {
-		address := testutils.NewAddress()
-		storedAllowedSenders[i] = address
-	}
-
-	err := orm.CreateAllowedSenders(storedAllowedSenders)
-	require.NoError(t, err)
-
-	return storedAllowedSenders
 }
 
 func TestORM_GetSubscriptions(t *testing.T) {
@@ -93,7 +80,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	t.Run("create a subscription", func(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
-		expected := functions.CachedSubscription{
+		expected := subscriptions.CachedSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -117,7 +104,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 
-		expectedUpdated := functions.CachedSubscription{
+		expectedUpdated := subscriptions.CachedSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -131,7 +118,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		err = orm.UpsertSubscription(expectedUpdated)
 		require.NoError(t, err)
 
-		expectedNotUpdated := functions.CachedSubscription{
+		expectedNotUpdated := subscriptions.CachedSubscription{
 			SubscriptionID: uint64(2),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -161,7 +148,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 
-		subscription := functions.CachedSubscription{
+		subscription := subscriptions.CachedSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -200,12 +187,12 @@ func TestORM_UpsertSubscription(t *testing.T) {
 			lggr = logger.TestLogger(t)
 		)
 
-		orm1, err := functions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
+		orm1, err := subscriptions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
 		require.NoError(t, err)
-		orm2, err := functions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
+		orm2, err := subscriptions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
 		require.NoError(t, err)
 
-		subscription := functions.CachedSubscription{
+		subscription := subscriptions.CachedSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        assets.Ether(10).ToInt(),
@@ -242,106 +229,17 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		require.Equal(t, 1, len(results), "incorrect results length")
 	})
 }
-
-func TestORM_GetAllowedSenders(t *testing.T) {
-	t.Parallel()
-	t.Run("fetch first page", func(t *testing.T) {
-		orm, err := setupORM(t)
-		require.NoError(t, err)
-		storedAllowedSenders := seedAllowedSenders(t, orm, 2)
-		results, err := orm.GetAllowedSenders(0, 1)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
-		require.Equal(t, storedAllowedSenders[0], results[0])
-	})
-
-	t.Run("fetch second page", func(t *testing.T) {
-		orm, err := setupORM(t)
-		require.NoError(t, err)
-		storedAllowedSenders := seedAllowedSenders(t, orm, 2)
-		results, err := orm.GetAllowedSenders(1, 5)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
-		require.Equal(t, storedAllowedSenders[1], results[0])
-	})
-}
-
-func TestORM_CreateAllowedSenders(t *testing.T) {
-	t.Parallel()
-
-	t.Run("OK-create_an_allowed_sender", func(t *testing.T) {
-		orm, err := setupORM(t)
-		require.NoError(t, err)
-		expected := testutils.NewAddress()
-		err = orm.CreateAllowedSenders([]common.Address{expected})
-		require.NoError(t, err)
-
-		results, err := orm.GetAllowedSenders(0, 1)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
-		require.Equal(t, expected, results[0])
-	})
-
-	t.Run("OK-create_an_existing_allowed_sender", func(t *testing.T) {
-		orm, err := setupORM(t)
-		require.NoError(t, err)
-		expected := testutils.NewAddress()
-		err = orm.CreateAllowedSenders([]common.Address{expected})
-		require.NoError(t, err)
-
-		err = orm.CreateAllowedSenders([]common.Address{expected})
-		require.NoError(t, err)
-
-		results, err := orm.GetAllowedSenders(0, 5)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
-		require.Equal(t, expected, results[0])
-	})
-
-	t.Run("OK-create_multiple_allowed_senders_in_one_query", func(t *testing.T) {
-		orm, err := setupORM(t)
-		require.NoError(t, err)
-		expected := []common.Address{testutils.NewAddress(), testutils.NewAddress()}
-		err = orm.CreateAllowedSenders(expected)
-		require.NoError(t, err)
-
-		results, err := orm.GetAllowedSenders(0, 2)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
-		require.Equal(t, expected[0], results[0])
-		require.Equal(t, expected[1], results[1])
-	})
-
-	t.Run("OK-create_multiple_allowed_senders_with_duplicates", func(t *testing.T) {
-		orm, err := setupORM(t)
-		require.NoError(t, err)
-		addr1 := testutils.NewAddress()
-		addr2 := testutils.NewAddress()
-		expected := []common.Address{addr1, addr2}
-
-		duplicatedAddressInput := []common.Address{addr1, addr1, addr1, addr2}
-		err = orm.CreateAllowedSenders(duplicatedAddressInput)
-		require.NoError(t, err)
-
-		results, err := orm.GetAllowedSenders(0, 10)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
-		require.Equal(t, expected[0], results[0])
-		require.Equal(t, expected[1], results[1])
-	})
-}
-
 func Test_NewORM(t *testing.T) {
 	t.Run("OK-create_ORM", func(t *testing.T) {
-		_, err := functions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), testutils.NewAddress())
+		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), testutils.NewAddress())
 		require.NoError(t, err)
 	})
 	t.Run("NOK-create_ORM_with_nil_fields", func(t *testing.T) {
-		_, err := functions.NewORM(nil, nil, nil, common.Address{})
+		_, err := subscriptions.NewORM(nil, nil, nil, common.Address{})
 		require.Error(t, err)
 	})
 	t.Run("NOK-create_ORM_with_empty_address", func(t *testing.T) {
-		_, err := functions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), common.Address{})
+		_, err := subscriptions.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), common.Address{})
 		require.Error(t, err)
 	})
 }

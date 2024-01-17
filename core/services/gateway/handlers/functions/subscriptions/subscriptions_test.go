@@ -1,4 +1,4 @@
-package functions_test
+package subscriptions_test
 
 import (
 	"math/big"
@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
-	fmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
+	smocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions/mocks"
 )
 
 const (
@@ -43,17 +43,17 @@ func TestSubscriptions_OnePass(t *testing.T) {
 		To:   &common.Address{},
 		Data: hexutil.MustDecode("0xec2454e500000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003"),
 	}, mock.Anything).Return(getSubscriptionsInRange, nil)
-	config := functions.OnchainSubscriptionsConfig{
+	config := subscriptions.OnchainSubscriptionsConfig{
 		ContractAddress:    common.Address{},
 		BlockConfirmations: 1,
 		UpdateFrequencySec: 1,
 		UpdateTimeoutSec:   1,
 		UpdateRangeSize:    3,
 	}
-	orm := fmocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]functions.CachedSubscription{}, nil)
+	orm := smocks.NewORM(t)
+	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]subscriptions.CachedSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything).Return(nil)
-	subscriptions, err := functions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
+	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	err = subscriptions.Start(ctx)
@@ -94,17 +94,17 @@ func TestSubscriptions_MultiPass(t *testing.T) {
 		To:   &common.Address{},
 		Data: hexutil.MustDecode("0xec2454e500000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000006"),
 	}, mock.Anything).Return(getSubscriptionsInRange, nil)
-	config := functions.OnchainSubscriptionsConfig{
+	config := subscriptions.OnchainSubscriptionsConfig{
 		ContractAddress:    common.Address{},
 		BlockConfirmations: 1,
 		UpdateFrequencySec: 1,
 		UpdateTimeoutSec:   1,
 		UpdateRangeSize:    3,
 	}
-	orm := fmocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]functions.CachedSubscription{}, nil)
+	orm := smocks.NewORM(t)
+	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]subscriptions.CachedSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything).Return(nil)
-	subscriptions, err := functions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
+	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	err = subscriptions.Start(ctx)
@@ -133,7 +133,7 @@ func TestSubscriptions_Cached(t *testing.T) {
 		To:   &common.Address{},
 		Data: hexutil.MustDecode("0xec2454e500000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003"),
 	}, mock.Anything).Return(getSubscriptionsInRange, nil)
-	config := functions.OnchainSubscriptionsConfig{
+	config := subscriptions.OnchainSubscriptionsConfig{
 		ContractAddress:    common.Address{},
 		BlockConfirmations: 1,
 		UpdateFrequencySec: 1,
@@ -143,8 +143,8 @@ func TestSubscriptions_Cached(t *testing.T) {
 	}
 
 	expectedBalance := big.NewInt(5)
-	orm := fmocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(1)).Return([]functions.CachedSubscription{
+	orm := smocks.NewORM(t)
+	orm.On("GetSubscriptions", uint(0), uint(1)).Return([]subscriptions.CachedSubscription{
 		{
 			SubscriptionID: 1,
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
@@ -154,10 +154,10 @@ func TestSubscriptions_Cached(t *testing.T) {
 			},
 		},
 	}, nil)
-	orm.On("GetSubscriptions", uint(1), uint(1)).Return([]functions.CachedSubscription{}, nil)
+	orm.On("GetSubscriptions", uint(1), uint(1)).Return([]subscriptions.CachedSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything).Return(nil)
 
-	subscriptions, err := functions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
+	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	err = subscriptions.Start(ctx)
