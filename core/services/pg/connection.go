@@ -1,6 +1,7 @@
 package pg
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -8,6 +9,8 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib" // need to make sure pgx driver is registered before opening connection
 	"github.com/jmoiron/sqlx"
 	"github.com/scylladb/go-reflectx"
+	"go.nhat.io/otelsql"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
@@ -31,11 +34,23 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		uri = uuid.New().String()
 	}
 
-	// Initialize sql/sqlx
-	db, err = sqlx.Open(string(dialect), uri)
+	driverName, err := otelsql.Register(string(dialect),
+		otelsql.AllowRoot(),
+		otelsql.TraceQueryWithoutArgs(),
+		otelsql.TraceRowsClose(),
+		otelsql.TraceRowsAffected(),
+		otelsql.WithSystem(semconv.DBSystemPostgreSQL),
+	)
 	if err != nil {
 		return nil, err
 	}
+
+	// Initialize sql/sqlx
+	sqldb, err := sql.Open(driverName, uri)
+	if err != nil {
+		return nil, err
+	}
+	db = sqlx.NewDb(sqldb, string(dialect))
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 
 	// Set default connection options
