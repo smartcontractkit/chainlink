@@ -698,11 +698,7 @@ func (o *evmTxStore) LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error {
 		ethTxesM[etx.ID] = etxs[i]
 	}
 	var dbTxAttempts []DbEthTxAttempt
-	if err := qq.Select(&dbTxAttempts, `
-	SELECT * 
-	FROM evm.tx_attempts 
-	WHERE eth_tx_id = ANY($1) 
-	ORDER BY evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas_tip_cap DESC`, pq.Array(ethTxIDs)); err != nil {
+	if err := qq.Select(&dbTxAttempts, `SELECT * FROM evm.tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas_tip_cap DESC`, pq.Array(ethTxIDs)); err != nil {
 		return pkgerrors.Wrap(err, "loadEthTxesAttempts failed to load evm.tx_attempts")
 	}
 	for _, dbAttempt := range dbTxAttempts {
@@ -1041,8 +1037,7 @@ func (o *evmTxStore) GetInProgressTxAttempts(ctx context.Context, address common
 		var dbAttempts []DbEthTxAttempt
 		err = tx.Select(&dbAttempts, `
 SELECT evm.tx_attempts.* FROM evm.tx_attempts
-INNER JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id 
-	AND evm.txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
+INNER JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
 WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND evm.txes.evm_chain_id = $2
 `, address, chainID.String())
 		if err != nil {
@@ -1219,11 +1214,7 @@ func (o *evmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, c
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		if err = qq.QueryRowContext(ctx, `
-		SELECT 
-			min(initial_broadcast_at) 
-		FROM evm.txes 
-		WHERE state = 'unconfirmed' AND evm_chain_id = $1`, chainID.String()).Scan(&broadcastAt); err != nil {
+		if err = qq.QueryRowContext(ctx, `SELECT min(initial_broadcast_at) FROM evm.txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, chainID.String()).Scan(&broadcastAt); err != nil {
 			return fmt.Errorf("failed to query for unconfirmed eth_tx count: %w", err)
 		}
 		return nil
@@ -1452,30 +1443,9 @@ func (o *evmTxStore) FindTxsRequiringGasBump(ctx context.Context, address common
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT evm.txes.* FROM evm.txes
-LEFT JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id 
-	AND (
-		broadcast_before_block_num > $4 
-		OR broadcast_before_block_num IS NULL 
-		OR evm.tx_attempts.state != 'broadcast'
-	)
-WHERE 
-	evm.txes.state = 'unconfirmed' 
-	AND evm.tx_attempts.id IS NULL 
-	AND evm.txes.from_address = $1 
-	AND evm.txes.evm_chain_id = $2
-	AND (
-		($3 = 0) 
-		OR (
-			evm.txes.id IN (
-				SELECT id 
-				FROM evm.txes 
-				WHERE 
-					state = 'unconfirmed' 
-					AND from_address = $1 
-				ORDER BY nonce ASC LIMIT $3
-			)
-		)
-	)
+LEFT JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id AND (broadcast_before_block_num > $4 OR broadcast_before_block_num IS NULL OR evm.tx_attempts.state != 'broadcast')
+WHERE evm.txes.state = 'unconfirmed' AND evm.tx_attempts.id IS NULL AND evm.txes.from_address = $1 AND evm.txes.evm_chain_id = $2
+	AND (($3 = 0) OR (evm.txes.id IN (SELECT id FROM evm.txes WHERE state = 'unconfirmed' AND from_address = $1 ORDER BY nonce ASC LIMIT $3)))
 ORDER BY nonce ASC
 `
 		var dbEtxs []DbEthTx
@@ -1841,13 +1811,7 @@ func (o *evmTxStore) HasInProgressTransaction(ctx context.Context, account commo
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Get(&exists, `
-	SELECT EXISTS(
-		SELECT 1 
-		FROM evm.txes 
-		WHERE 
-			state = 'in_progress' 
-			AND from_address = $1 
-			AND evm_chain_id = $2)`, account, chainID.String())
+	SELECT EXISTS(SELECT 1 FROM evm.txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, chainID.String())
 	return exists, pkgerrors.Wrap(err, "hasInProgressTransaction failed")
 }
 
