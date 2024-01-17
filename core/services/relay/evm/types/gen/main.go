@@ -18,7 +18,7 @@ func genBytes() {
 	for i := 1; i < 33; i++ {
 		byteTypes[i-1].Size = i
 	}
-	runTemplate("bytes", bytesTemplate, "byte_types_gen.go", byteTypes)
+	mustRunTemplate("bytes", bytesTemplate, "byte_types_gen.go", byteTypes)
 }
 
 func genInts() {
@@ -35,17 +35,14 @@ func genInts() {
 		unsigned := &IntType{Prefix: "u", Size: i}
 		intTypes = append(intTypes, signed, unsigned)
 	}
-	runTemplate("ints", intsTemplate, "int_types_gen.go", intTypes)
+	mustRunTemplate("ints", intsTemplate, "int_types_gen.go", intTypes)
 }
 
-func runTemplate(name, rawTemplate, outputFile string, input any) {
-	t, err := template.New(name).Parse(rawTemplate)
-	if err != nil {
-		panic(err)
-	}
+func mustRunTemplate(name, rawTemplate, outputFile string, input any) {
+	t := template.Must(template.New(name).Parse(rawTemplate))
 
 	br := bytes.Buffer{}
-	if err = t.Execute(&br, input); err != nil {
+	if err := t.Execute(&br, input); err != nil {
 		panic(err)
 	}
 

@@ -50,8 +50,8 @@ type chainReaderDefinitionFields struct {
 	// chain specific contract method name or event type.
 	ChainSpecificName   string                `json:"chainSpecificName"`
 	ReadType            ReadType              `json:"readType,omitempty"`
-	InputModifications  codec.ModifiersConfig `json:"input_modifications,omitempty"`
-	OutputModifications codec.ModifiersConfig `json:"output_modifications,omitempty"`
+	InputModifications  codec.ModifiersConfig `json:"inputModifications,omitempty"`
+	OutputModifications codec.ModifiersConfig `json:"outputModifications,omitempty"`
 
 	// EventInputFields allows you to choose which indexed fields are expected from the input
 	EventInputFields []string `json:"eventInputFields,omitempty"`
