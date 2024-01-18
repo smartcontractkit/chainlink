@@ -20,6 +20,14 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
+  CHAINLINK_NODE_FUNDING: .5
+  PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+  LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+  LOKI_URL: ${{ secrets.LOKI_URL }}
+  LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+  LOGSTREAM_LOG_TARGETS: loki
+  GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+  RUN_ID: ${{ github.run_id }}
 
   CHAINLINK_COMMIT_SHA: ${{ github.sha }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
@@ -38,10 +46,6 @@ env:
   
   ARBITRUM_SEPOLIA_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
   ARBITRUM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
-  
-  BASE_GOERLI_URLS: ${{ secrets.QA_BASE_GOERLI_URLS }}
-  BASE_GOERLI_HTTP_URLS: ${{ secrets.QA_BASE_GOERLI_HTTP_URLS }}
-  
   BASE_SEPOLIA_URLS: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
   BASE_SEPOLIA_HTTP_URLS: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
   
@@ -66,7 +70,7 @@ env:
 jobs:
 
   # Build Test Dependencies
-  
+
   build-chainlink:
     environment: integration
     permissions:
@@ -145,7 +149,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [sepolia-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-goerli-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, linea-goerli-smoke-tests]
+    needs: [sepolia-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, linea-goerli-smoke-tests]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -206,7 +210,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Goerli, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Linea Goerli]
+        network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Linea Goerli]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -290,6 +294,21 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"          
 
           [Network]
           selected_networks=["sepolia"]
@@ -393,6 +412,21 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+
           [Network]
           selected_networks=["bsc_testnet"]
 
@@ -492,6 +526,21 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
           [Network]
           selected_networks=["optimism_sepolia"]
@@ -593,6 +642,21 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+
           [Network]
           selected_networks=["arbitrum_sepolia"]
           
@@ -612,102 +676,6 @@ jobs:
           touch .root_dir                        
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0  
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
-  base-goerli-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-    name: Base Goerli ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests   
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
-
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
-
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
-
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
-          
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
-          
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
-          
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
-
-          [Network]
-          selected_networks=["base_goerli"]
-
-          [Network.RpcHttpUrls]
-          base_goerli = $(convert_to_toml_array "$BASE_GOERLI_HTTP_URLS")
-
-          [Network.RpcWsUrls]
-          base_goerli = $(convert_to_toml_array "$BASE_GOERLI_URLS")
-
-          [Network.WalletKeys]
-          base_goerli = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
-          
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
-          touch .root_dir          
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0     
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -784,6 +752,21 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
           
           [Network]
           selected_networks=["base_sepolia"]
@@ -884,6 +867,21 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
                     
           [Network]
           selected_networks=["polygon_mumbai"]
@@ -985,6 +983,21 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+
           [Network]
           selected_networks=["avalanche_fuji"]
 
@@ -1085,6 +1098,21 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+
           [Network]
           selected_networks=["fantom_testnet"]
 
@@ -1180,6 +1208,21 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
           [Network]
           selected_networks=["celo_alfajores"]
@@ -1279,6 +1322,21 @@ jobs:
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
 
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+
           [Network]
           selected_networks=["scroll_sepolia"]
 
@@ -1374,6 +1432,21 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
+
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=$log_targets
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_URL"
+          basic_auth="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
           [Network]
           selected_networks=["linea_goerli"]          

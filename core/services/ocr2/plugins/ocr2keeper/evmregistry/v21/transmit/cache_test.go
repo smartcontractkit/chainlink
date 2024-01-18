@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 )
 
 func TestTransmitEventCache_Sanity(t *testing.T) {

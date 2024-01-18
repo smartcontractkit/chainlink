@@ -14,13 +14,15 @@ import (
 	"os"
 	"strconv"
 
+	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 
@@ -31,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
@@ -252,11 +253,11 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
 	// handle streams lookup
 	if checkResult.UpkeepFailureReason != 0 {
-		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
+		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
 	}
 
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
-		mc := &models.MercuryCredentials{LegacyURL: k.cfg.MercuryLegacyURL, URL: k.cfg.MercuryURL, Username: k.cfg.MercuryID, Password: k.cfg.MercuryKey}
+		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.MercuryLegacyURL, URL: k.cfg.MercuryURL, Username: k.cfg.MercuryID, Password: k.cfg.MercuryKey}
 		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)
 		lggr, _ := logger.NewLogger()
 		blockSub := &blockSubscriber{k.client}
@@ -375,6 +376,28 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			resolveIneligible("simulate perform upkeep unsuccessful")
 		}
 	}
+}
+
+func getCheckUpkeepFailureReason(reasonIndex uint8) string {
+	// Copied from KeeperRegistryBase2_1.sol
+	reasonStrings := []string{
+		"NONE",
+		"UPKEEP_CANCELLED",
+		"UPKEEP_PAUSED",
+		"TARGET_CHECK_REVERTED",
+		"UPKEEP_NOT_NEEDED",
+		"PERFORM_DATA_EXCEEDS_LIMIT",
+		"INSUFFICIENT_BALANCE",
+		"CALLBACK_REVERTED",
+		"REVERT_DATA_EXCEEDS_LIMIT",
+		"REGISTRY_PAUSED",
+	}
+
+	if int(reasonIndex) < len(reasonStrings) {
+		return reasonStrings[reasonIndex]
+	}
+
+	return fmt.Sprintf("Unknown : %d", reasonIndex)
 }
 
 func mustAutomationCheckResult(upkeepID *big.Int, checkResult iregistry21.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
