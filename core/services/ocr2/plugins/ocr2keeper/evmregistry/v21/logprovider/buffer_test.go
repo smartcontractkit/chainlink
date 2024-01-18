@@ -19,7 +19,7 @@ import (
 func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 	size := 3
 	maxSeenBlock := int64(4)
-	buf := newLogEventBuffer(logger.TestLogger(t), size, 10)
+	buf := newLogEventBuffer(logger.TestLogger(t), size, 10, 10)
 
 	buf.enqueue(big.NewInt(1),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
@@ -104,7 +104,7 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 
 func TestLogEventBuffer_GetBlocksInRange_Circular(t *testing.T) {
 	size := 4
-	buf := newLogEventBuffer(logger.TestLogger(t), size, 10)
+	buf := newLogEventBuffer(logger.TestLogger(t), size, 10, 10)
 
 	require.Equal(t, buf.enqueue(big.NewInt(1),
 		logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -164,7 +164,7 @@ func TestLogEventBuffer_GetBlocksInRange_Circular(t *testing.T) {
 
 func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	t.Run("dequeue empty", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10, 10)
 
 		results := buf.peekRange(int64(1), int64(2))
 		require.Equal(t, 0, len(results))
@@ -173,41 +173,39 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 
 	t.Run("enqueue", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10, 10)
 
 		buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 		)
 		buf.lock.Lock()
-		defer buf.lock.Unlock()
 		require.Equal(t, 2, len(buf.blocks[0].logs))
+		buf.lock.Unlock()
 	})
 
 	t.Run("enqueue logs overflow", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 2, 2)
+		buf := newLogEventBuffer(logger.TestLogger(t), 2, 2, 2)
 
 		require.Equal(t, 2, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 2},
-			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 3},
 		))
 		buf.lock.Lock()
-		defer buf.lock.Unlock()
 		require.Equal(t, 2, len(buf.blocks[0].logs))
+		buf.lock.Unlock()
 	})
 
 	t.Run("enqueue logs overflow with dynamic limits", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 2, 2)
+		buf := newLogEventBuffer(logger.TestLogger(t), 2, 10, 2)
 
 		require.Equal(t, 2, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 2},
-			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 3},
 		))
-		buf.SetLimits(3)
+		buf.SetLimits(10, 3)
 		require.Equal(t, 3, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 1},
@@ -221,8 +219,30 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		require.Equal(t, 3, len(buf.blocks[1].logs))
 	})
 
+	t.Run("enqueue logs overflow with dynamic limits", func(t *testing.T) {
+		buf := newLogEventBuffer(logger.TestLogger(t), 2, 10, 2)
+
+		require.Equal(t, 2, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 2},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 3},
+		))
+		buf.SetLimits(10, 3)
+		require.Equal(t, 3, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 2},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 3},
+		))
+
+		buf.lock.Lock()
+		defer buf.lock.Unlock()
+		require.Equal(t, 2, len(buf.blocks[0].logs))
+	})
+
 	t.Run("enqueue block overflow", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 2, 10)
 
 		require.Equal(t, 5, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -232,12 +252,26 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 			logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x4"), LogIndex: 1},
 		))
 		buf.lock.Lock()
-		defer buf.lock.Unlock()
 		require.Equal(t, 2, len(buf.blocks[0].logs))
+		buf.lock.Unlock()
+	})
+
+	t.Run("enqueue upkeep block overflow", func(t *testing.T) {
+		buf := newLogEventBuffer(logger.TestLogger(t), 10, 10, 2)
+
+		require.Equal(t, 2, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 2},
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 3},
+		))
+		buf.lock.Lock()
+		require.Equal(t, 2, len(buf.blocks[0].logs))
+		buf.lock.Unlock()
 	})
 
 	t.Run("peek range after dequeue", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10, 10)
 
 		require.Equal(t, buf.enqueue(big.NewInt(10),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 10},
@@ -257,7 +291,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 
 	t.Run("enqueue peek and dequeue", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 4, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 4, 10, 10)
 
 		require.Equal(t, buf.enqueue(big.NewInt(10),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 10},
@@ -273,14 +307,14 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		removed := buf.dequeueRange(1, 3, 5, 5)
 		require.Equal(t, 4, len(removed))
 		buf.lock.Lock()
-		defer buf.lock.Unlock()
 		require.Equal(t, 0, len(buf.blocks[0].logs))
 		require.Equal(t, int64(2), buf.blocks[1].blockNumber)
 		require.Equal(t, 1, len(buf.blocks[1].visited))
+		buf.lock.Unlock()
 	})
 
 	t.Run("enqueue and peek range circular", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10, 10)
 
 		require.Equal(t, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -301,7 +335,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 
 	t.Run("doesnt enqueue old blocks", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 5, 10)
 
 		require.Equal(t, buf.enqueue(big.NewInt(10),
 			logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x1"), LogIndex: 10},
@@ -318,7 +352,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 
 	t.Run("dequeue with limits returns latest block logs", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 5, 10)
 		require.Equal(t, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
@@ -342,7 +376,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 
 	t.Run("dequeue doesn't return same logs again", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 5, 10)
 		require.Equal(t, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
@@ -361,9 +395,9 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 
 func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 	type appendArgs struct {
-		fl               fetchedLog
-		fastExecLogsHigh int
-		added, dropped   bool
+		fl                          fetchedLog
+		maxBlockLogs, maxUpkeepLogs int
+		added, dropped              bool
 	}
 
 	tests := []struct {
@@ -390,8 +424,9 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						},
 						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 					},
-					fastExecLogsHigh: 2,
-					added:            true,
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         true,
 				},
 			},
 			expected: []fetchedLog{
@@ -429,8 +464,9 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						},
 						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 					},
-					fastExecLogsHigh: 2,
-					added:            false,
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         false,
 				},
 			},
 			expected: []fetchedLog{
@@ -468,8 +504,9 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						},
 						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 					},
-					fastExecLogsHigh: 2,
-					added:            false,
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         false,
 				},
 			},
 			expected: []fetchedLog{},
@@ -489,8 +526,9 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						},
 						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 					},
-					fastExecLogsHigh: 2,
-					added:            true,
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         true,
 				},
 				{
 					fl: fetchedLog{
@@ -501,8 +539,9 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						},
 						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 					},
-					fastExecLogsHigh: 2,
-					added:            true,
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         true,
 				},
 				{
 					fl: fetchedLog{
@@ -513,9 +552,76 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						},
 						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 					},
-					fastExecLogsHigh: 2,
-					added:            true,
-					dropped:          true,
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         true,
+					dropped:       true,
+				},
+			},
+			expected: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    1,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    2,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+			},
+		},
+		{
+			name:        "block log limits",
+			blockNumber: 1,
+			logs:        []fetchedLog{},
+			visited:     []fetchedLog{},
+			toAdd: []appendArgs{
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    0,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  2,
+					maxUpkeepLogs: 4,
+					added:         true,
+				},
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    1,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  2,
+					maxUpkeepLogs: 4,
+					added:         true,
+				},
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    2,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  2,
+					maxUpkeepLogs: 4,
+					added:         true,
+					dropped:       true,
 				},
 			},
 			expected: []fetchedLog{
@@ -551,7 +657,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 			copy(b.visited, tc.visited)
 
 			for _, args := range tc.toAdd {
-				dropped, added := b.Append(lggr, args.fl, args.fastExecLogsHigh)
+				dropped, added := b.Append(lggr, args.fl, args.maxBlockLogs, args.maxUpkeepLogs)
 				require.Equal(t, args.added, added)
 				if args.dropped {
 					require.NotNil(t, dropped.upkeepID)
