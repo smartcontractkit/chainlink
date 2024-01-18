@@ -282,7 +282,7 @@ ingress:
                 port:
                   number: 1080
 # monitoring.coreos.com/v1 PodMonitor for each node
-prometheusMonitor: false
+prometheusMonitor: true
 
 # deployment placement, standard helm stuff
 podAnnotations:
