@@ -790,7 +790,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       return false;
     }
     if (
-      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      //(trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
       trigger.blockNum >= _blockNum()
     ) {
       // There are two cases of reorged report
@@ -813,7 +813,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (
-      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      //(trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
       trigger.blockNum >= _blockNum()
     ) {
       // Reorg protection is same as conditional trigger upkeeps
