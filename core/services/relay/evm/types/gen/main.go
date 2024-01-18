@@ -66,8 +66,8 @@ type ByteType struct {
 	Size int
 }
 
-//go:embed bytes.tmpl
+//go:embed bytes.go.tmpl
 var bytesTemplate string
 
-//go:embed ints.tmpl
+//go:embed ints.go.tmpl
 var intsTemplate string
