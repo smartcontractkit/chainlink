@@ -52,12 +52,8 @@ type ClNode struct {
 	UserEmail             string                  `json:"userEmail"`
 	UserPassword          string                  `json:"userPassword"`
 	AlwaysPullImage       bool                    `json:"-"`
-	PostStartsHooks       []tc.ContainerHook      `json:"-"`
-	PostStopsHooks        []tc.ContainerHook      `json:"-"`
-	PreTerminatesHooks    []tc.ContainerHook      `json:"-"`
 	t                     *testing.T
 	l                     zerolog.Logger
-	ls                    *logstream.LogStream
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -97,7 +93,7 @@ func WithDbContainerName(name string) ClNodeOption {
 
 func WithLogStream(ls *logstream.LogStream) ClNodeOption {
 	return func(c *ClNode) {
-		c.ls = ls
+		c.LogStream = ls
 	}
 }
 
