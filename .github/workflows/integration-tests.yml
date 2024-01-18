@@ -280,6 +280,13 @@ jobs:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          LOKI_URL: ${{ secrets.LOKI_URL }}
+          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+          GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
+          RUN_ID: ${{ github.run_id }}          
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -295,6 +302,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.2.16
+        with:
+          test_directory: ./integration-tests/smoke/          
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -495,28 +507,12 @@ jobs:
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: trace-data
-          path: ./integration-tests/smoke/traces/trace-data.json
+          path: ./integration-tests/smoke/traces/trace-data.json          
       - name: Print failed test summary
         if: always()
-        run: |
-          directory="./integration-tests/smoke/.test_summary"
-          files=("$directory"/*)
-          if [ -d "$directory" ]; then
-            echo "Test summary folder found"
-            if [ ${#files[@]} -gt 0 ]; then
-              first_file="${files[0]}"
-              echo "Name of the first test summary file: $(basename "$first_file")"
-              echo "### Failed Test Execution Logs Dashboard (over VPN):" >> $GITHUB_STEP_SUMMARY
-              cat "$first_file" | jq -r '.loki[] | "* [\(.test_name)](\(.value))"' >> $GITHUB_STEP_SUMMARY
-              if [ ${#files[@]} -gt 1 ]; then
-                echo "Found more than one test summary file. This is incorrect, there should be only one file"
-              fi
-            else
-                echo "Test summary directory is empty. This should not happen"
-            fi
-          else
-            echo "No test summary folder found. If no test failed or log collection wasn't explicitly requested this is correct. Exiting"
-          fi
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.2.16
+        with:
+          test_directory: ./integration-tests/smoke/
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
