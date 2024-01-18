@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -75,6 +76,71 @@ func (d ExecOnchainConfig) PermissionLessExecutionThresholdDuration() time.Durat
 	return time.Duration(d.PermissionLessExecutionThresholdSeconds) * time.Second
 }
 
+// JSONExecOffchainConfig is the configuration for nodes executing committed CCIP messages (v1.2).
+// It comes from the OffchainConfig field of the corresponding OCR2 plugin configuration.
+// NOTE: do not change the JSON format of this struct without consulting with the RDD people first.
+type JSONExecOffchainConfig struct {
+	// SourceFinalityDepth indicates how many confirmations a transaction should get on the source chain event before we consider it finalized.
+	//
+	// Deprecated: we now use the source chain finality instead.
+	SourceFinalityDepth uint32
+	// See [ccipdata.ExecOffchainConfig.DestOptimisticConfirmations]
+	DestOptimisticConfirmations uint32
+	// DestFinalityDepth indicates how many confirmations a transaction should get on the destination chain event before we consider it finalized.
+	//
+	// Deprecated: we now use the destination chain finality instead.
+	DestFinalityDepth uint32
+	// See [ccipdata.ExecOffchainConfig.BatchGasLimit]
+	BatchGasLimit uint32
+	// See [ccipdata.ExecOffchainConfig.RelativeBoostPerWaitHour]
+	RelativeBoostPerWaitHour float64
+	// Same as [DestMaxGasPrice].
+	//
+	// Deprecated: use [DestMaxGasPrice] instead.
+	MaxGasPrice uint64
+	// DestMaxGasPrice is the max gas price in the native currency (e.g., wei/gas) that a node will pay for executing a transaction on the destination chain.
+	DestMaxGasPrice uint64
+	// See [ccipdata.ExecOffchainConfig.InflightCacheExpiry]
+	InflightCacheExpiry config.Duration
+	// See [ccipdata.ExecOffchainConfig.RootSnoozeTime]
+	RootSnoozeTime config.Duration
+}
+
+func (c JSONExecOffchainConfig) ComputeDestMaxGasPrice() uint64 {
+	if c.DestMaxGasPrice != 0 {
+		return c.DestMaxGasPrice
+	}
+	return c.MaxGasPrice
+}
+
+func (c JSONExecOffchainConfig) Validate() error {
+	if c.DestOptimisticConfirmations == 0 {
+		return errors.New("must set DestOptimisticConfirmations")
+	}
+	if c.BatchGasLimit == 0 {
+		return errors.New("must set BatchGasLimit")
+	}
+	if c.RelativeBoostPerWaitHour == 0 {
+		return errors.New("must set RelativeBoostPerWaitHour")
+	}
+	if c.DestMaxGasPrice == 0 {
+		if c.MaxGasPrice == 0 {
+			return errors.New("must set DestMaxGasPrice")
+		}
+	}
+	if c.MaxGasPrice != 0 && c.DestMaxGasPrice != 0 {
+		return errors.New("cannot set both MaxGasPrice and DestMaxGasPrice")
+	}
+	if c.InflightCacheExpiry.Duration() == 0 {
+		return errors.New("must set InflightCacheExpiry")
+	}
+	if c.RootSnoozeTime.Duration() == 0 {
+		return errors.New("must set RootSnoozeTime")
+	}
+
+	return nil
+}
+
 // OffRamp In 1.2 we have a different estimator impl
 type OffRamp struct {
 	*v1_0_0.OffRamp
@@ -102,7 +168,7 @@ func (o *OffRamp) ChangeConfig(onchainConfigBytes []byte, offchainConfigBytes []
 		return common.Address{}, common.Address{}, err
 	}
 
-	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[v1_0_0.ExecOffchainConfig](offchainConfigBytes)
+	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[JSONExecOffchainConfig](offchainConfigBytes)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
@@ -122,7 +188,7 @@ func (o *OffRamp) ChangeConfig(onchainConfigBytes []byte, offchainConfigBytes []
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
 	}
 	onchainConfig := ccipdata.ExecOnchainConfig{PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds)}
-	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, big.NewInt(int64(offchainConfigParsed.MaxGasPrice)), 0, 0)
+	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, big.NewInt(int64(offchainConfigParsed.ComputeDestMaxGasPrice())), 0, 0)
 
 	o.UpdateDynamicConfig(onchainConfig, offchainConfig, priceEstimator)
 

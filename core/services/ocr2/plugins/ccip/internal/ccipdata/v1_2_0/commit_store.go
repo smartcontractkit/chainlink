@@ -171,7 +171,7 @@ func (c *CommitStore) GasPriceEstimator() prices.GasPriceEstimatorCommit {
 
 // Do not change the JSON format of this struct without consulting with
 // the RDD people first.
-type CommitOffchainConfig struct {
+type JSONCommitOffchainConfig struct {
 	SourceFinalityDepth      uint32
 	DestFinalityDepth        uint32
 	GasPriceHeartBeat        config.Duration
@@ -180,16 +180,11 @@ type CommitOffchainConfig struct {
 	TokenPriceHeartBeat      config.Duration
 	TokenPriceDeviationPPB   uint32
 	MaxGasPrice              uint64
+	SourceMaxGasPrice        uint64
 	InflightCacheExpiry      config.Duration
 }
 
-func (c CommitOffchainConfig) Validate() error {
-	if c.SourceFinalityDepth == 0 {
-		return errors.New("must set SourceFinalityDepth")
-	}
-	if c.DestFinalityDepth == 0 {
-		return errors.New("must set DestFinalityDepth")
-	}
+func (c JSONCommitOffchainConfig) Validate() error {
 	if c.GasPriceHeartBeat.Duration() == 0 {
 		return errors.New("must set GasPriceHeartBeat")
 	}
@@ -202,8 +197,11 @@ func (c CommitOffchainConfig) Validate() error {
 	if c.TokenPriceDeviationPPB == 0 {
 		return errors.New("must set TokenPriceDeviationPPB")
 	}
-	if c.MaxGasPrice == 0 {
-		return errors.New("must set MaxGasPrice")
+	if c.SourceMaxGasPrice == 0 && c.MaxGasPrice == 0 {
+		return errors.New("must set SourceMaxGasPrice")
+	}
+	if c.SourceMaxGasPrice != 0 && c.MaxGasPrice != 0 {
+		return errors.New("cannot set both MaxGasPrice and SourceMaxGasPrice")
 	}
 	if c.InflightCacheExpiry.Duration() == 0 {
 		return errors.New("must set InflightCacheExpiry")
@@ -213,13 +211,20 @@ func (c CommitOffchainConfig) Validate() error {
 	return nil
 }
 
+func (c *JSONCommitOffchainConfig) ComputeSourceMaxGasPrice() uint64 {
+	if c.SourceMaxGasPrice != 0 {
+		return c.SourceMaxGasPrice
+	}
+	return c.MaxGasPrice
+}
+
 func (c *CommitStore) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (common.Address, error) {
 	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ccipdata.CommitOnchainConfig](onchainConfig)
 	if err != nil {
 		return common.Address{}, err
 	}
 
-	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[CommitOffchainConfig](offchainConfig)
+	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[JSONCommitOffchainConfig](offchainConfig)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -228,18 +233,16 @@ func (c *CommitStore) ChangeConfig(onchainConfig []byte, offchainConfig []byte) 
 	c.lggr.Infow("Initializing NewDAGasPriceEstimator", "estimator", c.estimator, "l1Oracle", c.estimator.L1Oracle())
 	c.gasPriceEstimator = prices.NewDAGasPriceEstimator(
 		c.estimator,
-		big.NewInt(int64(offchainConfigParsed.MaxGasPrice)),
+		big.NewInt(int64(offchainConfigParsed.ComputeSourceMaxGasPrice())),
 		int64(offchainConfigParsed.ExecGasPriceDeviationPPB),
 		int64(offchainConfigParsed.DAGasPriceDeviationPPB),
 	)
 	c.offchainConfig = ccipdata.NewCommitOffchainConfig(
-		offchainConfigParsed.SourceFinalityDepth,
 		offchainConfigParsed.ExecGasPriceDeviationPPB,
 		offchainConfigParsed.GasPriceHeartBeat.Duration(),
 		offchainConfigParsed.TokenPriceDeviationPPB,
 		offchainConfigParsed.TokenPriceHeartBeat.Duration(),
 		offchainConfigParsed.InflightCacheExpiry.Duration(),
-		offchainConfigParsed.DestFinalityDepth,
 	)
 	c.configMu.Unlock()
 
