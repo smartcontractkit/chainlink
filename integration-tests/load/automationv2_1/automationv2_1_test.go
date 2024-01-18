@@ -235,7 +235,7 @@ Load Config:
 	}
 
 	testEnvironment := environment.New(&environment.Config{
-		TTL: time.Hour * 24, // 1 day,
+		TTL: time.Hour * 24 * 30, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s",
 			testType,
@@ -777,10 +777,10 @@ Test Duration: %s`
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
 
-	t.Cleanup(func() {
-		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, chainClient); err != nil {
-			l.Error().Err(err).Msg("Error when tearing down remote suite")
-		}
-	})
+	//t.Cleanup(func() {
+	//	if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, chainClient); err != nil {
+	//		l.Error().Err(err).Msg("Error when tearing down remote suite")
+	//	}
+	//})
 
 }
