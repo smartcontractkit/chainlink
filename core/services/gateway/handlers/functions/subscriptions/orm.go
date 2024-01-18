@@ -98,6 +98,11 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 		subscription.BlockedBalance = big.NewInt(0)
 	}
 
+	var consumers [][]byte
+	for _, c := range subscription.Consumers {
+		consumers = append(consumers, c.Bytes())
+	}
+
 	_, err := o.q.WithOpts(qopts...).Exec(
 		stmt,
 		subscription.SubscriptionID,
@@ -105,7 +110,7 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 		subscription.Balance.Int64(),
 		subscription.BlockedBalance.Int64(),
 		subscription.ProposedOwner,
-		subscription.Consumers,
+		consumers,
 		subscription.Flags[:],
 		o.routerContractAddress,
 	)

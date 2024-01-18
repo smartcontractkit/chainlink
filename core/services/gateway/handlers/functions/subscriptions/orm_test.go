@@ -87,7 +87,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 				Owner:          testutils.NewAddress(),
 				BlockedBalance: big.NewInt(20),
 				ProposedOwner:  common.Address{},
-				Consumers:      []common.Address{},
+				Consumers:      []common.Address{testutils.NewAddress()},
 				Flags:          defaultFlags,
 			},
 		}
