@@ -3,7 +3,9 @@ package capabilities
 import (
 	"fmt"
 	"regexp"
+
 	"golang.org/x/mod/semver"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
@@ -11,18 +13,30 @@ type CapabilityType string
 
 const (
 	CapabilityTypeTrigger CapabilityType = "trigger"
-	CapabilityTypeAction CapabilityType = "action"
-	CapabilityTypeReport CapabilityType = "report"
-	CapabilityTypeTarget CapabilityType = "target"
+	CapabilityTypeAction  CapabilityType = "action"
+	CapabilityTypeReport  CapabilityType = "report"
+	CapabilityTypeTarget  CapabilityType = "target"
 )
+
+type stringer struct {
+	s string
+}
+
+func (s stringer) String() string {
+	return s.s
+}
+
+func Stringer(s string) fmt.Stringer {
+	return stringer{s: s}
+}
 
 func (c CapabilityType) IsValid() error {
 	switch c {
-		case CapabilityTypeTrigger,
-			CapabilityTypeAction,
-			CapabilityTypeReport,
-			CapabilityTypeTarget:
-			return nil
+	case CapabilityTypeTrigger,
+		CapabilityTypeAction,
+		CapabilityTypeReport,
+		CapabilityTypeTarget:
+		return nil
 	}
 
 	return fmt.Errorf("invalid capability type: %s", c)
@@ -38,57 +52,51 @@ type CapabilityInfo struct {
 	// We use `fmt.Stringer` for the ID, since an ID can take
 	// one of two forms (namely a fully-qualified ID expressed as a
 	// string), or a tags object.
-	id fmt.Stringer
-	capabilityType CapabilityType
-	description string
-	version string
+	Id             fmt.Stringer
+	CapabilityType CapabilityType
+	Description    string
+	Version        string
+}
+
+func (c CapabilityInfo) Info() CapabilityInfo {
+	return c
 }
 
 type Capability interface {
 	Validatable
-	Info() (CapabilityInfo)
+	Info() CapabilityInfo
 }
 
 type CapabilityRegistry interface {
-	ListCapabilities() ([]CapabilityInfo)
+	ListCapabilities() []CapabilityInfo
 	Get(id string) (Capability, error)
 	Add(capability Capability) error
 }
 
-type CapabilityInfoProvider struct {
-	info CapabilityInfo
-}
+var idRegex = regexp.MustCompile("[a-z0-9_\\-:]")
 
-func (c *CapabilityInfoProvider) Info() CapabilityInfo {
-	return c.info
-}
-
-var idRegex = regexp.MustCompile("[a-z0-9_-:]")
-
-func NewCapabilityInfoProvider(
+func NewCapabilityInfo(
 	id fmt.Stringer,
 	capabilityType CapabilityType,
 	description string,
 	version string,
-) (*CapabilityInfoProvider, error) {
+) (CapabilityInfo, error) {
 	if !idRegex.MatchString(id.String()) {
-		return nil, fmt.Errorf("invalid id: %s. Allowed: %s", id, idRegex)
+		return CapabilityInfo{}, fmt.Errorf("invalid id: %s. Allowed: %s", id, idRegex)
 	}
 
 	if ok := semver.IsValid(version); !ok {
-		return nil, fmt.Errorf("invalid version: %+v", version)
-	}
-	
-	if err := capabilityType.IsValid(); err != nil {
-		return nil, err
+		return CapabilityInfo{}, fmt.Errorf("invalid version: %+v", version)
 	}
 
-	return &CapabilityInfoProvider{
-		info: CapabilityInfo{
-			id: id,
-			capabilityType: capabilityType,
-			description: description,
-			version: version,
-		},
+	if err := capabilityType.IsValid(); err != nil {
+		return CapabilityInfo{}, err
+	}
+
+	return CapabilityInfo{
+		Id:             id,
+		CapabilityType: capabilityType,
+		Description:    description,
+		Version:        version,
 	}, nil
 }

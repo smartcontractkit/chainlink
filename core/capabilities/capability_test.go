@@ -1,26 +1,46 @@
 package capabilities
 
 import (
-	"fmt"
 	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type capabilityUnderTest struct {
-	Validatable
-	CapabilityInfoProvider
-}
-
 func Test_CapabilityInfo(t *testing.T) {
-
-	capability, err := NewCapabilityInfoProvider(fmt.Stringer(), CapabilityTypeAction, "This is a mock capability that doesn't do anything.", "test")
-
+	ci, err := NewCapabilityInfo(
+		Stringer("capability-id"),
+		CapabilityTypeAction,
+		"This is a mock capability that doesn't do anything.",
+		"v1.0.0",
+	)
 	require.NoError(t, err)
 
-	capabilityUnderTest := capabilityUnderTest{
-		capability,
-	}
+	assert.Equal(t, ci, ci.Info())
+}
 
-	assert.Equal(t, mockCapabilityInfo, capability.Info())
+func Test_CapabilityInfo_Invalid(t *testing.T) {
+	_, err := NewCapabilityInfo(
+		Stringer("capability-id"),
+		"test",
+		"This is a mock capability that doesn't do anything.",
+		"v1.0.0",
+	)
+	assert.ErrorContains(t, err, "invalid capability type")
+
+	_, err = NewCapabilityInfo(
+		Stringer("&!!!"),
+		CapabilityTypeAction,
+		"This is a mock capability that doesn't do anything.",
+		"v1.0.0",
+	)
+	assert.ErrorContains(t, err, "invalid id")
+
+	_, err = NewCapabilityInfo(
+		Stringer("mock-capability"),
+		CapabilityTypeAction,
+		"This is a mock capability that doesn't do anything.",
+		"hello",
+	)
+	assert.ErrorContains(t, err, "invalid version")
 }
