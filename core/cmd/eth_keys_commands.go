@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,9 +11,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -183,7 +183,7 @@ func (s *Shell) ListETHKeys(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -212,7 +212,7 @@ func (s *Shell) CreateETHKey(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -223,7 +223,7 @@ func (s *Shell) CreateETHKey(c *cli.Context) (err error) {
 // address of key must be passed
 func (s *Shell) DeleteETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the address of the key to be deleted"))
+		return s.errorOut(pkgerrors.New("Must pass the address of the key to be deleted"))
 	}
 	address := c.Args().Get(0)
 
@@ -237,21 +237,21 @@ func (s *Shell) DeleteETHKey(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return s.errorOut(errors.Wrap(err, "Failed to read request response"))
+			return s.errorOut(pkgerrors.Wrap(err, "Failed to read request response"))
 		}
 		var result *models.JSONAPIErrors
 		err = json.Unmarshal(body, &result)
 		if err != nil {
-			return s.errorOut(errors.Wrapf(err, "Unable to unmarshal json from body '%s'", string(body)))
+			return s.errorOut(pkgerrors.Wrapf(err, "Unable to unmarshal json from body '%s'", string(body)))
 		}
-		return s.errorOut(errors.Errorf("Delete ETH key failed: %s", result.Error()))
+		return s.errorOut(pkgerrors.Errorf("Delete ETH key failed: %s", result.Error()))
 	}
 	return s.renderAPIResponse(resp, &EthKeyPresenter{}, fmt.Sprintf("🔑 Deleted ETH key: %s\n", address))
 }
@@ -260,16 +260,16 @@ func (s *Shell) DeleteETHKey(c *cli.Context) (err error) {
 // file path must be passed
 func (s *Shell) ImportETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+		return s.errorOut(pkgerrors.New("Must pass the filepath of the key to be imported"))
 	}
 
 	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return s.errorOut(errors.New("Must specify --old-password/-p flag"))
+		return s.errorOut(pkgerrors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
@@ -296,7 +296,7 @@ func (s *Shell) ImportETHKey(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -307,21 +307,21 @@ func (s *Shell) ImportETHKey(c *cli.Context) (err error) {
 // address must be passed
 func (s *Shell) ExportETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the address of the key to export"))
+		return s.errorOut(pkgerrors.New("Must pass the address of the key to export"))
 	}
 
 	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return s.errorOut(errors.New("Must specify --new-password/-p flag"))
+		return s.errorOut(pkgerrors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(newPassword) == 0 {
-		return s.errorOut(errors.New("Must specify --output/-o flag"))
+		return s.errorOut(pkgerrors.New("Must specify --output/-o flag"))
 	}
 
 	address := c.Args().Get(0)
@@ -334,11 +334,11 @@ func (s *Shell) ExportETHKey(c *cli.Context) (err error) {
 	exportUrl.RawQuery = query.Encode()
 	resp, err := s.HTTP.Post(s.ctx(), exportUrl.String(), nil)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -348,12 +348,12 @@ func (s *Shell) ExportETHKey(c *cli.Context) (err error) {
 
 	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read response body"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read response body"))
 	}
 
 	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
-		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+		return s.errorOut(pkgerrors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString("🔑 Exported ETH key " + address + " to " + filepath + "\n")
@@ -377,7 +377,7 @@ func (s *Shell) UpdateChainEVMKey(c *cli.Context) (err error) {
 	query.Set("abandon", abandon)
 
 	if c.IsSet("enable") && c.IsSet("disable") {
-		return s.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
+		return s.errorOut(pkgerrors.New("cannot set both --enable and --disable simultaneously"))
 	} else if c.Bool("enable") {
 		query.Set("enabled", "true")
 	} else if c.Bool("disable") {
@@ -387,11 +387,11 @@ func (s *Shell) UpdateChainEVMKey(c *cli.Context) (err error) {
 	chainURL.RawQuery = query.Encode()
 	resp, err := s.HTTP.Post(s.ctx(), chainURL.String(), nil)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 

@@ -8,7 +8,6 @@ import (
 	"math/big"
 
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -123,7 +122,7 @@ func (s *Shell) ShowTransaction(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -204,7 +203,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 

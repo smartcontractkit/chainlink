@@ -2,15 +2,15 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -111,7 +111,7 @@ func (cli *keysClient[K, P, P2]) ListKeys(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -127,7 +127,7 @@ func (cli *keysClient[K, P, P2]) CreateKey(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -139,7 +139,7 @@ func (cli *keysClient[K, P, P2]) CreateKey(_ *cli.Context) (err error) {
 // key ID must be passed
 func (cli *keysClient[K, P, P2]) DeleteKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
+		return cli.errorOut(pkgerrors.New("Must pass the key ID to be deleted"))
 	}
 	id := c.Args().Get(0)
 
@@ -158,7 +158,7 @@ func (cli *keysClient[K, P, P2]) DeleteKey(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -170,16 +170,16 @@ func (cli *keysClient[K, P, P2]) DeleteKey(c *cli.Context) (err error) {
 // path to key must be passed
 func (cli *keysClient[K, P, P2]) ImportKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+		return cli.errorOut(pkgerrors.New("Must pass the filepath of the key to be imported"))
 	}
 
 	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --old-password/-p flag"))
+		return cli.errorOut(pkgerrors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+		return cli.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
@@ -195,7 +195,7 @@ func (cli *keysClient[K, P, P2]) ImportKey(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -207,21 +207,21 @@ func (cli *keysClient[K, P, P2]) ImportKey(c *cli.Context) (err error) {
 // key ID must be passed
 func (cli *keysClient[K, P, P2]) ExportKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
+		return cli.errorOut(pkgerrors.New("Must pass the ID of the key to export"))
 	}
 
 	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --new-password/-p flag"))
+		return cli.errorOut(pkgerrors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+		return cli.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(filepath) == 0 {
-		return cli.errorOut(errors.New("Must specify --output/-o flag"))
+		return cli.errorOut(pkgerrors.New("Must specify --output/-o flag"))
 	}
 
 	ID := c.Args().Get(0)
@@ -229,11 +229,11 @@ func (cli *keysClient[K, P, P2]) ExportKey(c *cli.Context) (err error) {
 	normalizedPassword := normalizePassword(string(newPassword))
 	resp, err := cli.HTTP.Post(cli.ctx(), cli.path+"/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return cli.errorOut(pkgerrors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -243,12 +243,12 @@ func (cli *keysClient[K, P, P2]) ExportKey(c *cli.Context) (err error) {
 
 	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
+		return cli.errorOut(pkgerrors.Wrap(err, "Could not read response body"))
 	}
 
 	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
 	if err != nil {
-		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+		return cli.errorOut(pkgerrors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported %s key %s to %s\n", cli.typ, ID, filepath))

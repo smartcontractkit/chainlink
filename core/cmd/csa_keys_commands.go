@@ -2,15 +2,15 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -114,7 +114,7 @@ func (s *Shell) ListCSAKeys(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -129,7 +129,7 @@ func (s *Shell) CreateCSAKey(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -139,16 +139,16 @@ func (s *Shell) CreateCSAKey(_ *cli.Context) (err error) {
 // ImportCSAKey imports and stores a CSA key. Path to key must be passed.
 func (s *Shell) ImportCSAKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+		return s.errorOut(pkgerrors.New("Must pass the filepath of the key to be imported"))
 	}
 
 	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return s.errorOut(errors.New("Must specify --old-password/-p flag"))
+		return s.errorOut(pkgerrors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
@@ -171,7 +171,7 @@ func (s *Shell) ImportCSAKey(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -181,22 +181,22 @@ func (s *Shell) ImportCSAKey(c *cli.Context) (err error) {
 // ExportCSAKey exports a CSA key. Key ID must be passed.
 func (s *Shell) ExportCSAKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the ID of the key to export"))
+		return s.errorOut(pkgerrors.New("Must pass the ID of the key to export"))
 	}
 
 	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return s.errorOut(errors.New("Must specify --new-password/-p flag"))
+		return s.errorOut(pkgerrors.New("Must specify --new-password/-p flag"))
 	}
 
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(filepath) == 0 {
-		return s.errorOut(errors.New("Must specify --output/-o flag"))
+		return s.errorOut(pkgerrors.New("Must specify --output/-o flag"))
 	}
 
 	ID := c.Args().Get(0)
@@ -210,11 +210,11 @@ func (s *Shell) ExportCSAKey(c *cli.Context) (err error) {
 	exportUrl.RawQuery = query.Encode()
 	resp, err := s.HTTP.Post(s.ctx(), exportUrl.String(), nil)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -224,12 +224,12 @@ func (s *Shell) ExportCSAKey(c *cli.Context) (err error) {
 
 	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read response body"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read response body"))
 	}
 
 	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
-		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+		return s.errorOut(pkgerrors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported P2P key %s to %s\n", ID, filepath))

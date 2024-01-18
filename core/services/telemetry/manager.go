@@ -2,12 +2,12 @@ package telemetry
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
@@ -118,7 +118,7 @@ func (m *Manager) Start(ctx context.Context) error {
 	return m.StartOnce("TelemetryManager", func() error {
 		var err error
 		for _, e := range m.endpoints {
-			err = multierr.Append(err, e.client.Start(ctx))
+			err = errors.Join(err, e.client.Start(ctx))
 		}
 		return err
 	})
@@ -127,7 +127,7 @@ func (m *Manager) Close() error {
 	return m.StopOnce("TelemetryManager", func() error {
 		var err error
 		for _, e := range m.endpoints {
-			err = multierr.Append(err, e.client.Close())
+			err = errors.Join(err, e.client.Close())
 		}
 		return err
 	})
@@ -166,23 +166,23 @@ func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contract
 
 func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
 	if e.Network() == "" && !m.legacyMode {
-		return errors.New("cannot add telemetry endpoint, network cannot be empty")
+		return pkgerrors.New("cannot add telemetry endpoint, network cannot be empty")
 	}
 
 	if e.ChainID() == "" && !m.legacyMode {
-		return errors.New("cannot add telemetry endpoint, chainID cannot be empty")
+		return pkgerrors.New("cannot add telemetry endpoint, chainID cannot be empty")
 	}
 
 	if e.URL() == nil {
-		return errors.New("cannot add telemetry endpoint, URL cannot be empty")
+		return pkgerrors.New("cannot add telemetry endpoint, URL cannot be empty")
 	}
 
 	if e.ServerPubKey() == "" {
-		return errors.New("cannot add telemetry endpoint, ServerPubKey cannot be empty")
+		return pkgerrors.New("cannot add telemetry endpoint, ServerPubKey cannot be empty")
 	}
 
 	if _, found := m.getEndpoint(e.Network(), e.ChainID()); found {
-		return errors.Errorf("cannot add telemetry endpoint for network %q and chainID %q, endpoint already exists", e.Network(), e.ChainID())
+		return pkgerrors.Errorf("cannot add telemetry endpoint for network %q and chainID %q, endpoint already exists", e.Network(), e.ChainID())
 	}
 
 	var tClient synchronization.TelemetryService

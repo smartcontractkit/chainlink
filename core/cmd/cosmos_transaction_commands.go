@@ -8,7 +8,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -121,7 +120,7 @@ func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 

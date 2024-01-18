@@ -2,14 +2,14 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -133,7 +133,7 @@ func (s *Shell) ListOCR2KeyBundles(_ *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -145,7 +145,7 @@ func (s *Shell) ListOCR2KeyBundles(_ *cli.Context) error {
 func (s *Shell) CreateOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return s.errorOut(
-			errors.Errorf(`must pass the type to create, options are: %s`, chaintype.SupportedChainTypes.String()),
+			pkgerrors.Errorf(`must pass the type to create, options are: %s`, chaintype.SupportedChainTypes.String()),
 		)
 	}
 	chainType := c.Args().Get(0)
@@ -155,7 +155,7 @@ func (s *Shell) CreateOCR2KeyBundle(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -166,7 +166,7 @@ func (s *Shell) CreateOCR2KeyBundle(c *cli.Context) error {
 // DeleteOCR2KeyBundle deletes an OCR2 key bundle
 func (s *Shell) DeleteOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the key ID to be deleted"))
+		return s.errorOut(pkgerrors.New("Must pass the key ID to be deleted"))
 	}
 	id, err := models.Sha256HashFromHex(c.Args().Get(0))
 	if err != nil {
@@ -188,7 +188,7 @@ func (s *Shell) DeleteOCR2KeyBundle(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -199,16 +199,16 @@ func (s *Shell) DeleteOCR2KeyBundle(c *cli.Context) error {
 // ImportOCR2Key imports OCR2 key bundle
 func (s *Shell) ImportOCR2Key(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+		return s.errorOut(pkgerrors.New("Must pass the filepath of the key to be imported"))
 	}
 
 	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return s.errorOut(errors.New("Must specify --old-password/-p flag"))
+		return s.errorOut(pkgerrors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
@@ -224,7 +224,7 @@ func (s *Shell) ImportOCR2Key(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -235,21 +235,21 @@ func (s *Shell) ImportOCR2Key(c *cli.Context) (err error) {
 // ExportOCR2Key exports an OCR2 key bundle by ID
 func (s *Shell) ExportOCR2Key(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the ID of the key to export"))
+		return s.errorOut(pkgerrors.New("Must pass the ID of the key to export"))
 	}
 
 	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return s.errorOut(errors.New("Must specify --new-password/-p flag"))
+		return s.errorOut(pkgerrors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(filepath) == 0 {
-		return s.errorOut(errors.New("Must specify --output/-o flag"))
+		return s.errorOut(pkgerrors.New("Must specify --output/-o flag"))
 	}
 
 	ID := c.Args().Get(0)
@@ -257,11 +257,11 @@ func (s *Shell) ExportOCR2Key(c *cli.Context) (err error) {
 	normalizedPassword := normalizePassword(string(newPassword))
 	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/ocr2/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -271,12 +271,12 @@ func (s *Shell) ExportOCR2Key(c *cli.Context) (err error) {
 
 	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read response body"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read response body"))
 	}
 
 	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
-		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+		return s.errorOut(pkgerrors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported OCR key bundle %s to %s", ID, filepath))

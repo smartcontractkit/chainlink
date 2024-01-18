@@ -10,7 +10,6 @@ import (
 	solanaGo "github.com/gagliardetto/solana-go"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -112,7 +111,7 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
@@ -251,7 +250,7 @@ func validateEnv() (err error) {
 		k := kv[:i]
 		_, ok := os.LookupEnv(k)
 		if ok {
-			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
+			err = errors.Join(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
 		}
 	}
 	return

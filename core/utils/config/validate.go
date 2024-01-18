@@ -1,13 +1,13 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -33,11 +33,11 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 	if checkInterface {
 		i := v.Interface()
 		if vc, ok := i.(Validated); ok {
-			err = multierr.Append(err, vc.ValidateConfig())
+			err = errors.Join(err, vc.ValidateConfig())
 		} else if v.CanAddr() {
 			i = v.Addr().Interface()
 			if vc, ok := i.(Validated); ok {
-				err = multierr.Append(err, vc.ValidateConfig())
+				err = errors.Join(err, vc.ValidateConfig())
 			}
 		}
 	}
@@ -72,9 +72,9 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 			// skip the interface if Anonymous, since the parent struct inherits the methods
 			if fe := validate(fv, !ft.Anonymous); fe != nil {
 				if ft.Anonymous {
-					err = multierr.Append(err, fe)
+					err = errors.Join(err, fe)
 				} else {
-					err = multierr.Append(err, NamedMultiErrorList(fe, ft.Name))
+					err = errors.Join(err, NamedMultiErrorList(fe, ft.Name))
 				}
 			}
 		}
@@ -91,7 +91,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 				continue
 			}
 			if me := validate(mv, true); me != nil {
-				err = multierr.Append(err, NamedMultiErrorList(me, fmt.Sprintf("%s", mk.Interface())))
+				err = errors.Join(err, NamedMultiErrorList(me, fmt.Sprintf("%s", mk.Interface())))
 			}
 		}
 		return
@@ -105,7 +105,7 @@ func validate(v reflect.Value, checkInterface bool) (err error) {
 				continue
 			}
 			if me := validate(iv, true); me != nil {
-				err = multierr.Append(err, NamedMultiErrorList(me, strconv.Itoa(i)))
+				err = errors.Join(err, NamedMultiErrorList(me, strconv.Itoa(i)))
 			}
 		}
 		return

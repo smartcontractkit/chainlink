@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/grafana/pyroscope-go"
 	pkgerrors "github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/jmoiron/sqlx"
@@ -595,7 +594,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 				return
 			}
 			if lerr := app.closeLogger(); lerr != nil {
-				err = multierr.Append(err, lerr)
+				err = errors.Join(err, lerr)
 			}
 		}()
 		app.logger.Info("Gracefully exiting...")
@@ -604,24 +603,24 @@ func (app *ChainlinkApplication) stop() (err error) {
 		for i := len(app.srvcs) - 1; i >= 0; i-- {
 			service := app.srvcs[i]
 			app.logger.Debugw("Closing service...", "name", service.Name())
-			err = multierr.Append(err, service.Close())
+			err = errors.Join(err, service.Close())
 		}
 
 		app.logger.Debug("Stopping SessionReaper...")
-		err = multierr.Append(err, app.SessionReaper.Stop())
+		err = errors.Join(err, app.SessionReaper.Stop())
 		app.logger.Debug("Closing HealthChecker...")
-		err = multierr.Append(err, app.HealthChecker.Close())
+		err = errors.Join(err, app.HealthChecker.Close())
 		if app.FeedsService != nil {
 			app.logger.Debug("Closing Feeds Service...")
-			err = multierr.Append(err, app.FeedsService.Close())
+			err = errors.Join(err, app.FeedsService.Close())
 		}
 
 		if app.Nurse != nil {
-			err = multierr.Append(err, app.Nurse.Close())
+			err = errors.Join(err, app.Nurse.Close())
 		}
 
 		if app.profiler != nil {
-			err = multierr.Append(err, app.profiler.Stop())
+			err = errors.Join(err, app.profiler.Stop())
 		}
 
 		app.logger.Info("Exited all services")

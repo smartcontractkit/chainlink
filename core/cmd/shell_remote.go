@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,10 +16,9 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -80,15 +80,15 @@ func initRemoteConfigSubCmds(s *Shell) []cli.Command {
 }
 
 var (
-	errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
-	errForbidden    = errors.New(http.StatusText(http.StatusForbidden))
-	errBadRequest   = errors.New(http.StatusText(http.StatusBadRequest))
+	errUnauthorized = pkgerrors.New(http.StatusText(http.StatusUnauthorized))
+	errForbidden    = pkgerrors.New(http.StatusText(http.StatusForbidden))
+	errBadRequest   = pkgerrors.New(http.StatusText(http.StatusBadRequest))
 )
 
 // CreateExternalInitiator adds an external initiator
 func (s *Shell) CreateExternalInitiator(c *cli.Context) (err error) {
 	if c.NArg() != 1 && c.NArg() != 2 {
-		return s.errorOut(errors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
+		return s.errorOut(pkgerrors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
 	}
 
 	var request bridges.ExternalInitiatorRequest
@@ -116,7 +116,7 @@ func (s *Shell) CreateExternalInitiator(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -128,7 +128,7 @@ func (s *Shell) CreateExternalInitiator(c *cli.Context) (err error) {
 // DeleteExternalInitiator removes an external initiator
 func (s *Shell) DeleteExternalInitiator(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the name of the external initiator to delete"))
+		return s.errorOut(pkgerrors.New("Must pass the name of the external initiator to delete"))
 	}
 
 	resp, err := s.HTTP.Delete(s.ctx(), "/v2/external_initiators/"+c.Args().First())
@@ -137,7 +137,7 @@ func (s *Shell) DeleteExternalInitiator(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 	_, err = s.parseResponse(resp)
@@ -161,7 +161,7 @@ func (s *Shell) getPage(requestURI string, page int, model interface{}) (err err
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -200,7 +200,7 @@ func (s *Shell) Logout(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 	err = s.CookieAuthenticator.Logout()
@@ -230,7 +230,7 @@ func (s *Shell) ChangePassword(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -270,12 +270,12 @@ func getTOMLString(s string) (string, error) {
 
 func (s *Shell) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
-	if errors.Is(err, errUnauthorized) {
-		return nil, s.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
+	if pkgerrors.Is(err, errUnauthorized) {
+		return nil, s.errorOut(errors.Join(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
 
-	if errors.Is(err, errForbidden) {
-		return nil, s.errorOut(multierr.Append(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
+	if pkgerrors.Is(err, errForbidden) {
+		return nil, s.errorOut(errors.Join(err, fmt.Errorf("this action requires %s privileges. The current user %s has '%s' role and cannot perform this action, login with a user that has '%s' role via 'chainlink admin login'", resp.Header.Get("forbidden-required-role"), resp.Header.Get("forbidden-provided-email"), resp.Header.Get("forbidden-provided-role"), resp.Header.Get("forbidden-required-role"))))
 	}
 	if err != nil {
 		return nil, s.errorOut(err)
@@ -319,7 +319,7 @@ func (s *Shell) configV2Str(userOnly bool) (string, error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 	respPayload, err := io.ReadAll(resp.Body)
@@ -327,7 +327,7 @@ func (s *Shell) configV2Str(userOnly bool) (string, error) {
 		return "", s.errorOut(err)
 	}
 	if resp.StatusCode != 200 {
-		return "", s.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
+		return "", s.errorOut(pkgerrors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
 	}
 	var configV2Resource web.ConfigV2Resource
 	err = web.ParseJSONAPIResponse(respPayload, &configV2Resource)
@@ -357,7 +357,7 @@ func (s *Shell) SetLogLevel(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -370,7 +370,7 @@ func (s *Shell) SetLogLevel(c *cli.Context) (err error) {
 func (s *Shell) SetLogSQL(c *cli.Context) (err error) {
 	// Enforces selection of --enable or --disable
 	if !c.Bool("enable") && !c.Bool("disable") {
-		return s.errorOut(errors.New("Must set logSql --enabled || --disable"))
+		return s.errorOut(pkgerrors.New("Must set logSql --enabled || --disable"))
 	}
 
 	// Sets logSql to true || false based on the --enabled flag
@@ -389,7 +389,7 @@ func (s *Shell) SetLogSQL(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -428,7 +428,7 @@ func fromFile(arg string) (*bytes.Buffer, error) {
 func (s *Shell) deserializeAPIResponse(resp *http.Response, dst interface{}, links *jsonapi.Links) error {
 	b, err := s.parseResponse(resp)
 	if err != nil {
-		return errors.Wrap(err, "parseResponse error")
+		return pkgerrors.Wrap(err, "parseResponse error")
 	}
 	if err = web.ParsePaginatedResponse(b, dst, links); err != nil {
 		return s.errorOut(err)
@@ -442,15 +442,15 @@ func parseErrorResponseBody(responseBody []byte) (string, error) {
 		return "Empty error message", nil
 	}
 
-	var errors models.JSONAPIErrors
-	err := json.Unmarshal(responseBody, &errors)
-	if err != nil || len(errors.Errors) == 0 {
+	var errs models.JSONAPIErrors
+	err := json.Unmarshal(responseBody, &errs)
+	if err != nil || len(errs.Errors) == 0 {
 		return "", err
 	}
 
 	var errorDetails strings.Builder
-	errorDetails.WriteString(errors.Errors[0].Detail)
-	for _, errorDetail := range errors.Errors[1:] {
+	errorDetails.WriteString(errs.Errors[0].Detail)
+	for _, errorDetail := range errs.Errors[1:] {
 		fmt.Fprintf(&errorDetails, "\n%s", errorDetail.Detail)
 	}
 	return errorDetails.String(), nil
@@ -459,7 +459,7 @@ func parseErrorResponseBody(responseBody []byte) (string, error) {
 func parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return b, multierr.Append(errors.New(resp.Status), err)
+		return b, errors.Join(pkgerrors.New(resp.Status), err)
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
@@ -470,7 +470,7 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 		if err2 != nil {
 			return b, err2
 		}
-		return b, errors.New(errorMessage)
+		return b, pkgerrors.New(errorMessage)
 	}
 	return b, err
 }

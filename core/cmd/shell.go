@@ -27,7 +27,6 @@ import (
 	"github.com/gin-gonic/gin"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
@@ -714,7 +713,7 @@ func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, multierr.Append(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
+		return nil, errors.Join(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
 	}
 	header := http.Header{}
 	header.Add("Cookie", string(b))

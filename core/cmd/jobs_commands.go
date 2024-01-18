@@ -3,14 +3,14 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -209,7 +209,7 @@ func (s *Shell) ListJobs(c *cli.Context) (err error) {
 // ShowJob displays the details of a job
 func (s *Shell) ShowJob(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("must provide the id of the job"))
+		return s.errorOut(pkgerrors.New("must provide the id of the job"))
 	}
 	id := c.Args().First()
 	resp, err := s.HTTP.Get(s.ctx(), "/v2/jobs/"+id)
@@ -218,7 +218,7 @@ func (s *Shell) ShowJob(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -229,7 +229,7 @@ func (s *Shell) ShowJob(c *cli.Context) (err error) {
 // Valid input is a TOML string or a path to TOML file
 func (s *Shell) CreateJob(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("must pass in TOML or filepath"))
+		return s.errorOut(pkgerrors.New("must pass in TOML or filepath"))
 	}
 
 	tomlString, err := getTOMLString(c.Args().First())
@@ -250,14 +250,14 @@ func (s *Shell) CreateJob(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
 	if resp.StatusCode >= 400 {
 		body, rerr := io.ReadAll(resp.Body)
 		if err != nil {
-			err = multierr.Append(err, rerr)
+			err = errors.Join(err, rerr)
 			return s.errorOut(err)
 		}
 		fmt.Printf("Response: '%v', Status: %d\n", string(body), resp.StatusCode)
@@ -271,7 +271,7 @@ func (s *Shell) CreateJob(c *cli.Context) (err error) {
 // DeleteJob deletes a job
 func (s *Shell) DeleteJob(c *cli.Context) error {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("must pass the job id to be archived"))
+		return s.errorOut(pkgerrors.New("must pass the job id to be archived"))
 	}
 	resp, err := s.HTTP.Delete(s.ctx(), "/v2/jobs/"+c.Args().First())
 	if err != nil {
@@ -289,7 +289,7 @@ func (s *Shell) DeleteJob(c *cli.Context) error {
 // TriggerPipelineRun triggers a job run based on a job ID
 func (s *Shell) TriggerPipelineRun(c *cli.Context) error {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the job id to trigger a run"))
+		return s.errorOut(pkgerrors.New("Must pass the job id to trigger a run"))
 	}
 	resp, err := s.HTTP.Post(s.ctx(), "/v2/jobs/"+c.Args().First()+"/runs", nil)
 	if err != nil {
@@ -297,7 +297,7 @@ func (s *Shell) TriggerPipelineRun(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 

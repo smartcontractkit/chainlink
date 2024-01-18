@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
@@ -175,7 +174,7 @@ func (m *connectionManager) StartHandshake(authHeader []byte) (attemptId string,
 	m.lggr.Debug("StartHandshake")
 	authHeaderElems, signer, err := network.UnpackSignedAuthHeader(authHeader)
 	if err != nil {
-		return "", nil, multierr.Append(network.ErrAuthHeaderParse, err)
+		return "", nil, errors.Join(network.ErrAuthHeaderParse, err)
 	}
 	nodeAddress := "0x" + hex.EncodeToString(signer)
 	donConnMgr, ok := m.dons[authHeaderElems.DonId]

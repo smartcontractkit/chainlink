@@ -1,10 +1,9 @@
 package config
 
 import (
+	"errors"
 	"math/big"
 	"time"
-
-	"go.uber.org/multierr"
 
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -57,7 +56,7 @@ func (c *ChainScoped) Validate() (err error) {
 		DataSourceGracePeriod:                  c.EVM().OCR().ObservationGracePeriod(),
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
-		err = multierr.Append(err, ocrerr)
+		err = errors.Join(err, ocrerr)
 	}
 	return
 }

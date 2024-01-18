@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"go.uber.org/multierr"
-
 	gotoml "github.com/pelletier/go-toml/v2"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
@@ -56,7 +54,7 @@ func (c *Config) TOMLString() (string, error) {
 func (c *Config) warnings() (err error) {
 	deprecationErr := c.deprecationWarnings()
 	warningErr := c.valueWarnings()
-	err = multierr.Append(deprecationErr, warningErr)
+	err = errors.Join(deprecationErr, warningErr)
 	_, list := utils.MultiErrorList(err)
 	return list
 }
@@ -66,7 +64,7 @@ func (c *Config) valueWarnings() (err error) {
 	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
 		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
 			if c.Tracing.TLSCertPath != nil {
-				err = multierr.Append(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+				err = errors.Join(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
 			}
 		}
 	}
@@ -129,19 +127,19 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	c.Core.SetFrom(&f.Core)
 
 	if err1 := c.EVM.SetFrom(&f.EVM); err1 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err1, "EVM"))
+		err = errors.Join(err, config.NamedMultiErrorList(err1, "EVM"))
 	}
 
 	if err2 := c.Cosmos.SetFrom(&f.Cosmos); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Cosmos"))
+		err = errors.Join(err, config.NamedMultiErrorList(err2, "Cosmos"))
 	}
 
 	if err3 := c.Solana.SetFrom(&f.Solana); err3 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Solana"))
+		err = errors.Join(err, config.NamedMultiErrorList(err3, "Solana"))
 	}
 
 	if err4 := c.Starknet.SetFrom(&f.Starknet); err4 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Starknet"))
+		err = errors.Join(err, config.NamedMultiErrorList(err4, "Starknet"))
 	}
 
 	_, err = utils.MultiErrorList(err)
@@ -155,31 +153,31 @@ type Secrets struct {
 
 func (s *Secrets) SetFrom(f *Secrets) (err error) {
 	if err2 := s.Database.SetFrom(&f.Database); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Database"))
+		err = errors.Join(err, config.NamedMultiErrorList(err2, "Database"))
 	}
 
 	if err2 := s.Password.SetFrom(&f.Password); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Password"))
+		err = errors.Join(err, config.NamedMultiErrorList(err2, "Password"))
 	}
 
 	if err2 := s.WebServer.SetFrom(&f.WebServer); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "WebServer"))
+		err = errors.Join(err, config.NamedMultiErrorList(err2, "WebServer"))
 	}
 
 	if err2 := s.Pyroscope.SetFrom(&f.Pyroscope); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Pyroscope"))
+		err = errors.Join(err, config.NamedMultiErrorList(err2, "Pyroscope"))
 	}
 
 	if err2 := s.Prometheus.SetFrom(&f.Prometheus); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Prometheus"))
+		err = errors.Join(err, config.NamedMultiErrorList(err2, "Prometheus"))
 	}
 
 	if err2 := s.Mercury.SetFrom(&f.Mercury); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Mercury"))
+		err = errors.Join(err, config.NamedMultiErrorList(err2, "Mercury"))
 	}
 
 	if err2 := s.Threshold.SetFrom(&f.Threshold); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Threshold"))
+		err = errors.Join(err, config.NamedMultiErrorList(err2, "Threshold"))
 	}
 
 	_, err = utils.MultiErrorList(err)

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -95,7 +94,7 @@ func (c *Core) SetFrom(f *Core) {
 func (c *Core) ValidateConfig() (err error) {
 	_, verr := parse.HomeDir(*c.RootDir)
 	if err != nil {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
 	}
 
 	return err
@@ -152,17 +151,17 @@ func (d *DatabaseSecrets) ValidateConfig() (err error) {
 
 func (d *DatabaseSecrets) validateConfig(buildMode string) (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
-		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
+		err = errors.Join(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if *d.AllowSimplePasswords && buildMode == build.Prod {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	} else if !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
 	if d.BackupURL != nil && !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.BackupURL)); verr != nil {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
 	return err
@@ -188,15 +187,15 @@ func (d *DatabaseSecrets) SetFrom(f *DatabaseSecrets) (err error) {
 
 func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 	if d.AllowSimplePasswords != nil && f.AllowSimplePasswords != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "AllowSimplePasswords"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "AllowSimplePasswords"})
 	}
 
 	if d.BackupURL != nil && f.BackupURL != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "BackupURL"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "BackupURL"})
 	}
 
 	if d.URL != nil && f.URL != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "URL"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "URL"})
 	}
 
 	return err
@@ -225,11 +224,11 @@ func (p *Passwords) SetFrom(f *Passwords) (err error) {
 
 func (p *Passwords) validateMerge(f *Passwords) (err error) {
 	if p.Keystore != nil && f.Keystore != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "Keystore"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "Keystore"})
 	}
 
 	if p.VRF != nil && f.VRF != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "VRF"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "VRF"})
 	}
 
 	return err
@@ -237,7 +236,7 @@ func (p *Passwords) validateMerge(f *Passwords) (err error) {
 
 func (p *Passwords) ValidateConfig() (err error) {
 	if p.Keystore == nil || *p.Keystore == "" {
-		err = multierr.Append(err, configutils.ErrEmpty{Name: "Keystore", Msg: "must be provided and non-empty"})
+		err = errors.Join(err, configutils.ErrEmpty{Name: "Keystore", Msg: "must be provided and non-empty"})
 	}
 	return err
 }
@@ -261,7 +260,7 @@ func (p *PyroscopeSecrets) SetFrom(f *PyroscopeSecrets) (err error) {
 
 func (p *PyroscopeSecrets) validateMerge(f *PyroscopeSecrets) (err error) {
 	if p.AuthToken != nil && f.AuthToken != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "AuthToken"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "AuthToken"})
 	}
 
 	return err
@@ -286,7 +285,7 @@ func (p *PrometheusSecrets) SetFrom(f *PrometheusSecrets) (err error) {
 
 func (p *PrometheusSecrets) validateMerge(f *PrometheusSecrets) (err error) {
 	if p.AuthToken != nil && f.AuthToken != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "AuthToken"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "AuthToken"})
 	}
 
 	return err
@@ -386,7 +385,7 @@ func (l *DatabaseLock) Mode() string {
 
 func (l *DatabaseLock) ValidateConfig() (err error) {
 	if l.LeaseRefreshInterval.Duration() > l.LeaseDuration.Duration()/2 {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval.String(),
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval.String(),
 			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration.String())})
 	}
 	return
@@ -667,28 +666,28 @@ func (w *WebServer) ValidateConfig() (err error) {
 
 	// Assert LDAP fields when AuthMethod set to LDAP
 	if *w.LDAP.BaseDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
 	}
 	if *w.LDAP.BaseUserAttr == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
 	}
 	if *w.LDAP.UsersDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
 	}
 	if *w.LDAP.GroupsDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
 	}
 	if *w.LDAP.AdminUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
 	}
 	if *w.LDAP.EditUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
 	}
 	if *w.LDAP.RunUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
 	}
 	if *w.LDAP.ReadUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
 	}
 	return err
 }
@@ -1257,17 +1256,17 @@ func (ins *Insecure) validateConfig(buildMode string) (err error) {
 		return
 	}
 	if ins.DevWebServer != nil && *ins.DevWebServer {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	// OCRDevelopmentMode is allowed on dev/test builds.
 	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && buildMode == build.Prod {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.InfiniteDepthQueries != nil && *ins.InfiniteDepthQueries {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "InfiniteDepthQueries", Value: *ins.InfiniteDepthQueries, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "InfiniteDepthQueries", Value: *ins.InfiniteDepthQueries, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.DisableRateLimiting != nil && *ins.DisableRateLimiting {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "DisableRateLimiting", Value: *ins.DisableRateLimiting, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "DisableRateLimiting", Value: *ins.DisableRateLimiting, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	return err
 }
@@ -1318,7 +1317,7 @@ func (m *MercuryTLS) setFrom(f *MercuryTLS) {
 func (m *MercuryTLS) ValidateConfig() (err error) {
 	if *m.CertFile != "" {
 		if !isValidFilePath(*m.CertFile) {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "CertFile", Value: *m.CertFile, Msg: "must be a valid file path"})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "CertFile", Value: *m.CertFile, Msg: "must be a valid file path"})
 		}
 	}
 	return
@@ -1374,7 +1373,7 @@ func (m *MercurySecrets) validateMerge(f *MercurySecrets) (err error) {
 	if m.Credentials != nil && f.Credentials != nil {
 		for k := range f.Credentials {
 			if _, exists := m.Credentials[k]; exists {
-				err = multierr.Append(err, configutils.ErrOverride{Name: fmt.Sprintf("Credentials[\"%s\"]", k)})
+				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("Credentials[\"%s\"]", k)})
 			}
 		}
 	}
@@ -1386,19 +1385,19 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	urls := make(map[string]struct{}, len(m.Credentials))
 	for name, creds := range m.Credentials {
 		if name == "" {
-			err = multierr.Append(err, configutils.ErrEmpty{Name: "Name", Msg: "must be provided and non-empty"})
+			err = errors.Join(err, configutils.ErrEmpty{Name: "Name", Msg: "must be provided and non-empty"})
 		}
 		if creds.URL == nil || creds.URL.URL() == nil {
-			err = multierr.Append(err, configutils.ErrMissing{Name: "URL", Msg: "must be provided and non-empty"})
+			err = errors.Join(err, configutils.ErrMissing{Name: "URL", Msg: "must be provided and non-empty"})
 			continue
 		}
 		if creds.LegacyURL != nil && creds.LegacyURL.URL() == nil {
-			err = multierr.Append(err, configutils.ErrMissing{Name: "Legacy URL", Msg: "must be a valid URL"})
+			err = errors.Join(err, configutils.ErrMissing{Name: "Legacy URL", Msg: "must be a valid URL"})
 			continue
 		}
 		s := creds.URL.URL().String()
 		if _, exists := urls[s]; exists {
-			err = multierr.Append(err, configutils.NewErrDuplicate("URL", s))
+			err = errors.Join(err, configutils.NewErrDuplicate("URL", s))
 		}
 		urls[s] = struct{}{}
 	}
@@ -1424,7 +1423,7 @@ func (t *ThresholdKeyShareSecrets) SetFrom(f *ThresholdKeyShareSecrets) (err err
 
 func (t *ThresholdKeyShareSecrets) validateMerge(f *ThresholdKeyShareSecrets) (err error) {
 	if t.ThresholdKeyShare != nil && f.ThresholdKeyShare != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "ThresholdKeyShare"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "ThresholdKeyShare"})
 	}
 
 	return err
@@ -1471,7 +1470,7 @@ func (t *Tracing) ValidateConfig() (err error) {
 
 	if t.SamplingRatio != nil {
 		if *t.SamplingRatio < 0 || *t.SamplingRatio > 1 {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
 		}
 	}
 
@@ -1480,18 +1479,18 @@ func (t *Tracing) ValidateConfig() (err error) {
 		case "tls":
 			// TLSCertPath must be set
 			if t.TLSCertPath == nil {
-				err = multierr.Append(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is tls"})
+				err = errors.Join(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is tls"})
 			} else {
 				ok := isValidFilePath(*t.TLSCertPath)
 				if !ok {
-					err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
+					err = errors.Join(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
 				}
 			}
 		case "unencrypted":
 			// no-op
 		default:
 			// Mode must be either "tls" or "unencrypted"
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'tls' or 'unencrypted'"})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'tls' or 'unencrypted'"})
 		}
 	}
 
@@ -1499,12 +1498,12 @@ func (t *Tracing) ValidateConfig() (err error) {
 		switch *t.Mode {
 		case "tls":
 			if !isValidURI(*t.CollectorTarget) {
-				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+				err = errors.Join(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
 			}
 		case "unencrypted":
 			// Unencrypted traces can not be sent to external networks
 			if !isValidLocalURI(*t.CollectorTarget) {
-				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid local URI"})
+				err = errors.Join(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid local URI"})
 			}
 		default:
 			// no-op

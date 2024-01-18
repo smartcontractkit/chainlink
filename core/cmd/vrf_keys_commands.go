@@ -2,14 +2,14 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -124,7 +124,7 @@ func (s *Shell) CreateVRFKey(_ *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -135,16 +135,16 @@ func (s *Shell) CreateVRFKey(_ *cli.Context) error {
 // ImportVRFKey reads a file into an EncryptedVRFKey in the db
 func (s *Shell) ImportVRFKey(c *cli.Context) error {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+		return s.errorOut(pkgerrors.New("Must pass the filepath of the key to be imported"))
 	}
 
 	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return s.errorOut(errors.New("Must specify --old-password/-p flag"))
+		return s.errorOut(pkgerrors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
@@ -160,7 +160,7 @@ func (s *Shell) ImportVRFKey(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -172,21 +172,21 @@ func (s *Shell) ImportVRFKey(c *cli.Context) error {
 // requested file path.
 func (s *Shell) ExportVRFKey(c *cli.Context) error {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the ID (compressed public key) of the key to export"))
+		return s.errorOut(pkgerrors.New("Must pass the ID (compressed public key) of the key to export"))
 	}
 
 	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return s.errorOut(errors.New("Must specify --new-password/-p flag"))
+		return s.errorOut(pkgerrors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(filepath) == 0 {
-		return s.errorOut(errors.New("Must specify --output/-o flag"))
+		return s.errorOut(pkgerrors.New("Must specify --output/-o flag"))
 	}
 
 	pk, err := getPublicKey(c)
@@ -197,11 +197,11 @@ func (s *Shell) ExportVRFKey(c *cli.Context) error {
 	normalizedPassword := normalizePassword(string(newPassword))
 	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/vrf/export/"+pk.String()+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -211,12 +211,12 @@ func (s *Shell) ExportVRFKey(c *cli.Context) error {
 
 	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Could not read response body"))
+		return s.errorOut(pkgerrors.Wrap(err, "Could not read response body"))
 	}
 
 	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
-		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+		return s.errorOut(pkgerrors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported VRF key %s to %s\n", pk.String(), filepath))
@@ -232,7 +232,7 @@ func (s *Shell) ExportVRFKey(c *cli.Context) error {
 // (no such protection for the V1 jobs exists).
 func (s *Shell) DeleteVRFKey(c *cli.Context) error {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("Must pass the key ID (compressed public key) to be deleted"))
+		return s.errorOut(pkgerrors.New("Must pass the key ID (compressed public key) to be deleted"))
 	}
 	id, err := getPublicKey(c)
 	if err != nil {
@@ -254,7 +254,7 @@ func (s *Shell) DeleteVRFKey(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -269,7 +269,7 @@ func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
 	}
 	publicKey, err := secp256k1.NewPublicKeyFromHex(pkHexString)
 	if err != nil {
-		return secp256k1.PublicKey{}, errors.Wrap(err, "failed to parse public key")
+		return secp256k1.PublicKey{}, pkgerrors.Wrap(err, "failed to parse public key")
 	}
 	return publicKey, nil
 }
@@ -282,7 +282,7 @@ func (s *Shell) ListVRFKeys(_ *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 

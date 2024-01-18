@@ -2,13 +2,13 @@ package blockhashstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -111,7 +111,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 	latestBlock, err := f.latestBlock(ctx)
 	if err != nil {
 		f.lggr.Errorw("Failed to fetch current block number", "err", err)
-		return errors.Wrap(err, "fetching block number")
+		return pkgerrors.Wrap(err, "fetching block number")
 	}
 
 	fromBlock, toBlock := GetSearchWindow(int(latestBlock), f.waitBlocks, f.lookbackBlocks)
@@ -145,7 +145,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 			f.lggr.Errorw("Failed to check if block is already stored, attempting to store anyway",
 				"err", err,
 				"block", block)
-			errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
+			errs = errors.Join(errs, pkgerrors.Wrap(err, "checking if stored"))
 		} else if stored {
 			// IsStored() can be based on unfinalized blocks. Therefore, f.stored mapping is not updated
 			f.lggr.Infow("Blockhash already stored",
@@ -158,7 +158,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		err = f.bhs.Store(ctx, block)
 		if err != nil {
 			f.lggr.Errorw("Failed to store block", "err", err, "block", block)
-			errs = multierr.Append(errs, errors.Wrap(err, "storing block"))
+			errs = errors.Join(errs, pkgerrors.Wrap(err, "storing block"))
 			continue
 		}
 
@@ -216,7 +216,7 @@ func (f *Feeder) runTrusted(
 					"err", err,
 					"block", block)
 				f.errsLock.Lock()
-				errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
+				errs = errors.Join(errs, pkgerrors.Wrap(err, "checking if stored"))
 				f.errsLock.Unlock()
 			} else if stored {
 				f.lggr.Infow("Blockhash already stored",
@@ -250,7 +250,7 @@ func (f *Feeder) runTrusted(
 			f.lggr.Errorw("Failed to get blocks range",
 				"err", err,
 				"blocks", batch)
-			errs = multierr.Append(errs, errors.Wrap(err, "log poller get blocks range"))
+			errs = errors.Join(errs, pkgerrors.Wrap(err, "log poller get blocks range"))
 			return errs
 		}
 
@@ -285,7 +285,7 @@ func (f *Feeder) runTrusted(
 				"latestBlock", latestBlock,
 				"latestBlockhash", latestBlockhash,
 			)
-			errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
+			errs = errors.Join(errs, pkgerrors.Wrap(err, "checking if stored"))
 			return errs
 		}
 		for i, block := range blocksToStore {

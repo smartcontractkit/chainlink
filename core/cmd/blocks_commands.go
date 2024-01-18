@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 )
 
 func initBlocksSubCmds(s *Shell) []cli.Command {
@@ -41,7 +41,7 @@ func initBlocksSubCmds(s *Shell) []cli.Command {
 func (s *Shell) ReplayFromBlock(c *cli.Context) (err error) {
 	blockNumber := c.Int64("block-number")
 	if blockNumber <= 0 {
-		return s.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
+		return s.errorOut(pkgerrors.New("Must pass a positive value in '--block-number' parameter"))
 	}
 
 	v := url.Values{}
@@ -64,7 +64,7 @@ func (s *Shell) ReplayFromBlock(c *cli.Context) (err error) {
 
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 

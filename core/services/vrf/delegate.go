@@ -1,14 +1,14 @@
 package vrf
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
-	"go.uber.org/multierr"
 
 	"github.com/jmoiron/sqlx"
 
@@ -74,7 +74,7 @@ func (d *Delegate) OnDeleteJob(job.Job, pg.Queryer) error { return nil }
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
-		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
+		return nil, pkgerrors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
 	pl, err := jb.PipelineSpec.ParsePipeline()
 	if err != nil {
@@ -103,7 +103,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		batchCoordinatorV2, err = batch_vrf_coordinator_v2.NewBatchVRFCoordinatorV2(
 			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client())
 		if err != nil {
-			return nil, errors.Wrap(err, "create batch coordinator wrapper")
+			return nil, pkgerrors.Wrap(err, "create batch coordinator wrapper")
 		}
 	}
 
@@ -113,7 +113,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			jb.VRFSpec.VRFOwnerAddress.Address(), chain.Client(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "create vrf owner wrapper")
+			return nil, pkgerrors.Wrap(err, "create vrf owner wrapper")
 		}
 	}
 
@@ -133,17 +133,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 
 			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
-				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+				return nil, pkgerrors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
 			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
 				return nil, err2
 			}
 			if vrfOwner != nil {
-				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
+				return nil, pkgerrors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
 			if jb.VRFSpec.CustomRevertsPipelineEnabled {
-				return nil, errors.New("Custom Reverted Txns Pipeline is not supported for VRF V2 Plus")
+				return nil, pkgerrors.New("Custom Reverted Txns Pipeline is not supported for VRF V2 Plus")
 			}
 
 			// Get the LINKNATIVEFEED address with retries
@@ -155,12 +155,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return err
 			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 			if err != nil {
-				return nil, errors.Wrap(err, "can't call LINKNATIVEFEED")
+				return nil, pkgerrors.Wrap(err, "can't call LINKNATIVEFEED")
 			}
 
 			aggregator, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
 			if err2 != nil {
-				return nil, errors.Wrap(err2, "NewAggregatorV3Interface")
+				return nil, pkgerrors.Wrap(err2, "NewAggregatorV3Interface")
 			}
 
 			return []job.ServiceCtx{
@@ -192,7 +192,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}
 
 			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
-				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+				return nil, pkgerrors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
 			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
@@ -208,11 +208,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return err
 			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 			if err != nil {
-				return nil, errors.Wrap(err, "LINKETHFEED")
+				return nil, pkgerrors.Wrap(err, "LINKETHFEED")
 			}
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
-				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+				return nil, pkgerrors.Wrap(err, "NewAggregatorV3Interface")
 			}
 			if vrfOwner == nil {
 				lV2.Infow("Running without VRFOwnerAddress set on the spec")
@@ -264,7 +264,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}}, nil
 		}
 	}
-	return nil, errors.New("invalid job spec expected a vrf task")
+	return nil, pkgerrors.New("invalid job spec expected a vrf task")
 }
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses
@@ -272,7 +272,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
 	for _, a := range jb.VRFSpec.FromAddresses {
 		_, err2 := gethks.Get(a.Hex())
-		err = multierr.Append(err, err2)
+		err = errors.Join(err, err2)
 	}
 	return
 }
@@ -285,7 +285,7 @@ func CheckFromAddressMaxGasPrices(jb job.Job, keySpecificMaxGas keySpecificMaxGa
 	if jb.VRFSpec.GasLanePrice != nil {
 		for _, a := range jb.VRFSpec.FromAddresses {
 			if keySpecific := keySpecificMaxGas(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
-				err = multierr.Append(err,
+				err = errors.Join(err,
 					fmt.Errorf(
 						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
 						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))

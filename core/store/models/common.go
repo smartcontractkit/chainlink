@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -12,10 +13,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -181,7 +181,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 	}
 
 	if !strings.HasPrefix(s, "CRON_TZ=") {
-		return errors.New("Cron: specs must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *'")
+		return pkgerrors.New("Cron: specs must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *'")
 	}
 
 	_, err = CronParser.Parse(s)
@@ -233,7 +233,7 @@ func (i *Interval) Scan(v interface{}) error {
 	}
 	asInt64, is := v.(int64)
 	if !is {
-		return errors.Errorf("models.Interval#Scan() wanted int64, got %T", v)
+		return pkgerrors.Errorf("models.Interval#Scan() wanted int64, got %T", v)
 	}
 	*i = Interval(time.Duration(asInt64) * time.Nanosecond)
 	return nil
@@ -311,7 +311,7 @@ func Merge(inputs ...JSON) (JSON, error) {
 			}
 		case nil:
 		default:
-			return JSON{}, errors.New("can only merge JSON objects")
+			return JSON{}, pkgerrors.New("can only merge JSON objects")
 		}
 	}
 
@@ -385,7 +385,7 @@ func (s *Sha256Hash) UnmarshalText(bs []byte) (err error) {
 func (s *Sha256Hash) Scan(value interface{}) error {
 	bytes, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("Failed to unmarshal Sha256Hash value: %v", value)
+		return pkgerrors.Errorf("Failed to unmarshal Sha256Hash value: %v", value)
 	}
 	if s == nil {
 		*s = Sha256Hash{}
@@ -425,7 +425,7 @@ type ServiceHeaders []ServiceHeader
 
 func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 	if sh == nil {
-		return errors.New("Cannot unmarshal to a nil receiver")
+		return pkgerrors.New("Cannot unmarshal to a nil receiver")
 	}
 
 	headers := string(input)
@@ -436,7 +436,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 		for _, header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
-				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+				return pkgerrors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
 			h := ServiceHeader{
 				Header: keyValue[0],
@@ -456,7 +456,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 
 func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 	if sh == nil {
-		return nil, errors.New("Cannot marshal to a nil receiver")
+		return nil, pkgerrors.New("Cannot marshal to a nil receiver")
 	}
 
 	sb := strings.Builder{}
@@ -487,11 +487,11 @@ var (
 
 func (h ServiceHeader) Validate() (err error) {
 	if !headerNameRegex.MatchString(h.Header) {
-		err = multierr.Append(err, errors.Errorf("invalid header name: %s", h.Header))
+		err = errors.Join(err, pkgerrors.Errorf("invalid header name: %s", h.Header))
 	}
 
 	if !headerValueRegex.MatchString(h.Value) {
-		err = multierr.Append(err, errors.Errorf("invalid header value: %s", h.Value))
+		err = errors.Join(err, pkgerrors.Errorf("invalid header value: %s", h.Value))
 	}
 	return
 }

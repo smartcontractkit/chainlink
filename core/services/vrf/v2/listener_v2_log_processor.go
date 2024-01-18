@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -1003,21 +1002,21 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 	var errs error
 	for i, call := range calls {
 		if call.Error != nil {
-			errs = multierr.Append(errs, fmt.Errorf("checking request %s with hash %s: %w",
+			errs = errors.Join(errs, fmt.Errorf("checking request %s with hash %s: %w",
 				reqs[i].req.RequestID().String(), reqs[i].req.Raw().TxHash.String(), call.Error))
 			continue
 		}
 
 		rString, ok := call.Result.(*string)
 		if !ok {
-			errs = multierr.Append(errs,
+			errs = errors.Join(errs,
 				fmt.Errorf("unexpected result %+v on request %s with hash %s",
 					call.Result, reqs[i].req.RequestID().String(), reqs[i].req.Raw().TxHash.String()))
 			continue
 		}
 		result, err := hexutil.Decode(*rString)
 		if err != nil {
-			errs = multierr.Append(errs,
+			errs = errors.Join(errs,
 				fmt.Errorf("decoding batch call result %+v %s request %s with hash %s: %w",
 					call.Result, *rString, reqs[i].req.RequestID().String(), reqs[i].req.Raw().TxHash.String(), err))
 			continue

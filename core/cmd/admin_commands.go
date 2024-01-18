@@ -15,7 +15,6 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
@@ -186,7 +185,7 @@ func (s *Shell) ListUsers(_ *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -201,7 +200,7 @@ func (s *Shell) CreateUser(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 	var links jsonapi.Links
@@ -240,7 +239,7 @@ func (s *Shell) CreateUser(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := response.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -269,7 +268,7 @@ func (s *Shell) ChangeRole(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := response.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -289,7 +288,7 @@ func (s *Shell) DeleteUser(c *cli.Context) (err error) {
 	}
 	defer func() {
 		if cerr := response.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
@@ -304,7 +303,7 @@ func (s *Shell) Status(c *cli.Context) error {
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
+			err = errors.Join(err, cerr)
 		}
 	}()
 
