@@ -38,9 +38,9 @@ type OnchainAllowlistConfig struct {
 	UpdateTimeoutSec          uint `json:"updateTimeoutSec"`
 	StoredAllowlistBatchSize  uint `json:"storedAllowlistBatchSize"`
 	OnchainAllowlistBatchSize uint `json:"onchainAllowlistBatchSize"`
-	// FetchingInRangeEnabled is a feature flag that enables fetching allowlist by batches
-	FetchingInRangeEnabled bool `json:"fetchingInRangeEnabled"`
-	// FetchingDelayInRangeSec prevents RPC client being rate limited when fetching the allowlist.
+	// StoreAllowedSendersEnabled is a feature flag that enables storing in db a copy of the allowlist.
+	StoreAllowedSendersEnabled bool `json:"storeAllowedSendersEnabled"`
+	// FetchingDelayInRangeSec prevents RPC client being rate limited when fetching the allowlist in ranges.
 	FetchingDelayInRangeSec uint `json:"fetchingDelayInRangeSec"`
 }
 
@@ -206,7 +206,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	}
 	allowedSenderList := make([]common.Address, 0)
 
-	if !a.config.FetchingInRangeEnabled {
+	if !a.config.StoreAllowedSendersEnabled {
 		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
 			Pending:     false,
 			BlockNumber: blockNum,
@@ -214,10 +214,6 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		})
 		if err != nil {
 			return errors.Wrap(err, "error calling GetAllAllowedSenders")
-		}
-		err = a.orm.CreateAllowedSenders(allowedSenderList)
-		if err != nil {
-			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
 	} else {
 		count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
