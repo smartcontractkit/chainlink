@@ -286,7 +286,7 @@ func setupNodeOCR2(
 
 		// Add the forwarder to the node's forwarder manager.
 		forwarderORM := forwarders.NewORM(app.GetDB())
-		chainID := ubig.Big(*b.Blockchain().Config().ChainID)
+		chainID := ubig.Big(*testutils.SimulatedChainID)
 		_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
 		require.NoError(t, err)
 		effectiveTransmitter = faddr

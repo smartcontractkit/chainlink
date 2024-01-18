@@ -173,8 +173,9 @@ func setupNodeOCR2(
 
 		// add forwarder address to be tracked in db
 		forwarderORM := forwarders.NewORM(app.GetDB())
-		chainID := ubig.Big(*b.Blockchain().Config().ChainID)
-		_, err2 = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
+		chainID, err := b.ChainID(testutils.Context(t))
+		require.NoError(t, err)
+		_, err2 = forwarderORM.CreateForwarder(testutils.Context(t), faddr, ubig.Big(*chainID))
 		require.NoError(t, err2)
 
 		effectiveTransmitter = faddr

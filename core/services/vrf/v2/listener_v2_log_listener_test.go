@@ -13,8 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -53,7 +51,6 @@ type vrfLogPollerListenerTH struct {
 	VRFLogEmitter     *vrf_log_emitter.VRFLogEmitter
 	VRFEmitterAddress common.Address
 	Owner             *bind.TransactOpts
-	EthDB             ethdb.Database
 	Db                *sqlx.DB
 	Listener          *listenerV2
 	Ctx               context.Context
@@ -72,8 +69,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 
 	o := logpoller.NewORM(chainID, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
-	ethDB := rawdb.NewMemoryDatabase()
-	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
+	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
@@ -82,15 +78,19 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	// This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
 	// FirstBlockAge is used to compute first block's timestamp in SimulatedBackend (time.Now() - FirstBlockAge)
 	const FirstBlockAge = 24 * time.Hour
-	blockTime := time.UnixMilli(int64(ec.Blockchain().CurrentHeader().Time))
-	err := ec.AdjustTime(time.Since(blockTime) - FirstBlockAge)
+	h, err := ec.HeaderByNumber(testutils.Context(t), nil)
+	require.NoError(t, err)
+	blockTime := time.UnixMilli(int64(h.Time))
+	err = ec.AdjustTime(time.Since(blockTime) - FirstBlockAge)
 	require.NoError(t, err)
 	ec.Commit()
 
 	esc := client.NewSimulatedBackendClient(t, ec, chainID)
 	// Mark genesis block as finalized to avoid any nulls in the tests
-	head := esc.Backend().Blockchain().CurrentHeader()
-	esc.Backend().Blockchain().SetFinalized(head)
+	//TODO must we do this?
+	//h, err := ec.HeaderByNumber(ctx, nil)
+	//require.NoError(t, err)
+	//esc.Backend().Blockchain().SetFinalized(head)
 
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
@@ -170,7 +170,6 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		VRFEmitterAddress: vrfLogEmitterAddress,
 		Client:            ec,
 		Owner:             owner,
-		EthDB:             ethDB,
 		Db:                db,
 		Listener:          listener,
 		Ctx:               ctx,
@@ -813,8 +812,7 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 
 	// Construct CoordinatorV2_X object for VRF listener
 	owner := testutils.MustNewSimTransactor(t)
-	ethDB := rawdb.NewMemoryDatabase()
-	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
+	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},

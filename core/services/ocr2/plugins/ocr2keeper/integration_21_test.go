@@ -225,7 +225,6 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 			_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
 			require.NoError(t, err)
-
 			backend.Commit()
 
 			ids, addrs, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
@@ -260,7 +259,9 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 					}
 				})
 
-				beforeDummyBlocks := backend.Blockchain().CurrentBlock().Number.Uint64()
+				h, err := backend.HeaderByNumber(testutils.Context(t), nil)
+				require.NoError(t, err)
+				beforeDummyBlocks := h.Number.Uint64()
 
 				// Mine enough blocks to ensure these logs don't fall into log provider range
 				dummyBlocks := 500
@@ -509,7 +510,9 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 			require.NoError(t, feeds.EnableMercury(t, backend, registry, registryOwner))
 			require.NoError(t, feeds.VerifyEnv(t, backend, registry, registryOwner))
 
-			startBlock := backend.Blockchain().CurrentBlock().Number.Int64()
+			h, err := backend.HeaderByNumber(testutils.Context(t), nil)
+			require.NoError(t, err)
+			startBlock := h.Number.Int64()
 			// start emitting events in a separate go-routine
 			// feed lookup relies on a single contract event log to perform multiple
 			// listener contracts
@@ -597,7 +600,9 @@ func listenPerformedN(t *testing.T, backend *backends.SimulatedBackend, registry
 
 	go func() {
 		for ctx.Err() == nil {
-			currentBlock := backend.Blockchain().CurrentBlock().Number.Uint64()
+			h, err := backend.HeaderByNumber(testutils.Context(t), nil)
+			require.NoError(t, err)
+			currentBlock := h.Number.Uint64()
 
 			success := make([]bool, len(ids))
 			for i := range success {

@@ -26,6 +26,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -251,7 +252,9 @@ type answerParams struct {
 func checkSubmission(t *testing.T, p answerParams, currentBalance int64, receiptBlock uint64) {
 	t.Helper()
 	if receiptBlock == 0 {
-		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number.Uint64()
+		h, err := p.fa.backend.HeaderByNumber(testutils.Context(t), nil)
+		require.NoError(t, err)
+		receiptBlock = h.Number.Uint64()
 	}
 	blockRange := &bind.FilterOpts{Start: 0, End: &receiptBlock}
 
@@ -414,7 +417,8 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		ctx := testutils.Context(t)
-		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
+		block, err := fa.backend.BlockByNumber(testutils.Context(t), big.NewInt(int64(blockNumber)))
+		require.NoError(t, err)
 		require.NotNil(t, block)
 		orm := log.NewORM(ds, fa.evmChainID)
 		consumed, err := orm.WasBroadcastConsumed(ctx, block.Hash(), 0, pipelineSpecID)
