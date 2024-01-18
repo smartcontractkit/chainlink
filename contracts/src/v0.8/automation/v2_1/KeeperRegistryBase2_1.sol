@@ -613,6 +613,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       l1CostWei = SCROLL_ORACLE.getL1Fee(txCallData);
       emit GasDetails(uint8(i_mode), txCallData.length, l1CostWei, linkNative, numBatchedUpkeeps);
     }
+    emit GasDetails(uint8(i_mode), tx.gasprice, gasWei, gasLimit, gasOverhead);
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
       l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
