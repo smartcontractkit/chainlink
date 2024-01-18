@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $.Release.Name }}-mockserver
+spec:
+  podSelector:
+    matchLabels:
+      app: mockserver
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Allow http traffic from the node pods.
+        - podSelector:
+            matchLabels:
+              app: {{ $.Release.Name }}
+        # Allow http traffic from the runner pods.
+        - podSelector:
+            matchLabels:
+              app: runner
+      ports:
+        - protocol: TCP
+          port: 1080
