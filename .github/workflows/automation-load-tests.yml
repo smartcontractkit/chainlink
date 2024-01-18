@@ -74,7 +74,7 @@ jobs:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd integration-tests && go test -timeout 1h -v -run TestLogTrigger ./load/automationv2_1 -count=1
+          test_command_to_run: cd integration-tests && touch .root_dir && go test -timeout 1h -v -run TestLogTrigger ./load/automationv2_1 -count=1
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
