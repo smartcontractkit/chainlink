@@ -1649,7 +1649,7 @@ func (d *Delegate) newServicesRebalancer(ctx context.Context, lggr logger.Sugare
 		),
 		OffchainConfigDigester: rebalancerProvider.OffchainConfigDigester(),
 		OffchainKeyring:        kb,
-		OnchainKeyring:         ocr3impls.NewOnchainKeyring[rebalancermodels.ReportMetadata](kb),
+		OnchainKeyring:         ocr3impls.NewOnchainKeyring[rebalancermodels.ReportMetadata](kb, lggr),
 		ReportingPluginFactory: factory,
 		Logger: commonlogger.NewOCRWrapper(lggr.Named("RebalancerOracle"), d.cfg.OCR2().TraceLogging(), func(msg string) {
 			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")

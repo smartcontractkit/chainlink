@@ -1,0 +1,10 @@
+GETH_VERSION: 1.12.2
+arbitrum_l1_bridge_adapter: ../../../contracts/solc/v0.8.19/ArbitrumL1BridgeAdapter/ArbitrumL1BridgeAdapter.abi ../../../contracts/solc/v0.8.19/ArbitrumL1BridgeAdapter/ArbitrumL1BridgeAdapter.bin 0db9176a5f9f29f9a0b84f3373bab90d15f6763be474eba5b8babfd8950ff29e
+arbitrum_l2_bridge_adapter: ../../../contracts/solc/v0.8.19/ArbitrumL2BridgeAdapter/ArbitrumL2BridgeAdapter.abi ../../../contracts/solc/v0.8.19/ArbitrumL2BridgeAdapter/ArbitrumL2BridgeAdapter.bin 385417c91df3b54e6469d3cec3768a59bbff846da968611a1878fbcfcfeaff1d
+mock_l2_bridge_adapter: ../../../contracts/solc/v0.8.19/MockBridgeAdapter/MockL2BridgeAdapter.abi ../../../contracts/solc/v0.8.19/MockBridgeAdapter/MockL2BridgeAdapter.bin ead8f56e6d5b0abfa8333939f5b9fdca539d3940d2b61eaa98191c80b56252ae
+no_op_ocr3: ../../../contracts/solc/v0.8.19/NoOpOCR3/NoOpOCR3.abi ../../../contracts/solc/v0.8.19/NoOpOCR3/NoOpOCR3.bin 3a5ef6a7a6502339d7965b44debb5536ee9b6d2181985e52d905307315c0a853
+optimism_l1_bridge_adapter: ../../../contracts/solc/v0.8.19/OptimismL1BridgeAdapter/OptimismL1BridgeAdapter.abi ../../../contracts/solc/v0.8.19/OptimismL1BridgeAdapter/OptimismL1BridgeAdapter.bin 0f02eb1541ea9e4ca0d763065ab7b8286887dd2ed49c7dd46cbc7b570c92ca4e
+optimism_l2_bridge_adapter: ../../../contracts/solc/v0.8.19/OptimismL2BridgeAdapter/OptimismL2BridgeAdapter.abi ../../../contracts/solc/v0.8.19/OptimismL2BridgeAdapter/OptimismL2BridgeAdapter.bin ba3d72304c719da2adb5c29a77853c49cc32631012acb012c40cb75057331b6f
+rebalancer: ../../../contracts/solc/v0.8.19/Rebalancer/Rebalancer.abi ../../../contracts/solc/v0.8.19/Rebalancer/Rebalancer.bin 5a61b7fa397d27be66a62557770b770d60a35a3e12b4fc102d1f97ba248135fe
+rebalancer_interface: ../../../contracts/solc/v0.8.19/IRebalancer/IRebalancer.abi ../../../contracts/solc/v0.8.19/IRebalancer/IRebalancer.bin 35fac5f725a6b974303bb0cb2c6e9004303ded549186fee6626b9d70ab973903
+rebalancer_report_encoder: ../../../contracts/solc/v0.8.19/RebalancerReportEncoder/RebalancerReportEncoder.abi ../../../contracts/solc/v0.8.19/RebalancerReportEncoder/RebalancerReportEncoder.bin b2e52a988aaf0644a6f85584274ebee6962b4ea66c744da01eebb815a997c4be

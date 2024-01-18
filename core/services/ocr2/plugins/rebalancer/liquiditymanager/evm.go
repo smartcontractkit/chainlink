@@ -11,16 +11,20 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager/liquidity_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-type EvmLiquidityManager struct {
-	client      OnchainLiquidityManager
+var _ Rebalancer = &EvmRebalancer{}
+
+type EvmRebalancer struct {
+	client      OnchainRebalancer
 	lp          logpoller.LogPoller
 	lmAbi       abi.ABI
 	addr        common.Address
@@ -29,20 +33,15 @@ type EvmLiquidityManager struct {
 	cleanupFunc func() error
 }
 
-func NewEvmLiquidityManager(address models.Address, net models.NetworkSelector, ec client.Client, lp logpoller.LogPoller) (*EvmLiquidityManager, error) {
-	// uncomment when we implement the concrete lm
-	// client, err := NewConcreteLiquidityManager(common.Address(address), ec)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("new concrete lm: %w", err)
-	// }
-	dummyClient, err := NewDummyLiquidityManager(common.Address(address), ec, big.NewInt(1000))
+func NewEvmRebalancer(address models.Address, net models.NetworkSelector, ec client.Client, lp logpoller.LogPoller) (*EvmRebalancer, error) {
+	client, err := NewConcreteRebalancer(common.Address(address), ec)
 	if err != nil {
-		return nil, fmt.Errorf("new dummy lm: %w", err)
+		return nil, fmt.Errorf("new concrete rebalancer: %w", err)
 	}
 
-	lmAbi, err := abi.JSON(strings.NewReader(liquidity_manager.LiquidityManagerABI))
+	lmAbi, err := abi.JSON(strings.NewReader(rebalancer.RebalancerABI))
 	if err != nil {
-		return nil, fmt.Errorf("new lm abi: %w", err)
+		return nil, fmt.Errorf("new rebalancer abi: %w", err)
 	}
 
 	lpFilter := logpoller.Filter{
@@ -57,8 +56,8 @@ func NewEvmLiquidityManager(address models.Address, net models.NetworkSelector, 
 		return nil, fmt.Errorf("register filter: %w", err)
 	}
 
-	return &EvmLiquidityManager{
-		client:     dummyClient,
+	return &EvmRebalancer{
+		client:     client,
 		lp:         lp,
 		lmAbi:      lmAbi,
 		ec:         ec,
@@ -70,15 +69,15 @@ func NewEvmLiquidityManager(address models.Address, net models.NetworkSelector, 
 	}, nil
 }
 
-func (e *EvmLiquidityManager) GetLiquidityManagers(ctx context.Context) (map[models.NetworkSelector]models.Address, error) {
-	return e.client.GetAllCrossChainLiquidityMangers(ctx)
+func (e *EvmRebalancer) GetRebalancers(ctx context.Context) (map[models.NetworkSelector]models.Address, error) {
+	return e.client.GetAllCrossChainRebalancers(ctx)
 }
 
-func (e *EvmLiquidityManager) GetBalance(ctx context.Context) (*big.Int, error) {
+func (e *EvmRebalancer) GetBalance(ctx context.Context) (*big.Int, error) {
 	return e.client.GetLiquidity(ctx)
 }
 
-func (e *EvmLiquidityManager) GetPendingTransfers(ctx context.Context, since time.Time) ([]models.PendingTransfer, error) {
+func (e *EvmRebalancer) GetPendingTransfers(ctx context.Context, since time.Time) ([]models.PendingTransfer, error) {
 	logs, err := e.lp.LogsCreatedAfter(
 		e.lmAbi.Events["LiquidityTransferred"].ID,
 		e.addr,
@@ -103,6 +102,7 @@ func (e *EvmLiquidityManager) GetPendingTransfers(ctx context.Context, since tim
 			models.NetworkSelector(liqTransferred.ToChainSelector()),
 			liqTransferred.Amount(),
 			log.BlockTimestamp,
+			[]byte{}, // TODO: fill in bridge data
 		))
 		// tr.Status = models.TransferStatusExecuted // todo: determine the status
 		pendingTransfers = append(pendingTransfers, tr)
@@ -110,7 +110,7 @@ func (e *EvmLiquidityManager) GetPendingTransfers(ctx context.Context, since tim
 
 	return pendingTransfers, nil
 }
-func (e EvmLiquidityManager) Discover(ctx context.Context, lmFactory Factory) (*Registry, liquiditygraph.LiquidityGraph, error) {
+func (e EvmRebalancer) Discover(ctx context.Context, lmFactory Factory) (*Registry, liquiditygraph.LiquidityGraph, error) {
 	g := liquiditygraph.NewGraph()
 	lms := NewRegistry()
 
@@ -135,14 +135,14 @@ func (e EvmLiquidityManager) Discover(ctx context.Context, lmFactory Factory) (*
 		// TODO: investigate fetching the balance here.
 		g.AddNetwork(elem.networkID, big.NewInt(0))
 
-		lm, err := lmFactory.NewLiquidityManager(elem.networkID, models.Address(elem.lmAddress))
+		lm, err := lmFactory.NewRebalancer(elem.networkID, models.Address(elem.lmAddress))
 		if err != nil {
 			return nil, nil, fmt.Errorf("init liquidity manager: %w", err)
 		}
 
 		lms.Add(elem.networkID, models.Address(elem.lmAddress))
 
-		destinationLMs, err := lm.GetLiquidityManagers(ctx)
+		destinationLMs, err := lm.GetRebalancers(ctx)
 		if err != nil {
 			return nil, nil, fmt.Errorf("get %v destination liquidity managers: %w", elem.networkID, err)
 		}
@@ -169,6 +169,11 @@ func (e EvmLiquidityManager) Discover(ctx context.Context, lmFactory Factory) (*
 	return lms, g, nil
 }
 
-func (e *EvmLiquidityManager) Close(ctx context.Context) error {
+func (e *EvmRebalancer) Close(ctx context.Context) error {
 	return e.cleanupFunc()
+}
+
+// ConfigDigest implements Rebalancer.
+func (e *EvmRebalancer) ConfigDigest(ctx context.Context) (types.ConfigDigest, error) {
+	return e.client.GetConfigDigest(ctx)
 }

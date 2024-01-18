@@ -12,20 +12,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/no_op_ocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/no_op_ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
+	lm_mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/ocr3impls"
 	mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/rebalancermocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-func setupLogPoller[RI any](t *testing.T, db *sqlx.DB, bs *keyringsAndSigners[RI]) (logpoller.LogPoller, testUniverse[RI]) {
+func setupLogPoller[RI ocr3impls.MultichainMeta](t *testing.T, db *sqlx.DB, bs *keyringsAndSigners[RI]) (logpoller.LogPoller, testUniverse[RI]) {
 	lggr := logger.TestLogger(t)
 
 	o := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(false))
@@ -45,7 +46,7 @@ func TestConfigSet(t *testing.T) {
 func TestMultichainConfigTracker_New(t *testing.T) {
 	t.Run("master chain not in log pollers", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		_, uni := setupLogPoller[struct{}](t, db, nil)
+		_, uni := setupLogPoller[multichainMeta](t, db, nil)
 
 		masterChain := relay.ID{
 			Network: relay.EVM,
@@ -67,7 +68,7 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 
 	t.Run("combiner is nil", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		lp, uni := setupLogPoller[struct{}](t, db, nil)
+		lp, uni := setupLogPoller[multichainMeta](t, db, nil)
 
 		masterChain := relay.ID{
 			Network: relay.EVM,
@@ -89,7 +90,7 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 
 	t.Run("factory is nil", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		lp, uni := setupLogPoller[struct{}](t, db, nil)
+		lp, uni := setupLogPoller[multichainMeta](t, db, nil)
 
 		masterChain := relay.ID{
 			Network: relay.EVM,
@@ -111,7 +112,7 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 
 func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	lp, uni := setupLogPoller[struct{}](t, db, nil)
+	lp, uni := setupLogPoller[multichainMeta](t, db, nil)
 	require.NoError(t, lp.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
@@ -123,11 +124,11 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	// so the discovery will return a single LM which is the master LM
 	reg := liquiditymanager.NewRegistry()
 	reg.Add(models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address()))
-	mockMasterLM := mocks.NewLiquidityManager(t)
+	mockMasterLM := lm_mocks.NewRebalancer(t)
 	mockMasterLM.On("Discover", mock.Anything, mock.Anything).Return(reg, liquiditygraph.NewGraph(), nil)
 	defer mockMasterLM.AssertExpectations(t)
 	mockLMFactory := mocks.NewFactory(t)
-	mockLMFactory.On("NewLiquidityManager", models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address())).
+	mockLMFactory.On("NewRebalancer", models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address())).
 		Return(mockMasterLM, nil)
 	defer mockLMFactory.AssertExpectations(t)
 	tracker, err := ocr3impls.NewMultichainConfigTracker(
@@ -186,8 +187,8 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 	_, db1 := heavyweight.FullTestDBV2(t, nil)
 	_, db2 := heavyweight.FullTestDBV2(t, nil)
 
-	lp1, uni1 := setupLogPoller[struct{}](t, db1, nil)
-	lp2, uni2 := setupLogPoller[struct{}](t, db2, &keyringsAndSigners[struct{}]{
+	lp1, uni1 := setupLogPoller[multichainMeta](t, db1, nil)
+	lp2, uni2 := setupLogPoller[multichainMeta](t, db2, &keyringsAndSigners[multichainMeta]{
 		keyrings: uni1.keyrings,
 		signers:  uni1.signers,
 	})
@@ -218,11 +219,11 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 	reg := liquiditymanager.NewRegistry()
 	reg.Add(models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address()))
 	reg.Add(models.NetworkSelector(mustStrToI64(t, secondChain.ChainID)), models.Address(uni2.wrapper.Address()))
-	mockMasterLM := mocks.NewLiquidityManager(t)
+	mockMasterLM := lm_mocks.NewRebalancer(t)
 	mockMasterLM.On("Discover", mock.Anything, mock.Anything).Return(reg, liquiditygraph.NewGraph(), nil)
 	defer mockMasterLM.AssertExpectations(t)
 	mockLMFactory := mocks.NewFactory(t)
-	mockLMFactory.On("NewLiquidityManager", models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address())).
+	mockLMFactory.On("NewRebalancer", models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address())).
 		Return(mockMasterLM, nil)
 	defer mockLMFactory.AssertExpectations(t)
 	tracker, err := ocr3impls.NewMultichainConfigTracker(

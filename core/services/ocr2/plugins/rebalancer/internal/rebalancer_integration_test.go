@@ -33,7 +33,12 @@ import (
 	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/dummy_liquidity_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/mock_l2_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -62,6 +67,15 @@ type ocr3Node struct {
 	peerID       string
 	transmitters map[int64]common.Address
 	keybundle    ocr2key.KeyBundle
+}
+
+type onchainUniverse struct {
+	backend         *backends.SimulatedBackend
+	chainID         uint64
+	wethToken       *weth9.WETH9
+	lockReleasePool *lock_release_token_pool.LockReleaseTokenPool
+	rebalancer      *rebalancer.Rebalancer
+	bridgeAdapter   *mock_l2_bridge_adapter.MockL2BridgeAdapter
 }
 
 func setupNodeOCR3(
@@ -114,7 +128,10 @@ func setupNodeOCR3(
 	master := keystore.New(db, utils.FastScryptParams, lggr, config.Database())
 
 	keystore := KeystoreSim{
-		eks: master.Eth(),
+		eks: &EthKeystoreSim{
+			Eth: master.Eth(),
+			t:   t,
+		},
 		csa: master.CSA(),
 	}
 	mailMon := mailbox.NewMonitor("Rebalancer", lggr.Named("mailbox"))
@@ -122,6 +139,7 @@ func setupNodeOCR3(
 		ChainOpts: legacyevm.ChainOpts{
 			AppConfig: config,
 			GenEthClient: func(i *big.Int) client.Client {
+				t.Log("genning eth client for chain id:", i.String())
 				client, ok := clients[i.Int64()]
 				if !ok {
 					t.Fatal("no backend for chainID", i)
@@ -202,10 +220,10 @@ func setupNodeOCR3(
 func newTestUniverse(t *testing.T, numChains int) {
 	// create chains and deploy contracts
 	owner, chains := createChains(t, numChains)
-
-	contractAddresses, contractWrappers := deployContracts(t, owner, chains)
-	createConnectedNetwork(t, owner, chains, contractWrappers)
-	mainContract := contractAddresses[mainChainID]
+	universes := deployContracts(t, owner, chains)
+	createConnectedNetwork(t, owner, chains, universes)
+	transferBalances(t, owner, universes)
+	mainContract := universes[mainChainID].rebalancer.Address()
 
 	t.Log("Creating bootstrap node")
 	bootstrapNodePort := freeport.GetOne(t)
@@ -281,7 +299,7 @@ func newTestUniverse(t *testing.T, numChains int) {
 	blocksBeforeConfig := setRebalancerConfigs(
 		t,
 		owner,
-		contractWrappers,
+		universes,
 		chains,
 		onchainPubKeys,
 		transmitters,
@@ -375,20 +393,27 @@ checkSourceDestEqual = false
 	}
 
 	t.Log("waiting for a transmission")
-	waitForTransmissions(t, contractWrappers)
+	waitForTransmissions(t, universes)
 }
 
 func waitForTransmissions(
 	t *testing.T,
-	wrappers map[int64]*dummy_liquidity_manager.DummyLiquidityManager,
+	universes map[int64]onchainUniverse,
 ) {
 	start := uint64(1)
-	sink := make(chan *dummy_liquidity_manager.DummyLiquidityManagerTransmitted)
+	transmittedSink := make(chan *rebalancer.RebalancerTransmitted)
+	ltSink := make(chan *rebalancer.RebalancerLiquidityTransferred)
 	var subs []event.Subscription
-	for _, wrapper := range wrappers {
-		sub, err := wrapper.WatchTransmitted(&bind.WatchOpts{
+	for _, uni := range universes {
+		sub, err := uni.rebalancer.WatchTransmitted(&bind.WatchOpts{
 			Start: &start,
-		}, sink)
+		}, transmittedSink)
+		require.NoError(t, err, "failed to create subscription")
+		subs = append(subs, sub)
+
+		sub, err = uni.rebalancer.WatchLiquidityTransferred(&bind.WatchOpts{
+			Start: &start,
+		}, ltSink, nil, nil, nil)
 		require.NoError(t, err, "failed to create subscription")
 		subs = append(subs, sub)
 	}
@@ -401,11 +426,14 @@ func waitForTransmissions(
 outer:
 	for {
 		select {
-		case te := <-sink:
+		case te := <-transmittedSink:
 			t.Log("got transmission event, config digest:", hexutil.Encode(te.ConfigDigest[:]), "seqNr:", te.SequenceNumber)
 			break outer
+		case lt := <-ltSink:
+			t.Log("got liquidity transferred event, from:", lt.FromChainSelector, "to:", lt.ToChainSelector, "amount:", lt.Amount)
+			break outer
 		case <-ticker.C:
-			t.Log("waiting for transmission event")
+			t.Log("waiting for transmission or liquidity transferred event")
 		}
 	}
 }
@@ -413,7 +441,7 @@ outer:
 func setRebalancerConfig(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	wrapper *dummy_liquidity_manager.DummyLiquidityManager,
+	wrapper *rebalancer.Rebalancer,
 	chain *backends.SimulatedBackend,
 	onchainPubKeys []common.Address,
 	transmitters []common.Address,
@@ -442,10 +470,10 @@ func setRebalancerConfig(
 		schedule,
 		oracles,
 		offchainConfig,
-		50*time.Millisecond,  // maxDurationQuery
-		5*time.Second,        // maxDurationObservation
-		10*time.Second,       // maxDurationShouldAcceptAttestedReport
-		100*time.Millisecond, // maxDurationShouldTransmitAcceptedReport
+		50*time.Millisecond, // maxDurationQuery
+		5*time.Second,       // maxDurationObservation
+		10*time.Second,      // maxDurationShouldAcceptAttestedReport
+		1*time.Second,       // maxDurationShouldTransmitAcceptedReport
 		int(f),
 		onchainConfig)
 	require.NoError(t, err, "failed to create contract config")
@@ -460,23 +488,33 @@ func setRebalancerConfig(
 	require.NoError(t, err, "failed to set config")
 	chain.Commit()
 
+	iter, err := wrapper.FilterConfigSet(&bind.FilterOpts{
+		Start: beforeConfig.Number().Uint64(),
+	})
+	require.NoError(t, err, "failed to create ConfigSet filter")
+	require.True(t, iter.Next())
+	e := iter.Event
+	require.Equal(t, onchainPubKeys, e.Signers, "signers do not match")
+	require.Equal(t, transmitters, e.Transmitters, "transmitters do not match")
+	t.Log("config digest for rebalancer at address: ", wrapper.Address(), ", is:", hexutil.Encode(e.ConfigDigest[:]))
+
 	return beforeConfig.Number().Int64()
 }
 
 func setRebalancerConfigs(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	wrappers map[int64]*dummy_liquidity_manager.DummyLiquidityManager,
+	universes map[int64]onchainUniverse,
 	chains map[int64]*backends.SimulatedBackend,
 	onchainPubKeys []common.Address,
 	transmitters map[int64][]common.Address,
 	oracles map[int64][]confighelper2.OracleIdentityExtra) (blocksBeforeConfig map[int64]int64) {
 	blocksBeforeConfig = make(map[int64]int64)
-	for chainID, wrapper := range wrappers {
+	for chainID, uni := range universes {
 		blocksBeforeConfig[chainID] = setRebalancerConfig(
 			t,
 			owner,
-			wrapper,
+			uni.rebalancer,
 			chains[chainID],
 			onchainPubKeys,
 			transmitters[chainID],
@@ -502,6 +540,20 @@ func createConfigV2Chain(chainID *big.Int) *v2toml.EVMConfig {
 	}
 }
 
+var _ keystore.Eth = &EthKeystoreSim{}
+
+type EthKeystoreSim struct {
+	keystore.Eth
+	t *testing.T
+}
+
+// override
+func (e *EthKeystoreSim) SignTx(address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
+	// always sign with chain id 1337 for the simulated backend
+	e.t.Log("always signing tx for chain id:", chainID.String(), "with chain id 1337, tx hash:", tx.Hash())
+	return e.Eth.SignTx(address, tx, big.NewInt(1337))
+}
+
 type KeystoreSim struct {
 	eks keystore.Eth
 	csa keystore.CSA
@@ -513,11 +565,6 @@ func (e KeystoreSim) Eth() keystore.Eth {
 
 func (e KeystoreSim) CSA() keystore.CSA {
 	return e.csa
-}
-
-func (e KeystoreSim) SignTx(address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
-	// always sign with chain id 1337 for the simulated backend
-	return e.eks.SignTx(address, tx, big.NewInt(1337))
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *backends.SimulatedBackend) {
@@ -559,18 +606,75 @@ func deployContracts(
 	owner *bind.TransactOpts,
 	chains map[int64]*backends.SimulatedBackend,
 ) (
-	contractAddresses map[int64]common.Address,
-	contractWrappers map[int64]*dummy_liquidity_manager.DummyLiquidityManager,
+	universes map[int64]onchainUniverse,
 ) {
-	contractAddresses = make(map[int64]common.Address)
-	contractWrappers = make(map[int64]*dummy_liquidity_manager.DummyLiquidityManager)
+	universes = make(map[int64]onchainUniverse)
 	for chainID, backend := range chains {
-		addr, _, _, err := dummy_liquidity_manager.DeployDummyLiquidityManager(owner, backend, uint64(chainID))
-		require.NoError(t, err, "failed to deploy DummyLiquidityManager contract")
-		contractAddresses[chainID] = addr
-		wrapper, err := dummy_liquidity_manager.NewDummyLiquidityManager(addr, backend)
-		require.NoError(t, err, "failed to create DummyLiquidityManager wrapper")
-		contractWrappers[chainID] = wrapper
+		// TODO @makram
+		// Deploy wrapped ether contract
+		// will act as the ERC-20 being bridged
+		wethAddress, _, _, err := weth9.DeployWETH9(owner, backend)
+		require.NoError(t, err, "failed to deploy WETH9 contract")
+		backend.Commit()
+		wethToken, err := weth9.NewWETH9(wethAddress, backend)
+		require.NoError(t, err, "failed to create WETH9 wrapper")
+
+		// deposit some eth into the weth contract
+		_, err = wethToken.Deposit(&bind.TransactOpts{
+			From:    owner.From,
+			Signer:  owner.Signer,
+			Value:   assets.Ether(100).ToInt(),
+			Context: testutils.Context(t),
+		})
+		require.NoError(t, err, "failed to deposit eth into weth contract")
+
+		// deploy arm and arm proxy.
+		// required by the token pool
+		// otherwise not used by this test.
+		armAddress, _, _, err := mock_arm_contract.DeployMockARMContract(owner, backend)
+		require.NoError(t, err, "failed to deploy MockARMContract contract")
+		backend.Commit()
+		armProxyAddress, _, _, err := arm_proxy_contract.DeployARMProxyContract(owner, backend, armAddress)
+		require.NoError(t, err, "failed to deploy ARMProxyContract contract")
+		backend.Commit()
+
+		// deploy lock/release pool targeting the weth9 contract
+		lockReleasePoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
+			owner, backend, wethAddress, []common.Address{}, armProxyAddress, true)
+		require.NoError(t, err, "failed to deploy LockReleaseTokenPool contract")
+		backend.Commit()
+		lockReleasePool, err := lock_release_token_pool.NewLockReleaseTokenPool(lockReleasePoolAddress, backend)
+		require.NoError(t, err)
+
+		// deploy the rebalancer and set the liquidity container to be the lock release pool
+		rebalancerAddr, _, _, err := rebalancer.DeployRebalancer(owner, backend, wethAddress, uint64(chainID), lockReleasePoolAddress)
+		require.NoError(t, err, "failed to deploy Rebalancer contract")
+		rebalancer, err := rebalancer.NewRebalancer(rebalancerAddr, backend)
+		require.NoError(t, err, "failed to create Rebalancer wrapper")
+
+		// set the rebalancer of the lock release pool to be the previously deployed rebalancer
+		_, err = lockReleasePool.SetRebalancer(owner, rebalancerAddr)
+		require.NoError(t, err, "failed to set rebalancer on lock/release pool")
+		backend.Commit()
+		actualRebalancer, err := lockReleasePool.GetRebalancer(&bind.CallOpts{Context: testutils.Context(t)})
+		require.NoError(t, err)
+		require.Equal(t, rebalancerAddr, actualRebalancer)
+
+		// deploy the bridge adapter to point to the weth contract address
+		bridgeAdapterAddress, _, _, err := mock_l2_bridge_adapter.DeployMockL2BridgeAdapter(owner, backend)
+		require.NoError(t, err, "failed to deploy mock l1 bridge adapter")
+		backend.Commit()
+		bridgeAdapter, err := mock_l2_bridge_adapter.NewMockL2BridgeAdapter(bridgeAdapterAddress, backend)
+		require.NoError(t, err)
+
+		universes[chainID] = onchainUniverse{
+			backend:         backend,
+			chainID:         uint64(chainID),
+			wethToken:       wethToken,
+			lockReleasePool: lockReleasePool,
+			rebalancer:      rebalancer,
+			bridgeAdapter:   bridgeAdapter,
+		}
 	}
 	return
 }
@@ -586,64 +690,115 @@ func buildFollowerChainsFromBlocksToml(fromBlocks map[int64]int64) string {
 	return s
 }
 
-func createConnectedNetwork(t *testing.T, owner *bind.TransactOpts, chains map[int64]*backends.SimulatedBackend, wrappers map[int64]*dummy_liquidity_manager.DummyLiquidityManager) {
-	// create a connection from the main chain to all follower chains
-	// and from all follower chains to the main chain
-	for chainID, wrapper := range wrappers {
+func transferBalances(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	universes map[int64]onchainUniverse,
+) {
+	for _, uni := range universes {
+		// move some weth to the bridge adapters
+		// so that they can transfer it to the rebalancer
+		// when it calls finalizeWithdrawal
+		_, err := uni.wethToken.Transfer(owner, uni.bridgeAdapter.Address(), assets.Ether(5).ToInt())
+		require.NoError(t, err, "failed to transfer weth to bridge adapter")
+		uni.backend.Commit()
+		// confirm balance
+		bal, err := uni.wethToken.BalanceOf(&bind.CallOpts{Context: testutils.Context(t)}, uni.bridgeAdapter.Address())
+		require.NoError(t, err)
+		require.Equal(t, assets.Ether(5).ToInt(), bal)
+
+		// move some weth to the lock/release pool
+		// the LM will pull from this pool in order to send cross-chain
+		_, err = uni.wethToken.Transfer(owner, uni.lockReleasePool.Address(), assets.Ether(5).ToInt())
+		require.NoError(t, err, "failed to transfer weth to lock/release pool")
+		uni.backend.Commit()
+		// confirm balance
+		bal, err = uni.wethToken.BalanceOf(&bind.CallOpts{Context: testutils.Context(t)}, uni.lockReleasePool.Address())
+		require.NoError(t, err)
+		require.Equal(t, assets.Ether(5).ToInt(), bal)
+
+		// check the balance of the token pool through the rebalancer,
+		// should be the same as the balance of the lock/release pool
+		// retrieved above.
+		bal, err = uni.rebalancer.GetLiquidity(&bind.CallOpts{Context: testutils.Context(t)})
+		require.NoError(t, err)
+		require.Equal(t, assets.Ether(5).ToInt(), bal)
+	}
+}
+
+// create a connection from the main chain to all follower chains
+// and from all follower chains to the main chain
+// this is analogous to the main chain being an L1 and all other
+// chains being L2's.
+func createConnectedNetwork(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	chains map[int64]*backends.SimulatedBackend,
+	universes map[int64]onchainUniverse,
+) {
+	for chainID, uni := range universes {
 		if chainID == mainChainID {
 			continue
 		}
 		// follower -> main connection
-		_, err := wrapper.SetCrossChainLiquidityManager(
+		_, err := uni.rebalancer.SetCrossChainRebalancer(
 			owner,
-			dummy_liquidity_manager.ILiquidityManagerCrossChainLiquidityManagerArgs{
-				RemoteLiquidityManager: wrappers[mainChainID].Address(),
-				RemoteChainSelector:    uint64(mainChainID),
-				Enabled:                true,
+			rebalancer.IRebalancerCrossChainRebalancerArgs{
+				RemoteRebalancer:    universes[mainChainID].rebalancer.Address(),
+				RemoteChainSelector: uint64(mainChainID),
+				Enabled:             true,
+				LocalBridge:         uni.bridgeAdapter.Address(),
+				RemoteToken:         universes[mainChainID].wethToken.Address(),
 			})
-		require.NoError(t, err, "failed to add neighbor from follower to main chain")
+		require.NoError(t, err, "failed to SetCrossChainRebalancer from follower to main chain")
 		chains[chainID].Commit()
 
-		mgr, err := wrapper.GetCrossChainLiquidityManager(&bind.CallOpts{Context: testutils.Context(t)}, uint64(mainChainID))
+		mgr, err := uni.rebalancer.GetCrossChainRebalancer(&bind.CallOpts{Context: testutils.Context(t)}, uint64(mainChainID))
 		require.NoError(t, err)
-		require.Equal(t, wrappers[mainChainID].Address(), mgr.RemoteLiquidityManager)
+		require.Equal(t, universes[mainChainID].rebalancer.Address(), mgr.RemoteRebalancer)
+		require.Equal(t, uni.bridgeAdapter.Address(), mgr.LocalBridge)
+		require.Equal(t, universes[mainChainID].wethToken.Address(), mgr.RemoteToken)
 		require.True(t, mgr.Enabled)
 
 		// main -> follower connection
-		_, err = wrappers[mainChainID].SetCrossChainLiquidityManager(
+		_, err = universes[mainChainID].rebalancer.SetCrossChainRebalancer(
 			owner,
-			dummy_liquidity_manager.ILiquidityManagerCrossChainLiquidityManagerArgs{
-				RemoteLiquidityManager: wrapper.Address(),
-				RemoteChainSelector:    uint64(chainID),
-				Enabled:                true,
+			rebalancer.IRebalancerCrossChainRebalancerArgs{
+				RemoteRebalancer:    uni.rebalancer.Address(),
+				RemoteChainSelector: uint64(chainID),
+				Enabled:             true,
+				LocalBridge:         universes[mainChainID].bridgeAdapter.Address(),
+				RemoteToken:         uni.wethToken.Address(),
 			})
 		require.NoError(t, err, "failed to add neighbor from main to follower chain")
 		chains[mainChainID].Commit()
 
-		mgr, err = wrappers[mainChainID].GetCrossChainLiquidityManager(&bind.CallOpts{Context: testutils.Context(t)}, uint64(chainID))
+		mgr, err = universes[mainChainID].rebalancer.GetCrossChainRebalancer(&bind.CallOpts{Context: testutils.Context(t)}, uint64(chainID))
 		require.NoError(t, err)
-		require.Equal(t, wrapper.Address(), mgr.RemoteLiquidityManager)
+		require.Equal(t, uni.rebalancer.Address(), mgr.RemoteRebalancer)
+		require.Equal(t, universes[mainChainID].bridgeAdapter.Address(), mgr.LocalBridge)
+		require.Equal(t, uni.wethToken.Address(), mgr.RemoteToken)
 		require.True(t, mgr.Enabled)
 	}
 
 	// sanity check connections
-	for chainID, wrapper := range wrappers {
-		destChains, err := wrapper.GetSupportedDestChains(&bind.CallOpts{Context: testutils.Context(t)})
+	for chainID, uni := range universes {
+		destChains, err := uni.rebalancer.GetSupportedDestChains(&bind.CallOpts{Context: testutils.Context(t)})
 		require.NoError(t, err, "couldn't get supported dest chains")
 		t.Log("num dest chains:", len(destChains), "dest chains:", destChains)
 		if chainID == mainChainID {
-			require.Len(t, destChains, len(wrappers)-1)
+			require.Len(t, destChains, len(universes)-1)
 		} else {
 			require.Len(t, destChains, 1)
 		}
-		mgrs, err := wrapper.GetAllCrossChainLiquidityMangers(&bind.CallOpts{
+		mgrs, err := uni.rebalancer.GetAllCrossChainRebalancers(&bind.CallOpts{
 			Context: testutils.Context(t),
 		})
 		require.NoError(t, err, "couldn't get all cross-chain liquidity managers")
 		t.Log("chainID:", chainID, "num neighbors:", len(mgrs))
 		if chainID == mainChainID {
 			// should be connected to all follower chains
-			require.Len(t, mgrs, len(wrappers)-1, "unexpected number of neighbors on main chain")
+			require.Len(t, mgrs, len(universes)-1, "unexpected number of neighbors on main chain")
 		} else {
 			// should be connected to just the main chain
 			require.Len(t, mgrs, 1, "unexpected number of neighbors on follower chain")

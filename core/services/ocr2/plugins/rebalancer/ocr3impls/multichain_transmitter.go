@@ -13,6 +13,7 @@ import (
 
 type MultichainMeta interface {
 	GetDestinationChain() relay.ID
+	GetDestinationConfigDigest() types.ConfigDigest
 }
 
 // multichainTransmitterOCR3 is a transmitter that can transmit to multiple chains.
@@ -53,5 +54,6 @@ func (m *multichainTransmitterOCR3[RI]) Transmit(ctx context.Context, configDige
 	if !ok {
 		return fmt.Errorf("no transmitter for chain %s", destChain)
 	}
-	return transmitter.Transmit(ctx, configDigest, seqNr, rwi, sigs)
+	m.lggr.Infow("multichain transmitter: transmitting to chain", "destChain", destChain.String(), "configDigest", rwi.Info.GetDestinationConfigDigest().Hex())
+	return transmitter.Transmit(ctx, rwi.Info.GetDestinationConfigDigest(), seqNr, rwi, sigs)
 }

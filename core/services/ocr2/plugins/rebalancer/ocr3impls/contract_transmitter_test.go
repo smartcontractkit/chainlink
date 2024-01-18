@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/no_op_ocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/no_op_ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/ocr3impls"
 )
 
-type testUniverse[RI any] struct {
+type testUniverse[RI ocr3impls.MultichainMeta] struct {
 	simClient       *client.SimulatedBackendClient
 	backend         *backends.SimulatedBackend
 	deployer        *bind.TransactOpts
@@ -40,12 +40,12 @@ type testUniverse[RI any] struct {
 	f               uint8
 }
 
-type keyringsAndSigners[RI any] struct {
+type keyringsAndSigners[RI ocr3impls.MultichainMeta] struct {
 	keyrings []ocr3types.OnchainKeyring[RI]
 	signers  []common.Address
 }
 
-func newTestUniverse[RI any](
+func newTestUniverse[RI ocr3impls.MultichainMeta](
 	t *testing.T,
 	ks *keyringsAndSigners[RI]) testUniverse[RI] {
 	t.Helper()
@@ -86,7 +86,7 @@ func newTestUniverse[RI any](
 		for i := 0; i < 4; i++ {
 			kb, err2 := ocr2key.New(chaintype.EVM)
 			require.NoError(t, err2, "failed to create key")
-			kr := ocr3impls.NewOnchainKeyring[RI](kb)
+			kr := ocr3impls.NewOnchainKeyring[RI](kb, logger.TestLogger(t))
 			signers = append(signers, common.BytesToAddress(kr.PublicKey()))
 			keyrings = append(keyrings, kr)
 		}
@@ -173,7 +173,7 @@ func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty report", func(t *testing.T) {
-		uni := newTestUniverse[struct{}](t, nil)
+		uni := newTestUniverse[multichainMeta](t, nil)
 
 		c, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
 		require.NoError(t, err, "failed to get latest config digest and epoch")
@@ -181,9 +181,11 @@ func TestContractTransmitter(t *testing.T) {
 
 		// create the attributed signatures
 		// only need f+1 which is 2 in this case
-		rwi := ocr3types.ReportWithInfo[struct{}]{
+		rwi := ocr3types.ReportWithInfo[multichainMeta]{
 			Report: []byte{},
-			Info:   struct{}{},
+			Info: multichainMeta{
+				configDigest: configDigest,
+			},
 		}
 		seqNum := uint64(1)
 		attributedSigs := uni.SignReport(t, configDigest, rwi, seqNum)
@@ -208,7 +210,7 @@ func TestContractTransmitter(t *testing.T) {
 	})
 
 	t.Run("non-empty report", func(t *testing.T) {
-		uni := newTestUniverse[struct{}](t, nil)
+		uni := newTestUniverse[multichainMeta](t, nil)
 
 		c, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
 		require.NoError(t, err, "failed to get latest config digest and epoch")
@@ -217,11 +219,13 @@ func TestContractTransmitter(t *testing.T) {
 		// create the attributed signatures
 		// only need f+1 which is 2 in this case
 		rep := testutils.Random32Byte()
-		rwi := ocr3types.ReportWithInfo[struct{}]{
+		rwi := ocr3types.ReportWithInfo[multichainMeta]{
 			// Report bytes must always be aligned to 32 byte boundaries otherwise the on-chain
 			// length check will fail.
 			Report: rep[:],
-			Info:   struct{}{},
+			Info: multichainMeta{
+				configDigest: configDigest,
+			},
 		}
 		seqNum := uint64(1)
 		attributedSigs := uni.SignReport(t, configDigest, rwi, seqNum)

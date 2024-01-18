@@ -36,7 +36,7 @@ contract LockReleaseTokenPoolSetup is BaseTest {
 
     s_lockReleaseTokenPool.applyRampUpdates(onRamps, offRamps);
     s_lockReleaseTokenPoolWithAllowList.applyRampUpdates(onRamps, offRamps);
-    s_lockReleaseTokenPool.setLiquidityManager(OWNER);
+    s_lockReleaseTokenPool.setRebalancer(OWNER);
   }
 }
 

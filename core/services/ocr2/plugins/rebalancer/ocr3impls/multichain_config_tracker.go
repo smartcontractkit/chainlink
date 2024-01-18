@@ -20,7 +20,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/no_op_ocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/no_op_ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
@@ -98,7 +98,7 @@ func NewMultichainConfigTracker(
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse network ID %s: %w", masterChain, err)
 	}
-	masterLM, err := lmFactory.NewLiquidityManager(
+	masterLM, err := lmFactory.NewRebalancer(
 		models.NetworkSelector(masterChainID), // todo: probably need to find selector from chain id first
 		models.Address(masterContract))
 	if err != nil {

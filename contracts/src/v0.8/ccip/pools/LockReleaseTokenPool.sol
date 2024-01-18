@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {ILiquidityContainer} from "../../liquidity-manager/interfaces/ILiquidityContainer.sol";
+import {ILiquidityContainer} from "../../rebalancer/interfaces/ILiquidityContainer.sol";
 
 import {TokenPool} from "./TokenPool.sol";
 
@@ -32,7 +32,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   /// balanceOf(pool) on home chain == sum(totalSupply(mint/burn "wrapped" token) on all remote chains) should always hold
   bool internal immutable i_acceptLiquidity;
 
-  address internal s_liquidityManager;
+  address internal s_rebalancer;
 
   constructor(
     IERC20 token,
@@ -89,16 +89,16 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
       super.supportsInterface(interfaceId);
   }
 
-  /// @notice Gets liquidity manager, can be address(0) if none is configured.
+  /// @notice Gets Rebalancer, can be address(0) if none is configured.
   /// @return The current liquidity manager.
-  function getLiquidityManager() external view returns (address) {
-    return s_liquidityManager;
+  function getRebalancer() external view returns (address) {
+    return s_rebalancer;
   }
 
-  /// @notice Sets the liquidity manager address.
+  /// @notice Sets the Rebalancer address.
   /// @dev Only callable by the owner.
-  function setLiquidityManager(address liquidityManager) external onlyOwner {
-    s_liquidityManager = liquidityManager;
+  function setRebalancer(address rebalancer) external onlyOwner {
+    s_rebalancer = rebalancer;
   }
 
   /// @notice Checks if the pool can accept liquidity.
@@ -111,7 +111,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   /// @param amount The amount of liquidity to provide.
   function provideLiquidity(uint256 amount) external {
     if (!i_acceptLiquidity) revert LiquidityNotAccepted();
-    if (s_liquidityManager != msg.sender) revert Unauthorized(msg.sender);
+    if (s_rebalancer != msg.sender) revert Unauthorized(msg.sender);
 
     i_token.safeTransferFrom(msg.sender, address(this), amount);
     emit LiquidityAdded(msg.sender, amount);
@@ -120,7 +120,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   /// @notice Removed liquidity to the pool. The tokens will be sent to msg.sender.
   /// @param amount The amount of liquidity to remove.
   function withdrawLiquidity(uint256 amount) external {
-    if (s_liquidityManager != msg.sender) revert Unauthorized(msg.sender);
+    if (s_rebalancer != msg.sender) revert Unauthorized(msg.sender);
 
     if (i_token.balanceOf(address(this)) < amount) revert InsufficientLiquidity();
     i_token.safeTransfer(msg.sender, amount);

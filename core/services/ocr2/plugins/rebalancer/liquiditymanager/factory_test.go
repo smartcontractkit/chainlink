@@ -12,7 +12,7 @@ import (
 func TestNewBaseLiquidityManagerFactory(t *testing.T) {
 	lp1 := mocks.NewLogPoller(t)
 	lp2 := mocks.NewLogPoller(t)
-	lmf := NewBaseLiquidityManagerFactory(
+	lmf := NewBaseRebalancerFactory(
 		WithEvmDep(models.NetworkSelector(1), lp1, nil),
 		WithEvmDep(models.NetworkSelector(2), lp2, nil),
 	)

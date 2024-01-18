@@ -1,16 +1,14 @@
 package models
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type Address common.Address
@@ -69,19 +67,21 @@ func (n NetworkSelector) MarshalJSON() ([]byte, error) {
 type NetworkType string
 
 type Transfer struct {
-	From   NetworkSelector
-	To     NetworkSelector
-	Amount *big.Int
-	Date   time.Time
+	From       NetworkSelector
+	To         NetworkSelector
+	Amount     *big.Int
+	Date       time.Time
+	BridgeData []byte
 	// todo: consider adding some unique id field
 }
 
-func NewTransfer(from, to NetworkSelector, amount *big.Int, date time.Time) Transfer {
+func NewTransfer(from, to NetworkSelector, amount *big.Int, date time.Time, bridgeData []byte) Transfer {
 	return Transfer{
-		From:   from,
-		To:     to,
-		Amount: amount,
-		Date:   date,
+		From:       from,
+		To:         to,
+		Amount:     amount,
+		Date:       date,
+		BridgeData: bridgeData,
 	}
 }
 
@@ -89,7 +89,8 @@ func (t Transfer) Equals(other Transfer) bool {
 	return t.From == other.From &&
 		t.To == other.To &&
 		t.Amount.Cmp(other.Amount) == 0 &&
-		t.Date.Equal(other.Date)
+		t.Date.Equal(other.Date) &&
+		bytes.Equal(t.BridgeData, other.BridgeData)
 }
 
 type PendingTransfer struct {
@@ -127,85 +128,4 @@ const (
 
 func (t Transfer) String() string {
 	return fmt.Sprintf("%v->%v %s", t.From, t.To, t.Amount.String())
-}
-
-type ReportMetadata struct {
-	Transfers               []Transfer
-	LiquidityManagerAddress Address
-	NetworkID               NetworkSelector
-}
-
-func NewReportMetadata(transfers []Transfer, lmAddr Address, networkID NetworkSelector) ReportMetadata {
-	return ReportMetadata{
-		Transfers:               transfers,
-		LiquidityManagerAddress: lmAddr,
-		NetworkID:               networkID,
-	}
-}
-
-func (r ReportMetadata) Encode() []byte {
-	b, err := json.Marshal(r)
-	if err != nil {
-		panic(fmt.Errorf("report meta %#v encoding unexpected internal error: %w", r, err))
-	}
-	return b
-}
-
-func (r ReportMetadata) OnchainEncode() ([]byte, error) {
-	return onchainReportArguments.Pack(big.NewInt(int64(r.NetworkID)), common.Address(r.LiquidityManagerAddress))
-}
-
-func (r ReportMetadata) GetDestinationChain() relay.ID {
-	return relay.NewID(relay.EVM, fmt.Sprintf("%d", r.NetworkID))
-}
-
-func (r ReportMetadata) String() string {
-	return fmt.Sprintf("ReportMetadata{Transfers: %v, LiquidityManagerAddress: %s, NetworkID: %d}", r.Transfers, r.LiquidityManagerAddress, r.NetworkID)
-}
-
-func DecodeReportMetadata(b []byte) (ReportMetadata, error) {
-	var meta ReportMetadata
-	err := json.Unmarshal(b, &meta)
-	return meta, err
-}
-
-func DecodeReport(b []byte) (ReportMetadata, error) {
-	unpacked, err := onchainReportArguments.Unpack(b)
-	if err != nil {
-		return ReportMetadata{}, fmt.Errorf("failed to unpack report: %w", err)
-	}
-	if len(unpacked) != 2 {
-		return ReportMetadata{}, fmt.Errorf("unexpected number of arguments: %d", len(unpacked))
-	}
-	var out ReportMetadata
-	chainID := *abi.ConvertType(unpacked[0], new(*big.Int)).(**big.Int)
-	lqmgrAddr := *abi.ConvertType(unpacked[1], new(common.Address)).(*common.Address)
-	out.NetworkID = NetworkSelector(chainID.Int64())
-	out.LiquidityManagerAddress = Address(lqmgrAddr)
-	return out, nil
-}
-
-var onchainReportArguments = ReportSchema()
-
-func ReportSchema() abi.Arguments {
-	mustNewType := func(t string) abi.Type {
-		result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
-		if err != nil {
-			panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
-		}
-		return result
-	}
-	return abi.Arguments([]abi.Argument{
-		{
-			Name: "chainId",
-			Type: mustNewType("uint256"),
-		},
-		{
-			Name: "liquidityManagerAddress",
-			Type: mustNewType("address"),
-		},
-		// TODO: add transfer operations
-		// Once the onchain code is merged we can remove this function
-		// and just use the gethwrapper
-	})
 }

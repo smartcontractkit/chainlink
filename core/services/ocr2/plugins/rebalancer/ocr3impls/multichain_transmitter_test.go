@@ -54,8 +54,10 @@ func TestMultichainTransmitter(t *testing.T) {
 	// in actuality the same signers will be used across all chains
 	var reports []ocr3types.ReportWithInfo[multichainMeta]
 	for i := 0; i < numChains; i++ {
+		c, err2 := unis[i].wrapper.LatestConfigDigestAndEpoch(nil)
+		require.NoError(t, err2, "failed to get latest config digest and epoch")
 		report := ocr3types.ReportWithInfo[multichainMeta]{
-			Info:   multichainMeta{destChainIndex: i},
+			Info:   multichainMeta{destChainIndex: i, configDigest: c.ConfigDigest},
 			Report: []byte{},
 		}
 		reports = append(reports, report)
@@ -78,8 +80,13 @@ func TestMultichainTransmitter(t *testing.T) {
 
 type multichainMeta struct {
 	destChainIndex int
+	configDigest   ocrtypes.ConfigDigest
 }
 
 func (m multichainMeta) GetDestinationChain() relay.ID {
 	return relay.NewID(relay.EVM, fmt.Sprintf("%d", m.destChainIndex))
+}
+
+func (m multichainMeta) GetDestinationConfigDigest() ocrtypes.ConfigDigest {
+	return m.configDigest
 }

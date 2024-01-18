@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -156,13 +157,26 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 	lggr.Infow("finished computing transfers to reach balance", "transfersBySourceNet", transfersBySourceNet)
 
 	var reports []ocr3types.ReportWithInfo[models.ReportMetadata]
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	for sourceNet, transfers := range transfersBySourceNet {
 		lmAddress, exists := p.liquidityManagers.Get(sourceNet)
 		if !exists {
 			return nil, fmt.Errorf("liquidity manager for %v does not exist", sourceNet)
 		}
 
-		reportMeta := models.NewReportMetadata(transfers, lmAddress, sourceNet)
+		rebalancer, err := p.liquidityManagerFactory.NewRebalancer(sourceNet, lmAddress)
+		if err != nil {
+			return nil, fmt.Errorf("init liquidity manager: %w", err)
+		}
+
+		// TODO: consider caching the config digest or including it in the outcome?
+		configDigest, err := rebalancer.ConfigDigest(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("get config digest: %w", err)
+		}
+
+		reportMeta := models.NewReportMetadata(transfers, lmAddress, sourceNet, configDigest)
 		encoded, err := reportMeta.OnchainEncode()
 		if err != nil {
 			return nil, fmt.Errorf("encode report metadata for onchain usage: %w", err)
@@ -178,14 +192,17 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 }
 
 func (p *Plugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, r ocr3types.ReportWithInfo[models.ReportMetadata]) (bool, error) {
-	p.lggr.Infow("in should accept attested report", "seqNr", seqNr, "reportMeta", r.Info, "reportJSON", string(r.Report))
+	p.lggr.Infow("in should accept attested report", "seqNr", seqNr, "reportMeta", r.Info, "reportHex", hexutil.Encode(r.Report), "reportLen", len(r.Report))
 
-	report, err := models.DecodeReport(r.Report)
+	report, instructions, err := models.DecodeReport(p.rootNetwork, p.rootAddress, r.Report)
 	if err != nil {
-		return false, fmt.Errorf("decode report metadata: %w", err)
+		return false, fmt.Errorf("failed to decode report: %w", err)
 	}
 
-	p.lggr.Infow("accepting report", "transfers", len(report.Transfers))
+	p.lggr.Infow("accepting report",
+		"transfers", len(report.Transfers),
+		"sendInstructions", instructions.SendLiquidityParams,
+		"receiveInstructions", instructions.ReceiveLiquidityParams)
 	// todo: check if reportMeta.transfers are valid
 
 	return true, nil
@@ -213,7 +230,7 @@ func (p *Plugin) Close() error {
 
 	for networkID, lmAddr := range p.liquidityManagers.GetAll() {
 		// todo: lmCloser := liquidityManagerFactory.NewLiquidityManagerCloser(); lmCloser.Close()
-		lm, err := p.liquidityManagerFactory.NewLiquidityManager(networkID, lmAddr)
+		lm, err := p.liquidityManagerFactory.NewRebalancer(networkID, lmAddr)
 		if err != nil {
 			return err
 		}
@@ -236,7 +253,7 @@ func (p *Plugin) syncGraphEdges(ctx context.Context) error {
 		return fmt.Errorf("root lm %v not found", p.rootNetwork)
 	}
 
-	lm, err := p.liquidityManagerFactory.NewLiquidityManager(p.rootNetwork, rootLM)
+	lm, err := p.liquidityManagerFactory.NewRebalancer(p.rootNetwork, rootLM)
 	if err != nil {
 		return fmt.Errorf("init liquidity manager: %w", err)
 	}
@@ -262,7 +279,7 @@ func (p *Plugin) syncGraphBalances(ctx context.Context) ([]models.NetworkLiquidi
 			return nil, fmt.Errorf("liquidity manager for network %v was not found", networkID)
 		}
 
-		lm, err := p.liquidityManagerFactory.NewLiquidityManager(networkID, lmAddr)
+		lm, err := p.liquidityManagerFactory.NewRebalancer(networkID, lmAddr)
 		if err != nil {
 			return nil, fmt.Errorf("init liquidity manager: %w", err)
 		}
@@ -284,7 +301,7 @@ func (p *Plugin) loadPendingTransfers(ctx context.Context) ([]models.PendingTran
 
 	pendingTransfers := make([]models.PendingTransfer, 0)
 	for networkID, lmAddress := range p.liquidityManagers.GetAll() {
-		lm, err := p.liquidityManagerFactory.NewLiquidityManager(networkID, lmAddress)
+		lm, err := p.liquidityManagerFactory.NewRebalancer(networkID, lmAddress)
 		if err != nil {
 			return nil, fmt.Errorf("init liquidity manager: %w", err)
 		}

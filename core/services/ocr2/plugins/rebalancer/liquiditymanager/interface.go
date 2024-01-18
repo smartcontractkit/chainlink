@@ -2,7 +2,6 @@ package liquiditymanager
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"math/big"
 
@@ -10,15 +9,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/dummy_liquidity_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager/liquidity_manager"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
 
-type OnchainLiquidityManager interface {
-	GetAllCrossChainLiquidityMangers(ctx context.Context) (map[models.NetworkSelector]models.Address, error)
+type OnchainRebalancer interface {
+	GetAllCrossChainRebalancers(ctx context.Context) (map[models.NetworkSelector]models.Address, error)
 	GetLiquidity(ctx context.Context) (*big.Int, error)
 	ParseLiquidityTransferred(log gethtypes.Log) (LiquidityTransferredEvent, error)
+	GetConfigDigest(ctx context.Context) (ocrtypes.ConfigDigest, error)
 }
 
 type LiquidityTransferredEvent interface {
@@ -27,35 +28,44 @@ type LiquidityTransferredEvent interface {
 	Amount() *big.Int
 }
 
-var _ OnchainLiquidityManager = &concreteLiquidityManager{}
+var _ OnchainRebalancer = &concreteRebalancer{}
 
-// concreteLiquidityManager implements OnchainLiquidityManager
-// using the actual liquidity manager contract's generated go bindings.
+// concreteRebalancer implements OnchainRebalancer
+// using the actual rebalancer contract's generated go bindings.
 // i.e, business model is in full effect here.
-type concreteLiquidityManager struct {
-	client liquidity_manager.LiquidityManagerInterface
+type concreteRebalancer struct {
+	client rebalancer.RebalancerInterface
 }
 
-// GetAllCrossChainLiquidityMangers implements OnchainLiquidityManager.
-func (c *concreteLiquidityManager) GetAllCrossChainLiquidityMangers(ctx context.Context) (map[models.NetworkSelector]models.Address, error) {
-	lms, err := c.client.GetAllCrossChainLiquidityMangers(&bind.CallOpts{Context: ctx})
+// GetConfigDigest implements OnchainRebalancer.
+func (c *concreteRebalancer) GetConfigDigest(ctx context.Context) (ocrtypes.ConfigDigest, error) {
+	cdae, err := c.client.LatestConfigDigestAndEpoch(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, fmt.Errorf("get all cross chain liquidity managers: %w", err)
+		return ocrtypes.ConfigDigest{}, fmt.Errorf("latest config digest and epoch: %w", err)
+	}
+	return ocrtypes.ConfigDigest(cdae.ConfigDigest), nil
+}
+
+// GetAllCrossChainRebalancers implements OnchainRebalancer.
+func (c *concreteRebalancer) GetAllCrossChainRebalancers(ctx context.Context) (map[models.NetworkSelector]models.Address, error) {
+	lms, err := c.client.GetAllCrossChainRebalancers(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("get all cross chain rebalancers: %w", err)
 	}
 	ret := make(map[models.NetworkSelector]models.Address)
 	for _, lm := range lms {
-		ret[models.NetworkSelector(lm.RemoteChainSelector)] = models.Address(lm.RemoteLiquidityManager)
+		ret[models.NetworkSelector(lm.RemoteChainSelector)] = models.Address(lm.RemoteRebalancer)
 	}
 	return ret, nil
 }
 
-// GetLiquidity implements OnchainLiquidityManager.
-func (c *concreteLiquidityManager) GetLiquidity(ctx context.Context) (*big.Int, error) {
+// GetLiquidity implements OnchainRebalancer.
+func (c *concreteRebalancer) GetLiquidity(ctx context.Context) (*big.Int, error) {
 	return c.client.GetLiquidity(&bind.CallOpts{Context: ctx})
 }
 
-// ParseLiquidityTransferred implements OnchainLiquidityManager.
-func (c *concreteLiquidityManager) ParseLiquidityTransferred(log gethtypes.Log) (LiquidityTransferredEvent, error) {
+// ParseLiquidityTransferred implements OnchainRebalancer.
+func (c *concreteRebalancer) ParseLiquidityTransferred(log gethtypes.Log) (LiquidityTransferredEvent, error) {
 	e, err := c.client.ParseLiquidityTransferred(log)
 	if err != nil {
 		return nil, fmt.Errorf("parse liquidity transferred: %w", err)
@@ -63,16 +73,16 @@ func (c *concreteLiquidityManager) ParseLiquidityTransferred(log gethtypes.Log) 
 	return &concreteLiquidityTransferredEvent{e: e}, nil
 }
 
-func NewConcreteLiquidityManager(address common.Address, backend bind.ContractBackend) (*concreteLiquidityManager, error) {
-	client, err := liquidity_manager.NewLiquidityManager(address, backend)
+func NewConcreteRebalancer(address common.Address, backend bind.ContractBackend) (*concreteRebalancer, error) {
+	client, err := rebalancer.NewRebalancer(address, backend)
 	if err != nil {
-		return nil, fmt.Errorf("init concrete liquidity manager: %w", err)
+		return nil, fmt.Errorf("init concrete rebalancer: %w", err)
 	}
-	return &concreteLiquidityManager{client: client}, nil
+	return &concreteRebalancer{client: client}, nil
 }
 
 type concreteLiquidityTransferredEvent struct {
-	e *liquidity_manager.LiquidityManagerLiquidityTransferred
+	e *rebalancer.RebalancerLiquidityTransferred
 }
 
 var _ LiquidityTransferredEvent = &concreteLiquidityTransferredEvent{}
@@ -87,71 +97,4 @@ func (c *concreteLiquidityTransferredEvent) ToChainSelector() uint64 {
 
 func (c *concreteLiquidityTransferredEvent) Amount() *big.Int {
 	return c.e.Amount
-}
-
-// dummyLiquidityManager implements OnchainLiquidityManager
-// using the dummy liquidity manager gethwrapper,
-// which only manages neighbors and has no business logic.
-type dummyLiquidityManager struct {
-	client       dummy_liquidity_manager.DummyLiquidityManagerInterface
-	maxLiquidity *big.Int
-}
-
-// GetAllCrossChainLiquidityMangers implements OnchainLiquidityManager.
-func (d *dummyLiquidityManager) GetAllCrossChainLiquidityMangers(ctx context.Context) (map[models.NetworkSelector]models.Address, error) {
-	lms, err := d.client.GetAllCrossChainLiquidityMangers(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, fmt.Errorf("get all cross chain liquidity managers: %w", err)
-	}
-	ret := make(map[models.NetworkSelector]models.Address)
-	for _, lm := range lms {
-		ret[models.NetworkSelector(lm.RemoteChainSelector)] = models.Address(lm.RemoteLiquidityManager)
-	}
-	return ret, nil
-}
-
-// GetLiquidity implements OnchainLiquidityManager.
-func (d *dummyLiquidityManager) GetLiquidity(ctx context.Context) (*big.Int, error) {
-	liq, err := rand.Int(rand.Reader, d.maxLiquidity)
-	if err != nil {
-		return nil, fmt.Errorf("dummyLiquidityManager: generate random liquidity: %w", err)
-	}
-	return liq, nil
-}
-
-// ParseLiquidityTransferred implements OnchainLiquidityManager.
-func (d *dummyLiquidityManager) ParseLiquidityTransferred(log gethtypes.Log) (LiquidityTransferredEvent, error) {
-	e, err := d.client.ParseLiquidityTransferred(log)
-	if err != nil {
-		return nil, fmt.Errorf("parse liquidity transferred: %w", err)
-	}
-	return &dummyLiquidityTransferredEvent{e: e}, nil
-}
-
-var _ OnchainLiquidityManager = &dummyLiquidityManager{}
-
-func NewDummyLiquidityManager(address common.Address, backend bind.ContractBackend, maxLiquidity *big.Int) (*dummyLiquidityManager, error) {
-	client, err := dummy_liquidity_manager.NewDummyLiquidityManager(address, backend)
-	if err != nil {
-		return nil, fmt.Errorf("init dummy liquidity manager: %w", err)
-	}
-	return &dummyLiquidityManager{client: client, maxLiquidity: maxLiquidity}, nil
-}
-
-type dummyLiquidityTransferredEvent struct {
-	e *dummy_liquidity_manager.DummyLiquidityManagerLiquidityTransferred
-}
-
-var _ LiquidityTransferredEvent = &dummyLiquidityTransferredEvent{}
-
-func (d *dummyLiquidityTransferredEvent) FromChainSelector() uint64 {
-	return d.e.FromChainSelector
-}
-
-func (d *dummyLiquidityTransferredEvent) ToChainSelector() uint64 {
-	return d.e.ToChainSelector
-}
-
-func (d *dummyLiquidityTransferredEvent) Amount() *big.Int {
-	return d.e.Amount
 }

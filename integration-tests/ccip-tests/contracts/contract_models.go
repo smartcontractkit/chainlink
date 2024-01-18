@@ -212,7 +212,7 @@ func (pool *LockReleaseTokenPool) AddLiquidity(approveFn tokenApproveFn, tokenAd
 	if err != nil {
 		return err
 	}
-	_, err = pool.Instance.SetLiquidityManager(opts, opts.From)
+	_, err = pool.Instance.SetRebalancer(opts, opts.From)
 	if err != nil {
 		return err
 	}

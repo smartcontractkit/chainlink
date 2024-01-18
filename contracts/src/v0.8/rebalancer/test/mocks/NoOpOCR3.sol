@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import {OCR3Base} from "../../ccip/ocr/OCR3Base.sol";
+import {OCR3Base} from "../../ocr/OCR3Base.sol";
 
 // NoOpOCR3 is a mock implementation of the OCR3Base contract that does nothing
 // This is so that we can generate gethwrappers for the contract and use the OCR3 ABI in
@@ -12,7 +12,7 @@ contract NoOpOCR3 is OCR3Base {
 
   constructor() OCR3Base() {}
 
-  function _report(bytes calldata report, uint64 sequenceNumber) internal override {
+  function _report(bytes calldata, uint64) internal override {
     // do nothing
   }
 }

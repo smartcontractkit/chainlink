@@ -17,13 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
+	mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
-	mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/rebalancermocks"
+	rebalancer_mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/rebalancermocks"
 )
 
 type mockDeps struct {
-	mockFactory    *mocks.Factory
-	mockRebalancer *mocks.Rebalancer
+	mockFactory    *rebalancer_mocks.Factory
+	mockRebalancer *rebalancer_mocks.Rebalancer
 }
 
 func newPlugin(t *testing.T) (*Plugin, mockDeps) {
@@ -33,8 +34,8 @@ func newPlugin(t *testing.T) (*Plugin, mockDeps) {
 	rootAddr := models.Address(utils.RandomAddress())
 
 	lmGraph := liquiditygraph.NewGraph()
-	lmFactory := mocks.NewFactory(t)
-	rb := mocks.NewRebalancer(t)
+	lmFactory := rebalancer_mocks.NewFactory(t)
+	rb := rebalancer_mocks.NewRebalancer(t)
 	return NewPlugin(f, closeTimeout, rootNetwork, rootAddr, lmFactory, lmGraph, rb, logger.TestLogger(t)), mockDeps{
 		mockFactory:    lmFactory,
 		mockRebalancer: rb,
@@ -57,8 +58,8 @@ func TestPluginObservation(t *testing.T) {
 	net := maps.Keys(lms)[0]
 	addr := maps.Values(lms)[0]
 
-	mockLM := mocks.NewLiquidityManager(t)
-	deps.mockFactory.On("NewLiquidityManager", net, addr).Return(mockLM, nil)
+	mockLM := mocks.NewRebalancer(t)
+	deps.mockFactory.On("NewRebalancer", net, addr).Return(mockLM, nil)
 
 	g := liquiditygraph.NewGraph()
 	g.AddNetwork(net, big.NewInt(1234))

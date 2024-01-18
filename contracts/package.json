@@ -105,6 +105,7 @@
   },
   "dependencies": {
     "@eth-optimism/contracts": "0.6.0",
+    "@arbitrum/token-bridge-contracts": "1.1.2",
     "@scroll-tech/contracts": "0.1.0",
     "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-upgradeable": "4.9.3"

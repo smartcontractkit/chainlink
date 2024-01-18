@@ -52,6 +52,12 @@ test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.16'
 # We cannot turn on deny_warnings = true as that will hide any CI failure
 
+[profile.rebalancer]
+optimizer_runs = 1000000
+src = 'src/v0.8/rebalancer'
+test = 'src/v0.8/rebalancer/test'
+solc_version = '0.8.19'
+
 [profile.shared]
 optimizer_runs = 1000000
 src = 'src/v0.8/shared'

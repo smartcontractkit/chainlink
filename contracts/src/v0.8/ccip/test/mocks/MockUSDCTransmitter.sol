@@ -9,9 +9,9 @@ contract MockUSDCTransmitter is IMessageTransmitter {
   uint32 private immutable i_version;
   uint32 private immutable i_localDomain;
 
-  constructor(uint32 version, uint32 localDomain) {
-    i_version = version;
-    i_localDomain = localDomain;
+  constructor(uint32 _version, uint32 _localDomain) {
+    i_version = _version;
+    i_localDomain = _localDomain;
     s_shouldSucceed = true;
   }
 

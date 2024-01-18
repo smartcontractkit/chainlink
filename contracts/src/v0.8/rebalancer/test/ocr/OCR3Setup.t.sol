@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {BaseTest} from "../BaseTest.t.sol";
+import {RebalancerBaseTest} from "../RebalancerBaseTest.sol";
 
-contract OCR3Setup is BaseTest {
+contract OCR3Setup is RebalancerBaseTest {
   // Signer private keys used for these test
   uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
   uint256 internal constant PRIVATE1 = 0xab56160806b05ef1796789248e1d7f34a6465c5280899159d645218cd216cee6;
@@ -18,7 +18,7 @@ contract OCR3Setup is BaseTest {
   bytes internal constant REPORT = abi.encode("testReport");
 
   function setUp() public virtual override {
-    BaseTest.setUp();
+    RebalancerBaseTest.setUp();
 
     s_valid_transmitters = new address[](4);
     for (uint160 i = 0; i < 4; ++i) {
