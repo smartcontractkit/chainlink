@@ -22,6 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+
+	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -149,7 +151,7 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 }
 
 // pass config here
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig GlobalTestConfig, opts ...ClNodeOption) error {
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig core_testconfig.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {

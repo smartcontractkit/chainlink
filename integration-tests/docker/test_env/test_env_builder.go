@@ -11,7 +11,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
@@ -23,6 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 type CleanUpType string
@@ -32,14 +33,6 @@ const (
 	CleanUpTypeStandard CleanUpType = "standard"
 	CleanUpTypeCustom   CleanUpType = "custom"
 )
-
-type GlobalTestConfig interface {
-	MustGetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
-	MustGetLoggingConfig() *ctf_config.LoggingConfig
-	MustGetNetworkConfig() *ctf_config.NetworkConfig
-	MustGetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
-	MustGetPyroscopeConfig() *ctf_config.PyroscopeConfig
-}
 
 type CLTestEnvBuilder struct {
 	hasLogStream           bool
@@ -61,7 +54,7 @@ type CLTestEnvBuilder struct {
 	chainOptionsFn         []ChainOption
 	evmClientNetworkOption []EVMClientNetworkOption
 	ethereumNetwork        *test_env.EthereumNetwork
-	testConfig             GlobalTestConfig
+	testConfig             tc.GlobalTestConfig
 
 	/* funding */
 	ETHFunds *big.Float
@@ -123,7 +116,7 @@ func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithTestConfig(cfg GlobalTestConfig) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder) WithTestConfig(cfg tc.GlobalTestConfig) *CLTestEnvBuilder {
 	b.testConfig = cfg
 	return b
 }

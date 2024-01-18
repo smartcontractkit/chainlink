@@ -16,6 +16,7 @@ import (
 	"golang.org/x/text/language"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	k8s_env "github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -30,6 +31,14 @@ import (
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 )
+
+type GlobalTestConfig interface {
+	MustGetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
+	MustGetLoggingConfig() *ctf_config.LoggingConfig
+	MustGetNetworkConfig() *ctf_config.NetworkConfig
+	MustGetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
+	MustGetPyroscopeConfig() *ctf_config.PyroscopeConfig
+}
 
 type TestConfig struct {
 	ChainlinkImage         *ctf_config.ChainlinkImageConfig `toml:"ChainlinkImage"`
