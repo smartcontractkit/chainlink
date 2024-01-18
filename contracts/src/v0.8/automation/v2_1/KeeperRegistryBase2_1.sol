@@ -948,6 +948,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   /**
    * @dev returns the blockhash of the provided block number in a chain agnostic manner
+   * @dev blockhash keyword won't return the actual block hash in Scroll and polygon zkEVM!
    * @param n the blocknumber to retrieve the blockhash for
    * @return blockhash the blockhash of block number n, or 0 if n is out queryable of range
    */
