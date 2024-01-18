@@ -18,6 +18,10 @@ spec:
         app: {{ $.Release.Name }}
         instance: {{ $cfg.name }}
         release: {{ $.Release.Name }}
+        # Role value should either be: botostrap or node.
+        # There should only be one "bootstrap" node, the rest should be "node".
+        # This is used for testing.
+        role: {{ $cfg.role }}
         {{- range $key, $value := $.Values.labels }}
         {{ $key }}: {{ $value | quote }}
         {{- end }}

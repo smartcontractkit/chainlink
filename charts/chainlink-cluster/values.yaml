@@ -24,6 +24,7 @@ chainlink:
   p2p_port: 6690
   nodes:
     - name: node-1
+      role: bootstrap
       image: "public.ecr.aws/chainlink/chainlink:latest"
       # default resources are 300m/1Gi
       # first node need more resources to build faster inside container
@@ -68,10 +69,15 @@ chainlink:
     # or use overridesToml to override some part of configuration
     #      overridesToml: |
     - name: node-2
+      role: node
     - name: node-3
+      role: node
     - name: node-4
+      role: node
     - name: node-5
+      role: node
     - name: node-6
+      role: node
   resources:
     requests:
       cpu: 350m
@@ -276,7 +282,7 @@ ingress:
                 port:
                   number: 1080
 # monitoring.coreos.com/v1 PodMonitor for each node
-prometheusMonitor: true
+prometheusMonitor: false
 
 # deployment placement, standard helm stuff
 podAnnotations:
