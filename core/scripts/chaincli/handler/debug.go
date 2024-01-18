@@ -14,13 +14,15 @@ import (
 	"os"
 	"strconv"
 
+	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 
@@ -31,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
@@ -256,7 +257,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
-		mc := &models.MercuryCredentials{LegacyURL: k.cfg.MercuryLegacyURL, URL: k.cfg.MercuryURL, Username: k.cfg.MercuryID, Password: k.cfg.MercuryKey}
+		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.MercuryLegacyURL, URL: k.cfg.MercuryURL, Username: k.cfg.MercuryID, Password: k.cfg.MercuryKey}
 		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)
 		lggr, _ := logger.NewLogger()
 		blockSub := &blockSubscriber{k.client}

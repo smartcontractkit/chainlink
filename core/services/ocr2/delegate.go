@@ -43,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
@@ -188,7 +187,7 @@ type jobPipelineConfig interface {
 }
 
 type mercuryConfig interface {
-	Credentials(credName string) *models.MercuryCredentials
+	Credentials(credName string) *types.MercuryCredentials
 	Cache() coreconfig.MercuryCache
 	TLS() coreconfig.MercuryTLS
 }
@@ -1089,12 +1088,13 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	provider, err := relayer.NewPluginProvider(ctx,
 		types.RelayArgs{
-			ExternalJobID: jb.ExternalJobID,
-			JobID:         jb.ID,
-			ContractID:    spec.ContractID,
-			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
-			ProviderType:  string(spec.PluginType),
+			ExternalJobID:      jb.ExternalJobID,
+			JobID:              jb.ID,
+			ContractID:         spec.ContractID,
+			New:                d.isNewlyCreatedJob,
+			RelayConfig:        spec.RelayConfig.Bytes(),
+			ProviderType:       string(spec.PluginType),
+			MercuryCredentials: mc,
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1108,12 +1108,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
 	}
 
-	chain, err := d.legacyChains.Get(rid.ChainID)
-	if err != nil {
-		return nil, fmt.Errorf("keeper2 services: failed to get chain %s: %w", rid.ChainID, err)
-	}
-
-	services, err := ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, mc, kb, d.cfg.Database())
+	services, err := ocr2keeper.EVMDependencies21(kb)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not build dependencies for ocr2 keepers")
 	}
@@ -1154,15 +1149,15 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		OffchainKeyring:              kb,
 		OnchainKeyring:               services.Keyring(),
 		LocalConfig:                  lc,
-		LogProvider:                  services.LogEventProvider(),
-		EventProvider:                services.TransmitEventProvider(),
-		Runnable:                     services.Registry(),
-		Encoder:                      services.Encoder(),
-		BlockSubscriber:              services.BlockSubscriber(),
-		RecoverableProvider:          services.LogRecoverer(),
-		PayloadBuilder:               services.PayloadBuilder(),
-		UpkeepProvider:               services.UpkeepProvider(),
-		UpkeepStateUpdater:           services.UpkeepStateStore(),
+		LogProvider:                  keeperProvider.LogEventProvider(),
+		EventProvider:                keeperProvider.TransmitEventProvider(),
+		Runnable:                     keeperProvider.Registry(),
+		Encoder:                      keeperProvider.Encoder(),
+		BlockSubscriber:              keeperProvider.BlockSubscriber(),
+		RecoverableProvider:          keeperProvider.LogRecoverer(),
+		PayloadBuilder:               keeperProvider.PayloadBuilder(),
+		UpkeepProvider:               keeperProvider.UpkeepProvider(),
+		UpkeepStateUpdater:           keeperProvider.UpkeepStateStore(),
 		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
 		WorkIDGenerator:              ocr2keeper21core.UpkeepWorkID,
 		// TODO: Clean up the config
@@ -1179,12 +1174,12 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	automationServices := []job.ServiceCtx{
 		keeperProvider,
-		services.Registry(),
-		services.BlockSubscriber(),
-		services.LogEventProvider(),
-		services.LogRecoverer(),
-		services.UpkeepStateStore(),
-		services.TransmitEventProvider(),
+		keeperProvider.Registry(),
+		keeperProvider.BlockSubscriber(),
+		keeperProvider.LogEventProvider(),
+		keeperProvider.LogRecoverer(),
+		keeperProvider.UpkeepStateStore(),
+		keeperProvider.TransmitEventProvider(),
 		pluginService,
 	}
 
@@ -1194,7 +1189,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		customTelemService, custErr := autotelemetry21.NewAutomationCustomTelemetryService(
 			endpoint,
 			lggr,
-			services.BlockSubscriber(),
+			keeperProvider.BlockSubscriber(),
 			keeperProvider.ContractConfigTracker(),
 		)
 		if custErr != nil {
@@ -1230,7 +1225,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.ethKs)
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.ethKs, d.cfg.Database())
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}

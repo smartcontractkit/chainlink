@@ -498,7 +498,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
 	lggr := r.lggr.Named("AutomationProvider").Named(rargs.ExternalJobID.String())
-	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth())
+	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth(), r.pgCfg)
 
 	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
 }
