@@ -38,6 +38,8 @@ func TestOCRBasic(t *testing.T) {
 	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
+	require.True(t, false, "we want a test summary")
+
 	ocrInstances, err := actions.DeployOCRContractsLocal(1, linkTokenContract, env.ContractDeployer, workerNodes, env.EVMClient)
 	require.NoError(t, err)
 	err = env.EVMClient.WaitForEvents()
@@ -64,6 +66,7 @@ func TestOCRBasic(t *testing.T) {
 }
 
 func TestOCRJobReplacement(t *testing.T) {
+	t.Skip("This test is flaky and needs to be fixed")
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 

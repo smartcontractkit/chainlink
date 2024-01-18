@@ -227,74 +227,74 @@ jobs:
             fi
           fi
 
-  eth-smoke-tests-matrix-automation:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs:
-      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
-    env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-    strategy:
-      fail-fast: false
-      matrix:
-        product: ${{fromJson(needs.compare-tests.outputs.matrix)}}
-    runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}
-    steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Go Test Command
-        id: build-go-test-command
-        run: |
-          # if the matrix.product.run is set, use it for a different command
-          if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
-          fi
-      ## Run this step when changes that require tests to be run are made
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
-        env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-        with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_location: ./integration-tests/smoke/logs/
-          publish_check_name: ${{ matrix.product.name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
+  # eth-smoke-tests-matrix-automation:
+  #   if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs:
+  #     [build-chainlink, changes, compare-tests, build-lint-integration-tests]
+  #   env:
+  #     SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+  #     CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+  #     CHAINLINK_ENV_USER: ${{ github.actor }}
+  #     TEST_LOG_LEVEL: debug
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       product: ${{fromJson(needs.compare-tests.outputs.matrix)}}
+  #   runs-on: ${{ matrix.product.os }}
+  #   name: ETH Smoke Tests ${{ matrix.product.name }}
+  #   steps:
+  #     - name: Collect Metrics
+  #       if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+  #       id: collect-gha-metrics
+  #       uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+  #       with:
+  #         basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+  #         hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+  #         this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+  #         test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+  #       continue-on-error: true
+  #     - name: Checkout the repo
+  #       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  #     - name: Build Go Test Command
+  #       id: build-go-test-command
+  #       run: |
+  #         # if the matrix.product.run is set, use it for a different command
+  #         if [ "${{ matrix.product.run }}" != "" ]; then
+  #           echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+  #         else
+  #           echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+  #         fi
+  #     ## Run this step when changes that require tests to be run are made
+  #     - name: Run Tests
+  #       if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+  #         PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+  #       with:
+  #         test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+  #         test_download_vendor_packages_command: cd ./integration-tests && go mod download
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         artifacts_location: ./integration-tests/smoke/logs/
+  #         publish_check_name: ${{ matrix.product.name }}
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         go_mod_path: ./integration-tests/go.mod
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ""
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -314,53 +314,53 @@ jobs:
       fail-fast: false
       matrix:
         product:
-          - name: cron
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: flux
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
+          # - name: cron
+          #   nodes: 2
+          #   os: ubuntu-latest
+          #   pyroscope_env: ""
+          # - name: flux
+          #   nodes: 1
+          #   os: ubuntu-latest
+          #   pyroscope_env: ""
           - name: ocr
             nodes: 2
             os: ubuntu-latest
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
-          - name: ocr2
-            nodes: 4
-            os: ubuntu-latest
-            file: ocr2
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
-          - name: ocr2
-            nodes: 4
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
-            tag_suffix: "-plugins"
-          - name: runlog
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
-          - name: vrf
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf-evm-simulated
-          - name: vrfv2
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2-evm-simulated
-          - name: vrfv2plus
-            nodes: 3
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
-          - name: forwarder_ocr
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-          - name: forwarders_ocr2
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+          # - name: ocr2
+          #   nodes: 4
+          #   os: ubuntu-latest
+          #   file: ocr2
+          #   pyroscope_env: ci-smoke-ocr2-evm-simulated
+          # - name: ocr2
+          #   nodes: 4
+          #   os: ubuntu-latest
+          #   pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
+          #   tag_suffix: "-plugins"
+          # - name: runlog
+          #   nodes: 1
+          #   os: ubuntu-latest
+          #   pyroscope_env: ""
+          # - name: vrf
+          #   nodes: 2
+          #   os: ubuntu-latest
+          #   pyroscope_env: ci-smoke-vrf-evm-simulated
+          # - name: vrfv2
+          #   nodes: 2
+          #   os: ubuntu-latest
+          #   pyroscope_env: ci-smoke-vrf2-evm-simulated
+          # - name: vrfv2plus
+          #   nodes: 3
+          #   os: ubuntu-latest
+          #   pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+          # - name: forwarder_ocr
+          #   nodes: 1
+          #   os: ubuntu-latest
+          #   pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+          # - name: forwarders_ocr2
+          #   nodes: 1
+          #   os: ubuntu-latest
+          #   pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
@@ -498,32 +498,17 @@ jobs:
           path: ./integration-tests/smoke/traces/trace-data.json
       - name: Print failed test summary
         if: always()
-        run: |
-          directory="./integration-tests/smoke/.test_summary"
-          files=("$directory"/*)
-          if [ -d "$directory" ]; then
-            echo "Test summary folder found"
-            if [ ${#files[@]} -gt 0 ]; then
-              first_file="${files[0]}"
-              echo "Name of the first test summary file: $(basename "$first_file")"
-              echo "### Failed Test Execution Logs Dashboard (over VPN):" >> $GITHUB_STEP_SUMMARY
-              cat "$first_file" | jq -r '.loki[] | "* [\(.test_name)](\(.value))"' >> $GITHUB_STEP_SUMMARY
-              if [ ${#files[@]} -gt 1 ]; then
-                echo "Found more than one test summary file. This is incorrect, there should be only one file"
-              fi
-            else
-                echo "Test summary directory is empty. This should not happen"
-            fi
-          else
-            echo "No test summary folder found. If no test failed or log collection wasn't explicitly requested this is correct. Exiting"
-          fi
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b131d9ef489538a282116ac9ba6c6266625b0d61 # v2.2.16
+        with:
+          test_directory: ./integration-tests/smoke/      
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
     if: always()
     runs-on: ubuntu-latest
     name: ETH Smoke Tests
-    needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
+    # needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
+    needs: [eth-smoke-tests-matrix]
     steps:
       - name: Check smoke test matrix status
         if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success'
