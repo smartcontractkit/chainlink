@@ -87,6 +87,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 			offRampReader:            rf.config.offRampReader,
 			inflightReports:          newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
 			snoozedRoots:             cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
+			metricsCollector:         rf.config.metricsCollector,
 		}, types.ReportingPluginInfo{
 			Name: "CCIPExecution",
 			// Setting this to false saves on calldata since OffRamp doesn't require agreement between NOPs

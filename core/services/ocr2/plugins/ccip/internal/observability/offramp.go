@@ -26,18 +26,6 @@ func NewObservedOffRampReader(origin ccipdata.OffRampReader, chainID int64, plug
 	}
 }
 
-func (o *ObservedOffRampReader) EncodeExecutionReport(report ccipdata.ExecReport) ([]byte, error) {
-	return withObservedInteraction(o.metric, "EncodeExecutionReport", func() ([]byte, error) {
-		return o.OffRampReader.EncodeExecutionReport(report)
-	})
-}
-
-func (o *ObservedOffRampReader) DecodeExecutionReport(report []byte) (ccipdata.ExecReport, error) {
-	return withObservedInteraction(o.metric, "DecodeExecutionReport", func() (ccipdata.ExecReport, error) {
-		return o.OffRampReader.DecodeExecutionReport(report)
-	})
-}
-
 func (o *ObservedOffRampReader) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confs int) ([]ccipdata.Event[ccipdata.ExecutionStateChanged], error) {
 	return withObservedInteraction(o.metric, "GetExecutionStateChangesBetweenSeqNums", func() ([]ccipdata.Event[ccipdata.ExecutionStateChanged], error) {
 		return o.OffRampReader.GetExecutionStateChangesBetweenSeqNums(ctx, seqNumMin, seqNumMax, confs)

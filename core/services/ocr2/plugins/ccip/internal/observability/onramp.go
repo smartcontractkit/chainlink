@@ -39,12 +39,6 @@ func (o ObservedOnRampReader) RouterAddress() (common.Address, error) {
 	})
 }
 
-func (o ObservedOnRampReader) Address() (common.Address, error) {
-	return withObservedInteraction(o.metric, "Address", func() (common.Address, error) {
-		return o.OnRampReader.Address()
-	})
-}
-
 func (o ObservedOnRampReader) GetDynamicConfig() (ccipdata.OnRampDynamicConfig, error) {
 	return withObservedInteraction(o.metric, "GetDynamicConfig", func() (ccipdata.OnRampDynamicConfig, error) {
 		return o.OnRampReader.GetDynamicConfig()

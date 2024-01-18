@@ -155,6 +155,7 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			p.priceGetter = priceGet
 			p.sourceNative = sourceNativeTokenAddr
 			p.gasPriceEstimator = gasPriceEstimator
+			p.metricsCollector = ccip.NoopMetricsCollector
 
 			obs, err := p.Observation(ctx, tc.epochAndRound, types.Query{})
 
@@ -327,6 +328,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			p.offchainConfig.GasPriceHeartBeat = gasPriceHeartBeat.Duration()
 			p.commitStoreReader = commitStoreReader
 			p.F = tc.f
+			p.metricsCollector = ccip.NoopMetricsCollector
 
 			aos := make([]types.AttributedObservation, 0, len(tc.observations))
 			for _, o := range tc.observations {
@@ -360,6 +362,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		p := &CommitReportingPlugin{}
 		p.lggr = logger.TestLogger(t)
 		p.inflightReports = newInflightCommitReportsContainer(time.Minute)
+		p.metricsCollector = ccip.NoopMetricsCollector
 		return p
 	}
 

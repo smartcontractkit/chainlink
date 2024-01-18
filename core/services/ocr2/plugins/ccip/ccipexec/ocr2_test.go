@@ -101,6 +101,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.lggr = logger.TestLogger(t)
 			p.tokenDataWorker = tokendata.NewBackgroundWorker(
 				ctx, make(map[common.Address]tokendata.Reader), 10, 5*time.Second, time.Hour)
+			p.metricsCollector = ccip.NoopMetricsCollector
 
 			commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
 			commitStoreReader.On("IsDown", mock.Anything).Return(tc.commitStorePaused, nil)
@@ -354,6 +355,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 				},
 			},
 		}, nil)
+	p.metricsCollector = ccip.NoopMetricsCollector
 	p.commitStoreReader = commitStore
 
 	lp := lpMocks.NewLogPoller(t)

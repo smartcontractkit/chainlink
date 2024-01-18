@@ -202,6 +202,7 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 	sourcePriceRegistry = observability.NewPriceRegistryReader(sourcePriceRegistry, sourceChainID, ccip.ExecPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.ExecPluginLabel)
 	offRampReader := observability.NewObservedOffRampReader(params.offRampReader, destChainID, ccip.ExecPluginLabel)
+	metricsCollector := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, sourceChainID, destChainID)
 
 	destChainSelector, err := chainselectors.SelectorFromChainId(uint64(destChainID))
 	if err != nil {
@@ -232,6 +233,7 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 				5*time.Second,
 				offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds,
 			),
+			metricsCollector: metricsCollector,
 		}, &ccipcommon.BackfillArgs{
 			SourceLP:         params.sourceChain.LogPoller(),
 			DestLP:           params.destChain.LogPoller(),

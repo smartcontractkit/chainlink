@@ -64,7 +64,8 @@ type CommitPluginStaticConfig struct {
 	destChainSelector     uint64
 	priceRegistryProvider ccipdataprovider.PriceRegistry
 	// Offchain
-	priceGetter pricegetter.PriceGetter
+	priceGetter      pricegetter.PriceGetter
+	metricsCollector ccip.PluginMetricsCollector
 }
 
 type CommitReportingPlugin struct {
@@ -81,7 +82,8 @@ type CommitReportingPlugin struct {
 	offRampReader           ccipdata.OffRampReader
 	F                       int
 	// Offchain
-	priceGetter pricegetter.PriceGetter
+	priceGetter      pricegetter.PriceGetter
+	metricsCollector ccip.PluginMetricsCollector
 	// State
 	inflightReports *inflightCommitReportsContainer
 }
@@ -131,6 +133,8 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		"sourceGasPriceUSD", sourceGasPriceUSD,
 		"tokenPricesUSD", tokenPricesUSD,
 		"epochAndRound", epochAndRound)
+	r.metricsCollector.NumberOfMessagesBasedOnInterval(ccip.Observation, minSeqNr, maxSeqNr)
+
 	// Even if all values are empty we still want to communicate our observation
 	// with the other nodes, therefore, we always return the observed values.
 	return ccip.CommitObservation{
@@ -403,6 +407,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 	if err != nil {
 		return false, nil, err
 	}
+	r.metricsCollector.NumberOfMessagesBasedOnInterval(ccip.Report, report.Interval.Min, report.Interval.Max)
 	lggr.Infow("Report",
 		"merkleRoot", hex.EncodeToString(report.MerkleRoot[:]),
 		"minSeqNr", report.Interval.Min,
@@ -663,6 +668,7 @@ func (r *CommitReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context,
 	if err := r.inflightReports.add(lggr, parsedReport, epochAndRound); err != nil {
 		return false, err
 	}
+	r.metricsCollector.SequenceNumber(parsedReport.Interval.Max)
 	lggr.Infow("Accepting finalized report", "merkleRoot", hexutil.Encode(parsedReport.MerkleRoot[:]))
 	return true, nil
 }

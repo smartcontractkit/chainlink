@@ -15,11 +15,15 @@ var (
 		float64(50 * time.Millisecond),
 		float64(75 * time.Millisecond),
 		float64(100 * time.Millisecond),
-		float64(250 * time.Millisecond),
+		float64(200 * time.Millisecond),
+		float64(300 * time.Millisecond),
+		float64(400 * time.Millisecond),
 		float64(500 * time.Millisecond),
 		float64(750 * time.Millisecond),
 		float64(1 * time.Second),
 		float64(2 * time.Second),
+		float64(3 * time.Second),
+		float64(4 * time.Second),
 	}
 	labels          = []string{"evmChainID", "plugin", "reader", "function", "success"}
 	readerHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
