@@ -349,6 +349,27 @@ func (a *AutomationTest) CollectNodeDetails() error {
 	return nil
 }
 
+func (a *AutomationTest) DeleteAllJobs() error {
+	for _, n := range a.ChainlinkNodes {
+		jobs, _, err := n.ReadJobs()
+		if err != nil {
+			return errors.Join(err, fmt.Errorf("failed to read jobs from node"))
+		}
+		for _, maps := range jobs.Data {
+			_, ok := maps["id"]
+			if !ok {
+				return fmt.Errorf("failed to find job id")
+			}
+			id := maps["id"].(string)
+			_, err := n.DeleteJob(id)
+			if err != nil {
+				return errors.Join(err, fmt.Errorf("failed to delete job"))
+			}
+		}
+	}
+	return nil
+}
+
 func (a *AutomationTest) AddBootstrapJob() error {
 	bootstrapSpec := &client.OCR2TaskJobSpec{
 		Name:    "ocr2 bootstrap node " + a.Registry.Address(),
@@ -703,19 +724,53 @@ func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress
 	l.Info().Msg("Collected Node Details")
 	l.Debug().Interface("Node Details", a.NodeDetails).Msg("Node Details")
 
-	err = a.LoadLINK(linkTokenAddress)
-	require.NoError(t, err, "Error loading link token contract")
+	if linkTokenAddress != "" {
+		err = a.LoadLINK(linkTokenAddress)
+		require.NoError(t, err, "Error loading link token contract")
+	} else {
+		err = a.DeployLINK()
+		require.NoError(t, err, "Error deploying link token contract")
+	}
 
-	err = a.LoadEthLinkFeed(ethLinkFeedAddress)
-	require.NoError(t, err, "Error loading eth link feed contract")
-	err = a.LoadEthGasFeed(gasFeedAddress)
-	require.NoError(t, err, "Error loading gas feed contract")
-	err = a.LoadTranscoder(transcoderAddress)
-	require.NoError(t, err, "Error loading transcoder contract")
-	err = a.LoadRegistry(registryAddress)
-	require.NoError(t, err, "Error loading registry contract")
-	err = a.LoadRegistrar(registrarAddress)
-	require.NoError(t, err, "Error loading registrar contract")
+	if ethLinkFeedAddress != "" {
+		err = a.LoadEthLinkFeed(ethLinkFeedAddress)
+		require.NoError(t, err, "Error loading eth link feed contract")
+	} else {
+		err = a.DeployEthLinkFeed()
+		require.NoError(t, err, "Error deploying eth link feed contract")
+	}
+
+	if gasFeedAddress != "" {
+		err = a.LoadEthGasFeed(gasFeedAddress)
+		require.NoError(t, err, "Error loading gas feed contract")
+	} else {
+		err = a.DeployGasFeed()
+		require.NoError(t, err, "Error deploying gas feed contract")
+	}
+
+	if transcoderAddress != "" {
+		err = a.LoadTranscoder(transcoderAddress)
+		require.NoError(t, err, "Error loading transcoder contract")
+	} else {
+		err = a.DeployTranscoder()
+		require.NoError(t, err, "Error deploying transcoder contract")
+	}
+
+	if registryAddress != "" {
+		err = a.LoadRegistry(registryAddress)
+		require.NoError(t, err, "Error loading registry contract")
+	} else {
+		err = a.DeployRegistry()
+		require.NoError(t, err, "Error deploying registry contract")
+	}
+
+	if registrarAddress != "" {
+		err = a.LoadRegistrar(registrarAddress)
+		require.NoError(t, err, "Error loading registrar contract")
+	} else {
+		err = a.DeployRegistrar()
+		require.NoError(t, err, "Error deploying registrar contract")
+	}
 
 	a.AddJobsAndSetConfig(t)
 
