@@ -18,7 +18,7 @@ type Validated interface {
 	// ValidateConfig returns nil if the config is valid, otherwise an error describing why it is invalid.
 	//
 	// For implementations:
-	//  - Use package multierr to accumulate all errors, rather than returning the first encountered.
+	//  - Use standard library errors package (errors#Join) to accumulate all errors, rather than returning the first encountered.
 	//  - If an anonymous field also implements ValidateConfig(), it must be called explicitly!
 	ValidateConfig() error
 }

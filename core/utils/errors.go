@@ -3,8 +3,6 @@ package utils
 import (
 	"fmt"
 	"strings"
-
-	"go.uber.org/multierr"
 )
 
 type multiErrorList []error
@@ -14,7 +12,14 @@ func MultiErrorList(err error) (int, error) {
 	if err == nil {
 		return 0, nil
 	}
-	errs := multierr.Errors(err)
+
+	u, ok := err.(interface {
+		Unwrap() []error
+	})
+	if !ok {
+		return 1, multiErrorList{err}
+	}
+	errs := u.Unwrap()
 	return len(errs), multiErrorList(errs)
 }
 
