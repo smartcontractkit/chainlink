@@ -407,7 +407,7 @@ jobs:
           - name: cron
             nodes: 2
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: "ci-smoke-cron-evm-simulated"
           - name: flux
             nodes: 1
             os: ubuntu-latest
