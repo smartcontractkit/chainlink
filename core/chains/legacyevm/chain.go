@@ -475,6 +475,9 @@ func newEthClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Durati
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			name := fmt.Sprintf("eth-sendonly-rpc-%d", i)
+			if node.Name != nil && *node.Name != "" {
+				name = *node.Name
+			}
 			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), name, int32(i), chainID,
 				commonclient.Secondary)
 			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCCLient](lggr, (url.URL)(*node.HTTPURL),
@@ -482,6 +485,9 @@ func newEthClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Durati
 			sendonlys = append(sendonlys, sendonly)
 		} else {
 			name := fmt.Sprintf("eth-primary-rpc-%d", i)
+			if node.Name != nil && *node.Name != "" {
+				name = *node.Name
+			}
 			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), name, int32(i),
 				chainID, commonclient.Primary)
 			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCCLient](cfg, noNewHeadsThreshold,
