@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
@@ -18,7 +17,7 @@ import (
 // We perform this test using the generated LogEmitter wrapper.
 func TestGeneratedDeployMethodAddressField(t *testing.T) {
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackendWithDatabase(rawdb.NewMemoryDatabase(), map[common.Address]core.GenesisAccount{
+	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},

@@ -163,7 +163,9 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	require.NoError(t, err)
 
 	cu.Backend.Commit()
-	requestBlock := cu.Backend.Blockchain().CurrentHeader().Number
+	h, err := cu.Backend.HeaderByNumber(testutils.Context(t), nil)
+	require.NoError(t, err)
+	requestBlock := h.Number
 
 	// Wait 101 blocks.
 	for i := 0; i < 100; i++ {

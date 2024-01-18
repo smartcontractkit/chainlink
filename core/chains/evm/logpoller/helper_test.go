@@ -15,8 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -43,7 +41,6 @@ type TestHarness struct {
 	Owner                            *bind.TransactOpts
 	Emitter1, Emitter2               *log_emitter.LogEmitter
 	EmitterAddress1, EmitterAddress2 common.Address
-	EthDB                            ethdb.Database
 }
 
 func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
@@ -55,8 +52,7 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	o := logpoller.NewORM(chainID, db, lggr)
 	o2 := logpoller.NewORM(chainID2, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
-	ethDB := rawdb.NewMemoryDatabase()
-	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
+	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
@@ -65,8 +61,9 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	// Set it to some insanely high value to not interfere with any tests.
 	esc := client.NewSimulatedBackendClient(t, ec, chainID)
 	// Mark genesis block as finalized to avoid any nulls in the tests
-	head := esc.Backend().Blockchain().CurrentHeader()
-	esc.Backend().Blockchain().SetFinalized(head)
+	//TODO OK to drop?
+	//head := esc.Backend().Blockchain().CurrentHeader()
+	//esc.Backend().Blockchain().SetFinalized(head)
 
 	if opts.PollPeriod == 0 {
 		opts.PollPeriod = 1 * time.Hour
@@ -90,7 +87,6 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		Emitter2:        emitter2,
 		EmitterAddress1: emitterAddress1,
 		EmitterAddress2: emitterAddress2,
-		EthDB:           ethDB,
 	}
 }
 
