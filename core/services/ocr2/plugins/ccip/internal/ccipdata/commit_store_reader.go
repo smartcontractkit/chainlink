@@ -48,13 +48,11 @@ func (d CommitOnchainConfig) Validate() error {
 }
 
 type CommitOffchainConfig struct {
-	SourceFinalityDepth    uint32
 	GasPriceDeviationPPB   uint32
 	GasPriceHeartBeat      time.Duration
 	TokenPriceDeviationPPB uint32
 	TokenPriceHeartBeat    time.Duration
 	InflightCacheExpiry    time.Duration
-	DestFinalityDepth      uint32
 }
 
 type CommitStoreStaticConfig struct {
@@ -65,22 +63,18 @@ type CommitStoreStaticConfig struct {
 }
 
 func NewCommitOffchainConfig(
-	sourceFinalityDepth uint32,
 	gasPriceDeviationPPB uint32,
 	gasPriceHeartBeat time.Duration,
 	tokenPriceDeviationPPB uint32,
 	tokenPriceHeartBeat time.Duration,
 	inflightCacheExpiry time.Duration,
-	destFinalityDepth uint32,
 ) CommitOffchainConfig {
 	return CommitOffchainConfig{
-		SourceFinalityDepth:    sourceFinalityDepth,
 		GasPriceDeviationPPB:   gasPriceDeviationPPB,
 		GasPriceHeartBeat:      gasPriceHeartBeat,
 		TokenPriceDeviationPPB: tokenPriceDeviationPPB,
 		TokenPriceHeartBeat:    tokenPriceHeartBeat,
 		InflightCacheExpiry:    inflightCacheExpiry,
-		DestFinalityDepth:      destFinalityDepth,
 	}
 }
 

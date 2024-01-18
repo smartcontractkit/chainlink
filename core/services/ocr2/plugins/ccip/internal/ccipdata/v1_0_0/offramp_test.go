@@ -12,11 +12,13 @@ import (
 )
 
 func TestExecOffchainConfig100_Encoding(t *testing.T) {
-	tests := map[string]struct {
+	tests := []struct {
+		name      string
 		want      ExecOffchainConfig
 		expectErr bool
 	}{
-		"encodes and decodes config with all fields set": {
+		{
+			name: "encodes and decodes config with all fields set",
 			want: ExecOffchainConfig{
 				SourceFinalityDepth:         3,
 				DestOptimisticConfirmations: 6,
@@ -28,7 +30,8 @@ func TestExecOffchainConfig100_Encoding(t *testing.T) {
 				RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
 			},
 		},
-		"fails decoding when all fields present but with 0 values": {
+		{
+			name: "fails decoding when all fields present but with 0 values",
 			want: ExecOffchainConfig{
 				SourceFinalityDepth:         0,
 				DestFinalityDepth:           0,
@@ -41,11 +44,13 @@ func TestExecOffchainConfig100_Encoding(t *testing.T) {
 			},
 			expectErr: true,
 		},
-		"fails decoding when all fields are missing": {
+		{
+			name:      "fails decoding when all fields are missing",
 			want:      ExecOffchainConfig{},
 			expectErr: true,
 		},
-		"fails decoding when some fields are missing": {
+		{
+			name: "fails decoding when some fields are missing",
 			want: ExecOffchainConfig{
 				SourceFinalityDepth: 99999999,
 				InflightCacheExpiry: *config.MustNewDuration(64 * time.Second),
@@ -53,8 +58,8 @@ func TestExecOffchainConfig100_Encoding(t *testing.T) {
 			expectErr: true,
 		},
 	}
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			exp := tc.want
 			encode, err := ccipconfig.EncodeOffchainConfig(&exp)
 			require.NoError(t, err)

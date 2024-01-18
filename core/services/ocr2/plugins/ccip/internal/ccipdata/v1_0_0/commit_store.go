@@ -222,13 +222,11 @@ func (c *CommitStore) ChangeConfig(onchainConfig []byte, offchainConfig []byte) 
 		big.NewInt(int64(offchainConfigV1.MaxGasPrice)),
 		int64(offchainConfigV1.FeeUpdateDeviationPPB))
 	c.offchainConfig = ccipdata.NewCommitOffchainConfig(
-		offchainConfigV1.SourceFinalityDepth,
 		offchainConfigV1.FeeUpdateDeviationPPB,
 		offchainConfigV1.FeeUpdateHeartBeat.Duration(),
 		offchainConfigV1.FeeUpdateDeviationPPB,
 		offchainConfigV1.FeeUpdateHeartBeat.Duration(),
-		offchainConfigV1.InflightCacheExpiry.Duration(),
-		offchainConfigV1.DestFinalityDepth)
+		offchainConfigV1.InflightCacheExpiry.Duration())
 	c.configMu.Unlock()
 	c.lggr.Infow("ChangeConfig",
 		"offchainConfig", offchainConfigV1,

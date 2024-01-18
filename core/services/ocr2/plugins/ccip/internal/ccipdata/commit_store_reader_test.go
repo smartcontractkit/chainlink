@@ -40,11 +40,11 @@ import (
 
 func TestCommitOffchainConfig_Encoding(t *testing.T) {
 	tests := map[string]struct {
-		want      v1_2_0.CommitOffchainConfig
+		want      v1_2_0.JSONCommitOffchainConfig
 		expectErr bool
 	}{
 		"encodes and decodes config with all fields set": {
-			want: v1_2_0.CommitOffchainConfig{
+			want: v1_2_0.JSONCommitOffchainConfig{
 				SourceFinalityDepth:      3,
 				DestFinalityDepth:        3,
 				GasPriceHeartBeat:        *config.MustNewDuration(1 * time.Hour),
@@ -57,7 +57,7 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 			},
 		},
 		"fails decoding when all fields present but with 0 values": {
-			want: v1_2_0.CommitOffchainConfig{
+			want: v1_2_0.JSONCommitOffchainConfig{
 				SourceFinalityDepth:      0,
 				DestFinalityDepth:        0,
 				GasPriceHeartBeat:        *config.MustNewDuration(0),
@@ -71,11 +71,11 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 			expectErr: true,
 		},
 		"fails decoding when all fields are missing": {
-			want:      v1_2_0.CommitOffchainConfig{},
+			want:      v1_2_0.JSONCommitOffchainConfig{},
 			expectErr: true,
 		},
 		"fails decoding when some fields are missing": {
-			want: v1_2_0.CommitOffchainConfig{
+			want: v1_2_0.JSONCommitOffchainConfig{
 				SourceFinalityDepth:      3,
 				GasPriceHeartBeat:        *config.MustNewDuration(1 * time.Hour),
 				DAGasPriceDeviationPPB:   5e7,
@@ -91,7 +91,7 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			encode, err := ccipconfig.EncodeOffchainConfig(tc.want)
 			require.NoError(t, err)
-			got, err := ccipconfig.DecodeOffchainConfig[v1_2_0.CommitOffchainConfig](encode)
+			got, err := ccipconfig.DecodeOffchainConfig[v1_2_0.JSONCommitOffchainConfig](encode)
 
 			if tc.expectErr {
 				require.ErrorContains(t, err, "must set")
@@ -192,19 +192,19 @@ func TestCommitStoreReaders(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	sourceFinalityDepth := uint32(1)
+	destFinalityDepth := uint32(2)
 	commonOffchain := ccipdata.CommitOffchainConfig{
-		SourceFinalityDepth:    1,
 		GasPriceDeviationPPB:   1e6,
 		GasPriceHeartBeat:      1 * time.Hour,
 		TokenPriceDeviationPPB: 1e6,
 		TokenPriceHeartBeat:    1 * time.Hour,
 		InflightCacheExpiry:    3 * time.Hour,
-		DestFinalityDepth:      2,
 	}
 	maxGas := uint64(1e9)
 	offchainConfig, err := ccipconfig.EncodeOffchainConfig[v1_0_0.CommitOffchainConfig](v1_0_0.CommitOffchainConfig{
-		SourceFinalityDepth:   commonOffchain.SourceFinalityDepth,
-		DestFinalityDepth:     commonOffchain.DestFinalityDepth,
+		SourceFinalityDepth:   sourceFinalityDepth,
+		DestFinalityDepth:     destFinalityDepth,
 		FeeUpdateHeartBeat:    *config.MustNewDuration(commonOffchain.GasPriceHeartBeat),
 		FeeUpdateDeviationPPB: commonOffchain.GasPriceDeviationPPB,
 		MaxGasPrice:           maxGas,
@@ -217,9 +217,9 @@ func TestCommitStoreReaders(t *testing.T) {
 		PriceRegistry: pr2,
 	})
 	require.NoError(t, err)
-	offchainConfig2, err := ccipconfig.EncodeOffchainConfig[v1_2_0.CommitOffchainConfig](v1_2_0.CommitOffchainConfig{
-		SourceFinalityDepth:      commonOffchain.SourceFinalityDepth,
-		DestFinalityDepth:        commonOffchain.DestFinalityDepth,
+	offchainConfig2, err := ccipconfig.EncodeOffchainConfig[v1_2_0.JSONCommitOffchainConfig](v1_2_0.JSONCommitOffchainConfig{
+		SourceFinalityDepth:      sourceFinalityDepth,
+		DestFinalityDepth:        destFinalityDepth,
 		MaxGasPrice:              maxGas,
 		GasPriceHeartBeat:        *config.MustNewDuration(commonOffchain.GasPriceHeartBeat),
 		DAGasPriceDeviationPPB:   1e7,

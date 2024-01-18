@@ -5,10 +5,23 @@ All notable changes to the CCIP project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!-- unreleased -->
-## [dev]
+## 1.3.0 - Unreleased
 
-## 1.2.0 - Unreleased
+### Changed
+
+- `OffRamp` offchain config format changed:
+  - Renamed the `MaxGasPrice` field to `DestMaxGasPrice`.
+  - Removed obsolete `SourceFinalityDepth` and `DestFinalityDepth` fields.
+
+  This change is not breaking: the config decoder still accepts old field names.
+
+- `CommitStore` offchain config format changed:
+  - Renamed the `MaxGasPrice` field to `SourceMaxGasPrice`.
+  - Removed obsolete `SourceFinalityDepth` and `DestFinalityDepth` fields.
+
+  This change is not breaking: the config decoder still accepts old field names.
+
+## 1.2.0 - 2023-11-20
 
 ### Added
 
@@ -70,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - setAllowListEnabled / getAllowListEnabled
 
 
-## 1.1.0 - Unreleased
+## 1.1.0 - 2023-08-23
 
 ### Changed
 - Changed OnRamp fee calculation logic and corresponding configuration fields.
