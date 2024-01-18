@@ -101,12 +101,11 @@ jobs:
             file: ocr
             client: geth
             pyroscope_env: ci-smoke-ocr-geth-simulated         
-          # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE
-          # - name: ocr-nethermind
-          #   test: TestOCRBasic
-          #   file: ocr
-          #   client: nethermind
-          #   pyroscope_env: ci-smoke-ocr-nethermind-simulated                          
+          - name: ocr-nethermind
+            test: TestOCRBasic
+            file: ocr
+            client: nethermind
+            pyroscope_env: ci-smoke-ocr-nethermind-simulated                          
           - name: ocr-besu
             test: TestOCRBasic
             file: ocr
@@ -122,12 +121,11 @@ jobs:
             file: ocr2
             client: geth
             pyroscope_env: ci-smoke-ocr2-geth-simulated            
-          # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE            
-          # - name: ocr2-nethermind
-          #   test: TestOCRv2Basic
-          #   file: ocr2
-          #   client: nethermind
-          #   pyroscope_env: ci-smoke-nethermind-evm-simulated                         
+          - name: ocr2-nethermind
+            test: TestOCRv2Basic
+            file: ocr2
+            client: nethermind
+            pyroscope_env: ci-smoke-nethermind-evm-simulated                         
           - name: ocr2-besu
             test: TestOCRv2Basic
             file: ocr2
