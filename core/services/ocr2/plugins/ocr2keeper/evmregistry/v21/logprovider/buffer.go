@@ -18,7 +18,7 @@ var (
 	// defaultFastExecLogsHigh is the default upper bound / maximum number of logs that Automation is committed to process for each upkeep,
 	// based on available capacity, i.e. if there are no logs from other upkeeps.
 	// Used by Log buffer to limit the number of logs we are saving in memory for each upkeep in a block
-	defaultFastExecLogsHigh = 10
+	defaultFastExecLogsHigh = 32
 )
 
 // fetchedLog holds the log and the ID of the upkeep
