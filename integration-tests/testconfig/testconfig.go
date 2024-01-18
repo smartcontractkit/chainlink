@@ -104,6 +104,45 @@ func (c TestConfig) MustCopy() TestConfig {
 	return deepcopy.MustAnything(c).(TestConfig)
 }
 
+func (c *TestConfig) MustGetLoggingConfig() *ctf_config.LoggingConfig {
+	if c.Logging == nil {
+		panic("logging config must set")
+	}
+
+	return c.Logging
+}
+
+func (c TestConfig) MustGetNetworkConfig() *ctf_config.NetworkConfig {
+	if c.Network == nil {
+		panic("network config not set")
+	}
+
+	return c.Network
+}
+
+func (c TestConfig) MustGetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig {
+	if c.ChainlinkImage == nil {
+		panic("chainlink image config not set")
+	}
+
+	return c.ChainlinkImage
+}
+
+func (c TestConfig) MustGetPrivateEthereumNetworkConfig() *ctf_test_env.EthereumNetwork {
+	if c.PrivateEthereumNetwork == nil {
+		panic("private ethereum network config not set")
+	}
+
+	return c.PrivateEthereumNetwork
+}
+func (c TestConfig) MustGetPyroscopeConfig() *ctf_config.PyroscopeConfig {
+	if c.Pyroscope == nil {
+		panic("pyroscope config not set")
+	}
+
+	return c.Pyroscope
+}
+
 type Common struct {
 	ChainlinkNodeFunding *float64 `toml:"chainlink_node_funding"`
 }

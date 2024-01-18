@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
@@ -21,7 +22,6 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
@@ -32,6 +32,14 @@ const (
 	CleanUpTypeStandard CleanUpType = "standard"
 	CleanUpTypeCustom   CleanUpType = "custom"
 )
+
+type GlobalTestConfig interface {
+	MustGetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
+	MustGetLoggingConfig() *ctf_config.LoggingConfig
+	MustGetNetworkConfig() *ctf_config.NetworkConfig
+	MustGetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
+	MustGetPyroscopeConfig() *ctf_config.PyroscopeConfig
+}
 
 type CLTestEnvBuilder struct {
 	hasLogStream           bool
@@ -53,7 +61,7 @@ type CLTestEnvBuilder struct {
 	chainOptionsFn         []ChainOption
 	evmClientNetworkOption []EVMClientNetworkOption
 	ethereumNetwork        *test_env.EthereumNetwork
-	testConfig             *testconfig.TestConfig
+	testConfig             GlobalTestConfig
 
 	/* funding */
 	ETHFunds *big.Float
@@ -115,7 +123,7 @@ func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithTestConfig(cfg *testconfig.TestConfig) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder) WithTestConfig(cfg GlobalTestConfig) *CLTestEnvBuilder {
 	b.testConfig = cfg
 	return b
 }
@@ -238,7 +246,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.hasLogStream {
-		b.te.LogStream, err = logstream.NewLogStream(b.te.t, b.testConfig.Logging)
+		b.te.LogStream, err = logstream.NewLogStream(b.te.t, b.testConfig.MustGetLoggingConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -284,7 +292,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
 			}
 
-			if b.t.Failed() || *b.testConfig.Logging.TestLogCollect {
+			if b.t.Failed() || *b.testConfig.MustGetLoggingConfig().TestLogCollect {
 				// we can't do much if this fails, so we just log the error in logstream
 				_ = b.te.LogStream.FlushAndShutdown()
 				b.te.LogStream.PrintLogTargetsLocations()
@@ -321,7 +329,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return b.te, nil
 	}
 
-	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.Network)[0]
+	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.MustGetNetworkConfig())[0]
 	var rpcProvider test_env.RpcProvider
 	if b.ethereumNetwork != nil && networkConfig.Simulated {
 		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
