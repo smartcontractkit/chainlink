@@ -100,4 +100,26 @@ func TestL1GasPriceOracle(t *testing.T) {
 
 		assert.Equal(t, assets.NewWei(l1BaseFee), gasPrice)
 	})
+
+	t.Run("Calling GasPrice on started Scroll L1Oracle returns Scroll l1GasPrice", func(t *testing.T) {
+		l1BaseFee := big.NewInt(200)
+
+		ethClient := mocks.NewETHClient(t)
+		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+			callMsg := args.Get(1).(ethereum.CallMsg)
+			blockNumber := args.Get(2).(*big.Int)
+			assert.Equal(t, ScrollGasOracleAddress, callMsg.To.String())
+			assert.Equal(t, ScrollGasOracle_l1BaseFee, fmt.Sprintf("%x", callMsg.Data))
+			assert.Nil(t, blockNumber)
+		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
+
+		oracle := NewL1GasPriceOracle(logger.Test(t), ethClient, config.ChainScroll)
+		require.NoError(t, oracle.Start(testutils.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, oracle.Close()) })
+
+		gasPrice, err := oracle.GasPrice(testutils.Context(t))
+		require.NoError(t, err)
+
+		assert.Equal(t, assets.NewWei(l1BaseFee), gasPrice)
+	})
 }

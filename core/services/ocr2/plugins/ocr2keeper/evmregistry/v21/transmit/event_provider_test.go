@@ -5,12 +5,14 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -107,7 +109,7 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)
 	require.NoError(t, err)
 
-	id := core.GenUpkeepID(ocr2keepers.LogTrigger, "1111111111111111")
+	id := core.GenUpkeepID(types.LogTrigger, "1111111111111111")
 
 	tests := []struct {
 		name            string

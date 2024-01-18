@@ -80,7 +80,7 @@ func TestPacker_DecodeStreamsLookupRequest(t *testing.T) {
 		{
 			name: "failure - unpack error",
 			data: []byte{1, 2, 3, 4},
-			err:  errors.New("unpack error: invalid data for unpacking"),
+			err:  errors.New("unpack error: invalid identifier, have 0x01020304 want 0xf055e4a2"),
 		},
 	}
 
