@@ -16,12 +16,20 @@ type PluginArgs struct {
 }
 
 type RelayArgs struct {
-	ExternalJobID uuid.UUID
-	JobID         int32
-	ContractID    string
-	New           bool // Whether this is a first time job add.
-	RelayConfig   []byte
-	ProviderType  string
+	ExternalJobID      uuid.UUID
+	JobID              int32
+	ContractID         string
+	New                bool // Whether this is a first time job add.
+	RelayConfig        []byte
+	ProviderType       string
+	MercuryCredentials *MercuryCredentials
+}
+
+type MercuryCredentials struct {
+	LegacyURL string
+	URL       string
+	Username  string
+	Password  string
 }
 
 type ChainStatus struct {
