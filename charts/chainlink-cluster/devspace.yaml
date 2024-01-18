@@ -21,8 +21,8 @@ pipelines:
       run_dependencies --all                           
       ensure_pull_secrets --all                         
       build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
-      kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL}
-      kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib
+      kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL} || true
+      kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
       create_deployments --all                          
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
   purge:
