@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -24,8 +25,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // ETHKeysController manages account keys
@@ -70,7 +70,7 @@ func (ekc *ETHKeysController) formatETHKeyResponse() gin.HandlerFunc {
 				r := createETHKeyResource(c, ekc, key.(ethkey.KeyV2), state.(ethkey.State))
 				jsonAPIResponse(c, r, "keys")
 			} else {
-				err := errors.Errorf("error getting eth key and state: %v", c)
+				err := pkgerrors.Errorf("error getting eth key and state: %v", c)
 				jsonAPIError(c, http.StatusInternalServerError, err)
 			}
 		}
@@ -87,13 +87,13 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	var err error
 	keys, err = ethKeyStore.GetAll()
 	if err != nil {
-		err = errors.Errorf("error getting unlocked keys: %v", err)
+		err = pkgerrors.Errorf("error getting unlocked keys: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 	states, err := ethKeyStore.GetStatesForKeys(keys)
 	if err != nil {
-		err = errors.Errorf("error getting key states: %v", err)
+		err = pkgerrors.Errorf("error getting key states: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -165,13 +165,13 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 
 	keyID := c.Param("address")
 	if !common.IsHexAddress(keyID) {
-		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("invalid keyID: %s, must be hex address", keyID))
+		jsonAPIError(c, http.StatusBadRequest, pkgerrors.Errorf("invalid keyID: %s, must be hex address", keyID))
 		return
 	}
 
 	key, err := ethKeyStore.Get(keyID)
 	if err != nil {
-		if errors.Is(err, keystore.ErrKeyNotFound) {
+		if pkgerrors.Is(err, keystore.ErrKeyNotFound) {
 			jsonAPIError(c, http.StatusNotFound, err)
 			return
 		}
@@ -267,7 +267,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 
 	keyID := c.Query("address")
 	if !common.IsHexAddress(keyID) {
-		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("invalid address: %s, must be hex address", keyID))
+		jsonAPIError(c, http.StatusBadRequest, pkgerrors.Errorf("invalid address: %s, must be hex address", keyID))
 		return
 	}
 	address := common.HexToAddress((keyID))
@@ -282,7 +282,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	if abandonStr := c.Query("abandon"); abandonStr != "" {
 		abandon, err = strconv.ParseBool(abandonStr)
 		if err != nil {
-			jsonAPIError(c, http.StatusBadRequest, errors.Wrapf(err, "invalid value for abandon: expected boolean, got: %s", abandonStr))
+			jsonAPIError(c, http.StatusBadRequest, pkgerrors.Wrapf(err, "invalid value for abandon: expected boolean, got: %s", abandonStr))
 			return
 		}
 	}
@@ -291,7 +291,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	if abandon {
 		var resetErr error
 		err = chain.TxManager().Reset(address, abandon)
-		err = multierr.Combine(err, resetErr)
+		err = errors.Join(err, resetErr)
 		if err != nil {
 			if strings.Contains(err.Error(), "key state not found with address") {
 				jsonAPIError(c, http.StatusNotFound, err)
@@ -307,7 +307,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		var enabled bool
 		enabled, err = strconv.ParseBool(enabledStr)
 		if err != nil {
-			jsonAPIError(c, http.StatusBadRequest, errors.Wrap(err, "enabled must be bool"))
+			jsonAPIError(c, http.StatusBadRequest, pkgerrors.Wrap(err, "enabled must be bool"))
 			return
 		}
 
@@ -348,7 +348,7 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
+		if !pkgerrors.Is(pkgerrors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		}
 		return nil
@@ -375,7 +375,7 @@ func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.S
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
+		if !pkgerrors.Is(pkgerrors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
@@ -401,7 +401,7 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
+		if !pkgerrors.Is(pkgerrors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
@@ -415,10 +415,10 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 func (ekc *ETHKeysController) getChain(c *gin.Context, chainIDstr string) (chain legacyevm.Chain, ok bool) {
 	chain, err := getChain(ekc.app.GetRelayers().LegacyEVMChains(), chainIDstr)
 	if err != nil {
-		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) {
+		if pkgerrors.Is(err, ErrInvalidChainID) || pkgerrors.Is(err, ErrMultipleChains) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return nil, false
-		} else if errors.Is(err, ErrMissingChainID) {
+		} else if pkgerrors.Is(err, ErrMissingChainID) {
 			jsonAPIError(c, http.StatusNotFound, err)
 			return nil, false
 		}

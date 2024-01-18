@@ -74,14 +74,14 @@ func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 
 	amount, err := sdk.NewDecFromStr(c.Args().Get(1))
 	if err != nil {
-		return s.errorOut(multierr.Combine(
+		return s.errorOut(errors.Join(
 			fmt.Errorf("invalid coin: %w", err)))
 	}
 
 	unparsedFromAddress := c.Args().Get(2)
 	fromAddress, err := sdk.AccAddressFromBech32(unparsedFromAddress)
 	if err != nil {
-		return s.errorOut(multierr.Combine(
+		return s.errorOut(errors.Join(
 			fmt.Errorf("while parsing withdrawal source address %v",
 				unparsedFromAddress), err))
 	}
@@ -89,7 +89,7 @@ func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 	unparsedDestinationAddress := c.Args().Get(3)
 	destinationAddress, err := sdk.AccAddressFromBech32(unparsedDestinationAddress)
 	if err != nil {
-		return s.errorOut(multierr.Combine(
+		return s.errorOut(errors.Join(
 			fmt.Errorf("while parsing withdrawal destination address %v",
 				unparsedDestinationAddress), err))
 	}

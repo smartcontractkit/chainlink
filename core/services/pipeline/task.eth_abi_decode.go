@@ -2,9 +2,9 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -27,16 +27,16 @@ func (t *ETHABIDecodeTask) Type() TaskType {
 func (t *ETHABIDecodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
 		data   BytesParam
 		theABI BytesParam
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),
-		errors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),
+		pkgerrors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -44,7 +44,7 @@ func (t *ETHABIDecodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 
 	args, _, err := ParseETHABIArgsString([]byte(theABI), false)
 	if err != nil {
-		return Result{Error: errors.Wrap(ErrBadInput, err.Error())}, runInfo
+		return Result{Error: pkgerrors.Wrap(ErrBadInput, err.Error())}, runInfo
 	}
 
 	out := make(map[string]interface{})

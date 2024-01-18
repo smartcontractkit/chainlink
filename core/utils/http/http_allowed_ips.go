@@ -2,12 +2,12 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -56,7 +56,7 @@ func isRestrictedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 
 	blacklisted, err := isBlacklistedIP(ip, cfg)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to check IP blacklist status")
+		return false, pkgerrors.Wrapf(err, "failed to check IP blacklist status")
 	}
 
 	return blacklisted, nil
@@ -69,7 +69,7 @@ func isBlacklistedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 	}
 	ips, err := net.LookupIP(dbURL.Host)
 	if err != nil {
-		return true, errors.Wrapf(err, "failed to lookup IP for DB URL")
+		return true, pkgerrors.Wrapf(err, "failed to lookup IP for DB URL")
 	}
 	for _, dbIP := range ips {
 		if dbIP.Equal(ip) {
@@ -79,7 +79,7 @@ func isBlacklistedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 	return false, nil
 }
 
-var ErrDisallowedIP = errors.New("disallowed IP")
+var ErrDisallowedIP = pkgerrors.New("disallowed IP")
 
 // makeRestrictedDialContext returns a dialcontext function using the given arguments
 func makeRestrictedDialContext(cfg httpClientConfig, lggr logger.Logger) func(context.Context, string, string) (net.Conn, error) {
@@ -101,8 +101,8 @@ func makeRestrictedDialContext(cfg httpClientConfig, lggr logger.Logger) func(co
 			if restrict, rerr := isRestrictedIP(a.IP, cfg); rerr != nil {
 				lggr.Errorw("Restricted IP check failed, this IP will be allowed", "ip", a.IP, "err", rerr)
 			} else if restrict {
-				return nil, multierr.Combine(
-					errors.Wrapf(ErrDisallowedIP, "disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons", a.IP.String()),
+				return nil, errors.Join(
+					pkgerrors.Wrapf(ErrDisallowedIP, "disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons", a.IP.String()),
 					con.Close())
 			}
 		}

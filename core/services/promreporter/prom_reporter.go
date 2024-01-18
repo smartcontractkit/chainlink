@@ -3,6 +3,7 @@ package promreporter
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -11,10 +12,9 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -158,7 +158,7 @@ func (pr *promReporter) eventLoop() {
 			}
 			pr.reportHeadMetrics(ctx, head)
 		case <-time.After(pr.reportPeriod):
-			if err := errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
+			if err := pkgerrors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
 				pr.lggr.Errorw("Error reporting prometheus metrics", "err", err)
 			}
 
@@ -178,10 +178,10 @@ func (pr *promReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, error) {
 
 func (pr *promReporter) reportHeadMetrics(ctx context.Context, head *evmtypes.Head) {
 	evmChainID := head.EVMChainID.ToInt()
-	err := multierr.Combine(
-		errors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
-		errors.Wrap(pr.reportMaxUnconfirmedAge(ctx, evmChainID), "reportMaxUnconfirmedAge failed"),
-		errors.Wrap(pr.reportMaxUnconfirmedBlocks(ctx, head), "reportMaxUnconfirmedBlocks failed"),
+	err := errors.Join(
+		pkgerrors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
+		pkgerrors.Wrap(pr.reportMaxUnconfirmedAge(ctx, evmChainID), "reportMaxUnconfirmedAge failed"),
+		pkgerrors.Wrap(pr.reportMaxUnconfirmedBlocks(ctx, head), "reportMaxUnconfirmedBlocks failed"),
 	)
 
 	if err != nil && ctx.Err() == nil {
@@ -246,10 +246,10 @@ func (pr *promReporter) reportPipelineRunStats(ctx context.Context) (err error) 
 SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
 `)
 	if err != nil {
-		return errors.Wrap(err, "failed to query for pipeline_run_id")
+		return pkgerrors.Wrap(err, "failed to query for pipeline_run_id")
 	}
 	defer func() {
-		err = multierr.Combine(err, rows.Close())
+		err = errors.Join(err, rows.Close())
 	}()
 
 	pipelineTaskRunsQueued := 0
@@ -257,7 +257,7 @@ SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
 	for rows.Next() {
 		var pipelineRunID int32
 		if err = rows.Scan(&pipelineRunID); err != nil {
-			return errors.Wrap(err, "unexpected error scanning row")
+			return pkgerrors.Wrap(err, "unexpected error scanning row")
 		}
 		pipelineTaskRunsQueued++
 		pipelineRunsQueuedSet[pipelineRunID] = struct{}{}

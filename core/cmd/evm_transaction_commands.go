@@ -144,7 +144,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 
 		value, err = stringutils.ToInt64(c.Args().Get(0))
 		if err != nil {
-			return s.errorOut(multierr.Combine(
+			return s.errorOut(errors.Join(
 				errors.New("while parsing WEI transfer amount"), err))
 		}
 
@@ -152,7 +152,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 	} else {
 		amount, err = assets.NewEthValueS(c.Args().Get(0))
 		if err != nil {
-			return s.errorOut(multierr.Combine(
+			return s.errorOut(errors.Join(
 				errors.New("while parsing ETH transfer amount"), err))
 		}
 	}
@@ -160,7 +160,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 	unparsedFromAddress := c.Args().Get(1)
 	fromAddress, err := utils.ParseEthereumAddress(unparsedFromAddress)
 	if err != nil {
-		return s.errorOut(multierr.Combine(
+		return s.errorOut(errors.Join(
 			fmt.Errorf("while parsing withdrawal source address %v",
 				unparsedFromAddress), err))
 	}
@@ -168,7 +168,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 	unparsedDestinationAddress := c.Args().Get(2)
 	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
 	if err != nil {
-		return s.errorOut(multierr.Combine(
+		return s.errorOut(errors.Join(
 			fmt.Errorf("while parsing withdrawal destination address %v",
 				unparsedDestinationAddress), err))
 	}

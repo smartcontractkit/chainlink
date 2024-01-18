@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -55,11 +55,11 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 	var highestSentEpochTmp int64
 
 	err = d.q.QueryRowxContext(ctx, stmt, d.oracleSpecID, cd).Scan(&ps.Epoch, &highestSentEpochTmp, pq.Array(&tmp))
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "ReadState failed")
+		return nil, pkgerrors.Wrap(err, "ReadState failed")
 	}
 
 	ps.HighestSentEpoch = uint32(highestSentEpochTmp)
@@ -94,7 +94,7 @@ func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocr
 		ctx, stmt, d.oracleSpecID, cd, state.Epoch, state.HighestSentEpoch, pq.Array(&highestReceivedEpoch),
 	)
 
-	return errors.Wrap(err, "WriteState failed")
+	return pkgerrors.Wrap(err, "WriteState failed")
 }
 
 func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {
@@ -117,11 +117,11 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 		&c.EncodedConfigVersion,
 		&c.Encoded,
 	)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "ReadConfig failed")
+		return nil, pkgerrors.Wrap(err, "ReadConfig failed")
 	}
 
 	for _, s := range signers {
@@ -157,7 +157,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	`
 	_, err := d.q.ExecContext(ctx, stmt, d.oracleSpecID, c.ConfigDigest, pq.ByteaArray(signers), pq.ByteaArray(transmitters), c.Threshold, int(c.EncodedConfigVersion), c.Encoded)
 
-	return errors.Wrap(err, "WriteConfig failed")
+	return pkgerrors.Wrap(err, "WriteConfig failed")
 }
 
 func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp, p ocrtypes.PendingTransmission) error {
@@ -203,7 +203,7 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTime
 
 	_, err := d.q.ExecContext(ctx, stmt, d.oracleSpecID, k.ConfigDigest, k.Epoch, k.Round, p.Time, median, p.SerializedReport, pq.ByteaArray(rs), pq.ByteaArray(ss), p.Vs[:])
 
-	return errors.Wrap(err, "StorePendingTransmission failed")
+	return pkgerrors.Wrap(err, "StorePendingTransmission failed")
 }
 
 func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission, error) {
@@ -223,7 +223,7 @@ FROM ocr_pending_transmissions
 WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 `, d.oracleSpecID, cd)
 	if err != nil {
-		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
+		return nil, pkgerrors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
 	defer d.lggr.ErrorIfFn(rows.Close, "Error closing ocr_pending_transmissions rows")
 
@@ -238,25 +238,25 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 		var ss [][]byte
 		var vs []byte
 		if err := rows.Scan(&k.ConfigDigest, &k.Epoch, &k.Round, &p.Time, &median, &p.SerializedReport, (*pq.ByteaArray)(&rs), (*pq.ByteaArray)(&ss), &vs); err != nil {
-			return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to scan row")
+			return nil, pkgerrors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to scan row")
 		}
 		p.Median = median.ToInt()
 		for i, v := range rs {
 			var r [32]byte
 			if n := copy(r[:], v); n != 32 {
-				return nil, errors.Errorf("expected 32 bytes for rs value at index %v, got %v bytes", i, n)
+				return nil, pkgerrors.Errorf("expected 32 bytes for rs value at index %v, got %v bytes", i, n)
 			}
 			p.Rs = append(p.Rs, r)
 		}
 		for i, v := range ss {
 			var s [32]byte
 			if n := copy(s[:], v); n != 32 {
-				return nil, errors.Errorf("expected 32 bytes for ss value at index %v, got %v bytes", i, n)
+				return nil, pkgerrors.Errorf("expected 32 bytes for ss value at index %v, got %v bytes", i, n)
 			}
 			p.Ss = append(p.Ss, s)
 		}
 		if n := copy(p.Vs[:], vs); n != 32 {
-			return nil, errors.Errorf("expected 32 bytes for vs, got %v bytes", n)
+			return nil, pkgerrors.Errorf("expected 32 bytes for vs, got %v bytes", n)
 		}
 		m[k] = p
 	}
@@ -274,7 +274,7 @@ DELETE FROM ocr_pending_transmissions
 WHERE ocr_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round = $4
 `, d.oracleSpecID, k.ConfigDigest, k.Epoch, k.Round)
 
-	err = errors.Wrap(err, "DeletePendingTransmission failed")
+	err = pkgerrors.Wrap(err, "DeletePendingTransmission failed")
 
 	return
 }
@@ -285,7 +285,7 @@ DELETE FROM ocr_pending_transmissions
 WHERE ocr_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
 
-	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
+	err = pkgerrors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
 
 	return
 }
@@ -293,7 +293,7 @@ WHERE ocr_oracle_spec_id = $1 AND time < $2
 func (d *db) SaveLatestRoundRequested(tx pg.Queryer, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
 	rawLog, err := json.Marshal(rr.Raw)
 	if err != nil {
-		return errors.Wrap(err, "could not marshal log as JSON")
+		return pkgerrors.Wrap(err, "could not marshal log as JSON")
 	}
 	_, err = tx.Exec(`
 INSERT INTO ocr_latest_round_requested (ocr_oracle_spec_id, requester, config_digest, epoch, round, raw)
@@ -305,7 +305,7 @@ VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (ocr_oracle_spec_id) DO UPDATE SET
 	raw = EXCLUDED.raw
 `, d.oracleSpecID, rr.Requester, rr.ConfigDigest[:], rr.Epoch, rr.Round, rawLog)
 
-	return errors.Wrap(err, "could not save latest round requested")
+	return pkgerrors.Wrap(err, "could not save latest round requested")
 }
 
 func (d *db) LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error) {
@@ -316,9 +316,9 @@ WHERE ocr_oracle_spec_id = $1
 LIMIT 1
 `, d.oracleSpecID)
 	if err != nil {
-		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
+		return rr, pkgerrors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
-	defer func() { err = multierr.Combine(err, rows.Close()) }()
+	defer func() { err = errors.Join(err, rows.Close()) }()
 
 	for rows.Next() {
 		var configDigest []byte
@@ -326,13 +326,13 @@ LIMIT 1
 		var err2 error
 
 		err2 = rows.Scan(&rr.Requester, &configDigest, &rr.Epoch, &rr.Round, &rawLog)
-		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to scan row"))
+		err = errors.Join(err2, pkgerrors.Wrap(err, "LoadLatestRoundRequested failed to scan row"))
 
 		rr.ConfigDigest, err2 = ocrtypes.BytesToConfigDigest(configDigest)
-		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to decode config digest"))
+		err = errors.Join(err2, pkgerrors.Wrap(err, "LoadLatestRoundRequested failed to decode config digest"))
 
 		err2 = json.Unmarshal(rawLog, &rr.Raw)
-		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to unmarshal raw log"))
+		err = errors.Join(err2, pkgerrors.Wrap(err, "LoadLatestRoundRequested failed to unmarshal raw log"))
 	}
 
 	if err = rows.Err(); err != nil {

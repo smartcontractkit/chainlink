@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -8,8 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // FileExists returns true if a file at the passed string exists.
@@ -18,7 +18,7 @@ func FileExists(name string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, errors.Wrapf(err, "failed to check if file exists %q", name)
+		return false, pkgerrors.Wrapf(err, "failed to check if file exists %q", name)
 	}
 	return true, nil
 }
@@ -32,7 +32,7 @@ func TooPermissive(fileMode, maxAllowedPerms os.FileMode) bool {
 func IsFileOwnedByChainlink(fileInfo os.FileInfo) (bool, error) {
 	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
 	if !ok {
-		return false, errors.Errorf("Unable to determine file owner of %s", fileInfo.Name())
+		return false, pkgerrors.Errorf("Unable to determine file owner of %s", fileInfo.Name())
 	}
 	return int(stat.Uid) == os.Getuid(), nil
 }
@@ -53,7 +53,7 @@ func EnsureDirAndMaxPerms(path string, perms os.FileMode) error {
 		return os.MkdirAll(path, perms)
 	} else if !stat.IsDir() {
 		// Path exists, but it's a file, so don't clobber
-		return errors.Errorf("%v already exists and is not a directory", path)
+		return pkgerrors.Errorf("%v already exists and is not a directory", path)
 	} else if stat.Mode() != perms {
 		// Dir exists, but wrong perms, so chmod
 		return os.Chmod(path, stat.Mode()&perms)
@@ -68,7 +68,7 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) (err err
 	if err != nil {
 		return err
 	}
-	defer func() { err = multierr.Combine(err, f.Close()) }()
+	defer func() { err = errors.Join(err, f.Close()) }()
 	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
 		return
@@ -97,7 +97,7 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = multierr.Combine(err, dst.Close()) }()
+	defer func() { err = errors.Join(err, dst.Close()) }()
 	return EnsureFileMaxPerms(dst, perms)
 }
 
@@ -144,7 +144,7 @@ func (s *FileSize) UnmarshalText(bs []byte) error {
 	lc := strings.ToLower(strings.TrimSpace(string(bs)))
 	matches := fsregex.FindAllStringSubmatch(lc, -1)
 	if len(matches) != 1 || len(matches[0]) != 3 || fmt.Sprintf("%s%s", matches[0][1], matches[0][2]) != lc {
-		return errors.Errorf(`bad filesize expression: "%v"`, string(bs))
+		return pkgerrors.Errorf(`bad filesize expression: "%v"`, string(bs))
 	}
 
 	var (
@@ -154,12 +154,12 @@ func (s *FileSize) UnmarshalText(bs []byte) error {
 
 	value, err := strconv.ParseFloat(num, 64)
 	if err != nil {
-		return errors.Errorf(`bad filesize value: "%v"`, string(bs))
+		return pkgerrors.Errorf(`bad filesize value: "%v"`, string(bs))
 	}
 
 	u, ok := fsUnitMap[unit]
 	if !ok {
-		return errors.Errorf(`bad filesize unit: "%v"`, unit)
+		return pkgerrors.Errorf(`bad filesize unit: "%v"`, unit)
 	}
 
 	*s = FileSize(value * float64(u))

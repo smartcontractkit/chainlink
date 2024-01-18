@@ -2,9 +2,8 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"sync"
-
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -45,7 +44,7 @@ func (d *dummyHandler) HandleUserMessage(ctx context.Context, msg *api.Message, 
 	var err error
 	// Send to all nodes.
 	for _, member := range d.donConfig.Members {
-		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, msg))
+		err = errors.Join(err, don.SendToNode(ctx, member.Address, msg))
 	}
 	return err
 }

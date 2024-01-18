@@ -3,12 +3,12 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -38,9 +38,9 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 		allowedFaults      int
 		faults             int
 	)
-	err := multierr.Combine(
-		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
-		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
+	err := errors.Join(
+		pkgerrors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
+		pkgerrors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -54,9 +54,9 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 
 	values, faults := valuesAndErrs.FilterErrors()
 	if faults > allowedFaults {
-		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to mode task > number allowed faults %v", faults, allowedFaults)}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to mode task > number allowed faults %v", faults, allowedFaults)}, runInfo
 	} else if len(values) == 0 {
-		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "values")}, runInfo
+		return Result{Error: pkgerrors.Wrap(ErrWrongInputCardinality, "values")}, runInfo
 	}
 
 	type entry struct {
@@ -88,7 +88,7 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 		default:
 			bs, err := json.Marshal(v)
 			if err != nil {
-				return Result{Error: errors.Wrapf(ErrBadInput, "could not json stringify value: %v", err)}, runInfo
+				return Result{Error: pkgerrors.Wrapf(ErrBadInput, "could not json stringify value: %v", err)}, runInfo
 			}
 			comparable = string(bs)
 		}

@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"strings"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -40,20 +40,20 @@ func (t *JSONParseTask) Type() TaskType {
 func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var sep StringParam
-	err = errors.Wrap(ResolveParam(&sep, From(t.Separator)), "separator")
+	err = pkgerrors.Wrap(ResolveParam(&sep, From(t.Separator)), "separator")
 	var (
 		path = NewJSONPathParam(string(sep))
 		data BytesParam
 		lax  BoolParam
 	)
-	err = multierr.Combine(err,
-		errors.Wrap(ResolveParam(&path, From(VarExpr(t.Path, vars), t.Path)), "path"),
-		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),
-		errors.Wrap(ResolveParam(&lax, From(NonemptyString(t.Lax), false)), "lax"),
+	err = errors.Join(err,
+		pkgerrors.Wrap(ResolveParam(&path, From(VarExpr(t.Path, vars), t.Path)), "path"),
+		pkgerrors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),
+		pkgerrors.Wrap(ResolveParam(&lax, From(NonemptyString(t.Lax), false)), "lax"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -76,19 +76,19 @@ func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, input
 				decoded = nil
 				break
 			} else if !exists {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
+				return Result{Error: pkgerrors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 			}
 
 		case []interface{}:
 			bigindex, ok := big.NewInt(0).SetString(part, 10)
 			if !ok {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, "JSONParse task error: %v is not a valid array index", part)}, runInfo
+				return Result{Error: pkgerrors.Wrapf(ErrKeypathNotFound, "JSONParse task error: %v is not a valid array index", part)}, runInfo
 			} else if !bigindex.IsInt64() {
 				if bool(lax) {
 					decoded = nil
 					break
 				}
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
+				return Result{Error: pkgerrors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 			}
 			index := int(bigindex.Int64())
 			if index < 0 {
@@ -100,18 +100,18 @@ func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, input
 				decoded = nil
 				break
 			} else if !exists {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
+				return Result{Error: pkgerrors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 			}
 			decoded = d[index]
 
 		default:
-			return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
+			return Result{Error: pkgerrors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 		}
 	}
 
 	decoded, err = reinterpetJsonNumbers(decoded)
 	if err != nil {
-		return Result{Error: multierr.Combine(ErrBadInput, err)}, runInfo
+		return Result{Error: errors.Join(ErrBadInput, err)}, runInfo
 	}
 
 	return Result{Value: decoded}, runInfo

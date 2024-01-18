@@ -2,10 +2,10 @@ package loader
 
 import (
 	"context"
+	"errors"
 
 	"github.com/graph-gophers/dataloader"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -18,7 +18,7 @@ import (
 )
 
 // ErrInvalidType indicates that results loaded is not the type expected
-var ErrInvalidType = errors.New("invalid type")
+var ErrInvalidType = pkgerrors.New("invalid type")
 
 // GetChainByID fetches the chain by it's id.
 func GetChainByID(ctx context.Context, id string) (*commontypes.ChainStatus, error) {
@@ -86,9 +86,9 @@ func GetJobRunsByIDs(ctx context.Context, ids []int64) ([]pipeline.Run, error) {
 	thunk := ldr.JobRunsByIDLoader.LoadMany(ctx, dataloader.NewKeysFromStrings(strIDs))
 	results, errs := thunk()
 	if errs != nil {
-		merr := multierr.Combine(errs...)
+		merr := errors.Join(errs...)
 
-		return nil, errors.Wrap(merr, "errors fetching runs")
+		return nil, pkgerrors.Wrap(merr, "errors fetching runs")
 	}
 
 	runs := []pipeline.Run{}
@@ -131,7 +131,7 @@ func GetLatestSpecByJobProposalID(ctx context.Context, jpID string) (*feeds.JobP
 
 	specs, ok := result.([]feeds.JobProposalSpec)
 	if !ok {
-		return nil, errors.Wrapf(ErrInvalidType, "Result : %T", result)
+		return nil, pkgerrors.Wrapf(ErrInvalidType, "Result : %T", result)
 	}
 
 	max := specs[0]

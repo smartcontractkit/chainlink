@@ -3,14 +3,14 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -98,11 +98,11 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 			defer cancel()
 			if l.conn == nil {
 				if err = l.checkoutConn(qctx); err != nil {
-					return errors.Wrap(err, "lease lock failed to checkout initial connection")
+					return pkgerrors.Wrap(err, "lease lock failed to checkout initial connection")
 				}
 			}
 			gotLease, err = l.getLease(qctx, isInitial)
-			if errors.Is(err, sql.ErrConnDone) {
+			if pkgerrors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
 				l.conn = nil
 				return err
@@ -110,12 +110,12 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 			return nil
 		}()
 
-		if errors.Is(err, sql.ErrConnDone) {
+		if pkgerrors.Is(err, sql.ErrConnDone) {
 			continue
 		} else if err != nil {
-			err = errors.Wrap(err, "failed to get lease lock")
+			err = pkgerrors.Wrap(err, "failed to get lease lock")
 			if l.conn != nil {
-				err = multierr.Combine(err, l.conn.Close())
+				err = errors.Join(err, l.conn.Close())
 			}
 			return err
 		}
@@ -127,9 +127,9 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		retryCount++
 		select {
 		case <-ctx.Done():
-			err = errors.New("stopped")
+			err = pkgerrors.New("stopped")
 			if l.conn != nil {
-				err = multierr.Combine(err, l.conn.Close())
+				err = errors.Join(err, l.conn.Close())
 			}
 			return err
 		case <-time.After(utils.WithJitter(l.cfg.LeaseRefreshInterval)):
@@ -159,12 +159,12 @@ func (l *leaseLock) Release() {
 func (l *leaseLock) checkoutConn(ctx context.Context) (err error) {
 	newConn, err := l.db.Connx(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed checking out connection from pool")
+		return pkgerrors.Wrap(err, "failed checking out connection from pool")
 	}
 	l.conn = newConn
 	if err = l.setInitialTimeouts(ctx); err != nil {
-		return multierr.Combine(
-			errors.Wrap(err, "failed to set initial timeouts"),
+		return errors.Join(
+			pkgerrors.Wrap(err, "failed to set initial timeouts"),
 			l.conn.Close(),
 		)
 	}
@@ -177,7 +177,7 @@ func (l *leaseLock) setInitialTimeouts(ctx context.Context) error {
 	// the transaction - we do not want to leave rows locked if this process is
 	// dead
 	ms := l.cfg.LeaseDuration.Milliseconds()
-	return multierr.Combine(
+	return errors.Join(
 		utils.JustError(l.conn.ExecContext(ctx, fmt.Sprintf(`SET SESSION lock_timeout = %d`, ms))),
 		utils.JustError(l.conn.ExecContext(ctx, fmt.Sprintf(`SET SESSION idle_in_transaction_session_timeout = %d`, ms))),
 	)
@@ -199,7 +199,7 @@ func (l *leaseLock) loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DefaultQueryTimeout)
-			err := multierr.Combine(
+			err := errors.Join(
 				utils.JustError(l.conn.ExecContext(qctx, `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)),
 				l.conn.Close(),
 			)
@@ -211,7 +211,7 @@ func (l *leaseLock) loop(ctx context.Context) {
 		case <-refresh.C:
 			qctx, cancel := context.WithTimeout(ctx, l.cfg.LeaseDuration)
 			gotLease, err := l.getLease(qctx, false)
-			if errors.Is(err, sql.ErrConnDone) {
+			if pkgerrors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
 				if err = l.checkoutConn(ctx); err != nil {
 					l.logger.Warnw("Error trying to refresh connection", "err", err)
@@ -252,7 +252,7 @@ func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool
 		if isInitial {
 			for _, query := range initialSQL {
 				if _, err = tx.Exec(query); err != nil {
-					return errors.Wrap(err, "failed to create initial lease_lock table")
+					return pkgerrors.Wrap(err, "failed to create initial lease_lock table")
 				}
 			}
 		}
@@ -269,19 +269,19 @@ OR
 lease_lock.expires_at < NOW()
 `, l.id, leaseDuration)
 		if err != nil {
-			return errors.Wrap(err, "failed to upsert lease_lock")
+			return pkgerrors.Wrap(err, "failed to upsert lease_lock")
 		}
 		var rowsAffected int64
 		rowsAffected, err = res.RowsAffected()
 		if err != nil {
-			return errors.Wrap(err, "failed to get RowsAffected for lease lock upsert")
+			return pkgerrors.Wrap(err, "failed to get RowsAffected for lease lock upsert")
 		}
 		if rowsAffected > 0 {
 			gotLease = true
 		}
 		return nil
 	})
-	return gotLease, errors.Wrap(err, "leaseLock#GetLease failed")
+	return gotLease, pkgerrors.Wrap(err, "leaseLock#GetLease failed")
 }
 
 func (l *leaseLock) ClientID() uuid.UUID {

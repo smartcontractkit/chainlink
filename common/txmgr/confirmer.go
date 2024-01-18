@@ -12,7 +12,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -608,13 +607,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reb
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
 	wg.Add(len(ec.enabledAddresses))
-	errors := []error{}
+	errs := []error{}
 	var errMu sync.Mutex
 	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
 			if err := ec.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
-				errors = append(errors, err)
+				errs = append(errs, err)
 				errMu.Unlock()
 				ec.lggr.Errorw("Error in RebroadcastWhereNecessary", "err", err, "fromAddress", fromAddress)
 			}
@@ -625,7 +624,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reb
 
 	wg.Wait()
 
-	return multierr.Combine(errors...)
+	return errors.Join(errs...)
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) rebroadcastWhereNecessary(ctx context.Context, address ADDR, blockHeight int64) error {
@@ -938,14 +937,14 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
 	var wg sync.WaitGroup
-	errors := []error{}
+	errs := []error{}
 	var errMu sync.Mutex
 	wg.Add(len(ec.enabledAddresses))
 	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
 			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()
-				errors = append(errors, err)
+				errs = append(errs, err)
 				errMu.Unlock()
 				ec.lggr.Errorw("Error in handleAnyInProgressAttempts", "err", err, "fromAddress", fromAddress)
 			}
@@ -956,7 +955,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 
 	wg.Wait()
 
-	return multierr.Combine(errors...)
+	return errors.Join(errs...)
 }
 
 func hasReceiptInLongestChain[

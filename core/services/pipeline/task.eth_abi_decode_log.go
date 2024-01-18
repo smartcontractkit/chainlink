@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -29,7 +29,7 @@ func (t *ETHABIDecodeLogTask) Type() TaskType {
 func (t *ETHABIDecodeLogTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -37,10 +37,10 @@ func (t *ETHABIDecodeLogTask) Run(_ context.Context, _ logger.Logger, vars Vars,
 		data   BytesParam
 		topics HashSliceParam
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), nil)), "data"),
-		errors.Wrap(ResolveParam(&topics, From(VarExpr(t.Topics, vars))), "topics"),
-		errors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), nil)), "data"),
+		pkgerrors.Wrap(ResolveParam(&topics, From(VarExpr(t.Topics, vars))), "topics"),
+		pkgerrors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -48,22 +48,22 @@ func (t *ETHABIDecodeLogTask) Run(_ context.Context, _ logger.Logger, vars Vars,
 
 	_, args, indexedArgs, err := parseETHABIString([]byte(theABI), true)
 	if err != nil {
-		return Result{Error: errors.Wrap(ErrBadInput, err.Error())}, runInfo
+		return Result{Error: pkgerrors.Wrap(ErrBadInput, err.Error())}, runInfo
 	}
 
 	out := make(map[string]interface{})
 	if len(data) > 0 {
 		if err2 := args.UnpackIntoMap(out, []byte(data)); err2 != nil {
-			return Result{Error: errors.Wrap(ErrBadInput, err2.Error())}, runInfo
+			return Result{Error: pkgerrors.Wrap(ErrBadInput, err2.Error())}, runInfo
 		}
 	}
 	if len(indexedArgs) > 0 {
 		if len(topics) != len(indexedArgs)+1 {
-			return Result{Error: errors.Wrap(ErrBadInput, "topic/field count mismatch")}, runInfo
+			return Result{Error: pkgerrors.Wrap(ErrBadInput, "topic/field count mismatch")}, runInfo
 		}
 		err = abi.ParseTopicsIntoMap(out, indexedArgs, topics[1:])
 		if err != nil {
-			return Result{Error: errors.Wrap(ErrBadInput, err.Error())}, runInfo
+			return Result{Error: pkgerrors.Wrap(ErrBadInput, err.Error())}, runInfo
 		}
 	}
 	return Result{Value: out}, runInfo

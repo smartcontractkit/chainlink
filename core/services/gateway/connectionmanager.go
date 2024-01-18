@@ -157,7 +157,7 @@ func (m *connectionManager) Start(ctx context.Context) error {
 func (m *connectionManager) Close() error {
 	return m.StopOnce("ConnectionManager", func() (err error) {
 		m.lggr.Info("closing connection manager")
-		err = multierr.Combine(err, m.wsServer.Close())
+		err = errors.Join(err, m.wsServer.Close())
 		for _, donConnMgr := range m.dons {
 			close(donConnMgr.shutdownCh)
 			for _, nodeState := range donConnMgr.nodes {

@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -9,8 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
@@ -65,7 +65,7 @@ func (t *ETHTxTask) getEvmChainID() string {
 
 func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var chainID StringParam
-	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID")
+	err := pkgerrors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID")
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
@@ -80,7 +80,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 	txManager := chain.TxManager()
 	_, err = CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	maximumGasLimit := SelectGasLimit(cfg.GasEstimator(), t.jobType, t.specGasLimit)
@@ -95,15 +95,15 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		transmitCheckerMap    MapParam
 		failOnRevert          BoolParam
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
-		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
-		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
-		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), maximumGasLimit)), "gasLimit"),
-		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
-		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(VarExpr(t.MinConfirmations, vars), NonemptyString(t.MinConfirmations), "")), "minConfirmations"),
-		errors.Wrap(ResolveParam(&transmitCheckerMap, From(VarExpr(t.TransmitChecker, vars), JSONWithVarExprs(t.TransmitChecker, vars, false), MapParam{})), "transmitChecker"),
-		errors.Wrap(ResolveParam(&failOnRevert, From(NonemptyString(t.FailOnRevert), false)), "failOnRevert"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
+		pkgerrors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
+		pkgerrors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
+		pkgerrors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), maximumGasLimit)), "gasLimit"),
+		pkgerrors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
+		pkgerrors.Wrap(ResolveParam(&maybeMinConfirmations, From(VarExpr(t.MinConfirmations, vars), NonemptyString(t.MinConfirmations), "")), "minConfirmations"),
+		pkgerrors.Wrap(ResolveParam(&transmitCheckerMap, From(VarExpr(t.TransmitChecker, vars), JSONWithVarExprs(t.TransmitChecker, vars, false), MapParam{})), "transmitChecker"),
+		pkgerrors.Wrap(ResolveParam(&failOnRevert, From(NonemptyString(t.FailOnRevert), false)), "failOnRevert"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -129,9 +129,9 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 
 	fromAddr, err := t.keyStore.GetRoundRobinAddress(chain.ID(), fromAddrs...)
 	if err != nil {
-		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
+		err = pkgerrors.Wrap(err, "ETHTxTask failed to get fromAddress")
 		lggr.Error(err)
-		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while querying keystore: %v", err)}, retryableRunInfo()
+		return Result{Error: pkgerrors.Wrapf(ErrTaskRunFailed, "while querying keystore: %v", err)}, retryableRunInfo()
 	}
 
 	// TODO(sc-55115): Allow job specs to pass in the strategy that they want
@@ -166,7 +166,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 
 	_, err = txManager.CreateTransaction(ctx, txRequest)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
+		return Result{Error: pkgerrors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
 
 	if minOutgoingConfirmations > 0 {
@@ -200,12 +200,12 @@ func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {
 		},
 	})
 	if err != nil {
-		return &txMeta, errors.Wrapf(ErrBadInput, "txMeta: %v", err)
+		return &txMeta, pkgerrors.Wrapf(ErrBadInput, "txMeta: %v", err)
 	}
 
 	err = metaDecoder.Decode(metaMap)
 	if err != nil {
-		return &txMeta, errors.Wrapf(ErrBadInput, "txMeta: %v", err)
+		return &txMeta, pkgerrors.Wrapf(ErrBadInput, "txMeta: %v", err)
 	}
 	return &txMeta, nil
 }
@@ -231,12 +231,12 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 		},
 	})
 	if err != nil {
-		return transmitChecker, errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
+		return transmitChecker, pkgerrors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
 	}
 
 	err = checkerDecoder.Decode(checkerMap)
 	if err != nil {
-		return transmitChecker, errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
+		return transmitChecker, pkgerrors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
 	}
 	return transmitChecker, nil
 }

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -17,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
@@ -209,11 +210,11 @@ func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalan
 	} else if vrfVersion == vrfcommon.V2 {
 		metaField = txMetaFieldSubId
 	} else {
-		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
+		return nil, pkgerrors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 
 	txes, err := lsn.chain.TxManager().FindTxesByMetaFieldAndStates(ctx, metaField, subID.String(), reserveEthLinkQueryStates, chainID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("TXM FindTxesByMetaFieldAndStates failed: %w", err)
 	}
 
@@ -249,10 +250,10 @@ func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalanc
 		// native payment is not supported for v2, so returning 0 reserved ETH
 		return big.NewInt(0), nil
 	} else {
-		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
+		return nil, pkgerrors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
 	txes, err := lsn.chain.TxManager().FindTxesByMetaFieldAndStates(ctx, metaField, subID.String(), reserveEthLinkQueryStates, chainID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("TXM FindTxesByMetaFieldAndStates failed: %w", err)
 	}
 
@@ -345,7 +346,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 
 		var unfulfilled []pendingRequest
 		alreadyFulfilled, err := lsn.checkReqsFulfilled(ctx, l, chunk)
-		if errors.Is(err, context.Canceled) {
+		if pkgerrors.Is(err, context.Canceled) {
 			l.Infow("Context canceled, stopping request processing", "err", err)
 			return processed
 		} else if err != nil {
@@ -396,11 +397,11 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 			ll = ll.With("fromAddress", fromAddress)
 
 			if p.err != nil {
-				if errors.Is(p.err, errBlockhashNotInStore{}) {
+				if pkgerrors.Is(p.err, errBlockhashNotInStore{}) {
 					// Running the blockhash store feeder in backwards mode will be required to
 					// resolve this.
 					ll.Criticalw("Pipeline error", "err", p.err)
-				} else if errors.Is(p.err, errProofVerificationFailed{}) {
+				} else if pkgerrors.Is(p.err, errProofVerificationFailed{}) {
 					// This occurs when the proof reverts in the simulation
 					// This is almost always (if not always) due to a proof generated with an out-of-date
 					// blockhash
@@ -427,7 +428,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 						continue
 					}
 
-					if startBalanceNoReserved.Cmp(p.fundsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
+					if startBalanceNoReserved.Cmp(p.fundsNeeded) < 0 && pkgerrors.Is(p.err, errPossiblyInsufficientFunds{}) {
 						ll.Infow("Insufficient balance to fulfill a request based on estimate, breaking", "err", p.err)
 						outOfBalance = true
 
@@ -554,14 +555,14 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 	fromAddress common.Address,
 ) (etx txmgr.Tx, err error) {
 	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
-		err = errors.New("vrf owner address not set in job spec, recreate job and provide it to force-fulfill")
+		err = pkgerrors.New("vrf owner address not set in job spec, recreate job and provide it to force-fulfill")
 		return
 	}
 
 	if p.payload == "" {
 		// should probably never happen
 		// a critical log will be logged if this is the case in simulateFulfillment
-		err = errors.New("empty payload in vrfPipelineResult")
+		err = pkgerrors.New("empty payload in vrfPipelineResult")
 		return
 	}
 
@@ -686,7 +687,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 		var unfulfilled []pendingRequest
 		alreadyFulfilled, err := lsn.checkReqsFulfilled(ctx, l, chunk)
-		if errors.Is(err, context.Canceled) {
+		if pkgerrors.Is(err, context.Canceled) {
 			l.Infow("Context canceled, stopping request processing", "err", err)
 			return processed
 		} else if err != nil {
@@ -726,11 +727,11 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 			ll = ll.With("fromAddress", fromAddress)
 
 			if p.err != nil {
-				if errors.Is(p.err, errBlockhashNotInStore{}) {
+				if pkgerrors.Is(p.err, errBlockhashNotInStore{}) {
 					// Running the blockhash store feeder in backwards mode will be required to
 					// resolve this.
 					ll.Criticalw("Pipeline error", "err", p.err)
-				} else if errors.Is(p.err, errProofVerificationFailed{}) {
+				} else if pkgerrors.Is(p.err, errProofVerificationFailed{}) {
 					// This occurs when the proof reverts in the simulation
 					// This is almost always (if not always) due to a proof generated with an out-of-date
 					// blockhash
@@ -952,7 +953,7 @@ func (lsn *listenerV2) requestCommitmentPayload(requestID *big.Int) (payload []b
 	} else if lsn.coordinator.Version() == vrfcommon.V2 {
 		return coordinatorV2ABI.Pack("getCommitment", requestID)
 	}
-	return nil, errors.Errorf("unsupported coordinator version: %s", lsn.coordinator.Version())
+	return nil, pkgerrors.Errorf("unsupported coordinator version: %s", lsn.coordinator.Version())
 }
 
 // checkReqsFulfilled returns a bool slice the same size of the given reqs slice
@@ -1136,12 +1137,12 @@ func (lsn *listenerV2) simulateFulfillment(
 	}
 	// The call task will fail if there are insufficient funds
 	if res.run.AllErrors.HasError() {
-		res.err = errors.WithStack(res.run.AllErrors.ToError())
+		res.err = pkgerrors.WithStack(res.run.AllErrors.ToError())
 
 		if strings.Contains(res.err.Error(), "blockhash not found in store") {
-			res.err = multierr.Combine(res.err, errBlockhashNotInStore{})
+			res.err = errors.Join(res.err, errBlockhashNotInStore{})
 		} else if isProofVerificationError(res.err.Error()) {
-			res.err = multierr.Combine(res.err, errProofVerificationFailed{})
+			res.err = errors.Join(res.err, errProofVerificationFailed{})
 		} else if strings.Contains(res.err.Error(), "execution reverted") {
 			// Even if the simulation fails, we want to get the
 			// txData for the fulfillRandomWords call, in case
@@ -1166,21 +1167,21 @@ func (lsn *listenerV2) simulateFulfillment(
 					res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 				}
 			}
-			res.err = multierr.Combine(res.err, errPossiblyInsufficientFunds{})
+			res.err = errors.Join(res.err, errPossiblyInsufficientFunds{})
 		}
 
 		return res
 	}
 	finalResult := trrs.FinalResult(lg)
 	if len(finalResult.Values) != 1 {
-		res.err = errors.Errorf("unexpected number of outputs, expected 1, was %d", len(finalResult.Values))
+		res.err = pkgerrors.Errorf("unexpected number of outputs, expected 1, was %d", len(finalResult.Values))
 		return res
 	}
 
 	// Run succeeded, we expect a byte array representing the billing amount
 	b, ok := finalResult.Values[0].([]uint8)
 	if !ok {
-		res.err = errors.New("expected []uint8 final result")
+		res.err = pkgerrors.New("expected []uint8 final result")
 		return res
 	}
 

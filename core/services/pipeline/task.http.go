@@ -3,12 +3,12 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
@@ -54,7 +54,7 @@ func (t *HTTPTask) Type() TaskType {
 func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -64,22 +64,22 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 		allowUnrestrictedNetworkAccess BoolParam
 		reqHeaders                     StringSliceParam
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
-		errors.Wrap(ResolveParam(&url, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "url"),
-		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
+		pkgerrors.Wrap(ResolveParam(&url, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "url"),
+		pkgerrors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		// Any hardcoded strings used for URL uses the unrestricted HTTP adapter
 		// Interpolated variable URLs use restricted HTTP adapter by default
 		// You must set allowUnrestrictedNetworkAccess=true on the task to enable variable-interpolated URLs to make restricted network requests
-		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), !variableRegexp.MatchString(t.URL))), "allowUnrestrictedNetworkAccess"),
-		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
+		pkgerrors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), !variableRegexp.MatchString(t.URL))), "allowUnrestrictedNetworkAccess"),
+		pkgerrors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
 
 	if len(reqHeaders)%2 != 0 {
-		return Result{Error: errors.Errorf("headers must have an even number of elements")}, runInfo
+		return Result{Error: pkgerrors.Errorf("headers must have an even number of elements")}, runInfo
 	}
 
 	requestDataJSON, err := json.Marshal(requestData)
@@ -105,8 +105,8 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 	}
 	responseBytes, statusCode, respHeaders, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, reqHeaders, requestData, client, t.config.DefaultHTTPLimit())
 	if err != nil {
-		if errors.Is(errors.Cause(err), clhttp.ErrDisallowedIP) {
-			err = errors.Wrap(err, `connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess="true" in the pipeline task spec, e.g. fetch [type="http" method=GET url="$(decode_cbor.url)" allowUnrestrictedNetworkAccess="true"]`)
+		if pkgerrors.Is(pkgerrors.Cause(err), clhttp.ErrDisallowedIP) {
+			err = pkgerrors.Wrap(err, `connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess="true" in the pipeline task spec, e.g. fetch [type="http" method=GET url="$(decode_cbor.url)" allowUnrestrictedNetworkAccess="true"]`)
 		}
 		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 	}

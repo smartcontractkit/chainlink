@@ -2,11 +2,11 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -29,16 +29,16 @@ func (t *ETHABIEncodeTask) Type() TaskType {
 func (t *ETHABIEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
 		inputValues MapParam
 		theABI      BytesParam
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&inputValues, From(VarExpr(t.Data, vars), JSONWithVarExprs(t.Data, vars, false), nil)), "data"),
-		errors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&inputValues, From(VarExpr(t.Data, vars), JSONWithVarExprs(t.Data, vars, false), nil)), "data"),
+		pkgerrors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -46,7 +46,7 @@ func (t *ETHABIEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 
 	methodName, args, _, err := parseETHABIString([]byte(theABI), false)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "ETHABIEncode: while parsing ABI string: %v", err)}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "ETHABIEncode: while parsing ABI string: %v", err)}, runInfo
 	}
 	method := abi.NewMethod(methodName, methodName, abi.Function, "", false, false, args, nil)
 
@@ -54,18 +54,18 @@ func (t *ETHABIEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 	for _, arg := range args {
 		val, exists := inputValues[arg.Name]
 		if !exists {
-			return Result{Error: errors.Wrapf(ErrBadInput, "ETHABIEncode: argument '%v' is missing", arg.Name)}, runInfo
+			return Result{Error: pkgerrors.Wrapf(ErrBadInput, "ETHABIEncode: argument '%v' is missing", arg.Name)}, runInfo
 		}
 		val, err = convertToETHABIType(val, arg.Type)
 		if err != nil {
-			return Result{Error: errors.Wrapf(ErrBadInput, "ETHABIEncode: while converting argument '%v' from %T to %v: %v", arg.Name, val, arg.Type, err)}, runInfo
+			return Result{Error: pkgerrors.Wrapf(ErrBadInput, "ETHABIEncode: while converting argument '%v' from %T to %v: %v", arg.Name, val, arg.Type, err)}, runInfo
 		}
 		vals = append(vals, val)
 	}
 
 	argsEncoded, err := method.Inputs.Pack(vals...)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "ETHABIEncode: could not ABI encode values: %v", err)}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "ETHABIEncode: could not ABI encode values: %v", err)}, runInfo
 	}
 	var dataBytes []byte
 	if methodName != "" {

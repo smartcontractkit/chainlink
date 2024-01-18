@@ -2,9 +2,9 @@ package relay
 
 import (
 	"context"
+	"errors"
 	"net"
 
-	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -28,7 +28,7 @@ func (p *ProviderServer) Start(ctx context.Context) error {
 func (p *ProviderServer) Close() error {
 	var err error
 	for _, c := range p.conns {
-		err = multierr.Combine(err, c.Close())
+		err = errors.Join(err, c.Close())
 	}
 	p.s.Stop()
 	return err

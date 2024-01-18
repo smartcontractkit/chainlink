@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -33,9 +33,9 @@ func (t *SumTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 		allowedFaults      int
 		faults             int
 	)
-	err := multierr.Combine(
-		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
-		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
+	err := errors.Join(
+		pkgerrors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
+		pkgerrors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -49,14 +49,14 @@ func (t *SumTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 
 	values, faults := valuesAndErrs.FilterErrors()
 	if faults > allowedFaults {
-		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to sum task > number allowed faults %v", faults, allowedFaults)}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to sum task > number allowed faults %v", faults, allowedFaults)}, runInfo
 	} else if len(values) == 0 {
-		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "values")}, runInfo
+		return Result{Error: pkgerrors.Wrap(ErrWrongInputCardinality, "values")}, runInfo
 	}
 
 	err = decimalValues.UnmarshalPipelineParam(values)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "values: %v", err)}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "values: %v", err)}, runInfo
 	}
 
 	sum := decimal.NewFromInt(0)

@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"math"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -23,8 +23,8 @@ type DivideTask struct {
 var _ Task = (*DivideTask)(nil)
 
 var (
-	ErrDivideByZero    = errors.New("divide by zero")
-	ErrDivisionOverlow = errors.New("division overflow")
+	ErrDivideByZero    = pkgerrors.New("divide by zero")
+	ErrDivisionOverlow = pkgerrors.New("division overflow")
 )
 
 func (t *DivideTask) Type() TaskType {
@@ -34,7 +34,7 @@ func (t *DivideTask) Type() TaskType {
 func (t *DivideTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -42,10 +42,10 @@ func (t *DivideTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		b              DecimalParam
 		maybePrecision MaybeInt32Param
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&a, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
-		errors.Wrap(ResolveParam(&b, From(VarExpr(t.Divisor, vars), NonemptyString(t.Divisor))), "divisor"),
-		errors.Wrap(ResolveParam(&maybePrecision, From(VarExpr(t.Precision, vars), t.Precision)), "precision"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&a, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
+		pkgerrors.Wrap(ResolveParam(&b, From(VarExpr(t.Divisor, vars), NonemptyString(t.Divisor))), "divisor"),
+		pkgerrors.Wrap(ResolveParam(&maybePrecision, From(VarExpr(t.Precision, vars), t.Precision)), "precision"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo

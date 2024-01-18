@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"math"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -21,7 +21,7 @@ type MultiplyTask struct {
 
 var (
 	_                  Task = (*MultiplyTask)(nil)
-	ErrMultiplyOverlow      = errors.New("multiply overflow")
+	ErrMultiplyOverlow      = pkgerrors.New("multiply overflow")
 )
 
 func (t *MultiplyTask) Type() TaskType {
@@ -31,7 +31,7 @@ func (t *MultiplyTask) Type() TaskType {
 func (t *MultiplyTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -39,9 +39,9 @@ func (t *MultiplyTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs
 		b DecimalParam
 	)
 
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&a, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
-		errors.Wrap(ResolveParam(&b, From(VarExpr(t.Times, vars), NonemptyString(t.Times))), "times"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&a, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
+		pkgerrors.Wrap(ResolveParam(&b, From(VarExpr(t.Times, vars), NonemptyString(t.Times))), "times"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo

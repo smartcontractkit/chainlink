@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -70,7 +71,7 @@ func (o *GeneralConfigOpts) Setup(configFiles []string, secretsFiles []string) e
 	for _, fileName := range configFiles {
 		b, err := os.ReadFile(fileName)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read config file: %s", fileName)
+			return pkgerrors.Wrapf(err, "failed to read config file: %s", fileName)
 		}
 		configs = append(configs, string(b))
 	}
@@ -85,7 +86,7 @@ func (o *GeneralConfigOpts) Setup(configFiles []string, secretsFiles []string) e
 	for _, fileName := range secretsFiles {
 		b, err := os.ReadFile(fileName)
 		if err != nil {
-			return errors.Wrapf(err, "failed to read secrets file: %s", fileName)
+			return pkgerrors.Wrapf(err, "failed to read secrets file: %s", fileName)
 		}
 		secrets = append(secrets, string(b))
 	}
@@ -214,7 +215,7 @@ func (g *generalConfig) Validate() error {
 }
 
 func (g *generalConfig) validate(secretsValidationFn func() error) error {
-	err := multierr.Combine(
+	err := errors.Join(
 		validateEnv(),
 		g.c.Validate(),
 		secretsValidationFn(),
@@ -245,7 +246,7 @@ func validateEnv() (err error) {
 		}
 		i := strings.Index(kv, "=")
 		if i == -1 {
-			return errors.Errorf("malformed .env file line: %s", kv)
+			return pkgerrors.Errorf("malformed .env file line: %s", kv)
 		}
 		k := kv[:i]
 		_, ok := os.LookupEnv(k)

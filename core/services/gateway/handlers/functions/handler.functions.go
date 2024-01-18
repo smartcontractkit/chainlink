@@ -13,7 +13,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -374,10 +373,10 @@ func (h *functionsHandler) Close() error {
 	return h.StopOnce("FunctionsHandler", func() (err error) {
 		close(h.chStop)
 		if h.allowlist != nil {
-			err = multierr.Combine(err, h.allowlist.Close())
+			err = errors.Join(err, h.allowlist.Close())
 		}
 		if h.subscriptions != nil {
-			err = multierr.Combine(err, h.subscriptions.Close())
+			err = errors.Join(err, h.subscriptions.Close())
 		}
 		return
 	})

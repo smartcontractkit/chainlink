@@ -1,9 +1,10 @@
 package webhook
 
 import (
+	"errors"
+
 	"github.com/pelletier/go-toml"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -29,7 +30,7 @@ func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalIn
 		return
 	}
 	if jb.Type != job.Webhook {
-		return jb, errors.Errorf("unsupported type %s", jb.Type)
+		return jb, pkgerrors.Errorf("unsupported type %s", jb.Type)
 	}
 
 	var tomlSpec TOMLWebhookSpec
@@ -42,7 +43,7 @@ func ValidatedWebhookSpec(tomlString string, externalInitiatorManager ExternalIn
 	for _, eiSpec := range tomlSpec.ExternalInitiators {
 		ei, findErr := externalInitiatorManager.FindExternalInitiatorByName(eiSpec.Name)
 		if findErr != nil {
-			err = multierr.Combine(err, errors.Wrapf(findErr, "unable to find external initiator named %s", eiSpec.Name))
+			err = errors.Join(err, pkgerrors.Wrapf(findErr, "unable to find external initiator named %s", eiSpec.Name))
 			continue
 		}
 		eiWS := job.ExternalInitiatorWebhookSpec{

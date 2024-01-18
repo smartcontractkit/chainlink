@@ -3,6 +3,7 @@ package chainlink
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/grafana/pyroscope-go"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -204,7 +205,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		var err error
 		profiler, err = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
 		if err != nil {
-			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
+			return nil, pkgerrors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
 	} else {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
@@ -232,7 +233,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.Database().URL(), cfg.RootDir(), backupCfg, globalLogger)
 		if err != nil {
-			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
+			return nil, pkgerrors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
 		srvcs = append(srvcs, databaseBackup)
 	} else {
@@ -274,14 +275,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			db, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
+			return nil, pkgerrors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
 		}
 		sessionReaper = ldapauth.NewLDAPServerStateSync(db, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
 	case sessions.LocalAuth:
 		authenticationProvider = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
 	default:
-		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
+		return nil, pkgerrors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
 	}
 
 	var (
@@ -541,8 +542,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	var ms services.MultiStart
 	for _, service := range app.srvcs {
 		if ctx.Err() != nil {
-			err := errors.Wrap(ctx.Err(), "aborting start")
-			return multierr.Combine(err, ms.Close())
+			err := pkgerrors.Wrap(ctx.Err(), "aborting start")
+			return errors.Join(err, ms.Close())
 		}
 
 		app.logger.Debugw("Starting service...", "name", service.Name())
@@ -729,7 +730,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	}
 	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {
-		return 0, errors.Wrapf(err, "job ID %v", jobID)
+		return 0, pkgerrors.Wrapf(err, "job ID %v", jobID)
 	}
 	var runID int64
 

@@ -2,9 +2,9 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -26,19 +26,19 @@ func (t *ConditionalTask) Type() TaskType {
 func (t *ConditionalTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 	var (
 		boolParam BoolParam
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&boolParam, From(VarExpr(t.Data, vars), Input(inputs, 0), nil)), "data"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&boolParam, From(VarExpr(t.Data, vars), Input(inputs, 0), nil)), "data"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
 	if !boolParam {
-		return Result{Error: errors.New("conditional was not satisfied")}, runInfo
+		return Result{Error: pkgerrors.New("conditional was not satisfied")}, runInfo
 	}
 	return Result{Value: true}, runInfo
 }

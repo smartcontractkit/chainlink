@@ -9,7 +9,6 @@ import (
 	"time"
 
 	gotoml "github.com/pelletier/go-toml/v2"
-	"go.uber.org/multierr"
 
 	"github.com/jmoiron/sqlx"
 
@@ -345,13 +344,13 @@ func (c *chain) Close() error {
 			merr = c.balanceMonitor.Close()
 		}
 		c.logger.Debug("Chain: stopping logBroadcaster")
-		merr = multierr.Combine(merr, c.logBroadcaster.Close())
+		merr = errors.Join(merr, c.logBroadcaster.Close())
 		c.logger.Debug("Chain: stopping headTracker")
-		merr = multierr.Combine(merr, c.headTracker.Close())
+		merr = errors.Join(merr, c.headTracker.Close())
 		c.logger.Debug("Chain: stopping headBroadcaster")
-		merr = multierr.Combine(merr, c.headBroadcaster.Close())
+		merr = errors.Join(merr, c.headBroadcaster.Close())
 		c.logger.Debug("Chain: stopping evmTxm")
-		merr = multierr.Combine(merr, c.txm.Close())
+		merr = errors.Join(merr, c.txm.Close())
 		c.logger.Debug("Chain: stopping client")
 		c.client.Close()
 		c.logger.Debug("Chain: stopped")
@@ -360,7 +359,7 @@ func (c *chain) Close() error {
 }
 
 func (c *chain) Ready() (merr error) {
-	merr = multierr.Combine(
+	merr = errors.Join(
 		c.StateMachine.Ready(),
 		c.txm.Ready(),
 		c.headBroadcaster.Ready(),
@@ -368,7 +367,7 @@ func (c *chain) Ready() (merr error) {
 		c.logBroadcaster.Ready(),
 	)
 	if c.balanceMonitor != nil {
-		merr = multierr.Combine(merr, c.balanceMonitor.Ready())
+		merr = errors.Join(merr, c.balanceMonitor.Ready())
 	}
 	return
 }

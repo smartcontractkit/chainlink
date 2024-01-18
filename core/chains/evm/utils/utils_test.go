@@ -2,6 +2,7 @@ package utils_test
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"strings"
 	"sync/atomic"
@@ -11,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -101,7 +101,7 @@ func TestClient_ParseEthereumAddress(t *testing.T) {
 		assert.True(t, a1 == a2)
 		_, lowerErr := parse(strings.ToLower(address))
 		_, upperErr := parse(strings.ToUpper(address))
-		shouldBeError := multierr.Combine(lowerErr, upperErr)
+		shouldBeError := errors.Join(lowerErr, upperErr)
 		assert.Error(t, shouldBeError)
 		assert.True(t, strings.Contains(shouldBeError.Error(), no0xPrefix))
 	}

@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,7 +25,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -308,7 +309,7 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 
 	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbUrl, rootDir, cfg, lggr)
 	if err != nil {
-		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
+		return pkgerrors.Wrap(err, "takeBackupIfVersionUpgrade failed")
 	}
 
 	//Because backups can take a long time we must start a "fake" health report to prevent
@@ -343,7 +344,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	}
 
 	if err := sentryInit(config.Sentry()); err != nil {
-		return errors.Wrap(err, "failed to initialize sentry")
+		return pkgerrors.Wrap(err, "failed to initialize sentry")
 	}
 
 	ws := config.WebServer()
@@ -353,7 +354,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 
 	handler, err := web.NewRouter(app, prometheus)
 	if err != nil {
-		return errors.Wrap(err, "failed to create web router")
+		return pkgerrors.Wrap(err, "failed to create web router")
 	}
 	server := server{handler: handler, lggr: app.GetLogger()}
 
@@ -381,15 +382,15 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		<-gCtx.Done()
 		var err error
 		if server.httpServer != nil {
-			err = errors.WithStack(server.httpServer.Shutdown(context.Background()))
+			err = pkgerrors.WithStack(server.httpServer.Shutdown(context.Background()))
 		}
 		if server.tlsServer != nil {
-			err = multierr.Combine(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
+			err = errors.Join(err, pkgerrors.WithStack(server.tlsServer.Shutdown(context.Background())))
 		}
 		return err
 	})
 
-	return errors.WithStack(g.Wait())
+	return pkgerrors.WithStack(g.Wait())
 }
 
 func sentryInit(cfg config.Sentry) error {
@@ -455,7 +456,7 @@ func (s *server) run(ip net.IP, port uint16, writeTimeout time.Duration) error {
 	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTP on %s", addr), "ip", ip, "port", port)
 	s.httpServer = createServer(s.handler, addr, writeTimeout)
 	err := s.httpServer.ListenAndServe()
-	return errors.Wrap(err, "failed to run plaintext HTTP server")
+	return pkgerrors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
 func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, requestTimeout time.Duration) error {
@@ -463,7 +464,7 @@ func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, reques
 	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTPS on %s", addr), "ip", ip, "port", port)
 	s.tlsServer = createServer(s.handler, addr, requestTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
+	return pkgerrors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
 }
 
 func createServer(handler *gin.Engine, addr string, requestTimeout time.Duration) *http.Server {
@@ -812,7 +813,7 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lg
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
+		return sessions.User{}, pkgerrors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, prompt for initial admin user creation
@@ -871,14 +872,14 @@ func (f fileAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr log
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
+		return sessions.User{}, pkgerrors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, create initial admin user from session request from file creds
 	if len(dbUsers) == 0 {
 		user, err2 := sessions.NewUser(request.Email, request.Password, sessions.UserRoleAdmin)
 		if err2 != nil {
-			return user, errors.Wrap(err2, "failed to instantiate new user")
+			return user, pkgerrors.Wrap(err2, "failed to instantiate new user")
 		}
 		return user, orm.CreateUser(&user)
 	}

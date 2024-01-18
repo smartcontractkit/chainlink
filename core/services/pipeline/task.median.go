@@ -2,11 +2,11 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"sort"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -34,9 +34,9 @@ func (t *MedianTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		allowedFaults      int
 		faults             int
 	)
-	err := multierr.Combine(
-		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
-		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
+	err := errors.Join(
+		pkgerrors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
+		pkgerrors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -50,9 +50,9 @@ func (t *MedianTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 
 	values, faults := valuesAndErrs.FilterErrors()
 	if faults > allowedFaults {
-		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to median task > number allowed faults %v", faults, allowedFaults)}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to median task > number allowed faults %v", faults, allowedFaults)}, runInfo
 	} else if len(values) == 0 {
-		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to medianize")}, runInfo
+		return Result{Error: pkgerrors.Wrap(ErrWrongInputCardinality, "no values to medianize")}, runInfo
 	}
 
 	err = decimalValues.UnmarshalPipelineParam(values)

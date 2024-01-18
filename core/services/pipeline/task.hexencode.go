@@ -3,10 +3,10 @@ package pipeline
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -35,12 +35,12 @@ func addHexPrefix(val string) string {
 func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var stringInput StringParam
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&stringInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&stringInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
 		// string
@@ -48,8 +48,8 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var bytesInput BytesParam
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&bytesInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&bytesInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
 		// bytes
@@ -57,22 +57,22 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var decimalInput DecimalParam
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&decimalInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&decimalInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil && !decimalInput.Decimal().IsInteger() {
 		// decimal
-		return Result{Error: errors.New("decimal input")}, runInfo
+		return Result{Error: pkgerrors.New("decimal input")}, runInfo
 	}
 
 	var bigIntInput MaybeBigIntParam
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&bigIntInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&bigIntInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
 		// one of integer types
 		if bigIntInput.BigInt().Sign() == -1 {
-			return Result{Error: errors.New("negative integer")}, runInfo
+			return Result{Error: pkgerrors.New("negative integer")}, runInfo
 		}
 		return Result{Value: addHexPrefix(fmt.Sprintf("%x", bigIntInput.BigInt()))}, runInfo
 	}

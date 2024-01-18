@@ -3,13 +3,13 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -54,7 +54,7 @@ func sqlxTransactionQ(ctx context.Context, db txBeginner, lggr logger.Logger, fn
 	var tx *sqlx.Tx
 	tx, err = db.BeginTxx(ctx, &txOpts)
 	if err != nil {
-		return errors.Wrap(err, "failed to begin transaction")
+		return pkgerrors.Wrap(err, "failed to begin transaction")
 	}
 
 	defer func() {
@@ -81,11 +81,11 @@ func sqlxTransactionQ(ctx context.Context, db txBeginner, lggr logger.Logger, fn
 			lggr.Errorf("Error in transaction, rolling back: %s", err)
 			// An error occurred, rollback and return error
 			if rerr := tx.Rollback(); rerr != nil {
-				err = multierr.Combine(err, errors.WithStack(rerr))
+				err = errors.Join(err, pkgerrors.WithStack(rerr))
 			}
 		} else {
 			// All good! Time to commit.
-			err = errors.WithStack(tx.Commit())
+			err = pkgerrors.WithStack(tx.Commit())
 		}
 	}()
 

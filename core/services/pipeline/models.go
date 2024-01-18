@@ -3,15 +3,15 @@ package pipeline
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -205,7 +205,7 @@ func (re *RunErrors) Scan(value interface{}) error {
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("RunErrors#Scan received a value of type %T", value)
+		return pkgerrors.Errorf("RunErrors#Scan received a value of type %T", value)
 	}
 	return json.Unmarshal(bytes, re)
 }
@@ -231,7 +231,7 @@ func (re RunErrors) HasError() bool {
 func (re RunErrors) ToError() error {
 	toErr := func(ns null.String) error {
 		if !ns.IsZero() {
-			return errors.New(ns.String)
+			return pkgerrors.New(ns.String)
 		}
 		return nil
 	}
@@ -239,7 +239,7 @@ func (re RunErrors) ToError() error {
 	for _, e := range re {
 		errs = append(errs, toErr(e))
 	}
-	return multierr.Combine(errs...)
+	return errors.Join(errs...)
 }
 
 type ResumeRequest struct {
@@ -250,14 +250,14 @@ type ResumeRequest struct {
 func (rr ResumeRequest) ToResult() (Result, error) {
 	var res Result
 	if rr.Error.Valid && rr.Value == nil {
-		res.Error = errors.New(rr.Error.ValueOrZero())
+		res.Error = pkgerrors.New(rr.Error.ValueOrZero())
 		return res, nil
 	}
 	if !rr.Error.Valid && rr.Value != nil {
 		res.Value = []byte(rr.Value)
 		return res, nil
 	}
-	return Result{}, errors.New("must provide only one of either 'value' or 'error' key")
+	return Result{}, pkgerrors.New("must provide only one of either 'value' or 'error' key")
 }
 
 type TaskRun struct {
@@ -296,7 +296,7 @@ func (tr TaskRun) GetDotID() string {
 func (tr TaskRun) Result() Result {
 	var result Result
 	if !tr.Error.IsZero() {
-		result.Error = errors.New(tr.Error.ValueOrZero())
+		result.Error = pkgerrors.New(tr.Error.ValueOrZero())
 	} else if tr.Output.Valid && tr.Output.Val != nil {
 		result.Value = tr.Output.Val
 	}

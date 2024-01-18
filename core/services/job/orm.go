@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -13,8 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/jmoiron/sqlx"
 
@@ -36,10 +36,10 @@ import (
 )
 
 var (
-	ErrNoSuchKeyBundle      = errors.New("no such key bundle exists")
-	ErrNoSuchTransmitterKey = errors.New("no such transmitter key exists")
-	ErrNoSuchSendingKey     = errors.New("no such sending key exists")
-	ErrNoSuchPublicKey      = errors.New("no such public key exists")
+	ErrNoSuchKeyBundle      = pkgerrors.New("no such key bundle exists")
+	ErrNoSuchTransmitterKey = pkgerrors.New("no such transmitter key exists")
+	ErrNoSuchSendingKey     = pkgerrors.New("no such sending key exists")
+	ErrNoSuchPublicKey      = pkgerrors.New("no such public key exists")
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -155,19 +155,19 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		switch jb.Type {
 		case DirectRequest:
 			if jb.DirectRequestSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO direct_request_specs (contract_address, min_incoming_confirmations, requesters, min_contract_payment, evm_chain_id, created_at, updated_at)
 			VALUES (:contract_address, :min_incoming_confirmations, :requesters, :min_contract_payment, :evm_chain_id, now(), now())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.DirectRequestSpec); err != nil {
-				return errors.Wrap(err, "failed to create DirectRequestSpec")
+				return pkgerrors.Wrap(err, "failed to create DirectRequestSpec")
 			}
 			jb.DirectRequestSpecID = &specID
 		case FluxMonitor:
 			if jb.FluxMonitorSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO flux_monitor_specs (contract_address, threshold, absolute_threshold, poll_timer_period, poll_timer_disabled, idle_timer_period, idle_timer_disabled,
@@ -176,25 +176,25 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					:drumbeat_schedule, :drumbeat_random_delay, :drumbeat_enabled, :min_payment, :evm_chain_id, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.FluxMonitorSpec); err != nil {
-				return errors.Wrap(err, "failed to create FluxMonitorSpec")
+				return pkgerrors.Wrap(err, "failed to create FluxMonitorSpec")
 			}
 			jb.FluxMonitorSpecID = &specID
 		case OffchainReporting:
 			if jb.OCROracleSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 
 			var specID int32
 			if jb.OCROracleSpec.EncryptedOCRKeyBundleID != nil {
 				_, err := o.keyStore.OCR().Get(jb.OCROracleSpec.EncryptedOCRKeyBundleID.String())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %x", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
+					return pkgerrors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %x", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}
 			if jb.OCROracleSpec.TransmitterAddress != nil {
 				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "no key matching transmitter address: %s", jb.OCROracleSpec.TransmitterAddress.Hex())
+					return pkgerrors.Wrapf(ErrNoSuchTransmitterKey, "no key matching transmitter address: %s", jb.OCROracleSpec.TransmitterAddress.Hex())
 				}
 			}
 
@@ -204,12 +204,12 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				jb.OCROracleSpec.ContractAddress, newChainID,
 			)
 
-			if !errors.Is(err, sql.ErrNoRows) {
+			if !pkgerrors.Is(err, sql.ErrNoRows) {
 				if err != nil {
-					return errors.Wrap(err, "failed to validate OffchainreportingOracleSpec on creation")
+					return pkgerrors.Wrap(err, "failed to validate OffchainreportingOracleSpec on creation")
 				}
 
-				return errors.Errorf("a job with contract address %s already exists for chain ID %s", jb.OCROracleSpec.ContractAddress, newChainID)
+				return pkgerrors.Errorf("a job with contract address %s already exists for chain ID %s", jb.OCROracleSpec.ContractAddress, newChainID)
 			}
 
 			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2pv2_bootstrappers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
@@ -221,7 +221,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			RETURNING id;`
 			err = pg.PrepareQueryRowx(tx, sql, &specID, jb.OCROracleSpec)
 			if err != nil {
-				return errors.Wrap(err, "failed to create OffchainreportingOracleSpec")
+				return pkgerrors.Wrap(err, "failed to create OffchainreportingOracleSpec")
 			}
 			jb.OCROracleSpecID = &specID
 		case OffchainReporting2:
@@ -230,12 +230,12 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
 				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %q", jb.OCR2OracleSpec.OCRKeyBundleID.ValueOrZero())
+					return pkgerrors.Wrapf(ErrNoSuchKeyBundle, "no key bundle with id: %q", jb.OCR2OracleSpec.OCRKeyBundleID.ValueOrZero())
 				}
 			}
 
 			if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil && jb.OCR2OracleSpec.TransmitterID.Valid {
-				return errors.New("sending keys and transmitter ID can't both be defined")
+				return pkgerrors.New("sending keys and transmitter ID can't both be defined")
 			}
 
 			// checks if they are present and if they are valid
@@ -245,26 +245,26 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 
 			if !sendingKeysDefined && !jb.OCR2OracleSpec.TransmitterID.Valid {
-				return errors.New("neither sending keys nor transmitter ID is defined")
+				return pkgerrors.New("neither sending keys nor transmitter ID is defined")
 			}
 
 			if !sendingKeysDefined {
 				if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
-					return errors.Wrap(ErrNoSuchTransmitterKey, err.Error())
+					return pkgerrors.Wrap(ErrNoSuchTransmitterKey, err.Error())
 				}
 			}
 
 			if jb.ForwardingAllowed && !slices.Contains(ForwardersSupportedPlugins, jb.OCR2OracleSpec.PluginType) {
-				return errors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
+				return pkgerrors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
 			}
 
 			if jb.OCR2OracleSpec.PluginType == types.Mercury {
 				if jb.OCR2OracleSpec.FeedID == nil {
-					return errors.New("feed ID is required for mercury plugin type")
+					return pkgerrors.New("feed ID is required for mercury plugin type")
 				}
 			} else {
 				if jb.OCR2OracleSpec.FeedID != nil {
-					return errors.New("feed ID is not currently supported for non-mercury jobs")
+					return pkgerrors.New("feed ID is not currently supported for non-mercury jobs")
 				}
 			}
 
@@ -272,7 +272,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				var cfg medianconfig.PluginConfig
 				err2 := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err2 != nil {
-					return errors.Wrap(err2, "failed to parse plugin config")
+					return pkgerrors.Wrap(err2, "failed to parse plugin config")
 				}
 				feePipeline, err2 := pipeline.Parse(cfg.JuelsPerFeeCoinPipeline)
 				if err2 != nil {
@@ -292,19 +292,19 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			RETURNING id;`
 			err = pg.PrepareQueryRowx(tx, sql, &specID, jb.OCR2OracleSpec)
 			if err != nil {
-				return errors.Wrap(err, "failed to create Offchainreporting2OracleSpec")
+				return pkgerrors.Wrap(err, "failed to create Offchainreporting2OracleSpec")
 			}
 			jb.OCR2OracleSpecID = &specID
 		case Keeper:
 			if jb.KeeperSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO keeper_specs (contract_address, from_address, evm_chain_id, created_at, updated_at)
 			VALUES (:contract_address, :from_address, :evm_chain_id, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.KeeperSpec); err != nil {
-				return errors.Wrap(err, "failed to create KeeperSpec")
+				return pkgerrors.Wrap(err, "failed to create KeeperSpec")
 			}
 			jb.KeeperSpecID = &specID
 		case Cron:
@@ -313,12 +313,12 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			VALUES (:cron_schedule, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.CronSpec); err != nil {
-				return errors.Wrap(err, "failed to create CronSpec")
+				return pkgerrors.Wrap(err, "failed to create CronSpec")
 			}
 			jb.CronSpecID = &specID
 		case VRF:
 			if jb.VRFSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO vrf_specs (
@@ -339,20 +339,20 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			err := pg.PrepareQueryRowx(tx, sql, &specID, toVRFSpecRow(jb.VRFSpec))
 			var pqErr *pgconn.PgError
-			ok := errors.As(err, &pqErr)
+			ok := pkgerrors.As(err, &pqErr)
 			if err != nil && ok && pqErr.Code == "23503" {
 				if pqErr.ConstraintName == "vrf_specs_public_key_fkey" {
-					return errors.Wrapf(ErrNoSuchPublicKey, "%s", jb.VRFSpec.PublicKey.String())
+					return pkgerrors.Wrapf(ErrNoSuchPublicKey, "%s", jb.VRFSpec.PublicKey.String())
 				}
 			}
 			if err != nil {
-				return errors.Wrap(err, "failed to create VRFSpec")
+				return pkgerrors.Wrap(err, "failed to create VRFSpec")
 			}
 			jb.VRFSpecID = &specID
 		case Webhook:
 			err := o.InsertWebhookSpec(jb.WebhookSpec, pg.WithQueryer(tx))
 			if err != nil {
-				return errors.Wrap(err, "failed to create WebhookSpec")
+				return pkgerrors.Wrap(err, "failed to create WebhookSpec")
 			}
 			jb.WebhookSpecID = &jb.WebhookSpec.ID
 
@@ -364,58 +364,58 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			VALUES (:external_initiator_id, :webhook_spec_id, :spec);`
 				query, args, err := tx.BindNamed(sql, jb.WebhookSpec.ExternalInitiatorWebhookSpecs)
 				if err != nil {
-					return errors.Wrap(err, "failed to bindquery for ExternalInitiatorWebhookSpecs")
+					return pkgerrors.Wrap(err, "failed to bindquery for ExternalInitiatorWebhookSpecs")
 				}
 				if _, err = tx.Exec(query, args...); err != nil {
-					return errors.Wrap(err, "failed to create ExternalInitiatorWebhookSpecs")
+					return pkgerrors.Wrap(err, "failed to create ExternalInitiatorWebhookSpecs")
 				}
 			}
 		case BlockhashStore:
 			if jb.BlockhashStoreSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, trusted_blockhash_store_address, trusted_blockhash_store_batch_size, wait_blocks, lookback_blocks, heartbeat_period, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
 			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :trusted_blockhash_store_address, :trusted_blockhash_store_batch_size, :wait_blocks, :lookback_blocks, :heartbeat_period, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, toBlockhashStoreSpecRow(jb.BlockhashStoreSpec)); err != nil {
-				return errors.Wrap(err, "failed to create BlockhashStore spec")
+				return pkgerrors.Wrap(err, "failed to create BlockhashStore spec")
 			}
 			jb.BlockhashStoreSpecID = &specID
 		case BlockHeaderFeeder:
 			if jb.BlockHeaderFeederSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO block_header_feeder_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, wait_blocks, lookback_blocks, blockhash_store_address, batch_blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, get_blockhashes_batch_size, store_blockhashes_batch_size, created_at, updated_at)
 			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :batch_blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses,  :get_blockhashes_batch_size, :store_blockhashes_batch_size, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, toBlockHeaderFeederSpecRow(jb.BlockHeaderFeederSpec)); err != nil {
-				return errors.Wrap(err, "failed to create BlockHeaderFeeder spec")
+				return pkgerrors.Wrap(err, "failed to create BlockHeaderFeeder spec")
 			}
 			jb.BlockHeaderFeederSpecID = &specID
 		case LegacyGasStationServer:
 			if jb.LegacyGasStationServerSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO legacy_gas_station_server_specs (forwarder_address, evm_chain_id, ccip_chain_selector, from_addresses, created_at, updated_at)
 			VALUES (:forwarder_address, :evm_chain_id, :ccip_chain_selector, :from_addresses, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, toLegacyGasStationServerSpecRow(jb.LegacyGasStationServerSpec)); err != nil {
-				return errors.Wrap(err, "failed to create LegacyGasStationServer spec")
+				return pkgerrors.Wrap(err, "failed to create LegacyGasStationServer spec")
 			}
 			jb.LegacyGasStationServerSpecID = &specID
 		case LegacyGasStationSidecar:
 			if jb.LegacyGasStationSidecarSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
+				return pkgerrors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO legacy_gas_station_sidecar_specs (forwarder_address, off_ramp_address, lookback_blocks, poll_period, run_timeout, evm_chain_id, ccip_chain_selector, created_at, updated_at)
 			VALUES (:forwarder_address, :off_ramp_address, :lookback_blocks, :poll_period, :run_timeout, :evm_chain_id, :ccip_chain_selector, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.LegacyGasStationSidecarSpec); err != nil {
-				return errors.Wrap(err, "failed to create LegacyGasStationSidecar spec")
+				return pkgerrors.Wrap(err, "failed to create LegacyGasStationSidecar spec")
 			}
 			jb.LegacyGasStationSidecarSpecID = &specID
 		case Bootstrap:
@@ -428,7 +428,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BootstrapSpec); err != nil {
-				return errors.Wrap(err, "failed to create BootstrapSpec for jobSpec")
+				return pkgerrors.Wrap(err, "failed to create BootstrapSpec for jobSpec")
 			}
 			jb.BootstrapSpecID = &specID
 		case Gateway:
@@ -437,7 +437,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			VALUES (:gateway_config, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.GatewaySpec); err != nil {
-				return errors.Wrap(err, "failed to create GatewaySpec for jobSpec")
+				return pkgerrors.Wrap(err, "failed to create GatewaySpec for jobSpec")
 			}
 			jb.GatewaySpecID = &specID
 		case Stream:
@@ -448,17 +448,17 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(p, jb.MaxTaskDuration, pg.WithQueryer(tx))
 		if err != nil {
-			return errors.Wrap(err, "failed to create pipeline spec")
+			return pkgerrors.Wrap(err, "failed to create pipeline spec")
 		}
 
 		jb.PipelineSpecID = pipelineSpecID
 
 		err = o.InsertJob(jb, pg.WithQueryer(tx))
 		jobID = jb.ID
-		return errors.Wrap(err, "failed to insert job")
+		return pkgerrors.Wrap(err, "failed to insert job")
 	})
 	if err != nil {
-		return errors.Wrap(err, "CreateJobFailed")
+		return pkgerrors.Wrap(err, "CreateJobFailed")
 	}
 
 	return o.findJob(jb, "id", jobID, qopts...)
@@ -469,29 +469,29 @@ func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key s
 	if spec.PluginType == types.Mercury {
 		_, err := keyStore.CSA().Get(key)
 		if err != nil {
-			return errors.Errorf("no CSA key matching: %q", key)
+			return pkgerrors.Errorf("no CSA key matching: %q", key)
 		}
 	} else {
 		switch spec.Relay {
 		case relay.EVM:
 			_, err := keyStore.Eth().Get(key)
 			if err != nil {
-				return errors.Errorf("no EVM key matching: %q", key)
+				return pkgerrors.Errorf("no EVM key matching: %q", key)
 			}
 		case relay.Cosmos:
 			_, err := keyStore.Cosmos().Get(key)
 			if err != nil {
-				return errors.Errorf("no Cosmos key matching: %q", key)
+				return pkgerrors.Errorf("no Cosmos key matching: %q", key)
 			}
 		case relay.Solana:
 			_, err := keyStore.Solana().Get(key)
 			if err != nil {
-				return errors.Errorf("no Solana key matching: %q", key)
+				return pkgerrors.Errorf("no Solana key matching: %q", key)
 			}
 		case relay.StarkNet:
 			_, err := keyStore.StarkNet().Get(key)
 			if err != nil {
-				return errors.Errorf("no Starknet key matching: %q", key)
+				return pkgerrors.Errorf("no Starknet key matching: %q", key)
 			}
 		}
 	}
@@ -507,7 +507,7 @@ func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
 
 		for _, sendingKey := range sendingKeys {
 			if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
-				return false, errors.Wrap(ErrNoSuchSendingKey, err.Error())
+				return false, pkgerrors.Wrap(ErrNoSuchSendingKey, err.Error())
 			}
 		}
 
@@ -614,11 +614,11 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	res, cancel, err := q.ExecQIter(query, id)
 	defer cancel()
 	if err != nil {
-		return errors.Wrap(err, "DeleteJob failed to delete job")
+		return pkgerrors.Wrap(err, "DeleteJob failed to delete job")
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "DeleteJob failed getting RowsAffected")
+		return pkgerrors.Wrap(err, "DeleteJob failed getting RowsAffected")
 	}
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
@@ -637,7 +637,7 @@ func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) err
 	err := q.ExecQ(sql, jobID, description, time.Now())
 	// Noop if the job has been deleted.
 	var pqErr *pgconn.PgError
-	ok := errors.As(err, &pqErr)
+	ok := pkgerrors.As(err, &pqErr)
 	if err != nil && ok && pqErr.Code == "23503" {
 		if pqErr.ConstraintName == "job_spec_errors_v2_job_id_fkey" {
 			return nil
@@ -655,11 +655,11 @@ func (o *orm) DismissError(ctx context.Context, ID int64) error {
 	res, cancel, err := q.ExecQIter("DELETE FROM job_spec_errors WHERE id = $1", ID)
 	defer cancel()
 	if err != nil {
-		return errors.Wrap(err, "failed to dismiss error")
+		return pkgerrors.Wrap(err, "failed to dismiss error")
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "failed to dismiss error")
+		return pkgerrors.Wrap(err, "failed to dismiss error")
 	}
 	if n == 0 {
 		return sql.ErrNoRows
@@ -673,7 +673,7 @@ func (o *orm) FindSpecError(id int64, qopts ...pg.QOpt) (SpecError, error) {
 	specErr := new(SpecError)
 	err := o.q.WithOpts(qopts...).Get(specErr, stmt, id)
 
-	return *specErr, errors.Wrap(err, "FindSpecError failed")
+	return *specErr, pkgerrors.Wrap(err, "FindSpecError failed")
 }
 
 func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
@@ -761,7 +761,7 @@ func LoadConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OC
 func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := ocrCfg.TransmitterAddress()
-		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
+		if !pkgerrors.Is(pkgerrors.Cause(err), config.ErrEnvUnset) {
 			if err != nil {
 				return nil, err
 			}
@@ -802,17 +802,17 @@ func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 		stmt := "SELECT * FROM jobs WHERE id = $1 LIMIT 1"
 		err = tx.Get(&jb, stmt, id)
 		if err != nil {
-			return errors.Wrap(err, "failed to load job")
+			return pkgerrors.Wrap(err, "failed to load job")
 		}
 
 		if err = LoadAllJobTypes(tx, &jb); err != nil {
-			return errors.Wrap(err, "failed to load job types")
+			return pkgerrors.Wrap(err, "failed to load job types")
 		}
 
 		return nil
 	}, pg.OptReadOnlyTx())
 	if err != nil {
-		return jb, errors.Wrap(err, "FindJobWithoutSpecErrors failed")
+		return jb, pkgerrors.Wrap(err, "FindJobWithoutSpecErrors failed")
 	}
 
 	return jb, nil
@@ -825,7 +825,7 @@ func (o *orm) FindSpecErrorsByJobIDs(ids []int32, qopts ...pg.QOpt) ([]SpecError
 	var specErrs []SpecError
 	err := o.q.WithOpts(qopts...).Select(&specErrs, stmt, ids)
 
-	return specErrs, errors.Wrap(err, "FindSpecErrorsByJobIDs failed")
+	return specErrs, pkgerrors.Wrap(err, "FindSpecErrorsByJobIDs failed")
 }
 
 func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) (jb Job, err error) {
@@ -846,9 +846,9 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 `
 		err = tx.Get(&jobID, stmt, address, evmChainID)
 
-		if !errors.Is(err, sql.ErrNoRows) {
+		if !pkgerrors.Is(err, sql.ErrNoRows) {
 			if err != nil {
-				return errors.Wrap(err, "error searching for job by contract address")
+				return pkgerrors.Wrap(err, "error searching for job by contract address")
 			}
 			return nil
 		}
@@ -856,7 +856,7 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 		return err
 	})
 
-	return jobID, errors.Wrap(err, "FindJobIDByAddress failed")
+	return jobID, pkgerrors.Wrap(err, "FindJobIDByAddress failed")
 }
 
 func (o *orm) FindOCR2JobIDByAddress(contractID string, feedID *common.Hash, qopts ...pg.QOpt) (jobID int32, err error) {
@@ -873,9 +873,9 @@ WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 `
 		err = tx.Get(&jobID, stmt, contractID, feedID)
 
-		if !errors.Is(err, sql.ErrNoRows) {
+		if !pkgerrors.Is(err, sql.ErrNoRows) {
 			if err != nil {
-				return errors.Wrapf(err, "error searching for job by contract id=%s and feed id=%s", contractID, feedID)
+				return pkgerrors.Wrapf(err, "error searching for job by contract id=%s and feed id=%s", contractID, feedID)
 			}
 			return nil
 		}
@@ -883,7 +883,7 @@ WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 		return err
 	})
 
-	return jobID, errors.Wrap(err, "FindOCR2JobIDByAddress failed")
+	return jobID, pkgerrors.Wrap(err, "FindOCR2JobIDByAddress failed")
 }
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
@@ -892,7 +892,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 		sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)
 		err := tx.Get(jb, sql, arg)
 		if err != nil {
-			return errors.Wrap(err, "failed to load job")
+			return pkgerrors.Wrap(err, "failed to load job")
 		}
 
 		if err = LoadAllJobTypes(tx, jb); err != nil {
@@ -902,7 +902,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 		return loadJobSpecErrors(tx, jb)
 	})
 	if err != nil {
-		return errors.Wrap(err, "findJob failed")
+		return pkgerrors.Wrap(err, "findJob failed")
 	}
 	return nil
 }
@@ -932,7 +932,7 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 			var p *pipeline.Pipeline
 			p, err = pipeline.Parse(sources[i])
 			if err != nil {
-				return errors.Wrapf(err, "could not parse dag for job %d", id)
+				return pkgerrors.Wrapf(err, "could not parse dag for job %d", id)
 			}
 			for _, task := range p.Tasks {
 				if task.Type() == pipeline.TaskTypeBridge {
@@ -944,7 +944,7 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 		}
 		return nil
 	})
-	return jids, errors.Wrap(err, "FindJobIDsWithBridge failed")
+	return jids, pkgerrors.Wrap(err, "FindJobIDsWithBridge failed")
 }
 
 // PipelineRunsByJobsIDs returns pipeline runs for multiple jobs, not preloading data
@@ -953,7 +953,7 @@ func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error
 		stmt := `SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id WHERE jobs.id = ANY($1)
 		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC;`
 		if err = tx.Select(&runs, stmt, ids); err != nil {
-			return errors.Wrap(err, "error loading runs")
+			return pkgerrors.Wrap(err, "error loading runs")
 		}
 
 		runs, err = o.loadPipelineRunsRelations(runs, tx)
@@ -961,7 +961,7 @@ func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error
 		return err
 	})
 
-	return runs, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return runs, pkgerrors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
 func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer) (ids []int64, err error) {
@@ -969,7 +969,7 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 
 	var res sql.NullInt64
 	if err = tx.Get(&res, "SELECT MAX(id) FROM pipeline_runs"); err != nil {
-		err = errors.Wrap(err, "error while loading runs")
+		err = pkgerrors.Wrap(err, "error while loading runs")
 		return
 	} else if !res.Valid {
 		// MAX() will return NULL if there are no rows in table.  This is not an error
@@ -997,7 +997,7 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 		var batch []int64
 		minID := maxID - n
 		if err = tx.Select(&batch, stmt, offset, limit-len(ids), minID, maxID); err != nil {
-			err = errors.Wrap(err, "error loading runs")
+			err = pkgerrors.Wrap(err, "error loading runs")
 			return
 		}
 		ids = append(ids, batch...)
@@ -1015,13 +1015,13 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 					), minID, maxID,
 				)
 				if err != nil {
-					err = errors.Wrap(err, "error loading from pipeline_runs")
+					err = pkgerrors.Wrap(err, "error loading from pipeline_runs")
 					return
 				}
 				offset -= skipped
 				if offset < 0 { // sanity assertion, if this ever happened it would probably mean db corruption or pg bug
 					lggr.AssumptionViolationw("offset < 0 while reading pipeline_runs")
-					err = errors.Wrap(err, "internal db error while reading pipeline_runs")
+					err = pkgerrors.Wrap(err, "internal db error while reading pipeline_runs")
 					return
 				}
 				lggr.Debugw("loadPipelineRunIDs empty batch", "minId", minID, "maxID", maxID, "n", n, "len(ids)", len(ids), "limit", limit, "offset", offset, "skipped", skipped)
@@ -1050,7 +1050,7 @@ func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qop
 		}
 		taskRun := taskRuns[0]
 		if !taskRun.Error.IsZero() {
-			return errors.New(taskRun.Error.ValueOrZero())
+			return pkgerrors.New(taskRun.Error.ValueOrZero())
 		}
 		resBytes, errB := taskRun.Output.MarshalJSON()
 		if errB != nil {
@@ -1059,7 +1059,7 @@ func (o *orm) FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qop
 		result = resBytes
 		return nil
 	})
-	return result, errors.Wrap(err, "failed")
+	return result, pkgerrors.Wrap(err, "failed")
 }
 
 // FindPipelineRunIDsByJobID fetches the ids of pipeline runs for a job.
@@ -1068,7 +1068,7 @@ func (o *orm) FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []i
 		ids, err = o.loadPipelineRunIDs(&jobID, offset, limit, tx)
 		return err
 	})
-	return ids, errors.Wrap(err, "FindPipelineRunIDsByJobID failed")
+	return ids, pkgerrors.Wrap(err, "FindPipelineRunIDsByJobID failed")
 }
 
 func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.Run, err error) {
@@ -1079,7 +1079,7 @@ func (o *orm) loadPipelineRunsByID(ids []int64, tx pg.Queryer) (runs []pipeline.
 		ORDER BY created_at DESC, id DESC
 	`
 	if err = tx.Select(&runs, stmt, ids); err != nil {
-		err = errors.Wrap(err, "error loading runs")
+		err = pkgerrors.Wrap(err, "error loading runs")
 		return
 	}
 
@@ -1093,7 +1093,7 @@ func (o *orm) FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error
 		return err
 	})
 
-	return runs, errors.Wrap(err, "FindPipelineRunsByIDs failed")
+	return runs, pkgerrors.Wrap(err, "FindPipelineRunsByIDs failed")
 }
 
 // FindPipelineRunByID returns pipeline run with the id.
@@ -1108,7 +1108,7 @@ WHERE id = $1
 `
 
 		if err := tx.Get(&run, stmt, id); err != nil {
-			return errors.Wrap(err, "error loading run")
+			return pkgerrors.Wrap(err, "error loading run")
 		}
 
 		runs, err := o.loadPipelineRunsRelations([]pipeline.Run{run}, tx)
@@ -1118,7 +1118,7 @@ WHERE id = $1
 		return err
 	})
 
-	return run, errors.Wrap(err, "FindPipelineRunByID failed")
+	return run, pkgerrors.Wrap(err, "FindPipelineRunByID failed")
 }
 
 // CountPipelineRunsByJobID returns the total number of pipeline runs for a job.
@@ -1126,13 +1126,13 @@ func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		stmt := "SELECT COUNT(*) FROM pipeline_runs JOIN jobs USING (pipeline_spec_id) WHERE jobs.id = $1"
 		if err = tx.Get(&count, stmt, jobID); err != nil {
-			return errors.Wrap(err, "error counting runs")
+			return pkgerrors.Wrap(err, "error counting runs")
 		}
 
 		return err
 	})
 
-	return count, errors.Wrap(err, "CountPipelineRunsByJobID failed")
+	return count, pkgerrors.Wrap(err, "CountPipelineRunsByJobID failed")
 }
 
 func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
@@ -1142,7 +1142,7 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 		stmt := `SELECT * FROM jobs WHERE jobs.pipeline_spec_id = ANY($1) ORDER BY id ASC
 `
 		if err := tx.Select(&jbs, stmt, ids); err != nil {
-			return errors.Wrap(err, "error fetching jobs by pipeline spec IDs")
+			return pkgerrors.Wrap(err, "error fetching jobs by pipeline spec IDs")
 		}
 
 		err := LoadAllJobsTypes(tx, jbs)
@@ -1153,7 +1153,7 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 		return nil
 	})
 
-	return jbs, errors.Wrap(err, "FindJobsByPipelineSpecIDs failed")
+	return jbs, pkgerrors.Wrap(err, "FindJobsByPipelineSpecIDs failed")
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
@@ -1166,7 +1166,7 @@ func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run,
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
 		if err = tx.QueryRowx(sql).Scan(&count); err != nil {
-			return errors.Wrap(err, "error counting runs")
+			return pkgerrors.Wrap(err, "error counting runs")
 		}
 
 		var ids []int64
@@ -1176,7 +1176,7 @@ func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run,
 		return err
 	})
 
-	return runs, count, errors.Wrap(err, "PipelineRuns failed")
+	return runs, count, pkgerrors.Wrap(err, "PipelineRuns failed")
 }
 
 func (o *orm) loadPipelineRunsRelations(runs []pipeline.Run, tx pg.Queryer) ([]pipeline.Run, error) {
@@ -1195,7 +1195,7 @@ func (o *orm) loadPipelineRunsRelations(runs []pipeline.Run, tx pg.Queryer) ([]p
 	stmt := `SELECT pipeline_specs.*, jobs.id AS job_id FROM pipeline_specs JOIN jobs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE pipeline_specs.id = ANY($1);`
 	var specs []pipeline.Spec
 	if err := o.q.Select(&specs, stmt, specIDs); err != nil {
-		return nil, errors.Wrap(err, "error loading specs")
+		return nil, pkgerrors.Wrap(err, "error loading specs")
 	}
 	for _, spec := range specs {
 		specM[spec.ID] = spec
@@ -1214,7 +1214,7 @@ func (o *orm) loadPipelineRunsRelations(runs []pipeline.Run, tx pg.Queryer) ([]p
 	var taskRuns []pipeline.TaskRun
 	stmt = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = ANY($1) ORDER BY pipeline_run_id, created_at, id;`
 	if err := tx.Select(&taskRuns, stmt, runIDs); err != nil {
-		return nil, errors.Wrap(err, "error loading pipeline_task_runs")
+		return nil, pkgerrors.Wrap(err, "error loading pipeline_task_runs")
 	}
 	for _, taskRun := range taskRuns {
 		run := runM[taskRun.PipelineRunID]
@@ -1238,7 +1238,7 @@ func LoadAllJobsTypes(tx pg.Queryer, jobs []Job) error {
 }
 
 func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
-	return multierr.Combine(
+	return errors.Join(
 		loadJobType(tx, job, "PipelineSpec", "pipeline_specs", &job.PipelineSpecID),
 		loadJobType(tx, job, "FluxMonitorSpec", "flux_monitor_specs", job.FluxMonitorSpecID),
 		loadJobType(tx, job, "DirectRequestSpec", "direct_request_specs", job.DirectRequestSpecID),
@@ -1273,7 +1273,7 @@ func loadJobType(tx pg.Queryer, job *Job, field, table string, id *int32) error 
 	err := tx.Get(dest, fmt.Sprintf(`SELECT * FROM %s WHERE id = $1`, table), *id)
 
 	if err != nil {
-		return errors.Wrapf(err, "failed to load job type %s with id %d", table, *id)
+		return pkgerrors.Wrapf(err, "failed to load job type %s with id %d", table, *id)
 	}
 	reflect.ValueOf(job).Elem().FieldByName(field).Set(destVal)
 	return nil
@@ -1287,7 +1287,7 @@ func loadVRFJob(tx pg.Queryer, job *Job, id *int32) error {
 	var row vrfSpecRow
 	err := tx.Get(&row, `SELECT * FROM vrf_specs WHERE id = $1`, *id)
 	if err != nil {
-		return errors.Wrapf(err, `failed to load job type VRFSpec with id %d`, *id)
+		return pkgerrors.Wrapf(err, `failed to load job type VRFSpec with id %d`, *id)
 	}
 
 	job.VRFSpec = row.toVRFSpec()
@@ -1326,7 +1326,7 @@ func loadBlockhashStoreJob(tx pg.Queryer, job *Job, id *int32) error {
 	var row blockhashStoreSpecRow
 	err := tx.Get(&row, `SELECT * FROM blockhash_store_specs WHERE id = $1`, *id)
 	if err != nil {
-		return errors.Wrapf(err, `failed to load job type BlockhashStoreSpec with id %d`, *id)
+		return pkgerrors.Wrapf(err, `failed to load job type BlockhashStoreSpec with id %d`, *id)
 	}
 
 	job.BlockhashStoreSpec = row.toBlockhashStoreSpec()
@@ -1365,7 +1365,7 @@ func loadBlockHeaderFeederJob(tx pg.Queryer, job *Job, id *int32) error {
 	var row blockHeaderFeederSpecRow
 	err := tx.Get(&row, `SELECT * FROM block_header_feeder_specs WHERE id = $1`, *id)
 	if err != nil {
-		return errors.Wrapf(err, `failed to load job type BlockHeaderFeederSpec with id %d`, *id)
+		return pkgerrors.Wrapf(err, `failed to load job type BlockHeaderFeederSpec with id %d`, *id)
 	}
 
 	job.BlockHeaderFeederSpec = row.toBlockHeaderFeederSpec()
@@ -1404,7 +1404,7 @@ func loadLegacyGasStationServerJob(tx pg.Queryer, job *Job, id *int32) error {
 	var row legacyGasStationServerSpecRow
 	err := tx.Get(&row, `SELECT * FROM legacy_gas_station_server_specs WHERE id = $1`, *id)
 	if err != nil {
-		return errors.Wrapf(err, `failed to load job type LegacyGasStationServerSpec with id %d`, *id)
+		return pkgerrors.Wrapf(err, `failed to load job type LegacyGasStationServerSpec with id %d`, *id)
 	}
 
 	job.LegacyGasStationServerSpec = row.toLegacyGasStationServerSpec()
@@ -1436,5 +1436,5 @@ func (r legacyGasStationServerSpecRow) toLegacyGasStationServerSpec() *LegacyGas
 }
 
 func loadJobSpecErrors(tx pg.Queryer, jb *Job) error {
-	return errors.Wrapf(tx.Select(&jb.JobSpecErrors, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jb.ID), "failed to load job spec errors for job %d", jb.ID)
+	return pkgerrors.Wrapf(tx.Select(&jb.JobSpecErrors, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jb.ID), "failed to load job spec errors for job %d", jb.ID)
 }

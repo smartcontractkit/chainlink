@@ -3,10 +3,10 @@ package ocrcommon
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking/types"
 )
@@ -34,7 +34,7 @@ VALUES ($1,$2,$3,NOW(),NOW()) ON CONFLICT (local_peer_id, remote_peer_id) DO UPD
 ann = EXCLUDED.ann,
 updated_at = EXCLUDED.updated_at
 ;`, d.peerID, peerID, ann)
-	return errors.Wrap(err, "DiscovererDatabase failed to StoreAnnouncement")
+	return pkgerrors.Wrap(err, "DiscovererDatabase failed to StoreAnnouncement")
 }
 
 // ReadAnnouncements returns one serialized announcement (if available) for each of the peerIDs in the form of a map
@@ -43,9 +43,9 @@ func (d *DiscovererDatabase) ReadAnnouncements(ctx context.Context, peerIDs []st
 	rows, err := d.db.QueryContext(ctx, `
 SELECT remote_peer_id, ann FROM ocr_discoverer_announcements WHERE remote_peer_id = ANY($1) AND local_peer_id = $2`, pq.Array(peerIDs), d.peerID)
 	if err != nil {
-		return nil, errors.Wrap(err, "DiscovererDatabase failed to ReadAnnouncements")
+		return nil, pkgerrors.Wrap(err, "DiscovererDatabase failed to ReadAnnouncements")
 	}
-	defer func() { err = multierr.Combine(err, rows.Close()) }()
+	defer func() { err = errors.Join(err, rows.Close()) }()
 	results = make(map[string][]byte)
 	for rows.Next() {
 		var peerID string

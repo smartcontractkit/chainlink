@@ -5,11 +5,10 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"go.uber.org/multierr"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -150,8 +149,8 @@ func (h *functionsConnectorHandler) Start(ctx context.Context) error {
 func (h *functionsConnectorHandler) Close() error {
 	return h.StopOnce("FunctionsConnectorHandler", func() (err error) {
 		close(h.chStop)
-		err = multierr.Combine(err, h.allowlist.Close())
-		err = multierr.Combine(err, h.subscriptions.Close())
+		err = errors.Join(err, h.allowlist.Close())
+		err = errors.Join(err, h.subscriptions.Close())
 		h.shutdownWaitGroup.Wait()
 		return
 	})

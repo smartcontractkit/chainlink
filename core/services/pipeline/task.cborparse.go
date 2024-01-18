@@ -2,9 +2,9 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -34,16 +34,16 @@ func (t *CBORParseTask) Type() TaskType {
 func (t *CBORParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
 		data BytesParam
 		mode StringParam
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars))), "data"),
-		errors.Wrap(ResolveParam(&mode, From(NonemptyString(t.Mode), "diet")), "mode"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars))), "data"),
+		pkgerrors.Wrap(ResolveParam(&mode, From(NonemptyString(t.Mode), "diet")), "mode"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -56,16 +56,16 @@ func (t *CBORParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		// empty map
 		parsed, err := cbor.ParseDietCBOR(data)
 		if err != nil {
-			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
+			return Result{Error: pkgerrors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
 		return Result{Value: parsed}, runInfo
 	case "standard":
 		parsed, err := cbor.ParseStandardCBOR(data)
 		if err != nil {
-			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
+			return Result{Error: pkgerrors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
 		return Result{Value: parsed}, runInfo
 	default:
-		return Result{Error: errors.Errorf("unrecognised mode: %s", mode)}, runInfo
+		return Result{Error: pkgerrors.Errorf("unrecognised mode: %s", mode)}, runInfo
 	}
 }

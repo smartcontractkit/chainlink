@@ -3,6 +3,7 @@ package s4_test
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"maps"
 	"math/rand"
@@ -26,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/multierr"
 )
 
 // Disclaimer: this is not a true integration test, it's more of a S4 feature test, on purpose.
@@ -72,14 +72,14 @@ func newDON(t *testing.T, size int, config *s4.PluginConfig) *don {
 }
 
 func (d *don) simulateOCR(ctx context.Context, rounds int) []error {
-	errors := make([]error, d.size)
+	errs := make([]error, d.size)
 
 	for i := 0; i < rounds && ctx.Err() == nil; i++ {
 		leaderIndex := i % d.size
 		leader := d.plugins[leaderIndex]
 		query, err := leader.Query(ctx, types.ReportTimestamp{})
 		if err != nil {
-			errors[leaderIndex] = multierr.Combine(errors[leaderIndex], err)
+			errs[leaderIndex] = errors.Join(errs[leaderIndex], err)
 			continue
 		}
 
@@ -87,7 +87,7 @@ func (d *don) simulateOCR(ctx context.Context, rounds int) []error {
 		for i := 0; i < d.size; i++ {
 			observation, err2 := d.plugins[i].Observation(ctx, types.ReportTimestamp{}, query)
 			if err2 != nil {
-				errors[i] = multierr.Combine(errors[i], err2)
+				errs[i] = errors.Join(errs[i], err2)
 				continue
 			}
 			aos = append(aos, types.AttributedObservation{
@@ -101,17 +101,17 @@ func (d *don) simulateOCR(ctx context.Context, rounds int) []error {
 
 		_, report, err := leader.Report(ctx, types.ReportTimestamp{}, query, aos)
 		if err != nil {
-			errors[leaderIndex] = multierr.Combine(errors[leaderIndex], err)
+			errs[leaderIndex] = errors.Join(errs[leaderIndex], err)
 			continue
 		}
 
 		for i := 0; i < d.size; i++ {
 			_, err2 := d.plugins[i].ShouldAcceptFinalizedReport(ctx, types.ReportTimestamp{}, report)
-			errors[i] = multierr.Combine(errors[i], err2)
+			errs[i] = errors.Join(errs[i], err2)
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func compareSnapshots(s1, s2 []*s4_svc.SnapshotRow) bool {

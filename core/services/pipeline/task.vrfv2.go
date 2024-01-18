@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	pkgerrors "github.com/pkg/errors"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -48,7 +48,7 @@ func (t *VRFTaskV2) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 	logValues, ok := inputs[0].Value.(map[string]interface{})
 	if !ok {
-		return Result{Error: errors.Wrap(ErrBadInput, "expected map input")}, runInfo
+		return Result{Error: pkgerrors.Wrap(ErrBadInput, "expected map input")}, runInfo
 	}
 	var (
 		pubKey             BytesParam
@@ -56,11 +56,11 @@ func (t *VRFTaskV2) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		requestBlockNumber Uint64Param
 		topics             HashSliceParam
 	)
-	err := multierr.Combine(
-		errors.Wrap(ResolveParam(&pubKey, From(VarExpr(t.PublicKey, vars))), "publicKey"),
-		errors.Wrap(ResolveParam(&requestBlockHash, From(VarExpr(t.RequestBlockHash, vars))), "requestBlockHash"),
-		errors.Wrap(ResolveParam(&requestBlockNumber, From(VarExpr(t.RequestBlockNumber, vars))), "requestBlockNumber"),
-		errors.Wrap(ResolveParam(&topics, From(VarExpr(t.Topics, vars))), "topics"),
+	err := errors.Join(
+		pkgerrors.Wrap(ResolveParam(&pubKey, From(VarExpr(t.PublicKey, vars))), "publicKey"),
+		pkgerrors.Wrap(ResolveParam(&requestBlockHash, From(VarExpr(t.RequestBlockHash, vars))), "requestBlockHash"),
+		pkgerrors.Wrap(ResolveParam(&requestBlockNumber, From(VarExpr(t.RequestBlockNumber, vars))), "requestBlockNumber"),
+		pkgerrors.Wrap(ResolveParam(&topics, From(VarExpr(t.Topics, vars))), "topics"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -68,31 +68,31 @@ func (t *VRFTaskV2) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 
 	requestKeyHash, ok := logValues["keyHash"].([32]byte)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid keyHash")}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "invalid keyHash")}, runInfo
 	}
 	requestPreSeed, ok := logValues["preSeed"].(*big.Int)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid preSeed")}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "invalid preSeed")}, runInfo
 	}
 	requestId, ok := logValues["requestId"].(*big.Int)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid requestId")}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "invalid requestId")}, runInfo
 	}
 	subID, ok := logValues["subId"].(uint64)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid subId")}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "invalid subId")}, runInfo
 	}
 	callbackGasLimit, ok := logValues["callbackGasLimit"].(uint32)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid callbackGasLimit")}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "invalid callbackGasLimit")}, runInfo
 	}
 	numWords, ok := logValues["numWords"].(uint32)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid numWords")}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "invalid numWords")}, runInfo
 	}
 	sender, ok := logValues["sender"].(common.Address)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid sender")}, runInfo
+		return Result{Error: pkgerrors.Wrapf(ErrBadInput, "invalid sender")}, runInfo
 	}
 	pk, err := secp256k1.NewPublicKeyFromBytes(pubKey)
 	if err != nil {

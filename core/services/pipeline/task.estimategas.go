@@ -2,15 +2,15 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -40,7 +40,7 @@ type GasEstimator interface {
 
 var (
 	_                    Task = (*EstimateGasLimitTask)(nil)
-	ErrInvalidMultiplier      = errors.New("Invalid multiplier")
+	ErrInvalidMultiplier      = pkgerrors.New("Invalid multiplier")
 )
 
 func (t *EstimateGasLimitTask) Type() TaskType {
@@ -62,13 +62,13 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 		multiplier DecimalParam
 		chainID    StringParam
 	)
-	err := multierr.Combine(
-		errors.Wrap(ResolveParam(&fromAddr, From(VarExpr(t.From, vars), utils.ZeroAddress)), "from"),
-		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
-		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
+	err := errors.Join(
+		pkgerrors.Wrap(ResolveParam(&fromAddr, From(VarExpr(t.From, vars), utils.ZeroAddress)), "from"),
+		pkgerrors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
+		pkgerrors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
 		// Default to 1, i.e. exactly what estimateGas suggests
-		errors.Wrap(ResolveParam(&multiplier, From(VarExpr(t.Multiplier, vars), NonemptyString(t.Multiplier), decimal.New(1, 0))), "multiplier"),
-		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID"),
+		pkgerrors.Wrap(ResolveParam(&multiplier, From(VarExpr(t.Multiplier, vars), NonemptyString(t.Multiplier), decimal.New(1, 0))), "multiplier"),
+		pkgerrors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo

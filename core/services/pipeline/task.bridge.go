@@ -4,15 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -83,7 +83,7 @@ func (t *BridgeTask) Type() TaskType {
 func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	inputValues, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: pkgerrors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -93,19 +93,19 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		cacheTTL          Uint64Param
 		reqHeaders        StringSliceParam
 	)
-	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
-		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
-		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
-		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.bridgeConfig.BridgeCacheTTL().Seconds())), "cacheTTL"),
-		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
+	err = errors.Join(
+		pkgerrors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
+		pkgerrors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
+		pkgerrors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
+		pkgerrors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.bridgeConfig.BridgeCacheTTL().Seconds())), "cacheTTL"),
+		pkgerrors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
 
 	if len(reqHeaders)%2 != 0 {
-		return Result{Error: errors.Errorf("headers must have an even number of elements")}, runInfo
+		return Result{Error: pkgerrors.Errorf("headers must have an even number of elements")}, runInfo
 	}
 
 	url, err := t.getBridgeURLFromName(name)
@@ -177,7 +177,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		responseBytes, cacheErr = t.orm.GetCachedResponse(t.dotID, t.specId, cacheDuration)
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
-			if !errors.Is(cacheErr, sql.ErrNoRows) {
+			if !pkgerrors.Is(cacheErr, sql.ErrNoRows) {
 				lggr.Warnw("Bridge task: cache fallback failed",
 					"err", cacheErr.Error(),
 					"url", url.String(),
@@ -237,7 +237,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
 	bt, err := t.orm.FindBridge(bridges.BridgeName(name))
 	if err != nil {
-		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
+		return URLParam{}, pkgerrors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}
 	return URLParam(bt.URL), nil
 }
