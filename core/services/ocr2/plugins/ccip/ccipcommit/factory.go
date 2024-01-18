@@ -90,6 +90,7 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 			offRampReader:           rf.config.offRamp,
 			gasPriceEstimator:       rf.config.commitStore.GasPriceEstimator(),
 			offchainConfig:          pluginOffChainConfig,
+			metricsCollector:        rf.config.metricsCollector,
 		},
 		types.ReportingPluginInfo{
 			Name:          "CCIPCommit",

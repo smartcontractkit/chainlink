@@ -262,13 +262,13 @@ func (c *CommitStore) parseReport(log types.Log) (*ccipdata.CommitStoreReport, e
 	}, nil
 }
 
-func (c *CommitStore) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
+func (c *CommitStore) GetCommitReportMatchingSeqNum(ctx context.Context, seqNr uint64, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
 	logs, err := c.lp.LogsDataWordBetween(
 		c.reportAcceptedSig,
 		c.address,
 		c.reportAcceptedMaxSeqIndex-1,
 		c.reportAcceptedMaxSeqIndex,
-		logpoller.EvmWord(seqNum),
+		logpoller.EvmWord(seqNr),
 		logpoller.Confirmations(confs),
 		pg.WithParentCtx(ctx),
 	)
@@ -286,7 +286,7 @@ func (c *CommitStore) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum 
 	}
 
 	if len(parsedLogs) > 1 {
-		c.lggr.Errorw("More than one report found for seqNum", "seqNum", seqNum, "commitReports", parsedLogs)
+		c.lggr.Errorw("More than one report found for seqNr", "seqNr", seqNr, "commitReports", parsedLogs)
 		return parsedLogs[:1], nil
 	}
 	return parsedLogs, nil

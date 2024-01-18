@@ -58,14 +58,16 @@ type ExecutionPluginStaticConfig struct {
 	tokenDataWorker          tokendata.Worker
 	destChainSelector        uint64
 	priceRegistryProvider    ccipdataprovider.PriceRegistry
+	metricsCollector         ccip.PluginMetricsCollector
 }
 
 type ExecutionReportingPlugin struct {
 	// Misc
-	F               int
-	lggr            logger.Logger
-	offchainConfig  ccipdata.ExecOffchainConfig
-	tokenDataWorker tokendata.Worker
+	F                int
+	lggr             logger.Logger
+	offchainConfig   ccipdata.ExecOffchainConfig
+	tokenDataWorker  tokendata.Worker
+	metricsCollector ccip.PluginMetricsCollector
 	// Source
 	gasPriceEstimator        prices.GasPriceEstimatorExec
 	sourcePriceRegistry      ccipdata.PriceRegistryReader
@@ -99,10 +101,7 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 	r.inflightReports.expire(lggr)
 	inFlight := r.inflightReports.getAll()
 
-	observationBuildStart := time.Now()
-
 	executableObservations, err := r.getExecutableObservations(ctx, lggr, timestamp, inFlight)
-	ccip.MeasureObservationBuildDuration(timestamp, time.Since(observationBuildStart))
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +119,7 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 		return nil, err
 	}
 	executableObservations = executableObservations[:capped]
+	r.metricsCollector.NumberOfMessagesProcessed(ccip.Observation, len(executableObservations))
 	lggr.Infow("Observation", "executableMessages", executableObservations)
 	// Note can be empty
 	return ccip.NewExecutionObservation(executableObservations).Marshal()
@@ -147,8 +147,6 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 	for j := 0; j < len(unexpiredReports); {
 		unexpiredReportsPart, step := selectReportsToFillBatch(unexpiredReports[j:], MessagesIterationStep)
 		j += step
-
-		ccip.MeasureNumberOfReportsProcessed(timestamp, len(unexpiredReportsPart))
 
 		unexpiredReportsWithSendReqs, err := r.getReportsWithSendRequests(ctx, unexpiredReportsPart)
 		if err != nil {
@@ -190,7 +188,6 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			if allMsgsExecutedAndFinalized := rep.allRequestsAreExecutedAndFinalized(); allMsgsExecutedAndFinalized {
 				rootLggr.Infof("Snoozing root %s forever since there are no executable txs anymore", hex.EncodeToString(merkleRoot[:]))
 				r.snoozedRoots.MarkAsExecuted(merkleRoot)
-				ccip.IncSkippedRequests(ccip.ReasonAllExecuted)
 				continue
 			}
 
@@ -200,7 +197,6 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			}
 			if !blessed {
 				rootLggr.Infow("Report is accepted but not blessed")
-				ccip.IncSkippedRequests(ccip.ReasonNotBlessed)
 				continue
 			}
 
@@ -214,7 +210,6 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 				return nil, err
 			}
 
-			buildBatchDuration := time.Now()
 			batch := r.buildBatch(
 				ctx,
 				rootLggr,
@@ -226,7 +221,6 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 				tokenExecData.gasPrice,
 				tokenExecData.sourceToDestTokens,
 				destPoolRateLimits)
-			ccip.MeasureBatchBuildDuration(timestamp, time.Since(buildBatchDuration))
 			if len(batch) != 0 {
 				return batch, nil
 			}
@@ -473,7 +467,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 			}
 		}
 
-		msgLggr.Infow("Adding msg to batch", "seqNum", msg.SequenceNumber, "nonce", msg.Nonce,
+		msgLggr.Infow("Adding msg to batch", "seqNr", msg.SequenceNumber, "nonce", msg.Nonce,
 			"value", msgValue, "aggregateTokenLimit", aggregateTokenLimit)
 		executableMessages = append(executableMessages, ccip.NewObservedMessage(msg.SequenceNumber, tokenData))
 
@@ -736,6 +730,7 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 		return nil, err
 	}
 
+	r.metricsCollector.NumberOfMessagesProcessed(ccip.Report, len(execReport.Messages))
 	encodedReport, err := r.offRampReader.EncodeExecutionReport(execReport)
 	if err != nil {
 		return nil, err
@@ -1016,6 +1011,7 @@ func (r *ExecutionReportingPlugin) getUnexpiredCommitReports(
 		notSnoozedReports = append(notSnoozedReports, report)
 	}
 
+	r.metricsCollector.UnexpiredCommitRoots(len(notSnoozedReports))
 	lggr.Infow("Unexpired roots", "all", len(reports), "notSnoozed", len(notSnoozedReports))
 	return notSnoozedReports, nil
 }

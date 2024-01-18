@@ -61,18 +61,6 @@ func (o *ObservedCommitStoreReader) IsBlessed(ctx context.Context, root [32]byte
 	})
 }
 
-func (o *ObservedCommitStoreReader) EncodeCommitReport(report ccipdata.CommitStoreReport) ([]byte, error) {
-	return withObservedInteraction(o.metric, "EncodeCommitReport", func() ([]byte, error) {
-		return o.CommitStoreReader.EncodeCommitReport(report)
-	})
-}
-
-func (o *ObservedCommitStoreReader) DecodeCommitReport(report []byte) (ccipdata.CommitStoreReport, error) {
-	return withObservedInteraction(o.metric, "DecodeCommitReport", func() (ccipdata.CommitStoreReport, error) {
-		return o.CommitStoreReader.DecodeCommitReport(report)
-	})
-}
-
 func (o *ObservedCommitStoreReader) VerifyExecutionReport(ctx context.Context, report ccipdata.ExecReport) (bool, error) {
 	return withObservedInteraction(o.metric, "VerifyExecutionReport", func() (bool, error) {
 		return o.CommitStoreReader.VerifyExecutionReport(ctx, report)
