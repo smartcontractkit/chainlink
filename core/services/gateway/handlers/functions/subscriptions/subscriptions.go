@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const defaultCacheBatchSize = 100
+const defaultStoreBatchSize = 100
 
 type OnchainSubscriptionsConfig struct {
 	ContractAddress    common.Address `json:"contractAddress"`
@@ -27,7 +27,7 @@ type OnchainSubscriptionsConfig struct {
 	UpdateFrequencySec uint           `json:"updateFrequencySec"`
 	UpdateTimeoutSec   uint           `json:"updateTimeoutSec"`
 	UpdateRangeSize    uint           `json:"updateRangeSize"`
-	CacheBatchSize     uint           `json:"cacheBatchSize"`
+	StoreBatchSize     uint           `json:"storeBatchSize"`
 }
 
 // OnchainSubscriptions maintains a mirror of all subscriptions fetched from the blockchain (EVM-only).
@@ -68,10 +68,10 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
 	}
 
-	// if CacheBatchSize is not specified use the default value
-	if config.CacheBatchSize == 0 {
-		lggr.Info("CacheBatchSize not specified, using default size: ", defaultCacheBatchSize)
-		config.CacheBatchSize = defaultCacheBatchSize
+	// if StoreBatchSize is not specified use the default value
+	if config.StoreBatchSize == 0 {
+		lggr.Info("StoreBatchSize not specified, using default size: ", defaultStoreBatchSize)
+		config.StoreBatchSize = defaultStoreBatchSize
 	}
 
 	return &onchainSubscriptions{
@@ -99,7 +99,7 @@ func (s *onchainSubscriptions) Start(ctx context.Context) error {
 			return errors.New("OnchainSubscriptionsConfig.UpdateRangeSize must be greater than 0")
 		}
 
-		s.loadCachedSubscriptions()
+		s.loadStoredSubscriptions()
 
 		s.closeWait.Add(1)
 		go s.queryLoop()
@@ -206,11 +206,11 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 		subscription := subscription
 		updated := s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
 		if updated {
-			if err = s.orm.UpsertSubscription(CachedSubscription{
+			if err = s.orm.UpsertSubscription(StoredSubscription{
 				SubscriptionID:                      subscriptionId,
 				IFunctionsSubscriptionsSubscription: subscription,
 			}); err != nil {
-				s.lggr.Errorf("unexpected error updating subscription in the cache: %w", err)
+				s.lggr.Errorf("unexpected error updating subscription in the db: %w", err)
 			}
 		}
 	}
@@ -226,10 +226,10 @@ func (s *onchainSubscriptions) getSubscriptionsCount(ctx context.Context, blockN
 	})
 }
 
-func (s *onchainSubscriptions) loadCachedSubscriptions() {
+func (s *onchainSubscriptions) loadStoredSubscriptions() {
 	offset := uint(0)
 	for {
-		csBatch, err := s.orm.GetSubscriptions(offset, s.config.CacheBatchSize)
+		csBatch, err := s.orm.GetSubscriptions(offset, s.config.StoreBatchSize)
 		if err != nil {
 			break
 		}
@@ -244,11 +244,11 @@ func (s *onchainSubscriptions) loadCachedSubscriptions() {
 				Flags:          cs.Flags,
 			})
 		}
-		s.lggr.Debugw("Loading cached subscriptions", "offset", offset, "batch_length", len(csBatch))
+		s.lggr.Debugw("Loading stored subscriptions", "offset", offset, "batch_length", len(csBatch))
 
-		if len(csBatch) != int(s.config.CacheBatchSize) {
+		if len(csBatch) != int(s.config.StoreBatchSize) {
 			break
 		}
-		offset += s.config.CacheBatchSize
+		offset += s.config.StoreBatchSize
 	}
 }

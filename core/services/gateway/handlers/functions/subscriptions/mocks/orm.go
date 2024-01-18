@@ -14,7 +14,7 @@ type ORM struct {
 }
 
 // GetSubscriptions provides a mock function with given fields: offset, limit, qopts
-func (_m *ORM) GetSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]subscriptions.CachedSubscription, error) {
+func (_m *ORM) GetSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]subscriptions.StoredSubscription, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -28,16 +28,16 @@ func (_m *ORM) GetSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]su
 		panic("no return value specified for GetSubscriptions")
 	}
 
-	var r0 []subscriptions.CachedSubscription
+	var r0 []subscriptions.StoredSubscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(uint, uint, ...pg.QOpt) ([]subscriptions.CachedSubscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(uint, uint, ...pg.QOpt) ([]subscriptions.StoredSubscription, error)); ok {
 		return rf(offset, limit, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(uint, uint, ...pg.QOpt) []subscriptions.CachedSubscription); ok {
+	if rf, ok := ret.Get(0).(func(uint, uint, ...pg.QOpt) []subscriptions.StoredSubscription); ok {
 		r0 = rf(offset, limit, qopts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]subscriptions.CachedSubscription)
+			r0 = ret.Get(0).([]subscriptions.StoredSubscription)
 		}
 	}
 
@@ -51,7 +51,7 @@ func (_m *ORM) GetSubscriptions(offset uint, limit uint, qopts ...pg.QOpt) ([]su
 }
 
 // UpsertSubscription provides a mock function with given fields: subscription, qopts
-func (_m *ORM) UpsertSubscription(subscription subscriptions.CachedSubscription, qopts ...pg.QOpt) error {
+func (_m *ORM) UpsertSubscription(subscription subscriptions.StoredSubscription, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -66,7 +66,7 @@ func (_m *ORM) UpsertSubscription(subscription subscriptions.CachedSubscription,
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(subscriptions.CachedSubscription, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(subscriptions.StoredSubscription, ...pg.QOpt) error); ok {
 		r0 = rf(subscription, qopts...)
 	} else {
 		r0 = ret.Error(0)

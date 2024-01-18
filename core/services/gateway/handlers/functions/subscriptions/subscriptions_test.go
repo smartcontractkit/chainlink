@@ -25,7 +25,7 @@ import (
 const (
 	validUser   = "0x9ED925d8206a4f88a2f643b28B3035B315753Cd6"
 	invalidUser = "0x6E2dc0F9DB014aE19888F539E59285D2Ea04244C"
-	cachedUser  = "0x3E2dc0F9DB014aE19888F539E59285D2Ea04233G"
+	storedUser  = "0x3E2dc0F9DB014aE19888F539E59285D2Ea04233G"
 )
 
 func TestSubscriptions_OnePass(t *testing.T) {
@@ -51,7 +51,7 @@ func TestSubscriptions_OnePass(t *testing.T) {
 		UpdateRangeSize:    3,
 	}
 	orm := smocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]subscriptions.CachedSubscription{}, nil)
+	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]subscriptions.StoredSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything).Return(nil)
 	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestSubscriptions_MultiPass(t *testing.T) {
 		UpdateRangeSize:    3,
 	}
 	orm := smocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]subscriptions.CachedSubscription{}, nil)
+	orm.On("GetSubscriptions", uint(0), uint(100)).Return([]subscriptions.StoredSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything).Return(nil)
 	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestSubscriptions_MultiPass(t *testing.T) {
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
-func TestSubscriptions_Cached(t *testing.T) {
+func TestSubscriptions_Stored(t *testing.T) {
 	getSubscriptionCount := hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000003")
 	getSubscriptionsInRange := hexutil.MustDecode("0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000109e6e1b12098cc8f3a1e9719a817ec53ab9b35c000000000000000000000000000000000000000000000000000034e23f515cb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000f5340f0968ee8b7dfd97e3327a6139273cc2c4fa000000000000000000000000000000000000000000000001158e460913d000000000000000000000000000009ed925d8206a4f88a2f643b28b3035b315753cd60000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001bc14b92364c75e20000000000000000000000009ed925d8206a4f88a2f643b28b3035b315753cd60000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000005439e5881a529f3ccbffc0e82d49f9db3950aefe")
 
@@ -139,22 +139,22 @@ func TestSubscriptions_Cached(t *testing.T) {
 		UpdateFrequencySec: 1,
 		UpdateTimeoutSec:   1,
 		UpdateRangeSize:    3,
-		CacheBatchSize:     1,
+		StoreBatchSize:     1,
 	}
 
 	expectedBalance := big.NewInt(5)
 	orm := smocks.NewORM(t)
-	orm.On("GetSubscriptions", uint(0), uint(1)).Return([]subscriptions.CachedSubscription{
+	orm.On("GetSubscriptions", uint(0), uint(1)).Return([]subscriptions.StoredSubscription{
 		{
 			SubscriptionID: 1,
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        expectedBalance,
-				Owner:          common.HexToAddress(cachedUser),
+				Owner:          common.HexToAddress(storedUser),
 				BlockedBalance: big.NewInt(10),
 			},
 		},
 	}, nil)
-	orm.On("GetSubscriptions", uint(1), uint(1)).Return([]subscriptions.CachedSubscription{}, nil)
+	orm.On("GetSubscriptions", uint(1), uint(1)).Return([]subscriptions.StoredSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything).Return(nil)
 
 	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
@@ -167,7 +167,7 @@ func TestSubscriptions_Cached(t *testing.T) {
 	})
 
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		actualBalance, err := subscriptions.GetMaxUserBalance(common.HexToAddress(cachedUser))
+		actualBalance, err := subscriptions.GetMaxUserBalance(common.HexToAddress(storedUser))
 		return err == nil && assert.Equal(t, expectedBalance, actualBalance)
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }

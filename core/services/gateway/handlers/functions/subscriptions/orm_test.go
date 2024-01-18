@@ -30,10 +30,10 @@ func setupORM(t *testing.T) (subscriptions.ORM, error) {
 	return subscriptions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
 }
 
-func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscriptions.CachedSubscription {
-	storedSubscriptions := make([]subscriptions.CachedSubscription, 0)
+func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscriptions.StoredSubscription {
+	storedSubscriptions := make([]subscriptions.StoredSubscription, 0)
 	for i := amount; i > 0; i-- {
-		cs := subscriptions.CachedSubscription{
+		cs := subscriptions.StoredSubscription{
 			SubscriptionID: uint64(i),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -80,7 +80,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	t.Run("create a subscription", func(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
-		expected := subscriptions.CachedSubscription{
+		expected := subscriptions.StoredSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -104,7 +104,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 
-		expectedUpdated := subscriptions.CachedSubscription{
+		expectedUpdated := subscriptions.StoredSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -118,7 +118,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		err = orm.UpsertSubscription(expectedUpdated)
 		require.NoError(t, err)
 
-		expectedNotUpdated := subscriptions.CachedSubscription{
+		expectedNotUpdated := subscriptions.StoredSubscription{
 			SubscriptionID: uint64(2),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -148,7 +148,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 
-		subscription := subscriptions.CachedSubscription{
+		subscription := subscriptions.StoredSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        big.NewInt(10),
@@ -192,7 +192,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 		orm2, err := subscriptions.NewORM(db, lggr, pgtest.NewQConfig(true), testutils.NewAddress())
 		require.NoError(t, err)
 
-		subscription := subscriptions.CachedSubscription{
+		subscription := subscriptions.StoredSubscription{
 			SubscriptionID: uint64(1),
 			IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 				Balance:        assets.Ether(10).ToInt(),
