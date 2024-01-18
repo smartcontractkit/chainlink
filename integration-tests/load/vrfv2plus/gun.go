@@ -51,7 +51,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
-		randBool(),
+		true,
 		randomnessRequestCountPerRequest,
 		m.vrfv2PlusConfig,
 		m.vrfv2PlusConfig.RandomWordsFulfilledEventTimeout,
