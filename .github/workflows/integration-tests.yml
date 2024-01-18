@@ -207,8 +207,8 @@ jobs:
 #        id: build-test-matrix-list
 #        run: |
 #          cd ./integration-tests
-#          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB 1)
-#          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
+#          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
+#          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
 #          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
 #
 #          # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
@@ -226,7 +226,7 @@ jobs:
 #              echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
 #            fi
 #          fi
-#
+
 #  eth-smoke-tests-matrix-automation:
 #    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
 #    environment: integration
@@ -249,6 +249,16 @@ jobs:
 #    runs-on: ${{ matrix.product.os }}
 #    name: ETH Smoke Tests ${{ matrix.product.name }}
 #    steps:
+#      - name: Collect Metrics
+#        if: needs.changes.outputs.src == 'true'
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+#        with:
+#          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+#          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+#          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+#        continue-on-error: true
 #      - name: Checkout the repo
 #        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 #        with:
@@ -285,16 +295,6 @@ jobs:
 #          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 #          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 #          QA_KUBECONFIG: ""
-#      - name: Collect Metrics
-#        if: always()
-#        id: collect-gha-metrics
-#        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
-#        with:
-#          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-#          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-#          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
-#          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-#        continue-on-error: true
 
   eth-smoke-tests-matrix:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
@@ -454,6 +454,16 @@ jobs:
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
@@ -581,23 +591,13 @@ jobs:
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
       - name: Permissions on traces
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           ls -l ./integration-tests/smoke/traces
       - name: Upload Trace Data
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: trace-data
           path: ./integration-tests/smoke/traces/trace-data.json

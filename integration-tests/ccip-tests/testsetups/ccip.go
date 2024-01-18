@@ -458,18 +458,18 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		srcConfig, destConfig, err := ccipLaneA2B.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, networkACmn, networkBCmn,
 			transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp)
 		if err != nil {
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %w", networkA.Name, networkB.Name, err)))
+			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %w", networkA.Name, networkB.Name, errors.WithStack(err))))
 			return err
 		}
 		err = o.LaneConfig.WriteLaneConfig(networkA.Name, srcConfig)
 		if err != nil {
 			lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkA.Name, networkB.Name)
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, err)))
+			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, errors.WithStack(err))))
 			return err
 		}
 		err = o.LaneConfig.WriteLaneConfig(networkB.Name, destConfig)
 		if err != nil {
-			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, err)))
+			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, errors.WithStack(err))))
 			return err
 		}
 		lggr.Info().Msgf("done setting up lane %s to %s", networkA.Name, networkB.Name)

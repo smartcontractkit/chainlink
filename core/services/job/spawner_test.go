@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -31,13 +32,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
+
+var _ job.Delegate = (*delegate)(nil)
 
 type delegate struct {
 	jobType                    job.Type
@@ -52,7 +54,7 @@ func (d delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d delegate) ServicesForSpec(js job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d delegate) ServicesForSpec(js job.Job, opts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if js.Type != d.jobType {
 		return nil, nil
 	}
@@ -285,10 +287,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
-			DB:               db,
-			QConfig:          testopts.GeneralConfig.Database(),
-			CSAETHKeystore:   keyStore,
-			EventBroadcaster: pg.NewNullEventBroadcaster(),
+			DB:             db,
+			QConfig:        testopts.GeneralConfig.Database(),
+			CSAETHKeystore: keyStore,
 		})
 		assert.NoError(t, err)
 
@@ -306,7 +307,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), config.Database(), processConfig)
 
 		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, nil, monitoringEndpoint, legacyChains, lggr, ocr2DelegateConfig,
-			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon, nil)
+			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon)
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{

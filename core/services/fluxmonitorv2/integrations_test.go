@@ -26,6 +26,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -448,8 +449,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 			// Set up chainlink app
 			app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
-				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
+				c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
+				c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
 			})
 
@@ -518,7 +519,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			s = fmt.Sprintf(s, fa.aggregatorContractAddress, 2*time.Second)
 
 			requestBody, err := json.Marshal(web.CreateJobRequest{
-				TOML: string(s),
+				TOML: s,
 			})
 			assert.NoError(t, err)
 
@@ -620,8 +621,8 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 
 	// Set up chainlink app
 	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		flags := ethkey.EIP55AddressFromAddress(fa.flagsContractAddress)
 		c.EVM[0].FlagsContractAddress = &flags
 	})
@@ -675,7 +676,7 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
+		TOML: s,
 	})
 	assert.NoError(t, err)
 
@@ -731,8 +732,8 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 
 	// Start chainlink app
 	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		flags := ethkey.EIP55AddressFromAddress(fa.flagsContractAddress)
 		c.EVM[0].FlagsContractAddress = &flags
 	})
@@ -785,7 +786,7 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
+		TOML: s,
 	})
 	assert.NoError(t, err)
 
@@ -848,8 +849,8 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 
 	// Set up chainlink app
 	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 
 	// Report a price that is above the maximum allowed value,
@@ -895,7 +896,7 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
+		TOML: s,
 	})
 	assert.NoError(t, err)
 
@@ -925,8 +926,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Set up chainlink app
 	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(100 * time.Millisecond)
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(1 * time.Second)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 
 	answer := int64(1) // Answer the nodes give on the first round
@@ -990,7 +991,7 @@ ds1 -> ds1_parse -> ds1_multiply
 
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), "200ms", mockServer.URL)
 	requestBody, err := json.Marshal(web.CreateJobRequest{
-		TOML: string(s),
+		TOML: s,
 	})
 	assert.NoError(t, err)
 

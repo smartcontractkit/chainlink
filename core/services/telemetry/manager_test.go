@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -21,7 +22,6 @@ import (
 	mocks3 "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func setupMockConfig(t *testing.T, useBatchSend bool) *mocks.TelemetryIngress {
@@ -290,7 +290,7 @@ func TestCorrectEndpointRouting(t *testing.T) {
 func TestLegacyMode(t *testing.T) {
 	tic := setupMockConfig(t, true)
 	tic.On("Endpoints").Return(nil)
-	url, err := models.ParseURL("test.test")
+	url, err := commonconfig.ParseURL("test.test")
 	require.NoError(t, err)
 	tic.On("URL").Return(url.URL())
 	tic.On("ServerPubKey").Return("some-pub-key")

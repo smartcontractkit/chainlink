@@ -23,6 +23,7 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	config2 "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -46,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -2269,24 +2269,24 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 // SetOCR2Configs sets the oracle config in ocr2 contracts
 // nil value in execNodes denotes commit and execution jobs are to be set up in same DON
 func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP DestCCIPModule) error {
-	rootSnooze := models.MustMakeDuration(7 * time.Minute)
-	inflightExpiry := models.MustMakeDuration(3 * time.Minute)
+	rootSnooze := config2.MustNewDuration(7 * time.Minute)
+	inflightExpiry := config2.MustNewDuration(3 * time.Minute)
 	if destCCIP.Common.ChainClient.NetworkSimulated() {
-		rootSnooze = models.MustMakeDuration(RootSnoozeTimeSimulated)
-		inflightExpiry = models.MustMakeDuration(InflightExpirySimulated)
+		rootSnooze = config2.MustNewDuration(RootSnoozeTimeSimulated)
+		inflightExpiry = config2.MustNewDuration(InflightExpirySimulated)
 	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
 		commitNodes, testhelpers.NewCommitOffchainConfig(
 			1,
 			1,
-			models.MustMakeDuration(10*time.Second), // reduce the heartbeat to 10 sec for faster fee updates
+			*config2.MustNewDuration(10 * time.Second), // reduce the heartbeat to 10 sec for faster fee updates
 			1e6,
 			1e6,
-			models.MustMakeDuration(10*time.Second),
+			*config2.MustNewDuration(10 * time.Second),
 			1e6,
 			200e9,
-			inflightExpiry,
+			*inflightExpiry,
 		), testhelpers.NewCommitOnchainConfig(
 			destCCIP.Common.PriceRegistry.EthAddress,
 		), contracts.OCR2ParamsForCommit, 3*time.Minute)
@@ -2313,8 +2313,8 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 				5_000_000,
 				0.7,
 				200e9,
-				inflightExpiry,
-				rootSnooze,
+				*inflightExpiry,
+				*rootSnooze,
 			), testhelpers.NewExecOnchainConfig(
 				PermissionlessExecThreshold,
 				destCCIP.Common.Router.EthAddress,

@@ -124,7 +124,6 @@ type Delegate struct {
 	RelayGetter
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon           *mailbox.Monitor
-	eventBroadcaster  pg.EventBroadcaster
 	legacyChains      legacyevm.LegacyChainContainer // legacy: use relayers instead
 }
 
@@ -197,6 +196,7 @@ type jobPipelineConfig interface {
 type mercuryConfig interface {
 	Credentials(credName string) *models.MercuryCredentials
 	Cache() coreconfig.MercuryCache
+	TLS() coreconfig.MercuryTLS
 }
 
 type thresholdConfig interface {
@@ -234,7 +234,6 @@ func NewDelegate(
 	ethKs keystore.Eth,
 	relayers RelayGetter,
 	mailMon *mailbox.Monitor,
-	eventBroadcaster pg.EventBroadcaster,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
@@ -254,7 +253,6 @@ func NewDelegate(
 		RelayGetter:           relayers,
 		isNewlyCreatedJob:     false,
 		mailMon:               mailMon,
-		eventBroadcaster:      eventBroadcaster,
 	}
 }
 
@@ -1524,7 +1522,6 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 		},
 		transmitterID,
 		d.ethKs,
-		d.eventBroadcaster,
 	)
 	if err2 != nil {
 		return nil, err2
@@ -1577,7 +1574,6 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		},
 		transmitterID,
 		d.ethKs,
-		d.eventBroadcaster,
 	)
 	if err2 != nil {
 		return nil, err2

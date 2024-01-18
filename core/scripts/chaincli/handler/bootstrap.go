@@ -47,17 +47,17 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 		lggr.Fatal("Failed to launch chainlink node, ", err)
 	}
 
-	cl, err := authenticate(urlRaw, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
+	cl, err := authenticate(ctx, urlRaw, defaultChainlinkNodeLogin, defaultChainlinkNodePassword, lggr)
 	if err != nil {
 		lggr.Fatal("Authentication failed, ", err)
 	}
 
-	p2pKeyID, err := getP2PKeyID(cl)
+	p2pKeyID, err := getP2PKeyID(ctx, cl)
 	if err != nil {
 		lggr.Fatal("Failed to get P2P key ID, ", err)
 	}
 
-	if err = h.createBootstrapJob(cl, addr); err != nil {
+	if err = h.createBootstrapJob(ctx, cl, addr); err != nil {
 		lggr.Fatal("Failed to create keeper job: ", err)
 	}
 
@@ -68,7 +68,7 @@ func (h *baseHandler) StartBootstrapNode(ctx context.Context, addr string, uiPor
 }
 
 // createBootstrapJob creates a bootstrap job in the chainlink node by the given address
-func (h *baseHandler) createBootstrapJob(client cmd.HTTPClient, contractAddr string) error {
+func (h *baseHandler) createBootstrapJob(ctx context.Context, client cmd.HTTPClient, contractAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: fmt.Sprintf(bootstrapJobSpec, contractAddr, h.cfg.ChainID),
 	})
@@ -76,7 +76,7 @@ func (h *baseHandler) createBootstrapJob(client cmd.HTTPClient, contractAddr str
 		return fmt.Errorf("failed to marshal request: %s", err)
 	}
 
-	resp, err := client.Post("/v2/jobs", bytes.NewReader(request))
+	resp, err := client.Post(ctx, "/v2/jobs", bytes.NewReader(request))
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrap job: %s", err)
 	}

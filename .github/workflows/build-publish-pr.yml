@@ -1,0 +1,112 @@
+name: "Build and Publish from PR"
+
+##
+# This workflow builds and publishes a Docker image for Chainlink from a PR.
+# It has its own special IAM role, does not sign the image, and publishes to
+# a special ECR repo.
+##
+
+on:
+  push:
+    branches:
+      - this-workflow-is-disabled-for-ccip
+
+jobs:
+  build-publish-untrusted:
+    if: ${{ ! startsWith(github.ref_name, 'release/') }}
+    runs-on: ubuntu-20.04
+    environment: sdlc
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ECR_IMAGE_NAME: crib-chainlink-untrusted
+    steps:
+      - name: Git Short SHA
+        shell: bash
+        env:
+          GIT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "GIT_SHORT_SHA=${GIT_PR_HEAD_SHA:0:7}" | tee -a "$GITHUB_ENV"
+
+      - name: Check if image exists
+        id: check-image
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        with:
+          repository: ${{ env.ECR_IMAGE_NAME}}
+          tag: sha-${{ env.GIT_SHORT_SHA }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
+
+      - name: Checkout repository
+        if: steps.check-image.outputs.exists == 'false'
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Build and publish chainlink image
+        if: steps.check-image.outputs.exists == 'false'
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          publish: true
+          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
+          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS_DEFAULT }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          sign-images: false
+          ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+          ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+
+      - name: Get PR labels
+        id: pr-labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          RESPONSE=$(gh pr view ${PR_NUMBER} --json labels)
+          # Check if the labels command was successful
+          if [[ $? -ne 0 ]]; then
+            echo "Error fetching labels"
+            exit 1
+          fi
+          echo "RESPONSE=${RESPONSE}"
+          LABELS=$(echo "$RESPONSE" | jq -r '.labels | map(.name) | join(", ")')
+          # Check if any labels were found
+          if [[ -z "${LABELS:-}" ]]; then
+            echo "No labels found"
+          else
+            echo "labels=${LABELS}" | tee -a "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Setup GAP
+        if: contains(steps.pr-labels.outputs.labels, 'crib')
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_ARGO_SAND }}
+          use-argocd: "true"
+          argocd-user: ${{ secrets.ARGOCD_USER_SAND }}
+          argocd-pass: ${{ secrets.ARGOCD_PASS_SAND }}
+
+      # Run an Argo CD sync after the image is built.
+      - name: Argo CD App Sync
+        if: contains(steps.pr-labels.outputs.labels, 'crib')
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          argocd app sync \
+            --plaintext \
+            --grpc-web \
+            --async \
+            "crib-chainlink-${PR_NUMBER}"
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: build-publish-untrusted
+        continue-on-error: true

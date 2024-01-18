@@ -16,13 +16,14 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/test-go/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -43,8 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -70,6 +70,7 @@ func setupNodeOCR3(
 	port int,
 	chainIDToBackend map[int64]*backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
+	useForwarders bool,
 ) *ocr3Node {
 	// Do not want to load fixtures as they contain a dummy chainID.
 	config, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -78,8 +79,8 @@ func setupNodeOCR3(
 		c.Feature.LogPoller = ptr(true)
 
 		c.P2P.V2.Enabled = ptr(true)
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
 		if len(p2pV2Bootstrappers) > 0 {
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
@@ -89,16 +90,21 @@ func setupNodeOCR3(
 		c.OCR.DefaultTransactionQueueDepth = ptr(uint32(200))
 		c.OCR2.Enabled = ptr(true)
 
+		c.EVM[0].LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
+		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
+
 		var chains v2toml.EVMConfigs
 		for chainID := range chainIDToBackend {
 			chains = append(chains, createConfigV2Chain(big.NewInt(chainID)))
 		}
 		c.EVM = chains
-		c.OCR2.ContractPollInterval = models.MustNewDuration(5 * time.Second)
+		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
+
 	})
 
 	lggr := logger.TestLogger(t)
-	eventBroadcaster := pg.NewEventBroadcaster(config.Database().URL(), 0, 0, lggr, uuid.New())
 	clients := make(map[int64]client.Client)
 
 	for chainID, backend := range chainIDToBackend {
@@ -114,8 +120,7 @@ func setupNodeOCR3(
 	mailMon := mailbox.NewMonitor("Rebalancer", lggr.Named("mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:        config,
-			EventBroadcaster: eventBroadcaster,
+			AppConfig: config,
 			GenEthClient: func(i *big.Int) client.Client {
 				client, ok := clients[i.Int64()]
 				if !ok {
@@ -139,7 +144,6 @@ func setupNodeOCR3(
 
 	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     config,
-		EventBroadcaster:           eventBroadcaster,
 		SqlxDB:                     db,
 		KeyStore:                   master,
 		RelayerChainInteroperators: rci,
@@ -205,7 +209,7 @@ func newTestUniverse(t *testing.T, numChains int) {
 
 	t.Log("Creating bootstrap node")
 	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapNode := setupNodeOCR3(t, owner, bootstrapNodePort, chains, nil)
+	bootstrapNode := setupNodeOCR3(t, owner, bootstrapNodePort, chains, nil, false)
 	numNodes := 4
 
 	t.Log("creating ocr3 nodes")
@@ -225,7 +229,7 @@ func newTestUniverse(t *testing.T, numChains int) {
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
-		node := setupNodeOCR3(t, owner, ports[i], chains, bootstrappers)
+		node := setupNodeOCR3(t, owner, ports[i], chains, bootstrappers, false)
 
 		kbs = append(kbs, node.keybundle)
 		apps = append(apps, node.app)
@@ -487,7 +491,7 @@ func ptr[T any](v T) *T { return &v }
 func createConfigV2Chain(chainID *big.Int) *v2toml.EVMConfig {
 	chain := v2toml.Defaults((*evmutils.Big)(chainID))
 	chain.GasEstimator.LimitDefault = ptr(uint32(4e6))
-	chain.LogPollInterval = models.MustNewDuration(500 * time.Millisecond)
+	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
 	chain.Transactions.ForwardersEnabled = ptr(false)
 	chain.FinalityDepth = ptr(uint32(2))
 	return &v2toml.EVMConfig{
@@ -539,7 +543,7 @@ func createChains(t *testing.T, numChains int) (owner *bind.TransactOpts, chains
 	owner = testutils.MustNewSimTransactor(t)
 	chains = make(map[int64]*backends.SimulatedBackend)
 	for i := 0; i < numChains; i++ {
-		chainID := int64(mainChainID + int64(i))
+		chainID := mainChainID + int64(i)
 		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
 			owner.From: core.GenesisAccount{
 				Balance: assets.Ether(10000).ToInt(),

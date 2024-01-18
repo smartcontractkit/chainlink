@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -28,9 +28,9 @@ type ExecOffchainConfig struct {
 	RelativeBoostPerWaitHour float64
 	// InflightCacheExpiry indicates how long we keep a report in the plugin cache before we expire it.
 	// The caching prevents us from issuing another report while one is already in flight.
-	InflightCacheExpiry models.Duration
+	InflightCacheExpiry config.Duration
 	// RootSnoozeTime is the interval at which we check roots for executable messages.
-	RootSnoozeTime models.Duration
+	RootSnoozeTime config.Duration
 }
 
 type ExecOnchainConfig struct {

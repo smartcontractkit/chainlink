@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -40,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var _ pb.MercuryServer = &mercuryServer{}
@@ -199,8 +199,8 @@ func setupNode(
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)

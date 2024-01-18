@@ -43,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
@@ -156,8 +155,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg.Database())
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), appLggr.Named("Mailbox"))
 
-	dbListener := cfg.Database().Listener()
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())
 
 	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
@@ -176,7 +173,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		CSAETHKeystore: keyStore,
-		ChainOpts:      legacyevm.ChainOpts{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon, DB: db},
+		ChainOpts:      legacyevm.ChainOpts{AppConfig: cfg, MailMon: mailMon, DB: db},
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
@@ -226,7 +223,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		SqlxDB:                     db,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
-		EventBroadcaster:           eventBroadcaster,
 		MailMon:                    mailMon,
 		Logger:                     appLggr,
 		AuditLogger:                auditLogger,
@@ -477,11 +473,11 @@ func createServer(handler *gin.Engine, addr string, requestTimeout time.Duration
 
 // HTTPClient encapsulates all methods used to interact with a chainlink node API.
 type HTTPClient interface {
-	Get(string, ...map[string]string) (*http.Response, error)
-	Post(string, io.Reader) (*http.Response, error)
-	Put(string, io.Reader) (*http.Response, error)
-	Patch(string, io.Reader, ...map[string]string) (*http.Response, error)
-	Delete(string) (*http.Response, error)
+	Get(context.Context, string, ...map[string]string) (*http.Response, error)
+	Post(context.Context, string, io.Reader) (*http.Response, error)
+	Put(context.Context, string, io.Reader) (*http.Response, error)
+	Patch(context.Context, string, io.Reader, ...map[string]string) (*http.Response, error)
+	Delete(context.Context, string) (*http.Response, error)
 }
 
 type authenticatedHTTPClient struct {
@@ -515,31 +511,31 @@ func newHttpClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
 }
 
 // Get performs an HTTP Get using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Get(path string, headers ...map[string]string) (*http.Response, error) {
-	return h.doRequest("GET", path, nil, headers...)
+func (h *authenticatedHTTPClient) Get(ctx context.Context, path string, headers ...map[string]string) (*http.Response, error) {
+	return h.doRequest(ctx, "GET", path, nil, headers...)
 }
 
 // Post performs an HTTP Post using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
-	return h.doRequest("POST", path, body)
+func (h *authenticatedHTTPClient) Post(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest(ctx, "POST", path, body)
 }
 
 // Put performs an HTTP Put using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Put(path string, body io.Reader) (*http.Response, error) {
-	return h.doRequest("PUT", path, body)
+func (h *authenticatedHTTPClient) Put(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest(ctx, "PUT", path, body)
 }
 
 // Patch performs an HTTP Patch using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
-	return h.doRequest("PATCH", path, body, headers...)
+func (h *authenticatedHTTPClient) Patch(ctx context.Context, path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
+	return h.doRequest(ctx, "PATCH", path, body, headers...)
 }
 
 // Delete performs an HTTP Delete using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
-	return h.doRequest("DELETE", path, nil)
+func (h *authenticatedHTTPClient) Delete(ctx context.Context, path string) (*http.Response, error) {
+	return h.doRequest(ctx, "DELETE", path, nil)
 }
 
-func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
+func (h *authenticatedHTTPClient) doRequest(ctx context.Context, verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
 	var headers map[string]string
 	if len(headerArgs) > 0 {
 		headers = headerArgs[0]
@@ -547,7 +543,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 		headers = map[string]string{}
 	}
 
-	request, err := http.NewRequest(verb, h.remoteNodeURL.String()+path, body)
+	request, err := http.NewRequestWithContext(ctx, verb, h.remoteNodeURL.String()+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -569,7 +565,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	}
 	if response.StatusCode == http.StatusUnauthorized && (h.sessionRequest.Email != "" || h.sessionRequest.Password != "") {
 		var cookieerr error
-		cookie, cookieerr = h.cookieAuth.Authenticate(h.sessionRequest)
+		cookie, cookieerr = h.cookieAuth.Authenticate(ctx, h.sessionRequest)
 		if cookieerr != nil {
 			return response, err
 		}
@@ -587,7 +583,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 // future HTTP requests.
 type CookieAuthenticator interface {
 	Cookie() (*http.Cookie, error)
-	Authenticate(sessions.SessionRequest) (*http.Cookie, error)
+	Authenticate(context.Context, sessions.SessionRequest) (*http.Cookie, error)
 	Logout() error
 }
 
@@ -616,14 +612,14 @@ func (t *SessionCookieAuthenticator) Cookie() (*http.Cookie, error) {
 }
 
 // Authenticate retrieves a session ID via a cookie and saves it to disk.
-func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
+func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(sessionRequest)
 	if err != nil {
 		return nil, err
 	}
 	url := t.config.RemoteNodeURL.String() + "/sessions"
-	req, err := http.NewRequest("POST", url, b)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, b)
 	if err != nil {
 		return nil, err
 	}

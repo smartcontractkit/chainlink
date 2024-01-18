@@ -12,10 +12,9 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -23,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -47,7 +45,7 @@ func NewBaseConfig() *chainlink.Config {
 				AllowOrigins:   ptr.Ptr("*"),
 				HTTPPort:       ptr.Ptr[uint16](6688),
 				SecureCookies:  ptr.Ptr(false),
-				SessionTimeout: models.MustNewDuration(time.Hour * 999),
+				SessionTimeout: commonconfig.MustNewDuration(time.Hour * 999),
 				TLS: toml.WebServerTLS{
 					HTTPSPort: ptr.Ptr[uint16](0),
 				},
@@ -185,7 +183,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 				AutoCreateKey:      ptr.Ptr(true),
 				FinalityDepth:      ptr.Ptr[uint32](50),
 				MinContractPayment: commonassets.NewLinkFromJuels(0),
-				LogPollInterval:    models.MustNewDuration(1 * time.Second),
+				LogPollInterval:    commonconfig.MustNewDuration(1 * time.Second),
 				HeadTracker: evmcfg.HeadTracker{
 					HistoryDepth: ptr.Ptr(uint32(100)),
 				},
@@ -236,6 +234,6 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 
 func WithLogPollInterval(interval time.Duration) NodeConfigOpt {
 	return func(c *chainlink.Config) {
-		c.EVM[0].Chain.LogPollInterval = models.MustNewDuration(interval)
+		c.EVM[0].Chain.LogPollInterval = commonconfig.MustNewDuration(interval)
 	}
 }

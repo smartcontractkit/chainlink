@@ -53,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -116,7 +117,6 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	relayers                 *CoreRelayerChainInteroperators
-	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
@@ -150,7 +150,6 @@ type ChainlinkApplication struct {
 type ApplicationOpts struct {
 	Config                     GeneralConfig
 	Logger                     logger.Logger
-	EventBroadcaster           pg.EventBroadcaster
 	MailMon                    *mailbox.Monitor
 	SqlxDB                     *sqlx.DB
 	KeyStore                   keystore.Master
@@ -178,7 +177,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.SqlxDB
 	cfg := opts.Config
 	relayerChainInterops := opts.RelayerChainInteroperators
-	eventBroadcaster := opts.EventBroadcaster
 	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
 	globalLogger := logger.Sugared(opts.Logger)
@@ -254,7 +252,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, fmt.Errorf("no evm chains found")
 	}
 
-	srvcs = append(srvcs, eventBroadcaster, mailMon)
+	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, legacyEVMChains, globalLogger)
 	srvcs = append(srvcs, promReporter)
@@ -293,6 +291,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
+		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -347,6 +346,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				db,
 				cfg.Database(),
 				globalLogger),
+			job.Stream: streams.NewDelegate(
+				globalLogger,
+				streamRegistry,
+				pipelineRunner,
+				cfg.JobPipeline()),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -416,7 +420,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
-			eventBroadcaster,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
@@ -481,7 +484,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	return &ChainlinkApplication{
 		relayers:                 opts.RelayerChainInteroperators,
-		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
@@ -808,10 +810,6 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 
 func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
 	return app.relayers
-}
-
-func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
-	return app.EventBroadcaster
 }
 
 func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {

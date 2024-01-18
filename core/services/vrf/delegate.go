@@ -76,7 +76,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
-	pl, err := jb.PipelineSpec.Pipeline()
+	pl, err := jb.PipelineSpec.ParsePipeline()
 	if err != nil {
 		return nil, err
 	}

@@ -21,6 +21,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -1386,7 +1387,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	var jb job.Job
 
 	config := configtest.NewTestGeneralConfig(t)
-	db := pgtest.NewSqlxDB(t)
+	_, db := heavyweight.FullTestDBV2(t, nil)
 
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))

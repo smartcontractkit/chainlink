@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -124,7 +123,7 @@ func NewConfig() (*Config, error) {
 // It contains generic DON and networks config which can be applied to all product based tests.
 type Common struct {
 	EnvUser   string           `toml:",omitempty"`
-	TTL       *models.Duration `toml:",omitempty"`
+	TTL       *config.Duration `toml:",omitempty"`
 	Chainlink *Chainlink       `toml:",omitempty"`
 	Networks  []string         `toml:",omitempty"`
 }

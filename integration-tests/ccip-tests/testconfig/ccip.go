@@ -3,7 +3,7 @@ package testconfig
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 type CCIPTestConfig struct {
@@ -15,17 +15,17 @@ type CCIPTestConfig struct {
 	DestGasLimit               *int64             `toml:",omitempty"`
 	MulticallInOneTx           *bool              `toml:",omitempty"`
 	NoOfSendsInMulticall       int                `toml:",omitempty"`
-	PhaseTimeout               *models.Duration   `toml:",omitempty"`
-	TestDuration               *models.Duration   `toml:",omitempty"`
+	PhaseTimeout               *config.Duration   `toml:",omitempty"`
+	TestDuration               *config.Duration   `toml:",omitempty"`
 	LocalCluster               *bool              `toml:",omitempty"`
 	ExistingDeployment         *bool              `toml:",omitempty"`
 	ExistingEnv                string             `toml:",omitempty"`
 	ReuseContracts             *bool              `toml:",omitempty"`
 	NodeFunding                float64            `toml:",omitempty"`
 	RequestPerUnitTime         []int64            `toml:",omitempty"`
-	TimeUnit                   *models.Duration   `toml:",omitempty"`
-	StepDuration               []*models.Duration `toml:",omitempty"`
-	WaitBetweenChaosDuringLoad *models.Duration   `toml:",omitempty"`
+	TimeUnit                   *config.Duration   `toml:",omitempty"`
+	StepDuration               []*config.Duration `toml:",omitempty"`
+	WaitBetweenChaosDuringLoad *config.Duration   `toml:",omitempty"`
 	NetworkPairs               []string           `toml:",omitempty"`
 	NoOfNetworks               int                `toml:",omitempty"`
 	NoOfRoutersPerPair         int                `toml:",omitempty"`
@@ -34,7 +34,7 @@ type CCIPTestConfig struct {
 	NoOfTokensInMsg            int                `toml:",omitempty"`
 	AmountPerToken             int64              `toml:",omitempty"`
 	MaxNoOfLanes               int                `toml:",omitempty"`
-	ChaosDuration              *models.Duration   `toml:",omitempty"`
+	ChaosDuration              *config.Duration   `toml:",omitempty"`
 }
 
 func (c *CCIPTestConfig) ApplyOverrides(fromCfg *CCIPTestConfig) error {

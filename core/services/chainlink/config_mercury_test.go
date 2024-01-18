@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 const (
@@ -33,4 +35,16 @@ func TestMercuryConfig(t *testing.T) {
 	m := cfg.Mercury()
 	assert.Equal(t, &models.MercuryCredentials{URL: "https://chain1.link", Username: "username1", Password: "password1"}, m.Credentials("cred1"))
 	assert.Equal(t, &models.MercuryCredentials{URL: "https://chain2.link", Username: "username2", Password: "password2"}, m.Credentials("cred2"))
+}
+
+func TestMercuryTLS(t *testing.T) {
+	certPath := "/path/to/cert.pem"
+	transmission := toml.Mercury{
+		TLS: toml.MercuryTLS{
+			CertFile: &certPath,
+		},
+	}
+	cfg := mercuryConfig{c: transmission}
+
+	assert.Equal(t, certPath, cfg.TLS().CertFile())
 }

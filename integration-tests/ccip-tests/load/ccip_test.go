@@ -7,13 +7,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestLoadCCIPStableRPS(t *testing.T) {
@@ -275,8 +275,8 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 			t.Parallel()
 			lggr := logging.GetTestLogger(t)
 			testArgs := NewLoadArgs(t, lggr, in)
-			testArgs.TestCfg.TestGroupInput.TestDuration = models.MustNewDuration(5 * time.Minute)
-			testArgs.TestCfg.TestGroupInput.TimeUnit = models.MustNewDuration(1 * time.Second)
+			testArgs.TestCfg.TestGroupInput.TestDuration = config.MustNewDuration(5 * time.Minute)
+			testArgs.TestCfg.TestGroupInput.TimeUnit = config.MustNewDuration(1 * time.Second)
 			testArgs.TestCfg.TestGroupInput.RequestPerUnitTime = []int64{2}
 
 			testArgs.Setup()
