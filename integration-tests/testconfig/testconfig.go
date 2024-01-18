@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
-	k8s_env "github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
@@ -347,8 +346,8 @@ func (c *TestConfig) Validate() error {
 	}
 
 	// require Loki config only if these tests run locally
-	k8sEnv := k8s_env.Environment{}
-	if !k8sEnv.WillUseRemoteRunner() && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
+	_, willUseRemoteRunner := os.LookupEnv(k8s_config.EnvVarJobImage)
+	if !willUseRemoteRunner && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
 		if c.Logging.Loki == nil {
 			return fmt.Errorf("for local execution you must set Loki config in logging config")
 		}
