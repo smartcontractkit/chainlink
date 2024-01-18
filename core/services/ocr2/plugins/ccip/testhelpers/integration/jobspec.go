@@ -64,7 +64,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
 		FeedID:                feedID,
-		Relay:                 string(o.OCR2OracleSpec.Relay),
+		Relay:                 o.OCR2OracleSpec.Relay,
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
 		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
 		PluginConfig:          o.OCR2OracleSpec.PluginConfig,

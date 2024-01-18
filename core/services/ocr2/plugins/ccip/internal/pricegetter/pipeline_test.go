@@ -14,14 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	config2 "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
-
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	config "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -151,7 +150,7 @@ func newTestPipelineGetter(t *testing.T, source string) *pricegetter.PipelineGet
 	lggr, _ := logger.NewLogger()
 	cfg := pipelinemocks.NewConfig(t)
 	cfg.On("MaxRunDuration").Return(time.Second)
-	cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(time.Second))
+	cfg.On("DefaultHTTPTimeout").Return(*config2.MustNewDuration(time.Second))
 	cfg.On("DefaultHTTPLimit").Return(int64(1024 * 10))
 	db := pgtest.NewSqlxDB(t)
 	bridgeORM := bridges.NewORM(db, lggr, config.NewTestGeneralConfig(t).Database())

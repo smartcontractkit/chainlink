@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var PermissionLessExecutionThresholdSeconds = uint32(FirstBlockAge.Seconds())
@@ -34,13 +34,13 @@ func (c *CCIPContracts) createCommitOffchainConfig(t *testing.T, feeUpdateHearBe
 	config, err := ccipconfig.EncodeOffchainConfig(v1_2_0.CommitOffchainConfig{
 		SourceFinalityDepth:      1,
 		DestFinalityDepth:        1,
-		GasPriceHeartBeat:        models.MustMakeDuration(feeUpdateHearBeat),
+		GasPriceHeartBeat:        *config.MustNewDuration(feeUpdateHearBeat),
 		DAGasPriceDeviationPPB:   1,
 		ExecGasPriceDeviationPPB: 1,
-		TokenPriceHeartBeat:      models.MustMakeDuration(feeUpdateHearBeat),
+		TokenPriceHeartBeat:      *config.MustNewDuration(feeUpdateHearBeat),
 		TokenPriceDeviationPPB:   1,
 		MaxGasPrice:              200e9,
-		InflightCacheExpiry:      models.MustMakeDuration(inflightCacheExpiry),
+		InflightCacheExpiry:      *config.MustNewDuration(inflightCacheExpiry),
 	})
 	require.NoError(t, err)
 	return config
@@ -71,8 +71,8 @@ func (c *CCIPContracts) createExecOffchainConfig(t *testing.T, inflightCacheExpi
 		BatchGasLimit:               5_000_000,
 		RelativeBoostPerWaitHour:    0.07,
 		MaxGasPrice:                 200e9,
-		InflightCacheExpiry:         models.MustMakeDuration(inflightCacheExpiry),
-		RootSnoozeTime:              models.MustMakeDuration(rootSnoozeTime),
+		InflightCacheExpiry:         *config.MustNewDuration(inflightCacheExpiry),
+		RootSnoozeTime:              *config.MustNewDuration(rootSnoozeTime),
 	})
 	require.NoError(t, err)
 	return config
