@@ -34,18 +34,10 @@ contract LatestValueHolder {
     MidLevelTestStruct nestedStruct
   );
 
-  event TriggeredEventWithDynamicTopic(
-    string indexed fieldHash,
-    string field
-  );
-
+  event TriggeredEventWithDynamicTopic(string indexed fieldHash, string field);
 
   // First topic is event hash
-  event TriggeredWithFourTopics(
-    int32 indexed field1,
-    int32 indexed field2,
-    int32 indexed field3
-  );
+  event TriggeredWithFourTopics(int32 indexed field1, int32 indexed field2, int32 indexed field3);
 
   TestStruct[] private s_seen;
   uint64[] private s_arr;
@@ -114,18 +106,12 @@ contract LatestValueHolder {
     emit Triggered(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
   }
 
-    function triggerEventWithDynamicTopic(
-      string calldata field
-    ) public {
-        emit TriggeredEventWithDynamicTopic(field, field);
-    }
+  function triggerEventWithDynamicTopic(string calldata field) public {
+    emit TriggeredEventWithDynamicTopic(field, field);
+  }
 
   // first topic is the event signature
-  function triggerWithFourTopics(
-    int32 field1,
-    int32 field2,
-    int32 field3
-  ) public {
+  function triggerWithFourTopics(int32 field1, int32 field2, int32 field3) public {
     emit TriggeredWithFourTopics(field1, field2, field3);
   }
 }
