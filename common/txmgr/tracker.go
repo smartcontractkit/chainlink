@@ -92,18 +92,22 @@ func NewTracker[
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) (err error) {
-	tr.lggr.Infow("Abandoned transaction tracking enabled")
+	tr.lggr.Info("Abandoned transaction tracking enabled")
 	return tr.StartOnce("Tracker", func() error {
 		return tr.startInternal()
 	})
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal() (err error) {
+	tr.lock.Lock()
+	defer tr.lock.Unlock()
+
 	tr.ctx, tr.ctxCancel = context.WithCancel(context.Background())
 
 	if err := tr.setEnabledAddresses(); err != nil {
 		return fmt.Errorf("failed to set enabled addresses: %w", err)
 	}
+	tr.lggr.Info("Enabled addresses set")
 
 	if err := tr.trackAbandonedTxes(tr.ctx); err != nil {
 		return fmt.Errorf("failed to track abandoned txes: %w", err)
@@ -115,7 +119,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 		return nil
 	}
 
-	tr.lggr.Infow(fmt.Sprintf("%d abandoned txes found, starting runLoop", len(tr.txCache)))
+	tr.lggr.Infof("%d abandoned txes found, starting runLoop", len(tr.txCache))
 	tr.wg.Add(1)
 	go tr.runLoop()
 	return nil
