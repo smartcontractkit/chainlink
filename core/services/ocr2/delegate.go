@@ -25,6 +25,7 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
@@ -586,6 +587,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		ContractTransmitter:          provider.ContractTransmitter(),
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		Metrics:                      &services.OracleMetrics{},
 	}
 
 	pluginLggr := lggr.Named(p.PluginName).Named(spec.ContractID).Named(spec.GetID())
@@ -755,6 +757,7 @@ func (d *Delegate) newServicesMedian(
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Median),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
+		Metrics:                      &services.OracleMetrics{},
 	}
 	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
 	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
@@ -832,6 +835,7 @@ func (d *Delegate) newServicesDKG(
 		OffchainConfigDigester: dkgProvider.OffchainConfigDigester(),
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kb,
+		Metrics:                &services.OracleMetrics{},
 	}
 	return dkg.NewDKGServices(
 		jb,
@@ -1399,6 +1403,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
 		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
+		Metrics:                      &services.OracleMetrics{},
 	}
 
 	noopMonitoringEndpoint := telemetry.NoopAgent{}
@@ -1417,6 +1422,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kb,
 		ReportingPluginFactory: nil, // To be set by NewFunctionsServices
+		Metrics:                &services.OracleMetrics{},
 	}
 
 	s4OracleArgs := libocr2.OCR2OracleArgs{
@@ -1433,6 +1439,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kb,
 		ReportingPluginFactory: nil, // To be set by NewFunctionsServices
+		Metrics:                &services.OracleMetrics{},
 	}
 
 	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
