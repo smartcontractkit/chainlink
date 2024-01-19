@@ -1,11 +1,12 @@
 package rollups
 
 import (
-	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -46,13 +47,16 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 
 	t.Run("Calling GasPrice on started Arbitrum L1Oracle returns Arbitrum l1GasPrice", func(t *testing.T) {
 		l1BaseFee := big.NewInt(100)
+		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(GetL1BaseFeeEstimateAbiString))
+		require.NoError(t, err)
 
 		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, ArbGasInfoAddress, callMsg.To.String())
-			assert.Equal(t, ArbGasInfo_getL1BaseFeeEstimate, fmt.Sprintf("%x", callMsg.Data))
+			payload, err := l1GasPriceMethodAbi.Pack("getL1BaseFeeEstimate")
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
@@ -67,13 +71,16 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 
 	t.Run("Calling GasPrice on started Kroma L1Oracle returns Kroma l1GasPrice", func(t *testing.T) {
 		l1BaseFee := big.NewInt(100)
+		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
+		require.NoError(t, err)
 
 		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, KromaGasOracleAddress, callMsg.To.String())
-			assert.Equal(t, KromaGasOracle_l1BaseFee, fmt.Sprintf("%x", callMsg.Data))
+			payload, err := l1GasPriceMethodAbi.Pack("l1BaseFee")
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
@@ -88,13 +95,16 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 
 	t.Run("Calling GasPrice on started OPStack L1Oracle returns OPStack l1GasPrice", func(t *testing.T) {
 		l1BaseFee := big.NewInt(100)
+		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
+		require.NoError(t, err)
 
 		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, OPGasOracleAddress, callMsg.To.String())
-			assert.Equal(t, OPGasOracle_l1BaseFee, fmt.Sprintf("%x", callMsg.Data))
+			payload, err := l1GasPriceMethodAbi.Pack("l1BaseFee")
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
@@ -109,13 +119,16 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 
 	t.Run("Calling GasPrice on started Scroll L1Oracle returns Scroll l1GasPrice", func(t *testing.T) {
 		l1BaseFee := big.NewInt(200)
+		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
+		require.NoError(t, err)
 
 		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, ScrollGasOracleAddress, callMsg.To.String())
-			assert.Equal(t, ScrollGasOracle_l1BaseFee, fmt.Sprintf("%x", callMsg.Data))
+			payload, err := l1GasPriceMethodAbi.Pack("l1BaseFee")
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
@@ -140,6 +153,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		blockNum := big.NewInt(1000)
 		toAddress := utils.RandomAddress()
 		callData := []byte{1, 2, 3, 4, 5, 6, 7}
+		l1GasCostMethodAbi, err := abi.JSON(strings.NewReader(GasEstimateL1ComponentAbiString))
+		require.NoError(t, err)
 
 		tx := types.NewTx(&types.LegacyTx{
 			Nonce: 42,
@@ -154,15 +169,9 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			methodHash := callMsg.Data[:4]
-			to := callMsg.Data[4:24]
-			contractCreation := callMsg.Data[24]
-			data := callMsg.Data[25:32]
-			require.Equal(t, ArbNodeInterfaceAddress, callMsg.To.String())
-			require.Equal(t, ArbNodeInterface_gasEstimateL1Component, fmt.Sprintf("%x", methodHash))
-			require.Equal(t, toAddress, common.BytesToAddress(to))
-			require.Equal(t, byte(0), contractCreation)
-			require.Equal(t, callData, data)
+			payload, err := l1GasCostMethodAbi.Pack("gasEstimateL1Component", toAddress, false, callData)
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
 			require.Equal(t, blockNum, blockNumber)
 		}).Return(result, nil)
 
@@ -189,6 +198,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		blockNum := big.NewInt(1000)
 		toAddress := utils.RandomAddress()
 		callData := []byte{1, 2, 3}
+		l1GasCostMethodAbi, err := abi.JSON(strings.NewReader(GetL1FeeAbiString))
+		require.NoError(t, err)
 
 		tx := types.NewTx(&types.LegacyTx{
 			Nonce: 42,
@@ -203,11 +214,9 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			methodHash := callMsg.Data[:4]
-			encodedTxInCall := callMsg.Data[4 : len(encodedTx)+4]
-			require.Equal(t, OPGasOracleAddress, callMsg.To.String())
-			require.Equal(t, OPGasOracle_getL1Fee, fmt.Sprintf("%x", methodHash))
-			require.Equal(t, encodedTx, encodedTxInCall)
+			payload, err := l1GasCostMethodAbi.Pack("getL1Fee", encodedTx)
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
 			require.Equal(t, blockNum, blockNumber)
 		}).Return(common.BigToHash(l1GasCost).Bytes(), nil)
 
@@ -223,6 +232,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		blockNum := big.NewInt(1000)
 		toAddress := utils.RandomAddress()
 		callData := []byte{1, 2, 3}
+		l1GasCostMethodAbi, err := abi.JSON(strings.NewReader(GetL1FeeAbiString))
+		require.NoError(t, err)
 
 		tx := types.NewTx(&types.LegacyTx{
 			Nonce: 42,
@@ -237,11 +248,9 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			methodHash := callMsg.Data[:4]
-			encodedTxInCall := callMsg.Data[4 : len(encodedTx)+4]
-			require.Equal(t, ScrollGasOracleAddress, callMsg.To.String())
-			require.Equal(t, ScrollGasOracle_getL1Fee, fmt.Sprintf("%x", methodHash))
-			require.Equal(t, encodedTx, encodedTxInCall)
+			payload, err := l1GasCostMethodAbi.Pack("getL1Fee", encodedTx)
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
 			require.Equal(t, blockNum, blockNumber)
 		}).Return(common.BigToHash(l1GasCost).Bytes(), nil)
 

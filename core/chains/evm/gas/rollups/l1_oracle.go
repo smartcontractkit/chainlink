@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -36,13 +38,15 @@ type l1Oracle struct {
 	logger     logger.SugaredLogger
 	chainType  config.ChainType
 
-	l1GasPriceAddress  string
-	gasPriceMethodHash string
-	l1GasPriceMu       sync.RWMutex
-	l1GasPrice         *assets.Wei
+	l1GasPriceAddress   string
+	gasPriceMethod      string
+	l1GasPriceMethodAbi abi.ABI
+	l1GasPriceMu        sync.RWMutex
+	l1GasPrice          *assets.Wei
 
-	l1GasCostAddress  string
-	gasCostMethodHash string
+	l1GasCostAddress   string
+	gasCostMethod      string
+	l1GasCostMethodAbi abi.ABI
 
 	chInitialised chan struct{}
 	chStop        services.StopChan
@@ -55,39 +59,39 @@ const (
 	ArbGasInfoAddress = "0x000000000000000000000000000000000000006C"
 	// ArbGasInfo_getL1BaseFeeEstimate is the a hex encoded call to:
 	// `function getL1BaseFeeEstimate() external view returns (uint256);`
-	ArbGasInfo_getL1BaseFeeEstimate = "f5d6ded7"
+	ArbGasInfo_getL1BaseFeeEstimate = "getL1BaseFeeEstimate"
 	// NodeInterfaceAddress is the address of the precompiled contract that is only available through RPC
 	// https://github.com/OffchainLabs/nitro/blob/e815395d2e91fb17f4634cad72198f6de79c6e61/nodeInterface/NodeInterface.go#L37
 	ArbNodeInterfaceAddress = "0x00000000000000000000000000000000000000C8"
 	// ArbGasInfo_getPricesInArbGas is the a hex encoded call to:
 	// `function gasEstimateL1Component(address to, bool contractCreation, bytes calldata data) external payable returns (uint64 gasEstimateForL1, uint256 baseFee, uint256 l1BaseFeeEstimate);`
-	ArbNodeInterface_gasEstimateL1Component = "77d488a2"
+	ArbNodeInterface_gasEstimateL1Component = "gasEstimateL1Component"
 
 	// OPGasOracleAddress is the address of the precompiled contract that exists on OP stack chain.
 	// This is the case for Optimism and Base.
 	OPGasOracleAddress = "0x420000000000000000000000000000000000000F"
 	// OPGasOracle_l1BaseFee is a hex encoded call to:
 	// `function l1BaseFee() external view returns (uint256);`
-	OPGasOracle_l1BaseFee = "519b4bd3"
+	OPGasOracle_l1BaseFee = "l1BaseFee"
 	// OPGasOracle_getL1Fee is a hex encoded call to:
 	// `function getL1Fee(bytes) external view returns (uint256);`
-	OPGasOracle_getL1Fee = "49948e0e"
+	OPGasOracle_getL1Fee = "getL1Fee"
 
 	// ScrollGasOracleAddress is the address of the precompiled contract that exists on Scroll chain.
 	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
 	// ScrollGasOracle_l1BaseFee is a hex encoded call to:
 	// `function l1BaseFee() external view returns (uint256);`
-	ScrollGasOracle_l1BaseFee = "519b4bd3"
+	ScrollGasOracle_l1BaseFee = "l1BaseFee"
 	// ScrollGasOracle_getL1Fee is a hex encoded call to:
 	// `function getL1Fee(bytes) external view returns (uint256);`
-	ScrollGasOracle_getL1Fee = "49948e0e"
+	ScrollGasOracle_getL1Fee = "getL1Fee"
 
 	// GasOracleAddress is the address of the precompiled contract that exists on Kroma chain.
 	// This is the case for Kroma.
 	KromaGasOracleAddress = "0x4200000000000000000000000000000000000005"
 	// GasOracle_l1BaseFee is the a hex encoded call to:
 	// `function l1BaseFee() external view returns (uint256);`
-	KromaGasOracle_l1BaseFee = "519b4bd3"
+	KromaGasOracle_l1BaseFee = "l1BaseFee"
 
 	// Interval at which to poll for L1BaseFee. A good starting point is the L1 block time.
 	PollPeriod = 12 * time.Second
@@ -103,30 +107,46 @@ func IsRollupWithL1Support(chainType config.ChainType) bool {
 }
 
 func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
-	var l1GasPriceAddress, gasPriceMethodHash, l1GasCostAddress, gasCostMethodHash string
+	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
+	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
+	var gasPriceErr, gasCostErr error
 	switch chainType {
 	case config.ChainArbitrum:
 		l1GasPriceAddress = ArbGasInfoAddress
-		gasPriceMethodHash = ArbGasInfo_getL1BaseFeeEstimate
+		gasPriceMethod = ArbGasInfo_getL1BaseFeeEstimate
+		l1GasPriceMethodAbi, gasPriceErr = abi.JSON(strings.NewReader(GetL1BaseFeeEstimateAbiString))
 		l1GasCostAddress = ArbNodeInterfaceAddress
-		gasCostMethodHash = ArbNodeInterface_gasEstimateL1Component
+		gasCostMethod = ArbNodeInterface_gasEstimateL1Component
+		l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GasEstimateL1ComponentAbiString))
 	case config.ChainOptimismBedrock:
 		l1GasPriceAddress = OPGasOracleAddress
-		gasPriceMethodHash = OPGasOracle_l1BaseFee
+		gasPriceMethod = OPGasOracle_l1BaseFee
+		l1GasPriceMethodAbi, gasPriceErr = abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		l1GasCostAddress = OPGasOracleAddress
-		gasCostMethodHash = OPGasOracle_getL1Fee
+		gasCostMethod = OPGasOracle_getL1Fee
+		l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GetL1FeeAbiString))
 	case config.ChainKroma:
 		l1GasPriceAddress = KromaGasOracleAddress
-		gasPriceMethodHash = KromaGasOracle_l1BaseFee
+		gasPriceMethod = KromaGasOracle_l1BaseFee
+		l1GasPriceMethodAbi, gasPriceErr = abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		l1GasCostAddress = ""
-		gasCostMethodHash = ""
+		gasCostMethod = ""
 	case config.ChainScroll:
 		l1GasPriceAddress = ScrollGasOracleAddress
-		gasPriceMethodHash = ScrollGasOracle_l1BaseFee
+		gasPriceMethod = ScrollGasOracle_l1BaseFee
+		l1GasPriceMethodAbi, gasPriceErr = abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		l1GasCostAddress = ScrollGasOracleAddress
-		gasCostMethodHash = ScrollGasOracle_getL1Fee
+		gasCostMethod = ScrollGasOracle_getL1Fee
+		l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GetL1FeeAbiString))
 	default:
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
+	}
+
+	if gasPriceErr != nil {
+		panic(fmt.Sprintf("Failed to parse L1 gas price method ABI for chain: %s", chainType))
+	}
+	if gasCostErr != nil {
+		panic(fmt.Sprintf("Failed to parse L1 gas cost method ABI for chain: %s", chainType))
 	}
 
 	return &l1Oracle{
@@ -135,10 +155,12 @@ func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.Ch
 		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(%s)", chainType))),
 		chainType:  chainType,
 
-		l1GasPriceAddress:  l1GasPriceAddress,
-		gasPriceMethodHash: gasPriceMethodHash,
-		l1GasCostAddress:   l1GasCostAddress,
-		gasCostMethodHash:  gasCostMethodHash,
+		l1GasPriceAddress:   l1GasPriceAddress,
+		gasPriceMethod:      gasPriceMethod,
+		l1GasPriceMethodAbi: l1GasPriceMethodAbi,
+		l1GasCostAddress:    l1GasCostAddress,
+		gasCostMethod:       gasCostMethod,
+		l1GasCostMethodAbi:  l1GasCostMethodAbi,
 
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -191,10 +213,17 @@ func (o *l1Oracle) refresh() (t *time.Timer) {
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
+	var callData, b []byte
+	var err error
 	precompile := common.HexToAddress(o.l1GasPriceAddress)
-	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
+	callData, err = o.l1GasPriceMethodAbi.Pack(o.gasPriceMethod)
+	if err != nil {
+		o.logger.Errorf("failed to pack calldata for %s L1 gas price method: %w", o.chainType, err)
+		return
+	}
+	b, err = o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &precompile,
-		Data: common.Hex2Bytes(o.gasPriceMethodHash),
+		Data: callData,
 	}, nil)
 	if err != nil {
 		o.logger.Errorf("gas oracle contract call failed: %v", err)
@@ -233,29 +262,29 @@ func (o *l1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err erro
 func (o *l1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
-	callArgs := common.Hex2Bytes(o.gasCostMethodHash)
+	var callData, b []byte
+	var err error
 	if o.chainType == config.ChainOptimismBedrock || o.chainType == config.ChainScroll {
 		// Append rlp-encoded tx
-		encodedtx, err := tx.MarshalBinary()
-		if err != nil {
+		var encodedtx []byte
+		if encodedtx, err = tx.MarshalBinary(); err != nil {
 			return nil, fmt.Errorf("failed to marshal tx for gas cost estimation: %w", err)
 		}
-		callArgs = append(callArgs, encodedtx...)
+		if callData, err = o.l1GasCostMethodAbi.Pack(o.gasCostMethod, encodedtx); err != nil {
+			return nil, fmt.Errorf("failed to pack calldata for %s L1 gas cost estimation method: %w", o.chainType, err)
+		}
 	} else if o.chainType == config.ChainArbitrum {
-		// Append To address
-		callArgs = append(callArgs, tx.To().Bytes()...)
-		// Append bool if contract creation (always false for our use case)
-		callArgs = append(callArgs, byte(0))
-		// Append calldata
-		callArgs = append(callArgs, tx.Data()...)
+		if callData, err = o.l1GasCostMethodAbi.Pack(o.gasCostMethod, tx.To(), false, tx.Data()); err != nil {
+			return nil, fmt.Errorf("failed to pack calldata for %s L1 gas cost estimation method: %w", o.chainType, err)
+		}
 	} else {
 		return nil, fmt.Errorf("L1 gas cost not supported for this chain: %s", o.chainType)
 	}
 
 	precompile := common.HexToAddress(o.l1GasCostAddress)
-	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
+	b, err = o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &precompile,
-		Data: callArgs,
+		Data: callData,
 	}, blockNum)
 	if err != nil {
 		errorMsg := fmt.Sprintf("gas oracle contract call failed: %v", err)
