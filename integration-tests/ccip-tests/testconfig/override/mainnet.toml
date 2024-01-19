@@ -117,7 +117,7 @@ Data = """
                 "Ethereum Mainnet": {
                     "off_ramp": "0xEC0cFe335a4d53dBA70CB650Ab56eEc32788F0BB",
                     "commit_store": "0x0ae3c2c7FB789bd05A450CD3075D11f6c2Ca4F77",
-                    "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"                    
+                    "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
                 },
                 "Optimism Mainnet": {
                     "off_ramp": "0xf50c0d2a8B6Db60f1D93E60f03d0413D56153E4F",
@@ -179,8 +179,8 @@ Data = """
       "Ethereum Mainnet": {
         "is_native_fee_token": true,
         "fee_token": "",
-        "bridge_tokens": ["0x514910771AF9Ca656af840dff83E8264EcF986CA"],
-        "bridge_tokens_pools": ["0xC2291992A08eBFDfedfE248F2CCD34Da63570DF4"],
+        "bridge_tokens": [],
+        "bridge_tokens_pools": [],
         "arm" : "0x8B63b3DE93431C0f756A493644d128134291fA1b",
         "router": "0x80226fc0Ee2b096224EeAc085Bb9a8cba1146f7D",
         "price_registry": "0x8c9b2Efb7c64C394119270bfecE7f54763b958Ad",
@@ -255,10 +255,10 @@ Data = """
       },
       "Kroma Mainnet": {
         "is_native_fee_token": true,
-        "fee_token": "",
-        "bridge_tokens": ["0xC1F6f7622ad37C3f46cDF6F8AA0344ADE80BF450"],
-        "bridge_tokens_pools": ["0xd9547B702673c61c84bb2dF6FDf6D2F5309fE536"],
-        "arm" : "0x6E4d2dBBF8a1A943412aD451422FE11A25C781DE",
+        "fee_token": "0xC1F6f7622ad37C3f46cDF6F8AA0344ADE80BF450",
+        "bridge_tokens": [],
+        "bridge_tokens_pools": [],
+        "arm" : "0xB59779d3364BC6d71168245f9ebb96469E5a5a98",
         "router": "0xE93E8B0d1b1CEB44350C8758ed1E2799CCee31aB",
         "price_registry": "0x8155B4710e7bbC90924E957104F94Afd4f95Eca2",
         "wrapped_native": "0x4200000000000000000000000000000000000001",
@@ -278,7 +278,7 @@ Data = """
       },
       "Optimism Mainnet": {
         "is_native_fee_token": true,
-        "fee_token": "",
+        "fee_token": "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
         "bridge_tokens": [],
         "bridge_tokens_pools": [],
         "arm": "0x8C7C2C3362a42308BB5c368677Ad321D11693b81",
@@ -319,7 +319,7 @@ Data = """
       },
       "Polygon Mainnet": {
         "is_native_fee_token": true,
-        "fee_token": "",
+        "fee_token": "0xb0897686c545045aFc77CF20eC7A532E3120E0F1",
         "bridge_tokens": [],
         "bridge_tokens_pools": [],
         "arm": "0xD7AcF65dA1E1f34b663aB199a474F209bF2b0523",
@@ -370,8 +370,8 @@ Data = """
       "WeMix Mainnet": {
           "is_native_fee_token": true,
           "fee_token": "",
-          "bridge_tokens": ["0x80f1FcdC96B55e459BF52b998aBBE2c364935d69"],
-          "bridge_tokens_pools": ["0x80282dF25600c08Bde7560f6c1E509366c1BfBFC"],
+          "bridge_tokens": [],
+          "bridge_tokens_pools": [],
           "arm" : "0x07aaC8B69A62dB5bd3d244091916EbF2fac17b76",
           "router": "0x7798b795Fde864f4Cd1b124a38Ba9619B7F8A442",
           "price_registry": "0x252863688762aD86868D3d3076233Eacd80c7055",
@@ -401,11 +401,30 @@ Data = """
       }
     }
 }
+
 """
 
 [CCIP.Groups.load]
-NetworkPairs = ['BASE_MAINNET,ARBITRUM_MAINNET']
+NetworkPairs = [
+    'ETHEREUM_MAINNET,BASE_MAINNET',
+    'ETHEREUM_MAINNET,ARBITRUM_MAINNET',
+    'ETHEREUM_MAINNET,WEMIX_MAINNET',
+    'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
+    'ETHEREUM_MAINNET,POLYGON_MAINNET',
+    'ETHEREUM_MAINNET,AVALANCHE_MAINNET',
+    'ETHEREUM_MAINNET,BSC_MAINNET',
+    'BASE_MAINNET,ARBITRUM_MAINNET',
+    'WEMIX_MAINNET,KROMA_MAINNET',
+    'OPTIMISM_MAINNET,POLYGON_MAINNET',
+    'AVALANCHE_MAINNET,POLYGON_MAINNET',
+    'BSC_MAINNET,POLYGON_MAINNET',
+    'BASE_MAINNET,OPTIMISM_MAINNET',
+    'AVALANCHE_MAINNET,BSC_MAINNET',
+    'BASE_MAINNET,BSC_MAINNET',
+]
 MsgType = 'WithoutToken'
+DestGasLimit = 0
+BiDirectionalLane = true
 PhaseTimeout = '50m'
 TestDuration = '168h'
 ExistingDeployment = true
@@ -418,8 +437,25 @@ ExistingEnv = 'mainnet-2.7-ccip1.2'
 
 [CCIP.Groups.smoke]
 MsgType = 'WithoutToken'
-NetworkPairs = ['AVALANCHE_MAINNET,POLYGON_MAINNET','BASE_MAINNET,OPTIMISM_MAINNET','BSC_MAINNET,POLYGON_MAINNET','OPTIMISM_MAINNET,POLYGON_MAINNET','AVALANCHE_MAINNET,BSC_MAINNET','BASE_MAINNET,BSC_MAINNET']
+NetworkPairs = [
+    'ETHEREUM_MAINNET,BASE_MAINNET',
+    'ETHEREUM_MAINNET,ARBITRUM_MAINNET',
+    'ETHEREUM_MAINNET,WEMIX_MAINNET',
+    'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
+    'ETHEREUM_MAINNET,POLYGON_MAINNET',
+    'ETHEREUM_MAINNET,AVALANCHE_MAINNET',
+    'ETHEREUM_MAINNET,BSC_MAINNET',
+    'BASE_MAINNET,ARBITRUM_MAINNET',
+    'WEMIX_MAINNET,KROMA_MAINNET',
+    'OPTIMISM_MAINNET,POLYGON_MAINNET',
+    'AVALANCHE_MAINNET,POLYGON_MAINNET',
+    'BSC_MAINNET,POLYGON_MAINNET',
+    'BASE_MAINNET,OPTIMISM_MAINNET',
+    'AVALANCHE_MAINNET,BSC_MAINNET',
+    'BASE_MAINNET,BSC_MAINNET',
+]
 BiDirectionalLane = true
+DestGasLimit = 0
 PhaseTimeout = '50m'
 LocalCluster = false
 ExistingDeployment = true

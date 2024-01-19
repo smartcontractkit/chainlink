@@ -251,22 +251,31 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 func (ccipModule *CCIPCommon) ApproveTokens() error {
 	isApproved := false
 	for _, token := range ccipModule.BridgeTokens {
-		err := token.Approve(ccipModule.Router.Address(), ApprovedAmountToRouter)
+		allowance, err := token.Allowance(ccipModule.ChainClient.GetDefaultWallet().Address(), ccipModule.Router.Address())
 		if err != nil {
-			return errors.WithStack(err)
+			return fmt.Errorf("failed to get allowance for token %s: %w", token.ContractAddress.Hex(), err)
+		}
+		if allowance.Cmp(ApprovedAmountToRouter) < 0 {
+			err := token.Approve(ccipModule.Router.Address(), ApprovedAmountToRouter)
+			if err != nil {
+				return errors.WithStack(err)
+			}
 		}
 		if token.ContractAddress == ccipModule.FeeToken.EthAddress {
 			isApproved = true
 		}
 	}
 	if ccipModule.FeeToken.EthAddress != common.HexToAddress("0x0") {
-		if !isApproved {
-			err := ccipModule.FeeToken.Approve(ccipModule.Router.Address(), ApprovedFeeAmountToRouter)
-			if err != nil {
-				return errors.WithStack(err)
-			}
-		} else {
-			err := ccipModule.FeeToken.Approve(ccipModule.Router.Address(), new(big.Int).Add(ApprovedAmountToRouter, ApprovedFeeAmountToRouter))
+		amount := ApprovedFeeAmountToRouter
+		if isApproved {
+			amount = new(big.Int).Add(ApprovedAmountToRouter, ApprovedFeeAmountToRouter)
+		}
+		allowance, err := ccipModule.FeeToken.Allowance(ccipModule.ChainClient.GetDefaultWallet().Address(), ccipModule.Router.Address())
+		if err != nil {
+			return fmt.Errorf("failed to get allowance for token %s: %w", ccipModule.FeeToken.Address(), err)
+		}
+		if allowance.Cmp(amount) < 0 {
+			err := ccipModule.FeeToken.Approve(ccipModule.Router.Address(), amount)
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -575,7 +584,8 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 	}
 	log.Info().Msg("finished deploying common contracts")
-	return nil
+	// approve router to spend fee token
+	return ccipModule.ApproveTokens()
 }
 
 func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall bool) (*CCIPCommon, error) {
@@ -680,11 +690,6 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	var err error
 	contractDeployer := sourceCCIP.Common.Deployer
 	log.Info().Msg("Deploying source chain specific contracts")
-
-	err = sourceCCIP.Common.ApproveTokens()
-	if err != nil {
-		return err
-	}
 
 	sourceCCIP.LoadContracts(lane)
 	sourceChainSelector, err := chainselectors.SelectorFromChainId(sourceCCIP.Common.ChainClient.GetChainID().Uint64())

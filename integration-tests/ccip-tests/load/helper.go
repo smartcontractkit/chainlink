@@ -122,6 +122,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 				"source_chain": lane.SourceNetworkName,
 				"dest_chain":   lane.DestNetworkName,
 			},
+			FailOnErr: true,
 		})
 		require.NoError(l.TestCfg.Test, err, "initiating loadgen for lane %s --> %s",
 			lane.SourceNetworkName, lane.DestNetworkName)
@@ -255,6 +256,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 				Logger:                multiCallGen.logger,
 				LokiConfig:            wasp.NewEnvLokiConfig(),
 				Labels:                allLabels,
+				FailOnErr:             true,
 			})
 			require.NoError(l.TestCfg.Test, err, "initiating loadgen for source %s", source)
 			loadRunner.Run(false)
