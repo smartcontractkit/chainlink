@@ -1,13 +1,19 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny
+  name: default
 spec:
   podSelector:
     matchLabels: {}
   policyTypes:
     - Ingress
     - Egress
+  ingress:
+  {{- if .Values.ingress.rules }}
+    {{- toYaml .Values.ingress.rules | nindent 4 }}
+  {{- else }}
+  - {}  # Deny all ingress if no rules are specified. Rules can still be specified in other templates.
+  {{- end }}
   egress:
     - to:
         - namespaceSelector:
