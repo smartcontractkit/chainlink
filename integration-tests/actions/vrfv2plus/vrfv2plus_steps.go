@@ -1053,6 +1053,7 @@ func logRandRequest(
 		Bool("IsNativePayment", isNativeBilling).
 		Uint16("MinimumConfirmations", minimumConfirmations).
 		Uint32("CallbackGasLimit", callbackGasLimit).
+		Uint32("NumberOfWords", numberOfWords).
 		Uint16("RandomnessRequestCountPerRequest", randomnessRequestCountPerRequest).
 		Uint16("RandomnessRequestCountPerRequestDeviation", randomnessRequestCountPerRequestDeviation).
 		Msg("Requesting randomness")

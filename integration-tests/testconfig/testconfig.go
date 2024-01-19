@@ -392,7 +392,8 @@ func (c *TestConfig) Validate() error {
 
 	// require Loki config only if these tests run locally
 	_, willUseRemoteRunner := os.LookupEnv(k8s_config.EnvVarJobImage)
-	if !willUseRemoteRunner && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
+	_, isInsideK8s := os.LookupEnv(k8s_config.EnvVarInsideK8s)
+	if (!willUseRemoteRunner && !isInsideK8s) && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
 		if c.Logging.Loki == nil {
 			return fmt.Errorf("for local execution you must set Loki config in logging config")
 		}
