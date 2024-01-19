@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -206,9 +207,16 @@ func (te *CLClusterTestEnv) Terminate() error {
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
 func (te *CLClusterTestEnv) Cleanup() error {
 	te.l.Info().Msg("Cleaning up test environment")
+
+	runIdErr := runid.RemoveLocalRunId()
+	if runIdErr != nil {
+		te.l.Warn().Msgf("Failed to remove .run.id file due to: %s (not a big deal, you can still remove it manually)", runIdErr.Error())
+	}
+
 	if te.t == nil {
 		return fmt.Errorf("cannot cleanup test environment without a testing.T")
 	}
+
 	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
 		return fmt.Errorf("chainlink nodes are nil, unable cleanup chainlink nodes")
 	}

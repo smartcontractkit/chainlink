@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $.Release.Name }}-geth
+spec:
+  podSelector:
+    matchLabels:
+      app: geth
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Allow http and websocket connections from the node pods.
+        - podSelector:
+            matchLabels:
+              app: {{ $.Release.Name }}
+        # Allow http and websocket connections from the runner pods.
+        - podSelector:
+            matchLabels:
+              app: runner
+      ports:
+        - protocol: TCP
+          port: 8544
+        - protocol: TCP
+          port: 8546

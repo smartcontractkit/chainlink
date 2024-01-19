@@ -32,6 +32,7 @@ import (
 	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/unrolled/secure"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -60,6 +61,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 
 	tls := config.WebServer().TLS()
 	engine.Use(
+		otelgin.Middleware("chainlink-web-routes"),
 		limits.RequestSizeLimiter(config.WebServer().HTTPMaxSize()),
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
