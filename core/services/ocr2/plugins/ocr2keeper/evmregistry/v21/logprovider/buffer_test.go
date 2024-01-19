@@ -6,10 +6,12 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -422,7 +424,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    0,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  10,
 					maxUpkeepLogs: 2,
@@ -436,7 +438,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    0,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 			},
 		},
@@ -450,7 +452,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    0,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 			},
 			visited: []fetchedLog{},
@@ -462,7 +464,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    0,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  10,
 					maxUpkeepLogs: 2,
@@ -476,7 +478,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    0,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 			},
 		},
@@ -491,7 +493,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    0,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 			},
 			toAdd: []appendArgs{
@@ -502,7 +504,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    0,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  10,
 					maxUpkeepLogs: 2,
@@ -524,7 +526,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    0,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  10,
 					maxUpkeepLogs: 2,
@@ -537,7 +539,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    1,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  10,
 					maxUpkeepLogs: 2,
@@ -550,7 +552,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    2,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  10,
 					maxUpkeepLogs: 2,
@@ -565,7 +567,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    1,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -573,7 +575,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    2,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 			},
 		},
@@ -590,7 +592,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    0,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  2,
 					maxUpkeepLogs: 4,
@@ -603,7 +605,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    1,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  2,
 					maxUpkeepLogs: 4,
@@ -616,7 +618,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 							TxHash:      common.HexToHash("0x1"),
 							LogIndex:    2,
 						},
-						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+						upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 					},
 					maxBlockLogs:  2,
 					maxUpkeepLogs: 4,
@@ -631,7 +633,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    1,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -639,7 +641,7 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    2,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 			},
 		},
@@ -720,7 +722,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0xb711bd1103927611ee41152aa8ae27f3330"),
 						LogIndex:    0,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -729,7 +731,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    0,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "222").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "222").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -738,7 +740,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    4,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -747,7 +749,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    3,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "222").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "222").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -756,7 +758,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    2,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -765,7 +767,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    5,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -774,7 +776,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    3,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -783,7 +785,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    1,
 					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 				},
 			},
 			beforeSort: []string{
@@ -845,7 +847,7 @@ func TestLogEventBuffer_FetchedBlock_Clone(t *testing.T) {
 					TxHash:      common.HexToHash("0x1"),
 					LogIndex:    0,
 				},
-				upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 			},
 			{
 				log: logpoller.Log{
@@ -853,7 +855,7 @@ func TestLogEventBuffer_FetchedBlock_Clone(t *testing.T) {
 					TxHash:      common.HexToHash("0x1"),
 					LogIndex:    2,
 				},
-				upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				upkeepID: core.GenUpkeepID(types.LogTrigger, "111").BigInt(),
 			},
 		},
 	}
