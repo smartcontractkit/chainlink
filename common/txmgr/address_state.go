@@ -180,7 +180,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MaxCon
 	return maxSeq
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyToTxs(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyToTxsByState(
 	txStates []txmgrtypes.TxState,
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
 	txIDs ...int64,
@@ -190,7 +190,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyT
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		as.applyToStorage(as.allTransactions, fn, txIDs...)
+		as.applyToTxs(as.allTransactions, fn, txIDs...)
 		return
 	}
 
@@ -201,18 +201,18 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyT
 				fn(as.inprogress)
 			}
 		case TxUnconfirmed:
-			as.applyToStorage(as.unconfirmed, fn, txIDs...)
+			as.applyToTxs(as.unconfirmed, fn, txIDs...)
 		case TxConfirmedMissingReceipt:
-			as.applyToStorage(as.confirmedMissingReceipt, fn, txIDs...)
+			as.applyToTxs(as.confirmedMissingReceipt, fn, txIDs...)
 		case TxConfirmed:
-			as.applyToStorage(as.confirmed, fn, txIDs...)
+			as.applyToTxs(as.confirmed, fn, txIDs...)
 		case TxFatalError:
-			as.applyToStorage(as.fatalErrored, fn, txIDs...)
+			as.applyToTxs(as.fatalErrored, fn, txIDs...)
 		}
 	}
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToStorage(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxs(
 	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
 	txIDs ...int64,

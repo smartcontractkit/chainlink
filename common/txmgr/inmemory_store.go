@@ -526,7 +526,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBr
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		as.ApplyToTxs(nil, fn)
+		as.ApplyToTxsByState(nil, fn)
 	}
 
 	return nil
@@ -582,7 +582,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		as.ApplyToTxs(nil, fn, txIDs...)
+		as.ApplyToTxsByState(nil, fn, txIDs...)
 	}
 
 	return nil
@@ -731,7 +731,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
-			as.ApplyToTxs(nil, fn)
+			as.ApplyToTxsByState(nil, fn)
 			wg.Done()
 		}(as)
 	}
@@ -1524,7 +1524,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 		}
 		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{*attempt}
 	}
-	as.ApplyToTxs(nil, fn, attempt.TxID)
+	as.ApplyToTxsByState(nil, fn, attempt.TxID)
 
 	return nil
 }
@@ -1558,7 +1558,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 
 		tx.TxAttempts[0].State = txmgrtypes.TxAttemptInsufficientFunds
 	}
-	as.ApplyToTxs(nil, fn, attempt.TxID)
+	as.ApplyToTxsByState(nil, fn, attempt.TxID)
 
 	return nil
 }
@@ -1593,7 +1593,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 
 		tx.TxAttempts[0].State = txmgrtypes.TxAttemptBroadcast
 	}
-	as.ApplyToTxs(nil, fn, attempt.TxID)
+	as.ApplyToTxsByState(nil, fn, attempt.TxID)
 
 	return nil
 }
