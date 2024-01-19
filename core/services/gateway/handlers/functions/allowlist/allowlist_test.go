@@ -137,6 +137,7 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 		}
 
 		orm := amocks.NewORM(t)
+		orm.On("DeleteAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(2).Return(nil)
 		orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(2).Return(nil)
 
 		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))

@@ -123,6 +123,57 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 	})
 }
 
+func TestORM_DeleteAllowedSenders(t *testing.T) {
+	t.Parallel()
+
+	t.Run("OK-delete_blocked_sender_from_allowed_list", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		add1 := testutils.NewAddress()
+		add2 := testutils.NewAddress()
+		add3 := testutils.NewAddress()
+		err = orm.CreateAllowedSenders([]common.Address{add1, add2, add3})
+		require.NoError(t, err)
+
+		results, err := orm.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(results), "incorrect results length")
+		require.Equal(t, add1, results[0])
+
+		err = orm.DeleteAllowedSenders([]common.Address{add1, add3})
+		require.NoError(t, err)
+
+		results, err = orm.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Equal(t, add2, results[0])
+	})
+
+	t.Run("OK-delete_non_existing_blocked_sender_from_allowed_list", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		add1 := testutils.NewAddress()
+		add2 := testutils.NewAddress()
+		err = orm.CreateAllowedSenders([]common.Address{add1, add2})
+		require.NoError(t, err)
+
+		results, err := orm.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, add1, results[0])
+
+		add3 := testutils.NewAddress()
+		err = orm.DeleteAllowedSenders([]common.Address{add3})
+		require.NoError(t, err)
+
+		results, err = orm.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, add1, results[0])
+		require.Equal(t, add2, results[1])
+	})
+}
+
 func Test_NewORM(t *testing.T) {
 	t.Run("OK-create_ORM", func(t *testing.T) {
 		_, err := allowlist.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), testutils.NewAddress())

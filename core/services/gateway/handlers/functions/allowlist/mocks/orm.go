@@ -39,6 +39,31 @@ func (_m *ORM) CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg
 	return r0
 }
 
+// DeleteAllowedSenders provides a mock function with given fields: blockedSenders, qopts
+func (_m *ORM) DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, blockedSenders)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteAllowedSenders")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]common.Address, ...pg.QOpt) error); ok {
+		r0 = rf(blockedSenders, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetAllowedSenders provides a mock function with given fields: offset, limit, qopts
 func (_m *ORM) GetAllowedSenders(offset uint, limit uint, qopts ...pg.QOpt) ([]common.Address, error) {
 	_va := make([]interface{}, len(qopts))

@@ -204,8 +204,8 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_allow_list.NewTermsOfServiceAllowList")
 	}
-	allowedSenderList := make([]common.Address, 0)
 
+	var allowedSenderList []common.Address
 	if !a.config.StoreAllowedSendersEnabled {
 		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
 			Pending:     false,
@@ -216,43 +216,98 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 			return errors.Wrap(err, "error calling GetAllAllowedSenders")
 		}
 	} else {
-		count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
-			Pending:     false,
-			BlockNumber: blockNum,
-			Context:     ctx,
-		})
+		err = a.syncStoredAllowedAndBlockedSenders(ctx, tosContract, blockNum)
 		if err != nil {
-			return errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
+			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
 		}
 
-		throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
-		for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
-			<-throttleTicker.C
-
-			idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
-			if idxEnd >= count {
-				idxEnd = count - 1
-			}
-
-			allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
-				Pending:     false,
-				BlockNumber: blockNum,
-				Context:     ctx,
-			}, idxStart, idxEnd)
-			if err != nil {
-				return errors.Wrap(err, "error calling GetAllowedSendersInRange")
-			}
-
-			allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
-			err = a.orm.CreateAllowedSenders(allowedSendersBatch)
-			if err != nil {
-				a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
-			}
+		allowedSenderList, err = a.getAllowedSendersInRange(ctx, tosContract, blockNum)
+		if err != nil {
+			return errors.Wrap(err, "failed to get allowed senders in rage")
 		}
-		throttleTicker.Stop()
 	}
 
 	a.update(allowedSenderList)
+	return nil
+}
+
+func (a *onchainAllowlist) getAllowedSendersInRange(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) ([]common.Address, error) {
+	allowedSenderList := make([]common.Address, 0)
+	count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
+		Pending:     false,
+		BlockNumber: blockNum,
+		Context:     ctx,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
+	}
+
+	throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
+	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
+		<-throttleTicker.C
+
+		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
+		if idxEnd >= count {
+			idxEnd = count - 1
+		}
+
+		allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
+			Pending:     false,
+			BlockNumber: blockNum,
+			Context:     ctx,
+		}, idxStart, idxEnd)
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling GetAllowedSendersInRange")
+		}
+
+		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
+		err = a.orm.CreateAllowedSenders(allowedSendersBatch)
+		if err != nil {
+			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+		}
+	}
+	throttleTicker.Stop()
+
+	return allowedSenderList, nil
+}
+
+// syncStoredAllowedAndBlockedSenders fetches the list of blocked addresses from the contract in batches
+// and removes the addresses from the functions_allowlist table if present
+func (a *onchainAllowlist) syncStoredAllowedAndBlockedSenders(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) error {
+	count, err := tosContract.GetBlockedSendersCount(&bind.CallOpts{
+		Pending:     false,
+		BlockNumber: blockNum,
+		Context:     ctx,
+	})
+	if err != nil {
+		return errors.Wrap(err, "unexpected error during functions_allow_list.GetBlockedSendersCount")
+	}
+
+	throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
+	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
+		<-throttleTicker.C
+
+		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
+		if idxEnd >= count {
+			idxEnd = count - 1
+		}
+
+		blockedSendersBatch, err := tosContract.GetBlockedSendersInRange(&bind.CallOpts{
+			Pending:     false,
+			BlockNumber: blockNum,
+			Context:     ctx,
+		}, idxStart, idxEnd)
+		if err != nil {
+			return errors.Wrap(err, "error calling GetAllowedSendersInRange")
+		}
+
+		err = a.orm.DeleteAllowedSenders(blockedSendersBatch)
+		if err != nil {
+			a.lggr.Errorf("failed to delete blocked address from allowed list in storage: %w", err)
+		}
+	}
+	throttleTicker.Stop()
+
 	return nil
 }
 

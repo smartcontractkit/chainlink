@@ -17,6 +17,7 @@ import (
 type ORM interface {
 	GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error)
 	CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.QOpt) error
+	DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.QOpt) error
 }
 
 type orm struct {
@@ -85,6 +86,37 @@ func (o *orm) CreateAllowedSenders(allowedSender []common.Address, qopts ...pg.Q
 		return err
 	}
 	o.lggr.Debugf("Successfully stored allowed sender: %s for routerContractAddress: %s", allowedSender, o.routerContractAddress)
+
+	return nil
+}
+
+func (o *orm) DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.QOpt) error {
+	var valuesPlaceholder []string
+	for i := 1; i <= len(blockedSenders); i++ {
+		valuesPlaceholder = append(valuesPlaceholder, fmt.Sprintf("$%d", i+1))
+	}
+
+	stmt := fmt.Sprintf(`
+		DELETE FROM %s
+		WHERE router_contract_address = $1
+		AND allowed_address IN (%s);`, tableName, strings.Join(valuesPlaceholder, ", "))
+
+	args := []interface{}{o.routerContractAddress}
+	for _, bs := range blockedSenders {
+		args = append(args, bs)
+	}
+
+	res, err := o.q.WithOpts(qopts...).Exec(stmt, args...)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	o.lggr.Debugf("Successfully removed blocked senders from the allowed list: %s for routerContractAddress: %s. rowsAffected: %d", blockedSenders, o.routerContractAddress, rowsAffected)
 
 	return nil
 }

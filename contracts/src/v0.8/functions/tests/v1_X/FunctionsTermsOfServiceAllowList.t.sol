@@ -444,7 +444,7 @@ contract FunctionsTermsOfServiceAllowList_GetBlockedSendersCount is FunctionsRou
 
     s_termsOfServiceAllowList.blockSender(STRANGER_ADDRESS);
   }
-  
+
   function test_GetBlockedSendersCount_Success() public {
     // Send as stranger
     vm.stopPrank();
