@@ -1,126 +1,206 @@
 package interfacetests
 
 import (
-	"context"
-	"fmt"
-	"math/big"
-	"sort"
+	"errors"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type ChainReaderInterfaceTester interface {
-	Setup(t *testing.T)
-	Name() string
-	GetAccountBytes(i int) []byte
+	BasicTester
 	GetChainReader(t *testing.T) types.ChainReader
 
 	// SetLatestValue is expected to return the same bound contract and method in the same test
 	// Any setup required for this should be done in Setup.
 	// The contract should take a LatestParams as the params and return the nth TestStruct set
-	SetLatestValue(ctx context.Context, t *testing.T, testStruct *TestStruct) types.BoundContract
-	GetPrimitiveContract(ctx context.Context, t *testing.T) types.BoundContract
-	GetSliceContract(ctx context.Context, t *testing.T) types.BoundContract
+	SetLatestValue(t *testing.T, testStruct *TestStruct)
+	TriggerEvent(t *testing.T, testStruct *TestStruct)
+	GetBindings(t *testing.T) []types.BoundContract
+	MaxWaitTimeForEvents() time.Duration
 }
 
 const (
+	AnyValueToReadWithoutAnArgument             = uint64(3)
+	AnyDifferentValueToReadWithoutAnArgument    = uint64(1990)
 	MethodTakingLatestParamsReturningTestStruct = "GetLatestValues"
+	MethodReturningUint64                       = "GetPrimitiveValue"
+	DifferentMethodReturningUint64              = "GetDifferentPrimitiveValue"
+	MethodReturningUint64Slice                  = "GetSliceValue"
+	MethodReturningSeenStruct                   = "GetSeenStruct"
+	EventName                                   = "SomeEvent"
+	EventWithFilterName                         = "SomeEventToFilter"
+	AnyContractName                             = "TestContract"
+	AnySecondContractName                       = "Not" + AnyContractName
 )
 
 var AnySliceToReadWithoutAnArgument = []uint64{3, 4}
 
-// RunChainReaderInterfaceTests uses TestStruct and TestStructWithSpecialFields
+const AnyExtraValue = 3
+
 func RunChainReaderInterfaceTests(t *testing.T, tester ChainReaderInterfaceTester) {
-	ctx := tests.Context(t)
-	tests := map[string]func(t *testing.T){
-		"Gets the latest value": func(t *testing.T) {
-			firstItem := CreateTestStruct(0, tester.GetAccountBytes)
-			bc := tester.SetLatestValue(ctx, t, &firstItem)
-			secondItem := CreateTestStruct(1, tester.GetAccountBytes)
-			tester.SetLatestValue(ctx, t, &secondItem)
+	tests := []testcase{
+		{
+			name: "Gets the latest value",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				firstItem := CreateTestStruct(0, tester)
+				tester.SetLatestValue(t, &firstItem)
+				secondItem := CreateTestStruct(1, tester)
+				tester.SetLatestValue(t, &secondItem)
 
-			cr := tester.GetChainReader(t)
-			actual := &TestStruct{}
-			params := &LatestParams{I: 1}
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
 
-			require.NoError(t, cr.GetLatestValue(ctx, bc, MethodTakingLatestParamsReturningTestStruct, params, actual))
-			assert.Equal(t, &firstItem, actual)
+				actual := &TestStruct{}
+				params := &LatestParams{I: 1}
 
-			params.I = 2
-			actual = &TestStruct{}
-			require.NoError(t, cr.GetLatestValue(ctx, bc, MethodTakingLatestParamsReturningTestStruct, params, actual))
-			assert.Equal(t, &secondItem, actual)
+				require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, MethodTakingLatestParamsReturningTestStruct, params, actual))
+				assert.Equal(t, &firstItem, actual)
+
+				params.I = 2
+				actual = &TestStruct{}
+				require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, MethodTakingLatestParamsReturningTestStruct, params, actual))
+				assert.Equal(t, &secondItem, actual)
+			},
 		},
-	}
+		{
+			name: "Get latest value without arguments and with primitive return",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
 
-	runTests(t, tester, tests)
-}
+				var prim uint64
+				require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, MethodReturningUint64, nil, &prim))
 
-func runTests(t *testing.T, tester ChainReaderInterfaceTester, tests map[string]func(t *testing.T)) {
-	// Order the tests for consistency
-	testNames := make([]string, 0, len(tests))
-	for name := range tests {
-		testNames = append(testNames, name)
-	}
-	sort.Strings(testNames)
+				assert.Equal(t, AnyValueToReadWithoutAnArgument, prim)
+			},
+		},
+		{
+			name: "Get latest value allows a contract name to resolve different contracts internally",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
 
-	for i := 0; i < len(testNames); i++ {
-		name := testNames[i]
-		t.Run(name, func(t *testing.T) {
-			tester.Setup(t)
-			tests[name](t)
-		})
-	}
-}
+				var prim uint64
+				require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, DifferentMethodReturningUint64, nil, &prim))
 
-type InnerTestStruct struct {
-	I int
-	S string
-}
+				assert.Equal(t, AnyDifferentValueToReadWithoutAnArgument, prim)
+			},
+		},
+		{
+			name: "Get latest value allows multiple constract names to have the same function name",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				bindings := tester.GetBindings(t)
+				seenAddrs := map[string]bool{}
+				for _, binding := range bindings {
+					assert.False(t, seenAddrs[binding.Address])
+					seenAddrs[binding.Address] = true
+				}
 
-type MidLevelTestStruct struct {
-	FixedBytes [2]byte
-	Inner      InnerTestStruct
-}
+				require.NoError(t, cr.Bind(ctx, bindings))
 
-type TestStruct struct {
-	Field          int32
-	DifferentField string
-	OracleID       commontypes.OracleID
-	OracleIDs      [32]commontypes.OracleID
-	Account        []byte
-	Accounts       [][]byte
-	BigField       *big.Int
-	NestedStruct   MidLevelTestStruct
-}
+				var prim uint64
+				require.NoError(t, cr.GetLatestValue(ctx, AnySecondContractName, MethodReturningUint64, nil, &prim))
 
-type LatestParams struct {
-	I int
-}
+				assert.Equal(t, AnyDifferentValueToReadWithoutAnArgument, prim)
+			},
+		},
+		{
+			name: "Get latest value without arguments and with slice return",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
 
-func CreateTestStruct(i int, accGen func(int) []byte) TestStruct {
-	s := fmt.Sprintf("field%v", i)
-	return TestStruct{
-		Field:          int32(i),
-		DifferentField: s,
-		OracleID:       commontypes.OracleID(i + 1),
-		OracleIDs:      [32]commontypes.OracleID{commontypes.OracleID(i + 2), commontypes.OracleID(i + 3)},
-		Account:        accGen(i + 3),
-		Accounts:       [][]byte{accGen(i + 4), accGen(i + 5)},
-		BigField:       big.NewInt(int64((i + 1) * (i + 2))),
-		NestedStruct: MidLevelTestStruct{
-			FixedBytes: [2]byte{uint8(i), uint8(i + 1)},
-			Inner: InnerTestStruct{
-				I: i,
-				S: s,
+				var slice []uint64
+				require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, MethodReturningUint64Slice, nil, &slice))
+
+				assert.Equal(t, AnySliceToReadWithoutAnArgument, slice)
+			},
+		},
+		{
+			name: "Get latest value wraps config with modifiers using its own mapstructure overrides",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				testStruct := CreateTestStruct(0, tester)
+				testStruct.BigField = nil
+				testStruct.Account = nil
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
+
+				actual := &TestStructWithExtraField{}
+				require.NoError(t, cr.GetLatestValue(ctx, AnyContractName, MethodReturningSeenStruct, testStruct, actual))
+
+				expected := &TestStructWithExtraField{
+					ExtraField: AnyExtraValue,
+					TestStruct: CreateTestStruct(0, tester),
+				}
+
+				assert.Equal(t, expected, actual)
+			},
+		},
+		{
+			name: "Get latest value gets latest event",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
+				ts := CreateTestStruct(0, tester)
+				tester.TriggerEvent(t, &ts)
+				ts = CreateTestStruct(1, tester)
+				tester.TriggerEvent(t, &ts)
+
+				result := &TestStruct{}
+				assert.Eventually(t, func() bool {
+					err := cr.GetLatestValue(ctx, AnyContractName, EventName, nil, &result)
+					return err == nil && reflect.DeepEqual(result, &ts)
+				}, tester.MaxWaitTimeForEvents(), time.Millisecond*10)
+			},
+		},
+		{
+			name: "Get latest value returns not found if event was never triggered",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
+
+				result := &TestStruct{}
+				err := cr.GetLatestValue(ctx, AnyContractName, EventName, nil, &result)
+				assert.True(t, errors.Is(err, types.ErrNotFound))
+			},
+		},
+		{
+			name: "Get latest value gets latest event with filtering",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetChainReader(t)
+				require.NoError(t, cr.Bind(ctx, tester.GetBindings(t)))
+				ts0 := CreateTestStruct(0, tester)
+				tester.TriggerEvent(t, &ts0)
+				ts1 := CreateTestStruct(1, tester)
+				tester.TriggerEvent(t, &ts1)
+
+				filterParams := &FilterEventParams{Field: ts0.Field}
+				result := &TestStruct{}
+				assert.Never(t, func() bool {
+					err := cr.GetLatestValue(ctx, AnyContractName, EventWithFilterName, filterParams, &result)
+					return err == nil && reflect.DeepEqual(result, &ts1)
+				}, tester.MaxWaitTimeForEvents(), time.Millisecond*10)
+
+				assert.Equal(t, &ts0, result)
 			},
 		},
 	}
+	runTests(t, tester, tests)
 }

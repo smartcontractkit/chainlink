@@ -26,6 +26,7 @@ type PluginProvider interface {
 	ConfigProvider
 	ContractTransmitter() ocrtypes.ContractTransmitter
 	ChainReader() ChainReader
+	Codec() Codec
 }
 
 // General error types for providers to return--can be used to wrap more specific errors.
@@ -34,6 +35,7 @@ type PluginProvider interface {
 // to a single string, making it difficult for the client to respond to different categories
 // of errors in different ways. This lessons the need for doing our own custom parsing of
 // error strings.
+
 type InvalidArgumentError string
 
 func (e InvalidArgumentError) Error() string {
@@ -68,6 +70,42 @@ func (e UnimplementedError) Is(target error) bool {
 	}
 
 	return grpcErrorHasTypeAndMessage(target, string(e), codes.Unimplemented)
+}
+
+type InternalError string
+
+func (e InternalError) Error() string {
+	return string(e)
+}
+
+func (e InternalError) GRPCStatus() *status.Status {
+	return status.New(codes.Internal, e.Error())
+}
+
+func (e InternalError) Is(target error) bool {
+	if e == target {
+		return true
+	}
+
+	return grpcErrorHasTypeAndMessage(target, string(e), codes.Internal)
+}
+
+type NotFoundError string
+
+func (e NotFoundError) Error() string {
+	return string(e)
+}
+
+func (e NotFoundError) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
+}
+
+func (e NotFoundError) Is(target error) bool {
+	if e == target {
+		return true
+	}
+
+	return grpcErrorHasTypeAndMessage(target, string(e), codes.NotFound)
 }
 
 func grpcErrorHasTypeAndMessage(target error, msg string, code codes.Code) bool {

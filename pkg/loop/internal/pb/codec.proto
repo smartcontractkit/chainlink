@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
+
+package loop;
+
+import "google/protobuf/empty.proto";
+
+service Codec {
+  rpc GetEncoding(GetEncodingRequest) returns (GetEncodingResponse);
+  rpc GetDecoding(GetDecodingRequest) returns (GetDecodingResponse);
+  rpc GetMaxSize(GetMaxSizeRequest) returns (GetMaxSizeResponse);
+}
+
+message VersionedBytes {
+  uint32 version = 1;
+  bytes data = 2;
+}
+
+message GetEncodingRequest {
+  VersionedBytes params = 1;
+  string itemType = 2;
+}
+
+message GetEncodingResponse {
+  bytes retVal = 1;
+}
+
+message GetDecodingRequest {
+  bytes encoded = 1;
+  string itemType = 2;
+  uint32 wireEncodingVersion = 3;
+}
+
+message GetDecodingResponse {
+  VersionedBytes retVal = 1;
+}
+
+message GetMaxSizeRequest {
+  int32 n = 1;
+  string itemType = 2;
+  bool forEncoding = 3;
+}
+
+message GetMaxSizeResponse {
+  int32 sizeInBytes = 1;
+}

@@ -9,6 +9,8 @@ import (
 
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -65,8 +67,15 @@ func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider type
 				pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
 				pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})
 				pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
-				pb.RegisterChainReaderServer(s, &chainReaderServer{impl: provider.ChainReader()})
 				pb.RegisterReportCodecServer(s, &reportCodecServer{impl: provider.ReportCodec()})
+				if provider.ChainReader() != nil {
+					pb.RegisterChainReaderServer(s, &chainReaderServer{impl: provider.ChainReader()})
+				}
+
+				if provider.Codec() != nil {
+					pb.RegisterCodecServer(s, &codecServer{impl: provider.Codec()})
+				}
+
 				pb.RegisterMedianContractServer(s, &medianContractServer{impl: provider.MedianContract()})
 				pb.RegisterOnchainConfigCodecServer(s, &onchainConfigCodecServer{impl: provider.OnchainConfigCodec()})
 			})
@@ -176,6 +185,7 @@ type medianProviderClient struct {
 	medianContract     median.MedianContract
 	onchainConfigCodec median.OnchainConfigCodec
 	chainReader        types.ChainReader
+	codec              types.Codec
 }
 
 func (m *medianProviderClient) ClientConn() grpc.ClientConnInterface { return m.cc }
@@ -185,7 +195,20 @@ func newMedianProviderClient(b *brokerExt, cc grpc.ClientConnInterface) *medianP
 	m.reportCodec = &reportCodecClient{b, pb.NewReportCodecClient(m.cc)}
 	m.medianContract = &medianContractClient{pb.NewMedianContractClient(m.cc)}
 	m.onchainConfigCodec = &onchainConfigCodecClient{b, pb.NewOnchainConfigCodecClient(m.cc)}
-	m.chainReader = &chainReaderClient{b, pb.NewChainReaderClient(m.cc)}
+
+	maybeCr := &chainReaderClient{b, pb.NewChainReaderClient(m.cc)}
+	var anyRetVal int
+	err := maybeCr.GetLatestValue(context.Background(), "", "", nil, &anyRetVal)
+	if status.Convert(err).Code() != codes.Unimplemented {
+		m.chainReader = maybeCr
+	}
+
+	maybeCodec := &codecClient{b, pb.NewCodecClient(m.cc)}
+	err = maybeCodec.Decode(context.Background(), []byte{}, &anyRetVal, "")
+	if status.Convert(err).Code() != codes.Unimplemented {
+		m.codec = maybeCodec
+	}
+
 	return m
 }
 
@@ -203,6 +226,10 @@ func (m *medianProviderClient) OnchainConfigCodec() median.OnchainConfigCodec {
 
 func (m *medianProviderClient) ChainReader() types.ChainReader {
 	return m.chainReader
+}
+
+func (m *medianProviderClient) Codec() types.Codec {
+	return m.codec
 }
 
 var _ median.ReportCodec = (*reportCodecClient)(nil)

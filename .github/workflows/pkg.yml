@@ -20,6 +20,9 @@ jobs:
       - name: Unit Tests
         run: go test -race ./... -coverpkg=./... -coverprofile=pkg_coverage.out
       
+      - name: Fuzz Tests
+        run: go test github.com/smartcontractkit/chainlink-common/pkg/loop/internal -fuzz . -fuzztime 12s
+      
       - name: Upload Go test results
         if: always()
         uses: actions/upload-artifact@v3

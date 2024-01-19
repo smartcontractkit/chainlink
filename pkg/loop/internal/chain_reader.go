@@ -5,14 +5,23 @@ import (
 	jsonv1 "encoding/json"
 	"fmt"
 
-	"github.com/fxamacker/cbor/v2"
 	jsonv2 "github.com/go-json-experiment/json"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/fxamacker/cbor/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 var _ types.ChainReader = (*chainReaderClient)(nil)
+
+// NewChainReaderTestClient is a test client for [types.ChainReader]
+// internal users should instantiate a client directly and set all private fields
+func NewChainReaderTestClient(conn *grpc.ClientConn) types.ChainReader {
+	return &chainReaderClient{grpc: pb.NewChainReaderClient(conn)}
+}
 
 type chainReaderClient struct {
 	*brokerExt
@@ -29,7 +38,7 @@ const (
 // Version to be used for encoding (version used for decoding is determined by data received)
 const CurrentEncodingVersion = CBOREncodingVersion
 
-func encodeVersionedBytes(data any, version int32) (*pb.VersionedBytes, error) {
+func EncodeVersionedBytes(data any, version uint32) (*pb.VersionedBytes, error) {
 	var bytes []byte
 	var err error
 
@@ -50,20 +59,20 @@ func encodeVersionedBytes(data any, version int32) (*pb.VersionedBytes, error) {
 		var enc cbor.EncMode
 		enc, err = enco.EncMode()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: %w", types.ErrInternal, err)
 		}
 		bytes, err = enc.Marshal(data)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", types.ErrInvalidType, err)
 		}
 	default:
-		return nil, fmt.Errorf("unsupported encoding version %d for data %v", version, data)
+		return nil, fmt.Errorf("%w: unsupported encoding version %d for data %v", types.ErrInvalidEncoding, version, data)
 	}
 
-	return &pb.VersionedBytes{Version: uint32(version), Data: bytes}, nil
+	return &pb.VersionedBytes{Version: version, Data: bytes}, nil
 }
 
-func decodeVersionedBytes(res any, vData *pb.VersionedBytes) error {
+func DecodeVersionedBytes(res any, vData *pb.VersionedBytes) error {
 	var err error
 	switch vData.Version {
 	case JSONEncodingVersion1:
@@ -71,7 +80,13 @@ func decodeVersionedBytes(res any, vData *pb.VersionedBytes) error {
 	case JSONEncodingVersion2:
 		err = jsonv2.Unmarshal(vData.Data, res)
 	case CBOREncodingVersion:
-		err = cbor.Unmarshal(vData.Data, res)
+		decopt := cbor.DecOptions{UTF8: cbor.UTF8DecodeInvalid}
+		var dec cbor.DecMode
+		dec, err = decopt.DecMode()
+		if err != nil {
+			return fmt.Errorf("%w: %w", types.ErrInternal, err)
+		}
+		err = dec.Unmarshal(vData.Data, res)
 	default:
 		return fmt.Errorf("unsupported encoding version %d for versionedData %v", vData.Version, vData.Data)
 	}
@@ -82,23 +97,34 @@ func decodeVersionedBytes(res any, vData *pb.VersionedBytes) error {
 	return nil
 }
 
-func (c *chainReaderClient) GetLatestValue(ctx context.Context, bc types.BoundContract, method string, params, retVal any) error {
-	versionedParams, err := encodeVersionedBytes(params, CurrentEncodingVersion)
+func (c *chainReaderClient) GetLatestValue(ctx context.Context, contractName, method string, params, retVal any) error {
+	versionedParams, err := EncodeVersionedBytes(params, CurrentEncodingVersion)
 	if err != nil {
 		return err
 	}
 
-	boundContract := pb.BoundContract{Name: bc.Name, Address: bc.Address, Pending: bc.Pending}
-
-	reply, err := c.grpc.GetLatestValue(ctx, &pb.GetLatestValueRequest{Bc: &boundContract, Method: method, Params: versionedParams})
+	reply, err := c.grpc.GetLatestValue(ctx, &pb.GetLatestValueRequest{ContractName: contractName, Method: method, Params: versionedParams})
 	if err != nil {
-		return err
+		return wrapRPCErr(err)
 	}
 
-	return decodeVersionedBytes(retVal, reply.RetVal)
+	return DecodeVersionedBytes(retVal, reply.RetVal)
+}
+
+func (c *chainReaderClient) Bind(ctx context.Context, bindings []types.BoundContract) error {
+	pbBindings := make([]*pb.BoundContract, len(bindings))
+	for i, b := range bindings {
+		pbBindings[i] = &pb.BoundContract{Address: b.Address, Name: b.Name, Pending: b.Pending}
+	}
+	_, err := c.grpc.Bind(ctx, &pb.BindRequest{Bindings: pbBindings})
+	return wrapRPCErr(err)
 }
 
 var _ pb.ChainReaderServer = (*chainReaderServer)(nil)
+
+func NewChainReaderServer(impl types.ChainReader) pb.ChainReaderServer {
+	return &chainReaderServer{impl: impl}
+}
 
 type chainReaderServer struct {
 	pb.UnimplementedChainReaderServer
@@ -106,27 +132,46 @@ type chainReaderServer struct {
 }
 
 func (c *chainReaderServer) GetLatestValue(ctx context.Context, request *pb.GetLatestValueRequest) (*pb.GetLatestValueReply, error) {
-	var bc types.BoundContract
-	bc.Name = request.Bc.Name[:]
-	bc.Address = request.Bc.Address[:]
-	bc.Pending = request.Bc.Pending
-
-	params := &map[string]any{}
-
-	if err := decodeVersionedBytes(params, request.Params); err != nil {
-		return nil, err
-	}
-
-	retVal := &map[string]any{}
-	err := c.impl.GetLatestValue(ctx, bc, request.Method, params, retVal)
+	contractName := request.ContractName
+	params, err := getContractEncodedType(contractName, request.Method, c.impl, true)
 	if err != nil {
 		return nil, err
 	}
 
-	encodedRetVal, err := encodeVersionedBytes(retVal, CurrentEncodingVersion)
+	if err = DecodeVersionedBytes(params, request.Params); err != nil {
+		return nil, err
+	}
+
+	retVal, err := getContractEncodedType(contractName, request.Method, c.impl, false)
+	if err != nil {
+		return nil, err
+	}
+	err = c.impl.GetLatestValue(ctx, contractName, request.Method, params, retVal)
+	if err != nil {
+		return nil, err
+	}
+
+	encodedRetVal, err := EncodeVersionedBytes(retVal, request.Params.Version)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.GetLatestValueReply{RetVal: encodedRetVal}, nil
+}
+
+func (c *chainReaderServer) Bind(ctx context.Context, bindings *pb.BindRequest) (*emptypb.Empty, error) {
+	tBindings := make([]types.BoundContract, len(bindings.Bindings))
+	for i, b := range bindings.Bindings {
+		tBindings[i] = types.BoundContract{Address: b.Address, Name: b.Name, Pending: b.Pending}
+	}
+
+	return &emptypb.Empty{}, c.impl.Bind(ctx, tBindings)
+}
+
+func getContractEncodedType(contractName, itemType string, possibleTypeProvider any, forEncoding bool) (any, error) {
+	if ctp, ok := possibleTypeProvider.(types.ContractTypeProvider); ok {
+		return ctp.CreateContractType(contractName, itemType, forEncoding)
+	}
+
+	return &map[string]any{}, nil
 }

@@ -150,10 +150,6 @@ URL = 'https://test.url'
 	payload                     = []byte("oops")
 	medianContractGenericMethod = "LatestTransmissionDetails"
 	getLatestValueParams        = map[string]string{"param1": "value1", "param2": "value2"}
-	boundContract               = types.BoundContract{
-		Name:    "my median contract",
-		Address: "0xBbf078A8849D74653e36E6DBBdC7e1a35E657C26",
-		Pending: false,
-	}
-	latestValue = map[string]int{"ret1": 1, "ret2": 2}
+	contractName                = "my median contract"
+	latestValue                 = map[string]int{"ret1": 1, "ret2": 2}
 )

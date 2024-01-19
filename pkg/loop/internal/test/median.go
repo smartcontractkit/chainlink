@@ -71,7 +71,7 @@ func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types
 	cr := provider.ChainReader()
 	var gotLatestValue map[string]int
 
-	err := cr.GetLatestValue(ctx, boundContract, medianContractGenericMethod, getLatestValueParams, &gotLatestValue)
+	err := cr.GetLatestValue(ctx, contractName, medianContractGenericMethod, getLatestValueParams, &gotLatestValue)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call GetLatestValue() on median provider: %w", err)
 	}
@@ -318,6 +318,10 @@ func (s StaticMedianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
 
 func (s StaticMedianProvider) ChainReader() types.ChainReader {
 	return staticChainReader{}
+}
+
+func (s StaticMedianProvider) Codec() types.Codec {
+	return staticCodec{}
 }
 
 type staticReportCodec struct{}
