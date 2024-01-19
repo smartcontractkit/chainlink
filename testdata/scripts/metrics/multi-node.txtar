@@ -75,4 +75,4 @@ multi_node_states{chainId="68472",network="EVM",state="InvalidChainID"}
 multi_node_states{chainId="68472",network="EVM",state="OutOfSync"}
 multi_node_states{chainId="68472",network="EVM",state="Undialed"}
 multi_node_states{chainId="68472",network="EVM",state="Unreachable"}
-multi_node_states{chainId="68472",network="EVM",state="Unusable"}A
+multi_node_states{chainId="68472",network="EVM",state="Unusable"}
