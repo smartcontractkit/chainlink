@@ -115,7 +115,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 
 	tr.isStarted = true
 	if len(tr.txCache) == 0 {
-		tr.lggr.Infow("no abandoned txes found, skipping runLoop")
+		tr.lggr.Info("no abandoned txes found, skipping runLoop")
 		return nil
 	}
 
@@ -134,7 +134,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() err
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeInternal() error {
-	tr.lggr.Infow("stopping tracker")
+	tr.lggr.Info("stopping tracker")
 	if !tr.isStarted {
 		return fmt.Errorf("tracker not started")
 	}
@@ -164,7 +164,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 				}
 			}
 		case <-ttlExceeded.C:
-			tr.lggr.Infow("ttl exceeded")
+			tr.lggr.Info("ttl exceeded")
 			tr.MarkAllTxesFatal(tr.ctx)
 			return
 		case <-tr.ctx.Done():

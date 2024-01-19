@@ -196,7 +196,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
 		}
 
-		b.logger.Infow("Txm starting runLoop")
+		b.logger.Info("Txm starting runLoop")
 		b.wg.Add(1)
 		go b.runLoop()
 		<-b.chSubbed
