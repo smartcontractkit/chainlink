@@ -21,13 +21,19 @@ contract OptimismSequencerUptimeFeed is SequencerUptimeFeed {
     address l1SenderAddress,
     address l2CrossDomainMessengerAddr,
     bool initialStatus
-  ) SequencerUptimeFeed(l1SenderAddress, initialStatus) {
+  ) SequencerUptimeFeed(l1SenderAddress, true) {
     s_l2CrossDomainMessenger = IL2CrossDomainMessenger(l2CrossDomainMessengerAddr);
+
+    _recordRound(1, initialStatus, uint64(block.timestamp));
   }
 
-  /// @notice Checks if the sender is not authorized to call `updateStatus`
-  function _isNotValidSender() internal view override returns (bool) {
-    return
-      msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != l1Sender();
+  /// @notice Reverts if the sender is not allowed to call `updateStatus`
+  modifier requireValidSender() override {
+    if (
+      msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != l1Sender()
+    ) {
+      revert InvalidSender();
+    }
+    _;
   }
 }

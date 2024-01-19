@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
 import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
 import {IArbitrumDelayedInbox} from "../interfaces/IArbitrumDelayedInbox.sol";
 
+import {SequencerUptimeFeed} from "../SequencerUptimeFeed.sol";
 import {Validator} from "../Validator.sol";
 
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
@@ -209,7 +209,7 @@ contract ArbitrumValidator is Validator {
 
     /// Encode the ArbitrumSequencerUptimeFeed call
     bytes memory message = abi.encodeWithSelector(
-      ArbitrumSequencerUptimeFeedInterface.updateStatus.selector,
+      SequencerUptimeFeed.updateStatus.selector,
       currentAnswer == ANSWER_SEQ_OFFLINE,
       uint64(block.timestamp)
     );

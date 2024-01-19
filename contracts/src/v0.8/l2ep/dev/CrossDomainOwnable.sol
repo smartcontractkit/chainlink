@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.19;
 
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {CrossDomainOwnableInterface} from "./interfaces/CrossDomainOwnableInterface.sol";
 
-/**
- * @title The CrossDomainOwnable contract
- * @notice A contract with helpers for cross-domain contract ownership.
- */
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+
+/// @title The CrossDomainOwnable contract
+/// @notice A contract with helpers for cross-domain contract ownership.
 contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
   address internal s_l1Owner;
   address internal s_l1PendingOwner;
@@ -16,31 +15,23 @@ contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
     _setL1Owner(newl1Owner);
   }
 
-  /**
-   * @notice transfer ownership of this account to a new L1 owner
-   * @param to new L1 owner that will be allowed to call the forward fn
-   */
+  /// @notice transfer ownership of this account to a new L1 owner
+  /// @param to new L1 owner that will be allowed to call the forward fn
   function transferL1Ownership(address to) public virtual override onlyL1Owner {
     _transferL1Ownership(to);
   }
 
-  /**
-   * @notice accept ownership of this account to a new L1 owner
-   */
+  /// @notice accept ownership of this account to a new L1 owner
   function acceptL1Ownership() public virtual override onlyProposedL1Owner {
     _setL1Owner(s_l1PendingOwner);
   }
 
-  /**
-   * @notice Get the current owner
-   */
+  /// @notice Get the current owner
   function l1Owner() public view override returns (address) {
     return s_l1Owner;
   }
 
-  /**
-   * @notice validate, transfer ownership, and emit relevant events
-   */
+  /// @notice validate, transfer ownership, and emit relevant events
   function _transferL1Ownership(address to) internal {
     // solhint-disable-next-line custom-errors
     require(to != msg.sender, "Cannot transfer to self");
@@ -50,9 +41,7 @@ contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
     emit L1OwnershipTransferRequested(s_l1Owner, to);
   }
 
-  /**
-   * @notice set ownership, emit relevant events. Used in acceptOwnership()
-   */
+  /// @notice set ownership, emit relevant events. Used in acceptOwnership()
   function _setL1Owner(address to) internal {
     address oldOwner = s_l1Owner;
     s_l1Owner = to;
@@ -61,18 +50,14 @@ contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
     emit L1OwnershipTransferred(oldOwner, to);
   }
 
-  /**
-   * @notice Reverts if called by anyone other than the L1 owner.
-   */
+  /// @notice Reverts if called by anyone other than the L1 owner.
   modifier onlyL1Owner() virtual {
     // solhint-disable-next-line custom-errors
     require(msg.sender == s_l1Owner, "Only callable by L1 owner");
     _;
   }
 
-  /**
-   * @notice Reverts if called by anyone other than the L1 owner.
-   */
+  /// @notice Reverts if called by anyone other than the L1 owner.
   modifier onlyProposedL1Owner() virtual {
     // solhint-disable-next-line custom-errors
     require(msg.sender == s_l1PendingOwner, "Only callable by proposed L1 owner");

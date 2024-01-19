@@ -337,7 +337,7 @@ contract OptimismSequencerUptimeFeed_GasCosts is OptimismSequencerUptimeFeedTest
     uint256 gasFinal;
 
     // measures gas used for no update
-    expectedGasUsed = 10197; // NOTE: used to be 38594 in hardhat tests
+    expectedGasUsed = 10306; // NOTE: used to be 38594 in hardhat tests
     gasStart = gasleft();
     s_optimismSequencerUptimeFeed.updateStatus(false, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -345,7 +345,7 @@ contract OptimismSequencerUptimeFeed_GasCosts is OptimismSequencerUptimeFeedTest
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
 
     // measures gas used for update
-    expectedGasUsed = 31640; // NOTE: used to be 60170 in hardhat tests
+    expectedGasUsed = 31644; // NOTE: used to be 60170 in hardhat tests
     gasStart = gasleft();
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -362,7 +362,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4504; // NOTE: used to be 30952 in hardhat tests
+    uint256 expectedGasUsed = 4635; // NOTE: used to be 30952 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -386,7 +386,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 2154; // NOTE: used to be 28523 in hardhat tests
+    uint256 expectedGasUsed = 2283; // NOTE: used to be 28523 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -410,7 +410,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1566; // NOTE: used to be 28329 in hardhat tests
+    uint256 expectedGasUsed = 1695; // NOTE: used to be 28329 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -434,7 +434,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1459; // NOTE: used to be 28229 in hardhat tests
+    uint256 expectedGasUsed = 1588; // NOTE: used to be 28229 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -458,7 +458,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1470; // NOTE: used to be 28245 in hardhat tests
+    uint256 expectedGasUsed = 1599; // NOTE: used to be 28245 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -482,7 +482,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 3929; // NOTE: used to be 30682 in hardhat tests
+    uint256 expectedGasUsed = 4059; // NOTE: used to be 30682 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -506,7 +506,7 @@ contract OptimismSequencerUptimeFeed_AggregatorInterfaceGasCosts is OptimismSequ
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 3817; // NOTE: used to be 30570 in hardhat tests
+    uint256 expectedGasUsed = 3958; // NOTE: used to be 30570 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 

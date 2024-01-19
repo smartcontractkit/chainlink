@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
 import {ArbitrumSequencerUptimeFeed} from "../../../dev/arbitrum/ArbitrumSequencerUptimeFeed.sol";
+import {SequencerUptimeFeed} from "../../../dev/SequencerUptimeFeed.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
 import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
 import {Flags} from "../../../dev/Flags.sol";
@@ -62,7 +63,7 @@ contract ArbitrumSequencerUptimeFeed_UpdateStatus is ArbitrumSequencerUptimeFeed
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(abi.encodeWithSelector(ArbitrumSequencerUptimeFeed.InvalidSender.selector));
+    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.InvalidSender.selector));
     s_arbitrumSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -310,7 +311,7 @@ contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequ
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 2154; // NOTE: used to be 28523 in hardhat tests
+    uint256 expectedGasUsed = 2309; // NOTE: used to be 28523 in hardhat tests
     uint256 gasStart;
     uint256 gasFinal;
 

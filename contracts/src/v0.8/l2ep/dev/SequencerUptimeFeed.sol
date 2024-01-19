@@ -30,7 +30,10 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   error InvalidSender();
   /// @notice Replacement for AggregatorV3Interface "No data present"
   error NoDataPresent();
+  /// @notice Contract is not yet initialized
+  error Uninitialized();
 
+  /// @dev Emitted when the L1 sender is updated
   event L1SenderTransferred(address indexed from, address indexed to);
   /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
   event UpdateIgnored(bool latestStatus, uint64 latestTimestamp, bool incomingStatus, uint64 incomingTimestamp);
@@ -46,29 +49,38 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
 
   /// @dev L1 address
   address private s_l1Sender;
+  /// @dev If true reverts if an invalid round was provided as an argument
+  bool private s_revertIfInvalidRound;
 
   /// @dev s_latestRoundId == 0 means this contract is uninitialized.
-  FeedState private s_feedState = FeedState({latestRoundId: 0, latestStatus: false, startedAt: 0, updatedAt: 0});
+  FeedState internal s_feedState = FeedState({latestRoundId: 0, latestStatus: false, startedAt: 0, updatedAt: 0});
 
   /// @dev mapping of round ID to round data
   mapping(uint80 roundId => Round round) private s_rounds;
 
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
-  /// @param initialStatus The initial status of the feed
-  constructor(address l1SenderAddress, bool initialStatus) {
+  constructor(address l1SenderAddress, bool revertIfInvalidRound) {
     _setL1Sender(l1SenderAddress);
-
-    // Initialise roundId == 1 as the first round
-    _recordRound(1, initialStatus, uint64(block.timestamp));
+    s_revertIfInvalidRound = revertIfInvalidRound;
   }
 
-  /// @notice Should return true if the sender is not authorized to call `updateStatus`
-  function _isNotValidSender() internal view virtual returns (bool);
+  /// @notice Check that this contract is initialised, otherwise throw
+  modifier requireInitialized() virtual {
+    if (s_feedState.latestRoundId == 0) {
+      revert Uninitialized();
+    }
+    _;
+  }
+
+  /// @notice Should revert if the sender is not authorized to call `updateStatus`
+  modifier requireValidSender() virtual {
+    _;
+  }
 
   /// @notice Check if a roundId is valid in this current contract state
   /// @dev Mainly used for AggregatorV2V3Interface functions
   /// @param roundId Round ID to check
-  function _isValidRound(uint256 roundId) private view returns (bool) {
+  function _isValidRound(uint256 roundId) internal view returns (bool) {
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
   }
 
@@ -95,7 +107,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
 
   /// @dev Returns an AggregatorV2V3Interface compatible answer from status flag
   /// @param status The status flag to convert to an aggregator-compatible answer
-  function _getStatusAnswer(bool status) private pure returns (int256) {
+  function _getStatusAnswer(bool status) internal pure returns (int256) {
     return status ? int256(1) : int256(0);
   }
 
@@ -103,7 +115,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   /// @param roundId The round ID to record
   /// @param status Sequencer status
   /// @param timestamp The L1 block timestamp of status update
-  function _recordRound(uint80 roundId, bool status, uint64 timestamp) private {
+  function _recordRound(uint80 roundId, bool status, uint64 timestamp) internal {
     s_feedState = FeedState(roundId, status, timestamp, uint64(block.timestamp));
     s_rounds[roundId] = Round(status, timestamp, uint64(block.timestamp));
 
@@ -125,11 +137,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   ///
   /// @param status Sequencer status
   /// @param timestamp Block timestamp of status update
-  function updateStatus(bool status, uint64 timestamp) external {
-    if (_isNotValidSender()) {
-      revert InvalidSender();
-    }
-
+  function updateStatus(bool status, uint64 timestamp) external virtual requireInitialized requireValidSender {
     FeedState memory feedState = s_feedState;
 
     // Ignore if latest recorded timestamp is newer
@@ -147,33 +155,41 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestAnswer() external view override checkAccess returns (int256) {
+  function latestAnswer() external view override checkAccess requireInitialized returns (int256) {
     return _getStatusAnswer(s_feedState.latestStatus);
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestTimestamp() external view override checkAccess returns (uint256) {
+  function latestTimestamp() external view override checkAccess requireInitialized returns (uint256) {
     return s_feedState.startedAt;
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestRound() external view override checkAccess returns (uint256) {
+  function latestRound() external view override checkAccess requireInitialized returns (uint256) {
     return s_feedState.latestRoundId;
   }
 
   /// @inheritdoc AggregatorInterface
-  function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
+  function getAnswer(uint256 roundId) external view override checkAccess requireInitialized returns (int256) {
     if (!_isValidRound(roundId)) {
-      revert NoDataPresent();
+      if (s_revertIfInvalidRound) {
+        revert NoDataPresent();
+      } else {
+        return 0;
+      }
     }
 
     return _getStatusAnswer(s_rounds[uint80(roundId)].status);
   }
 
   /// @inheritdoc AggregatorInterface
-  function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
+  function getTimestamp(uint256 roundId) external view override checkAccess requireInitialized returns (uint256) {
     if (!_isValidRound(roundId)) {
-      revert NoDataPresent();
+      if (s_revertIfInvalidRound) {
+        revert NoDataPresent();
+      } else {
+        return 0;
+      }
     }
 
     return s_rounds[uint80(roundId)].startedAt;
@@ -187,10 +203,15 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
     view
     override
     checkAccess
+    requireInitialized
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
     if (!_isValidRound(_roundId)) {
-      revert NoDataPresent();
+      if (s_revertIfInvalidRound) {
+        revert NoDataPresent();
+      } else {
+        return (_roundId, 0, 0, 0, _roundId);
+      }
     }
 
     Round memory round = s_rounds[_roundId];
@@ -204,6 +225,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
     view
     override
     checkAccess
+    requireInitialized
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
     FeedState memory feedState = s_feedState;
