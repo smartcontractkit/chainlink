@@ -102,7 +102,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 		name := name
 		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
-			cfg := automationTestConfig.MustCopy().(types.AutomationTestConfig)
+			cfg := tc.MustCopy(automationTestConfig)
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 

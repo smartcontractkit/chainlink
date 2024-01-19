@@ -139,9 +139,14 @@ func (c *TestConfig) Save() (string, error) {
 	return filePath, nil
 }
 
-// Returns a deep copy of the Test Config or panics on error
+// MustCopy Returns a deep copy of the Test Config or panics on error
 func (c TestConfig) MustCopy() any {
 	return deepcopy.MustAnything(c).(TestConfig)
+}
+
+// MustCopy Returns a deep copy of struct passed to it and returns a typed copy (or panics on error)
+func MustCopy[T any](c T) T {
+	return deepcopy.MustAnything(c).(T)
 }
 
 func (c *TestConfig) GetLoggingConfig() *ctf_config.LoggingConfig {
