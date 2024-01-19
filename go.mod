@@ -69,7 +69,7 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231222201016-da3f0a763f71
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240119021347-3c541a78cdb8
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240119150605-bbac0e5e53a5
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240119214126-6fa12ac7dd53
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231221191127-1f32389044ea
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/libocr v0.0.0-20240112202000-6359502d2ff1
