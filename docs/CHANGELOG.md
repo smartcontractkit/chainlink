@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `chainlink health` CLI command and HTML `/health` endpoint, to provide human-readable views of the underlying JSON health data.
+- New job type `stream` to represent streamspecs. This job type is not yet used anywhere but will be required for Data Streams V1.
 
 ### Fixed
 
@@ -64,7 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two new prom metrics for mercury, nops should consider adding alerting on these:
     - `mercury_insufficient_blocks_count`
     - `mercury_zero_blocks_count`
-  
+- Added new `Mercury.TLS` TOML config field `CertFile` for configuring transport credentials when the node acts as a client and initiates a TLS handshake.
+
 ### Changed
 
 - `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.

@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type HasEVMConfigs interface {
@@ -351,12 +350,12 @@ type Chain struct {
 	FlagsContractAddress     *ethkey.EIP55Address
 	LinkContractAddress      *ethkey.EIP55Address
 	LogBackfillBatchSize     *uint32
-	LogPollInterval          *models.Duration
+	LogPollInterval          *commonconfig.Duration
 	LogKeepBlocksDepth       *uint32
 	MinIncomingConfirmations *uint32
 	MinContractPayment       *commonassets.Link
 	NonceAutoSync            *bool
-	NoNewHeadsThreshold      *models.Duration
+	NoNewHeadsThreshold      *commonconfig.Duration
 	OperatorFactoryAddress   *ethkey.EIP55Address
 	RPCDefaultBatchSize      *uint32
 	RPCBlockQueryDelay       *uint16
@@ -381,7 +380,7 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: config.ErrInvalidChainType.Error()})
 	}
 
-	if c.GasEstimator.BumpTxDepth != nil && uint32(*c.GasEstimator.BumpTxDepth) > *c.Transactions.MaxInFlight {
+	if c.GasEstimator.BumpTxDepth != nil && *c.GasEstimator.BumpTxDepth > *c.Transactions.MaxInFlight {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
 			Msg: "must be less than or equal to Transactions.MaxInFlight"})
 	}
@@ -404,9 +403,9 @@ type Transactions struct {
 	ForwardersEnabled    *bool
 	MaxInFlight          *uint32
 	MaxQueued            *uint32
-	ReaperInterval       *models.Duration
-	ReaperThreshold      *models.Duration
-	ResendAfterThreshold *models.Duration
+	ReaperInterval       *commonconfig.Duration
+	ReaperThreshold      *commonconfig.Duration
+	ResendAfterThreshold *commonconfig.Duration
 }
 
 func (t *Transactions) setFrom(f *Transactions) {
@@ -669,7 +668,7 @@ func (e *KeySpecificGasEstimator) setFrom(f *KeySpecificGasEstimator) {
 type HeadTracker struct {
 	HistoryDepth     *uint32
 	MaxBufferSize    *uint32
-	SamplingInterval *models.Duration
+	SamplingInterval *commonconfig.Duration
 }
 
 func (t *HeadTracker) setFrom(f *HeadTracker) {
@@ -686,10 +685,10 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 
 type NodePool struct {
 	PollFailureThreshold *uint32
-	PollInterval         *models.Duration
+	PollInterval         *commonconfig.Duration
 	SelectionMode        *string
 	SyncThreshold        *uint32
-	LeaseDuration        *models.Duration
+	LeaseDuration        *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -712,11 +711,11 @@ func (p *NodePool) setFrom(f *NodePool) {
 
 type OCR struct {
 	ContractConfirmations              *uint16
-	ContractTransmitterTransmitTimeout *models.Duration
-	DatabaseTimeout                    *models.Duration
-	DeltaCOverride                     *models.Duration
-	DeltaCJitterOverride               *models.Duration
-	ObservationGracePeriod             *models.Duration
+	ContractTransmitterTransmitTimeout *commonconfig.Duration
+	DatabaseTimeout                    *commonconfig.Duration
+	DeltaCOverride                     *commonconfig.Duration
+	DeltaCJitterOverride               *commonconfig.Duration
+	ObservationGracePeriod             *commonconfig.Duration
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -742,8 +741,8 @@ func (o *OCR) setFrom(f *OCR) {
 
 type Node struct {
 	Name     *string
-	WSURL    *models.URL
-	HTTPURL  *models.URL
+	WSURL    *commonconfig.URL
+	HTTPURL  *commonconfig.URL
 	SendOnly *bool
 	Order    *int32
 }

@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -75,7 +76,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	req.Header.Set(webauth.APIKey, key)
 	req.Header.Set(webauth.APISecret, secret)
 	router.ServeHTTP(w, req)
@@ -96,7 +97,7 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	req.Header.Set(webauth.APIKey, "bad-key")
 	req.Header.Set(webauth.APISecret, "bad-secret")
 	router.ServeHTTP(w, req)
@@ -122,7 +123,7 @@ func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	req.Header.Set(webauth.APIKey, key)
 	req.Header.Set(webauth.APISecret, secret)
 	router.ServeHTTP(w, req)
@@ -143,7 +144,7 @@ func TestRequireAuth_NoneRequired(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	router.ServeHTTP(w, req)
 
 	assert.True(t, called)
@@ -161,7 +162,7 @@ func TestRequireAuth_AuthFailed(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	router.ServeHTTP(w, req)
 
 	assert.False(t, called)
@@ -179,7 +180,7 @@ func TestRequireAuth_LastAuthSuccess(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	router.ServeHTTP(w, req)
 
 	assert.True(t, called)
@@ -197,7 +198,7 @@ func TestRequireAuth_Error(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	router.ServeHTTP(w, req)
 
 	assert.False(t, called)
@@ -503,4 +504,11 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustRequest(t *testing.T, method, url string, body io.Reader) *http.Request {
+	ctx := testutils.Context(t)
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	require.NoError(t, err)
+	return req
 }

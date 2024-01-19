@@ -161,7 +161,7 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(1, 0), // tier no 1 of request size, allows up to 100 bytes
 		Data:              make([]byte, 12),
@@ -194,7 +194,7 @@ func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 	request := &functions_service.OffchainRequest{
 		RequestId:         RequestID[:],
 		RequestInitiator:  SubscriptionOwner.Bytes(),
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
@@ -210,7 +210,7 @@ func TestFunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
 	request := &functions_service.OffchainRequest{
 		RequestId:         RequestID[:],
 		RequestInitiator:  []byte("invalid_address"),
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
@@ -238,7 +238,7 @@ func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 	request := &functions_service.OffchainRequest{
 		RequestId:         RequestID[:],
 		RequestInitiator:  SubscriptionOwner.Bytes(),
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
@@ -255,7 +255,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(1, 0), // tier no 1 of request size, allows up to 100 bytes
 		Data:              make([]byte, 12),
@@ -291,7 +291,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 	cborBytes = cborBytes[1:]
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(1, 1), // tiers no 1 of request size and secrets size, allow up to 100 bytes
 		Data:              cborBytes,
@@ -324,7 +324,7 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(0, 0), // tier no 0 of request size, allows only for max 10 bytes
 		Data:              make([]byte, 20),
@@ -350,7 +350,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(1, 0), // tier no 1 of request size, allows up to 100 bytes
 		Data:              make([]byte, 12),

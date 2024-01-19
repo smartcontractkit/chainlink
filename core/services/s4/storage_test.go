@@ -52,7 +52,7 @@ func TestStorage_Errors(t *testing.T) {
 			SlotId:  1,
 			Version: 0,
 		}
-		ormMock.On("Get", big.New(key.Address.Big()), uint(key.SlotId), mock.Anything).Return(nil, s4.ErrNotFound)
+		ormMock.On("Get", big.New(key.Address.Big()), key.SlotId, mock.Anything).Return(nil, s4.ErrNotFound)
 		_, _, err := storage.Get(testutils.Context(t), key)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})

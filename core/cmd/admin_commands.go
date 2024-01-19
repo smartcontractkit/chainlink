@@ -180,7 +180,7 @@ func (ps AdminUsersPresenters) RenderTable(rt RendererTable) error {
 
 // ListUsers renders all API users and their roles
 func (s *Shell) ListUsers(_ *cli.Context) (err error) {
-	resp, err := s.HTTP.Get("/v2/users/", nil)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/users/", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -195,7 +195,7 @@ func (s *Shell) ListUsers(_ *cli.Context) (err error) {
 
 // CreateUser creates a new user by prompting for email, password, and role
 func (s *Shell) CreateUser(c *cli.Context) (err error) {
-	resp, err := s.HTTP.Get("/v2/users/", nil)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/users/", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -234,7 +234,7 @@ func (s *Shell) CreateUser(c *cli.Context) (err error) {
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	response, err := s.HTTP.Post("/v2/users", buf)
+	response, err := s.HTTP.Post(s.ctx(), "/v2/users", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -263,7 +263,7 @@ func (s *Shell) ChangeRole(c *cli.Context) (err error) {
 	}
 
 	buf := bytes.NewBuffer(requestData)
-	response, err := s.HTTP.Patch("/v2/users", buf)
+	response, err := s.HTTP.Patch(s.ctx(), "/v2/users", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -283,7 +283,7 @@ func (s *Shell) DeleteUser(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("email flag is empty, must specify an email"))
 	}
 
-	response, err := s.HTTP.Delete(fmt.Sprintf("/v2/users/%s", email))
+	response, err := s.HTTP.Delete(s.ctx(), fmt.Sprintf("/v2/users/%s", email))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -297,8 +297,8 @@ func (s *Shell) DeleteUser(c *cli.Context) (err error) {
 }
 
 // Status will display the health of various services
-func (s *Shell) Status(_ *cli.Context) error {
-	resp, err := s.HTTP.Get("/health?full=1", nil)
+func (s *Shell) Status(c *cli.Context) error {
+	resp, err := s.HTTP.Get(s.ctx(), "/health?full=1", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -313,6 +313,7 @@ func (s *Shell) Status(_ *cli.Context) error {
 
 // Profile will collect pprof metrics and store them in a folder.
 func (s *Shell) Profile(c *cli.Context) error {
+	ctx := s.ctx()
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
 
@@ -342,7 +343,7 @@ func (s *Shell) Profile(c *cli.Context) error {
 		go func(vt string) {
 			defer wgPprof.Done()
 			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
-			resp, err := s.HTTP.Get(uri)
+			resp, err := s.HTTP.Get(ctx, uri)
 			if err != nil {
 				errs <- fmt.Errorf("error collecting %s: %w", vt, err)
 				return

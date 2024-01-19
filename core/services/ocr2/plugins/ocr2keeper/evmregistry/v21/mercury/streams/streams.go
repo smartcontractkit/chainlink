@@ -15,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

@@ -212,3 +212,8 @@ run_test_with_local_image: build_docker_image
 	ARGS="$(args)" \
 	PRODUCT=$(product) 	\
 	./scripts/run_product_tests
+
+# removes all occurrences of .run.id file in current folder and it's subdirectories
+# before making any changes lists all file locations and awaits user confirmation
+remove_test_execution_artefacts:
+	./scripts/search_and_delete.sh .run.id

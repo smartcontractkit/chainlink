@@ -8,7 +8,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 const (
@@ -56,49 +56,49 @@ type Funding struct {
 }
 
 type Soak struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type SecretsSoak struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type RealSoak struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type Stress struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type SecretsStress struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type RealStress struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type GatewayListSoak struct {
-	RPS      int64            `toml:"rps"`
-	Duration *models.Duration `toml:"duration"`
+	RPS      int64                  `toml:"rps"`
+	Duration *commonconfig.Duration `toml:"duration"`
 }
 
 type GatewaySetSoak struct {
-	RPS      int64            `toml:"rps"`
-	Duration *models.Duration `toml:"duration"`
+	RPS      int64                  `toml:"rps"`
+	Duration *commonconfig.Duration `toml:"duration"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {
