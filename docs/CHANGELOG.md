@@ -64,6 +64,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.
 - `L2Suggested` mode is now called `SuggestedPrice`
 - Console logs will now escape (non-whitespace) control characters
+- Following EVM Pool metrics were renamed:
+  - `evm_pool_rpc_node_states` &rarr; `multi_node_states`
+  - `evm_pool_rpc_node_num_transitions_to_alive` &rarr; `pool_rpc_node_num_transitions_to_alive`
+  - `evm_pool_rpc_node_num_transitions_to_in_sync` &rarr; `pool_rpc_node_num_transitions_to_in_sync`
+  - `evm_pool_rpc_node_num_transitions_to_out_of_sync` &rarr; `pool_rpc_node_num_transitions_to_out_of_sync`
+  - `evm_pool_rpc_node_num_transitions_to_unreachable` &rarr; `pool_rpc_node_num_transitions_to_unreachable`
+  - `evm_pool_rpc_node_num_transitions_to_invalid_chain_id` &rarr; `pool_rpc_node_num_transitions_to_invalid_chain_id`
+  - `evm_pool_rpc_node_num_transitions_to_unusable` &rarr; `pool_rpc_node_num_transitions_to_unusable`
+  - `evm_pool_rpc_node_highest_seen_block` &rarr; `pool_rpc_node_highest_seen_block`
+  - `evm_pool_rpc_node_num_seen_blocks` &rarr; `pool_rpc_node_num_seen_blocks`
+  - `evm_pool_rpc_node_polls_total` &rarr; `pool_rpc_node_polls_total`
+  - `evm_pool_rpc_node_polls_failed` &rarr; `pool_rpc_node_polls_failed`
+  - `evm_pool_rpc_node_polls_success` &rarr; `pool_rpc_node_polls_success`
 
 ### Removed
 
