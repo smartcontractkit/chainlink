@@ -189,10 +189,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
+		b.logger.Info("Txm starting tracker")
 		if err := ms.Start(ctx, b.tracker); err != nil {
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
 		}
 
+		b.logger.Info("Txm starting runLoop")
 		b.wg.Add(1)
 		go b.runLoop()
 		<-b.chSubbed
