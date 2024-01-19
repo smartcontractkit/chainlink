@@ -287,11 +287,8 @@ affinity:
 # Configure the default network policy.
 networkPolicyDefault:
   ingress:
-    rules: []
-    # Example to enable specific ingress rules:
-    # rules:
-    #   - from:
-    #       - ipBlock:
-    #           cidr: "192.168.1.0/24"
-    #       - ipBlock:
-    #           cidr: "10.0.0.0/16"
+    allowCustomCidrs: false
+    # String of comma separated CIDRs
+    customCidrs: null
+    # Example:
+    # customCidrs: "10.0.0.0/16,192.168.0.1/24"

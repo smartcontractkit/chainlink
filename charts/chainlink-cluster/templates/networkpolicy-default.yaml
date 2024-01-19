@@ -9,10 +9,18 @@ spec:
     - Ingress
     - Egress
   ingress:
-  {{- if .Values.ingress.rules }}
-    {{- toYaml .Values.ingress.rules | nindent 4 }}
+  {{- if and .Values.networkPolicyDefault.ingress.allowCustomCidrs (not (empty .Values.networkPolicyDefault.ingress.customCidrs)) }}
+  # Using a comma separated list to make it easy to pass in with:
+  # `helm template ... --set networkPolicyDefault.ingress.customCidrs=...`
+  {{- $cidrs := splitList "," .Values.networkPolicyDefault.ingress.customCidrs }}
+    - from:
+      {{- range $cidr := $cidrs }}
+      - ipBlock:
+          cidr: {{ $cidr | quote }}
+      {{- end }}
   {{- else }}
-  - {}  # Deny all ingress if no rules are specified. Rules can still be specified in other templates.
+    # Deny all ingress if no rules are specified. Rules can still be specified in other templates.
+    - {}
   {{- end }}
   egress:
     - to:
