@@ -13,6 +13,7 @@ import (
 func TestGatewayLoad(t *testing.T) {
 	listConfig, err := tc.GetConfig("GatewayList", tc.Functions)
 	require.NoError(t, err)
+	cfgl := listConfig.Logging.Loki
 
 	require.NoError(t, err)
 	ft, err := SetupLocalLoadTestEnv(&listConfig, &listConfig)
@@ -39,7 +40,7 @@ func TestGatewayLoad(t *testing.T) {
 			ft.DONPublicKey,
 		),
 		Labels:     labels,
-		LokiConfig: tc.LokiConfigFromToml(&listConfig),
+		LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}
 
 	setConfig, err := tc.GetConfig("GatewaySet", tc.Functions)
@@ -60,7 +61,7 @@ func TestGatewayLoad(t *testing.T) {
 			ft.DONPublicKey,
 		),
 		Labels:     labels,
-		LokiConfig: tc.LokiConfigFromToml(&setConfig),
+		LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}
 
 	t.Run("gateway secrets list soak test", func(t *testing.T) {

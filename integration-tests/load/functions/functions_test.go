@@ -29,6 +29,7 @@ func TestFunctionsLoad(t *testing.T) {
 		config, err := tc.GetConfig("Soak", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
+		cfgl := config.Logging.Loki
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -52,7 +53,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: tc.LokiConfigFromToml(&config),
+				LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -62,6 +63,7 @@ func TestFunctionsLoad(t *testing.T) {
 		config, err := tc.GetConfig("Stress", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
+		cfgl := config.Logging.Loki
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -85,7 +87,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: tc.LokiConfigFromToml(&config),
+				LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -95,6 +97,7 @@ func TestFunctionsLoad(t *testing.T) {
 		config, err := tc.GetConfig("SecretsSoak", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
+		cfgl := config.Logging.Loki
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -118,7 +121,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: tc.LokiConfigFromToml(&config),
+				LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -128,6 +131,7 @@ func TestFunctionsLoad(t *testing.T) {
 		config, err := tc.GetConfig("SecretsStress", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
+		cfgl := config.Logging.Loki
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -151,7 +155,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: tc.LokiConfigFromToml(&config),
+				LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -161,6 +165,7 @@ func TestFunctionsLoad(t *testing.T) {
 		config, err := tc.GetConfig("RealSoak", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
+		cfgl := config.Logging.Loki
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -184,7 +189,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: tc.LokiConfigFromToml(&config),
+				LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 			})).
 			Run(true)
 		require.NoError(t, err)
@@ -194,6 +199,7 @@ func TestFunctionsLoad(t *testing.T) {
 		config, err := tc.GetConfig("RealStress", tc.Functions)
 		require.NoError(t, err, "failed to get config")
 		cfg := config.Functions
+		cfgl := config.Logging.Loki
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -217,7 +223,7 @@ func TestFunctionsLoad(t *testing.T) {
 					StringToByte32(*cfg.Common.DONID),
 				),
 				Labels:     labels,
-				LokiConfig: tc.LokiConfigFromToml(&config),
+				LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 			})).
 			Run(true)
 		require.NoError(t, err)

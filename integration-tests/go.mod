@@ -25,12 +25,12 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240118012339-4864e2306bb1
-	github.com/smartcontractkit/chainlink-testing-framework v1.22.5-0.20240116132400-6a1d242b654d
+	github.com/smartcontractkit/chainlink-testing-framework v1.22.8-0.20240118212221-08dc0b6782f1
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240112202000-6359502d2ff1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wasp v0.4.0
+	github.com/smartcontractkit/wasp v0.4.1
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
 	github.com/test-go/testify v1.1.4
@@ -486,4 +486,7 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
+	// type func(a Label, b Label) bool of func(a, b Label) bool {…} does not match inferred type func(a Label, b Label) int for func(a E, b E) int
+	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
 )

@@ -74,6 +74,8 @@ jobs:
           tenant_id="$LOKI_TENANT_ID"
           endpoint="$LOKI_URL"
           basic_auth="$LOKI_BASIC_AUTH"
+          # legacy, you only need this to access the cloud version
+          # bearer_token="bearer_token"
           EOF
 
           echo "$decoded_toml" >> final_config.toml

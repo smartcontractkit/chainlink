@@ -51,7 +51,8 @@ func TestVRFV2Performance(t *testing.T) {
 	testReporter := &testreporters.VRFV2TestReporter{}
 	vrfv2Config := testConfig.VRFv2
 
-	lokiConfig := tc.LokiConfigFromToml(&testConfig)
+	cfgl := testConfig.Logging.Loki
+	lokiConfig := wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken)
 	lc, err := wasp.NewLokiClient(lokiConfig)
 	if err != nil {
 		l.Error().Err(err).Msg(ErrLokiClient)
