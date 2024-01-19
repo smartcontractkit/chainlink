@@ -216,7 +216,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 		return fmt.Errorf("tracker already started")
 	}
 
-	tr.lggr.Infow("Retrieving non fatal transactions from txStore")
+	tr.lggr.Info("Retrieving non fatal transactions from txStore")
 	nonFatalTxes, err := tr.txStore.GetNonFatalTransactions(ctx, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get non fatal txes from txStore: %w", err)
@@ -245,7 +245,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleTxesB
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context, blockHeight int64) error {
-	tr.lggr.Infow("Handling transactions by state")
+	tr.lggr.Info("Handling transactions by state")
 
 	for id, atx := range tr.txCache {
 		tx, err := tr.txStore.GetTxByID(ctx, atx.id)
