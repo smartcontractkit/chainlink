@@ -417,12 +417,22 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
 	}
 
+	// Update in memory store
 	tx, err := as.PeekInProgressTx()
 	if tx == nil {
 		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
 	}
-	// TODO: DOES THIS ATTEMPT HAVE AN ID? IF NOT, HOW DO WE GET IT?
-	tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{*replacementAttempt}
+
+	var found bool
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		if tx.TxAttempts[i].ID == oldAttempt.ID {
+			tx.TxAttempts[i] = *replacementAttempt
+			found = true
+		}
+	}
+	if !found {
+		tx.TxAttempts = append(tx.TxAttempts, *replacementAttempt)
+	}
 
 	return nil
 }
