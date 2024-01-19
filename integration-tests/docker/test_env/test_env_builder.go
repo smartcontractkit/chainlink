@@ -239,7 +239,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.hasLogStream {
-		b.te.LogStream, err = logstream.NewLogStream(b.te.t, b.testConfig.MustGetLoggingConfig())
+		b.te.LogStream, err = logstream.NewLogStream(b.te.t, b.testConfig.GetLoggingConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -285,7 +285,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
 			}
 
-			if b.t.Failed() || *b.testConfig.MustGetLoggingConfig().TestLogCollect {
+			if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
 				// we can't do much if this fails, so we just log the error in logstream
 				_ = b.te.LogStream.FlushAndShutdown()
 				b.te.LogStream.PrintLogTargetsLocations()
@@ -322,7 +322,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		return b.te, nil
 	}
 
-	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.MustGetNetworkConfig())[0]
+	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.GetNetworkConfig())[0]
 	var rpcProvider test_env.RpcProvider
 	if b.ethereumNetwork != nil && networkConfig.Simulated {
 		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point

@@ -12,13 +12,13 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/smartcontractkit/wasp"
 
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
 /* SingleFunctionCallGun is a gun that constantly requests randomness for one feed  */
 
 type GatewaySecretsSetGun struct {
-	Cfg                *tc.TestConfig
+	Cfg                types.FunctionsTestConfig
 	Resty              *resty.Client
 	SlotID             uint
 	Method             string
@@ -27,7 +27,7 @@ type GatewaySecretsSetGun struct {
 	DONPublicKey       []byte
 }
 
-func NewGatewaySecretsSetGun(cfg *tc.TestConfig, method string, pKey *ecdsa.PrivateKey, tdh2PubKey *tdh2easy.PublicKey, donPubKey []byte) *GatewaySecretsSetGun {
+func NewGatewaySecretsSetGun(cfg types.FunctionsTestConfig, method string, pKey *ecdsa.PrivateKey, tdh2PubKey *tdh2easy.PublicKey, donPubKey []byte) *GatewaySecretsSetGun {
 	return &GatewaySecretsSetGun{
 		Cfg:                cfg,
 		Resty:              resty.New(),
@@ -60,15 +60,15 @@ func callSecretsSet(m *GatewaySecretsSetGun) *wasp.Response {
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
-	network := m.Cfg.Network.SelectedNetworks[0]
-	if len(m.Cfg.Network.WalletKeys[network]) < 1 {
+	network := m.Cfg.GetNetworkConfig().SelectedNetworks[0]
+	if len(m.Cfg.GetNetworkConfig().WalletKeys[network]) < 1 {
 		panic(fmt.Sprintf("no wallet keys found for %s", network))
 	}
 
-	cfg := m.Cfg.Functions
+	cfg := m.Cfg.GetFunctionsConfig()
 	_, _, err = UploadS4Secrets(m.Resty, &S4SecretsCfg{
 		GatewayURL:            *cfg.Common.GatewayURL,
-		PrivateKey:            m.Cfg.Network.WalletKeys[network][0],
+		PrivateKey:            m.Cfg.GetNetworkConfig().WalletKeys[network][0],
 		MessageID:             randNum,
 		Method:                "secrets_set",
 		DonID:                 *cfg.Common.DONID,
@@ -88,15 +88,15 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.Response {
 	randSlot := uint(rand.Intn(5))
 	version := uint64(time.Now().UnixNano())
 	expiration := int64(60 * 60 * 1000)
-	network := m.Cfg.Network.SelectedNetworks[0]
-	if len(m.Cfg.Network.WalletKeys[network]) < 1 {
+	network := m.Cfg.GetNetworkConfig().SelectedNetworks[0]
+	if len(m.Cfg.GetNetworkConfig().WalletKeys[network]) < 1 {
 		panic(fmt.Sprintf("no wallet keys found for %s", network))
 	}
-	cfg := m.Cfg.Functions
+	cfg := m.Cfg.GetFunctionsConfig()
 	if err := ListS4Secrets(m.Resty, &S4SecretsCfg{
 		GatewayURL:            *cfg.Common.GatewayURL,
 		RecieverAddr:          *cfg.Common.Receiver,
-		PrivateKey:            m.Cfg.Network.WalletKeys[network][0],
+		PrivateKey:            m.Cfg.GetNetworkConfig().WalletKeys[network][0],
 		MessageID:             randNum,
 		Method:                m.Method,
 		DonID:                 *cfg.Common.DONID,

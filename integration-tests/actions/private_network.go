@@ -7,8 +7,8 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
-func EthereumNetworkConfigFromConfig(l zerolog.Logger, config *tc.TestConfig) (network ctf_test_env.EthereumNetwork, err error) {
-	if config.PrivateEthereumNetwork == nil {
+func EthereumNetworkConfigFromConfig(l zerolog.Logger, config tc.GlobalTestConfig) (network ctf_test_env.EthereumNetwork, err error) {
+	if config.GetPrivateEthereumNetworkConfig() == nil {
 		l.Warn().Msg("No TOML private ethereum network config found, will use old geth")
 		ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 		network, err = ethBuilder.
@@ -21,7 +21,7 @@ func EthereumNetworkConfigFromConfig(l zerolog.Logger, config *tc.TestConfig) (n
 
 	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 	network, err = ethBuilder.
-		WithExistingConfig(*config.PrivateEthereumNetwork).
+		WithExistingConfig(*config.GetPrivateEthereumNetworkConfig()).
 		Build()
 
 	return

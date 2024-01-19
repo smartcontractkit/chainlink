@@ -80,7 +80,7 @@ func TestVRFv2Plus(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Link Billing", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
@@ -94,8 +94,11 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
 			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			&configCopy,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
@@ -124,7 +127,7 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 
 	t.Run("Native Billing", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		testConfig := configCopy.VRFv2Plus.General
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
@@ -139,9 +142,12 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*testConfig.RandomnessRequestCountPerRequest,
-			&configCopy,
-			testConfig.RandomWordsFulfilledEventTimeout.Duration,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -167,7 +173,7 @@ func TestVRFv2Plus(t *testing.T) {
 		}
 	})
 	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			env,
 			&configCopy,
@@ -180,7 +186,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("Link Billing", func(t *testing.T) {
-			configCopy := config.MustCopy()
+			configCopy := config.MustCopy().(tc.TestConfig)
 			testConfig := configCopy.VRFv2Plus.General
 			var isNativeBilling = false
 
@@ -197,8 +203,12 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				&configCopy,
-				testConfig.RandomWordsFulfilledEventTimeout.Duration,
+				*configCopy.VRFv2Plus.General.MinimumConfirmations,
+				*configCopy.VRFv2Plus.General.CallbackGasLimit,
+				*configCopy.VRFv2Plus.General.NumberOfWords,
+				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -230,7 +240,7 @@ func TestVRFv2Plus(t *testing.T) {
 			}
 		})
 		t.Run("Native Billing", func(t *testing.T) {
-			configCopy := config.MustCopy()
+			configCopy := config.MustCopy().(tc.TestConfig)
 			testConfig := configCopy.VRFv2Plus.General
 			var isNativeBilling = true
 
@@ -247,8 +257,12 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				&configCopy,
-				testConfig.RandomWordsFulfilledEventTimeout.Duration,
+				*configCopy.VRFv2Plus.General.MinimumConfirmations,
+				*configCopy.VRFv2Plus.General.CallbackGasLimit,
+				*configCopy.VRFv2Plus.General.NumberOfWords,
+				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -281,10 +295,11 @@ func TestVRFv2Plus(t *testing.T) {
 		})
 	})
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&configCopy,
+			big.NewFloat(*configCopy.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
+			big.NewFloat(*configCopy.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -373,7 +388,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	})
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		testConfig := configCopy.VRFv2Plus.General
 
 		//underfund subs in order rand fulfillments to fail
@@ -382,7 +397,8 @@ func TestVRFv2Plus(t *testing.T) {
 
 		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&configCopy,
+			big.NewFloat(*configCopy.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
+			big.NewFloat(*configCopy.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -413,8 +429,11 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForCancelling,
 			false,
-			*testConfig.RandomnessRequestCountPerRequest,
-			&configCopy,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
 			randomWordsFulfilledEventTimeout,
 			l,
 		)
@@ -427,8 +446,11 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForCancelling,
 			true,
-			*testConfig.RandomnessRequestCountPerRequest,
-			&configCopy,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
 			randomWordsFulfilledEventTimeout,
 			l,
 		)
@@ -531,11 +553,11 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 
 	t.Run("Owner Withdraw", func(t *testing.T) {
-		configCopy := config.MustCopy()
-		testConfig := configCopy.VRFv2Plus.General
+		configCopy := config.MustCopy().(tc.TestConfig)
 		subIDsForWithdraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			&configCopy,
+			big.NewFloat(*configCopy.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
+			big.NewFloat(*configCopy.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
 			linkToken,
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
@@ -550,9 +572,12 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForWithdraw,
 			false,
-			*testConfig.RandomnessRequestCountPerRequest,
-			&configCopy,
-			testConfig.RandomWordsFulfilledEventTimeout.Duration,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
 		require.NoError(t, err)
@@ -563,9 +588,12 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForWithdraw,
 			true,
-			*testConfig.RandomnessRequestCountPerRequest,
-			&configCopy,
-			testConfig.RandomWordsFulfilledEventTimeout.Duration,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 			l,
 		)
 		require.NoError(t, err)
@@ -664,8 +692,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
-		configCopy := config.MustCopy()
-		testConfig := configCopy.VRFv2Plus.General
+		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
 		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
@@ -680,9 +707,12 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 				vrfv2PlusData,
 				subID,
 				isNativeBilling,
-				*testConfig.RandomnessRequestCountPerRequest,
-				&configCopy,
-				testConfig.RandomWordsFulfilledEventTimeout.Duration,
+				*configCopy.VRFv2Plus.General.MinimumConfirmations,
+				*configCopy.VRFv2Plus.General.CallbackGasLimit,
+				*configCopy.VRFv2Plus.General.NumberOfWords,
+				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -883,7 +913,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		vrfv2PlusData,
 		subID,
 		false,
-		&config,
+		*config.VRFv2Plus.General.MinimumConfirmations,
+		*config.VRFv2Plus.General.CallbackGasLimit,
+		*config.VRFv2Plus.General.NumberOfWords,
+		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -895,7 +929,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		vrfv2PlusData,
 		subID,
 		true,
-		&config,
+		*config.VRFv2Plus.General.MinimumConfirmations,
+		*config.VRFv2Plus.General.CallbackGasLimit,
+		*config.VRFv2Plus.General.NumberOfWords,
+		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -292,15 +293,15 @@ var networkConfig = map[string]NetworkConfig{
 	},
 }
 
-func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*environment.Environment, blockchain.EVMNetwork) {
+func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
 	l := logging.GetTestLogger(t)
-	testNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0] // Environment currently being used to run benchmark test on
+	testNetwork := networks.MustGetSelectedNetworkConfig(keeperTestConfig.GetNetworkConfig())[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
-	numberOfNodes := *testConfig.Keeper.Common.NumberOfNodes
+	numberOfNodes := *keeperTestConfig.GetKeeperConfig().Common.NumberOfNodes
 
-	if strings.Contains(*testConfig.Keeper.Common.RegistryToTest, "2_") {
+	if strings.Contains(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest, "2_") {
 		numberOfNodes++
 	}
 
@@ -308,9 +309,9 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s-%s",
-			testConfig.ConfigurationName,
+			keeperTestConfig.GetConfigurationName(),
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
-			strings.ReplaceAll(strings.ToLower(*testConfig.Keeper.Common.RegistryToTest), "_", "-"),
+			strings.ReplaceAll(strings.ToLower(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest), "_", "-"),
 		),
 		Test:               t,
 		PreventPodEviction: true,
@@ -318,7 +319,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 
 	dbResources := performanceDbResources
 	chainlinkResources := performanceChainlinkResources
-	if strings.ToLower(testConfig.ConfigurationName) == "soak" {
+	if strings.ToLower(keeperTestConfig.GetConfigurationName()) == "soak" {
 		chainlinkResources = soakChainlinkResources
 		dbResources = soakDbResources
 	}
@@ -409,15 +410,15 @@ func SetupAutomationBenchmarkEnv(t *testing.T, testConfig *tc.TestConfig) (*envi
 		testNetwork.URLs = []string{internalWsURLs[i]}
 
 		var overrideFn = func(_ interface{}, target interface{}) {
-			ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, target)
-			ctf_config.MightConfigOverridePyroscopeKey(testConfig.Pyroscope, target)
+			ctf_config.MustConfigOverrideChainlinkVersion(keeperTestConfig.GetChainlinkImageConfig(), target)
+			ctf_config.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
 		}
 
 		cd := chainlink.NewWithOverride(i, map[string]any{
-			"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, testConfig.Pyroscope, networkDetailTOML, testNetwork),
+			"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, keeperTestConfig.GetPyroscopeConfig(), networkDetailTOML, testNetwork),
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
-		}, testConfig.ChainlinkImage, overrideFn)
+		}, keeperTestConfig.GetChainlinkImageConfig(), overrideFn)
 
 		testEnvironment.AddHelm(cd)
 	}

@@ -14,7 +14,7 @@ func TestFunctionsLoad(t *testing.T) {
 	generalConfig, err := tc.GetConfig(tc.NoKey, tc.Functions)
 	require.NoError(t, err, "failed to get config")
 
-	ft, err := SetupLocalLoadTestEnv(&generalConfig)
+	ft, err := SetupLocalLoadTestEnv(&generalConfig, &generalConfig)
 	require.NoError(t, err)
 	ft.EVMClient.ParallelTransactions(false)
 

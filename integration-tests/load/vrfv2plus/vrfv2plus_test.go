@@ -117,7 +117,8 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(
 				env,
-				&testConfig,
+				big.NewFloat(*testConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
+				big.NewFloat(*testConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
 				linkToken,
 				coordinator,
 				consumers,
@@ -287,8 +288,8 @@ func cancelSubsAndReturnFunds(subIDs []*big.Int, l zerolog.Logger) {
 	}
 }
 
-func FundNodesIfNeeded(config *tc.TestConfig, client blockchain.EVMClient, l zerolog.Logger) error {
-	cfg := config.VRFv2Plus
+func FundNodesIfNeeded(vrfv2plusTestConfig tc.VRFv2PlusTestConfig, client blockchain.EVMClient, l zerolog.Logger) error {
+	cfg := vrfv2plusTestConfig.GetVRFv2PlusConfig()
 	if *cfg.ExistingEnvConfig.NodeSendingKeyFundingMin > 0 {
 		for _, sendingKey := range cfg.ExistingEnvConfig.NodeSendingKeys {
 			address := common.HexToAddress(sendingKey)

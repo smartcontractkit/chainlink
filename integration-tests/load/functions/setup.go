@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
@@ -50,8 +51,8 @@ type S4SecretsCfg struct {
 	S4SetPayload          string
 }
 
-func SetupLocalLoadTestEnv(config *tc.TestConfig) (*FunctionsTest, error) {
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
+func SetupLocalLoadTestEnv(globalConfig tc.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
+	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
 	bc, err := blockchain.NewEVMClientFromNetwork(selectedNetwork, log.Logger)
 	if err != nil {
 		return nil, err
@@ -69,7 +70,7 @@ func SetupLocalLoadTestEnv(config *tc.TestConfig) (*FunctionsTest, error) {
 		return nil, err
 	}
 
-	cfg := config.Functions
+	cfg := functionsConfig.GetFunctionsConfig()
 
 	lt, err := cl.LoadLINKToken(*cfg.Common.LINKTokenAddr)
 	if err != nil {

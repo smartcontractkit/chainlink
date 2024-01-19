@@ -32,11 +32,43 @@ import (
 )
 
 type GlobalTestConfig interface {
-	MustGetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
-	MustGetLoggingConfig() *ctf_config.LoggingConfig
-	MustGetNetworkConfig() *ctf_config.NetworkConfig
-	MustGetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
-	MustGetPyroscopeConfig() *ctf_config.PyroscopeConfig
+	GetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
+	GetLoggingConfig() *ctf_config.LoggingConfig
+	GetNetworkConfig() *ctf_config.NetworkConfig
+	GetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
+	GetPyroscopeConfig() *ctf_config.PyroscopeConfig
+}
+
+type UpgradeableChainlinkTestConfig interface {
+	GetChainlinkUpgradeImageConfig() *ctf_config.ChainlinkImageConfig
+}
+
+type CommonTestConfig interface {
+	GetCommonConfig() *Common
+}
+
+type VRFv2TestConfig interface {
+	GetVRFv2Config() *vrfv2_config.Config
+}
+
+type VRFv2PlusTestConfig interface {
+	GetVRFv2PlusConfig() *vrfv2plus_config.Config
+}
+
+type FunctionsTestConfig interface {
+	GetFunctionsConfig() *f_config.Config
+}
+
+type KeeperTestConfig interface {
+	GetKeeperConfig() *keeper_config.Config
+}
+
+type OcrTestConfig interface {
+	GetOCRConfig() *ocr_config.Config
+}
+
+type NamedConfiguration interface {
+	GetConfigurationName() string
 }
 
 type TestConfig struct {
@@ -108,47 +140,60 @@ func (c *TestConfig) Save() (string, error) {
 }
 
 // Returns a deep copy of the Test Config or panics on error
-func (c TestConfig) MustCopy() TestConfig {
+func (c TestConfig) MustCopy() any {
 	return deepcopy.MustAnything(c).(TestConfig)
 }
 
-func (c *TestConfig) MustGetLoggingConfig() *ctf_config.LoggingConfig {
-	if c.Logging == nil {
-		panic("logging config must set")
-	}
-
+func (c *TestConfig) GetLoggingConfig() *ctf_config.LoggingConfig {
 	return c.Logging
 }
 
-func (c TestConfig) MustGetNetworkConfig() *ctf_config.NetworkConfig {
-	if c.Network == nil {
-		panic("network config not set")
-	}
-
+func (c TestConfig) GetNetworkConfig() *ctf_config.NetworkConfig {
 	return c.Network
 }
 
-func (c TestConfig) MustGetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig {
-	if c.ChainlinkImage == nil {
-		panic("chainlink image config not set")
-	}
-
+func (c TestConfig) GetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig {
 	return c.ChainlinkImage
 }
 
-func (c TestConfig) MustGetPrivateEthereumNetworkConfig() *ctf_test_env.EthereumNetwork {
-	if c.PrivateEthereumNetwork == nil {
-		panic("private ethereum network config not set")
-	}
-
+func (c TestConfig) GetPrivateEthereumNetworkConfig() *ctf_test_env.EthereumNetwork {
 	return c.PrivateEthereumNetwork
 }
-func (c TestConfig) MustGetPyroscopeConfig() *ctf_config.PyroscopeConfig {
-	if c.Pyroscope == nil {
-		panic("pyroscope config not set")
-	}
 
+func (c TestConfig) GetPyroscopeConfig() *ctf_config.PyroscopeConfig {
 	return c.Pyroscope
+}
+
+func (c TestConfig) GetCommonConfig() *Common {
+	return c.Common
+}
+
+func (c TestConfig) GetVRFv2Config() *vrfv2_config.Config {
+	return c.VRFv2
+}
+
+func (c TestConfig) GetFunctionsConfig() *f_config.Config {
+	return c.Functions
+}
+
+func (c TestConfig) GetVRFv2PlusConfig() *vrfv2plus_config.Config {
+	return c.VRFv2Plus
+}
+
+func (c TestConfig) GetChainlinkUpgradeImageConfig() *ctf_config.ChainlinkImageConfig {
+	return c.ChainlinkUpgradeImage
+}
+
+func (c TestConfig) GetKeeperConfig() *keeper_config.Config {
+	return c.Keeper
+}
+
+func (c TestConfig) GetOCRConfig() *ocr_config.Config {
+	return c.OCR
+}
+
+func (c TestConfig) GetConfigurationName() string {
+	return c.ConfigurationName
 }
 
 type Common struct {

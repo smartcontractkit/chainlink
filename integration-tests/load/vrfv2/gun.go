@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
@@ -16,7 +16,7 @@ type SingleHashGun struct {
 	contracts  *vrfv2_actions.VRFV2Contracts
 	keyHash    [32]byte
 	subIDs     []uint64
-	testConfig *tc.TestConfig
+	testConfig types.VRFv2TestConfig
 	logger     zerolog.Logger
 }
 
@@ -24,7 +24,7 @@ func NewSingleHashGun(
 	contracts *vrfv2_actions.VRFV2Contracts,
 	keyHash [32]byte,
 	subIDs []uint64,
-	testConfig *tc.TestConfig,
+	testConfig types.VRFv2TestConfig,
 	logger zerolog.Logger,
 ) *SingleHashGun {
 	return &SingleHashGun{
@@ -40,20 +40,23 @@ func NewSingleHashGun(
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
-	vrfv2Config := m.testConfig.VRFv2.General
+	vrfv2Config := m.testConfig.GetVRFv2Config().General
 	//randomly increase/decrease randomness request count per TX
 	randomnessRequestCountPerRequest := deviateValue(*vrfv2Config.RandomnessRequestCountPerRequest, *vrfv2Config.RandomnessRequestCountPerRequestDeviation)
 	_, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
+		m.logger,
 		//the same consumer is used for all requests and in all subs
 		m.contracts.LoadTestConsumers[0],
 		m.contracts.Coordinator,
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		&vrfv2_actions.VRFV2Data{VRFV2KeyData: vrfv2_actions.VRFV2KeyData{KeyHash: m.keyHash}},
-		m.testConfig,
+		*vrfv2Config.MinimumConfirmations,
+		*vrfv2Config.CallbackGasLimit,
+		*vrfv2Config.NumberOfWords,
 		randomnessRequestCountPerRequest,
+		*vrfv2Config.RandomnessRequestCountPerRequestDeviation,
 		vrfv2Config.RandomWordsFulfilledEventTimeout.Duration,
-		m.logger,
 	)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}

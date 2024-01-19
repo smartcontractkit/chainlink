@@ -38,8 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
 // KeeperBenchmarkTest builds a test to check that chainlink nodes are able to upkeep a specified amount of Upkeep
@@ -61,7 +60,7 @@ type KeeperBenchmarkTest struct {
 	namespace        string
 	chainlinkNodes   []*client.ChainlinkK8sClient
 	chainClient      blockchain.EVMClient
-	testConfig       *tc.TestConfig
+	testConfig       tt.KeeperBenchmarkTestConfig
 	contractDeployer contracts.ContractDeployer
 
 	linkToken contracts.LinkToken
@@ -116,7 +115,7 @@ func NewKeeperBenchmarkTest(t *testing.T, inputs KeeperBenchmarkTestInputs) *Kee
 }
 
 // Setup prepares contracts for the test
-func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config *tc.TestConfig) {
+func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.KeeperBenchmarkTestConfig) {
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues()
@@ -576,7 +575,7 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	}
 }
 
-func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, config *tc.TestConfig) error {
+func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, config tt.KeeperBenchmarkTestConfig) error {
 	if slackClient == nil {
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}

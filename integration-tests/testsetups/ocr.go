@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -104,9 +105,9 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
-func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testConfig *tc.TestConfig) {
-	network := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0] // Environment currently being used to soak test on
-	nsPre := fmt.Sprintf("soak-ocr-v%s-", *testConfig.OCR.Soak.OCRVersion)
+func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTestConfig tt.OcrTestConfig) {
+	network := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
+	nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
 	if o.OperatorForwarderFlow {
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
@@ -119,24 +120,24 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testC
 	}
 
 	var conf string
-	if *testConfig.OCR.Soak.OCRVersion == "1" {
+	if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
 		conf = config.BaseOCR1Config
-	} else if *testConfig.OCR.Soak.OCRVersion == "2" {
+	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "2" {
 		conf = config.BaseOCR2Config
 	}
 
 	var overrideFn = func(_ interface{}, target interface{}) {
-		ctf_config.MustConfigOverrideChainlinkVersion(testConfig.ChainlinkImage, target)
-		ctf_config.MightConfigOverridePyroscopeKey(testConfig.Pyroscope, target)
+		ctf_config.MustConfigOverrideChainlinkVersion(ocrTestConfig.GetChainlinkImageConfig(), target)
+		ctf_config.MightConfigOverridePyroscopeKey(ocrTestConfig.GetPyroscopeConfig(), target)
 	}
 
 	cd := chainlink.NewWithOverride(0, map[string]any{
 		"replicas": 6,
-		"toml":     networks.AddNetworkDetailedConfig(conf, testConfig.Pyroscope, customChainlinkNetworkTOML, network),
+		"toml":     networks.AddNetworkDetailedConfig(conf, ocrTestConfig.GetPyroscopeConfig(), customChainlinkNetworkTOML, network),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
-	}, testConfig.ChainlinkImage, overrideFn)
+	}, ocrTestConfig.GetChainlinkImageConfig(), overrideFn)
 
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
@@ -154,9 +155,9 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, testC
 }
 
 // LoadEnvironment loads an existing test environment using the provided URLs
-func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, mockServerURL string, testConfig *tc.TestConfig) {
+func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, mockServerURL string, ocrTestConfig tt.OcrTestConfig) {
 	var (
-		network = networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
+		network = networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0]
 		err     error
 	)
 	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
@@ -173,10 +174,10 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 	return o.testEnvironment
 }
 
-func (o *OCRSoakTest) Setup(testConfig *tc.TestConfig) {
+func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	var (
 		err     error
-		network = networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
+		network = networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0]
 	)
 
 	// Environment currently being used to soak test on
@@ -227,7 +228,7 @@ func (o *OCRSoakTest) Setup(testConfig *tc.TestConfig) {
 			authorizedForwarders,
 			o.chainClient,
 		)
-	} else if *testConfig.OCR.Soak.OCRVersion == "1" {
+	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
 		o.ocrV1Instances, err = actions.DeployOCRContracts(
 			*o.Config.OCR.Soak.NumberOfContracts,
 			linkTokenContract,
@@ -236,7 +237,7 @@ func (o *OCRSoakTest) Setup(testConfig *tc.TestConfig) {
 			o.chainClient,
 		)
 		require.NoError(o.t, err)
-	} else if *testConfig.OCR.Soak.OCRVersion == "2" {
+	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "2" {
 		var transmitters []string
 		for _, node := range o.workerNodes {
 			nodeAddress, err := node.PrimaryEthAddress()
@@ -245,7 +246,7 @@ func (o *OCRSoakTest) Setup(testConfig *tc.TestConfig) {
 		}
 		ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
 		o.ocrV2Instances, err = actions.DeployOCRv2Contracts(
-			*testConfig.OCR.Soak.NumberOfContracts,
+			*ocrTestConfig.GetOCRConfig().Soak.NumberOfContracts,
 			linkTokenContract,
 			contractDeployer,
 			transmitters,
@@ -261,11 +262,11 @@ func (o *OCRSoakTest) Setup(testConfig *tc.TestConfig) {
 
 	err = o.chainClient.WaitForEvents()
 	require.NoError(o.t, err, "Error waiting for OCR contracts to be deployed")
-	if *testConfig.OCR.Soak.OCRVersion == "1" {
+	if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
 		for _, ocrInstance := range o.ocrV1Instances {
 			o.ocrV1InstanceMap[ocrInstance.Address()] = ocrInstance
 		}
-	} else if *testConfig.OCR.Soak.OCRVersion == "2" {
+	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "2" {
 		for _, ocrInstance := range o.ocrV2Instances {
 			o.ocrV2InstanceMap[ocrInstance.Address()] = ocrInstance
 		}

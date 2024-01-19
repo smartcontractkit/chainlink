@@ -25,7 +25,7 @@ type LoadStats struct {
 	Empty     uint32
 }
 
-func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string, config *tc.TestConfig) {
+func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string, config tc.GlobalTestConfig) {
 	go func() {
 		updatedLabels := make(map[string]string)
 		for k, v := range labels {

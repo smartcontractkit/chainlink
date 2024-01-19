@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
@@ -200,7 +201,7 @@ func FundVRFCoordinatorV2_5Subscription(
 // SetupVRFV2_5Environment will create specified number of subscriptions and add the same conumer/s to each of them
 func SetupVRFV2_5Environment(
 	env *test_env.CLClusterTestEnv,
-	testConfig *tc.TestConfig,
+	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	numberOfTxKeysToCreate int,
@@ -216,7 +217,7 @@ func SetupVRFV2_5Environment(
 	}
 
 	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Setting Coordinator Config")
-	vrfv2PlusConfig := testConfig.VRFv2Plus.General
+	vrfv2PlusConfig := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
 	err = vrfv2_5Contracts.Coordinator.SetConfig(
 		*vrfv2PlusConfig.MinimumConfirmations,
 		*vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
@@ -247,7 +248,8 @@ func SetupVRFV2_5Environment(
 		Msg("Creating and funding subscriptions, adding consumers")
 	subIDs, err := CreateFundSubsAndAddConsumers(
 		env,
-		testConfig,
+		big.NewFloat(*vrfv2PlusConfig.SubscriptionFundingAmountNative),
+		big.NewFloat(*vrfv2PlusConfig.SubscriptionFundingAmountLink),
 		linkToken,
 		vrfv2_5Contracts.Coordinator, vrfv2_5Contracts.LoadTestConsumers, numberOfSubToCreate)
 	if err != nil {
@@ -271,7 +273,7 @@ func SetupVRFV2_5Environment(
 	}
 
 	chainID := env.EVMClient.GetChainID()
-	newNativeTokenKeyAddresses, err := CreateAndFundSendingKeys(env, testConfig, numberOfTxKeysToCreate, chainID)
+	newNativeTokenKeyAddresses, err := CreateAndFundSendingKeys(env, vrfv2PlusTestConfig, numberOfTxKeysToCreate, chainID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -324,7 +326,7 @@ func SetupVRFV2_5Environment(
 	return vrfv2_5Contracts, subIDs, &data, nil
 }
 
-func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, numberOfNativeTokenAddressesToCreate int, chainID *big.Int) ([]string, error) {
+func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, commonTestConfig tc.CommonTestConfig, numberOfNativeTokenAddressesToCreate int, chainID *big.Int) ([]string, error) {
 	var newNativeTokenKeyAddresses []string
 	for i := 0; i < numberOfNativeTokenAddressesToCreate; i++ {
 		newTxKey, response, err := env.ClCluster.NodeAPIs()[0].CreateTxKey("evm", chainID.String())
@@ -335,7 +337,7 @@ func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, testConfig *tc.Tes
 			return nil, fmt.Errorf("error creating transaction key - response code, err %d", response.StatusCode)
 		}
 		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.ID)
-		err = actions.FundAddress(env.EVMClient, newTxKey.Data.ID, big.NewFloat(*testConfig.Common.ChainlinkNodeFunding))
+		err = actions.FundAddress(env.EVMClient, newTxKey.Data.ID, big.NewFloat(*commonTestConfig.GetCommonConfig().ChainlinkNodeFunding))
 		if err != nil {
 			return nil, err
 		}
@@ -345,13 +347,14 @@ func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, testConfig *tc.Tes
 
 func CreateFundSubsAndAddConsumers(
 	env *test_env.CLClusterTestEnv,
-	testConfig *tc.TestConfig,
+	subscriptionFundingAmountNative *big.Float,
+	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	consumers []contracts.VRFv2PlusLoadTestConsumer,
 	numberOfSubToCreate int,
 ) ([]*big.Int, error) {
-	subIDs, err := CreateSubsAndFund(env, testConfig, linkToken, coordinator, numberOfSubToCreate)
+	subIDs, err := CreateSubsAndFund(env, subscriptionFundingAmountNative, subscriptionFundingAmountLink, linkToken, coordinator, numberOfSubToCreate)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +382,8 @@ func CreateFundSubsAndAddConsumers(
 
 func CreateSubsAndFund(
 	env *test_env.CLClusterTestEnv,
-	testConfig *tc.TestConfig,
+	subscriptionFundingAmountNative *big.Float,
+	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
@@ -392,7 +396,7 @@ func CreateSubsAndFund(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
-	err = FundSubscriptions(env, testConfig, linkToken, coordinator, subs)
+	err = FundSubscriptions(env, subscriptionFundingAmountNative, subscriptionFundingAmountLink, linkToken, coordinator, subs)
 	if err != nil {
 		return nil, err
 	}
@@ -454,15 +458,15 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts
 
 func FundSubscriptions(
 	env *test_env.CLClusterTestEnv,
-	testConfig *tc.TestConfig,
+	subscriptionFundingAmountNative *big.Float,
+	subscriptionFundingAmountLink *big.Float,
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subIDs []*big.Int,
 ) error {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.General
 	for _, subID := range subIDs {
 		//Native Billing
-		amountWei := conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.SubscriptionFundingAmountNative))
+		amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
 		err := coordinator.FundSubscriptionWithNative(
 			subID,
 			amountWei,
@@ -471,7 +475,7 @@ func FundSubscriptions(
 			return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
 		}
 		//Link Billing
-		amountJuels := conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.SubscriptionFundingAmountLink))
+		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
 		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
@@ -514,20 +518,22 @@ func RequestRandomnessAndWaitForFulfillment(
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
+	minimumConfirmations uint16,
+	callbackGasLimit uint32,
+	numberOfWords uint32,
 	randomnessRequestCountPerRequest uint16,
-	testConfig *tc.TestConfig,
+	randomnessRequestCountPerRequestDeviation uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.General
-	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
+	logRandRequest(l, consumer.Address(), coordinator.Address(), subID, isNativeBilling, minimumConfirmations, callbackGasLimit, numberOfWords, randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation)
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
-		*vrfv2PlusConfig.MinimumConfirmations,
-		*vrfv2PlusConfig.CallbackGasLimit,
+		minimumConfirmations,
+		callbackGasLimit,
 		isNativeBilling,
-		*vrfv2PlusConfig.NumberOfWords,
+		numberOfWords,
 		randomnessRequestCountPerRequest,
 	)
 	if err != nil {
@@ -551,19 +557,22 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
-	testConfig *tc.TestConfig,
+	minimumConfirmations uint16,
+	callbackGasLimit uint32,
+	numberOfWords uint32,
+	randomnessRequestCountPerRequest uint16,
+	randomnessRequestCountPerRequestDeviation uint16,
 	l zerolog.Logger,
 ) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error) {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.General
-	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
+	logRandRequest(l, consumer.Address(), coordinator.Address(), subID, isNativeBilling, minimumConfirmations, callbackGasLimit, numberOfWords, randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation)
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
-		*vrfv2PlusConfig.MinimumConfirmations,
-		*vrfv2PlusConfig.CallbackGasLimit,
+		minimumConfirmations,
+		callbackGasLimit,
 		isNativeBilling,
-		*vrfv2PlusConfig.NumberOfWords,
-		*vrfv2PlusConfig.RandomnessRequestCountPerRequest,
+		numberOfWords,
+		randomnessRequestCountPerRequest,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrRequestRandomness, err)
@@ -596,14 +605,14 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 
 func SetupVRFV2PlusWrapperEnvironment(
 	env *test_env.CLClusterTestEnv,
-	testConfig *tc.TestConfig,
+	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	coordinator contracts.VRFCoordinatorV2_5,
 	keyHash [32]byte,
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.General
+	vrfv2PlusConfig := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
 	wrapperContracts, err := DeployVRFV2PlusDirectFundingContracts(
 		env.ContractDeployer,
 		env.EVMClient,
@@ -652,7 +661,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
-	err = FundSubscriptions(env, testConfig, linkToken, coordinator, []*big.Int{wrapperSubID})
+	err = FundSubscriptions(env, big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative), big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink), linkToken, coordinator, []*big.Int{wrapperSubID})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -729,28 +738,31 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
-	testConfig *tc.TestConfig,
+	minimumConfirmations uint16,
+	callbackGasLimit uint32,
+	numberOfWords uint32,
+	randomnessRequestCountPerRequest uint16,
+	randomnessRequestCountPerRequestDeviation uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
-	vrfv2PlusConfig := testConfig.VRFv2Plus.General
-	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, testConfig, l)
+	logRandRequest(l, consumer.Address(), coordinator.Address(), subID, isNativeBilling, minimumConfirmations, callbackGasLimit, numberOfWords, randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation)
 	if isNativeBilling {
 		_, err := consumer.RequestRandomnessNative(
-			*vrfv2PlusConfig.MinimumConfirmations,
-			*vrfv2PlusConfig.CallbackGasLimit,
-			*vrfv2PlusConfig.NumberOfWords,
-			*vrfv2PlusConfig.RandomnessRequestCountPerRequest,
+			minimumConfirmations,
+			callbackGasLimit,
+			numberOfWords,
+			randomnessRequestCountPerRequest,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingNativePayment, err)
 		}
 	} else {
 		_, err := consumer.RequestRandomness(
-			*vrfv2PlusConfig.MinimumConfirmations,
-			*vrfv2PlusConfig.CallbackGasLimit,
-			*vrfv2PlusConfig.NumberOfWords,
-			*vrfv2PlusConfig.RandomnessRequestCountPerRequest,
+			minimumConfirmations,
+			callbackGasLimit,
+			numberOfWords,
+			randomnessRequestCountPerRequest,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingLinkPayment, err)
@@ -1024,21 +1036,24 @@ func LogFulfillmentDetailsNativeBilling(
 }
 
 func logRandRequest(
+	l zerolog.Logger,
 	consumer string,
 	coordinator string,
 	subID *big.Int,
 	isNativeBilling bool,
-	config *tc.TestConfig,
-	l zerolog.Logger) {
-	vrfv2PlusConfig := config.VRFv2Plus.General
+	minimumConfirmations uint16,
+	callbackGasLimit uint32,
+	numberOfWords uint32,
+	randomnessRequestCountPerRequest uint16,
+	randomnessRequestCountPerRequestDeviation uint16) {
 	l.Debug().
 		Str("Consumer", consumer).
 		Str("Coordinator", coordinator).
 		Str("SubID", subID.String()).
 		Bool("IsNativePayment", isNativeBilling).
-		Uint16("MinimumConfirmations", *vrfv2PlusConfig.MinimumConfirmations).
-		Uint32("CallbackGasLimit", *vrfv2PlusConfig.CallbackGasLimit).
-		Uint16("RandomnessRequestCountPerRequest", *vrfv2PlusConfig.RandomnessRequestCountPerRequest).
-		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation).
+		Uint16("MinimumConfirmations", minimumConfirmations).
+		Uint32("CallbackGasLimit", callbackGasLimit).
+		Uint16("RandomnessRequestCountPerRequest", randomnessRequestCountPerRequest).
+		Uint16("RandomnessRequestCountPerRequestDeviation", randomnessRequestCountPerRequestDeviation).
 		Msg("Requesting randomness")
 }

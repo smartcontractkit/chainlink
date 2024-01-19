@@ -35,7 +35,7 @@ func TestVersionUpgrade(t *testing.T) {
 	// MigrateOnStartup = true
 	//
 	// by default
-	err = env.ClCluster.Nodes[0].UpgradeVersion(&config)
+	err = env.ClCluster.Nodes[0].UpgradeVersion(*config.ChainlinkUpgradeImage.Image, *config.ChainlinkUpgradeImage.Version)
 	require.NoError(t, err)
 
 }

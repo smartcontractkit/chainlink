@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
@@ -85,7 +86,7 @@ func TestAutomationBasic(t *testing.T) {
 	SetupAutomationBasic(t, false, &config)
 }
 
-func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, config *tc.TestConfig) {
+func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig types.AutomationTestConfig) {
 	t.Parallel()
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
@@ -101,13 +102,13 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, config *tc.TestConfig)
 		name := name
 		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
-			cfg := config.MustCopy()
+			cfg := automationTestConfig.MustCopy().(types.AutomationTestConfig)
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 
 			var err error
 			if nodeUpgrade {
-				if cfg.ChainlinkUpgradeImage == nil {
+				if cfg.GetChainlinkUpgradeImageConfig() == nil {
 					t.Fatal("[ChainlinkUpgradeImage] must be set in TOML config to upgrade nodes")
 				}
 			}
@@ -119,7 +120,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, config *tc.TestConfig)
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, isMercuryV02, isMercuryV03, &cfg,
+				t, registryVersion, automationDefaultRegistryConfig, isMercuryV02, isMercuryV03, automationTestConfig,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -175,10 +176,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, config *tc.TestConfig)
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
 
 			if nodeUpgrade {
+				require.NotNil(t, cfg.GetChainlinkImageConfig(), "unable to upgrade node version, [ChainlinkUpgradeImage] was not set, must both a new image or a new version")
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					err = actions.UpgradeChainlinkNodeVersionsLocal(&cfg, a.DockerEnv.ClCluster.Nodes[i])
+					err = actions.UpgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkImageConfig().Image, *cfg.GetChainlinkImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
 					require.NoError(t, err, "Error when upgrading node %d", i)
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
@@ -1099,14 +1101,14 @@ func setupAutomationTestDocker(
 	registryConfig contracts.KeeperRegistrySettings,
 	isMercuryV02 bool,
 	isMercuryV03 bool,
-	config *tc.TestConfig,
+	automationTestConfig types.AutomationTestConfig,
 ) automationv2.AutomationTest {
 	require.False(t, isMercuryV02 && isMercuryV03, "Cannot run test with both Mercury V02 and V03 on")
 
 	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
+	network := networks.MustGetSelectedNetworkConfig(automationTestConfig.GetNetworkConfig())[0]
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
@@ -1123,15 +1125,15 @@ func setupAutomationTestDocker(
 	var env *test_env.CLClusterTestEnv
 	var err error
 	require.NoError(t, err)
-	l.Debug().Msgf("Funding amount: %f", *config.Common.ChainlinkNodeFunding)
+	l.Debug().Msgf("Funding amount: %f", *automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)
 	clNodesCount := 5
 	if isMercuryV02 || isMercuryV03 {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
-			WithTestConfig(config).
+			WithTestConfig(automationTestConfig).
 			WithGeth().
 			WithMockAdapter().
-			WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
+			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
@@ -1157,20 +1159,20 @@ func setupAutomationTestDocker(
 
 		node.SetChainConfig(clNodeConfig, wsUrls, httpUrls, network, false)
 
-		err = env.StartClCluster(clNodeConfig, clNodesCount, secretsConfig, config)
+		err = env.StartClCluster(clNodeConfig, clNodesCount, secretsConfig, automationTestConfig)
 		require.NoError(t, err, "Error starting CL nodes test environment for Mercury")
-		err = env.FundChainlinkNodes(big.NewFloat(*config.Common.ChainlinkNodeFunding))
+		err = env.FundChainlinkNodes(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding))
 		require.NoError(t, err, "Error funding CL nodes")
 
 	} else {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
-			WithTestConfig(config).
+			WithTestConfig(automationTestConfig).
 			WithGeth().
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).
-			WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
+			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment")

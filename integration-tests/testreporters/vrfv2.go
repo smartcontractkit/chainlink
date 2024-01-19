@@ -10,7 +10,7 @@ import (
 	"github.com/slack-go/slack"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
 type VRFV2TestReporter struct {
@@ -20,7 +20,7 @@ type VRFV2TestReporter struct {
 	AverageFulfillmentInMillions *big.Int
 	SlowestFulfillment           *big.Int
 	FastestFulfillment           *big.Int
-	TestConfig                   *tc.TestConfig
+	VRFv2TestConfig              types.VRFv2TestConfig
 }
 
 func (o *VRFV2TestReporter) SetReportData(
@@ -30,7 +30,7 @@ func (o *VRFV2TestReporter) SetReportData(
 	AverageFulfillmentInMillions *big.Int,
 	SlowestFulfillment *big.Int,
 	FastestFulfillment *big.Int,
-	testConfig *tc.TestConfig,
+	vrfv2TestConfig types.VRFv2TestConfig,
 ) {
 	o.TestType = testType
 	o.RequestCount = RequestCount
@@ -38,7 +38,7 @@ func (o *VRFV2TestReporter) SetReportData(
 	o.AverageFulfillmentInMillions = AverageFulfillmentInMillions
 	o.SlowestFulfillment = SlowestFulfillment
 	o.FastestFulfillment = FastestFulfillment
-	o.TestConfig = testConfig
+	o.VRFv2TestConfig = vrfv2TestConfig
 }
 
 // SendSlackNotification sends a slack message to a slack webhook
@@ -53,9 +53,9 @@ func (o *VRFV2TestReporter) SendSlackNotification(t *testing.T, slackClient *sla
 		headerText = fmt.Sprintf(":x: VRF V2 %s Test FAILED :x:", o.TestType)
 	}
 
-	cfg := o.TestConfig.VRFv2.Performance
+	perfCfg := o.VRFv2TestConfig.GetVRFv2Config().Performance
 	var sb strings.Builder
-	for _, n := range o.TestConfig.Network.SelectedNetworks {
+	for _, n := range o.VRFv2TestConfig.GetNetworkConfig().SelectedNetworks {
 		sb.WriteString(n)
 		sb.WriteString(", ")
 	}
@@ -76,17 +76,17 @@ func (o *VRFV2TestReporter) SendSlackNotification(t *testing.T, slackClient *sla
 				"RandomnessRequestCountPerRequest: %d\n"+
 				"RandomnessRequestCountPerRequestDeviation: %d\n",
 			o.TestType,
-			cfg.TestDuration.Duration.Truncate(time.Second).String(),
-			*cfg.UseExistingEnv,
+			perfCfg.TestDuration.Duration.Truncate(time.Second).String(),
+			*perfCfg.UseExistingEnv,
 			o.RequestCount.String(),
 			o.FulfilmentCount.String(),
 			o.AverageFulfillmentInMillions.String(),
 			o.SlowestFulfillment.String(),
 			o.FastestFulfillment.String(),
-			*cfg.RPS,
-			cfg.RateLimitUnitDuration.String(),
-			*o.TestConfig.VRFv2.General.RandomnessRequestCountPerRequest,
-			*o.TestConfig.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
+			*perfCfg.RPS,
+			perfCfg.RateLimitUnitDuration.String(),
+			*o.VRFv2TestConfig.GetVRFv2Config().General.RandomnessRequestCountPerRequest,
+			*o.VRFv2TestConfig.GetVRFv2Config().General.RandomnessRequestCountPerRequestDeviation,
 		),
 	})
 

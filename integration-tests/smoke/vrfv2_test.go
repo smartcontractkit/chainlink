@@ -80,7 +80,7 @@ func TestVRFv2Basic(t *testing.T) {
 	vrfv2_actions.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
 
 	t.Run("Request Randomness", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		subBalanceBeforeRequest := subscription.Balance
 
 		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2Data.VRFJob.Data.ID)
@@ -88,14 +88,17 @@ func TestVRFv2Basic(t *testing.T) {
 
 		// test and assert
 		randomWordsFulfilledEvent, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
+			l,
 			vrfv2Contracts.LoadTestConsumers[0],
 			vrfv2Contracts.Coordinator,
 			subID,
 			vrfv2Data,
-			&configCopy,
+			*configCopy.VRFv2.General.MinimumConfirmations,
+			*configCopy.VRFv2.General.CallbackGasLimit,
+			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
-			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -122,7 +125,7 @@ func TestVRFv2Basic(t *testing.T) {
 	})
 
 	t.Run("Direct Funding (VRFV2Wrapper)", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2_actions.SetupVRFV2WrapperEnvironment(
 			env,
 			&configCopy,
@@ -144,14 +147,17 @@ func TestVRFv2Basic(t *testing.T) {
 
 		// Request Randomness and wait for fulfillment event
 		randomWordsFulfilledEvent, err := vrfv2_actions.DirectFundingRequestRandomnessAndWaitForFulfillment(
+			l,
 			wrapperConsumer,
 			vrfv2Contracts.Coordinator,
 			*wrapperSubID,
 			vrfv2Data,
-			&configCopy,
+			*configCopy.VRFv2.General.MinimumConfirmations,
+			*configCopy.VRFv2.General.CallbackGasLimit,
+			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
-			l,
 		)
 		require.NoError(t, err, "Error requesting randomness and waiting for fulfilment")
 
@@ -195,11 +201,10 @@ func TestVRFv2Basic(t *testing.T) {
 	})
 
 	t.Run("Oracle Withdraw", func(t *testing.T) {
-		configCopy := config.MustCopy()
-		testConfig := configCopy.VRFv2.General
+		configCopy := config.MustCopy().(tc.TestConfig)
 		subIDsForOracleWithDraw, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
 			env,
-			&configCopy,
+			big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink),
 			linkToken,
 			vrfv2Contracts.Coordinator,
 			vrfv2Contracts.LoadTestConsumers,
@@ -210,14 +215,17 @@ func TestVRFv2Basic(t *testing.T) {
 		subIDForOracleWithdraw := subIDsForOracleWithDraw[0]
 
 		fulfilledEventLink, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
+			l,
 			vrfv2Contracts.LoadTestConsumers[0],
 			vrfv2Contracts.Coordinator,
 			subIDForOracleWithdraw,
 			vrfv2Data,
-			&configCopy,
-			*testConfig.RandomnessRequestCountPerRequest,
-			testConfig.RandomWordsFulfilledEventTimeout.Duration,
-			l,
+			*configCopy.VRFv2.General.MinimumConfirmations,
+			*configCopy.VRFv2.General.CallbackGasLimit,
+			*configCopy.VRFv2.General.NumberOfWords,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
+			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 		)
 		require.NoError(t, err)
 
@@ -249,10 +257,10 @@ func TestVRFv2Basic(t *testing.T) {
 	})
 
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		subIDsForCancelling, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
 			env,
-			&configCopy,
+			big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink),
 			linkToken,
 			vrfv2Contracts.Coordinator,
 			vrfv2Contracts.LoadTestConsumers,
@@ -323,13 +331,13 @@ func TestVRFv2Basic(t *testing.T) {
 	})
 
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
-		configCopy := config.MustCopy()
+		configCopy := config.MustCopy().(tc.TestConfig)
 		// Underfund subscription to force fulfillments to fail
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
 
 		subIDsForCancelling, err := vrfv2_actions.CreateFundSubsAndAddConsumers(
 			env,
-			&configCopy,
+			big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink),
 			linkToken,
 			vrfv2Contracts.Coordinator,
 			vrfv2Contracts.LoadTestConsumers,
@@ -353,14 +361,17 @@ func TestVRFv2Basic(t *testing.T) {
 		// Request randomness - should fail due to underfunded subscription
 		randomWordsFulfilledEventTimeout := 5 * time.Second
 		_, err = vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
+			l,
 			vrfv2Contracts.LoadTestConsumers[0],
 			vrfv2Contracts.Coordinator,
 			subIDForCancelling,
 			vrfv2Data,
-			&configCopy,
+			*configCopy.VRFv2.General.MinimumConfirmations,
+			*configCopy.VRFv2.General.CallbackGasLimit,
+			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			randomWordsFulfilledEventTimeout,
-			l,
 		)
 		require.Error(t, err, "Error should occur while waiting for fulfilment due to low sub balance")
 
@@ -495,14 +506,17 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		var fulfillmentTxFromAddresses []string
 		for i := 0; i < numberOfTxKeysToCreate+1; i++ {
 			randomWordsFulfilledEvent, err := vrfv2_actions.RequestRandomnessAndWaitForFulfillment(
+				l,
 				vrfv2Contracts.LoadTestConsumers[0],
 				vrfv2Contracts.Coordinator,
 				subID,
 				vrfv2Data,
-				&config,
+				*config.VRFv2.General.MinimumConfirmations,
+				*config.VRFv2.General.CallbackGasLimit,
+				*config.VRFv2.General.NumberOfWords,
 				*config.VRFv2.General.RandomnessRequestCountPerRequest,
+				*config.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 				config.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
-				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 

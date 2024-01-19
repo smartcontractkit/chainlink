@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
@@ -17,7 +17,7 @@ type SingleHashGun struct {
 	contracts  *vrfv2plus.VRFV2_5Contracts
 	keyHash    [32]byte
 	subIDs     []*big.Int
-	testConfig *tc.TestConfig
+	testConfig types.VRFv2PlusTestConfig
 	logger     zerolog.Logger
 }
 
@@ -25,7 +25,7 @@ func NewSingleHashGun(
 	contracts *vrfv2plus.VRFV2_5Contracts,
 	keyHash [32]byte,
 	subIDs []*big.Int,
-	testConfig *tc.TestConfig,
+	testConfig types.VRFv2PlusTestConfig,
 	logger zerolog.Logger,
 ) *SingleHashGun {
 	return &SingleHashGun{
@@ -41,7 +41,7 @@ func NewSingleHashGun(
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
-	vrfv2PlusConfig := m.testConfig.VRFv2Plus.General
+	vrfv2PlusConfig := m.testConfig.GetVRFv2PlusConfig().General
 
 	//randomly increase/decrease randomness request count per TX
 	randomnessRequestCountPerRequest := deviateValue(*vrfv2PlusConfig.RandomnessRequestCountPerRequest, *vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation)
@@ -54,8 +54,11 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
 		randBool(),
+		*vrfv2PlusConfig.MinimumConfirmations,
+		*vrfv2PlusConfig.CallbackGasLimit,
+		*vrfv2PlusConfig.NumberOfWords,
 		randomnessRequestCountPerRequest,
-		m.testConfig,
+		*vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation,
 		vrfv2PlusConfig.RandomWordsFulfilledEventTimeout.Duration,
 		m.logger,
 	)

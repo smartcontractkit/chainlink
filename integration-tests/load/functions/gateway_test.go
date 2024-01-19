@@ -15,7 +15,7 @@ func TestGatewayLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, err)
-	ft, err := SetupLocalLoadTestEnv(&listConfig)
+	ft, err := SetupLocalLoadTestEnv(&listConfig, &listConfig)
 	require.NoError(t, err)
 	ft.EVMClient.ParallelTransactions(false)
 
