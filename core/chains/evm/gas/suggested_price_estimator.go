@@ -2,6 +2,7 @@ package gas
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sync"
 	"time"
@@ -12,7 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
+	"github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -23,6 +26,11 @@ var (
 	_ EvmEstimator = &SuggestedPriceEstimator{}
 )
 
+type suggestedPriceConfig interface {
+	BumpPercent() uint16
+	BumpMin() *assets.Wei
+}
+
 //go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
 type rpcClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
@@ -32,6 +40,7 @@ type rpcClient interface {
 type SuggestedPriceEstimator struct {
 	services.StateMachine
 
+	cfg        suggestedPriceConfig
 	client     rpcClient
 	pollPeriod time.Duration
 	logger     logger.Logger
@@ -46,11 +55,12 @@ type SuggestedPriceEstimator struct {
 }
 
 // NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
-func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
+func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient, cfg suggestedPriceConfig) EvmEstimator {
 	return &SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,
 		logger:         logger.Named(lggr, "SuggestedPriceEstimator"),
+		cfg:            cfg,
 		chForceRefetch: make(chan (chan struct{})),
 		chInitialised:  make(chan struct{}),
 		chStop:         make(chan struct{}),
@@ -184,6 +194,12 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee *assets.Wei, feeLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (newGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	chainSpecificGasLimit = feeLimit
 	ok := o.IfStarted(func() {
+		// Immediately return error if original fee is greater than or equal to the max gas price
+		// Prevents a loop of resubmitting the attempt with the max gas price
+		if originalFee.Cmp(maxGasPriceWei) >= 0 {
+			err = fmt.Errorf("original fee (%s) greater than or equal to max gas price (%s) so cannot be bumped further", originalFee.String(), maxGasPriceWei.String())
+			return
+		}
 		err = o.forceRefresh(ctx)
 		if newGasPrice = o.getGasPrice(); newGasPrice == nil {
 			err = errors.New("failed to refresh and return gas; gas price not set")
@@ -199,7 +215,15 @@ func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee
 	if newGasPrice != nil && newGasPrice.Cmp(maxGasPriceWei) > 0 {
 		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", newGasPrice.String(), maxGasPriceWei.String())
 	}
-	// Return the original price if the refreshed price is lower to ensure the bumped gas price is always equal or higher to the previous attempt
+	// Add a buffer on top of the gas price returned by the RPC.
+	// Bump logic when using the suggested gas price from an RPC is realistically only needed when there is increased volatility in gas price.
+	// This buffer is a precaution to increase the chance of getting this tx on chain
+	bufferedPrice := fee.MaxBumpedFee(newGasPrice.ToInt(), o.cfg.BumpPercent(), o.cfg.BumpMin().ToInt())
+	// If the new suggested price is less than or equal to the max and the buffer puts the new price over the max, return the max price instead
+	// The buffer is added on top of the suggested price during bumping as just a precaution. It is better to resubmit the transaction with the max gas price instead of erroring.
+	newGasPrice = assets.NewWei(bigmath.Min(bufferedPrice, maxGasPriceWei.ToInt()))
+
+	// Return the original price if the refreshed price with the buffer is lower to ensure the bumped gas price is always equal or higher to the previous attempt
 	if originalFee != nil && originalFee.Cmp(newGasPrice) > 0 {
 		return originalFee, chainSpecificGasLimit, nil
 	}
