@@ -92,8 +92,7 @@ func NewTracker[
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) (err error) {
-	tr.lock.Lock()
-	defer tr.lock.Unlock()
+	tr.lggr.Infow("Abandoned transaction tracking enabled")
 	return tr.StartOnce("Tracker", func() error {
 		return tr.startInternal()
 	})
@@ -115,6 +114,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 		tr.lggr.Infow("no abandoned txes found, skipping runLoop")
 		return nil
 	}
+
+	tr.lggr.Infow(fmt.Sprintf("%d abandoned txes found, starting runLoop", len(tr.txCache)))
 	tr.wg.Add(1)
 	go tr.runLoop()
 	return nil
@@ -211,6 +212,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 		return fmt.Errorf("tracker already started")
 	}
 
+	tr.lggr.Infow("Retrieving non fatal transactions from txStore")
 	nonFatalTxes, err := tr.txStore.GetNonFatalTransactions(ctx, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get non fatal txes from txStore: %w", err)
@@ -239,6 +241,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleTxesB
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context, blockHeight int64) error {
+	tr.lggr.Infow("Handling transactions by state")
+
 	for id, atx := range tr.txCache {
 		tx, err := tr.txStore.GetTxByID(ctx, atx.id)
 		if err != nil {
