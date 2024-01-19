@@ -18,11 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
+	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -150,14 +152,14 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 }
 
 // pass config here
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig *testconfig.TestConfig, opts ...ClNodeOption) error {
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig core_testconfig.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
 		opts = append(opts, WithSecrets(secretsConfig))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode, err := NewClNode([]string{te.Network.Name}, *testconfig.ChainlinkImage.Image, *testconfig.ChainlinkImage.Version, nodeConfig, opts...)
+			ocrNode, err := NewClNode([]string{te.Network.Name}, *testconfig.MustGetChainlinkImageConfig().Image, *testconfig.MustGetChainlinkImageConfig().Version, nodeConfig, opts...)
 			if err != nil {
 				return err
 			}
@@ -207,9 +209,16 @@ func (te *CLClusterTestEnv) Terminate() error {
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
 func (te *CLClusterTestEnv) Cleanup() error {
 	te.l.Info().Msg("Cleaning up test environment")
+
+	runIdErr := runid.RemoveLocalRunId()
+	if runIdErr != nil {
+		te.l.Warn().Msgf("Failed to remove .run.id file due to: %s (not a big deal, you can still remove it manually)", runIdErr.Error())
+	}
+
 	if te.t == nil {
 		return fmt.Errorf("cannot cleanup test environment without a testing.T")
 	}
+
 	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
 		return fmt.Errorf("chainlink nodes are nil, unable cleanup chainlink nodes")
 	}

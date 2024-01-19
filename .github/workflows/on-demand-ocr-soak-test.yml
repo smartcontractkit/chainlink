@@ -68,21 +68,7 @@ jobs:
           fi   
           if [ -n "$NETWORKS" ]; then
             echo "NETWORKS=$NETWORKS" >> $GITHUB_ENV           
-          fi
-
-          # use Loki config from GH secrets and merge it with base64 input
-          cat << EOF > config.toml
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
-          EOF
-
-          echo "$decoded_toml" >> final_config.toml
-          cat config.toml >> final_config.toml
-          BASE64_CONFIG_OVERRIDE=$(cat final_config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+          fi     
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:

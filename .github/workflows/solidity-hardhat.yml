@@ -63,7 +63,7 @@ jobs:
       fail-fast: false
       matrix:
         split: ${{ fromJson(needs.split-tests.outputs.splits) }}
-    runs-on: ubuntu20.04-4cores-16GB
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -128,7 +128,7 @@ jobs:
       fail-fast: false
       matrix:
         split: ${{ fromJson(needs.split-tests.outputs.splits) }}
-    runs-on: ubuntu20.04-4cores-16GB
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1

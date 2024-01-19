@@ -16,9 +16,9 @@ import (
 	"golang.org/x/text/language"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
-	k8s_env "github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
@@ -30,6 +30,14 @@ import (
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 )
+
+type GlobalTestConfig interface {
+	MustGetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig
+	MustGetLoggingConfig() *ctf_config.LoggingConfig
+	MustGetNetworkConfig() *ctf_config.NetworkConfig
+	MustGetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
+	MustGetPyroscopeConfig() *ctf_config.PyroscopeConfig
+}
 
 type TestConfig struct {
 	ChainlinkImage         *ctf_config.ChainlinkImageConfig `toml:"ChainlinkImage"`
@@ -102,6 +110,45 @@ func (c *TestConfig) Save() (string, error) {
 // Returns a deep copy of the Test Config or panics on error
 func (c TestConfig) MustCopy() TestConfig {
 	return deepcopy.MustAnything(c).(TestConfig)
+}
+
+func (c *TestConfig) MustGetLoggingConfig() *ctf_config.LoggingConfig {
+	if c.Logging == nil {
+		panic("logging config must set")
+	}
+
+	return c.Logging
+}
+
+func (c TestConfig) MustGetNetworkConfig() *ctf_config.NetworkConfig {
+	if c.Network == nil {
+		panic("network config not set")
+	}
+
+	return c.Network
+}
+
+func (c TestConfig) MustGetChainlinkImageConfig() *ctf_config.ChainlinkImageConfig {
+	if c.ChainlinkImage == nil {
+		panic("chainlink image config not set")
+	}
+
+	return c.ChainlinkImage
+}
+
+func (c TestConfig) MustGetPrivateEthereumNetworkConfig() *ctf_test_env.EthereumNetwork {
+	if c.PrivateEthereumNetwork == nil {
+		panic("private ethereum network config not set")
+	}
+
+	return c.PrivateEthereumNetwork
+}
+func (c TestConfig) MustGetPyroscopeConfig() *ctf_config.PyroscopeConfig {
+	if c.Pyroscope == nil {
+		panic("pyroscope config not set")
+	}
+
+	return c.Pyroscope
 }
 
 type Common struct {
@@ -299,8 +346,8 @@ func (c *TestConfig) Validate() error {
 	}
 
 	// require Loki config only if these tests run locally
-	k8sEnv := k8s_env.Environment{}
-	if !k8sEnv.WillUseRemoteRunner() && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
+	_, willUseRemoteRunner := os.LookupEnv(k8s_config.EnvVarJobImage)
+	if !willUseRemoteRunner && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
 		if c.Logging.Loki == nil {
 			return fmt.Errorf("for local execution you must set Loki config in logging config")
 		}
