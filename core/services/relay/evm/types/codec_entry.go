@@ -13,7 +13,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-// MaxTopicFields is three because the EVM has a m of ax four topics, but the first topic is always the event signature.
+// MaxTopicFields is three because the EVM has a max of four topics, but the first topic is always the event signature.
 const MaxTopicFields = 3
 
 type CodecEntry interface {
