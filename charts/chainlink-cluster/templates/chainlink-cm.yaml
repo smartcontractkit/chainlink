@@ -41,7 +41,7 @@ data:
     DeltaDial = '500ms'
     DeltaReconcile = '5s'
     [[EVM]]
-    ChainID = '1337'
+    ChainID = '1338'
     MinContractPayment = '0'
     AutoCreateKey = true
     FinalityDepth = 1
