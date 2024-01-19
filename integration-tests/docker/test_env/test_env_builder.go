@@ -328,14 +328,13 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
 		// in general it seems we have no methods for saving config to file and we only load it from file
 		// but I don't know how that config file is to be created or whether anyone ever done that
-		var enCfg test_env.EthereumNetwork
 		b.ethereumNetwork.DockerNetworkNames = []string{b.te.Network.Name}
 		networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.ethereumNetwork)
 		if err != nil {
 			return nil, err
 		}
 		b.te.RpcProvider = rpcProvider
-		b.te.PrivateEthereumConfig = &enCfg
+		b.te.PrivateEthereumConfig = b.ethereumNetwork
 	}
 
 	if !b.isNonEVM {
