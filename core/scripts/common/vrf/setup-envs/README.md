@@ -75,6 +75,10 @@ go run . \
 --subscription-balance="1e19" \
 --subscription-balance-native="1e18" \
 --batch-fulfillment-enabled="true" \
+--batch-fulfillment-gas-multiplier=1.1 \
+--estimate-gas-multiplier=1.1 \
+--poll-period="5s" \
+--request-timeout="30m0s" \
 --min-confs=3 
 ```
 

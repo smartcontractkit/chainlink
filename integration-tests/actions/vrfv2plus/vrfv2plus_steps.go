@@ -459,20 +459,42 @@ func FundSubscriptions(
 	subIDs []*big.Int,
 ) error {
 	for _, subID := range subIDs {
-		//Native Billing
-		amountWei := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountNative))
-		err := coordinator.FundSubscriptionWithNative(
-			subID,
-			amountWei,
-		)
-		if err != nil {
-			return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
-		}
-		//Link Billing
-		amountJuels := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountLink))
-		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
-		if err != nil {
-			return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
+		switch vrfv2PlusConfig.SubscriptionBillingType {
+		case vrfv2plus_config.BILLING_TYPE_NATIVE:
+			//Native Billing
+			amountWei := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountNative))
+			err := coordinator.FundSubscriptionWithNative(
+				subID,
+				amountWei,
+			)
+			if err != nil {
+				return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
+			}
+		case vrfv2plus_config.BILLING_TYPE_LINK:
+			//Link Billing
+			amountJuels := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountLink))
+			err := FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
+			if err != nil {
+				return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
+			}
+		case vrfv2plus_config.BILLING_TYPE_LINK_AND_NATIVE:
+			//Native Billing
+			amountWei := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountNative))
+			err := coordinator.FundSubscriptionWithNative(
+				subID,
+				amountWei,
+			)
+			if err != nil {
+				return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
+			}
+			//Link Billing
+			amountJuels := conversions.EtherToWei(big.NewFloat(vrfv2PlusConfig.SubscriptionFundingAmountLink))
+			err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
+			if err != nil {
+				return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
+			}
+		default:
+			return fmt.Errorf("invalid billing type: %s", vrfv2PlusConfig.SubscriptionBillingType)
 		}
 	}
 	err := env.EVMClient.WaitForEvents()

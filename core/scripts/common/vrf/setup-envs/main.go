@@ -210,7 +210,7 @@ func main() {
 				FeeConfig:              feeConfigV2,
 			}
 
-			coordinatorJobSpecConfig := v2scripts.CoordinatorJobSpecConfig{
+			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
 				BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
 				BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
 				EstimateGasMultiplier:         *estimateGasMultiplier,
@@ -244,6 +244,14 @@ func main() {
 				FeeConfig:              feeConfigV2Plus,
 			}
 
+			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
+				BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
+				BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
+				EstimateGasMultiplier:         *estimateGasMultiplier,
+				PollPeriod:                    *pollPeriod,
+				RequestTimeout:                *requestTimeout,
+			}
+
 			jobSpecs = v2plusscripts.VRFV2PlusDeployUniverse(
 				e,
 				subscriptionBalanceJuels,
@@ -251,8 +259,8 @@ func main() {
 				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2Plus,
-				*batchFulfillmentEnabled,
 				nodesMap,
+				coordinatorJobSpecConfig,
 			)
 		}
 

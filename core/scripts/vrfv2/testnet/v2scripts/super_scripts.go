@@ -37,15 +37,6 @@ type CoordinatorConfigV2 struct {
 	FeeConfig              vrf_coordinator_v2.VRFCoordinatorV2FeeConfig
 }
 
-type CoordinatorJobSpecConfig struct {
-	BatchFulfillmentEnabled       bool
-	BatchFulfillmentGasMultiplier float64
-	EstimateGasMultiplier         float64
-	PollPeriod                    string
-	RequestTimeout                string
-	RevertsPipelineEnabled        bool
-}
-
 func DeployUniverseViaCLI(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
@@ -152,7 +143,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
 	}
 
-	coordinatorJobSpecConfig := CoordinatorJobSpecConfig{
+	coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
 		BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
 		BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
 		EstimateGasMultiplier:         *estimateGasMultiplier,
@@ -188,7 +179,7 @@ func VRFV2DeployUniverse(
 	coordinatorConfig CoordinatorConfigV2,
 	nodesMap map[string]model.Node,
 	deployVRFOwner bool,
-	coordinatorJobSpecConfig CoordinatorJobSpecConfig,
+	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
 	useTestCoordinator bool,
 ) model.JobSpecs {
 	var compressedPkHex string

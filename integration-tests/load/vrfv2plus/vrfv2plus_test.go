@@ -57,6 +57,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 	vrfv2PlusConfig.MinimumConfirmations = cfg.Common.MinimumConfirmations
+	vrfv2PlusConfig.SubscriptionBillingType = cfg.Common.SubBillingType
 
 	lokiConfig := wasp.NewEnvLokiConfig()
 	lc, err := wasp.NewLokiClient(lokiConfig)
@@ -162,13 +163,25 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		}
 
 	} else {
+
+		//test_env.NewCLTestEnvBuilder().
+		//		WithTestInstance(t).
+		//		WithPrivateEthereumNetwork(network).
+		//		WithCLNodes(1).
+		//		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
+		//		WithStandardCleanup().
+		//		Build()
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		vrfv2PlusConfig.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeSendingKeyFunding
 		vrfv2PlusConfig.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink
 		vrfv2PlusConfig.SubscriptionFundingAmountNative = cfg.NewEnvConfig.Funding.SubFundsNative
+
+		network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+		require.NoError(t, err, "Error building ethereum network config")
+
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
-			WithGeth().
+			WithPrivateEthereumNetwork(network).
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 			WithCustomCleanup(

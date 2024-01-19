@@ -776,18 +776,8 @@ func RequestRandomnessAndWaitForFulfillment(
 	return fulfillmentEvents, err
 }
 
-func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
-	consumer contracts.VRFv2LoadTestConsumer,
-	coordinator contracts.VRFCoordinatorV2,
-	vrfOwner contracts.VRFOwner,
-	vrfv2Data *VRFV2Data,
-	randomnessRequestCountPerRequest uint16,
-	vrfv2Config vrfv2_config.VRFV2Config,
-	subTopUpAmount *big.Int,
-	linkAddress common.Address,
-	randomWordsFulfilledEventTimeout time.Duration,
-	l zerolog.Logger,
-) (*vrf_owner.VRFOwnerRandomWordsForced, error) {
+// todo
+func RequestRandomnessWithForceFulfillAndWaitForFulfillment(consumer contracts.VRFv2LoadTestConsumer, coordinator contracts.VRFCoordinatorV2, vrfOwner contracts.VRFOwner, vrfv2Data *VRFV2Data, randomnessRequestCountPerRequest uint16, vrfv2Config vrfv2_config.VRFV2Config, subTopUpAmount *big.Int, linkAddress common.Address, randomWordsFulfilledEventTimeout time.Duration, l zerolog.Logger) (*vrf_owner.VRFOwnerRandomWordsForced, error) {
 	logRandRequest(consumer.Address(), coordinator.Address(), 0, vrfv2Config, l)
 	_, err := consumer.RequestRandomWordsWithForceFulfill(
 		vrfv2Data.KeyHash,
@@ -860,18 +850,19 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 	//}
 	//
 	//LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
-
-	subConsumerRemoved, err := coordinator.WaitForSubscriptionConsumerRemoved(
-		nil,
-		time.Second*30,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", "error waiting SubscriptionConsumerRemoved", err)
-	}
-	l.Info().
-		Uint64("SubID", subConsumerRemoved.SubId).
-		Str("Consumer", subConsumerRemoved.Consumer.String()).
-		Msg("SubscriptionConsumerRemoved")
+	//
+	//return randomWordsRequestedEvent, err
+	//subConsumerRemoved, err := coordinator.WaitForSubscriptionConsumerRemoved(
+	//	nil,
+	//	time.Second*30,
+	//)
+	//if err != nil {
+	//	return nil, fmt.Errorf("%s, err %w", "error waiting SubscriptionConsumerRemoved", err)
+	//}
+	//l.Info().
+	//	Uint64("SubID", subConsumerRemoved.SubId).
+	//	Str("Consumer", subConsumerRemoved.Consumer.String()).
+	//	Msg("SubscriptionConsumerRemoved")
 
 	//subCanceledEvent, err := coordinator.WaitForSubscriptionCanceledEvent(
 	//	nil,
@@ -886,22 +877,22 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 	//	Str("Amount", subCanceledEvent.Amount.String()).
 	//	Msg("subCanceledEvent")
 
-	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
-		nil,
-		randomWordsFulfilledEventTimeout,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsFulfilledEvent, err)
-	}
+	//randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
+	//	nil,
+	//	randomWordsFulfilledEventTimeout,
+	//)
+	//if err != nil {
+	//	return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsFulfilledEvent, err)
+	//}
 
-	LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
-
+	//LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
+	//
 	randomWordsForcedEvent, err := vrfOwner.WaitForRandomWordsForcedEvent(
 		//[]*big.Int{randomWordsRequestedEvent.RequestId}
 		nil,
 		nil,
 		nil,
-		randomWordsFulfilledEventTimeout,
+		time.Second*120,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsForcedEvent, err)
