@@ -96,7 +96,7 @@ func (c *NewEnvConfig) Validate() error {
 
 type ExistingEnvConfig struct {
 	*vrfv2.ExistingEnvConfig
-	*Funding
+	Funding
 }
 
 func (c *ExistingEnvConfig) Validate() error {
@@ -105,17 +105,12 @@ func (c *ExistingEnvConfig) Validate() error {
 			return err
 		}
 	}
-	if c.Funding != nil {
-		if err := c.Funding.Validate(); err != nil {
-			return err
-		}
-	}
 
-	return nil
+	return c.Funding.Validate()
 }
 
 type Funding struct {
-	*SubFunding
+	SubFunding
 	NodeSendingKeyFunding    *float64 `toml:"node_sending_key_funding"`
 	NodeSendingKeyFundingMin *float64 `toml:"node_sending_key_funding_min"`
 }
@@ -137,14 +132,14 @@ type SubFunding struct {
 }
 
 func (c *SubFunding) Validate() error {
-	if c.SubFundsLink == nil && c.SubFundsNative == nil {
-		return errors.New("at least one of sub_funds_link or sub_funds_native must be set")
+	if c.SubFundsLink == nil || c.SubFundsNative == nil {
+		return errors.New("both sub_funds_link and sub_funds_native must be set")
 	}
-	if c.SubFundsLink != nil && *c.SubFundsLink <= 0 {
-		return errors.New("sub_funds_link must be greater than 0")
+	if c.SubFundsLink != nil && *c.SubFundsLink < 0 {
+		return errors.New("sub_funds_link must be a non-negative number")
 	}
-	if c.SubFundsNative != nil && *c.SubFundsNative <= 0 {
-		return errors.New("sub_funds_native must be greater than 0")
+	if c.SubFundsNative != nil && *c.SubFundsNative < 0 {
+		return errors.New("sub_funds_native must be a non-negative number")
 	}
 
 	return nil

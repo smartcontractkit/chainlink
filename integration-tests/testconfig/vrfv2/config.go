@@ -100,7 +100,7 @@ type ExistingEnvConfig struct {
 	KeyHash                       *string  `toml:"key_hash"`
 	CreateFundSubsAndAddConsumers *bool    `toml:"create_fund_subs_and_add_consumers"`
 	NodeSendingKeys               []string `toml:"node_sending_keys"`
-	*Funding
+	Funding
 }
 
 func (c *ExistingEnvConfig) Validate() error {
@@ -124,7 +124,14 @@ func (c *ExistingEnvConfig) Validate() error {
 	}
 
 	if *c.CreateFundSubsAndAddConsumers {
-		if c.ConsumerAddress == nil {
+		if err := c.Funding.Validate(); err != nil {
+			return err
+		}
+		if err := c.Funding.SubFunding.Validate(); err != nil {
+			return err
+		}
+	} else {
+		if c.ConsumerAddress == nil || *c.ConsumerAddress == "" {
 			return errors.New("consumer_address must be set when using existing environment")
 		}
 		if !common.IsHexAddress(*c.ConsumerAddress) {
@@ -135,17 +142,6 @@ func (c *ExistingEnvConfig) Validate() error {
 		}
 		if *c.SubID == 0 {
 			return errors.New("sub_id must be a positive value")
-		}
-		if c.Funding != nil {
-			if err := c.Funding.Validate(); err != nil {
-				return err
-			}
-		}
-		if c.Funding == nil && c.Funding.SubFunding == nil {
-			return errors.New("sub_funds_link must be set when using existing environment")
-		}
-		if err := c.Funding.SubFunding.Validate(); err != nil {
-			return err
 		}
 	}
 
@@ -173,7 +169,7 @@ func (c *NewEnvConfig) Validate() error {
 }
 
 type Funding struct {
-	*SubFunding
+	SubFunding
 	NodeSendingKeyFunding    *float64 `toml:"node_sending_key_funding"`
 	NodeSendingKeyFundingMin *float64 `toml:"node_sending_key_funding_min"`
 }
@@ -194,8 +190,8 @@ type SubFunding struct {
 }
 
 func (c *SubFunding) Validate() error {
-	if c.SubFundsLink == nil || *c.SubFundsLink == 0 {
-		return errors.New("when set sub_funds_link must be a positive value")
+	if c.SubFundsLink != nil && *c.SubFundsLink < 0 {
+		return errors.New("when set sub_funds_link must be a non-negative value")
 	}
 
 	return nil

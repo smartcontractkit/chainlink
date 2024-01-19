@@ -113,8 +113,10 @@ fulfillment_flat_fee_link_ppm=500
 fulfillment_flat_fee_native_ppm=500
 
 [VRFv2Plus.Performance]
+test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1
+use_existing_env = false
 
 [VRFv2Plus.NewEnv]
 sub_funds_link = 1
@@ -122,7 +124,7 @@ sub_funds_native = 1
 node_funds = 10
 node_sending_key_funding = 1000
 
-[Load.VRFv2Plus.ExistingEnv]
+[VRFv2Plus.ExistingEnv]
 coordinator_address = ""
 consumer_address = ""
 sub_id = 1

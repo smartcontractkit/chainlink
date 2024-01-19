@@ -55,22 +55,11 @@ sub_funds_link = 1000
 node_sending_key_funding = 1000
 
 [Load.VRFv2.ExistingEnv]
-coordinator_address = ""
-consumer_address = ""
 sub_id = 1
-key_hash = ""
 create_fund_subs_and_add_consumers = true
-link_address = ""
 sub_funds_link = 10
 node_sending_key_funding_min = 1
-node_sending_keys = [
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-]
+node_sending_keys = []
 
 # soak test specific config
 [Soak.VRFv2]
@@ -93,22 +82,11 @@ sub_funds_link = 1000
 node_sending_key_funding = 1000
 
 [Soak.VRFv2.ExistingEnv]
-coordinator_address = ""
-consumer_address = ""
 sub_id = 1
-key_hash = ""
 create_fund_subs_and_add_consumers = true
-link_address = ""
 sub_funds_link = 10
 node_sending_key_funding_min = 1
-node_sending_keys = [
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-]
+node_sending_keys = []
 
 # spike test specific config
 [Spike.VRFv2]
@@ -131,22 +109,11 @@ sub_funds_link = 1000
 node_sending_key_funding = 1000
 
 [Spike.VRFv2.ExistingEnv]
-coordinator_address = ""
-consumer_address = ""
 sub_id = 1
-key_hash = ""
 create_fund_subs_and_add_consumers = true
-link_address = ""
 sub_funds_link = 10
 node_sending_key_funding_min = 1
-node_sending_keys = [
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-]
+node_sending_keys = []
 
 # stress test specific config
 [Stress.VRFv2]
@@ -169,19 +136,8 @@ sub_funds_link = 1000
 node_sending_key_funding = 1000
 
 [Stress.VRFv2.ExistingEnv]
-coordinator_address = ""
-consumer_address = ""
 sub_id = 1
-key_hash = ""
 create_fund_subs_and_add_consumers = true
-link_address = ""
 sub_funds_link = 10
 node_sending_key_funding_min = 1
-node_sending_keys = [
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-]
+node_sending_keys = []
