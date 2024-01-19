@@ -10,11 +10,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 )
@@ -73,7 +74,7 @@ type MercuryData struct {
 }
 
 type MercuryConfigProvider interface {
-	Credentials() *models.MercuryCredentials
+	Credentials() *types.MercuryCredentials
 	IsUpkeepAllowed(string) (interface{}, bool)
 	SetUpkeepAllowed(string, interface{}, time.Duration)
 	GetPluginRetry(string) (interface{}, bool)
