@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -269,6 +270,20 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	testConfig.ConfigurationName = configurationName
 	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
 
+	var handleSpecialOverrides = func(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte, product Product) error {
+		switch product {
+		case Automation:
+			return handleAutomationConfigOverride(logger, filename, configurationName, target, content)
+		default:
+			err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &testConfig, content)
+			if err != nil {
+				return errors.Wrapf(err, "error reading file %s", filename)
+			}
+
+			return nil
+		}
+	}
+
 	// read embedded configs is build tag "embed" is set
 	// this makes our life much easier when using a binary
 	if areConfigsEmbedded {
@@ -283,7 +298,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
 
-			err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, file)
+			err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, file, product)
 			if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config")
 			}
@@ -308,7 +323,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
 
-		err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
+		err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, content, product)
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
@@ -484,4 +499,27 @@ func readFile(filePath string) ([]byte, error) {
 	}
 
 	return content, nil
+}
+
+func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
+	logger.Debug().Msgf("Handling automation config override for %s", filename)
+	oldConfig := MustCopy(target)
+	newConfig := TestConfig{}
+
+	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	// override instead of merging
+	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig != nil && oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
+		target.Automation.Load = newConfig.Automation.Load
+	}
+
+	return nil
 }
