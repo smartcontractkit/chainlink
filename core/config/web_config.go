@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 type TLS interface {
@@ -37,7 +37,7 @@ type LDAP interface {
 	ReadOnlyUserLogin() string
 	ReadOnlyUserPass() string
 	ServerTLS() bool
-	SessionTimeout() models.Duration
+	SessionTimeout() commonconfig.Duration
 	QueryTimeout() time.Duration
 	BaseUserAttr() string
 	BaseDN() string
@@ -50,9 +50,9 @@ type LDAP interface {
 	RunUserGroupCN() string
 	ReadUserGroupCN() string
 	UserApiTokenEnabled() bool
-	UserAPITokenDuration() models.Duration
-	UpstreamSyncInterval() models.Duration
-	UpstreamSyncRateLimit() models.Duration
+	UserAPITokenDuration() commonconfig.Duration
+	UpstreamSyncInterval() commonconfig.Duration
+	UpstreamSyncRateLimit() commonconfig.Duration
 }
 
 type WebServer interface {
@@ -64,10 +64,10 @@ type WebServer interface {
 	StartTimeout() time.Duration
 	HTTPWriteTimeout() time.Duration
 	HTTPPort() uint16
-	SessionReaperExpiration() models.Duration
+	SessionReaperExpiration() commonconfig.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options
-	SessionTimeout() models.Duration
+	SessionTimeout() commonconfig.Duration
 	ListenIP() net.IP
 
 	TLS() TLS

@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $.Release.Name }}-db
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $.Release.Name }}-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Allow all node pods to access the database pods.
+        - podSelector:
+            matchLabels:
+              app: {{ $.Release.Name }}
+        # Allow all runner pods to access the database pods.
+        - podSelector:
+            matchLabels:
+              app: runner
+      ports:
+        - protocol: TCP
+          port: 5432
