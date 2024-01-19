@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
@@ -17,18 +18,6 @@ const (
 	CapabilityTypeReport  CapabilityType = "report"
 	CapabilityTypeTarget  CapabilityType = "target"
 )
-
-type stringer struct {
-	s string
-}
-
-func (s stringer) String() string {
-	return s.s
-}
-
-func Stringer(s string) fmt.Stringer {
-	return stringer{s: s}
-}
 
 func (c CapabilityType) IsValid() error {
 	switch c {
@@ -48,6 +37,39 @@ type Validatable interface {
 	ValidateInput(inputs values.Map) error
 }
 
+type Capability interface {
+	Validatable
+	Info() CapabilityInfo
+}
+
+type SynchronousCapability interface {
+	Capability
+
+	Start(ctx context.Context, config values.Map) (values.Value, error)
+	Execute(ctx context.Context, inputs values.Map) (values.Value, error)
+	Stop(ctx context.Context) error
+}
+
+type AsynchronousCapability interface {
+	Capability
+
+	Start(ctx context.Context, config values.Map) (values.Value, error)
+	Execute(ctx context.Context, callback chan values.Map, inputs values.Map) (values.Value, error)
+	Stop(ctx context.Context) error
+}
+
+type stringer struct {
+	s string
+}
+
+func (s stringer) String() string {
+	return s.s
+}
+
+func Stringer(s string) fmt.Stringer {
+	return stringer{s: s}
+}
+
 type CapabilityInfo struct {
 	// We use `fmt.Stringer` for the ID, since an ID can take
 	// one of two forms (namely a fully-qualified ID expressed as a
@@ -60,17 +82,6 @@ type CapabilityInfo struct {
 
 func (c CapabilityInfo) Info() CapabilityInfo {
 	return c
-}
-
-type Capability interface {
-	Validatable
-	Info() CapabilityInfo
-}
-
-type CapabilityRegistry interface {
-	ListCapabilities() []CapabilityInfo
-	Get(id string) (Capability, error)
-	Add(capability Capability) error
 }
 
 var idRegex = regexp.MustCompile("[a-z0-9_\\-:]")
