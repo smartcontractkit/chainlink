@@ -29,16 +29,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -1073,7 +1072,7 @@ func setupAutomationTestDocker(
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
-	syncInterval := models.MustMakeDuration(5 * time.Minute)
+	syncInterval := *commonconfig.MustNewDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
 	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
 	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
@@ -1097,7 +1096,6 @@ func setupAutomationTestDocker(
 			WithMockAdapter().
 			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
 			WithStandardCleanup().
-			WithLogStream().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 		env.ParallelTransactions(true)

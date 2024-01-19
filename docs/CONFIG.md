@@ -1589,6 +1589,19 @@ LatestReportDeadline = "5s" # Default
 LatestReportDeadline controls how long to wait for a response from the
 mercury server before retrying. Setting this to zero will wait indefinitely.
 
+## Mercury.TLS
+```toml
+[Mercury.TLS]
+CertFile = "/path/to/client/certs.pem" # Example
+```
+Mercury.TLS controls client settings for when the node talks to traditional web servers or load balancers.
+
+### CertFile
+```toml
+CertFile = "/path/to/client/certs.pem" # Example
+```
+CertFile is the path to a PEM file of trusted root certificate authority certificates
+
 ## EVM
 EVM defaults depend on ChainID:
 
@@ -5001,6 +5014,7 @@ GasLimit = 14500000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'scroll'
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5081,6 +5095,7 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'scroll'
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5435,7 +5450,7 @@ BlockBackfillSkip enables skipping of very long backfills.
 ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync
+Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync, scroll
 
 ### FinalityDepth
 ```toml

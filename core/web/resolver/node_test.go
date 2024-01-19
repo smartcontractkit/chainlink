@@ -6,11 +6,11 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestResolver_Nodes(t *testing.T) {
@@ -124,8 +124,8 @@ func Test_NodeQuery(t *testing.T) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{Nodes: []*toml.Node{{
 					Name:    &name,
-					WSURL:   models.MustParseURL("ws://some-url"),
-					HTTPURL: models.MustParseURL("http://some-url"),
+					WSURL:   commonconfig.MustParseURL("ws://some-url"),
+					HTTPURL: commonconfig.MustParseURL("http://some-url"),
 					Order:   ptr(int32(11)),
 				}}})
 			},

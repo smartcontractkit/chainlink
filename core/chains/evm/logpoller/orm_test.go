@@ -1106,7 +1106,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 		GenLog(th.ChainID, 2, 2, utils.RandomAddress().String(), event2[:], address2),
 		GenLog(th.ChainID, 2, 3, utils.RandomAddress().String(), event2[:], address2),
 	}))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 3, time.Now(), 1))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomHash(), 3, time.Now(), 1))
 
 	tests := []struct {
 		name                string
@@ -1205,9 +1205,9 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		GenLogWithTimestamp(th.ChainID, 2, 2, utils.RandomAddress().String(), event[:], address, block2ts),
 		GenLogWithTimestamp(th.ChainID, 1, 3, utils.RandomAddress().String(), event[:], address, block3ts),
 	}))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 1, block1ts, 0))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 2, block2ts, 1))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 3, block3ts, 2))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomHash(), 1, block1ts, 0))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomHash(), 2, block2ts, 1))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomHash(), 3, block3ts, 2))
 
 	type expectedLog struct {
 		block int64
@@ -1309,7 +1309,7 @@ func TestNestedLogPollerBlocksQuery(t *testing.T) {
 	require.Len(t, logs, 0)
 
 	// Persist block
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 10, time.Now(), 0))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomHash(), 10, time.Now(), 0))
 
 	// Check if query actually works well with provided dataset
 	logs, err = th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, logpoller.Unconfirmed)
@@ -1542,12 +1542,12 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 			EventSig:       commitReportAccepted,
 			Topics:         [][]byte{},
 			Address:        commitStoreAddress,
-			TxHash:         utils.RandomAddress().Hash(),
+			TxHash:         utils.RandomHash(),
 			Data:           data,
 			CreatedAt:      time.Now(),
 		})
 	}
-	require.NoError(b, o.InsertBlock(utils.RandomAddress().Hash(), int64(numberOfReports*numberOfMessagesPerReport), time.Now(), int64(numberOfReports*numberOfMessagesPerReport)))
+	require.NoError(b, o.InsertBlock(utils.RandomHash(), int64(numberOfReports*numberOfMessagesPerReport), time.Now(), int64(numberOfReports*numberOfMessagesPerReport)))
 	require.NoError(b, o.InsertLogs(dbLogs))
 
 	b.ResetTimer()

@@ -311,8 +311,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		auditLogger = audit.NoopLogger
 	}
 
-	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
-
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
@@ -329,8 +327,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
-		case pg.EventBroadcaster:
-			eventBroadcaster = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -360,10 +356,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:        cfg,
-			EventBroadcaster: eventBroadcaster,
-			MailMon:          mailMon,
-			DB:               db,
+			AppConfig: cfg,
+			MailMon:   mailMon,
+			DB:        db,
 		},
 		CSAETHKeystore: keyStore,
 	}
@@ -416,7 +411,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     cfg,
-		EventBroadcaster:           eventBroadcaster,
 		MailMon:                    mailMon,
 		SqlxDB:                     db,
 		KeyStore:                   keyStore,
@@ -698,27 +692,27 @@ type HTTPClientCleaner struct {
 }
 
 func (r *HTTPClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Get(path, headers...)
+	resp, err := r.HTTPClient.Get(testutils.Context(r.t), path, headers...)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Post(path, body)
+	resp, err := r.HTTPClient.Post(testutils.Context(r.t), path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Put(path string, body io.Reader) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Put(path, body)
+	resp, err := r.HTTPClient.Put(testutils.Context(r.t), path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Patch(path, body, headers...)
+	resp, err := r.HTTPClient.Patch(testutils.Context(r.t), path, body, headers...)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Delete(path)
+	resp, err := r.HTTPClient.Delete(testutils.Context(r.t), path)
 	return bodyCleaner(r.t, resp, err)
 }
 
@@ -878,10 +872,7 @@ func CreateExternalInitiatorViaWeb(
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post(
-		"/v2/external_initiators",
-		bytes.NewBufferString(payload),
-	)
+	resp, cleanup := client.Post("/v2/external_initiators", bytes.NewBufferString(payload))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &webpresenters.ExternalInitiatorAuthentication{}
@@ -1131,7 +1122,7 @@ func unauthenticatedHTTP(t testing.TB, method string, url string, body io.Reader
 	t.Helper()
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	request, err := http.NewRequest(method, url, body)
+	request, err := http.NewRequestWithContext(testutils.Context(t), method, url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {

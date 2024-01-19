@@ -1,9 +1,12 @@
-{{- range $cfg := .Values.chainlink.nodes }}
+{{- range $index, $cfg := .Values.chainlink.nodes }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $.Release.Name }}-{{ $cfg.name }}
 spec:
+  strategy:
+    # Need to recreate the pod to deal with lease lock held by old pod.
+    type: Recreate
   selector:
     matchLabels:
       app: {{ $.Release.Name }}
@@ -15,6 +18,10 @@ spec:
         app: {{ $.Release.Name }}
         instance: {{ $cfg.name }}
         release: {{ $.Release.Name }}
+        # Used for testing. Role value should either be: bootstrap or node.
+        # There should only be one "bootstrap" node, the rest should be "node".
+        # Here we set the first node to be bootstrap, the rest to be node.
+        role: {{ if eq $index 0 }}bootstrap{{ else }}node{{ end }}
         {{- range $key, $value := $.Values.labels }}
         {{ $key }}: {{ $value | quote }}
         {{- end }}

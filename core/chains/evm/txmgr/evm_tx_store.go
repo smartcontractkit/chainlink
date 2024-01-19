@@ -150,7 +150,7 @@ func fromDBReceiptsPlus(rs []dbReceiptPlus) []ReceiptPlus {
 func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
 	receipts := make([]rawOnchainReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts[i] = rawOnchainReceipt(*rs[i])
+		receipts[i] = *rs[i]
 	}
 	return receipts
 }

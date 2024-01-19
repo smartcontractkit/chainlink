@@ -8,7 +8,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 const (
@@ -28,22 +28,22 @@ type Common struct {
 }
 
 type Load struct {
-	TestDuration          *models.Duration `toml:"test_duration"`
-	Rate                  int64            `toml:"rate"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
-	VerificationInterval  *models.Duration `toml:"verification_interval"`
-	VerificationTimeout   *models.Duration `toml:"verification_timeout"`
-	EAChangeInterval      *models.Duration `toml:"ea_change_interval"`
+	TestDuration          *commonconfig.Duration `toml:"test_duration"`
+	Rate                  int64                  `toml:"rate"`
+	RateLimitUnitDuration *commonconfig.Duration `toml:"rate_limit_unit_duration"`
+	VerificationInterval  *commonconfig.Duration `toml:"verification_interval"`
+	VerificationTimeout   *commonconfig.Duration `toml:"verification_timeout"`
+	EAChangeInterval      *commonconfig.Duration `toml:"ea_change_interval"`
 }
 
 type Volume struct {
-	TestDuration          *models.Duration `toml:"test_duration"`
-	Rate                  int64            `toml:"rate"`
-	VURequestsPerUnit     int              `toml:"vu_requests_per_unit"`
-	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
-	VerificationInterval  *models.Duration `toml:"verification_interval"`
-	VerificationTimeout   *models.Duration `toml:"verification_timeout"`
-	EAChangeInterval      *models.Duration `toml:"ea_change_interval"`
+	TestDuration          *commonconfig.Duration `toml:"test_duration"`
+	Rate                  int64                  `toml:"rate"`
+	VURequestsPerUnit     int                    `toml:"vu_requests_per_unit"`
+	RateLimitUnitDuration *commonconfig.Duration `toml:"rate_limit_unit_duration"`
+	VerificationInterval  *commonconfig.Duration `toml:"verification_interval"`
+	VerificationTimeout   *commonconfig.Duration `toml:"verification_timeout"`
+	EAChangeInterval      *commonconfig.Duration `toml:"ea_change_interval"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {
