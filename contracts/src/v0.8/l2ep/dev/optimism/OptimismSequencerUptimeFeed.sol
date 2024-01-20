@@ -24,7 +24,7 @@ contract OptimismSequencerUptimeFeed is SequencerUptimeFeed {
   ) SequencerUptimeFeed(l1SenderAddress, true) {
     s_l2CrossDomainMessenger = IL2CrossDomainMessenger(l2CrossDomainMessengerAddr);
 
-    _recordRound(1, initialStatus, uint64(block.timestamp));
+    _recordRound(1, initialStatus, uint64(block.timestamp), uint64(block.timestamp));
   }
 
   /// @notice Reverts if the sender is not allowed to call `updateStatus`

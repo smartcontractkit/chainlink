@@ -337,7 +337,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
     uint256 gasFinal;
 
     // measures gas used for no update
-    expectedGasUsed = 10306; // NOTE: used to be 38594 in hardhat tests
+    expectedGasUsed = 10306;
     gasStart = gasleft();
     s_scrollSequencerUptimeFeed.updateStatus(false, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -345,7 +345,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
 
     // measures gas used for update
-    expectedGasUsed = 31644; // NOTE: used to be 58458 in hardhat tests
+    expectedGasUsed = 31776;
     gasStart = gasleft();
     s_scrollSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -362,7 +362,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4635; // NOTE: used to be 30952 in hardhat tesst
+    uint256 expectedGasUsed = 4635;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -386,7 +386,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 2283; // NOTE: used to be 28523 in hardhat tests
+    uint256 expectedGasUsed = 2283;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -410,7 +410,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1695; // NOTE: used to be 28229 in hardhat tests
+    uint256 expectedGasUsed = 1695;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -434,7 +434,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1588; // NOTE: used to be 28129 in hardhat tests
+    uint256 expectedGasUsed = 1588;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -458,7 +458,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1599; // NOTE: used to be 28145 in hardhat tests
+    uint256 expectedGasUsed = 1599;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -482,7 +482,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4059; // NOTE: used to be 30682 in hardhat tests
+    uint256 expectedGasUsed = 4059;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -506,7 +506,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
     vm.startPrank(l2MessengerAddr, l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 3958; // NOTE: used to be 30570 in hardhat tests
+    uint256 expectedGasUsed = 3958;
     uint256 gasStart;
     uint256 gasFinal;
 

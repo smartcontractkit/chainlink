@@ -52,7 +52,7 @@ contract ArbitrumSequencerUptimeFeed is SequencerUptimeFeed {
     }
 
     // Initialise roundId == 1 as the first round
-    _recordRound(1, FLAGS.getFlag(FLAG_L2_SEQ_OFFLINE), uint64(block.timestamp));
+    _recordRound(1, FLAGS.getFlag(FLAG_L2_SEQ_OFFLINE), uint64(block.timestamp), uint64(block.timestamp));
 
     emit Initialized();
   }
@@ -73,7 +73,7 @@ contract ArbitrumSequencerUptimeFeed is SequencerUptimeFeed {
 
     // Prepare a new round with updated status
     feedState.latestRoundId += 1;
-    _recordRound(feedState.latestRoundId, status, timestamp);
+    _recordRound(feedState.latestRoundId, status, timestamp, timestamp);
 
     // Raise or lower the flag on the stored Flags contract.
     if (status) {

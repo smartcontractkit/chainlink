@@ -319,7 +319,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        58436,
+        58567,
         gasUsedDeviation,
       )
     })
@@ -341,7 +341,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30952,
+          31144,
           gasUsedDeviation,
         )
       })
@@ -354,7 +354,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28523,
+          28628,
           gasUsedDeviation,
         )
       })
@@ -367,7 +367,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28153,
+          28282,
           gasUsedDeviation,
         )
       })
@@ -380,7 +380,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28046,
+          28175,
           gasUsedDeviation,
         )
       })
@@ -393,7 +393,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28057,
+          28186,
           gasUsedDeviation,
         )
       })
@@ -406,7 +406,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30682,
+          30809,
           gasUsedDeviation,
         )
       })
@@ -419,7 +419,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30570,
+          30697,
           gasUsedDeviation,
         )
       })

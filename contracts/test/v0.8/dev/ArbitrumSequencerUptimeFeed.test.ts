@@ -343,7 +343,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28523,
+          28654,
           gasUsedDeviation,
         )
       })

@@ -264,7 +264,7 @@ contract ArbitrumSequencerUptimeFeed_GasCosts is ArbitrumSequencerUptimeFeedTest
     uint256 gasFinal;
 
     // measures gas used for no update
-    expectedGasUsed = 5507; // NOTE: used to be 28300 in hardhat tests
+    expectedGasUsed = 5507;
     gasStart = gasleft();
     s_arbitrumSequencerUptimeFeed.updateStatus(false, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -272,7 +272,7 @@ contract ArbitrumSequencerUptimeFeed_GasCosts is ArbitrumSequencerUptimeFeedTest
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
 
     // measures gas used for update
-    expectedGasUsed = 68198; // NOTE: used to be 93015 in hardhat tests
+    expectedGasUsed = 68300;
     gasStart = gasleft();
     s_arbitrumSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -288,7 +288,7 @@ contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequ
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4658; // NOTE: used to be 31157 in hardhat tests
+    uint256 expectedGasUsed = 4658;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -311,7 +311,7 @@ contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequ
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 2309; // NOTE: used to be 28523 in hardhat tests
+    uint256 expectedGasUsed = 2309;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -334,7 +334,7 @@ contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequ
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1722; // NOTE: used to be 28329 in hardhat tests
+    uint256 expectedGasUsed = 1722;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -357,7 +357,7 @@ contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequ
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1652; // NOTE: used to be 28229 in hardhat tests
+    uint256 expectedGasUsed = 1652;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -380,7 +380,7 @@ contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequ
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 1632; // NOTE: used to be 28245 in hardhat tests
+    uint256 expectedGasUsed = 1632;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -403,7 +403,7 @@ contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequ
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4059; // NOTE: used to be 30799 in hardhat tests
+    uint256 expectedGasUsed = 4059;
     uint256 gasStart;
     uint256 gasFinal;
 
@@ -426,7 +426,7 @@ contract ArbitrumSequencerUptimeFeed_AggregatorInterfaceGasCosts is ArbitrumSequ
     vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
-    uint256 expectedGasUsed = 4024; // NOTE: used to be 30753 in hardhat tests
+    uint256 expectedGasUsed = 4024;
     uint256 gasStart;
     uint256 gasFinal;
 

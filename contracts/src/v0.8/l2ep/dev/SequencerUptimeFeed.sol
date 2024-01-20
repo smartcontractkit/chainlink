@@ -80,7 +80,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   /// @notice Check if a roundId is valid in this current contract state
   /// @dev Mainly used for AggregatorV2V3Interface functions
   /// @param roundId Round ID to check
-  function _isValidRound(uint256 roundId) internal view returns (bool) {
+  function _isValidRound(uint256 roundId) private view returns (bool) {
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
   }
 
@@ -115,26 +115,16 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   /// @param roundId The round ID to record
   /// @param status Sequencer status
   /// @param timestamp The L1 block timestamp of status update
-  function _recordRound(uint80 roundId, bool status, uint64 timestamp) internal {
-    s_feedState = FeedState(roundId, status, timestamp, uint64(block.timestamp));
-    s_rounds[roundId] = Round(status, timestamp, uint64(block.timestamp));
-
+  /// @param updatedAt The timestamp to use for the updatedAt field (which should normally be uint64(block.timestamp))
+  function _recordRound(uint80 roundId, bool status, uint64 timestamp, uint64 updatedAt) internal {
+    s_rounds[roundId] = Round(status, timestamp, updatedAt);
+    s_feedState = FeedState(roundId, status, timestamp, updatedAt);
     emit NewRound(roundId, msg.sender, timestamp);
     emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
   }
 
-  /// @notice Helper function to update when a round was last updated
-  /// @param roundId The round ID to update
-  /// @param status Sequencer status
-  function _updateRound(uint80 roundId, bool status) private {
-    s_feedState.updatedAt = uint64(block.timestamp);
-    s_rounds[roundId].updatedAt = uint64(block.timestamp);
-    emit RoundUpdated(_getStatusAnswer(status), uint64(block.timestamp));
-  }
-
   /// @notice Record a new status and timestamp if it has changed since the last round.
   /// @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
-  ///
   /// @param status Sequencer status
   /// @param timestamp Block timestamp of status update
   function updateStatus(bool status, uint64 timestamp) external virtual requireInitialized requireValidSender {
@@ -147,10 +137,12 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
     }
 
     if (feedState.latestStatus == status) {
-      _updateRound(feedState.latestRoundId, status);
+      s_feedState.updatedAt = uint64(block.timestamp);
+      s_rounds[feedState.latestRoundId].updatedAt = uint64(block.timestamp);
+      emit RoundUpdated(_getStatusAnswer(status), uint64(block.timestamp));
     } else {
       feedState.latestRoundId += 1;
-      _recordRound(feedState.latestRoundId, status, timestamp);
+      _recordRound(feedState.latestRoundId, status, timestamp, uint64(block.timestamp));
     }
   }
 
