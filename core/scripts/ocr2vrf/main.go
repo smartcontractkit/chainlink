@@ -364,7 +364,7 @@ func main() {
 			*consumerAddress,
 			uint16(*numWords),
 			decimal.RequireFromString(*subID).BigInt(),
-			big.NewInt(int64(*confDelay)),
+			big.NewInt(*confDelay),
 			uint32(*callbackGasLimit),
 			nil, // test consumer doesn't use any args
 		)
@@ -389,7 +389,7 @@ func main() {
 			*consumerAddress,
 			uint16(*numWords),
 			decimal.RequireFromString(*subID).BigInt(),
-			big.NewInt(int64(*confDelay)),
+			big.NewInt(*confDelay),
 			uint32(*callbackGasLimit),
 			nil, // test consumer doesn't use any args,
 			big.NewInt(*batchSize),
@@ -411,7 +411,7 @@ func main() {
 				*consumerAddress,
 				uint16(*numWords),
 				decimal.RequireFromString(*subID).BigInt(),
-				big.NewInt(int64(*confDelay)),
+				big.NewInt(*confDelay),
 				uint32(*callbackGasLimit),
 				nil, // test consumer doesn't use any args,
 				big.NewInt(*batchSize),

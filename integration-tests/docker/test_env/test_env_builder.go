@@ -59,7 +59,8 @@ type CLTestEnvBuilder struct {
 
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
-		l: log.Logger,
+		l:            log.Logger,
+		hasLogStream: true,
 	}
 }
 
@@ -101,8 +102,9 @@ func (b *CLTestEnvBuilder) WithTestInstance(t *testing.T) *CLTestEnvBuilder {
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithLogStream() *CLTestEnvBuilder {
-	b.hasLogStream = true
+// WithoutLogStream disables LogStream logging component
+func (b *CLTestEnvBuilder) WithoutLogStream() *CLTestEnvBuilder {
+	b.hasLogStream = false
 	return b
 }
 
@@ -236,7 +238,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("cannot start mock adapter without a network"))
 		}
 
-		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.Network.Name}, "")
+		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.Network.Name}, "", test_env.WithLogStream(b.te.LogStream))
 
 		err = b.te.StartMockAdapter()
 		if err != nil {
@@ -265,7 +267,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	if b.te.LogStream != nil {
 		b.t.Cleanup(func() {
-			b.l.Warn().Msg("Shutting down LogStream")
+			b.l.Info().Msg("Shutting down LogStream")
 			logPath, err := osutil.GetAbsoluteFolderPath("logs")
 			if err != nil {
 				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")

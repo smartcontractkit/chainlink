@@ -20,7 +20,6 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -39,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -73,14 +71,14 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 				EventSig:       event1,
 				Topics:         [][]byte{event1[:], logpoller.EvmWord(uint64(i + 1000*j)).Bytes()},
 				Address:        addr,
-				TxHash:         utils.RandomAddress().Hash(),
+				TxHash:         utils.RandomHash(),
 				Data:           logpoller.EvmWord(uint64(i + 1000*j)).Bytes(),
 				CreatedAt:      blockTimestamp,
 			})
 
 		}
 		require.NoError(t, o.InsertLogs(logs))
-		require.NoError(t, o.InsertBlock(utils.RandomAddress().Hash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour), 0))
+		require.NoError(t, o.InsertBlock(utils.RandomHash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour), 0))
 	}
 
 	return event1, address1, address2
@@ -1323,61 +1321,6 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
 	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
 	assert.Contains(t, logMsgs, "Backup log poller ran before filters loaded, skipping")
-}
-
-func TestNotifyAfterInsert(t *testing.T) {
-	t.Parallel()
-
-	// Use a non-transactional db for this test because notify events
-	// are not delivered until the transaction is committed.
-	var dbURL string
-	_, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		dbURL = s.Database.URL.URL().String()
-	})
-
-	lggr, _ := logger.TestObserved(t, zapcore.WarnLevel)
-	chainID := big.NewInt(1337)
-	o := logpoller.NewORM(chainID, sqlxDB, lggr, pgtest.NewQConfig(true))
-
-	listener := pq.NewListener(dbURL, time.Second, time.Second, nil)
-	err := listener.Listen(pg.ChannelInsertOnEVMLogs)
-	require.NoError(t, err)
-
-	log := logpoller.Log{
-		EvmChainId:     ubig.New(chainID),
-		LogIndex:       10,
-		BlockHash:      testutils.Random32Byte(),
-		BlockNumber:    100,
-		BlockTimestamp: time.Now(),
-		Topics: pq.ByteaArray{
-			testutils.NewAddress().Bytes(),
-			testutils.NewAddress().Bytes(),
-		},
-		EventSig:  testutils.Random32Byte(),
-		Address:   testutils.NewAddress(),
-		TxHash:    testutils.Random32Byte(),
-		Data:      []byte("test_data"),
-		CreatedAt: time.Now(),
-	}
-
-	err = o.InsertLogs([]logpoller.Log{log})
-	require.NoError(t, err)
-
-	testutils.AssertEventually(t, func() bool {
-		select {
-		case event := <-listener.Notify:
-			expectedPayload := fmt.Sprintf(
-				"%s:%s,%s",
-				hexutil.Encode(log.Address.Bytes())[2:], // strip the leading 0x
-				hexutil.Encode(log.Topics[0])[2:],
-				hexutil.Encode(log.Topics[1])[2:],
-			)
-			require.Equal(t, event.Extra, expectedPayload)
-			return true
-		default:
-			return false
-		}
-	})
 }
 
 type getLogErrData struct {

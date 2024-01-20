@@ -14,23 +14,25 @@ import (
 	"os"
 	"strconv"
 
+	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
@@ -149,7 +151,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
-		addLink("checkUpkeep simulation", tenderlySimLink(k.cfg, chainID, 0, rawCall, registryAddress))
+		addLink("checkUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, 0, rawCall, registryAddress))
 	} else if triggerType == LogTrigger {
 		// validate inputs
 		message("upkeep identified as log trigger")
@@ -242,20 +244,20 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
-		addLink("checkUpkeep simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+		addLink("checkUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, registryAddress))
 		rawCall = append(core.ILogAutomationABI.Methods["checkLog"].ID, triggerData...)
-		addLink("checkLog (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
+		addLink("checkLog (direct) simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 	} else {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
 	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
 	// handle streams lookup
 	if checkResult.UpkeepFailureReason != 0 {
-		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %d", checkResult.UpkeepFailureReason))
+		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
 	}
 
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
-		mc := &models.MercuryCredentials{LegacyURL: k.cfg.MercuryLegacyURL, URL: k.cfg.MercuryURL, Username: k.cfg.MercuryID, Password: k.cfg.MercuryKey}
+		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.MercuryLegacyURL, URL: k.cfg.MercuryURL, Username: k.cfg.MercuryID, Password: k.cfg.MercuryKey}
 		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)
 		lggr, _ := logger.NewLogger()
 		blockSub := &blockSubscriber{k.client}
@@ -333,12 +335,12 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			if err != nil {
 				failUnknown("failed to pack raw checkCallback call", err)
 			}
-			addLink("checkCallback simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+			addLink("checkCallback simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, registryAddress))
 			rawCall, err = core.StreamsCompatibleABI.Pack("checkCallback", values, streamsLookup.ExtraData)
 			if err != nil {
 				failUnknown("failed to pack raw checkCallback (direct) call", err)
 			}
-			addLink("checkCallback (direct) simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
+			addLink("checkCallback (direct) simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, upkeepInfo.Target))
 		} else {
 			message("did not revert with StreamsLookup error")
 		}
@@ -357,13 +359,45 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if err != nil {
 		failUnknown("failed to pack raw simulatePerformUpkeep call", err)
 	}
-	addLink("simulatePerformUpkeep simulation", tenderlySimLink(k.cfg, chainID, blockNum, rawCall, registryAddress))
+	addLink("simulatePerformUpkeep simulation", tenderlySimLink(ctx, k.cfg, chainID, blockNum, rawCall, registryAddress))
 
 	if simulateResult.Success {
 		resolveEligible()
 	} else {
-		resolveIneligible("simulate perform upkeep unsuccessful")
+		// Convert performGas to *big.Int for comparison
+		performGasBigInt := new(big.Int).SetUint64(uint64(upkeepInfo.PerformGas))
+		// Compare PerformGas and GasUsed
+		result := performGasBigInt.Cmp(simulateResult.GasUsed)
+
+		if result < 0 {
+			// PerformGas is smaller than GasUsed
+			resolveIneligible(fmt.Sprintf("simulate perform upkeep unsuccessful, PerformGas (%d) is lower than GasUsed (%s)", upkeepInfo.PerformGas, simulateResult.GasUsed.String()))
+		} else {
+			resolveIneligible("simulate perform upkeep unsuccessful")
+		}
 	}
+}
+
+func getCheckUpkeepFailureReason(reasonIndex uint8) string {
+	// Copied from KeeperRegistryBase2_1.sol
+	reasonStrings := []string{
+		"NONE",
+		"UPKEEP_CANCELLED",
+		"UPKEEP_PAUSED",
+		"TARGET_CHECK_REVERTED",
+		"UPKEEP_NOT_NEEDED",
+		"PERFORM_DATA_EXCEEDS_LIMIT",
+		"INSUFFICIENT_BALANCE",
+		"CALLBACK_REVERTED",
+		"REVERT_DATA_EXCEEDS_LIMIT",
+		"REGISTRY_PAUSED",
+	}
+
+	if int(reasonIndex) < len(reasonStrings) {
+		return reasonStrings[reasonIndex]
+	}
+
+	return fmt.Sprintf("Unknown : %d", reasonIndex)
 }
 
 func mustAutomationCheckResult(upkeepID *big.Int, checkResult iregistry21.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
@@ -525,7 +559,7 @@ type TenderlyAPIResponse struct {
 	}
 }
 
-func tenderlySimLink(cfg *config.Config, chainID int64, blockNumber uint64, input []byte, contractAddress gethcommon.Address) string {
+func tenderlySimLink(ctx context.Context, cfg *config.Config, chainID int64, blockNumber uint64, input []byte, contractAddress gethcommon.Address) string {
 	errResult := "<NONE>"
 	if cfg.TenderlyAccountName == "" || cfg.TenderlyKey == "" || cfg.TenderlyProjectName == "" {
 		warning("tenderly credentials not properly configured - this is optional but helpful")
@@ -547,7 +581,8 @@ func tenderlySimLink(cfg *config.Config, chainID int64, blockNumber uint64, inpu
 		warning(fmt.Sprintf("unable to marshal tenderly request data: %v", err))
 		return errResult
 	}
-	request, err := http.NewRequest(
+	request, err := http.NewRequestWithContext(
+		ctx,
 		"POST",
 		fmt.Sprintf("https://api.tenderly.co/api/v1/account/%s/project/%s/simulate", cfg.TenderlyAccountName, cfg.TenderlyProjectName),
 		bytes.NewBuffer(jsonData),

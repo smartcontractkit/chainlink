@@ -74,7 +74,6 @@ URL = 'http://stark.node'
 -EVM.1.Txm.Broadcaster
 -EVM.1.Txm.Confirmer
 -EVM.1.Txm.WrappedEvmEstimator
--EventBroadcaster
 -JobSpawner
 -Mailbox.Monitor
 -Mercury.WSRPCPool
@@ -202,15 +201,6 @@ URL = 'http://stark.node'
       "id": "EVM.1.Txm.WrappedEvmEstimator",
       "attributes": {
         "name": "EVM.1.Txm.WrappedEvmEstimator",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "EventBroadcaster",
-      "attributes": {
-        "name": "EventBroadcaster",
         "status": "passing",
         "output": ""
       }

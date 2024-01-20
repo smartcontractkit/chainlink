@@ -191,10 +191,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
+		b.logger.Info("Txm starting tracker")
 		if err := ms.Start(ctx, b.tracker); err != nil {
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
 		}
 
+		b.logger.Info("Txm starting runLoop")
 		b.wg.Add(1)
 		go b.runLoop()
 		<-b.chSubbed
@@ -240,7 +242,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while Broadcaster or Confirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(addr ADDR) (err error) {
-	ctx, cancel := services.StopChan(b.chStop).NewCtx()
+	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
 	if err = b.txStore.Abandon(ctx, b.chainID, addr); err != nil {
 		return fmt.Errorf("abandon failed to update txes for key %s: %w", addr.String(), err)

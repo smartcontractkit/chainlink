@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	configurl "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -70,7 +70,7 @@ func TestChainScopedConfig(t *testing.T) {
 					ChainID: id,
 					Chain: toml.Defaults(id, &toml.Chain{
 						GasEstimator: toml.GasEstimator{
-							BumpTxDepth: ptr(uint32(override)),
+							BumpTxDepth: ptr(override),
 						},
 					}),
 				}
@@ -383,8 +383,8 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			c.EVM[0] = &toml.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: toml.Defaults(chainID, chains...),
 				Nodes: toml.EVMNodes{{
 					Name:    ptr("fake"),
-					WSURL:   models.MustParseURL("wss://foo.test/ws"),
-					HTTPURL: models.MustParseURL("http://foo.test"),
+					WSURL:   configurl.MustParseURL("wss://foo.test/ws"),
+					HTTPURL: configurl.MustParseURL("http://foo.test"),
 				}}}
 		})
 	}

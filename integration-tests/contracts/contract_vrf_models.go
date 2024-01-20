@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
@@ -36,6 +37,7 @@ type VRFCoordinator interface {
 }
 
 type VRFCoordinatorV2 interface {
+	GetRequestConfig(ctx context.Context) (GetRequestConfig, error)
 	SetConfig(
 		minimumRequestConfirmations uint16,
 		maxGasLimit uint32,
@@ -136,6 +138,12 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []*big.Int, sender []common.Address, timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsRequested, error)
 }
 
+type VRFV2Wrapper interface {
+	Address() string
+	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8) error
+	GetSubID(ctx context.Context) (uint64, error)
+}
+
 type VRFV2PlusWrapper interface {
 	Address() string
 	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) error
@@ -176,6 +184,16 @@ type VRFv2LoadTestConsumer interface {
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
 	ResetMetrics() error
+}
+
+type VRFv2WrapperLoadTestConsumer interface {
+	Address() string
+	Fund(ethAmount *big.Float) error
+	RequestRandomness(requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) (*types.Transaction, error)
+	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrfv2_wrapper_load_test_consumer.GetRequestStatus, error)
+	GetLastRequestId(ctx context.Context) (*big.Int, error)
+	GetWrapper(ctx context.Context) (common.Address, error)
+	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
 }
 
 type VRFv2PlusLoadTestConsumer interface {

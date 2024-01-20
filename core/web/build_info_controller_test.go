@@ -32,12 +32,15 @@ func TestBuildInfoController_Show_APICredentials(t *testing.T) {
 func TestBuildInfoController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	url := app.Server.URL + "/v2/build_info"
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
