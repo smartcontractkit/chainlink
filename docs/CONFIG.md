@@ -5754,7 +5754,9 @@ BumpMin is the minimum fixed amount of wei by which gas is bumped on each transa
 ```toml
 BumpPercent = 20 # Default
 ```
-BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
+BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
+
+The `SuggestedPriceEstimator` adds the larger of `BumpPercent` and `BumpMin` on top of the price provided by the RPC when bumping a transaction's gas.
 
 ### BumpThreshold
 ```toml
@@ -5798,8 +5800,8 @@ If you are using BlockHistoryEstimator (default for most chains):
 
 Bumping works as follows:
 
-- Increase tipcap by `max(tipcap * (1 + GasBumpPercent), tipcap + GasBumpWei)`
-- Increase feecap by `max(feecap * (1 + GasBumpPercent), feecap + GasBumpWei)`
+- Increase tipcap by `max(tipcap * (1 + BumpPercent), tipcap + BumpMin)`
+- Increase feecap by `max(feecap * (1 + BumpPercent), feecap + BumpMin)`
 
 A quick note on terminology - Chainlink nodes use the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
 

@@ -18,10 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-type suggestedPriceConfig struct {
-	b uint16
-}
-
 func TestSuggestedPriceEstimator(t *testing.T) {
 	t.Parallel()
 

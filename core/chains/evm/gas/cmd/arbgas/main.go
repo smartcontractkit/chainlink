@@ -80,10 +80,10 @@ func (c *config) LimitMax() uint32 {
 	return c.max
 }
 
-func (a *config) BumpPercent() uint16 {
-	return a.bumpPercent
+func (c *config) BumpPercent() uint16 {
+	return c.bumpPercent
 }
 
-func (a *config) BumpMin() *assets.Wei {
-	return a.bumpMin
+func (c *config) BumpMin() *assets.Wei {
+	return c.bumpMin
 }

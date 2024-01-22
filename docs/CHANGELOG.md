@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `chainlink health` CLI command and HTML `/health` endpoint, to provide human-readable views of the underlying JSON health data.
 - New job type `stream` to represent streamspecs. This job type is not yet used anywhere but will be required for Data Streams V1.
+- Gas bumping logic to the `SuggestedPriceEstimator`
 
 ### Fixed
 

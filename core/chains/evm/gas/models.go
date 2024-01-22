@@ -404,7 +404,7 @@ func BumpDynamicFeeOnly(config bumpConfig, feeCapBufferBlocks uint16, lggr logge
 // - A configured percentage bump (EVM.GasEstimator.BumpPercent) on top of the baseline tip cap.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline tip cap.
 // The baseline tip cap is the maximum of the previous tip cap attempt and the node's current tip cap.
-// It increases the max fee cap by GasBumpPercent
+// It increases the max fee cap by BumpPercent
 //
 // NOTE: We would prefer to have set a large FeeCap and leave it fixed, bumping
 // the Tip only. Unfortunately due to a flaw of how EIP-1559 is implemented we
