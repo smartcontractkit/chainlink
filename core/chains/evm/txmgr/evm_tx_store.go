@@ -1841,14 +1841,6 @@ RETURNING "txes".*
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}
-		var pruned int64
-		pruned, err = txRequest.Strategy.PruneQueue(ctx, o)
-		if err != nil {
-			return pkgerrors.Wrap(err, "CreateEthTransaction failed to prune evm.txes")
-		}
-		if pruned > 0 {
-			o.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", txRequest.FromAddress, "toAddress", txRequest.ToAddress, "meta", txRequest.Meta, "subject", txRequest.Strategy.Subject(), "replacementID", dbEtx.ID)
-		}
 		return nil
 	})
 	var etx Tx

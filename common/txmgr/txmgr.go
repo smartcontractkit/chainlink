@@ -519,6 +519,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 	if err != nil {
 		return tx, err
 	}
+	if err := b.pruneQueue(ctx, txRequest, tx); err != nil {
+		return tx, fmt.Errorf("CreateTransaction failed to prune queue: %w", err)
+	}
 
 	// Trigger the Broadcaster to check for new transaction
 	b.broadcaster.Trigger(txRequest.FromAddress)
@@ -559,10 +562,30 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 	if err != nil {
 		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %w", err)
 	}
+	if err := b.pruneQueue(ctx, txRequest, etx); err != nil {
+		return etx, fmt.Errorf("SendNativeToken failed to prune queue: %w", err)
+	}
 
 	// Trigger the Broadcaster to check for new transaction
 	b.broadcaster.Trigger(from)
 	return etx, nil
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueue(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	pruned, err := txRequest.Strategy.PruneQueue(ctx, b.txStore)
+	if err != nil {
+		return err
+	}
+	if pruned > 0 {
+		b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned),
+			"fromAddress", txRequest.FromAddress,
+			"toAddress", txRequest.ToAddress,
+			"meta", txRequest.Meta,
+			"subject", txRequest.Strategy.Subject(),
+			"replacementID", etx.ID)
+	}
+
+	return nil
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
