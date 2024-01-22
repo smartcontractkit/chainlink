@@ -26,6 +26,7 @@ on:
           - SEPOLIA
           - BASE_GOERLI
           - ARBITRUM_SEPOLIA
+          - LINEA_GOERLI
       TestInputs:
         description: TestInputs
         required: false
