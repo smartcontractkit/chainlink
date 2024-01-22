@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -137,7 +137,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, client, ethClient)
 
-		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)

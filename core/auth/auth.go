@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"cosmossdk.io/errors"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
 )
 

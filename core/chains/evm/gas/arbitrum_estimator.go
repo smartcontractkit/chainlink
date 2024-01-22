@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -74,7 +74,7 @@ func (a *arbitrumEstimator) Name() string {
 func (a *arbitrumEstimator) Start(ctx context.Context) error {
 	return a.StartOnce("ArbitrumEstimator", func() error {
 		if err := a.EvmEstimator.Start(ctx); err != nil {
-			return errors.Wrap(err, "failed to start gas price estimator")
+			return pkgerrors.Wrap(err, "failed to start gas price estimator")
 		}
 		go a.run()
 		<-a.chInitialised
@@ -84,7 +84,7 @@ func (a *arbitrumEstimator) Start(ctx context.Context) error {
 func (a *arbitrumEstimator) Close() error {
 	return a.StopOnce("ArbitrumEstimator", func() (err error) {
 		close(a.chStop)
-		err = errors.Wrap(a.EvmEstimator.Close(), "failed to stop gas price estimator")
+		err = pkgerrors.Wrap(a.EvmEstimator.Close(), "failed to stop gas price estimator")
 		<-a.chDone
 		return
 	})
@@ -115,7 +115,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			select {
 			case a.chForceRefetch <- ch:
 			case <-a.chStop:
-				err = errors.New("estimator stopped")
+				err = pkgerrors.New("estimator stopped")
 				return
 			case <-ctx.Done():
 				err = ctx.Err()
@@ -124,7 +124,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			select {
 			case <-ch:
 			case <-a.chStop:
-				err = errors.New("estimator stopped")
+				err = pkgerrors.New("estimator stopped")
 				return
 			case <-ctx.Done():
 				err = ctx.Err()
@@ -137,7 +137,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			"perL1CalldataUnit", perL1CalldataUnit, "chainSpecificGasLimit", chainSpecificGasLimit)
 	})
 	if !ok {
-		return nil, 0, errors.New("estimator is not started")
+		return nil, 0, pkgerrors.New("estimator is not started")
 	} else if err != nil {
 		return
 	}

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -123,7 +123,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
 			Once().
-			Return(nil, errors.New("a little easter egg for the 4chan link marines error"))
+			Return(nil, pkgerrors.New("a little easter egg for the 4chan link marines error"))
 
 		servicetest.RunHealthy(t, bm)
 

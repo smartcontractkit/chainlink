@@ -12,7 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -143,7 +143,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
 				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
-		})).Return(errors.Wrap(context.DeadlineExceeded, "some error message")).Once()
+		})).Return(pkgerrors.Wrap(context.DeadlineExceeded, "some error message")).Once()
 
 		err := bhe.Start(testutils.Context(t))
 		require.NoError(t, err)
@@ -177,7 +177,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
 
-		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("something exploded"))
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, pkgerrors.New("something exploded"))
 
 		err := bhe.Start(testutils.Context(t))
 		require.NoError(t, err)
@@ -200,7 +200,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: assets.NewWeiI(420)}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
-		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something went wrong"))
+		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(pkgerrors.New("something went wrong"))
 
 		err := bhe.Start(testutils.Context(t))
 		require.NoError(t, err)
@@ -223,7 +223,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: assets.NewWeiI(420)}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
-		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("this error doesn't matter"))
+		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(pkgerrors.New("this error doesn't matter"))
 
 		ctx, cancel := context.WithCancel(testutils.Context(t))
 		cancel()
@@ -239,7 +239,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: assets.NewWeiI(420)}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
-		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("this error doesn't matter")).Run(func(_ mock.Arguments) {
+		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(pkgerrors.New("this error doesn't matter")).Run(func(_ mock.Arguments) {
 			time.Sleep(gas.MaxStartTime + 1*time.Second)
 		})
 
@@ -342,7 +342,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
 
-		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
+		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(pkgerrors.New("something exploded"))
 
 		err := bhe.FetchBlocks(testutils.Context(t), cltest.Head(42))
 		require.Error(t, err)
@@ -390,7 +390,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b43
 			// This errored block (42) will be ignored
-			elems[1].Error = errors.New("something went wrong")
+			elems[1].Error = pkgerrors.New("something went wrong")
 		})
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
@@ -2363,7 +2363,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 
 		_, _, err := bhe.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, attempts)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, commonfee.ErrConnectivity))
+		assert.True(t, pkgerrors.Is(err, commonfee.ErrConnectivity))
 		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 1 kwei, which is above percentile=10%% (percentile price: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
 	})
 
@@ -2476,7 +2476,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 
 		_, _, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, attempts)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, commonfee.ErrConnectivity))
+		assert.True(t, pkgerrors.Is(err, commonfee.ErrConnectivity))
 		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 25 wei, which is above percentile=10%% (percentile tip cap: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
 	})
 

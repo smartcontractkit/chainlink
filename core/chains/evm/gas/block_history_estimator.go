@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -204,7 +204,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 			b.logger.Infof("Inclusion checking enabled, bumping will be prevented on transactions that have been priced above the %d percentile for %d blocks", b.bhConfig.CheckInclusionPercentile(), b.bhConfig.CheckInclusionBlocks())
 		}
 		if b.bhConfig.BlockHistorySize() == 0 {
-			return errors.New("BlockHistorySize must be set to a value greater than 0")
+			return pkgerrors.New("BlockHistorySize must be set to a value greater than 0")
 		}
 
 		fetchCtx, cancel := context.WithTimeout(ctx, MaxStartTime)
@@ -222,7 +222,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 
 		// NOTE: This only checks the start context, not the fetch context
 		if ctx.Err() != nil {
-			return errors.Wrap(ctx.Err(), "failed to start BlockHistoryEstimator due to main context error")
+			return pkgerrors.Wrap(ctx.Err(), "failed to start BlockHistoryEstimator due to main context error")
 		}
 
 		b.wg.Add(1)
@@ -253,11 +253,11 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLim
 		gasPrice = b.getGasPrice()
 	})
 	if !ok {
-		return nil, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
+		return nil, 0, pkgerrors.New("BlockHistoryEstimator is not started; cannot estimate gas")
 	}
 	if gasPrice == nil {
 		if !b.initialFetch.Load() {
-			return nil, 0, errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
+			return nil, 0, pkgerrors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
 		}
 		b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
 			"Using Evm.GasEstimator.PriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
@@ -290,7 +290,7 @@ func (b *BlockHistoryEstimator) getTipCap() *assets.Wei {
 func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
-			if errors.Is(err, commonfee.ErrConnectivity) {
+			if pkgerrors.Is(err, commonfee.ErrConnectivity) {
 				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "legacy").Inc()
@@ -323,7 +323,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 		if attempt.BroadcastBeforeBlockNum == nil {
 			// this shouldn't happen; any broadcast attempt ought to have a
 			// BroadcastBeforeBlockNum otherwise its an assumption violation
-			return errors.Errorf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempt.TxHash)
+			return pkgerrors.Errorf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempt.TxHash)
 		}
 		broadcastBeforeBlockNum := *attempt.BroadcastBeforeBlockNum
 		blocksSinceBroadcast := *latestBlockNum - broadcastBeforeBlockNum
@@ -353,11 +353,11 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 		case 0x2:
 			eip1559 = true
 		default:
-			return errors.Errorf("attempt %s has unknown transaction type 0x%d", attempt.TxHash, attempt.TxType)
+			return pkgerrors.Errorf("attempt %s has unknown transaction type 0x%d", attempt.TxHash, attempt.TxType)
 		}
 		gasPrice, tipCap, err := b.calculatePercentilePrices(blocks, percentile, eip1559, nil, nil)
 		if err != nil {
-			if errors.Is(err, ErrNoSuitableTransactions) {
+			if pkgerrors.Is(err, ErrNoSuitableTransactions) {
 				b.logger.Warnf("no suitable transactions found to verify if transaction %s has been included within expected inclusion blocks of %d", attempt.TxHash, expectInclusionWithinBlocks)
 				return nil
 			}
@@ -378,11 +378,11 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 				}
 			}
 			if sufficientFeeCap && attempt.DynamicFee.TipCap.Cmp(tipCap) > 0 {
-				return errors.Wrapf(commonfee.ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
+				return pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 			}
 		} else {
 			if attempt.GasPrice.Cmp(gasPrice) > 0 {
-				return errors.Wrapf(commonfee.ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.GasPrice, percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
+				return pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.GasPrice, percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 
 			}
 		}
@@ -392,7 +392,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 
 func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if !b.eConfig.EIP1559DynamicFees() {
-		return fee, 0, errors.New("Can't get dynamic fee, EIP1559 is disabled")
+		return fee, 0, pkgerrors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
 
 	var feeCap *assets.Wei
@@ -407,7 +407,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 		tipCap = b.tipCap
 		if tipCap == nil {
 			if !b.initialFetch.Load() {
-				err = errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
+				err = pkgerrors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
 				return
 			}
 			b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
@@ -428,12 +428,12 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 			// This shouldn't happen on EIP-1559 blocks, since if the tip cap
 			// is set, Start must have succeeded and we would expect an initial
 			// base fee to be set as well
-			err = errors.New("BlockHistoryEstimator: no value for latest block base fee; cannot estimate EIP-1559 base fee. Are you trying to run with EIP1559 enabled on a non-EIP1559 chain?")
+			err = pkgerrors.New("BlockHistoryEstimator: no value for latest block base fee; cannot estimate EIP-1559 base fee. Are you trying to run with EIP1559 enabled on a non-EIP1559 chain?")
 			return
 		}
 	})
 	if !ok {
-		return fee, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
+		return fee, 0, pkgerrors.New("BlockHistoryEstimator is not started; cannot estimate gas")
 	}
 	if err != nil {
 		return fee, 0, err
@@ -466,7 +466,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, bufferBlocks int, tipC
 func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
-			if errors.Is(err, commonfee.ErrConnectivity) {
+			if pkgerrors.Is(err, commonfee.ErrConnectivity) {
 				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "eip1559").Inc()
@@ -533,7 +533,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 			}
 		})
 	if err != nil {
-		if errors.Is(err, ErrNoSuitableTransactions) {
+		if pkgerrors.Is(err, ErrNoSuitableTransactions) {
 			lggr.Debug("No suitable transactions, skipping")
 		} else {
 			lggr.Warnw("Cannot calculate percentile prices", "err", err)
@@ -588,12 +588,12 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 	historySize := b.size
 
 	if historySize <= 0 {
-		return errors.Errorf("BlockHistoryEstimator: history size must be > 0, got: %d", historySize)
+		return pkgerrors.Errorf("BlockHistoryEstimator: history size must be > 0, got: %d", historySize)
 	}
 
 	highestBlockToFetch := head.Number - blockDelay
 	if highestBlockToFetch < 0 {
-		return errors.Errorf("BlockHistoryEstimator: cannot fetch, current block height %v is lower than EVM.RPCBlockQueryDelay=%v", head.Number, blockDelay)
+		return pkgerrors.Errorf("BlockHistoryEstimator: cannot fetch, current block height %v is lower than EVM.RPCBlockQueryDelay=%v", head.Number, blockDelay)
 	}
 	lowestBlockToFetch := head.Number - historySize - blockDelay + 1
 	if lowestBlockToFetch < 0 {
@@ -641,7 +641,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 	for _, req := range reqs {
 		result, err := req.Result, req.Error
 		if err != nil {
-			if errors.Is(err, evmtypes.ErrMissingBlock) {
+			if pkgerrors.Is(err, evmtypes.ErrMissingBlock) {
 				num := HexToInt64(req.Args[0])
 				missingBlocks = append(missingBlocks, num)
 				lggr.Debugw(
@@ -657,10 +657,10 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 
 		block, is := result.(*evmtypes.Block)
 		if !is {
-			return errors.Errorf("expected result to be a %T, got %T", &evmtypes.Block{}, result)
+			return pkgerrors.Errorf("expected result to be a %T, got %T", &evmtypes.Block{}, result)
 		}
 		if block == nil {
-			return errors.New("invariant violation: got nil block")
+			return pkgerrors.New("invariant violation: got nil block")
 		}
 		if block.Hash == (common.Hash{}) {
 			lggr.Warnw("Block was missing hash", "block", b, "headNum", head.Number, "blockNum", block.Number)
@@ -716,26 +716,26 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 		b.logger.Tracew(fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
 
 		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
-		if errors.Is(err, context.DeadlineExceeded) {
+		if pkgerrors.Is(err, context.DeadlineExceeded) {
 			// We ran out of time, return what we have
 			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results", i, len(reqs))
 			for k := i; k < len(reqs); k++ {
 				if k < j {
-					reqs[k].Error = errors.Wrap(err, "request failed")
+					reqs[k].Error = pkgerrors.Wrap(err, "request failed")
 				} else {
-					reqs[k].Error = errors.Wrap(err, "request skipped; previous request exceeded deadline")
+					reqs[k].Error = pkgerrors.Wrap(err, "request skipped; previous request exceeded deadline")
 				}
 			}
 			return nil
 		} else if err != nil {
-			return errors.Wrap(err, "BlockHistoryEstimator#fetchBlocks error fetching blocks with BatchCallContext")
+			return pkgerrors.Wrap(err, "BlockHistoryEstimator#fetchBlocks error fetching blocks with BatchCallContext")
 		}
 	}
 	return nil
 }
 
 var (
-	ErrNoSuitableTransactions = errors.New("no suitable transactions")
+	ErrNoSuitableTransactions = pkgerrors.New("no suitable transactions")
 )
 
 func (b *BlockHistoryEstimator) calculatePercentilePrices(blocks []evmtypes.Block, percentile int, eip1559 bool, f func(gasPrices []*assets.Wei), f2 func(tipCaps []*assets.Wei)) (gasPrice, tipCap *assets.Wei, err error) {
@@ -797,7 +797,7 @@ func (b *BlockHistoryEstimator) getPricesFromBlocks(blocks []evmtypes.Block, eip
 
 func verifyBlock(block evmtypes.Block, eip1559 bool) error {
 	if eip1559 && block.BaseFeePerGas == nil {
-		return errors.New("EIP-1559 mode was enabled, but block was missing baseFeePerGas")
+		return pkgerrors.New("EIP-1559 mode was enabled, but block was missing baseFeePerGas")
 	}
 	return nil
 }

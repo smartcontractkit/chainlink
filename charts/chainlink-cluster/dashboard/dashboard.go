@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"cosmossdk.io/errors"
 	"github.com/K-Phoen/grabana"
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/logs"
@@ -14,7 +15,6 @@ import (
 	"github.com/K-Phoen/grabana/timeseries"
 	"github.com/K-Phoen/grabana/timeseries/axis"
 	"github.com/K-Phoen/grabana/variable/query"
-	"github.com/pkg/errors"
 )
 
 /*

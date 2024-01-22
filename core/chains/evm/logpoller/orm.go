@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -292,7 +292,7 @@ func (o *DbORM) insertLogsWithinTx(logs []Log, tx pg.Queryer) error {
 		)
 
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
+			if pkgerrors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
 				// In case of DB timeouts, try to insert again with a smaller batch upto a limit
 				batchInsertSize /= 2
 				i -= batchInsertSize // counteract +=batchInsertSize on next loop iteration
@@ -307,7 +307,7 @@ func (o *DbORM) insertLogsWithinTx(logs []Log, tx pg.Queryer) error {
 func (o *DbORM) validateLogs(logs []Log) error {
 	for _, log := range logs {
 		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
-			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
+			return pkgerrors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
 		}
 	}
 	return nil
@@ -406,7 +406,7 @@ func (o *DbORM) SelectLogsWithSigs(start, end int64, address common.Address, eve
 				AND event_sig = ANY(:event_sig_array)
 				AND block_number BETWEEN :start_block AND :end_block
 				ORDER BY (block_number, log_index)`, args)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return logs, err
@@ -457,7 +457,7 @@ func (o *DbORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresse
 		ORDER BY block_number ASC`, nestedBlockNumberQuery(confs))
 	var logs []Log
 	if err := o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
-		return nil, errors.Wrap(err, "failed to execute query")
+		return nil, pkgerrors.Wrap(err, "failed to execute query")
 	}
 	return logs, nil
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -125,12 +125,12 @@ func (o *SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 func (o *SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
 func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
-	err = errors.New("dynamic fees are not implemented for this layer 2")
+	err = pkgerrors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
 func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
-	err = errors.New("dynamic fees are not implemented for this layer 2")
+	err = pkgerrors.New("dynamic fees are not implemented for this layer 2")
 	return
 }
 
@@ -143,7 +143,7 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 			select {
 			case o.chForceRefetch <- ch:
 			case <-o.chStop:
-				err = errors.New("estimator stopped")
+				err = pkgerrors.New("estimator stopped")
 				return
 			case <-ctx.Done():
 				err = ctx.Err()
@@ -152,7 +152,7 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 			select {
 			case <-ch:
 			case <-o.chStop:
-				err = errors.New("estimator stopped")
+				err = pkgerrors.New("estimator stopped")
 				return
 			case <-ctx.Done():
 				err = ctx.Err()
@@ -160,25 +160,25 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 			}
 		}
 		if gasPrice = o.getGasPrice(); gasPrice == nil {
-			err = errors.New("failed to estimate gas; gas price not set")
+			err = pkgerrors.New("failed to estimate gas; gas price not set")
 			return
 		}
 		o.logger.Debugw("GetLegacyGas", "GasPrice", gasPrice, "GasLimit", GasLimit)
 	})
 	if !ok {
-		return nil, 0, errors.New("estimator is not started")
+		return nil, 0, pkgerrors.New("estimator is not started")
 	} else if err != nil {
 		return
 	}
 	// For L2 chains, submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
 	if gasPrice != nil && gasPrice.Cmp(maxGasPriceWei) > 0 {
-		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
+		return nil, 0, pkgerrors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
 	}
 	return
 }
 
 func (o *SuggestedPriceEstimator) BumpLegacyGas(_ context.Context, _ *assets.Wei, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	return nil, 0, errors.New("bump gas is not supported for this chain")
+	return nil, 0, pkgerrors.New("bump gas is not supported for this chain")
 }
 
 func (o *SuggestedPriceEstimator) getGasPrice() (GasPrice *assets.Wei) {
