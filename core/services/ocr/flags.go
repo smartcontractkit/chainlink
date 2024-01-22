@@ -5,8 +5,8 @@ import (
 	"github.com/pkg/errors"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // ContractFlags wraps the a contract

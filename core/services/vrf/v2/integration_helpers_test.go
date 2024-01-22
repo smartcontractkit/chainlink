@@ -16,11 +16,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -31,11 +33,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -74,7 +74,7 @@ func testSingleConsumerHappyPath(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
@@ -208,7 +208,7 @@ func testMultipleConsumersNeedBHS(
 		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	keys = append(keys, ownerKey, vrfKey)
@@ -356,7 +356,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(5_000_000))
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	keys = append(keys, ownerKey, vrfKey)
@@ -543,7 +543,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 
@@ -647,7 +647,7 @@ func testSingleConsumerNeedsTopUp(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 
@@ -753,7 +753,7 @@ func testBlockHeaderFeeder(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhfKey)
@@ -870,7 +870,7 @@ func setupAndFundSubscriptionAndConsumer(
 	uni.backend.Commit()
 
 	if vrfVersion == vrfcommon.V2Plus {
-		b, err2 := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
+		b, err2 := evmutils.ABIEncode(`[{"type":"uint256"}]`, subID)
 		require.NoError(t, err2)
 		_, err2 = uni.linkContract.TransferAndCall(
 			uni.sergey, coordinatorAddress, fundingAmount, b)
@@ -878,7 +878,7 @@ func setupAndFundSubscriptionAndConsumer(
 		uni.backend.Commit()
 		return
 	}
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
+	b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(
 		uni.sergey, coordinatorAddress, fundingAmount, b)
@@ -912,7 +912,7 @@ func testSingleConsumerForcedFulfillment(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
@@ -1075,7 +1075,7 @@ func testSingleConsumerEIP150(
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(3.5e6))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1145,7 +1145,7 @@ func testSingleConsumerEIP150Revert(
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1210,7 +1210,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1332,7 +1332,7 @@ func testSingleConsumerMultipleGasLanes(
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, cheapKey, expensiveKey)
@@ -1449,7 +1449,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 	consumer := uni.reverter
@@ -1522,7 +1522,7 @@ func testConsumerProxyHappyPath(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 	consumerOwner := uni.neil
@@ -1648,7 +1648,7 @@ func testMaliciousConsumer(
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
 		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	carol := uni.vrfConsumers[0]
 
@@ -1682,11 +1682,7 @@ func testMaliciousConsumer(
 	time.Sleep(1 * time.Second)
 
 	// Register a proving key associated with the VRF job.
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
+	registerProvingKeyHelper(t, uni, uni.rootContract, vrfkey)
 
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.maliciousConsumerContract.CreateSubscriptionAndFund(carol,

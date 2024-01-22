@@ -11,9 +11,9 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -117,7 +117,7 @@ func (s *Shell) ShowTransaction(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("must pass the hash of the transaction"))
 	}
 	hash := c.Args().First()
-	resp, err := s.HTTP.Get("/v2/transactions/evm/" + hash)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/transactions/evm/"+hash)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -198,7 +198,7 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := s.HTTP.Post("/v2/transfers/evm", buf)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/transfers/evm", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}

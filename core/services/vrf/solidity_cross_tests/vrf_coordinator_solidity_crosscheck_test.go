@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
@@ -170,7 +170,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 		golangSeed := utils.MustHash(string(append(append(append(
 			keyHash[:],
 			common.BigToHash(hardcodedSeed).Bytes()...),
-			tc.consumerAddress.Hash().Bytes()...),
+			common.BytesToHash(tc.consumerAddress.Bytes()).Bytes()...),
 			common.BigToHash(nonce).Bytes()...)))
 		assert.Equal(t, golangSeed, common.BigToHash((log.Seed)), "VRFCoordinator logged different actual input seed than expected by golang code!")
 		assert.Equal(t, jobID, log.JobID, "VRFCoordinator logged different JobID from randomness request!")

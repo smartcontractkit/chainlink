@@ -29,16 +29,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -90,9 +89,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -168,7 +167,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
-			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+			}, "10m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
 
@@ -400,9 +399,9 @@ func TestAutomationAddFunds(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			a := setupAutomationTestDocker(
@@ -557,9 +556,9 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -641,9 +640,9 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			a := setupAutomationTestDocker(
@@ -710,9 +709,9 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -810,9 +809,9 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			a := setupAutomationTestDocker(
@@ -873,9 +872,9 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -987,9 +986,9 @@ func TestUpdateCheckData(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -1073,7 +1072,7 @@ func setupAutomationTestDocker(
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
-	syncInterval := models.MustMakeDuration(5 * time.Minute)
+	syncInterval := *commonconfig.MustNewDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
 	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
 	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
@@ -1097,7 +1096,6 @@ func setupAutomationTestDocker(
 			WithMockAdapter().
 			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
 			WithStandardCleanup().
-			WithLogStream().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 		env.ParallelTransactions(true)

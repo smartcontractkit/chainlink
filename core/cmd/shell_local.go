@@ -33,6 +33,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -50,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
@@ -256,13 +258,6 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0o700)
-
-// PristineDBName is a clean copy of test DB with migrations.
-// Used by heavyweight.FullTestDB* functions.
-const (
-	PristineDBName   = "chainlink_test_pristine"
-	TestDBNamePrefix = "chainlink_test_"
-)
 
 // RunNode starts the Chainlink core.
 func (s *Shell) RunNode(c *cli.Context) error {
@@ -808,13 +803,13 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 			defer wg.Done()
 			for dbname := range ch {
 				lggr.Infof("Dropping old, dangling test database: %q", dbname)
-				gerr := utils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
+				gerr := cutils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
 				errCh <- gerr
 			}
 		}()
 	}
 	for _, dbname := range dbs {
-		if strings.HasPrefix(dbname, TestDBNamePrefix) && !strings.HasSuffix(dbname, "_pristine") {
+		if strings.HasPrefix(dbname, testdb.TestDBNamePrefix) && !strings.HasSuffix(dbname, "_pristine") {
 			ch <- dbname
 		}
 	}
@@ -1011,9 +1006,8 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
 		if err != nil {
 			return err
-		} else if rows.Err() != nil {
-			return rows.Err()
 		}
+		defer rows.Close()
 
 		var tablesToDeleteFrom []string
 		for rows.Next() {
@@ -1023,6 +1017,9 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 				return err
 			}
 			tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
+		}
+		if rows.Err() != nil {
+			return rows.Err()
 		}
 
 		for _, tableName := range tablesToDeleteFrom {
@@ -1084,11 +1081,11 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 }
 
 func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
-	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, PristineDBName))
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, testdb.PristineDBName))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, PristineDBName, template))
+	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, testdb.PristineDBName, template))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}

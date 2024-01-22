@@ -33,6 +33,7 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -41,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
@@ -1724,7 +1724,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(500))
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
 	})
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 
@@ -2373,7 +2373,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(500))
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
 	})
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 

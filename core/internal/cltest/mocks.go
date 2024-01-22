@@ -355,7 +355,7 @@ func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
 	return MustGenerateSessionCookie(m.t, m.SessionID), m.Error
 }
 
-func (m MockCookieAuthenticator) Authenticate(sessions.SessionRequest) (*http.Cookie, error) {
+func (m MockCookieAuthenticator) Authenticate(context.Context, sessions.SessionRequest) (*http.Cookie, error) {
 	return MustGenerateSessionCookie(m.t, m.SessionID), m.Error
 }
 

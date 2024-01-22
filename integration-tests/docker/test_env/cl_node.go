@@ -3,9 +3,12 @@ package test_env
 import (
 	"context"
 	"fmt"
+	"io"
+	"maps"
 	"math/big"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -47,9 +51,9 @@ type ClNode struct {
 	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
 	UserEmail             string                  `json:"userEmail"`
 	UserPassword          string                  `json:"userPassword"`
+	AlwaysPullImage       bool                    `json:"-"`
 	t                     *testing.T
 	l                     zerolog.Logger
-	ls                    *logstream.LogStream
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -57,6 +61,15 @@ type ClNodeOption = func(c *ClNode)
 func WithSecrets(secretsTOML string) ClNodeOption {
 	return func(c *ClNode) {
 		c.NodeSecretsConfigTOML = secretsTOML
+	}
+}
+
+func WithNodeEnvVars(ev map[string]string) ClNodeOption {
+	return func(n *ClNode) {
+		if n.ContainerEnvs == nil {
+			n.ContainerEnvs = map[string]string{}
+		}
+		maps.Copy(n.ContainerEnvs, ev)
 	}
 }
 
@@ -80,7 +93,7 @@ func WithDbContainerName(name string) ClNodeOption {
 
 func WithLogStream(ls *logstream.LogStream) ClNodeOption {
 	return func(c *ClNode) {
-		c.ls = ls
+		c.LogStream = ls
 	}
 }
 
@@ -126,6 +139,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 		PostgresDb:   pgDb,
 		l:            log.Logger,
 	}
+	n.SetDefaultHooks()
 	for _, opt := range opts {
 		opt(n)
 	}
@@ -351,6 +365,28 @@ func (n *ClNode) StartContainer() error {
 	return nil
 }
 
+func (n *ClNode) ExecGetVersion() (string, error) {
+	cmd := []string{"chainlink", "--version"}
+	_, output, err := n.Container.Exec(context.Background(), cmd)
+	if err != nil {
+		return "", errors.Wrapf(err, "could not execute cmd %s", cmd)
+	}
+	outputBytes, err := io.ReadAll(output)
+	if err != nil {
+		return "", err
+	}
+	outputString := strings.TrimSpace(string(outputBytes))
+
+	// Find version in cmd output
+	re := regexp.MustCompile("@(.*)")
+	matches := re.FindStringSubmatch(outputString)
+
+	if len(matches) > 1 {
+		return matches[1], nil
+	}
+	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
+}
+
 func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
@@ -400,9 +436,10 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	apiCredsPath := "/home/api-credentials.txt"
 
 	return &tc.ContainerRequest{
-		Name:         n.ContainerName,
-		Image:        fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
-		ExposedPorts: []string{"6688/tcp"},
+		Name:            n.ContainerName,
+		AlwaysPullImage: n.AlwaysPullImage,
+		Image:           fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
+		ExposedPorts:    []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
 			"-s", secretsPath,
@@ -438,22 +475,11 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			},
 		},
 		LifecycleHooks: []tc.ContainerLifecycleHooks{
-			{PostStarts: []tc.ContainerHook{
-				func(ctx context.Context, c tc.Container) error {
-					if n.ls != nil {
-						return n.ls.ConnectContainer(ctx, c, "cl-node")
-					}
-					return nil
-				},
+			{
+				PostStarts:    n.PostStartsHooks,
+				PostStops:     n.PostStopsHooks,
+				PreTerminates: n.PreTerminatesHooks,
 			},
-				PostStops: []tc.ContainerHook{
-					func(ctx context.Context, c tc.Container) error {
-						if n.ls != nil {
-							return n.ls.DisconnectContainer(c)
-						}
-						return nil
-					},
-				}},
 		},
 	}, nil
 }

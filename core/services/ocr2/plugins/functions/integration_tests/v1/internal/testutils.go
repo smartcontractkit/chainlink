@@ -28,8 +28,10 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -48,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var nilOpts *bind.CallOpts
@@ -318,14 +319,14 @@ func StartNewNode(
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.V2.Enabled = ptr(true)
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
 		if len(p2pV2Bootstrappers) > 0 {
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 		}
 
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")

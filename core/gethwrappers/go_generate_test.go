@@ -14,6 +14,7 @@ import (
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/fatih/color"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -112,7 +113,7 @@ func init() {
 	for db.Scan() {
 		line := strings.Fields(db.Text())
 		if stripTrailingColon(line[0], "") != "GETH_VERSION" {
-			if os.IsNotExist(utils.JustError(os.Stat(line[1]))) {
+			if os.IsNotExist(cutils.JustError(os.Stat(line[1]))) {
 				solidityArtifactsMissing = append(solidityArtifactsMissing, line[1])
 			}
 		}

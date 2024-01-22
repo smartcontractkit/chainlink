@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,12 +23,15 @@ import (
 var _ median.MedianContract = &medianContract{}
 
 type medianContract struct {
+	services.StateMachine
+	lggr                logger.Logger
 	configTracker       types.ContractConfigTracker
 	contractCaller      *ocr2aggregator.OCR2AggregatorCaller
 	requestRoundTracker *RequestRoundTracker
 }
 
 func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
+	lggr = lggr.Named("MedianContract")
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
@@ -44,6 +48,7 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 	}
 
 	return &medianContract{
+		lggr:           lggr,
 		configTracker:  configTracker,
 		contractCaller: contractCaller,
 		requestRoundTracker: NewRequestRoundTracker(
@@ -60,13 +65,22 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 		),
 	}, nil
 }
-
-func (oc *medianContract) Start() error {
-	return oc.requestRoundTracker.Start()
+func (oc *medianContract) Start(context.Context) error {
+	return oc.StartOnce("MedianContract", func() error {
+		return oc.requestRoundTracker.Start()
+	})
 }
 
 func (oc *medianContract) Close() error {
-	return oc.requestRoundTracker.Close()
+	return oc.StopOnce("MedianContract", func() error {
+		return oc.requestRoundTracker.Close()
+	})
+}
+
+func (oc *medianContract) Name() string { return oc.lggr.Name() }
+
+func (oc *medianContract) HealthReport() map[string]error {
+	return map[string]error{oc.Name(): oc.Ready()}
 }
 
 func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {

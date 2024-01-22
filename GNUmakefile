@@ -6,7 +6,7 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
 .PHONY: install
-install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
+install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
 
 .PHONY: install-git-hooks
 install-git-hooks: ## Install git hooks.
@@ -14,8 +14,6 @@ install-git-hooks: ## Install git hooks.
 
 .PHONY: install-chainlink-autoinstall
 install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
-.PHONY: operator-ui-autoinstall
-operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 
 .PHONY: pnpmdep
 pnpmdep: ## Install solidity contract dependencies through pnpm
@@ -44,13 +42,13 @@ godoc: ## Install and run godoc
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
-chainlink: operator-ui ## Build the chainlink binary.
+chainlink: ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
-chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
+chainlink-dev: ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
-chainlink-test: operator-ui ## Build a test build of chainlink binary.
+chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
 .PHONY: chainlink-local-start
