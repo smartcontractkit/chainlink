@@ -306,7 +306,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "bsc_testnet"
           httpEndpoints: ${{ secrets.QA_BSC_TESTNET_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_BSC_TESTNET_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}
@@ -373,7 +373,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "optimism_sepolia"
           httpEndpoints: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
@@ -440,7 +440,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "arbitrum_sepolia"
           httpEndpoints: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
@@ -503,7 +503,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "base_sepolia"
           httpEndpoints: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
@@ -570,7 +570,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "polygon_mumbai"
           httpEndpoints: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
@@ -637,7 +637,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "avalanche_fuji"
           httpEndpoints: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
@@ -704,7 +704,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "fantom_testnet"
           httpEndpoints: ${{ secrets.QA_FANTOM_TESTNET_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_FANTOM_TESTNET_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
@@ -767,7 +767,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "celo_alfajores"
           httpEndpoints: ${{ secrets.QA_CELO_ALFAJORES_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_CELO_ALFAJORES_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
@@ -832,7 +832,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "scroll_sepolia"
           httpEndpoints: ${{ secrets.QA_SCROLL_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_SCROLL_SEPOLIA_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
@@ -895,7 +895,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
+          network: "linea_goerli"
           httpEndpoints: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_LINEA_GOERLI_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
