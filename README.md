@@ -45,7 +45,7 @@ regarding Chainlink social accounts, news, and networking.
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
-### Apple Silicon - ARM64
+### Apple Silicon - ARM64 
 
 Native builds on the Apple Silicon should work out of the box, but the Docker image requires more consideration.
 

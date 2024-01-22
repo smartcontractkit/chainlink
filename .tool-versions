@@ -1,7 +1,7 @@
 golang 1.21.5
 mockery 2.38.0
 nodejs 16.16.0
-postgres 13.3
+postgres 15.1
 helm 3.10.3
 zig 0.10.1
 golangci-lint 1.55.2

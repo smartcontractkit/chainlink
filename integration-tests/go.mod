@@ -25,7 +25,7 @@ require (
 	github.com/segmentio/ksuid v1.0.4
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240118012339-4864e2306bb1
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240122162044-7c8f64faebb3
 	github.com/smartcontractkit/chainlink-testing-framework v1.22.6
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
@@ -43,6 +43,9 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
+replace github.com/smartcontractkit/libocr => github.com/augustbleeds/libocr v0.0.0-20240117214314-b678c2c6c62d
+
+// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 // avoids ambigious imports of indirect dependencies
 exclude github.com/hashicorp/consul v1.2.1
 

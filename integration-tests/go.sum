@@ -188,6 +188,8 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkY
 github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
+github.com/augustbleeds/libocr v0.0.0-20240117214314-b678c2c6c62d h1:L/EuiT9j88wX94xyqJN1/L6FSPZpKVDdj1aYHu7Fs5c=
+github.com/augustbleeds/libocr v0.0.0-20240117214314-b678c2c6c62d/go.mod h1:kC0qmVPUaVkFqGiZMNhmRmjdphuUmeyLEdlWFOQzFWI=
 github.com/avast/retry-go v3.0.0+incompatible h1:4SOWQ7Qs+oroOTQOYnAHqelpCO0biHSxpiH9JdtuBj0=
 github.com/avast/retry-go v3.0.0+incompatible/go.mod h1:XtSnn+n/sHqQIpZ10K1qAevBhOOCWBLXXy3hyiqqBrY=
 github.com/avast/retry-go/v4 v4.5.1 h1:AxIx0HGi4VZ3I02jr78j5lZ3M6x1E0Ivxa6b0pUUh7o=
@@ -1486,8 +1488,8 @@ github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumv
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429 h1:xkejUBZhcBpBrTSfxc91Iwzadrb6SXw8ks69bHIQ9Ww=
 github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429/go.mod h1:wJmVvDf4XSjsahWtfUq3wvIAYEAuhr7oxmxYnEL/LGQ=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240118012339-4864e2306bb1 h1:3cWO2/lFVDul5SVTgl4/RX/GXcT8Zq5NGMPeNEz09tY=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240118012339-4864e2306bb1/go.mod h1:f+0ei9N4PlTJHu7pbGzEjTnBUr45syPdGFu5+31lS5Q=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240122162044-7c8f64faebb3 h1:89S8aSuyg5UWScLPu+LvgA4aJEEyBnhHZXnKwt+m7wI=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240122162044-7c8f64faebb3/go.mod h1:tvo6tjHKlL3rUor2VyPLqSXqPVe7MHyEIk5f49JvwRo=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231218175426-6e0427c661e5 h1:kBnmjv3fxU7krVIqZFvo1m4F6qBc4vPURQFX/mcChhI=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231218175426-6e0427c661e5/go.mod h1:EoM7wQ81mov7wsUzG4zEnnr0EH0POEo/I0hRDg433TU=
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1 h1:xYqRgZO0nMSO8CBCMR0r3WA+LZ4kNL8a6bnbyk/oBtQ=
@@ -1506,8 +1508,6 @@ github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306 h1:ko88
 github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306/go.mod h1:w1sAEES3g3PuV/RzUrgow20W2uErMly84hhD3um1WL4=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJif132UCdjo8u43i7iPN1/MFnu49hv7lFGFftCHKU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
-github.com/smartcontractkit/libocr v0.0.0-20240112202000-6359502d2ff1 h1:3y9WsXkZ5lxFrmfH7DQHs/q308lylKId5l/3VC0QAdM=
-github.com/smartcontractkit/libocr v0.0.0-20240112202000-6359502d2ff1/go.mod h1:kC0qmVPUaVkFqGiZMNhmRmjdphuUmeyLEdlWFOQzFWI=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 h1:yiKnypAqP8l0OX0P3klzZ7SCcBUxy5KqTAKZmQOvSQE=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=

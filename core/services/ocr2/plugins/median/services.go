@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -89,7 +90,7 @@ func NewMedianServices(ctx context.Context,
 	if err != nil {
 		return
 	}
-	err = config.ValidatePluginConfig(pluginConfig)
+	err = pluginConfig.ValidatePluginConfig()
 	if err != nil {
 		return
 	}
@@ -140,10 +141,19 @@ func NewMedianServices(ctx context.Context,
 		runSaver,
 		chEnhancedTelem,
 	), ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
-		ID:           jb.ID,
+		ID:           jb.ID, // why do we choose the same job id for getting juelsperfee number as the data source?
 		DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
 		CreatedAt:    time.Now(),
 	}, lggr)
+
+	var gasPriceDataSource median.DataSource
+	if pluginConfig.GasPricePipelineExists() {
+		gasPriceDataSource = ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
+			ID:           jb.ID,
+			DotDagSource: pluginConfig.GasPricePipeline,
+			CreatedAt:    time.Now(),
+		}, lggr)
+	}
 
 	medianPluginCmd := env.MedianPluginCmd.Get()
 	medianLoopEnabled := medianPluginCmd != ""
@@ -168,11 +178,11 @@ func NewMedianServices(ctx context.Context,
 			abort()
 			return
 		}
-		median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, dataSource, juelsPerFeeCoinSource, gasPriceDataSource, errorLog)
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
-		argsNoPlugin.ReportingPluginFactory, err = median.NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		argsNoPlugin.ReportingPluginFactory, err = median.NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, gasPriceDataSource, errorLog)
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)
 			abort()
