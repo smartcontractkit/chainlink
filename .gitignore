@@ -85,3 +85,6 @@ tools/flakeytests/coverage.txt
 
 .test_summary/
 .run.id
+
+# Fuzz tests can create these files
+**/testdata/fuzz/*

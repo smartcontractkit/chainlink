@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
@@ -24,6 +25,7 @@ var _ commontypes.MercuryProvider = (*mercuryProvider)(nil)
 type mercuryProvider struct {
 	configWatcher      *configWatcher
 	chainReader        commontypes.ChainReader
+	codec              commontypes.Codec
 	transmitter        evmmercury.Transmitter
 	reportCodecV1      v1.ReportCodec
 	reportCodecV2      v2.ReportCodec
@@ -36,6 +38,7 @@ type mercuryProvider struct {
 func NewMercuryProvider(
 	configWatcher *configWatcher,
 	chainReader commontypes.ChainReader,
+	codec commontypes.Codec,
 	mercuryChainReader mercurytypes.ChainReader,
 	transmitter evmmercury.Transmitter,
 	reportCodecV1 v1.ReportCodec,
@@ -46,6 +49,7 @@ func NewMercuryProvider(
 	return &mercuryProvider{
 		configWatcher,
 		chainReader,
+		codec,
 		transmitter,
 		reportCodecV1,
 		reportCodecV2,
@@ -81,6 +85,10 @@ func (p *mercuryProvider) HealthReport() map[string]error {
 
 func (p *mercuryProvider) MercuryChainReader() mercurytypes.ChainReader {
 	return p.mercuryChainReader
+}
+
+func (p *mercuryProvider) Codec() commontypes.Codec {
+	return p.codec
 }
 
 func (p *mercuryProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
