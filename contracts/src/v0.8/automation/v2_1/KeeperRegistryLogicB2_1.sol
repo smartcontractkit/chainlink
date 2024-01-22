@@ -337,7 +337,8 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
-      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
+      skipReorgProtection: s_hotVars.skipReorgProtection
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);

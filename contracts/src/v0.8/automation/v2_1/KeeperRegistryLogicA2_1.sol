@@ -49,7 +49,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     bytes memory triggerData
   )
     public
-    cannotExecute
+    cannotExecuteExcept(allowedOrigin)
     returns (
       bool upkeepNeeded,
       bytes memory performData,
@@ -172,7 +172,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     bytes calldata extraData
   )
     external
-    cannotExecute
+    cannotExecuteExcept(allowedOrigin)
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
     bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
@@ -190,7 +190,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     bytes memory payload
   )
     public
-    cannotExecute
+    cannotExecuteExcept(allowedOrigin)
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
     Upkeep memory upkeep = s_upkeep[id];

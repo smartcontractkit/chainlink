@@ -193,7 +193,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
   function simulatePerformUpkeep(
     uint256 id,
     bytes calldata performData
-  ) external cannotExecute returns (bool success, uint256 gasUsed) {
+  ) external cannotExecuteExcept(allowedOrigin) returns (bool success, uint256 gasUsed) {
     if (s_hotVars.paused) revert RegistryPaused();
     Upkeep memory upkeep = s_upkeep[id];
     (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
@@ -310,6 +310,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: s_hotVars.paused,
       reentrancyGuard: s_hotVars.reentrancyGuard,
+      skipReorgProtection: onchainConfig.skipReorgProtection,
       totalPremium: totalPremium,
       latestEpoch: 0 // DON restarts epoch
     });
