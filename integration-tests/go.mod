@@ -6,7 +6,6 @@ go 1.21.4
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
-	cosmossdk.io/errors v1.0.0
 	github.com/K-Phoen/grabana v0.21.17
 	github.com/cli/go-gh/v2 v2.0.0
 	github.com/ethereum/go-ethereum v1.13.8
@@ -60,6 +59,7 @@ require (
 	cosmossdk.io/api v0.3.1 // indirect
 	cosmossdk.io/core v0.5.1 // indirect
 	cosmossdk.io/depinject v1.0.0-alpha.3 // indirect
+	cosmossdk.io/errors v1.0.0 // indirect
 	cosmossdk.io/math v1.0.1 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
