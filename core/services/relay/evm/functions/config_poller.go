@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -58,7 +58,7 @@ func unpackLogData(d []byte) (*ocr2aggregator.OCR2AggregatorConfigSet, error) {
 	unpacked := new(ocr2aggregator.OCR2AggregatorConfigSet)
 	err := defaultABI.UnpackIntoInterface(unpacked, configSetEventName, d)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unpack log data")
+		return nil, pkgerrors.Wrap(err, "failed to unpack log data")
 	}
 	return unpacked, nil
 }
@@ -88,7 +88,7 @@ func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.Con
 	case S4Plugin:
 		binary.BigEndian.PutUint16(unpacked.ConfigDigest[:2], uint16(S4DigestPrefix))
 	default:
-		return ocrtypes.ContractConfig{}, errors.New("unknown plugin type")
+		return ocrtypes.ContractConfig{}, pkgerrors.New("unknown plugin type")
 	}
 
 	return ocrtypes.ContractConfig{
@@ -138,7 +138,7 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 
 	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, *contractAddr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if pkgerrors.Is(err, sql.ErrNoRows) {
 			return 0, ocrtypes.ConfigDigest{}, nil
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
@@ -155,7 +155,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	// (unlikely), we'll return an error here and libocr will re-try.
 	contractAddr := cp.targetContract.Load()
 	if contractAddr == nil {
-		return ocrtypes.ContractConfig{}, errors.New("no target contract address set yet")
+		return ocrtypes.ContractConfig{}, pkgerrors.New("no target contract address set yet")
 	}
 
 	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, *contractAddr, pg.WithParentCtx(ctx))
@@ -163,7 +163,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 		return ocrtypes.ContractConfig{}, err
 	}
 	if len(lgs) == 0 {
-		return ocrtypes.ContractConfig{}, errors.New("no logs found")
+		return ocrtypes.ContractConfig{}, pkgerrors.New("no logs found")
 	}
 	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data, cp.pluginType)
 	if err != nil {
@@ -176,7 +176,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
 	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if pkgerrors.Is(err, sql.ErrNoRows) {
 			return 0, nil
 		}
 		return 0, err

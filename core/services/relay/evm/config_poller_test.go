@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -208,7 +208,7 @@ func TestConfigPoller(t *testing.T) {
 		t.Run("returns error if callLatestConfigDetails fails", func(t *testing.T) {
 			failingClient := new(evmClientMocks.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
-			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded"))
+			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, pkgerrors.New("something exploded"))
 			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
@@ -309,7 +309,7 @@ func TestConfigPoller(t *testing.T) {
 			failingClient.On("CallContract", mock.Anything, mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
 				// initial call to retrieve config store address from aggregator
 				return *callArgs.To == ocrAddress
-			}), mock.Anything).Return(nil, errors.New("something exploded")).Once()
+			}), mock.Anything).Return(nil, pkgerrors.New("something exploded")).Once()
 			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 

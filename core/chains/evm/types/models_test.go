@@ -12,7 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -676,8 +676,8 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		b := new(evmtypes.Block)
 		err := b.UnmarshalJSON([]byte("null"))
 		assert.Error(t, err)
-		assert.Equal(t, errors.Cause(err), evmtypes.ErrMissingBlock)
-		assert.True(t, errors.Is(err, evmtypes.ErrMissingBlock))
+		assert.Equal(t, pkgerrors.Cause(err), evmtypes.ErrMissingBlock)
+		assert.True(t, pkgerrors.Is(err, evmtypes.ErrMissingBlock))
 	})
 }
 

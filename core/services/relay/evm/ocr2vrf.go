@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -140,7 +140,7 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs c
 	contractAddress := common.HexToAddress(rargs.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
+		return nil, pkgerrors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
 	}
 	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", rargs.ContractID),

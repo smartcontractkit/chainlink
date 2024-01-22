@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -219,7 +219,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 	contractAddress := common.HexToAddress(rargs.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
+		return nil, pkgerrors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
 	}
 
 	configPoller, err := NewConfigPoller(
@@ -231,7 +231,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 		nil,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create config poller")
+		return nil, pkgerrors.Wrap(err, "failed to create config poller")
 	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{

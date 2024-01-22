@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -34,17 +34,17 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 	lggr = lggr.Named("MedianContract")
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
+		return nil, pkgerrors.Wrap(err, "could not instantiate NewOffchainAggregator")
 	}
 
 	contractFilterer, err := ocr2aggregator.NewOCR2AggregatorFilterer(contractAddress, chain.Client())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
+		return nil, pkgerrors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
 	}
 
 	contractCaller, err := ocr2aggregator.NewOCR2AggregatorCaller(contractAddress, chain.Client())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
+		return nil, pkgerrors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
 	return &medianContract{
@@ -86,7 +86,7 @@ func (oc *medianContract) HealthReport() map[string]error {
 func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
-	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), errors.Wrap(err, "error getting LatestTransmissionDetails")
+	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), pkgerrors.Wrap(err, "error getting LatestTransmissionDetails")
 }
 
 // LatestRoundRequested returns the configDigest, epoch, and round from the latest

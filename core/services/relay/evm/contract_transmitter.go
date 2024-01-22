@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -66,7 +66,7 @@ func NewOCRContractTransmitter(
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
-		return nil, errors.New("invalid ABI, missing transmitted")
+		return nil, pkgerrors.New("invalid ABI, missing transmitted")
 	}
 
 	err := lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
@@ -94,7 +94,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	var ss [][32]byte
 	var vs [32]byte
 	if len(signatures) > 32 {
-		return errors.New("too many signatures, maximum is 32")
+		return pkgerrors.New("too many signatures, maximum is 32")
 	}
 	for i, as := range signatures {
 		r, s, v, err := evmutil.SplitSignature(as.Signature)
@@ -116,10 +116,10 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
-		return errors.Wrap(err, "abi.Pack failed")
+		return pkgerrors.Wrap(err, "abi.Pack failed")
 	}
 
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
+	return pkgerrors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
 }
 
 type contractReader interface {
@@ -142,7 +142,7 @@ func parseTransmitted(log []byte) ([32]byte, uint32, error) {
 		return [32]byte{}, 0, err
 	}
 	if len(transmitted) < 2 {
-		return [32]byte{}, 0, errors.New("transmitted event log has too few arguments")
+		return [32]byte{}, 0, pkgerrors.New("transmitted event log has too few arguments")
 	}
 	configDigest := *abi.ConvertType(transmitted[0], new([32]byte)).(*[32]byte)
 	epoch := *abi.ConvertType(transmitted[1], new(uint32)).(*uint32)
@@ -184,7 +184,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	latest, err := oc.lp.LatestLogByEventSigWithConfs(
 		oc.transmittedEventSig, oc.contractAddress, 1, pg.WithParentCtx(ctx))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if pkgerrors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet
 			return configDigest, 0, nil
 		}

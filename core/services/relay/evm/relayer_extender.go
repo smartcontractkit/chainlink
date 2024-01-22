@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -16,7 +16,7 @@ import (
 )
 
 // ErrNoChains indicates that no EVM chains have been started
-var ErrNoChains = errors.New("no EVM chains loaded")
+var ErrNoChains = pkgerrors.New("no EVM chains loaded")
 
 type EVMChainRelayerExtender interface {
 	loop.RelayerExt
@@ -94,7 +94,7 @@ func (s *ChainRelayerExt) Chain() legacyevm.Chain {
 	return s.chain
 }
 
-var ErrCorruptEVMChain = errors.New("corrupt evm chain")
+var ErrCorruptEVMChain = pkgerrors.New("corrupt evm chain")
 
 func (s *ChainRelayerExt) Start(ctx context.Context) error {
 	return s.chain.Start(ctx)

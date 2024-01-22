@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -111,7 +111,7 @@ func Test_Datasource(t *testing.T) {
 		})
 		t.Run("if querying latest report fails", func(t *testing.T) {
 			orm.report = nil
-			orm.err = errors.New("something exploded")
+			orm.err = pkgerrors.New("something exploded")
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -134,7 +134,7 @@ func Test_Datasource(t *testing.T) {
 		orm.err = nil
 
 		t.Run("if LatestTimestamp returns error", func(t *testing.T) {
-			fetcher.tsErr = errors.New("some error")
+			fetcher.tsErr = pkgerrors.New("some error")
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -202,7 +202,7 @@ func Test_Datasource(t *testing.T) {
 
 			ds.pipelineRunner = &mercurymocks.MockRunner{
 				Trrs: goodTrrs,
-				Err:  errors.New("run execution failed"),
+				Err:  pkgerrors.New("run execution failed"),
 			}
 
 			_, err := ds.Observe(ctx, repts, false)
@@ -221,7 +221,7 @@ func Test_Datasource(t *testing.T) {
 			badTrrs := []pipeline.TaskRunResult{
 				{
 					// benchmark price
-					Result: pipeline.Result{Error: errors.New("some error with bp")},
+					Result: pipeline.Result{Error: pkgerrors.New("some error with bp")},
 					Task:   &mercurymocks.MockTask{},
 				},
 			}
@@ -263,8 +263,8 @@ func Test_Datasource(t *testing.T) {
 					fetcher.nativePriceErr = nil
 				})
 
-				fetcher.linkPriceErr = errors.New("some error fetching link price")
-				fetcher.nativePriceErr = errors.New("some error fetching native price")
+				fetcher.linkPriceErr = pkgerrors.New("some error fetching link price")
+				fetcher.nativePriceErr = pkgerrors.New("some error fetching native price")
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)

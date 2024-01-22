@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -48,7 +48,7 @@ func unpackLogData(d []byte) (*verifier.VerifierConfigSet, error) {
 
 	err := verifierABI.UnpackIntoInterface(unpacked, configSetEventName, d)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unpack log data")
+		return nil, pkgerrors.Wrap(err, "failed to unpack log data")
 	}
 
 	return unpacked, nil
@@ -168,7 +168,7 @@ func (cp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
 	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if pkgerrors.Is(err, sql.ErrNoRows) {
 			return 0, nil
 		}
 		return 0, err

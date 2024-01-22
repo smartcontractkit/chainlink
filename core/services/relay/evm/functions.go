@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
@@ -104,7 +104,7 @@ func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pa
 		return nil, err
 	}
 	if !common.IsHexAddress(rargs.ContractID) {
-		return nil, errors.Errorf("invalid contractID, expected hex address")
+		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
 	}
 	var pluginConfig config.PluginConfig
 	if err2 := json.Unmarshal(pargs.PluginConfig, &pluginConfig); err2 != nil {
@@ -137,13 +137,13 @@ func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pa
 
 func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
 	if !common.IsHexAddress(args.ContractID) {
-		return nil, errors.Errorf("invalid contractID, expected hex address")
+		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
 	}
 
 	routerContractAddress := common.HexToAddress(args.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get contract ABI JSON")
+		return nil, pkgerrors.Wrap(err, "could not get contract ABI JSON")
 	}
 
 	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), lggr)
@@ -166,23 +166,23 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.R
 	var fromAddresses []common.Address
 	sendingKeys := relayConfig.SendingKeys
 	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, errors.New("EffectiveTransmitterID must be specified")
+		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
 	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 
 	sendingKeysLength := len(sendingKeys)
 	if sendingKeysLength == 0 {
-		return nil, errors.New("no sending keys provided")
+		return nil, pkgerrors.New("no sending keys provided")
 	}
 
 	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
 	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
 	for _, s := range sendingKeys {
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
-			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
+			return nil, pkgerrors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
 		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
-			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
+			return nil, pkgerrors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
@@ -213,7 +213,7 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.R
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create transmitter")
+		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
 
 	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(

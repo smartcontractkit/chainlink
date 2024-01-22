@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -57,7 +57,7 @@ func unpackLogData(d []byte) (*ocr2aggregator.OCR2AggregatorConfigSet, error) {
 	unpacked := new(ocr2aggregator.OCR2AggregatorConfigSet)
 	err := defaultABI.UnpackIntoInterface(unpacked, configSetEventName, d)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unpack log data")
+		return nil, pkgerrors.Wrap(err, "failed to unpack log data")
 	}
 	return unpacked, nil
 }
@@ -166,7 +166,7 @@ func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
 func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, cp.aggregatorContractAddr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if pkgerrors.Is(err, sql.ErrNoRows) {
 			if cp.isConfigStoreAvailable() {
 				// Fallback to RPC call in case logs have been pruned and configStoreContract is available
 				return cp.callLatestConfigDetails(ctx)
@@ -208,7 +208,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
 	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if pkgerrors.Is(err, sql.ErrNoRows) {
 			return 0, nil
 		}
 		return 0, err

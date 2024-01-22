@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -126,7 +126,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Run("failing query", func(t *testing.T) {
 		c := mocks.MockWSRPCClient{
 			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
-				return nil, errors.New("something exploded")
+				return nil, pkgerrors.New("something exploded")
 			},
 		}
 		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
@@ -180,7 +180,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 		})
 		t.Run("BenchmarkPriceFromReport fails", func(t *testing.T) {
 			codec.val = nil
-			codec.err = errors.New("something exploded")
+			codec.err = pkgerrors.New("something exploded")
 
 			_, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 			require.Error(t, err)
@@ -207,7 +207,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	t.Run("failing query", func(t *testing.T) {
 		c := mocks.MockWSRPCClient{
 			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
-				return nil, errors.New("something exploded")
+				return nil, pkgerrors.New("something exploded")
 			},
 		}
 		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
@@ -259,7 +259,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	t.Run("failing query", func(t *testing.T) {
 		c := mocks.MockWSRPCClient{
 			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
-				return nil, errors.New("something exploded")
+				return nil, pkgerrors.New("something exploded")
 			},
 		}
 		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)

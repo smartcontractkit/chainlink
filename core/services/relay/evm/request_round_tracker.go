@@ -7,7 +7,7 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/jmoiron/sqlx"
 
@@ -83,7 +83,7 @@ func (t *RequestRoundTracker) Start() error {
 	return t.StartOnce("RequestRoundTracker", func() (err error) {
 		t.latestRoundRequested, err = t.odb.LoadLatestRoundRequested()
 		if err != nil {
-			return errors.Wrap(err, "RequestRoundTracker#Start: failed to load latest round requested")
+			return pkgerrors.Wrap(err, "RequestRoundTracker#Start: failed to load latest round requested")
 		}
 
 		t.unsubscribeLogs = t.logBroadcaster.Register(t, log.ListenerOpts{
