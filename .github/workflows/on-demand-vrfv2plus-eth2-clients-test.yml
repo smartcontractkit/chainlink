@@ -20,7 +20,11 @@ jobs:
     env:
       TEST_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-    steps:      
+    steps:            
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
       - name: Add masks and export base64 config
         uses: ./.github/actions/setup-parse-base64-config
         with:
@@ -35,11 +39,7 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
           echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY          
-      - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          fetch-depth: 0
+          echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY              
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7d541cbbca52d45b8a718257af86d9cf49774d1f # v2.2.15
         with:
