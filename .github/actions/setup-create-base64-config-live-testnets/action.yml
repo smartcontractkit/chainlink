@@ -100,7 +100,7 @@ runs:
         run_id="$RUN_ID"
 
         [Logging.LogStream]
-        log_targets=$log_targets
+        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
 
         [Logging.Loki]
         tenant_id="$LOKI_TENANT_ID"

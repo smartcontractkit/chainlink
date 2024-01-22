@@ -67,7 +67,7 @@ runs:
         }
         
         selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")      
-        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")             
+        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
         
         if [ -n "$PYROSCOPE_SERVER" ]; then
           pyroscope_enabled=true
