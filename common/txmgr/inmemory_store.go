@@ -207,7 +207,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Check
 
 // FindLatestSequence returns the latest sequence number for a given address
 // It is used to initialize the in-memory sequence map in the broadcaster
-// NOTE(jtw): this is until we have a abstracted Sequencer Component which can be used instead
+// TODO(jtw): this is until we have a abstracted Sequencer Component which can be used instead
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (SEQ, error) {
 	// Query the persistent store
 	return ms.txStore.FindLatestSequence(ctx, fromAddress, chainID)
