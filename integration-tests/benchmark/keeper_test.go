@@ -291,6 +291,12 @@ var networkConfig = map[string]NetworkConfig{
 		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
+	"LineaGoerli": {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
+		deltaStage: 20 * time.Second,
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
 }
 
 func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
