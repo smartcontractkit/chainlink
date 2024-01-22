@@ -255,78 +255,30 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests    
+          name: tests
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
       - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}          
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
-
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
-
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
-
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
-          
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
-          
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
-          
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
-
-          [Logging]
-          run_id="$RUN_ID"
-
-          [Logging.LogStream]
-          log_targets=$log_targets
-
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
-
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"          
-
-          [Network]
-          selected_networks=["sepolia"]
-
-          [Network.RpcHttpUrls]
-          sepolia = $(convert_to_toml_array "$SEPOLIA_HTTP_URLS")
-
-          [Network.RpcWsUrls]
-          sepolia = $(convert_to_toml_array "$SEPOLIA_URLS")
-
-          [Network.WalletKeys]
-          sepolia = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
-          
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-          touch .root_dir
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}        
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-sepolia
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "sepolia"
+          httpEndpoints: ${{ secrets.QA_SEPOLIA_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_SEPOLIA_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
@@ -373,77 +325,29 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests            
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
       - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-bsc-testnet
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
-
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
-
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
-
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
-          
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
-          
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
-          
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
-
-          [Logging]
-          run_id="$RUN_ID"
-
-          [Logging.LogStream]
-          log_targets=$log_targets
-
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
-
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
-
-          [Network]
-          selected_networks=["bsc_testnet"]
-
-          [Network.RpcHttpUrls]
-          bsc_testnet = $(convert_to_toml_array "$BSC_TESTNET_HTTP_URLS")
-
-          [Network.RpcWsUrls]
-          bsc_testnet = $(convert_to_toml_array "$BSC_TESTNET_URLS")
-
-          [Network.WalletKeys]
-          bsc_testnet = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
-          
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV        
-          touch .root_dir          
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}        
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-bsc-testnet
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "sepolia"
+          httpEndpoints: ${{ secrets.BSC_TESTNET_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.BSC_TESTNET_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0       
         with:
