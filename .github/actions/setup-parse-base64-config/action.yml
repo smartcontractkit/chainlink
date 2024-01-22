@@ -11,10 +11,6 @@ runs:
     - name: Add masks and export base64 config
       shell: bash
       run: |
-        BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
-        echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-        echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-
         decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
         CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
         echo ::add-mask::$CHAINLINK_IMAGE

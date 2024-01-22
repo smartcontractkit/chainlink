@@ -305,6 +305,16 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		}
 	}
 
+	var printFundAmount = func(tc *TestConfig, before bool) {
+		if tc.Common != nil && tc.Common.ChainlinkNodeFunding != nil {
+			text := "after"
+			if before {
+				text = "before"
+			}
+			logger.Info().Float64("Amount", *tc.Common.ChainlinkNodeFunding).Msgf("Funding amount in config %s", text)
+		}
+	}
+
 	logger.Info().Msg("Reading configs from file system")
 	for _, fileName := range fileNames {
 		logger.Debug().Msgf("Looking for config file %s", fileName)
@@ -323,10 +333,12 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
 
+		printFundAmount(&testConfig, true)
 		err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, content, product)
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
+		printFundAmount(&testConfig, false)
 	}
 
 	logger.Info().Msg("Reading configs from Base64 override env var")
@@ -338,10 +350,12 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, err
 		}
 
+		printFundAmount(&testConfig, false)
 		err = toml.Unmarshal(decoded, &testConfig)
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
 		}
+		printFundAmount(&testConfig, false)
 	} else {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}

@@ -52,9 +52,7 @@ func FundChainlinkNodes(
 			To:    &recipient,
 			Value: conversions.EtherToWei(amount),
 		}
-		fmt.Printf("Funding %s with %s/%s weiETH\n", toAddress, amount.String(), conversions.EtherToWei(amount).String())
 		gasEstimates, err := client.EstimateGas(msg)
-		fmt.Printf("Gas estimates for funding %s: gas units: %d, gas price: %s, gas tip cap: %s, gas fee cap: %s, total gas cost: %s\n", toAddress, gasEstimates.GasUnits, gasEstimates.GasPrice, gasEstimates.GasTipCap, gasEstimates.GasFeeCap, gasEstimates.TotalGasCost)
 		if err != nil {
 			return err
 		}

@@ -25,10 +25,15 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0    
-      - name: Add masks and export base64 config
+      - name: Mask base64 config
+        run: |
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Parse base64 config
         uses: ./.github/actions/setup-parse-base64-config
         with:
-          base64Config: ${{ inputs.base64Config }}    
+          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}  
       - name: Send details to Step Summary
         shell: bash
         run: |
