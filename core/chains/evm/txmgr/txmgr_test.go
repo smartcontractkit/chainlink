@@ -21,6 +21,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
@@ -44,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func makeTestEvmTxm(

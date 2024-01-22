@@ -8,7 +8,7 @@ import (
 	log "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
