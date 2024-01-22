@@ -1496,8 +1496,8 @@ github.com/smartcontractkit/chainlink-feeds v0.0.0-20240119021347-3c541a78cdb8 h
 github.com/smartcontractkit/chainlink-feeds v0.0.0-20240119021347-3c541a78cdb8/go.mod h1:vy1L7NybTy2F/Yv7BOh+oZBa1MACD6gzd1+DkcSkfp8=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240122152632-38444d2ad8ba h1:6rnQrD8NaLfLOPHszW1hbpviqpU8011gzdZk6wKP1xY=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240122152632-38444d2ad8ba/go.mod h1:OZfzyayUdwsVBqxvbEMqwUntQT8HbFbgyqoudvwfVN0=
-github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231221191127-1f32389044ea h1:WzMa0O6DEauMYMIjzS/T1JF8zvFDt4aG6EUTDlStaZo=
-github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20231221191127-1f32389044ea/go.mod h1:J4A5pQh3CiVs5S2eQMHezToXHoC+Wj0UHBtMXCiTIJA=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240119162652-3a7274645007 h1:KwB0H2P/gxJgt823Ku1fTcFLDKMj6zsP3wbQGlBOm4U=
+github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240119162652-3a7274645007/go.mod h1:EbZAlb/2K6mKr26u3+3cLBe/caJaqCHw786On94C43g=
 github.com/smartcontractkit/chainlink-testing-framework v1.22.6 h1:5kWMlo99RY/ys4EWGMPsEg1sfY67f5YQogI8PohdRvw=
 github.com/smartcontractkit/chainlink-testing-framework v1.22.6/go.mod h1:FBRC6elqaqO8jiMZMfa3UKrvwzZhMGUtYqVTGYmfFrA=
 github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868 h1:FFdvEzlYwcuVHkdZ8YnZR/XomeMGbz5E2F2HZI3I3w8=
@@ -2189,8 +2189,8 @@ google.golang.org/api v0.30.0/go.mod h1:QGmEvQ87FHZNiUVJkT14jQNYJ4ZJjdRF23ZXz513
 google.golang.org/api v0.35.0/go.mod h1:/XrVsuzM0rZmrsbjJutiuftIzeuTQcEeaYcSk/mQ1dg=
 google.golang.org/api v0.36.0/go.mod h1:+z5ficQTmoYpPn8LCUNVpK5I7hwkpjbcgqA7I34qYtE=
 google.golang.org/api v0.40.0/go.mod h1:fYKFpnQN0DsDSKRVRcQSDQNtqWPfM9i+zNPxepjRCQ8=
-google.golang.org/api v0.147.0 h1:Can3FaQo9LlVqxJCodNmeZW/ib3/qKAY3rFeXiHo5gc=
-google.golang.org/api v0.147.0/go.mod h1:pQ/9j83DcmPd/5C9e2nFOdjjNkDZ1G+zkbK2uvdkJMs=
+google.golang.org/api v0.149.0 h1:b2CqT6kG+zqJIVKRQ3ELJVLN1PwHZ6DJ3dW8yl82rgY=
+google.golang.org/api v0.149.0/go.mod h1:Mwn1B7JTXrzXtnvmzQE2BD6bYZQ8DShKZDZbeN9I7qI=
 google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=
 google.golang.org/appengine v1.4.0/go.mod h1:xpcJRLb0r/rnEns0DIKYYv+WjYCduHsrkT7/EB5XEv4=
 google.golang.org/appengine v1.5.0/go.mod h1:xpcJRLb0r/rnEns0DIKYYv+WjYCduHsrkT7/EB5XEv4=
