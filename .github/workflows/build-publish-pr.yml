@@ -50,6 +50,8 @@ jobs:
           sign-images: false
           ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
+          # The full tag might look like: sha-d34db33-pr1234
+          ecr-tag-suffix: "-pr${{ github.event.pull_request.number }}"
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
 
