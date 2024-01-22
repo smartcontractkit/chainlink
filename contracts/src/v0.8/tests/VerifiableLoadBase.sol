@@ -292,7 +292,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   function topUpFund(uint256 upkeepId, uint256 blockNum) public {
     if (blockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
       KeeperRegistryBase2_1.UpkeepInfo memory info = registry.getUpkeep(upkeepId);
-      uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
+      uint96 minBalance = 0; //registry.getMinBalanceForUpkeep(upkeepId);
       if (info.balance < minBalanceThresholdMultiplier * minBalance) {
         addFunds(upkeepId, addLinkAmount);
         lastTopUpBlocks[upkeepId] = blockNum;
@@ -302,7 +302,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   }
 
   function getMinBalanceForUpkeep(uint256 upkeepId) external view returns (uint96) {
-    return registry.getMinBalanceForUpkeep(upkeepId);
+    return 0; //registry.getMinBalanceForUpkeep(upkeepId);
   }
 
   function getForwarder(uint256 upkeepID) external view returns (address) {
