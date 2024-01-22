@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"math/big"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -71,19 +73,22 @@ func (o ExecutionObservation) Marshal() ([]byte, error) {
 // malformed observations but never error.
 func GetParsableObservations[O CommitObservation | ExecutionObservation](l logger.Logger, observations []types.AttributedObservation) []O {
 	var parseableObservations []O
+	var observers []commontypes.OracleID
 	for _, ao := range observations {
 		if len(ao.Observation) == 0 {
 			// Empty observation
-			l.Infow("Discarded empty observation %+v", ao)
+			l.Infow("Discarded empty observation", "observer", ao.Observer)
 			continue
 		}
 		var ob O
 		err := json.Unmarshal(ao.Observation, &ob)
 		if err != nil {
-			l.Errorw("Received unmarshallable observation", "err", err, "observation", string(ao.Observation))
+			l.Errorw("Received unmarshallable observation", "err", err, "observation", string(ao.Observation), "observer", ao.Observer)
 			continue
 		}
 		parseableObservations = append(parseableObservations, ob)
+		observers = append(observers, ao.Observer)
 	}
+	l.Infow("Parsed observations", "observers", observers, "observations", parseableObservations)
 	return parseableObservations
 }
