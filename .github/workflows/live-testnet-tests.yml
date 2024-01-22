@@ -252,10 +252,6 @@ jobs:
     name: Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
@@ -279,6 +275,10 @@ jobs:
           httpEndpoints: ${{ secrets.QA_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_SEPOLIA_URLS }}
           fundingKeys: ${{ secrets.QA_EVM_KEYS }}
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests          
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
@@ -297,1092 +297,1092 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-  bsc-testnet-tests:
-    # TODO: BSC RPCs are all in a bad state right now, so we're skipping these tests until they're fixed
-    if: false
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-          - product: Automation Conditional
-            test: TestAutomationBasic/registry_2_1_conditional
-          - product: Automation Log Trigger
-            test: TestAutomationBasic/registry_2_1_logtrigger
-    name: BSC Testnet ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests            
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          fetch-depth: 0
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config-live-testnets
-        with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-bsc-testnet
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: ${{ secrets.LOKI_URL }}
-          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          network: "sepolia"
-          httpEndpoints: ${{ secrets.BSC_TESTNET_HTTP_URLS }}
-          wsEndpoints: ${{ secrets.BSC_TESTNET_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0       
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  # bsc-testnet-tests:
+  #   # TODO: BSC RPCs are all in a bad state right now, so we're skipping these tests until they're fixed
+  #   if: false
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #         - product: Automation Conditional
+  #           test: TestAutomationBasic/registry_2_1_conditional
+  #         - product: Automation Log Trigger
+  #           test: TestAutomationBasic/registry_2_1_logtrigger
+  #   name: BSC Testnet ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests            
+  #     - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+  #       with:
+  #         fetch-depth: 0
+  #     - name: Prepare Base64 TOML override
+  #       uses: ./.github/actions/setup-create-base64-config-live-testnets
+  #       with:
+  #         runId: ${{ github.run_id }}
+  #         testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+  #         chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+  #         chainlinkVersion: ${{ github.sha }}        
+  #         pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+  #         pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-bsc-testnet
+  #         pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+  #         lokiEndpoint: ${{ secrets.LOKI_URL }}
+  #         lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+  #         lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+  #         logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+  #         grafanaUrl: ${{ vars.GRAFANA_URL }}
+  #         grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+  #         network: "sepolia"
+  #         httpEndpoints: ${{ secrets.BSC_TESTNET_HTTP_URLS }}
+  #         wsEndpoints: ${{ secrets.BSC_TESTNET_URLS }}
+  #         fundingKeys: ${{ secrets.QA_EVM_KEYS }}
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0       
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-  optimism-sepolia-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-          - product: Automation Conditional
-            test: TestAutomationBasic/registry_2_1_conditional
-          - product: Automation Log Trigger
-            test: TestAutomationBasic/registry_2_1_logtrigger
-    name: Optimism Sepolia ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests         
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # optimism-sepolia-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #         - product: Automation Conditional
+  #           test: TestAutomationBasic/registry_2_1_conditional
+  #         - product: Automation Log Trigger
+  #           test: TestAutomationBasic/registry_2_1_logtrigger
+  #   name: Optimism Sepolia ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests         
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-sepolia
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
             
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5        
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
-          [Network]
-          selected_networks=["optimism_sepolia"]
+  #         [Network]
+  #         selected_networks=["optimism_sepolia"]
 
-          [Network.RpcHttpUrls]
-          optimism_sepolia = $(convert_to_toml_array "$OPTIMISM_SEPOLIA_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         optimism_sepolia = $(convert_to_toml_array "$OPTIMISM_SEPOLIA_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          optimism_sepolia = $(convert_to_toml_array "$OPTIMISM_SEPOLIA_URLS")
+  #         [Network.RpcWsUrls]
+  #         optimism_sepolia = $(convert_to_toml_array "$OPTIMISM_SEPOLIA_URLS")
 
-          [Network.WalletKeys]
-          optimism_sepolia = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         optimism_sepolia = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV    
-          touch .root_dir                
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV    
+  #         touch .root_dir                
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-  arbitrum-sepolia-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-          - product: Automation Conditional
-            test: TestAutomationBasic/registry_2_1_conditional
-          - product: Automation Log Trigger
-            test: TestAutomationBasic/registry_2_1_logtrigger
-    name: Arbitrum Sepolia ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests         
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # arbitrum-sepolia-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #         - product: Automation Conditional
+  #           test: TestAutomationBasic/registry_2_1_conditional
+  #         - product: Automation Log Trigger
+  #           test: TestAutomationBasic/registry_2_1_logtrigger
+  #   name: Arbitrum Sepolia ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests         
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
             
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
-          [Network]
-          selected_networks=["arbitrum_sepolia"]
+  #         [Network]
+  #         selected_networks=["arbitrum_sepolia"]
           
-          [Network.RpcHttpUrls]
-          arbitrum_sepolia = $(convert_to_toml_array "$ARBITRUM_SEPOLIA_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         arbitrum_sepolia = $(convert_to_toml_array "$ARBITRUM_SEPOLIA_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          arbitrum_sepolia = $(convert_to_toml_array "$ARBITRUM_SEPOLIA_URLS")
+  #         [Network.RpcWsUrls]
+  #         arbitrum_sepolia = $(convert_to_toml_array "$ARBITRUM_SEPOLIA_URLS")
 
-          [Network.WalletKeys]
-          arbitrum_sepolia = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         arbitrum_sepolia = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
-          touch .root_dir                        
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0  
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
+  #         touch .root_dir                        
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0  
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-  base-sepolia-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-    name: Base Sepolia ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests        
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # base-sepolia-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #   name: Base Sepolia ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests        
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-sepolia
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
     
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
           
-          [Network]
-          selected_networks=["base_sepolia"]
+  #         [Network]
+  #         selected_networks=["base_sepolia"]
 
-          [Network.RpcHttpUrls]
-          base_sepolia = $(convert_to_toml_array "$BASE_SEPOLIA_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         base_sepolia = $(convert_to_toml_array "$BASE_SEPOLIA_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          base_sepolia = $(convert_to_toml_array "$BASE_SEPOLIA_URLS")
+  #         [Network.RpcWsUrls]
+  #         base_sepolia = $(convert_to_toml_array "$BASE_SEPOLIA_URLS")
 
-          [Network.WalletKeys]
-          base_sepolia = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         base_sepolia = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
-          touch .root_dir          
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV          
+  #         touch .root_dir          
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
   
-  polygon-mumbai-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-          - product: Automation Conditional
-            test: TestAutomationBasic/registry_2_1_conditional
-          - product: Automation Log Trigger
-            test: TestAutomationBasic/registry_2_1_logtrigger
-    name: Polygon Mumbai ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests   
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-polygon-mumbai
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # polygon-mumbai-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #         - product: Automation Conditional
+  #           test: TestAutomationBasic/registry_2_1_conditional
+  #         - product: Automation Log Trigger
+  #           test: TestAutomationBasic/registry_2_1_logtrigger
+  #   name: Polygon Mumbai ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests   
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-polygon-mumbai
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
 
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
                     
-          [Network]
-          selected_networks=["polygon_mumbai"]
+  #         [Network]
+  #         selected_networks=["polygon_mumbai"]
 
-          [Network.RpcHttpUrls]
-          polygon_mumbai = $(convert_to_toml_array "$POLYGON_MUMBAI_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         polygon_mumbai = $(convert_to_toml_array "$POLYGON_MUMBAI_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          polygon_mumbai = $(convert_to_toml_array "$POLYGON_MUMBAI_URLS")
+  #         [Network.RpcWsUrls]
+  #         polygon_mumbai = $(convert_to_toml_array "$POLYGON_MUMBAI_URLS")
 
-          [Network.WalletKeys]
-          polygon_mumbai = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         polygon_mumbai = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV         
-          touch .root_dir            
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV         
+  #         touch .root_dir            
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-  avalanche-fuji-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-          - product: Automation Conditional
-            test: TestAutomationBasic/registry_2_1_conditional
-          - product: Automation Log Trigger
-            test: TestAutomationBasic/registry_2_1_logtrigger
-    name: Avalanche Fuji ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests   
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-avalanche-fuji
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # avalanche-fuji-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #         - product: Automation Conditional
+  #           test: TestAutomationBasic/registry_2_1_conditional
+  #         - product: Automation Log Trigger
+  #           test: TestAutomationBasic/registry_2_1_logtrigger
+  #   name: Avalanche Fuji ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests   
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-avalanche-fuji
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
     
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5        
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
-          [Network]
-          selected_networks=["avalanche_fuji"]
+  #         [Network]
+  #         selected_networks=["avalanche_fuji"]
 
-          [Network.RpcHttpUrls]
-          avalanche_fuji = $(convert_to_toml_array "$AVALANCHE_FUJI_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         avalanche_fuji = $(convert_to_toml_array "$AVALANCHE_FUJI_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          avalanche_fuji = $(convert_to_toml_array "$AVALANCHE_FUJI_URLS")
+  #         [Network.RpcWsUrls]
+  #         avalanche_fuji = $(convert_to_toml_array "$AVALANCHE_FUJI_URLS")
 
-          [Network.WalletKeys]
-          avalanche_fuji = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         avalanche_fuji = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
-          touch .root_dir               
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
+  #         touch .root_dir               
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-  fantom-testnet-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-          - product: Automation Conditional
-            test: TestAutomationBasic/registry_2_1_conditional
-          - product: Automation Log Trigger
-            test: TestAutomationBasic/registry_2_1_logtrigger
-    name: Fantom Testnet ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests      
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-fantom-testnet
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # fantom-testnet-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #         - product: Automation Conditional
+  #           test: TestAutomationBasic/registry_2_1_conditional
+  #         - product: Automation Log Trigger
+  #           test: TestAutomationBasic/registry_2_1_logtrigger
+  #   name: Fantom Testnet ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests      
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-fantom-testnet
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
     
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5        
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
-          [Network]
-          selected_networks=["fantom_testnet"]
+  #         [Network]
+  #         selected_networks=["fantom_testnet"]
 
-          [Network.RpcHttpUrls]
-          fantom_testnet = $(convert_to_toml_array "$FANTOM_TESTNET_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         fantom_testnet = $(convert_to_toml_array "$FANTOM_TESTNET_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          fantom_testnet = $(convert_to_toml_array "$FANTOM_TESTNET_URLS")
+  #         [Network.RpcWsUrls]
+  #         fantom_testnet = $(convert_to_toml_array "$FANTOM_TESTNET_URLS")
 
-          [Network.WalletKeys]
-          fantom_testnet = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         fantom_testnet = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV    
-          touch .root_dir                     
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV    
+  #         touch .root_dir                     
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-  celo-alfajores-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-    name: Celo Alfajores ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests 
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-celo-alfajores
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # celo-alfajores-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #   name: Celo Alfajores ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests 
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-celo-alfajores
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
     
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5        
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
-          [Network]
-          selected_networks=["celo_alfajores"]
+  #         [Network]
+  #         selected_networks=["celo_alfajores"]
 
-          [Network.RpcHttpUrls]
-          celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES_URLS")
+  #         [Network.RpcWsUrls]
+  #         celo_alfajores = $(convert_to_toml_array "$CELO_ALFAJORES_URLS")
 
-          [Network.WalletKeys]
-          celo_alfajores = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         celo_alfajores = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
-          touch .root_dir               
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0       
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
+  #         touch .root_dir               
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0       
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
      
-  scroll-sepolia-smoke-tests:
-    # TODO: Disabled until bug TT-767 is fixed
-    if: false
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-    name: Scroll Sepolia ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-scroll-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # scroll-sepolia-smoke-tests:
+  #   # TODO: Disabled until bug TT-767 is fixed
+  #   if: false
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #   name: Scroll Sepolia ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-scroll-sepolia
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
     
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5        
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
-          [Network]
-          selected_networks=["scroll_sepolia"]
+  #         [Network]
+  #         selected_networks=["scroll_sepolia"]
 
-          [Network.RpcHttpUrls]
-          scroll_sepolia = $(convert_to_toml_array "$SCROLL_SEPOLIA_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         scroll_sepolia = $(convert_to_toml_array "$SCROLL_SEPOLIA_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          scroll_sepolia = $(convert_to_toml_array "$SCROLL_SEPOLIA_URLS")
+  #         [Network.RpcWsUrls]
+  #         scroll_sepolia = $(convert_to_toml_array "$SCROLL_SEPOLIA_URLS")
 
-          [Network.WalletKeys]
-          scroll_sepolia = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         scroll_sepolia = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV         
-          touch .root_dir           
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0  
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV         
+  #         touch .root_dir           
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0  
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-  linea-goerli-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-    name: Linea Goerli ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
-        with:
-          name: tests        
-      - name: Prepare Base64 TOML override
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-linea-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+  # linea-goerli-smoke-tests:
+  #   environment: integration
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     id-token: write
+  #     contents: read
+  #   needs: [build-chainlink, build-tests]
+  #   strategy:
+  #     max-parallel: 1
+  #     fail-fast: false
+  #     matrix:
+  #       include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
+  #         - product: OCR
+  #           test: TestOCRBasic
+  #   name: Linea Goerli ${{ matrix.product }} Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Tests Binary
+  #       uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+  #       with:
+  #         name: tests        
+  #     - name: Prepare Base64 TOML override
+  #       env:
+  #         PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+  #         PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-linea-goerli
+  #         PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}     
+  #       run: |
+  #         convert_to_toml_array() {
+  #             local IFS=','
+  #             local input_array=($1)
+  #             local toml_array_format="["
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
+  #             for element in "${input_array[@]}"; do
+  #                 toml_array_format+="\"$element\","
+  #             done
 
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
+  #             toml_array_format="${toml_array_format%,}]"
+  #             echo "$toml_array_format"
+  #         }
     
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
+  #         if [ -n "$PYROSCOPE_SERVER" ]; then
+  #           pyroscope_enabled=true
+  #         else
+  #           pyroscope_enabled=false
+  #         fi
           
-          cat << EOF > config.toml
-          [Common]
-          chainlink_node_funding=0.5        
+  #         cat << EOF > config.toml
+  #         [Common]
+  #         chainlink_node_funding=0.5        
           
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="${{ github.sha }}"
+  #         [ChainlinkImage]
+  #         image="$CHAINLINK_IMAGE"
+  #         version="${{ github.sha }}"
           
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+  #         [Pyroscope]
+  #         enabled=$pyroscope_enabled
+  #         server_url="$PYROSCOPE_SERVER"
+  #         environment="$PYROSCOPE_ENVIRONMENT"
+  #         key="$PYROSCOPE_KEY"
 
-          [Logging]
-          run_id="$RUN_ID"
+  #         [Logging]
+  #         run_id="$RUN_ID"
 
-          [Logging.LogStream]
-          log_targets=$log_targets
+  #         [Logging.LogStream]
+  #         log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+  #         [Logging.Loki]
+  #         tenant_id="$LOKI_TENANT_ID"
+  #         endpoint="$LOKI_URL"
+  #         basic_auth="$LOKI_BASIC_AUTH"
 
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
+  #         [Logging.Grafana]
+  #         base_url="$GRAFANA_URL"
+  #         dasboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"               
 
-          [Network]
-          selected_networks=["linea_goerli"]          
+  #         [Network]
+  #         selected_networks=["linea_goerli"]          
 
-          [Network.RpcHttpUrls]
-          linea_goerli = $(convert_to_toml_array "$LINEA_GOERLI_HTTP_URLS")
+  #         [Network.RpcHttpUrls]
+  #         linea_goerli = $(convert_to_toml_array "$LINEA_GOERLI_HTTP_URLS")
 
-          [Network.RpcWsUrls]
-          linea_goerli = $(convert_to_toml_array "$LINEA_GOERLI_URLS")
+  #         [Network.RpcWsUrls]
+  #         linea_goerli = $(convert_to_toml_array "$LINEA_GOERLI_URLS")
 
-          [Network.WalletKeys]
-          linea_goerli = $(convert_to_toml_array "$EVM_KEYS")
-          EOF
+  #         [Network.WalletKeys]
+  #         linea_goerli = $(convert_to_toml_array "$EVM_KEYS")
+  #         EOF
           
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
-          touch .root_dir               
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+  #         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+  #         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+  #         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV     
+  #         touch .root_dir               
+  #     - name: Run Tests
+  #       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0   
+  #       with:
+  #         test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
+  #         binary_name: tests
+  #         cl_repo: ${{ env.CHAINLINK_IMAGE }}
+  #         cl_image_tag: ${{ github.sha }}
+  #         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+  #         dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+  #         artifacts_location: ./logs
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+  #         cache_restore_only: "true"
+  #         QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+  #         QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+  #         QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
