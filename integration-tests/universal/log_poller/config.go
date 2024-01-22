@@ -5,9 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pelletier/go-toml/v2"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -76,11 +76,11 @@ func ReadConfig(configName string) (*Config, error) {
 	var cfg *Config
 	d, err := os.ReadFile(configName)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrReadPerfConfig)
+		return nil, pkgerrors.Wrap(err, ErrReadPerfConfig)
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+		return nil, pkgerrors.Wrap(err, ErrUnmarshalPerfConfig)
 	}
 
 	if err := cfg.validate(); err != nil {
