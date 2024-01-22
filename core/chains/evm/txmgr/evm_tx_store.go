@@ -1848,13 +1848,13 @@ RETURNING "txes".*
 	return etx, err
 }
 
-func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (n int64, err error) {
+func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (ids []int64, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		res, err := qq.Exec(`
+		err := qq.Select(&ids, `
 DELETE FROM evm.txes
 WHERE state = 'unstarted' AND subject = $1 AND
 id < (
@@ -1865,11 +1865,13 @@ id < (
 		ORDER BY id DESC
 		LIMIT $3
 	) numbers
-)`, subject, subject, queueSize)
+) RETURNING id`, subject, subject, queueSize)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
 			return pkgerrors.Wrap(err, "DeleteUnstartedEthTx failed")
 		}
-		n, err = res.RowsAffected()
 		return err
 	})
 	return

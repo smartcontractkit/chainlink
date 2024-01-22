@@ -571,23 +571,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 	return etx, nil
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueue(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	pruned, err := txRequest.Strategy.PruneQueue(ctx, b.txStore)
-	if err != nil {
-		return err
-	}
-	if pruned > 0 {
-		b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned),
-			"fromAddress", txRequest.FromAddress,
-			"toAddress", txRequest.ToAddress,
-			"meta", txRequest.Meta,
-			"subject", txRequest.Strategy.Subject(),
-			"replacementID", etx.ID)
-	}
-
-	return nil
-}
-
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	txes, err = b.txStore.FindTxesByMetaFieldAndStates(ctx, metaField, metaValue, states, chainID)
 	return
@@ -697,4 +680,21 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Fin
 
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error) {
 	return count, errors.New(n.ErrMsg)
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueue(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	pruned, err := txRequest.Strategy.PruneQueue(ctx, b.txStore)
+	if err != nil {
+		return err
+	}
+	if len(pruned) > 0 {
+		b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", len(pruned)),
+			"fromAddress", txRequest.FromAddress,
+			"toAddress", txRequest.ToAddress,
+			"meta", txRequest.Meta,
+			"subject", txRequest.Strategy.Subject(),
+			"replacementID", etx.ID)
+	}
+
+	return nil
 }
