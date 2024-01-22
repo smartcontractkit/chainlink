@@ -283,3 +283,12 @@ podAnnotations:
 nodeSelector:
 tolerations:
 affinity:
+
+# Configure the default network policy.
+networkPolicyDefault:
+  ingress:
+    allowCustomCidrs: false
+    # String of comma separated CIDRs
+    customCidrs: null
+    # Example:
+    # customCidrs: "10.0.0.0/16,192.168.0.1/24"
