@@ -152,23 +152,6 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTx
 	return as.idempotencyKeyToTx[key]
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LatestSequence() SEQ {
-	as.RLock()
-	defer as.RUnlock()
-
-	var maxSeq SEQ
-	for _, tx := range as.allTransactions {
-		if tx.Sequence == nil {
-			continue
-		}
-		if (*tx.Sequence).Int64() > maxSeq.Int64() {
-			maxSeq = *tx.Sequence
-		}
-	}
-
-	return maxSeq
-}
-
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MaxConfirmedSequence() SEQ {
 	as.RLock()
 	defer as.RUnlock()
@@ -314,7 +297,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		return as.fetchTxsFromStorage(as.allTransactions, filter, txIDs...)
+		return as.fetchTxs(as.allTransactions, filter, txIDs...)
 	}
 
 	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -325,20 +308,20 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 				txs = append(txs, *as.inprogress)
 			}
 		case TxUnconfirmed:
-			txs = append(txs, as.fetchTxsFromStorage(as.unconfirmed, filter, txIDs...)...)
+			txs = append(txs, as.fetchTxs(as.unconfirmed, filter, txIDs...)...)
 		case TxConfirmedMissingReceipt:
-			txs = append(txs, as.fetchTxsFromStorage(as.confirmedMissingReceipt, filter, txIDs...)...)
+			txs = append(txs, as.fetchTxs(as.confirmedMissingReceipt, filter, txIDs...)...)
 		case TxConfirmed:
-			txs = append(txs, as.fetchTxsFromStorage(as.confirmed, filter, txIDs...)...)
+			txs = append(txs, as.fetchTxs(as.confirmed, filter, txIDs...)...)
 		case TxFatalError:
-			txs = append(txs, as.fetchTxsFromStorage(as.fatalErrored, filter, txIDs...)...)
+			txs = append(txs, as.fetchTxs(as.fatalErrored, filter, txIDs...)...)
 		}
 	}
 
 	return txs
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxsFromStorage(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxs(
 	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txIDs ...int64,

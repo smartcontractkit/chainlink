@@ -1035,8 +1035,11 @@ func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	sql := `SELECT nonce FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 AND nonce IS NOT NULL ORDER BY nonce DESC LIMIT 1`
-	err = qq.Get(&nonce, sql, fromAddress, chainId.String())
+	stmt := `SELECT nonce FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 AND nonce IS NOT NULL ORDER BY nonce DESC LIMIT 1`
+	err = qq.Get(&nonce, stmt, fromAddress, chainId.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return nonce, txmgr.ErrSequenceNotFound
+	}
 	return
 }
 

@@ -206,28 +206,11 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Check
 /////
 
 // FindLatestSequence returns the latest sequence number for a given address
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (seq SEQ, err error) {
-	// query the persistent storage since this method only gets called when the broadcaster is starting up.
-	// It is used to initialize the in-memory sequence map in the broadcaster
-	// NOTE(jtw): should the nextSequenceMap be moved to the in-memory store?
-
-	if ms.chainID.String() != chainID.String() {
-		return seq, fmt.Errorf("find_latest_sequence: %w", ErrInvalidChainID)
-	}
-
-	ms.addressStatesLock.RLock()
-	defer ms.addressStatesLock.RUnlock()
-	as, ok := ms.addressStates[fromAddress]
-	if !ok {
-		return seq, fmt.Errorf("find_latest_sequence: %w", ErrAddressNotFound)
-	}
-
-	seq = as.LatestSequence()
-	if seq.Int64() == 0 {
-		return seq, fmt.Errorf("find_latest_sequence: %w", ErrSequenceNotFound)
-	}
-
-	return seq, nil
+// It is used to initialize the in-memory sequence map in the broadcaster
+// NOTE(jtw): this is until we have a abstracted Sequencer Component which can be used instead
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (SEQ, error) {
+	// Query the persistent store
+	return ms.txStore.FindLatestSequence(ctx, fromAddress, chainID)
 }
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions for a given address.
@@ -1734,6 +1717,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 	for _, as := range ms.addressStates {
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			// TODO(jtw): THIS IS EVM SPECIFIC THIS SHOULD BE GENERALIZED
 			maxConfirmedSequence := as.MaxConfirmedSequence()
 			filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 				if tx.Sequence == nil {
