@@ -54,7 +54,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			payload, err := l1GasPriceMethodAbi.Pack("getL1BaseFeeEstimate")
+			var payload []byte
+			payload, err = l1GasPriceMethodAbi.Pack("getL1BaseFeeEstimate")
 			require.NoError(t, err)
 			require.Equal(t, payload, callMsg.Data)
 			assert.Nil(t, blockNumber)
@@ -78,7 +79,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			payload, err := l1GasPriceMethodAbi.Pack("l1BaseFee")
+			var payload []byte
+			payload, err = l1GasPriceMethodAbi.Pack("l1BaseFee")
 			require.NoError(t, err)
 			require.Equal(t, payload, callMsg.Data)
 			assert.Nil(t, blockNumber)
@@ -102,7 +104,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			payload, err := l1GasPriceMethodAbi.Pack("l1BaseFee")
+			var payload []byte
+			payload, err = l1GasPriceMethodAbi.Pack("l1BaseFee")
 			require.NoError(t, err)
 			require.Equal(t, payload, callMsg.Data)
 			assert.Nil(t, blockNumber)
@@ -126,7 +129,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			payload, err := l1GasPriceMethodAbi.Pack("l1BaseFee")
+			var payload []byte
+			payload, err = l1GasPriceMethodAbi.Pack("l1BaseFee")
 			require.NoError(t, err)
 			require.Equal(t, payload, callMsg.Data)
 			assert.Nil(t, blockNumber)
@@ -169,7 +173,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			payload, err := l1GasCostMethodAbi.Pack("gasEstimateL1Component", toAddress, false, callData)
+			var payload []byte
+			payload, err = l1GasCostMethodAbi.Pack("gasEstimateL1Component", toAddress, false, callData)
 			require.NoError(t, err)
 			require.Equal(t, payload, callMsg.Data)
 			require.Equal(t, blockNum, blockNumber)
@@ -214,7 +219,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			payload, err := l1GasCostMethodAbi.Pack("getL1Fee", encodedTx)
+			var payload []byte
+			payload, err = l1GasCostMethodAbi.Pack("getL1Fee", encodedTx)
 			require.NoError(t, err)
 			require.Equal(t, payload, callMsg.Data)
 			require.Equal(t, blockNum, blockNumber)
@@ -248,7 +254,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			payload, err := l1GasCostMethodAbi.Pack("getL1Fee", encodedTx)
+			var payload []byte
+			payload, err = l1GasCostMethodAbi.Pack("getL1Fee", encodedTx)
 			require.NoError(t, err)
 			require.Equal(t, payload, callMsg.Data)
 			require.Equal(t, blockNum, blockNumber)
