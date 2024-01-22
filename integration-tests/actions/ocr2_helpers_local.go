@@ -18,7 +18,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -38,6 +40,7 @@ func CreateOCRv2JobsLocal(
 	mockAdapterValue int, // Value to get from the mock server when querying the path
 	chainId uint64, // EVM chain ID
 	forwardingAllowed bool,
+	enableChainReaderAndCodec bool,
 ) error {
 	// Collect P2P ID
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -125,6 +128,43 @@ func CreateOCRv2JobsLocal(
 					P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
 				},
 			}
+			if enableChainReaderAndCodec {
+				ocrSpec.OCR2OracleSpec.RelayConfig["chainReader"] = evmtypes.ChainReaderConfig{
+					Contracts: map[string]evmtypes.ChainContractReader{
+						"median": {
+							ContractABI: `[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"requester","type":"address"},{"indexed":false,"internalType":"bytes32","name":"configDigest","type":"bytes32"},{"indexed":false,"internalType":"uint32","name":"epoch","type":"uint32"},{"indexed":false,"internalType":"uint8","name":"round","type":"uint8"}],"name":"RoundRequested","type":"event"},{"inputs":[],"name":"latestTransmissionDetails","outputs":[{"internalType":"bytes32","name":"configDigest","type":"bytes32"},{"internalType":"uint32","name":"epoch","type":"uint32"},{"internalType":"uint8","name":"round","type":"uint8"},{"internalType":"int192","name":"latestAnswer_","type":"int192"},{"internalType":"uint64","name":"latestTimestamp_","type":"uint64"}],"stateMutability":"view","type":"function"}]`,
+							Configs: map[string]*evmtypes.ChainReaderDefinition{
+								"LatestTransmissionDetails": {
+									ChainSpecificName: "latestTransmissionDetails",
+									OutputModifications: codec.ModifiersConfig{
+										&codec.EpochToTimeModifierConfig{
+											Fields: []string{"LatestTimestamp_"},
+										},
+										&codec.RenameModifierConfig{
+											Fields: map[string]string{
+												"LatestAnswer_":    "LatestAnswer",
+												"LatestTimestamp_": "LatestTimestamp",
+											},
+										},
+									},
+								},
+								"LatestRoundRequested": {
+									ChainSpecificName: "RoundRequested",
+									ReadType:          evmtypes.Event,
+								},
+							},
+						},
+					},
+				}
+				ocrSpec.OCR2OracleSpec.RelayConfig["codec"] = evmtypes.CodecConfig{
+					Configs: map[string]evmtypes.ChainCodecConfig{
+						"MedianReport": {
+							TypeABI: `[{"Name": "Timestamp","Type": "uint32"},{"Name": "Observers","Type": "bytes32"},{"Name": "Observations","Type": "int192[]"},{"Name": "JuelsPerFeeCoin","Type": "int192"}]`,
+						},
+					},
+				}
+			}
+
 			_, err = chainlinkNode.MustCreateJob(ocrSpec)
 			if err != nil {
 				return fmt.Errorf("creating OCR task job on OCR node have failed: %w", err)
