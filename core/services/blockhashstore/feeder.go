@@ -2,6 +2,7 @@ package blockhashstore
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ func NewFeeder(
 	trustedBHSBatchSize int32,
 	waitBlocks int,
 	lookbackBlocks int,
+	heartbeatPeriod time.Duration,
 	latestBlock func(ctx context.Context) (uint64, error),
 ) *Feeder {
 	return &Feeder{
@@ -40,6 +42,7 @@ func NewFeeder(
 		storedTrusted:       make(map[uint64]common.Hash),
 		lastRunBlock:        0,
 		wgStored:            sync.WaitGroup{},
+		heartbeatPeriod:     heartbeatPeriod,
 	}
 }
 
@@ -55,12 +58,52 @@ type Feeder struct {
 	lookbackBlocks      int
 	latestBlock         func(ctx context.Context) (uint64, error)
 
+	// heartbeatPeriodTime is a heartbeat period in seconds by which
+	// the feeder will always store a blockhash, even if there are no
+	// unfulfilled requests. This is to ensure that there are blockhashes
+	// in the store to start from if we ever need to run backwards mode.
+	heartbeatPeriod time.Duration
+
 	stored        map[uint64]struct{}    // used for trustless feeder
 	storedTrusted map[uint64]common.Hash // used for trusted feeder
 	lastRunBlock  uint64
 	wgStored      sync.WaitGroup
 	batchLock     sync.Mutex
 	errsLock      sync.Mutex
+}
+
+//go:generate mockery --quiet --name Timer --output ./mocks/ --case=underscore
+type Timer interface {
+	After(d time.Duration) <-chan time.Time
+}
+
+type realTimer struct{}
+
+func (r *realTimer) After(d time.Duration) <-chan time.Time {
+	return time.After(d)
+}
+
+func (f *Feeder) StartHeartbeats(ctx context.Context, timer Timer) {
+	if f.heartbeatPeriod == 0 {
+		f.lggr.Infow("Not starting heartbeat blockhash using storeEarliest")
+		return
+	}
+	f.lggr.Infow(fmt.Sprintf("Starting heartbeat blockhash using storeEarliest every %s", f.heartbeatPeriod.String()))
+	for {
+		after := timer.After(f.heartbeatPeriod)
+		select {
+		case <-after:
+			f.lggr.Infow("storing heartbeat blockhash using storeEarliest",
+				"heartbeatPeriodSeconds", f.heartbeatPeriod.Seconds())
+			if err := f.bhs.StoreEarliest(ctx); err != nil {
+				f.lggr.Infow("failed to store heartbeat blockhash using storeEarliest",
+					"heartbeatPeriodSeconds", f.heartbeatPeriod.Seconds(),
+					"err", err)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // Run the feeder.

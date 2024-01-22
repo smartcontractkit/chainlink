@@ -52,7 +52,7 @@ func DeployMultiWordConsumer(auth *bind.TransactOpts, backend bind.ContractBacke
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &MultiWordConsumer{MultiWordConsumerCaller: MultiWordConsumerCaller{contract: contract}, MultiWordConsumerTransactor: MultiWordConsumerTransactor{contract: contract}, MultiWordConsumerFilterer: MultiWordConsumerFilterer{contract: contract}}, nil
+	return address, tx, &MultiWordConsumer{address: address, abi: *parsed, MultiWordConsumerCaller: MultiWordConsumerCaller{contract: contract}, MultiWordConsumerTransactor: MultiWordConsumerTransactor{contract: contract}, MultiWordConsumerFilterer: MultiWordConsumerFilterer{contract: contract}}, nil
 }
 
 type MultiWordConsumer struct {

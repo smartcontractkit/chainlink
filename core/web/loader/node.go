@@ -5,7 +5,7 @@ import (
 
 	"github.com/graph-gophers/dataloader"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -23,7 +23,7 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	evmrelayIDs := make([]relay.ID, 0, len(keys))
 
 	for ix, key := range keys {
-		rid := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(key.String())}
+		rid := relay.ID{Network: relay.EVM, ChainID: key.String()}
 		evmrelayIDs = append(evmrelayIDs, rid)
 		keyOrder[key.String()] = ix
 	}

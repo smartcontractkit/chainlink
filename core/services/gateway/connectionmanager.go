@@ -11,7 +11,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -23,6 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+var promHeartbeatsSent = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "gateway_heartbeats_sent",
+	Help: "Metric to track the number of successful node heartbeates per DON",
+}, []string{"don_id"})
+
 // ConnectionManager holds all connections between Gateway and Nodes.
 type ConnectionManager interface {
 	job.ServiceCtx
@@ -33,7 +42,7 @@ type ConnectionManager interface {
 }
 
 type connectionManager struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	config             *config.ConnectionManagerConfig
 	dons               map[string]*donConnectionManager
@@ -45,13 +54,25 @@ type connectionManager struct {
 	lggr               logger.Logger
 }
 
+func (m *connectionManager) HealthReport() map[string]error {
+	hr := map[string]error{m.Name(): m.Healthy()}
+	for _, d := range m.dons {
+		for _, n := range d.nodes {
+			services.CopyHealth(hr, n.conn.HealthReport())
+		}
+	}
+	return hr
+}
+
+func (m *connectionManager) Name() string { return m.lggr.Name() }
+
 type donConnectionManager struct {
 	donConfig  *config.DONConfig
 	nodes      map[string]*nodeState
 	handler    handlers.Handler
 	codec      api.Codec
 	closeWait  sync.WaitGroup
-	shutdownCh chan struct{}
+	shutdownCh services.StopChan
 	lggr       logger.Logger
 }
 
@@ -86,14 +107,17 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock utils.Clock, lgg
 			if ok {
 				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donConfig.DonId)
 			}
-			nodes[nodeAddress] = &nodeState{conn: network.NewWSConnectionWrapper()}
+			nodes[nodeAddress] = &nodeState{conn: network.NewWSConnectionWrapper(lggr)}
+			if nodes[nodeAddress].conn == nil {
+				return nil, fmt.Errorf("error creating WSConnectionWrapper for node %s", nodeAddress)
+			}
 		}
 		dons[donConfig.DonId] = &donConnectionManager{
 			donConfig:  &donConfig,
 			codec:      codec,
 			nodes:      nodes,
 			shutdownCh: make(chan struct{}),
-			lggr:       lggr,
+			lggr:       lggr.Named("DONConnectionManager." + donConfig.DonId),
 		}
 	}
 	connMgr := &connectionManager{
@@ -118,7 +142,7 @@ func (m *connectionManager) Start(ctx context.Context) error {
 		for _, donConnMgr := range m.dons {
 			donConnMgr.closeWait.Add(len(donConnMgr.nodes))
 			for nodeAddress, nodeState := range donConnMgr.nodes {
-				if err := nodeState.conn.Start(); err != nil {
+				if err := nodeState.conn.Start(ctx); err != nil {
 					return err
 				}
 				go donConnMgr.readLoop(nodeAddress, nodeState)
@@ -232,15 +256,22 @@ func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
 }
 
 func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error {
+	if msg == nil {
+		return errors.New("nil message")
+	}
 	data, err := m.codec.EncodeRequest(msg)
 	if err != nil {
 		return fmt.Errorf("error encoding request for node %s: %v", nodeAddress, err)
 	}
-	return m.nodes[nodeAddress].conn.Write(ctx, websocket.BinaryMessage, data)
+	nodeState := m.nodes[nodeAddress]
+	if nodeState == nil {
+		return fmt.Errorf("node %s not found", nodeAddress)
+	}
+	return nodeState.conn.Write(ctx, websocket.BinaryMessage, data)
 }
 
 func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState) {
-	ctx, _ := utils.StopChan(m.shutdownCh).NewCtx()
+	ctx, _ := m.shutdownCh.NewCtx()
 	for {
 		select {
 		case <-m.shutdownCh:
@@ -265,7 +296,7 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 }
 
 func (m *donConnectionManager) heartbeatLoop(intervalSec uint32) {
-	ctx, _ := utils.StopChan(m.shutdownCh).NewCtx()
+	ctx, _ := m.shutdownCh.NewCtx()
 	defer m.closeWait.Done()
 
 	if intervalSec == 0 {
@@ -290,6 +321,7 @@ func (m *donConnectionManager) heartbeatLoop(intervalSec uint32) {
 					errorCount++
 				}
 			}
+			promHeartbeatsSent.WithLabelValues(m.donConfig.DonId).Set(float64(len(m.nodes) - errorCount))
 			m.lggr.Infow("sent heartbeat to nodes", "donID", m.donConfig.DonId, "errCount", errorCount)
 		}
 	}

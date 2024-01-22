@@ -7,16 +7,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestValidateOracleSpec(t *testing.T) {
@@ -307,7 +308,7 @@ chainID = 1337
 				require.Contains(t, err.Error(), "database timeout must be between 100ms and 10s, but is currently 20m0s")
 			},
 			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.DatabaseTimeout = models.MustNewDuration(20 * time.Minute)
+				c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(20 * time.Minute)
 			},
 		},
 		{
@@ -580,11 +581,94 @@ KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c
 				require.Contains(t, err.Error(), "validation error for keyID")
 			},
 		},
+		{
+			name: "Generic plugin config validation - nothing provided",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+name = "dkg"
+externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
+maxTaskDuration = "1s"
+contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
+ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
+p2pv2Bootstrappers = [
+	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
+
+[relayConfig]
+chainID = 4
+
+[pluginConfig.coreConfig]
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+				require.ErrorContains(t, err, "must provide plugin name")
+			},
+		},
+		{
+			name: "Generic plugin config validation - plugin name provided",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+name = "dkg"
+externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
+maxTaskDuration = "1s"
+contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
+ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
+p2pv2Bootstrappers = [
+	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
+
+[relayConfig]
+chainID = 4
+
+[pluginConfig]
+pluginName = "median"
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+				require.ErrorContains(t, err, "must provide telemetry type")
+			},
+		},
+		{
+			name: "Generic plugin config validation - all provided",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+name = "dkg"
+externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
+maxTaskDuration = "1s"
+contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
+ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
+p2pv2Bootstrappers = [
+	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
+
+[relayConfig]
+chainID = 4
+
+[pluginConfig]
+pluginName = "median"
+telemetryType = "median"
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.NoError(t, err)
+			},
+		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Insecure.OCRDevelopmentMode = testutils.Ptr(false) // tests run with OCRDevelopmentMode by default.
 				if tc.overrides != nil {
 					tc.overrides(c, s)
@@ -594,4 +678,43 @@ KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c
 			tc.assertion(t, s, err)
 		})
 	}
+}
+
+type envelope struct {
+	PluginConfig *validate.OCR2GenericPluginConfig
+}
+
+func TestOCR2GenericPluginConfig_Unmarshal(t *testing.T) {
+	payload := `
+[pluginConfig]
+pluginName = "median"
+telemetryType = "median"
+foo = "bar"
+
+[[pluginConfig.pipelines]]
+name = "default"
+spec = "a spec"
+`
+	tree, err := toml.Load(payload)
+	require.NoError(t, err)
+
+	// Load the toml how we load it in the plugin, i.e. convert to
+	// map[string]any first, then treat as JSON
+	o := map[string]any{}
+	err = tree.Unmarshal(&o)
+	require.NoError(t, err)
+
+	b, err := json.Marshal(o)
+	require.NoError(t, err)
+
+	e := &envelope{}
+	err = json.Unmarshal(b, e)
+	require.NoError(t, err)
+
+	pc := e.PluginConfig
+	assert.Equal(t, "bar", pc.PluginConfig["foo"])
+	assert.Len(t, pc.Pipelines, 1)
+	assert.Equal(t, validate.PipelineSpec{Name: "default", Spec: "a spec"}, pc.Pipelines[0])
+	assert.Equal(t, "median", pc.PluginName)
+	assert.Equal(t, "median", pc.TelemetryType)
 }

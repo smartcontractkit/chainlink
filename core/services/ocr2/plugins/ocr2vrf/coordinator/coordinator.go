@@ -17,12 +17,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2vrf/dkg"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
+	"github.com/smartcontractkit/chainlink-vrf/dkg"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -36,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -227,7 +230,7 @@ func (c *coordinator) CurrentChainHeight(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uint64(head), nil
+	return uint64(head.BlockNumber), nil
 }
 
 // ReportIsOnchain returns true iff a report for the given OCR epoch/round is
@@ -395,7 +398,7 @@ func (c *coordinator) ReportBlocks(
 
 	// TODO BELOW: Write tests for the new blockhash retrieval.
 	// Obtain recent blockhashes, ordered by ascending block height.
-	for i := recentBlockHashesStartHeight; i <= uint64(currentHeight); i++ {
+	for i := recentBlockHashesStartHeight; i <= currentHeight; i++ {
 		recentBlockHashes = append(recentBlockHashes, blockhashesMapping[i])
 	}
 
@@ -515,7 +518,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	}
 
 	// Get a mapping of block numbers to block hashes.
-	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, uint64(currentHeight), recentBlockHashesStartHeight))
+	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, currentHeight, recentBlockHashesStartHeight))
 	if err != nil {
 		err = errors.Wrap(err, "get blockhashes for ReportBlocks")
 	}
@@ -911,7 +914,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.beaconAddress,
-		int(c.finalityDepth),
+		logpoller.Confirmations(c.finalityDepth),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
@@ -922,7 +925,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	latestDKG, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.dkgAddress,
-		int(c.finalityDepth),
+		logpoller.Confirmations(c.finalityDepth),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {

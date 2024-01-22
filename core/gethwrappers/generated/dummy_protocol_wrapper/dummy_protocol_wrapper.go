@@ -52,7 +52,7 @@ func DeployDummyProtocol(auth *bind.TransactOpts, backend bind.ContractBackend) 
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &DummyProtocol{DummyProtocolCaller: DummyProtocolCaller{contract: contract}, DummyProtocolTransactor: DummyProtocolTransactor{contract: contract}, DummyProtocolFilterer: DummyProtocolFilterer{contract: contract}}, nil
+	return address, tx, &DummyProtocol{address: address, abi: *parsed, DummyProtocolCaller: DummyProtocolCaller{contract: contract}, DummyProtocolTransactor: DummyProtocolTransactor{contract: contract}, DummyProtocolFilterer: DummyProtocolFilterer{contract: contract}}, nil
 }
 
 type DummyProtocol struct {

@@ -52,7 +52,7 @@ func DeployLinkToken(auth *bind.TransactOpts, backend bind.ContractBackend) (com
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &LinkToken{LinkTokenCaller: LinkTokenCaller{contract: contract}, LinkTokenTransactor: LinkTokenTransactor{contract: contract}, LinkTokenFilterer: LinkTokenFilterer{contract: contract}}, nil
+	return address, tx, &LinkToken{address: address, abi: *parsed, LinkTokenCaller: LinkTokenCaller{contract: contract}, LinkTokenTransactor: LinkTokenTransactor{contract: contract}, LinkTokenFilterer: LinkTokenFilterer{contract: contract}}, nil
 }
 
 type LinkToken struct {

@@ -162,6 +162,9 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
+	if len(lgs) == 0 {
+		return ocrtypes.ContractConfig{}, errors.New("no logs found")
+	}
 	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data, cp.pluginType)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
@@ -178,7 +181,7 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		}
 		return 0, err
 	}
-	return uint64(latest), nil
+	return uint64(latest.BlockNumber), nil
 }
 
 // called from LogPollerWrapper in a separate goroutine

@@ -7,8 +7,8 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var EmptyAddress = utils.ZeroAddress.Hex()
@@ -68,6 +68,10 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.RunTimeout == 0 {
 		spec.RunTimeout = 30 * time.Second
 	}
+	if spec.HeartbeatPeriod < 0 {
+		return jb, errors.New(`"heartbeatPeriod" must be greater than 0`)
+	}
+	// spec.HeartbeatPeriodTime == 0, default is heartbeat disabled
 
 	// Validation
 	if spec.WaitBlocks >= spec.LookbackBlocks {

@@ -376,3 +376,28 @@ func Test_JobProposal_CanEditDefinition(t *testing.T) {
 		})
 	}
 }
+
+// Test_toMetrics tests the toMetrics method
+func Test_toMetrics(t *testing.T) {
+	t.Parallel()
+
+	jpCounts := JobProposalCounts{
+		Cancelled: 0,
+		Pending:   1,
+		Approved:  2,
+		Rejected:  3,
+		Deleted:   4,
+		Revoked:   5,
+	}
+
+	metrics := jpCounts.toMetrics()
+
+	assert.Equal(t, metrics, map[JobProposalStatus]float64{
+		JobProposalStatusCancelled: 0,
+		JobProposalStatusPending:   1,
+		JobProposalStatusApproved:  2,
+		JobProposalStatusRejected:  3,
+		JobProposalStatusDeleted:   4,
+		JobProposalStatusRevoked:   5,
+	})
+}

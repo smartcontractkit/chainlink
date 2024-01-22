@@ -8,7 +8,7 @@ import { abi as optimismSequencerStatusRecorderAbi } from '../../../artifacts/sr
 // @ts-ignore
 import { abi as optimismL1CrossDomainMessengerAbi } from '@eth-optimism/contracts/artifacts/contracts/L1/messaging/L1CrossDomainMessenger.sol'
 // @ts-ignore
-import { abi as aggregatorAbi } from '../../../artifacts/src/v0.8/interfaces/AggregatorV2V3Interface.sol/AggregatorV2V3Interface.json'
+import { abi as aggregatorAbi } from '../../../artifacts/src/v0.8/shared/interfaces/AggregatorV2V3Interface.sol/AggregatorV2V3Interface.json'
 
 describe('OptimismValidator', () => {
   const GAS_LIMIT = BigNumber.from(1_900_000)
@@ -75,8 +75,7 @@ describe('OptimismValidator', () => {
     it('posts sequencer status when there is not status change', async () => {
       await optimismValidator.addAccess(eoaValidator.address)
 
-      const currentBlockNum = await ethers.provider.getBlockNumber()
-      const currentBlock = await ethers.provider.getBlock(currentBlockNum)
+      const currentBlock = await ethers.provider.getBlock('latest')
       const futureTimestamp = currentBlock.timestamp + 5000
 
       await ethers.provider.send('evm_setNextBlockTimestamp', [futureTimestamp])
@@ -100,8 +99,7 @@ describe('OptimismValidator', () => {
     it('post sequencer offline', async () => {
       await optimismValidator.addAccess(eoaValidator.address)
 
-      const currentBlockNum = await ethers.provider.getBlockNumber()
-      const currentBlock = await ethers.provider.getBlock(currentBlockNum)
+      const currentBlock = await ethers.provider.getBlock('latest')
       const futureTimestamp = currentBlock.timestamp + 10000
 
       await ethers.provider.send('evm_setNextBlockTimestamp', [futureTimestamp])

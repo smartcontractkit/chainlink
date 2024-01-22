@@ -50,7 +50,7 @@ func DeployMockETHLINKAggregator(auth *bind.TransactOpts, backend bind.ContractB
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &MockETHLINKAggregator{MockETHLINKAggregatorCaller: MockETHLINKAggregatorCaller{contract: contract}, MockETHLINKAggregatorTransactor: MockETHLINKAggregatorTransactor{contract: contract}, MockETHLINKAggregatorFilterer: MockETHLINKAggregatorFilterer{contract: contract}}, nil
+	return address, tx, &MockETHLINKAggregator{address: address, abi: *parsed, MockETHLINKAggregatorCaller: MockETHLINKAggregatorCaller{contract: contract}, MockETHLINKAggregatorTransactor: MockETHLINKAggregatorTransactor{contract: contract}, MockETHLINKAggregatorFilterer: MockETHLINKAggregatorFilterer{contract: contract}}, nil
 }
 
 type MockETHLINKAggregator struct {

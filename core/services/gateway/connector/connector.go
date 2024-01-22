@@ -10,6 +10,9 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -44,7 +47,7 @@ type GatewayConnectorHandler interface {
 }
 
 type gatewayConnector struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	config      *ConnectorConfig
 	codec       api.Codec
@@ -55,9 +58,19 @@ type gatewayConnector struct {
 	gateways    map[string]*gatewayState
 	urlToId     map[string]string
 	closeWait   sync.WaitGroup
-	shutdownCh  chan struct{}
+	shutdownCh  services.StopChan
 	lggr        logger.Logger
 }
+
+func (c *gatewayConnector) HealthReport() map[string]error {
+	m := map[string]error{c.Name(): c.Healthy()}
+	for _, g := range c.gateways {
+		services.CopyHealth(m, g.conn.HealthReport())
+	}
+	return m
+}
+
+func (c *gatewayConnector) Name() string { return c.lggr.Name() }
 
 type gatewayState struct {
 	conn     network.WSConnectionWrapper
@@ -67,13 +80,13 @@ type gatewayState struct {
 }
 
 func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock utils.Clock, lggr logger.Logger) (GatewayConnector, error) {
-	if signer == nil || handler == nil || clock == nil {
+	if config == nil || signer == nil || handler == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
-	if len(config.DonId) == 0 || len(config.DonId) > int(network.HandshakeDonIdLen) {
+	if len(config.DonId) == 0 || len(config.DonId) > network.HandshakeDonIdLen {
 		return nil, errors.New("invalid DON ID")
 	}
-	addressBytes, err := utils.TryParseHex(config.NodeAddress)
+	addressBytes, err := hex.DecodeString(config.NodeAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +98,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 		signer:      signer,
 		handler:     handler,
 		shutdownCh:  make(chan struct{}),
-		lggr:        lggr,
+		lggr:        lggr.Named("GatewayConnector"),
 	}
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
@@ -102,7 +115,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 			return nil, err
 		}
 		gateway := &gatewayState{
-			conn:     network.NewWSConnectionWrapper(),
+			conn:     network.NewWSConnectionWrapper(lggr),
 			config:   gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
@@ -131,7 +144,7 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, 
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
-	ctx, cancel := utils.StopChan(c.shutdownCh).NewCtx()
+	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
 
 	for {
@@ -156,7 +169,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 
 func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 	redialBackoff := utils.NewRedialBackoff()
-	ctx, cancel := utils.StopChan(c.shutdownCh).NewCtx()
+	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
 
 	for {
@@ -189,7 +202,7 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 		}
 		for _, gatewayState := range c.gateways {
 			gatewayState := gatewayState
-			if err := gatewayState.conn.Start(); err != nil {
+			if err := gatewayState.conn.Start(ctx); err != nil {
 				return err
 			}
 			c.closeWait.Add(2)

@@ -5,27 +5,27 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ormconfig struct {
@@ -34,11 +34,11 @@ type ormconfig struct {
 
 func (ormconfig) JobPipelineMaxSuccessfulRuns() uint64 { return 123456 }
 
-func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
+func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM) {
 	t.Helper()
 
-	if name != "" {
-		_, db = heavyweight.FullTestDBV2(t, name, nil)
+	if heavy {
+		_, db = heavyweight.FullTestDBV2(t, nil)
 	} else {
 		db = pgtest.NewSqlxDB(t)
 	}
@@ -48,12 +48,12 @@ func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 	return
 }
 
-func setupHeavyORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
-	return setupORM(t, name)
+func setupHeavyORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM) {
+	return setupORM(t, true)
 }
 
 func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM) {
-	return setupORM(t, "")
+	return setupORM(t, false)
 }
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
@@ -291,7 +291,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	ds1_id := uuid.New()
 
 	// insert something for this pipeline_run to trigger an early resume while the pipeline is running
-	_, err = db.NamedQuery(`
+	rows, err := db.NamedQuery(`
 	INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 	VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 	`, pipeline.TaskRun{
@@ -304,6 +304,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		FinishedAt:    null.TimeFrom(now),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, rows.Close()) })
 
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
@@ -348,7 +349,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 
 	ds1_id := uuid.New()
 	now := time.Now()
-	address, err := utils.TryParseHex("0x8bd112d3f8f92e41c861939545ad387307af9703")
+	address, err := hex.DecodeString("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
 	cborOutput := map[string]interface{}{
 		"blockNum":        "0x13babbd",
@@ -465,7 +466,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
-	_, orm := setupHeavyORM(t, "pipeline_runs_reaper")
+	_, orm := setupHeavyORM(t)
 
 	var runsIds []int64
 
@@ -514,16 +515,14 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	// The test configures single Keeper job with two running tasks.
 	// GetUnfinishedRuns() expects to catch both running tasks.
 
-	config := configtest2.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
 	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
+	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -534,7 +533,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 			FromAddress:     cltest.NewEIP55Address(),
 			CreatedAt:       timestamp,
 			UpdatedAt:       timestamp,
-			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
+			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
 		},
 		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 		PipelineSpec: &pipeline.Spec{
@@ -616,16 +615,14 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	// The test configures single DR job with two task runs: one is running and one is suspended.
 	// GetUnfinishedRuns() expects to catch the one that is running.
 
-	config := configtest2.NewTestGeneralConfig(t)
+	config := configtest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
 	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
+	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -635,7 +632,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 			ContractAddress: cltest.NewEIP55Address(),
 			CreatedAt:       timestamp,
 			UpdatedAt:       timestamp,
-			EVMChainID:      (*utils.Big)(&cltest.FixtureChainID),
+			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
 		},
 		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 		PipelineSpec: &pipeline.Spec{
@@ -709,7 +706,7 @@ func Test_Prune(t *testing.T) {
 
 	n := uint64(2)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.MaxSuccessfulRuns = &n
 	})
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)

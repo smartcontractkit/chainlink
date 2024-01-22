@@ -9,27 +9,26 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/logging"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
-	"context"
-	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 const (
@@ -84,12 +83,13 @@ func CleanupReorgTest(
 	if chainClient != nil {
 		chainClient.GasStats().PrintStats()
 	}
-	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+	err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
 	require.NoError(t, err, "Error tearing down environment")
 }
 
 func TestDirectRequestReorg(t *testing.T) {
 	logging.Init()
+	l := logging.GetTestLogger(t)
 	testEnvironment := environment.New(&environment.Config{
 		TTL:  1 * time.Hour,
 		Test: t,
@@ -123,16 +123,17 @@ func TestDirectRequestReorg(t *testing.T) {
 	time.Sleep(90 * time.Second)
 	activeEVMNetwork = networks.SimulatedEVMNonDev
 	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
-	chainlinkDeployment, err := chainlink.NewDeployment(1, map[string]interface{}{
-		"toml": client.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
+	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
+		"replicas": 1,
+		"toml":     networks.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
 	})
-	require.NoError(t, err, "Error building Chainlink deployment")
-	err = testEnvironment.AddHelmCharts(chainlinkDeployment).Run()
+
+	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")
 
-	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	cd, err := contracts.NewContractDeployer(chainClient)
+	cd, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -180,6 +181,7 @@ func TestDirectRequestReorg(t *testing.T) {
 		Name:                     "direct_request",
 		MinIncomingConfirmations: minIncomingConfirmations,
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               chainClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})
@@ -217,7 +219,7 @@ func TestDirectRequestReorg(t *testing.T) {
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
-		d, err := consumer.Data(context.Background())
+		d, err := consumer.Data(testcontext.Get(t))
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
 		g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
 		log.Debug().Int64("Data", d.Int64()).Msg("Found on chain")

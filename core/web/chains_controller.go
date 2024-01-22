@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -45,7 +45,7 @@ func newChainsController[R jsonapi.EntityNamer](network relay.Network, chainStat
 	newResource func(types.ChainStatus) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[R] {
 	return &chainsController[R]{
 		network:       network,
-		resourceName:  string(network) + "_chain",
+		resourceName:  network + "_chain",
 		chainStats:    chainStats,
 		errNotEnabled: errNotEnabled,
 		newResource:   newResource,
@@ -79,7 +79,7 @@ func (cc *chainsController[R]) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
 	}
-	relayID := relay.ID{Network: cc.network, ChainID: relay.ChainID(c.Param("ID"))}
+	relayID := relay.ID{Network: cc.network, ChainID: c.Param("ID")}
 	chain, err := cc.chainStats.ChainStatus(c, relayID)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

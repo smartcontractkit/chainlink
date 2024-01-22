@@ -17,18 +17,19 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -142,8 +143,6 @@ type TestHarness struct {
 	verifierAddress  common.Address
 	verifierContract *verifier.Verifier
 	logPoller        logpoller.LogPoller
-	eventBroadcaster *pgmocks.EventBroadcaster
-	subscription     *pgmocks.Subscription
 }
 
 func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
@@ -167,17 +166,11 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	cfg := pgtest.NewQConfig(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
-	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
-	subscription := pgmocks.NewSubscription(t)
-	require.NoError(t, lp.Start(ctx))
-	t.Cleanup(func() { lp.Close() })
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
+	servicetest.Run(t, lp)
 
-	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
-
-	configPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID, eventBroadcaster)
+	configPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID)
 	require.NoError(t, err)
 
 	configPoller.Start()
@@ -189,7 +182,5 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 		verifierAddress:  verifierAddress,
 		verifierContract: verifierContract,
 		logPoller:        lp,
-		eventBroadcaster: eventBroadcaster,
-		subscription:     subscription,
 	}
 }

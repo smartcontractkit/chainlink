@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
-import {Common} from "../../libraries/Common.sol";
+import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
+import {Common} from "../libraries/Common.sol";
 
 interface IVerifier is IERC165 {
   /**
@@ -45,6 +45,7 @@ interface IVerifier is IERC165 {
    * @param feedId Feed ID to set config for
    * @param sourceChainId Chain ID of source config
    * @param sourceAddress Address of source config Verifier
+   * @param newConfigCount Param to force the new config count
    * @param signers addresses with which oracles sign the reports
    * @param offchainTransmitters CSA key for the ith Oracle
    * @param f number of faulty oracles the system can tolerate
@@ -57,6 +58,7 @@ interface IVerifier is IERC165 {
     bytes32 feedId,
     uint256 sourceChainId,
     address sourceAddress,
+    uint32 newConfigCount,
     address[] memory signers,
     bytes32[] memory offchainTransmitters,
     uint8 f,

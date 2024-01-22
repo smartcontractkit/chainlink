@@ -1,0 +1,87 @@
+name: On Demand Log Poller Consistency Test
+on:
+  workflow_dispatch:
+    inputs:
+      contracts:
+        description: Number of test contracts
+        default: "2"
+        required: true
+      eventsPerTx:
+        description: Number of events to emit per transaction
+        default: "10"
+        required: true
+      useFinalityTag:
+        description: Use finality tag
+        default: "false"
+        required: true
+      loadDuration:
+        description: Load duration (e.g. 10s, 10m, 1h)
+        default: "10m"
+        required: true
+      chainlinkImage:
+        description: Chainlink image to use
+        default: "public.ecr.aws/chainlink/chainlink"
+        required: true
+      chainlinkVersion:
+        description: Chainlink version to use
+        default: "2.7.0-beta1"
+        required: true
+      selectedNetworks:
+        type: choice
+        options:
+          - "SIMULATED"
+          - "SEPOLIA"
+          - "MUMBAI"
+      fundingPrivateKey:
+        description: Private funding key (Skip for Simulated)
+        required: true
+        type: string
+      wsURL:
+        description: WS URL for the network (Skip for Simulated)
+        required: true
+        type: string
+      httpURL:
+        description: HTTP URL for the network (Skip for Simulated)
+        required: true
+        type: string        
+
+jobs:
+  test:
+    env:
+      CONTRACTS: ${{ inputs.contracts }}
+      EVENTS_PER_TX: ${{ inputs.eventsPerTx }}
+      LOAD_DURATION: ${{ inputs.loadDuration }}
+      USE_FINALITY_TAG: ${{ inputs.useFinalityTag }}
+      CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+      CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+      SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+    runs-on: ubuntu20.04-8cores-32GB
+    steps:
+      - name: Get Inputs
+        run: |
+          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
+          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+
+          echo ::add-mask::$EVM_URLS
+          echo ::add-mask::$EVM_HTTP_URLS
+          echo ::add-mask::$EVM_KEYS
+
+          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
+          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
+          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1          
+        with:
+          ref: ${{ env.REF_NAME }}          
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version-file: "integration-tests/go.mod"
+          cache: true
+      - name: Run tests
+        run: |
+          cd integration-tests
+          go mod download
+          go test -v -timeout 5h -v -count=1 -run ^TestLogPollerFromEnv$ ./reorg/log_poller_maybe_reorg_test.go

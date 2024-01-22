@@ -108,8 +108,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         .updateStatus(true, timestamp.add(200))
 
       // Submit another status update with the same status
-      const currentBlock = await ethers.provider.getBlockNumber()
-      const latestBlock = await ethers.provider.getBlock(currentBlock)
+      const latestBlock = await ethers.provider.getBlock('latest')
 
       await expect(tx)
         .to.emit(optimismUptimeFeed, 'RoundUpdated')

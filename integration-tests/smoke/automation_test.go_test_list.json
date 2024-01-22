@@ -2,108 +2,73 @@
   "tests": [
     {
       "name": "TestAutomationBasic",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1_conditional"
-        },
-        {
-          "name": "registry_2_1_logtrigger"
-        }
+      "label": "ubuntu-latest",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_0"},
+        {"name":"registry_2_1_conditional"}
       ]
     },
     {
-      "name": "TestAutomationAddFunds",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
+      "name": "TestAutomationBasic",
+      "label": "ubuntu-latest",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_1_logtrigger"},
+        {"name":"registry_2_1_with_mercury_v02"}
       ]
     },
     {
-      "name": "TestAutomationPauseUnPause",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationRegisterUpkeep",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationPauseRegistry",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationKeeperNodesDown",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationPerformSimulation",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationCheckPerformGasLimit",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestUpdateCheckData",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
+      "name": "TestAutomationBasic",
+      "label": "ubuntu-latest",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_1_with_mercury_v03"},
+        {"name":"registry_2_1_with_logtrigger_and_mercury_v02"}
       ]
     },
     {
       "name": "TestSetUpkeepTriggerConfig"
+    },
+    {
+      "name": "TestAutomationAddFunds",
+      "label": "ubuntu-latest",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationPauseUnPause",
+      "label": "ubuntu-latest",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationRegisterUpkeep",
+      "label": "ubuntu-latest",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationPauseRegistry",
+      "label": "ubuntu-latest",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationKeeperNodesDown",
+      "label": "ubuntu-latest",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationPerformSimulation",
+      "label": "ubuntu-latest",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationCheckPerformGasLimit",
+      "label": "ubuntu-latest",
+      "nodes": 2
+    },
+    {
+      "name": "TestUpdateCheckData",
+      "label": "ubuntu-latest",
+      "nodes": 2
     }
   ]
 }

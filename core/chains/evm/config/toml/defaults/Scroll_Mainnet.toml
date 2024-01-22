@@ -1,5 +1,6 @@
 ChainID = '534352'
 FinalityDepth = 1
+ChainType = 'scroll'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 1
 # Scroll only emits blocks when a new tx is received, so this method of liveness detection is not useful
@@ -7,8 +8,8 @@ NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 
 [GasEstimator]
-Mode = 'L2Suggested'
-# Scroll uses the L2Suggested estimator; we don't want to place any limits on the minimum gas price
+Mode = 'SuggestedPrice'
+# Scroll uses the SuggestedPrice estimator; we don't want to place any limits on the minimum gas price
 PriceMin = '0'
 # Never bump gas on Scroll
 BumpThreshold = 0

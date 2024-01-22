@@ -3238,7 +3238,7 @@ describe('KeeperRegistry2_1', () => {
       it('calls checkLog for log-trigger upkeeps', async () => {
         const log: Log = {
           index: 0,
-          txIndex: 0,
+          timestamp: 0,
           txHash: ethers.utils.randomBytes(32),
           blockNumber: 100,
           blockHash: ethers.utils.randomBytes(32),

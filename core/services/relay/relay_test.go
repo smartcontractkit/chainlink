@@ -1,12 +1,17 @@
 package relay
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestIdentifier_UnmarshalString(t *testing.T) {
@@ -51,40 +56,37 @@ func TestIdentifier_UnmarshalString(t *testing.T) {
 }
 
 func TestNewID(t *testing.T) {
-	type args struct {
-		n Network
-		c ChainID
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    ID
-		wantErr bool
-	}{
-		{name: "good evm",
-			args: args{n: EVM, c: "1"},
-			want: ID{Network: EVM, ChainID: "1"},
-		},
-		{name: "bad evm",
-			args:    args{n: EVM, c: "not a number"},
-			want:    ID{},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewID(tt.args.n, tt.args.c)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewID() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			assert.Equal(t, tt.want, got, "got id %v", got)
-		})
-	}
+	rid := NewID(EVM, "chain id")
+	assert.Equal(t, EVM, rid.Network)
+	assert.Equal(t, "chain id", rid.ChainID)
 }
 
 type staticMedianProvider struct {
 	types.MedianProvider
+}
+
+func (s staticMedianProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
+	return nil
+}
+
+func (s staticMedianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
+	return nil
+}
+
+func (s staticMedianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
+	return nil
+}
+
+func (s staticMedianProvider) ReportCodec() median.ReportCodec {
+	return nil
+}
+
+func (s staticMedianProvider) MedianContract() median.MedianContract {
+	return nil
+}
+
+func (s staticMedianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
+	return nil
 }
 
 type staticFunctionsProvider struct {
@@ -93,6 +95,10 @@ type staticFunctionsProvider struct {
 
 type staticMercuryProvider struct {
 	types.MercuryProvider
+}
+
+type staticAutomationProvider struct {
+	types.AutomationProvider
 }
 
 type mockRelayer struct {
@@ -111,8 +117,12 @@ func (m *mockRelayer) NewMercuryProvider(rargs types.RelayArgs, pargs types.Plug
 	return staticMercuryProvider{}, nil
 }
 
+func (m *mockRelayer) NewAutomationProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.AutomationProvider, error) {
+	return staticAutomationProvider{}, nil
+}
+
 type mockRelayerExt struct {
-	RelayerExt
+	loop.RelayerExt
 }
 
 func isType[T any](p any) bool {
@@ -122,7 +132,7 @@ func isType[T any](p any) bool {
 
 func TestRelayerServerAdapter(t *testing.T) {
 	r := &mockRelayer{}
-	sa := NewRelayerServerAdapter(r, mockRelayerExt{})
+	sa := NewServerAdapter(r, mockRelayerExt{})
 
 	testCases := []struct {
 		ProviderType string
@@ -142,8 +152,16 @@ func TestRelayerServerAdapter(t *testing.T) {
 			Test:         isType[types.MercuryProvider],
 		},
 		{
-			ProviderType: "unknown",
+			ProviderType: string(types.CCIPCommit),
 			Error:        "provider type not supported",
+		},
+		{
+			ProviderType: string(types.CCIPExecution),
+			Error:        "provider type not supported",
+		},
+		{
+			ProviderType: "unknown",
+			Error:        "provider type not recognized",
 		},
 		{
 			ProviderType: string(types.GenericPlugin),
@@ -151,9 +169,10 @@ func TestRelayerServerAdapter(t *testing.T) {
 		},
 	}
 
+	ctx := testutils.Context(t)
 	for _, tc := range testCases {
 		pp, err := sa.NewPluginProvider(
-			context.Background(),
+			ctx,
 			types.RelayArgs{ProviderType: tc.ProviderType},
 			types.PluginArgs{},
 		)

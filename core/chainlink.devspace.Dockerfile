@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.20-buster as buildgo
+FROM golang:1.21-bullseye as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -17,10 +17,26 @@ COPY . .
 # Build the golang binary
 RUN make install-chainlink
 
-# Final image: ubuntu with chainlink binary
-FROM golang:1.20-buster
+# Link LOOP Plugin source dirs with simple names
+RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs -I % ln -s % /chainlink-feeds
+RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
 
-ARG CHAINLINK_USER=root
+# Build image: Plugins
+FROM golang:1.21-bullseye as buildplugins
+RUN go version
+
+WORKDIR /chainlink-feeds
+COPY --from=buildgo /chainlink-feeds .
+RUN go install ./cmd/chainlink-feeds
+
+WORKDIR /chainlink-solana
+COPY --from=buildgo /chainlink-solana .
+RUN go install ./pkg/solana/cmd/chainlink-solana
+
+# Final image: ubuntu with chainlink binary
+FROM golang:1.21-bullseye
+
+ARG CHAINLINK_USER=chainlink
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
@@ -31,6 +47,10 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && apt-get clean all
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
+
+# Install (but don't enable) LOOP Plugins
+COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
+COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
 
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/

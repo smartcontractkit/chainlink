@@ -13,32 +13,8 @@ import (
 	"testing"
 	"time"
 
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/auth"
-	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/web"
-
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -46,6 +22,32 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
@@ -55,23 +57,20 @@ func TestRunner(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
 
 	ethKeyStore := keyStore.Eth()
-	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
-	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.P2P.V1.Enabled = ptr(true)
-		c.P2P.V1.DefaultBootstrapPeers = &[]string{
-			"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-		}
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
 		kbid := models.MustSha256HashFromHex(kb.ID())
 		c.OCR.KeyBundleID = &kbid
 		taddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress
-		c.OCR2.DatabaseTimeout = models.MustNewDuration(time.Second)
-		c.OCR2.ContractTransmitterTransmitTimeout = models.MustNewDuration(time.Second)
+		c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(time.Second)
+		c.OCR2.ContractTransmitterTransmitTimeout = commonconfig.MustNewDuration(time.Second)
 		c.Insecure.OCRDevelopmentMode = ptr(true)
 	})
 
@@ -79,19 +78,22 @@ func TestRunner(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
+	ctx := testutils.Context(t)
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	require.NoError(t, pipelineORM.Start(ctx))
+	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
 	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
-	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, btORM, keyStore, config.Database())
+	jobORM := NewTestORM(t, db, pipelineORM, btORM, keyStore, config.Database())
+	t.Cleanup(func() { assert.NoError(t, jobORM.Close()) })
 
 	_, placeHolderAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	require.NoError(t, runner.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
+	servicetest.Run(t, runner)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -169,6 +171,7 @@ func TestRunner(t *testing.T) {
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
+			evmChainID		   = "0"
 			observationSource = """
 				ds1          [type=bridge name="%s"];
 			"""
@@ -428,49 +431,13 @@ answer1      [type=median index=0];
 		}
 	})
 
-	t.Run("missing required env vars", func(t *testing.T) {
-		s := `
-		type               = "offchainreporting"
-		schemaVersion      = 1
-		contractAddress    = "%s"
-		isBootstrapPeer    = false
-		observationSource = """
-ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
-ds1_parse    [type=jsonparse path="USD" lax=true];
-ds1 -> ds1_parse;
-"""
-`
-		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
-		require.NoError(t, err)
-		err = toml.Unmarshal([]byte(s), &jb)
-		require.NoError(t, err)
-		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(&jb)
-		require.NoError(t, err)
-		sd := ocr.NewDelegate(
-			db,
-			jobORM,
-			keyStore,
-			nil,
-			nil,
-			nil,
-			legacyChains,
-			logger.TestLogger(t),
-			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
-		)
-		_, err = sd.ServicesForSpec(jb)
-		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
-		require.Error(t, err)
-	})
-
-	t.Run("use env for minimal bootstrap", func(t *testing.T) {
+	t.Run("minimal bootstrap", func(t *testing.T) {
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
+		evmChainID		   = "0"
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
 		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
@@ -485,7 +452,7 @@ ds1 -> ds1_parse;
 		_, err = keyStore.P2P().Create()
 		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -496,53 +463,7 @@ ds1 -> ds1_parse;
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
-		)
-		_, err = sd.ServicesForSpec(jb)
-		require.NoError(t, err)
-	})
-
-	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		s := `
-		type               = "offchainreporting"
-		schemaVersion      = 1
-		contractAddress    = "%s"
-		isBootstrapPeer    = false
-		observationTimeout = "15s"
-		observationSource = """
-ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
-ds1_parse    [type=jsonparse path="USD" lax=true];
-ds1 -> ds1_parse;
-"""
-`
-		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
-		require.NoError(t, err)
-		err = toml.Unmarshal([]byte(s), &jb)
-		require.NoError(t, err)
-		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(&jb)
-		require.NoError(t, err)
-		// Assert the override
-		assert.Equal(t, jb.OCROracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
-		// Assert that this is default
-		assert.Equal(t, models.Interval(20000000000), jb.OCROracleSpec.BlockchainTimeout)
-		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
-
-		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		sd := ocr.NewDelegate(
-			db,
-			jobORM,
-			keyStore,
-			nil,
-			pw,
-			monitoringEndpoint,
-			legacyChains,
-			lggr,
-			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -565,7 +486,7 @@ ds1 -> ds1_parse;
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -576,7 +497,7 @@ ds1 -> ds1_parse;
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -593,7 +514,7 @@ ds1 -> ds1_parse;
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -604,10 +525,79 @@ ds1 -> ds1_parse;
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
+	})
+
+	t.Run("test enhanced telemetry service creation", func(t *testing.T) {
+		testCases := []struct {
+			jbCaptureEATelemetry   bool
+			specCaptureEATelemetry bool
+			expected               bool
+		}{{false, false, false},
+			{true, false, false},
+			{false, true, true},
+			{true, true, true},
+		}
+
+		for _, tc := range testCases {
+
+			config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.P2P.V2.Enabled = ptr(true)
+				c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
+				c.OCR.CaptureEATelemetry = ptr(tc.specCaptureEATelemetry)
+			})
+
+			relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+			legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+
+			kb, err := keyStore.OCR().Create()
+			require.NoError(t, err)
+
+			s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
+			jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+			require.NoError(t, err)
+			err = toml.Unmarshal([]byte(s), &jb)
+			require.NoError(t, err)
+
+			jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+			err = jobORM.CreateJob(&jb)
+			require.NoError(t, err)
+			assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
+
+			lggr := logger.TestLogger(t)
+			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+			servicetest.Run(t, pw)
+			sd := ocr.NewDelegate(
+				db,
+				jobORM,
+				keyStore,
+				nil,
+				pw,
+				monitoringEndpoint,
+				legacyChains,
+				lggr,
+				config.Database(),
+				servicetest.Run(t, mailboxtest.NewMonitor(t)),
+			)
+
+			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
+			services, err := sd.ServicesForSpec(jb)
+			require.NoError(t, err)
+
+			enhancedTelemetryServiceCreated := false
+			for _, service := range services {
+				_, ok := service.(*ocrcommon.EnhancedTelemetryService[ocrcommon.EnhancedTelemetryData])
+				enhancedTelemetryServiceCreated = ok
+				if enhancedTelemetryServiceCreated {
+					break
+				}
+			}
+
+			require.Equal(t, tc.expected, enhancedTelemetryServiceCreated)
+		}
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
@@ -623,8 +613,7 @@ ds1 -> ds1_parse;
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -635,7 +624,7 @@ ds1 -> ds1_parse;
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
@@ -755,16 +744,13 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.JobPipeline.ExternalInitiatorsEnabled = &t
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -895,7 +881,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		jobORM := NewTestORM(t, app.GetSqlxDB(), legacyChains, pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
+		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume
 		select {
@@ -907,7 +893,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		{
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
-			client := app.NewHTTPClient(cltest.APIEmailAdmin)
+			client := app.NewHTTPClient(nil)
 			body := strings.NewReader(`{"value": {"data":{"result":"123.45"}}}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()
@@ -937,17 +923,13 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.JobPipeline.ExternalInitiatorsEnabled = &t
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -1076,7 +1058,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		jobORM := NewTestORM(t, app.GetSqlxDB(), legacyChains, pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
+		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume
 		select {
@@ -1088,7 +1070,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		{
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
-			client := app.NewHTTPClient(cltest.APIEmailAdmin)
+			client := app.NewHTTPClient(nil)
 			body := strings.NewReader(`{"error": "something exploded in EA"}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()

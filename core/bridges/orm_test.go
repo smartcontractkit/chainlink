@@ -4,15 +4,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -159,8 +161,9 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 	_, orm := setupORM(t)
 
 	token := auth.NewToken()
+	name := uuid.New().String()
 	req := bridges.ExternalInitiatorRequest{
-		Name: "externalinitiator",
+		Name: name,
 	}
 	exi, err := bridges.NewExternalInitiator(token, &req)
 	require.NoError(t, err)
@@ -175,8 +178,9 @@ func TestORM_DeleteExternalInitiator(t *testing.T) {
 	_, orm := setupORM(t)
 
 	token := auth.NewToken()
+	name := uuid.New().String()
 	req := bridges.ExternalInitiatorRequest{
-		Name: "externalinitiator",
+		Name: name,
 	}
 	exi, err := bridges.NewExternalInitiator(token, &req)
 	require.NoError(t, err)

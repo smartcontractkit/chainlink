@@ -8,8 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -207,4 +209,21 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 	require.NoError(t, err)
 	err = mgr.FinalizeHandshake(attemptId, response, nil)
 	require.ErrorIs(t, err, network.ErrChallengeInvalidSignature)
+}
+
+func TestConnectionManager_SendToNode_Failures(t *testing.T) {
+	t.Parallel()
+
+	config, nodes := newTestConfig(t, 2)
+	clock := utils.NewFixedClock(time.Now())
+	mgr, err := gateway.NewConnectionManager(config, clock, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	donMgr := mgr.DONConnectionManager("my_don_1")
+	err = donMgr.SendToNode(testutils.Context(t), nodes[0].Address, nil)
+	require.Error(t, err)
+
+	message := &api.Message{}
+	err = donMgr.SendToNode(testutils.Context(t), "some_other_node", message)
+	require.Error(t, err)
 }

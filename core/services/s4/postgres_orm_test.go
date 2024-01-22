@@ -2,15 +2,16 @@ package s4_test
 
 import (
 	"errors"
+	"math"
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -35,7 +36,7 @@ func generateTestRows(t *testing.T, n int) []*s4.Row {
 	rows := make([]*s4.Row, n)
 	for i := 0; i < n; i++ {
 		row := &s4.Row{
-			Address:    utils.NewBig(testutils.NewAddress().Big()),
+			Address:    big.New(testutils.NewAddress().Big()),
 			SlotId:     1,
 			Payload:    cltest.MustRandomBytes(t, 32),
 			Version:    1 + uint64(i),
@@ -180,6 +181,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 				assert.Equal(t, snapshotRow.Version, sr.Version)
 				assert.Equal(t, snapshotRow.Expiration, sr.Expiration)
 				assert.Equal(t, snapshotRow.Confirmed, sr.Confirmed)
+				assert.Equal(t, snapshotRow.PayloadSize, uint64(len(sr.Payload)))
 			}
 		})
 
@@ -256,4 +258,23 @@ func TestPostgresORM_Namespace(t *testing.T) {
 	snapshotA, err := ormA.GetSnapshot(s4.NewFullAddressRange())
 	assert.NoError(t, err)
 	assert.Len(t, snapshotA, n)
+}
+
+func TestPostgresORM_BigIntVersion(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t, "test")
+	row := generateTestRows(t, 1)[0]
+	row.Version = math.MaxUint64 - 10
+
+	err := orm.Update(row)
+	assert.NoError(t, err)
+
+	row.Version++
+	err = orm.Update(row)
+	assert.NoError(t, err)
+
+	gotRow, err := orm.Get(row.Address, row.SlotId)
+	assert.NoError(t, err)
+	assert.Equal(t, row, gotRow)
 }

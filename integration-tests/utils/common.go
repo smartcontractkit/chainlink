@@ -1,15 +1,14 @@
 package utils
 
 import (
+	"math/big"
 	"net"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
-func Ptr[T any](t T) *T { return &t }
-
-func MustURL(s string) *models.URL {
-	var u models.URL
+func MustURL(s string) *commonconfig.URL {
+	var u commonconfig.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
 	}
@@ -22,4 +21,13 @@ func MustIP(s string) *net.IP {
 		panic(err)
 	}
 	return &ip
+}
+
+func BigIntSliceContains(slice []*big.Int, b *big.Int) bool {
+	for _, a := range slice {
+		if b.Cmp(a) == 0 {
+			return true
+		}
+	}
+	return false
 }

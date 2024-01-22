@@ -9,8 +9,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -37,23 +37,20 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	serverPubKeyHex := "33333333333"
 	sendInterval := time.Millisecond * 5
 	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval, false)
-	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
+	servicetest.Run(t, telemIngressClient)
 
 	// Create telemetry payloads for different contracts
 	telemPayload1 := synchronization.TelemPayload{
-		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 1"),
 		ContractID: "0x1",
 		TelemType:  synchronization.OCR,
 	}
 	telemPayload2 := synchronization.TelemPayload{
-		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 2"),
 		ContractID: "0x2",
 		TelemType:  synchronization.OCR2VRF,
 	}
 	telemPayload3 := synchronization.TelemPayload{
-		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 3"),
 		ContractID: "0x3",
 		TelemType:  synchronization.OCR2Functions,
@@ -90,19 +87,17 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	})
 
 	// Send telemetry
-	telemIngressClient.Send(telemPayload1)
-	telemIngressClient.Send(telemPayload2)
-	telemIngressClient.Send(telemPayload3)
+	testCtx := testutils.Context(t)
+	telemIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
+	telemIngressClient.Send(testCtx, telemPayload2.Telemetry, telemPayload2.ContractID, telemPayload2.TelemType)
+	telemIngressClient.Send(testCtx, telemPayload3.Telemetry, telemPayload3.ContractID, telemPayload3.TelemType)
 	time.Sleep(sendInterval * 2)
-	telemIngressClient.Send(telemPayload1)
-	telemIngressClient.Send(telemPayload1)
-	telemIngressClient.Send(telemPayload2)
+	telemIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
+	telemIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
+	telemIngressClient.Send(testCtx, telemPayload2.Telemetry, telemPayload2.ContractID, telemPayload2.TelemType)
 
 	// Wait for the telemetry to be handled
 	g.Eventually(func() []uint32 {
 		return []uint32{contractCounter1.Load(), contractCounter2.Load(), contractCounter3.Load()}
 	}).Should(gomega.Equal([]uint32{3, 2, 1}))
-
-	// Client should shut down
-	telemIngressClient.Close()
 }

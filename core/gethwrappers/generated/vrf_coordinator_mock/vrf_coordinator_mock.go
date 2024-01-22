@@ -52,7 +52,7 @@ func DeployVRFCoordinatorMock(auth *bind.TransactOpts, backend bind.ContractBack
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFCoordinatorMock{VRFCoordinatorMockCaller: VRFCoordinatorMockCaller{contract: contract}, VRFCoordinatorMockTransactor: VRFCoordinatorMockTransactor{contract: contract}, VRFCoordinatorMockFilterer: VRFCoordinatorMockFilterer{contract: contract}}, nil
+	return address, tx, &VRFCoordinatorMock{address: address, abi: *parsed, VRFCoordinatorMockCaller: VRFCoordinatorMockCaller{contract: contract}, VRFCoordinatorMockTransactor: VRFCoordinatorMockTransactor{contract: contract}, VRFCoordinatorMockFilterer: VRFCoordinatorMockFilterer{contract: contract}}, nil
 }
 
 type VRFCoordinatorMock struct {

@@ -56,6 +56,12 @@ install_gotestfmt:
 	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
 	set -euo pipefail
 
+lint:
+	golangci-lint --color=always run ./... --fix -v
+
+build:
+	@go build ./... && SELECTED_NETWORKS=SIMULATED go test -run=^# ./...
+
 # Builds the test image
 # tag: the tag for the test image being built, example: tag=tate
 # base_tag: the tag for the base-test-image to use, example: base_tag=latest
@@ -68,7 +74,18 @@ build_test_image:
 #Build a chainlink docker image for local testing and push to k3d registry
 .PHONY: build_push_docker_image
 build_push_docker_image:
-	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t 127.0.0.1:5000/chainlink:develop ../ ; docker push 127.0.0.1:5000/chainlink:develop
+
+#Build a chainlink docker image in plugin mode for local testing and push to k3d registry
+.PHONY: build_push_plugin_docker_image
+build_push_plugin_docker_image:
+	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t 127.0.0.1:5000/chainlink:develop ../ ; docker push 127.0.0.1:5000/chainlink:develop
+
+# Spins up containers needed to collect traces for local testing
+.PHONY: run_tracing
+run_tracing:
+	cd ../.github/tracing
+	docker compose -f ../.github/tracing/local-smoke-docker-compose.yaml up
 
 ## Test Runner
 .PHONY: run
@@ -78,30 +95,6 @@ run: # Need to set network first in case it's unset. Doesn't matter for the runn
 ## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
 
 # Smoke
-.PHONY: test_smoke_raw # Run smoke tests without any gotestfmt or default args
-test_smoke_raw:
-	go test $(args) ./smoke
-
-.PHONY: test_smoke
-test_smoke: install_gotestfmt ## Run all smoke tests
-	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 24h -count=1 -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-
-.PHONY: test_smoke_simulated
-test_smoke_simulated: install_gotestfmt ## Run all smoke tests on simulated blockchain
-	TEST_LOG_LEVEL="disabled" \
-	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
-	go test -timeout 1h -count=1 -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-
-.PHONY: test_smoke_verbose
-test_smoke_verbose: ## Run all smoke tests with verbose logging
-	go test -timeout 24h -count=1 -v $(args) ./smoke
-
-.PHONY: test_smoke_simulated_verbose
-test_smoke_simulated_verbose: ## Run all smoke tests with verbose logging
-	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
-	go test -timeout 24h -count=1 -v $(args) ./smoke
-
 .PHONY: test_smoke_product
 test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"
 	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests
@@ -131,7 +124,7 @@ test_chaos_verbose: ## Run all smoke tests with verbose logging
 
 # Performance
 .PHONY: test_perf
-test_perf: test_need_operator_assets ## Run core node performance tests.
+test_perf: ## Run core node performance tests.
 	TEST_LOG_LEVEL="disabled" \
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt
@@ -199,6 +192,12 @@ test_reorg_automation: ## Run the automation reorg tests
 build_docker_image:
 	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../
 
+# image: the name for the chainlink image being built, example: image=chainlink
+# tag: the tag for the chainlink image being built, example: tag=latest
+# example usage: make build_docker_image image=chainlink tag=latest
+.PHONY: build_plugin_docker_image
+build_plugin_docker_image:
+	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t 127.0.0.1:5000/chainlink:develop ../
 
 # image: the name for the chainlink image being built, example: image=chainlink
 # tag: the tag for the chainlink image being built, example: tag=latest
@@ -213,3 +212,8 @@ run_test_with_local_image: build_docker_image
 	ARGS="$(args)" \
 	PRODUCT=$(product) 	\
 	./scripts/run_product_tests
+
+# removes all occurrences of .run.id file in current folder and it's subdirectories
+# before making any changes lists all file locations and awaits user confirmation
+remove_test_execution_artefacts:
+	./scripts/search_and_delete.sh .run.id

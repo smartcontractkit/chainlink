@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -94,7 +94,7 @@ func TestShell_DKGSignKeys(t *testing.T) {
 		assert.NoError(tt, err)
 		requireDKGSignKeyCount(tt, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).DeleteKey, set, "")
+		flagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).DeleteKey, set, "")
 
 		require.NoError(tt, set.Set("yes", "true"))
 		strID := key.ID()
@@ -121,7 +121,7 @@ func TestShell_DKGSignKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test DKGSign export", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ExportKey, set, "")
+		flagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ExportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{"0"}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -134,7 +134,7 @@ func TestShell_DKGSignKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test DKGSign export", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ExportKey, set, "")
+		flagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ExportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
@@ -149,7 +149,7 @@ func TestShell_DKGSignKeys(t *testing.T) {
 		requireDKGSignKeyCount(tt, app, 0)
 
 		set = flag.NewFlagSet("test DKGSign import", 0)
-		cltest.FlagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ImportKey, set, "")
+		flagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ImportKey, set, "")
 
 		require.NoError(tt, set.Parse([]string{keyName}))
 		require.NoError(tt, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))

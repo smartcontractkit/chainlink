@@ -7,15 +7,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint32) *backends.SimulatedBackend {
@@ -36,13 +35,12 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
-	defID := cfg.DefaultChainID()
-	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
-	chainID := utils.NewBig(testutils.SimulatedChainID)
-	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
 
-	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
+	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
+	chainID := big.New(testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+
+	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
 	//  app.Stop() will call client.Close on the simulated backend
 	app := NewApplicationWithConfig(t, cfg, flagsAndDeps...)
@@ -61,13 +59,12 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
-	defID := cfg.DefaultChainID()
-	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
-	chainID := utils.NewBig(testutils.SimulatedChainID)
-	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
 
-	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, chainID)
+	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
+	chainID := big.New(testutils.SimulatedChainID)
+	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+
+	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
 	//  app.Stop() will call client.Close on the simulated backend
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)

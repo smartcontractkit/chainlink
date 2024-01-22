@@ -13,12 +13,12 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Return types:
@@ -42,7 +42,7 @@ type ETHTxTask struct {
 	forwardingAllowed bool
 	specGasLimit      *uint32
 	keyStore          ETHKeyStore
-	legacyChains      evm.LegacyChainContainer
+	legacyChains      legacyevm.LegacyChainContainer
 	jobType           string
 }
 
@@ -56,9 +56,16 @@ func (t *ETHTxTask) Type() TaskType {
 	return TaskTypeETHTx
 }
 
-func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *ETHTxTask) getEvmChainID() string {
+	if t.EVMChainID == "" {
+		t.EVMChainID = "$(jobSpec.evmChainID)"
+	}
+	return t.EVMChainID
+}
+
+func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var chainID StringParam
-	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID")
+	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID")
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
@@ -148,6 +155,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		ForwarderAddress: forwarderAddress,
 		Strategy:         strategy,
 		Checker:          transmitChecker,
+		SignalCallback:   true,
 	}
 
 	if minOutgoingConfirmations > 0 {
@@ -156,7 +164,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
-	_, err = txManager.CreateTransaction(txRequest)
+	_, err = txManager.CreateTransaction(ctx, txRequest)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
@@ -181,7 +189,7 @@ func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {
 					i, err2 := strconv.ParseInt(data.(string), 10, 32)
 					return int32(i), err2
 				case reflect.TypeOf(common.Hash{}):
-					hb, err := utils.TryParseHex(data.(string))
+					hb, err := hex.DecodeString(data.(string))
 					if err != nil {
 						return nil, err
 					}
@@ -212,7 +220,7 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 			case stringType:
 				switch to {
 				case reflect.TypeOf(common.Address{}):
-					ab, err := utils.TryParseHex(data.(string))
+					ab, err := hex.DecodeString(data.(string))
 					if err != nil {
 						return nil, err
 					}

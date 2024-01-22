@@ -13,17 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_EthResender_resendUnconfirmed(t *testing.T) {
@@ -31,7 +31,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logCfg := pgtest.NewQConfig(true)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
@@ -65,7 +65,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 		addr3TxesRawHex = append(addr3TxesRawHex, hexutil.Encode(etx.TxAttempts[0].SignedRawTx))
 	}
 
-	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 	var resentHex = make(map[string]struct{})
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
@@ -102,14 +102,14 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	logCfg := pgtest.NewQConfig(true)
-	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, o := logger.TestObserved(t, zapcore.DebugLevel)
 	ethKeyStore := cltest.NewKeyStore(t, db, logCfg).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
-	delay := models.MustNewDuration(1 * time.Nanosecond)
+	delay := commonconfig.MustNewDuration(1 * time.Nanosecond)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0] = &toml.EVMConfig{
-			Chain: toml.Defaults(utils.NewBig(big.NewInt(0)), &toml.Chain{
+			Chain: toml.Defaults(ubig.New(big.NewInt(0)), &toml.Chain{
 				Transactions: toml.Transactions{ResendAfterThreshold: delay},
 			}),
 		}
@@ -121,7 +121,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
-	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 	t.Run("alerts only once for unconfirmed transaction attempt within the unconfirmedTxAlertDelay duration", func(t *testing.T) {
 		_ = cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(1), fromAddress, originalBroadcastAt)
@@ -144,7 +144,7 @@ func Test_EthResender_Start(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// This can be anything as long as it isn't zero
-		c.EVM[0].Transactions.ResendAfterThreshold = models.MustNewDuration(42 * time.Hour)
+		c.EVM[0].Transactions.ResendAfterThreshold = commonconfig.MustNewDuration(42 * time.Hour)
 		// Set batch size low to test batching
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})
@@ -152,12 +152,12 @@ func Test_EthResender_Start(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
+		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, originalBroadcastAt)
@@ -187,10 +187,10 @@ func Test_EthResender_Start(t *testing.T) {
 		}()
 
 		var dbEtx txmgr.DbEthTx
-		err := db.Get(&dbEtx, `SELECT * FROM eth_txes WHERE id = $1`, etx.ID)
+		err := db.Get(&dbEtx, `SELECT * FROM evm.txes WHERE id = $1`, etx.ID)
 		require.NoError(t, err)
 		var dbEtx2 txmgr.DbEthTx
-		err = db.Get(&dbEtx2, `SELECT * FROM eth_txes WHERE id = $1`, etx2.ID)
+		err = db.Get(&dbEtx2, `SELECT * FROM evm.txes WHERE id = $1`, etx2.ID)
 		require.NoError(t, err)
 
 		assert.Greater(t, dbEtx.BroadcastAt.Unix(), originalBroadcastAt.Unix())

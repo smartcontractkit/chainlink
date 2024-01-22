@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -76,9 +76,9 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 		// fetch nodes for chain ID
 		// backward compatibility
 		var rid relay.ID
-		err := rid.UnmarshalString(id)
+		err = rid.UnmarshalString(id)
 		if err != nil {
-			rid.ChainID = relay.ChainID(id)
+			rid.ChainID = id
 			rid.Network = n.nodeSet.network
 		}
 		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size, rid)

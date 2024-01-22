@@ -50,7 +50,7 @@ func DeployVRF(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Ad
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRF{VRFCaller: VRFCaller{contract: contract}, VRFTransactor: VRFTransactor{contract: contract}, VRFFilterer: VRFFilterer{contract: contract}}, nil
+	return address, tx, &VRF{address: address, abi: *parsed, VRFCaller: VRFCaller{contract: contract}, VRFTransactor: VRFTransactor{contract: contract}, VRFFilterer: VRFFilterer{contract: contract}}, nil
 }
 
 type VRF struct {

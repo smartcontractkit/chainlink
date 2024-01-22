@@ -1,9 +1,9 @@
 package smoke
 
 import (
-	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -11,7 +11,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -19,20 +20,17 @@ import (
 
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
 		WithGeth().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	lt, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
@@ -45,16 +43,16 @@ func TestRunLogBasic(t *testing.T) {
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 
-	err = env.MockServer.Client.SetValuePath("/variable", 5)
-	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodPost}, 5)
+	require.NoError(t, err, "Setting mock adapter value path shouldn't fail")
 
 	jobUUID := uuid.New()
 
 	bta := client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("five-%s", jobUUID.String()),
-		URL:  fmt.Sprintf("%s/variable", env.MockServer.Client.Config.ClusterURL),
+		URL:  fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 	}
-	err = env.CLNodes[0].API.MustCreateBridge(&bta)
+	err = env.ClCluster.Nodes[0].API.MustCreateBridge(&bta)
 	require.NoError(t, err, "Creating bridge shouldn't fail")
 
 	os := &client.DirectRequestTxPipelineSpec{
@@ -64,10 +62,11 @@ func TestRunLogBasic(t *testing.T) {
 	ost, err := os.String()
 	require.NoError(t, err, "Building observation source spec shouldn't fail")
 
-	_, err = env.CLNodes[0].API.MustCreateJob(&client.DirectRequestJobSpec{
+	_, err = env.ClCluster.Nodes[0].API.MustCreateJob(&client.DirectRequestJobSpec{
 		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               env.EVMClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})
@@ -80,7 +79,7 @@ func TestRunLogBasic(t *testing.T) {
 		oracle.Address(),
 		jobID,
 		big.NewInt(1e18),
-		fmt.Sprintf("%s/variable", env.MockServer.Client.Config.ClusterURL),
+		fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 		"data,result",
 		big.NewInt(100),
 	)
@@ -88,7 +87,7 @@ func TestRunLogBasic(t *testing.T) {
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
-		d, err := consumer.Data(context.Background())
+		d, err := consumer.Data(testcontext.Get(t))
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
 		g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
 		l.Debug().Int64("Data", d.Int64()).Msg("Found on chain")

@@ -6,9 +6,10 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/pairing"
+
+	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
 )
 
 var suite pairing.Suite = &altbn_128.PairingSuite{}

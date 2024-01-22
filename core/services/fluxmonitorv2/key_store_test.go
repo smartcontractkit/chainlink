@@ -43,7 +43,7 @@ func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 	cfg := pgtest.NewQConfig(true)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	_, k0Address := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, k0Address := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	ks := fluxmonitorv2.NewKeyStore(ethKeyStore)
 

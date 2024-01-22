@@ -9,34 +9,32 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 )
 
 func TestCoreRelayerChainInteroperators(t *testing.T) {
 
-	evmChainID1, evmChainID2 := utils.NewBig(big.NewInt(1)), utils.NewBig(big.NewInt(2))
+	evmChainID1, evmChainID2 := ubig.New(big.NewInt(1)), ubig.New(big.NewInt(2))
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 	starknetChainID1, starknetChainID2 := "starknet-id-1", "starknet-id-2"
 	cosmosChainID1, cosmosChainID2 := "cosmos-id-1", "cosmos-id-2"
@@ -46,22 +44,22 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		cfg := evmcfg.Defaults(evmChainID1)
 		node1_1 := evmcfg.Node{
 			Name:     ptr("Test node chain1:1"),
-			WSURL:    models.MustParseURL("ws://localhost:8546"),
-			HTTPURL:  models.MustParseURL("http://localhost:8546"),
+			WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
+			HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(15)),
 		}
 		node1_2 := evmcfg.Node{
 			Name:     ptr("Test node chain1:2"),
-			WSURL:    models.MustParseURL("ws://localhost:8547"),
-			HTTPURL:  models.MustParseURL("http://localhost:8547"),
+			WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+			HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(36)),
 		}
 		node2_1 := evmcfg.Node{
 			Name:     ptr("Test node chain2:1"),
-			WSURL:    models.MustParseURL("ws://localhost:8547"),
-			HTTPURL:  models.MustParseURL("http://localhost:8547"),
+			WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+			HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(11)),
 		}
@@ -71,7 +69,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			Chain:   cfg,
 			Nodes:   evmcfg.EVMNodes{&node1_1, &node1_2},
 		}
-		id2 := utils.NewBig(big.NewInt(2))
+		id2 := ubig.New(big.NewInt(2))
 		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 			ChainID: evmChainID2,
 			Chain:   evmcfg.Defaults(id2),
@@ -79,88 +77,88 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			Nodes:   evmcfg.EVMNodes{&node2_1},
 		})
 
-		c.Solana = solana.SolanaConfigs{
-			&solana.SolanaConfig{
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
 				ChainID: &solanaChainID1,
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 1 node 1"),
-					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8547").URL())),
+					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
 				}},
 			},
-			&solana.SolanaConfig{
+			&solana.TOMLConfig{
 				ChainID: &solanaChainID2,
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
 				Nodes: []*solcfg.Node{{
 					Name: ptr("solana chain 2 node 1"),
-					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8527").URL())),
+					URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8527").URL())),
 				}},
 			},
 		}
 
-		c.Starknet = starknet.StarknetConfigs{
-			&starknet.StarknetConfig{
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
 				ChainID: &starknetChainID1,
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 1 node 1"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8547").URL())),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
 					},
 					{
 						Name: ptr("starknet chain 1 node 2"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8548").URL())),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8548").URL())),
 					},
 					{
 						Name: ptr("starknet chain 1 node 3"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8549").URL())),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8549").URL())),
 					},
 				},
 			},
-			&starknet.StarknetConfig{
+			&stkcfg.TOMLConfig{
 				ChainID: &starknetChainID2,
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 2 node 1"),
-						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:3547").URL())),
+						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:3547").URL())),
 					},
 				},
 			},
 		}
 
-		c.Cosmos = cosmos.CosmosConfigs{
-			&cosmos.CosmosConfig{
+		c.Cosmos = coscfg.TOMLConfigs{
+			&coscfg.TOMLConfig{
 				ChainID: &cosmosChainID1,
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
 					Bech32Prefix:       ptr("wasm"),
-					FeeToken:           ptr("cosm"),
+					GasToken:           ptr("cosm"),
 				},
-				Nodes: cosmos.CosmosNodes{
+				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 1 node 1"),
-						TendermintURL: (*relayutils.URL)(models.MustParseURL("http://localhost:9548").URL()),
+						TendermintURL: (*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:9548").URL()),
 					},
 				},
 			},
-			&cosmos.CosmosConfig{
+			&coscfg.TOMLConfig{
 				ChainID: &cosmosChainID2,
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("0.777")),
 					Bech32Prefix:       ptr("wasm"),
-					FeeToken:           ptr("cosm"),
+					GasToken:           ptr("cosm"),
 				},
-				Nodes: cosmos.CosmosNodes{
+				Nodes: coscfg.Nodes{
 					&coscfg.Node{
 						Name:          ptr("cosmos chain 2 node 1"),
-						TendermintURL: (*relayutils.URL)(models.MustParseURL("http://localhost:9598").URL()),
+						TendermintURL: (*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:9598").URL()),
 					},
 				},
 			},
@@ -174,9 +172,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 	factory := chainlink.RelayerFactory{
 		Logger:       lggr,
-		DB:           db,
-		QConfig:      cfg.Database(),
-		LoopRegistry: plugins.NewLoopRegistry(lggr),
+		LoopRegistry: plugins.NewLoopRegistry(lggr, nil),
 		GRPCOpts:     loop.GRPCOpts{},
 	}
 
@@ -207,10 +203,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					RelayerConfig: &evm.RelayerConfig{
-						AppConfig:        cfg,
-						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &utils.MailboxMonitor{},
+					ChainOpts: legacyevm.ChainOpts{
+						AppConfig: cfg,
+						MailMon:   &mailbox.Monitor{},
+						DB:        db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -218,8 +214,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
 			expectedEVMRelayerIds: []relay.ID{
-				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
-				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
+				{Network: relay.EVM, ChainID: evmChainID1.String()},
+				{Network: relay.EVM, ChainID: evmChainID2.String()},
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}},
 		},
@@ -228,14 +224,14 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
-					Keystore:      keyStore.Solana(),
-					SolanaConfigs: cfg.SolanaConfigs()}),
+					Keystore:    keyStore.Solana(),
+					TOMLConfigs: cfg.SolanaConfigs()}),
 			},
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
 			expectedSolanaRelayerIds: []relay.ID{
-				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
-				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
+				{Network: relay.Solana, ChainID: solanaChainID1},
+				{Network: relay.Solana, ChainID: solanaChainID2},
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.Solana: {}},
 		},
@@ -244,14 +240,14 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
-					Keystore:        keyStore.StarkNet(),
-					StarknetConfigs: cfg.StarknetConfigs()}),
+					Keystore:    keyStore.StarkNet(),
+					TOMLConfigs: cfg.StarknetConfigs()}),
 			},
 			expectedStarknetChainCnt: 2,
 			expectedStarknetNodeCnt:  4,
 			expectedStarknetRelayerIds: []relay.ID{
-				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
-				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
+				{Network: relay.StarkNet, ChainID: starknetChainID1},
+				{Network: relay.StarkNet, ChainID: starknetChainID2},
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.StarkNet: {}},
 		},
@@ -260,15 +256,16 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			name: "2 cosmos chains with 2 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
-					Keystore:         keyStore.Cosmos(),
-					CosmosConfigs:    cfg.CosmosConfigs(),
-					EventBroadcaster: pg.NewNullEventBroadcaster()}),
+					Keystore:    keyStore.Cosmos(),
+					TOMLConfigs: cfg.CosmosConfigs(),
+					DB:          db,
+					QConfig:     cfg.Database()}),
 			},
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
 			expectedCosmosRelayerIds: []relay.ID{
-				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
-				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
+				{Network: relay.Cosmos, ChainID: cosmosChainID1},
+				{Network: relay.Cosmos, ChainID: cosmosChainID2},
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.Cosmos: {}},
 		},
@@ -276,51 +273,53 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "all chains",
 
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
-				Keystore:      keyStore.Solana(),
-				SolanaConfigs: cfg.SolanaConfigs()}),
+				Keystore:    keyStore.Solana(),
+				TOMLConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					RelayerConfig: &evm.RelayerConfig{
-						AppConfig:        cfg,
-						EventBroadcaster: pg.NewNullEventBroadcaster(),
-						MailMon:          &utils.MailboxMonitor{},
+					ChainOpts: legacyevm.ChainOpts{
+						AppConfig: cfg,
+
+						MailMon: &mailbox.Monitor{},
+						DB:      db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
-					Keystore:        keyStore.StarkNet(),
-					StarknetConfigs: cfg.StarknetConfigs()}),
+					Keystore:    keyStore.StarkNet(),
+					TOMLConfigs: cfg.StarknetConfigs()}),
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
-					Keystore:         keyStore.Cosmos(),
-					CosmosConfigs:    cfg.CosmosConfigs(),
-					EventBroadcaster: pg.NewNullEventBroadcaster(),
+					Keystore:    keyStore.Cosmos(),
+					TOMLConfigs: cfg.CosmosConfigs(),
+					DB:          db,
+					QConfig:     cfg.Database(),
 				}),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
 			expectedEVMRelayerIds: []relay.ID{
-				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
-				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
+				{Network: relay.EVM, ChainID: evmChainID1.String()},
+				{Network: relay.EVM, ChainID: evmChainID2.String()},
 			},
 
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
 			expectedSolanaRelayerIds: []relay.ID{
-				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
-				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
+				{Network: relay.Solana, ChainID: solanaChainID1},
+				{Network: relay.Solana, ChainID: solanaChainID2},
 			},
 
 			expectedStarknetChainCnt: 2,
 			expectedStarknetNodeCnt:  4,
 			expectedStarknetRelayerIds: []relay.ID{
-				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
-				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
+				{Network: relay.StarkNet, ChainID: starknetChainID1},
+				{Network: relay.StarkNet, ChainID: starknetChainID2},
 			},
 
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
 			expectedCosmosRelayerIds: []relay.ID{
-				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
-				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
+				{Network: relay.Cosmos, ChainID: cosmosChainID1},
+				{Network: relay.Cosmos, ChainID: cosmosChainID2},
 			},
 
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}, relay.Cosmos: {}, relay.Solana: {}, relay.StarkNet: {}},
@@ -330,25 +329,30 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			cr, err := chainlink.NewCoreRelayerChainInteroperators(tt.initFuncs...)
-			require.NoError(t, err)
 
-			expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedSolanaChainCnt + tt.expectedStarknetChainCnt
-			allChainsStats, cnt, err := cr.ChainStatuses(testctx, 0, 0)
-			assert.NoError(t, err)
-			assert.Len(t, allChainsStats, expectedChainCnt)
-			assert.Equal(t, cnt, len(allChainsStats))
-			assert.Len(t, cr.Slice(), expectedChainCnt)
+			var cr *chainlink.CoreRelayerChainInteroperators
+			{
+				var err error
+				cr, err = chainlink.NewCoreRelayerChainInteroperators(tt.initFuncs...)
+				require.NoError(t, err)
 
-			// should be one relayer per chain and one service per relayer
-			assert.Len(t, cr.Slice(), expectedChainCnt)
-			assert.Len(t, cr.Services(), expectedChainCnt)
+				expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedSolanaChainCnt + tt.expectedStarknetChainCnt
+				allChainsStats, cnt, err := cr.ChainStatuses(testctx, 0, 0)
+				assert.NoError(t, err)
+				assert.Len(t, allChainsStats, expectedChainCnt)
+				assert.Equal(t, cnt, len(allChainsStats))
+				assert.Len(t, cr.Slice(), expectedChainCnt)
 
-			expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
-			allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)
-			assert.NoError(t, err)
-			assert.Len(t, allNodeStats, expectedNodeCnt)
-			assert.Equal(t, cnt, len(allNodeStats))
+				// should be one relayer per chain and one service per relayer
+				assert.Len(t, cr.Slice(), expectedChainCnt)
+				assert.Len(t, cr.Services(), expectedChainCnt)
+
+				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
+				allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)
+				assert.NoError(t, err)
+				assert.Len(t, allNodeStats, expectedNodeCnt)
+				assert.Equal(t, cnt, len(allNodeStats))
+			}
 
 			gotRelayerNetworks := make(map[relay.Network]struct{})
 			for relayNetwork := range relay.SupportedRelays {
@@ -412,19 +416,19 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					assert.NoError(t, err)
 					stat, err := cr.ChainStatus(testctx, wantId)
 					assert.NoError(t, err)
-					assert.Equal(t, wantId.ChainID.String(), stat.ID)
+					assert.Equal(t, wantId.ChainID, stat.ID)
 					// check legacy chains for evm and cosmos
 					if wantId.Network == relay.EVM {
-						c, err := cr.LegacyEVMChains().Get(wantId.ChainID.String())
+						c, err := cr.LegacyEVMChains().Get(wantId.ChainID)
 						assert.NoError(t, err)
 						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID.String(), c.ID().String())
+						assert.Equal(t, wantId.ChainID, c.ID().String())
 					}
 					if wantId.Network == relay.Cosmos {
-						c, err := cr.LegacyCosmosChains().Get(wantId.ChainID.String())
+						c, err := cr.LegacyCosmosChains().Get(wantId.ChainID)
 						assert.NoError(t, err)
 						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID.String(), c.ID())
+						assert.Equal(t, wantId.ChainID, c.ID())
 					}
 				}
 			}

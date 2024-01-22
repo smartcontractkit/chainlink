@@ -6,11 +6,11 @@ import (
 	"encoding/binary"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -279,7 +279,7 @@ func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtyp
 	FROM ocr2_pending_transmissions
 	WHERE ocr2_oracle_spec_id = $1 AND config_digest = $2
 	`
-	rows, err := d.q.QueryxContext(ctx, stmt, d.oracleSpecID, cd)
+	rows, err := d.q.QueryxContext(ctx, stmt, d.oracleSpecID, cd) //nolint sqlclosecheck false positive
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}

@@ -16,14 +16,19 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -47,12 +52,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -69,7 +76,6 @@ type Application interface {
 	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
-	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
@@ -83,7 +89,8 @@ type Application interface {
 	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
-	SessionORM() sessions.ORM
+	BasicAdminUsersORM() sessions.BasicAdminUsersORM
+	AuthenticationProvider() sessions.AuthenticationProvider
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
@@ -110,22 +117,21 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	relayers                 *CoreRelayerChainInteroperators
-	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
-	sessionORM               sessions.ORM
+	localAdminUsersORM       sessions.BasicAdminUsersORM
+	authenticationProvider   sessions.AuthenticationProvider
 	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	SessionReaper            utils.SleeperTask
+	SessionReaper            *utils.SleeperTask
 	shutdownOnce             sync.Once
-	explorerClient           synchronization.ExplorerClient
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
@@ -144,8 +150,7 @@ type ChainlinkApplication struct {
 type ApplicationOpts struct {
 	Config                     GeneralConfig
 	Logger                     logger.Logger
-	EventBroadcaster           pg.EventBroadcaster
-	MailMon                    *utils.MailboxMonitor
+	MailMon                    *mailbox.Monitor
 	SqlxDB                     *sqlx.DB
 	KeyStore                   keystore.Master
 	RelayerChainInteroperators *CoreRelayerChainInteroperators
@@ -158,6 +163,7 @@ type ApplicationOpts struct {
 	SecretGenerator            SecretGenerator
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
+	MercuryPool                wsrpc.Pool
 }
 
 // NewApplication initializes a new store if one is not already
@@ -171,7 +177,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.SqlxDB
 	cfg := opts.Config
 	relayerChainInterops := opts.RelayerChainInteroperators
-	eventBroadcaster := opts.EventBroadcaster
 	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
 	globalLogger := logger.Sugared(opts.Logger)
@@ -179,13 +184,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	// LOOPs can be be created as options, in the  case of LOOP relayers, or
+	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
 	// we need to initialize in case we serve OCR2 LOOPs
 	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger)
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing())
 	}
 
 	// If the audit logger is enabled
@@ -218,37 +223,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	healthChecker := services.NewChecker()
-
-	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
-	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
-	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
-	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
-
-	if cfg.Explorer().URL() != nil && cfg.TelemetryIngress().URL() != nil {
-		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
-	}
-
-	if cfg.Explorer().URL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.Explorer().URL(), cfg.Explorer().AccessKey(), cfg.Explorer().Secret(), globalLogger)
-		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
-	}
-
-	ticfg := cfg.TelemetryIngress()
-	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.Explorer().URL() == nil && ticfg.URL() != nil {
-		if ticfg.UseBatchSend() {
-			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
-				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
-			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
-
-		} else {
-			telemetryIngressClient = synchronization.NewTelemetryIngressClient(ticfg.URL(),
-				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize())
-			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
-		}
-	}
-	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), globalLogger)
+	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
@@ -263,10 +239,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
-	srvcs = append(srvcs, eventBroadcaster, mailMon)
-	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
-	srvcs = append(srvcs, promReporter)
+	// pool must be started before all relayers and stopped after them
+	if opts.MercuryPool != nil {
+		srvcs = append(srvcs, opts.MercuryPool)
+	}
 
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
 	// TODO: BCF-2510, BCF-2511
@@ -276,14 +252,46 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, fmt.Errorf("no evm chains found")
 	}
 
+	srvcs = append(srvcs, mailMon)
+	srvcs = append(srvcs, relayerChainInterops.Services()...)
+	promReporter := promreporter.NewPromReporter(db.DB, legacyEVMChains, globalLogger)
+	srvcs = append(srvcs, promReporter)
+
+	// Initialize Local Users ORM and Authentication Provider specified in config
+	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
+	localAdminUsersORM := localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+
+	// Initialize Sessions ORM based on environment configured authenticator
+	// localDB auth or remote LDAP auth
+	authMethod := cfg.WebServer().AuthenticationMethod()
+	var authenticationProvider sessions.AuthenticationProvider
+	var sessionReaper *utils.SleeperTask
+
+	switch sessions.AuthenticationProviderName(authMethod) {
+	case sessions.LDAPAuth:
+		var err error
+		authenticationProvider, err = ldapauth.NewLDAPAuthenticator(
+			db, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
+		}
+		sessionReaper = ldapauth.NewLDAPServerStateSync(db, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
+	case sessions.LocalAuth:
+		authenticationProvider = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
+	default:
+		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
+	}
+
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
-		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, legacyEVMChains, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
+		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -335,7 +343,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			job.Gateway: gateway.NewDelegate(
 				legacyEVMChains,
 				keyStore.Eth(),
+				db,
+				cfg.Database(),
 				globalLogger),
+			job.Stream: streams.NewDelegate(
+				globalLogger,
+				streamRegistry,
+				pipelineRunner,
+				cfg.JobPipeline()),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -356,7 +371,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if cfg.P2P().Enabled() {
+	if !cfg.OCR().Enabled() && !cfg.OCR2().Enabled() {
+		globalLogger.Debug("P2P stack not needed")
+	} else if cfg.P2P().Enabled() {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, err
 		}
@@ -373,7 +390,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore,
 			pipelineRunner,
 			peerWrapper,
-			monitoringEndpointGen,
+			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			cfg.Database(),
@@ -393,7 +410,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			mercuryORM,
 			pipelineRunner,
 			peerWrapper,
-			monitoringEndpointGen,
+			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			ocr2DelegateConfig,
@@ -403,7 +420,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
-			eventBroadcaster,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
@@ -418,11 +434,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
+	healthChecker := commonservices.NewChecker(static.Version, static.Sha)
+
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), delegates, db, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, db, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
@@ -455,23 +473,31 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		feedsService = &feeds.NullService{}
 	}
 
-	app := &ChainlinkApplication{
+	for _, s := range srvcs {
+		if s == nil {
+			panic("service unexpectedly nil")
+		}
+		if err := healthChecker.Register(s); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ChainlinkApplication{
 		relayers:                 opts.RelayerChainInteroperators,
-		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
-		sessionORM:               sessionORM,
+		localAdminUsersORM:       localAdminUsersORM,
+		authenticationProvider:   authenticationProvider,
 		txmStorageService:        txmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger),
+		SessionReaper:            sessionReaper,
 		ExternalInitiatorManager: externalInitiatorManager,
-		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
@@ -485,27 +511,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
-	}
-
-	for _, service := range app.srvcs {
-		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-			return nil, err
-		}
-	}
-
-	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
-	// If it's enabled, they are going to be registered with relayers by default.
-	if !cfg.OCR2().Enabled() {
-		for _, service := range app.relayers.Services() {
-			checkable := service.(services.Checkable)
-			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return app, nil
+	}, nil
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
@@ -656,8 +662,12 @@ func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
 	return app.bridgeORM
 }
 
-func (app *ChainlinkApplication) SessionORM() sessions.ORM {
-	return app.sessionORM
+func (app *ChainlinkApplication) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
+	return app.localAdminUsersORM
+}
+
+func (app *ChainlinkApplication) AuthenticationProvider() sessions.AuthenticationProvider {
+	return app.authenticationProvider
 }
 
 // TODO BCF-2516 remove this all together remove EVM specifics
@@ -735,14 +745,14 @@ func (app *ChainlinkApplication) RunJobV2(
 				Data: bytes.Join([][]byte{
 					jb.VRFSpec.PublicKey.MustHash().Bytes(),  // key hash
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
-					utils.NewHash().Bytes(),                  // sender
-					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					evmutils.NewHash().Bytes(),               // sender
+					evmutils.NewHash().Bytes(),               // fee
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
-				TxHash:      utils.NewHash(),
+				TxHash:      evmutils.NewHash(),
 				BlockNumber: 10,
-				BlockHash:   utils.NewHash(),
+				BlockHash:   evmutils.NewHash(),
 			}
 			vars = map[string]interface{}{
 				"jobSpec": map[string]interface{}{
@@ -750,6 +760,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
 					"publicKey":     jb.VRFSpec.PublicKey[:],
+					"evmChainID":    jb.VRFSpec.EVMChainID.String(),
 				},
 				"jobRun": map[string]interface{}{
 					"meta":           meta,
@@ -799,10 +810,6 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 
 func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
 	return app.relayers
-}
-
-func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
-	return app.EventBroadcaster
 }
 
 func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {

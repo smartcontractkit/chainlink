@@ -58,6 +58,8 @@ type PluginConfig struct {
 	ServiceQueueLength int `json:"serviceQueueLength"`
 	// ContractVersion is the contract version
 	ContractVersion string `json:"contractVersion"`
+	// CaptureAutomationCustomTelemetry is a bool flag to toggle Custom Telemetry Service
+	CaptureAutomationCustomTelemetry *bool `json:"captureAutomationCustomTelemetry,omitempty"`
 }
 
 func ValidatePluginConfig(cfg PluginConfig) error {

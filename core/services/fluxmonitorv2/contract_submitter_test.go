@@ -4,7 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -32,8 +34,10 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 
 	keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(fromAddress, nil)
 	fluxAggregator.On("Address").Return(toAddress)
-	orm.On("CreateEthTransaction", fromAddress, toAddress, payload, gasLimit).Return(nil)
 
-	err = submitter.Submit(roundID, submission)
+	idempotencyKey := uuid.New().String()
+	orm.On("CreateEthTransaction", mock.Anything, fromAddress, toAddress, payload, gasLimit, &idempotencyKey).Return(nil)
+
+	err = submitter.Submit(testutils.Context(t), roundID, submission, &idempotencyKey)
 	assert.NoError(t, err)
 }

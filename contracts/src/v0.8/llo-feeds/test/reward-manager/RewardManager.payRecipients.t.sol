@@ -2,8 +2,7 @@
 pragma solidity 0.8.16;
 
 import {BaseRewardManagerTest} from "./BaseRewardManager.t.sol";
-import {Common} from "../../../libraries/Common.sol";
-import {IRewardManager} from "../../dev/interfaces/IRewardManager.sol";
+import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 
 /**
  * @title BaseRewardManagerTest

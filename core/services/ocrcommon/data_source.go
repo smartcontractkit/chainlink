@@ -33,9 +33,13 @@ type inMemoryDataSource struct {
 	chEnhancedTelemetry chan<- EnhancedTelemetryData
 }
 
+type Saver interface {
+	Save(run *pipeline.Run)
+}
+
 type dataSourceBase struct {
 	inMemoryDataSource
-	runResults chan<- pipeline.Run
+	saver Saver
 }
 
 // dataSource implements dataSourceBase with the proper Observe return type for ocr1
@@ -55,7 +59,7 @@ type ObservationTimestamp struct {
 	ConfigDigest string
 }
 
-func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, chEnhancedTelemetry chan EnhancedTelemetryData) ocr1types.DataSource {
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, s Saver, chEnhancedTelemetry chan EnhancedTelemetryData) ocr1types.DataSource {
 	return &dataSource{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
@@ -65,12 +69,12 @@ func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr lo
 				lggr:                lggr,
 				chEnhancedTelemetry: chEnhancedTelemetry,
 			},
-			runResults: runResults,
+			saver: s,
 		},
 	}
 }
 
-func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, enhancedTelemChan chan EnhancedTelemetryData) median.DataSource {
+func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, s Saver, enhancedTelemChan chan EnhancedTelemetryData) median.DataSource {
 	return &dataSourceV2{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
@@ -80,7 +84,7 @@ func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr lo
 				lggr:                lggr,
 				chEnhancedTelemetry: enhancedTelemChan,
 			},
-			runResults: runResults,
+			saver: s,
 		},
 	}
 }
@@ -113,7 +117,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp ObservationTimestamp) (pipeline.Run, pipeline.FinalResult, error) {
+func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp ObservationTimestamp) (*pipeline.Run, pipeline.FinalResult, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
 		ds.lggr.Warnw("unable to attach metadata for run", "err", err)
@@ -132,7 +136,7 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp Observat
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return pipeline.Run{}, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return nil, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 	finalResult := trrs.FinalResult(ds.lggr)
 	promSetBridgeParseMetrics(ds, &trrs)
@@ -144,6 +148,8 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp Observat
 			FinalResults:   finalResult,
 			RepTimestamp:   timestamp,
 		})
+	} else {
+		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
 	}
 
 	return run, finalResult, err
@@ -187,19 +193,13 @@ func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTime
 		return nil, err
 	}
 
-	// Do the database write in a non-blocking fashion
+	// Save() does the database write in a non-blocking fashion
 	// so we can return the observation results immediately.
 	// This is helpful in the case of a blocking API call, where
 	// we reach the passed in context deadline and we want to
 	// immediately return any result we have and do not want to have
 	// a db write block that.
-	select {
-	case ds.runResults <- run:
-	default:
-		// If we're unable to enqueue a write, still return the value we have but warn.
-		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.inMemoryDataSource.spec.JobID)
-		return ds.inMemoryDataSource.parse(finalResult)
-	}
+	ds.saver.Save(run)
 
 	return ds.inMemoryDataSource.parse(finalResult)
 }

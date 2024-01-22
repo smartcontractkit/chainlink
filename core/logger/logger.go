@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -49,9 +49,10 @@ func init() {
 	}
 }
 
-var _ relaylogger.Logger = (Logger)(nil)
+var _ common.Logger = (Logger)(nil)
 
 //go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
+//go:generate mockery --quiet --name Logger --output ./mocks/ --case=underscore
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.

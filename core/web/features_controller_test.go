@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -21,7 +21,7 @@ func Test_FeaturesController_List(t *testing.T) {
 		c.Feature.UICSAKeys = &csa
 	}))
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Get("/v2/features")
 	t.Cleanup(cleanup)

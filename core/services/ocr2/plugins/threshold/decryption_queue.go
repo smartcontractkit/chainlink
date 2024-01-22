@@ -148,7 +148,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 		pendingRequest, exists := dq.pendingRequests[string(ciphertextId)]
 
 		if !exists {
-			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", ciphertextId)
+			dq.lggr.Debugf("decryption request for ciphertextId %s already processed or expired", ciphertextId)
 			indicesToRemove[i] = struct{}{}
 			continue
 		}
@@ -232,7 +232,7 @@ func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId,
 
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
 		timer := time.AfterFunc(dq.completedRequestsCacheTimeout, func() {
-			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", ciphertextId)
+			dq.lggr.Debugf("removing completed decryption result for ciphertextId %s from cache", ciphertextId)
 			dq.mu.Lock()
 			delete(dq.completedRequests, string(ciphertextId))
 			dq.mu.Unlock()

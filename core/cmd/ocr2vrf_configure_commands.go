@@ -14,7 +14,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -124,6 +127,7 @@ chainID                            = %d
 const forwarderAdditionalEOACount = 4
 
 func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, ec *ethclient.Client) (*SetupOCR2VRFNodePayload, error) {
+	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("ConfigureOCR2VRFNode"))
 	lggr.Infow(
 		fmt.Sprintf("Configuring Chainlink Node for job type %s %s at commit %s", c.String("job-type"), static.Version, static.Sha),
@@ -154,15 +158,13 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 
 	cfg := s.Config
 	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
-	rootCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
-	if err = ldb.Open(rootCtx); err != nil {
+	if err = ldb.Open(ctx); err != nil {
 		return nil, s.errorOut(errors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, lggr, ldb.DB())
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, ldb.DB())
 	if err != nil {
 		return nil, s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -177,7 +179,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 	}
 
 	// Start application.
-	err = app.Start(rootCtx)
+	err = app.Start(ctx)
 	if err != nil {
 		return nil, s.errorOut(err)
 	}
@@ -202,47 +204,12 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 	}
 
 	if useForwarder {
-		// Replace the transmitter ID with the forwarder address.
-		forwarderAddress := c.String("forwarder-address")
-
-		ks := app.GetKeyStore().Eth()
-
 		// Add extra sending keys if using a forwarder.
-		for i := 0; i < forwarderAdditionalEOACount; i++ {
-
-			// Create the sending key in the keystore.
-			k, err := ks.Create()
-			if err != nil {
-				return nil, err
-			}
-
-			// Enable the sending key for the current chain.
-			err = ks.Enable(k.Address, big.NewInt(chainID))
-			if err != nil {
-				return nil, err
-			}
-
-			sendingKeys = append(sendingKeys, k.Address.String())
-			sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
-		}
-
-		// We have to set the authorized senders on-chain here, otherwise the job spawner will fail as the
-		// forwarder will not be recognized.
-		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
-		defer cancel()
-		f, err := authorized_forwarder.NewAuthorizedForwarder(common.HexToAddress(forwarderAddress), ec)
-		tx, err := f.SetAuthorizedSenders(owner, sendingKeysAddresses)
+		sendingKeys, sendingKeysAddresses, err = s.appendForwarders(chainID, app.GetKeyStore().Eth(), sendingKeys, sendingKeysAddresses)
 		if err != nil {
 			return nil, err
 		}
-		_, err = bind.WaitMined(ctx, ec, tx)
-		if err != nil {
-			return nil, err
-		}
-
-		// Create forwarder for management in forwarder_manager.go.
-		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config.Database())
-		_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
+		err = s.authorizeForwarder(c, ldb.DB(), lggr, chainID, ec, owner, sendingKeysAddresses)
 		if err != nil {
 			return nil, err
 		}
@@ -276,10 +243,10 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 
 	if c.Bool("isBootstrapper") {
 		// Set up bootstrapper job if bootstrapper.
-		err = createBootstrapperJob(lggr, c, app)
+		err = createBootstrapperJob(ctx, lggr, c, app)
 	} else if c.String("job-type") == "DKG" {
 		// Set up DKG job.
-		err = createDKGJob(lggr, app, dkgTemplateArgs{
+		err = createDKGJob(ctx, lggr, app, dkgTemplateArgs{
 			contractID:              c.String("contractID"),
 			ocrKeyBundleID:          ocr2.ID(),
 			p2pv2BootstrapperPeerID: peerID,
@@ -293,7 +260,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 		})
 	} else if c.String("job-type") == "OCR2VRF" {
 		// Set up OCR2VRF job.
-		err = createOCR2VRFJob(lggr, app, ocr2vrfTemplateArgs{
+		err = createOCR2VRFJob(ctx, lggr, app, ocr2vrfTemplateArgs{
 			dkgTemplateArgs: dkgTemplateArgs{
 				contractID:              c.String("dkg-address"),
 				ocrKeyBundleID:          ocr2.ID(),
@@ -331,9 +298,61 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 	}, nil
 }
 
-func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
-	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password())
+func (s *Shell) appendForwarders(chainID int64, ks keystore.Eth, sendingKeys []string, sendingKeysAddresses []common.Address) ([]string, []common.Address, error) {
+	for i := 0; i < forwarderAdditionalEOACount; i++ {
+		// Create the sending key in the keystore.
+		k, err := ks.Create()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Enable the sending key for the current chain.
+		err = ks.Enable(k.Address, big.NewInt(chainID))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		sendingKeys = append(sendingKeys, k.Address.String())
+		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
+	}
+
+	return sendingKeys, sendingKeysAddresses, nil
+}
+
+func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, lggr logger.Logger, chainID int64, ec *ethclient.Client, owner *bind.TransactOpts, sendingKeysAddresses []common.Address) error {
+	ctx := s.ctx()
+	// Replace the transmitter ID with the forwarder address.
+	forwarderAddress := c.String("forwarder-address")
+
+	// We have to set the authorized senders on-chain here, otherwise the job spawner will fail as the
+	// forwarder will not be recognized.
+	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
+	defer cancel()
+	f, err := authorized_forwarder.NewAuthorizedForwarder(common.HexToAddress(forwarderAddress), ec)
 	if err != nil {
+		return err
+	}
+	tx, err := f.SetAuthorizedSenders(owner, sendingKeysAddresses)
+	if err != nil {
+		return err
+	}
+	_, err = bind.WaitMined(ctx, ec, tx)
+	if err != nil {
+		return err
+	}
+
+	// Create forwarder for management in forwarder_manager.go.
+	orm := forwarders.NewORM(db, lggr, s.Config.Database())
+	_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *ubig.NewI(chainID))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
+	if err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password()); err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
@@ -363,26 +382,26 @@ func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Mast
 		enabledChains = append(enabledChains, chaintype.StarkNet)
 	}
 
-	if err = keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
+	if err := keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
 		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 
-	if err = keyStore.DKGSign().EnsureKey(); err != nil {
+	if err := keyStore.DKGSign().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure dkgsign key")
 	}
 
-	if err = keyStore.DKGEncrypt().EnsureKey(); err != nil {
+	if err := keyStore.DKGEncrypt().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure dkgencrypt key")
 	}
 
-	if err = keyStore.P2P().EnsureKey(); err != nil {
+	if err := keyStore.P2P().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure p2p key")
 	}
 
 	return nil
 }
 
-func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.Application) error {
+func createBootstrapperJob(ctx context.Context, lggr logger.Logger, c *cli.Context, app chainlink.Application) error {
 	sp := fmt.Sprintf(BootstrapTemplate,
 		c.Int64("chainID"),
 		c.String("contractID"),
@@ -400,7 +419,7 @@ func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.App
 	}
 	jb.BootstrapSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
 		return errors.Wrap(err, "failed to add job")
 	}
@@ -412,7 +431,7 @@ func createBootstrapperJob(lggr logger.Logger, c *cli.Context, app chainlink.App
 	return nil
 }
 
-func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplateArgs) error {
+func createDKGJob(ctx context.Context, lggr logger.Logger, app chainlink.Application, args dkgTemplateArgs) error {
 	sp := fmt.Sprintf(DKGTemplate,
 		args.contractID,
 		args.ocrKeyBundleID,
@@ -437,7 +456,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 	}
 	jb.OCR2OracleSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
 		return errors.Wrap(err, "failed to add job")
 	}
@@ -446,7 +465,7 @@ func createDKGJob(lggr logger.Logger, app chainlink.Application, args dkgTemplat
 	return nil
 }
 
-func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
+func createOCR2VRFJob(ctx context.Context, lggr logger.Logger, app chainlink.Application, args ocr2vrfTemplateArgs) error {
 	var sendingKeysString = fmt.Sprintf(`"%s"`, args.sendingKeys[0])
 	for x := 1; x < len(args.sendingKeys); x++ {
 		sendingKeysString = fmt.Sprintf(`%s,"%s"`, sendingKeysString, args.sendingKeys[x])
@@ -480,7 +499,7 @@ func createOCR2VRFJob(lggr logger.Logger, app chainlink.Application, args ocr2vr
 	}
 	jb.OCR2OracleSpec = &os
 
-	err = app.AddJobV2(context.Background(), &jb)
+	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
 		return errors.Wrap(err, "failed to add job")
 	}

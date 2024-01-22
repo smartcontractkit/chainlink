@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -29,12 +30,13 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -42,7 +44,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -54,18 +57,33 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
+func init() {
+	// hack to undo geth's disruption of the std default logger
+	// remove with geth v1.13.10
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+}
+
 var (
 	initGlobalsOnce sync.Once
 	prometheus      *ginprom.Prometheus
 	grpcOpts        loop.GRPCOpts
 )
 
-func initGlobals(cfg config.Prometheus) {
-	// Avoid double initializations.
+func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, logger logger.Logger) error {
+	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
+	var err error
 	initGlobalsOnce.Do(func() {
-		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.AuthToken()))
-		grpcOpts = loop.SetupTelemetry(nil) // default prometheus.Registerer
+		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfgProm.AuthToken()))
+		grpcOpts = loop.NewGRPCOpts(nil) // default prometheus.Registerer
+		err = loop.SetupTracing(loop.TracingConfig{
+			Enabled:         cfgTracing.Enabled(),
+			CollectorTarget: cfgTracing.CollectorTarget(),
+			NodeAttributes:  cfgTracing.Attributes(),
+			SamplingRatio:   cfgTracing.SamplingRatio(),
+			OnDialError:     func(error) { logger.Errorw("Failed to dial", "err", err) },
+		})
 	})
+	return err
 }
 
 var (
@@ -109,14 +127,9 @@ func (s *Shell) errorOut(err error) cli.ExitCoder {
 func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 	err := validateFn()
 	if err != nil {
-		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
-			fmt.Println("Invalid configuration:", err)
-			fmt.Println()
-			return s.errorOut(errors.New("invalid configuration"))
-		}
-		fmt.Printf("Notification for upcoming configuration change: %v\n", err)
-		fmt.Println("This configuration will be disallowed in future production releases.")
+		fmt.Println("Invalid configuration:", err)
 		fmt.Println()
+		return s.errorOut(errors.New("invalid configuration"))
 	}
 	return nil
 }
@@ -131,32 +144,43 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	initGlobals(cfg.Prometheus())
+	err = initGlobals(cfg.Prometheus(), cfg.Tracing(), appLggr)
+	if err != nil {
+		appLggr.Errorf("Failed to initialize globals: %v", err)
+	}
 
-	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
+	err = migrate.SetMigrationENVVars(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	err = handleNodeVersioning(ctx, db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 	if err != nil {
 		return nil, err
 	}
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg.Database())
-	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
+	mailMon := mailbox.NewMonitor(cfg.AppID().String(), appLggr.Named("Mailbox"))
 
-	dbListener := cfg.Database().Listener()
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
-	loopRegistry := plugins.NewLoopRegistry(appLggr)
+	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())
+
+	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
+		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
+		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
+		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
+	})
 
 	// create the relayer-chain interoperators from application configuration
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       appLggr,
-		DB:           db,
-		QConfig:      cfg.Database(),
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     grpcOpts,
+		MercuryPool:  mercuryPool,
 	}
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		CSAETHKeystore: keyStore,
-		RelayerConfig:  &evm.RelayerConfig{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon},
+		ChainOpts:      legacyevm.ChainOpts{AppConfig: cfg, MailMon: mailMon, DB: db},
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
@@ -164,23 +188,24 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
-			Keystore:         keyStore.Cosmos(),
-			CosmosConfigs:    cfg.CosmosConfigs(),
-			EventBroadcaster: eventBroadcaster,
+			Keystore:    keyStore.Cosmos(),
+			TOMLConfigs: cfg.CosmosConfigs(),
+			DB:          db,
+			QConfig:     cfg.Database(),
 		}
 		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
-			Keystore:      keyStore.Solana(),
-			SolanaConfigs: cfg.SolanaConfigs(),
+			Keystore:    keyStore.Solana(),
+			TOMLConfigs: cfg.SolanaConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:        keyStore.StarkNet(),
-			StarknetConfigs: cfg.StarknetConfigs(),
+			Keystore:    keyStore.StarkNet(),
+			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
 
@@ -205,7 +230,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		SqlxDB:                     db,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
-		EventBroadcaster:           eventBroadcaster,
 		MailMon:                    mailMon,
 		Logger:                     appLggr,
 		AuditLogger:                auditLogger,
@@ -216,11 +240,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		SecretGenerator:            chainlink.FilePersistedSecretGenerator{},
 		LoopRegistry:               loopRegistry,
 		GRPCOpts:                   grpcOpts,
+		MercuryPool:                mercuryPool,
 	})
 }
 
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
-func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
+func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DefaultQueryTimeout())
@@ -251,7 +276,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 
 	// Migrate the database
 	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB, appLggr); err != nil {
+		if err = migrate.Migrate(ctx, db.DB, appLggr); err != nil {
 			return fmt.Errorf("initializeORM#Migrate: %w", err)
 		}
 	}
@@ -455,11 +480,11 @@ func createServer(handler *gin.Engine, addr string, requestTimeout time.Duration
 
 // HTTPClient encapsulates all methods used to interact with a chainlink node API.
 type HTTPClient interface {
-	Get(string, ...map[string]string) (*http.Response, error)
-	Post(string, io.Reader) (*http.Response, error)
-	Put(string, io.Reader) (*http.Response, error)
-	Patch(string, io.Reader, ...map[string]string) (*http.Response, error)
-	Delete(string) (*http.Response, error)
+	Get(context.Context, string, ...map[string]string) (*http.Response, error)
+	Post(context.Context, string, io.Reader) (*http.Response, error)
+	Put(context.Context, string, io.Reader) (*http.Response, error)
+	Patch(context.Context, string, io.Reader, ...map[string]string) (*http.Response, error)
+	Delete(context.Context, string) (*http.Response, error)
 }
 
 type authenticatedHTTPClient struct {
@@ -493,31 +518,31 @@ func newHttpClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
 }
 
 // Get performs an HTTP Get using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Get(path string, headers ...map[string]string) (*http.Response, error) {
-	return h.doRequest("GET", path, nil, headers...)
+func (h *authenticatedHTTPClient) Get(ctx context.Context, path string, headers ...map[string]string) (*http.Response, error) {
+	return h.doRequest(ctx, "GET", path, nil, headers...)
 }
 
 // Post performs an HTTP Post using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
-	return h.doRequest("POST", path, body)
+func (h *authenticatedHTTPClient) Post(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest(ctx, "POST", path, body)
 }
 
 // Put performs an HTTP Put using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Put(path string, body io.Reader) (*http.Response, error) {
-	return h.doRequest("PUT", path, body)
+func (h *authenticatedHTTPClient) Put(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return h.doRequest(ctx, "PUT", path, body)
 }
 
 // Patch performs an HTTP Patch using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
-	return h.doRequest("PATCH", path, body, headers...)
+func (h *authenticatedHTTPClient) Patch(ctx context.Context, path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
+	return h.doRequest(ctx, "PATCH", path, body, headers...)
 }
 
 // Delete performs an HTTP Delete using the authenticated HTTP client's cookie.
-func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
-	return h.doRequest("DELETE", path, nil)
+func (h *authenticatedHTTPClient) Delete(ctx context.Context, path string) (*http.Response, error) {
+	return h.doRequest(ctx, "DELETE", path, nil)
 }
 
-func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
+func (h *authenticatedHTTPClient) doRequest(ctx context.Context, verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
 	var headers map[string]string
 	if len(headerArgs) > 0 {
 		headers = headerArgs[0]
@@ -525,7 +550,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 		headers = map[string]string{}
 	}
 
-	request, err := http.NewRequest(verb, h.remoteNodeURL.String()+path, body)
+	request, err := http.NewRequestWithContext(ctx, verb, h.remoteNodeURL.String()+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -547,7 +572,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	}
 	if response.StatusCode == http.StatusUnauthorized && (h.sessionRequest.Email != "" || h.sessionRequest.Password != "") {
 		var cookieerr error
-		cookie, cookieerr = h.cookieAuth.Authenticate(h.sessionRequest)
+		cookie, cookieerr = h.cookieAuth.Authenticate(ctx, h.sessionRequest)
 		if cookieerr != nil {
 			return response, err
 		}
@@ -565,7 +590,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 // future HTTP requests.
 type CookieAuthenticator interface {
 	Cookie() (*http.Cookie, error)
-	Authenticate(sessions.SessionRequest) (*http.Cookie, error)
+	Authenticate(context.Context, sessions.SessionRequest) (*http.Cookie, error)
 	Logout() error
 }
 
@@ -594,14 +619,14 @@ func (t *SessionCookieAuthenticator) Cookie() (*http.Cookie, error) {
 }
 
 // Authenticate retrieves a session ID via a cookie and saves it to disk.
-func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
+func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(sessionRequest)
 	if err != nil {
 		return nil, err
 	}
 	url := t.config.RemoteNodeURL.String() + "/sessions"
-	req, err := http.NewRequest("POST", url, b)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, b)
 	if err != nil {
 		return nil, err
 	}
@@ -768,8 +793,8 @@ func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest,
 // APIInitializer is the interface used to create the API User credentials
 // needed to access the API. Does nothing if API user already exists.
 type APIInitializer interface {
-	// Initialize creates a new user for API access, or does nothing if one exists.
-	Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error)
+	// Initialize creates a new local Admin user for API access, or does nothing if one exists.
+	Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error)
 }
 
 type promptingAPIInitializer struct {
@@ -783,11 +808,11 @@ func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
-func (t *promptingAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (t *promptingAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, err
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, prompt for initial admin user creation
@@ -837,7 +862,7 @@ func NewFileAPIInitializer(file string) APIInitializer {
 	return fileAPIInitializer{file: file}
 }
 
-func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (f fileAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
 	request, err := credentialsFromFile(f.file, lggr)
 	if err != nil {
 		return sessions.User{}, err
@@ -846,7 +871,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (se
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, err
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, create initial admin user from session request from file creds
@@ -999,8 +1024,7 @@ func confirmAction(c *cli.Context) bool {
 			return true
 		} else if answer == "no" {
 			return false
-		} else {
-			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 		}
+		fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 	}
 }

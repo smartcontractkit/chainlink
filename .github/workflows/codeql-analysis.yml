@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - develop
-      - staging
-      - trying
-      - rollup
   pull_request:
     # The branches below must be a subset of the branches above
     branches: [develop]
@@ -16,7 +13,7 @@ on:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    runs-on: ubuntu20.04-4cores-16GB
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
@@ -25,11 +22,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Set up Go
         if: ${{ matrix.language == 'go' }}
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version-file: 'go.mod'
 
@@ -48,7 +45,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

@@ -50,7 +50,7 @@ func DeployFunctions(auth *bind.TransactOpts, backend bind.ContractBackend) (com
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Functions{FunctionsCaller: FunctionsCaller{contract: contract}, FunctionsTransactor: FunctionsTransactor{contract: contract}, FunctionsFilterer: FunctionsFilterer{contract: contract}}, nil
+	return address, tx, &Functions{address: address, abi: *parsed, FunctionsCaller: FunctionsCaller{contract: contract}, FunctionsTransactor: FunctionsTransactor{contract: contract}, FunctionsFilterer: FunctionsFilterer{contract: contract}}, nil
 }
 
 type Functions struct {

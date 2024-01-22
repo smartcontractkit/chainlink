@@ -32,6 +32,7 @@ import (
 	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/unrolled/secure"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -60,6 +61,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 
 	tls := config.WebServer().TLS()
 	engine.Use(
+		otelgin.Middleware("chainlink-web-routes"),
 		limits.RequestSizeLimiter(config.WebServer().HTTPMaxSize()),
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
@@ -90,7 +92,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	guiAssetRoutes(engine, config.Insecure().DisableRateLimiting(), app.GetLogger())
 
 	api.POST("/query",
-		auth.AuthenticateGQL(app.SessionORM(), app.GetLogger().Named("GQLHandler")),
+		auth.AuthenticateGQL(app.AuthenticationProvider(), app.GetLogger().Named("GQLHandler")),
 		loader.Middleware(app),
 		graphqlHandler(app),
 	)
@@ -170,7 +172,7 @@ func secureMiddleware(tlsRedirect bool, tlsHost string, devWebServer bool) gin.H
 }
 
 func debugRoutes(app chainlink.Application, r *gin.RouterGroup) {
-	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
+	group := r.Group("/debug", auth.Authenticate(app.AuthenticationProvider(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 }
 
@@ -207,7 +209,7 @@ func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	))
 	sc := NewSessionsController(app)
 	unauth.POST("/sessions", sc.Create)
-	auth := r.Group("/", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
+	auth := r.Group("/", auth.Authenticate(app.AuthenticationProvider(), auth.AuthenticateBySession))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
@@ -215,6 +217,9 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	hc := HealthController{app}
 	r.GET("/readyz", hc.Readyz)
 	r.GET("/health", hc.Health)
+	r.GET("/health.txt", func(context *gin.Context) {
+		context.Request.Header.Set("Accept", gin.MIMEPlain)
+	}, hc.Health)
 }
 
 func loopRoutes(app chainlink.Application, r *gin.RouterGroup) {
@@ -231,7 +236,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	psec := PipelineJobSpecErrorsController{app}
 	unauthedv2.PATCH("/resume/:runID", prc.Resume)
 
-	authv2 := r.Group("/v2", auth.Authenticate(app.SessionORM(),
+	authv2 := r.Group("/v2", auth.Authenticate(app.AuthenticationProvider(),
 		auth.AuthenticateByToken,
 		auth.AuthenticateBySession,
 	))
@@ -301,7 +306,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		// duplicated from above, with `evm` instead of `eth`
 		// legacy ones remain for backwards compatibility
 
-		ethKeysGroup := authv2.Group("", auth.Authenticate(app.SessionORM(),
+		ethKeysGroup := authv2.Group("", auth.Authenticate(app.AuthenticationProvider(),
 			auth.AuthenticateByToken,
 			auth.AuthenticateBySession,
 		))
@@ -427,7 +432,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	}
 
 	ping := PingController{app}
-	userOrEI := r.Group("/v2", auth.Authenticate(app.SessionORM(),
+	userOrEI := r.Group("/v2", auth.Authenticate(app.AuthenticationProvider(),
 		auth.AuthenticateExternalInitiator,
 		auth.AuthenticateByToken,
 		auth.AuthenticateBySession,

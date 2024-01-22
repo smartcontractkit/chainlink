@@ -2,8 +2,8 @@
 pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
-import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
-import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
+import "../automation/interfaces/ILogAutomation.sol";
+import "../automation/interfaces/StreamsLookupCompatibleInterface.sol";
 
 contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupCompatibleInterface, ILogAutomation {
   bool public useMercury;
@@ -54,12 +54,20 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupComp
         dummyMap[blockhash(blockNum)] = false;
       }
 
+      uint256 timeParam;
+      if (keccak256(abi.encodePacked(feedParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+        timeParam = blockNum;
+      } else {
+        // assume this will be feedIDs for v0.3
+        timeParam = block.timestamp;
+      }
+
       if (useMercury) {
-        revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum, addr));
+        revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, timeParam, abi.encode(upkeepId, blockNum, addr));
       }
 
       // if we don't use mercury, create a perform data which resembles the output of checkCallback
-      bytes[] memory values = new bytes[](2);
+      bytes[] memory values = new bytes[](feedsHex.length);
       bytes memory extraData = abi.encode(upkeepId, blockNum, addr);
       return (true, abi.encode(values, extraData));
     }

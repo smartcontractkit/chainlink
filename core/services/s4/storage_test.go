@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
@@ -17,8 +18,9 @@ import (
 
 var (
 	constraints = s4.Constraints{
-		MaxSlotsPerUser:     5,
-		MaxPayloadSizeBytes: 32,
+		MaxSlotsPerUser:        5,
+		MaxPayloadSizeBytes:    32,
+		MaxExpirationLengthSec: 3600,
 	}
 )
 
@@ -50,7 +52,7 @@ func TestStorage_Errors(t *testing.T) {
 			SlotId:  1,
 			Version: 0,
 		}
-		ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(key.SlotId), mock.Anything).Return(nil, s4.ErrNotFound)
+		ormMock.On("Get", big.New(key.Address.Big()), key.SlotId, mock.Anything).Return(nil, s4.ErrNotFound)
 		_, _, err := storage.Get(testutils.Context(t), key)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
@@ -98,6 +100,20 @@ func TestStorage_Errors(t *testing.T) {
 		}
 		err := storage.Put(testutils.Context(t), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrPastExpiration)
+	})
+
+	t.Run("ErrExpirationTooLong", func(t *testing.T) {
+		key := &s4.Key{
+			Address: testutils.NewAddress(),
+			SlotId:  1,
+			Version: 0,
+		}
+		record := &s4.Record{
+			Payload:    make([]byte, 10),
+			Expiration: now.UnixMilli() + 10000000,
+		}
+		err := storage.Put(testutils.Context(t), key, record, []byte{})
+		assert.ErrorIs(t, err, s4.ErrExpirationTooLong)
 	})
 
 	t.Run("ErrWrongSignature", func(t *testing.T) {
@@ -164,8 +180,8 @@ func TestStorage_PutAndGet(t *testing.T) {
 	assert.NoError(t, err)
 
 	ormMock.On("Update", mock.Anything, mock.Anything).Return(nil)
-	ormMock.On("Get", utils.NewBig(key.Address.Big()), uint(2), mock.Anything).Return(&s4.Row{
-		Address:    utils.NewBig(key.Address.Big()),
+	ormMock.On("Get", big.New(key.Address.Big()), uint(2), mock.Anything).Return(&s4.Row{
+		Address:    big.New(key.Address.Big()),
 		SlotId:     key.SlotId,
 		Version:    key.Version,
 		Payload:    record.Payload,
@@ -202,7 +218,8 @@ func TestStorage_List(t *testing.T) {
 		},
 	}
 
-	addressRange := s4.NewSingleAddressRange(utils.NewBig(address.Big()))
+	addressRange, err := s4.NewSingleAddressRange(big.New(address.Big()))
+	assert.NoError(t, err)
 	ormMock.On("GetSnapshot", addressRange, mock.Anything).Return(ormRows, nil)
 
 	rows, err := storage.List(testutils.Context(t), address)

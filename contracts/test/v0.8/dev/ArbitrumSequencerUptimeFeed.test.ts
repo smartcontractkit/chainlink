@@ -44,7 +44,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
     accessController = await accessControllerFactory.deploy()
 
     const flagsHistoryFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/Flags.sol:Flags',
+      'src/v0.8/l2ep/dev/Flags.sol:Flags',
       deployer,
     )
     flags = await flagsHistoryFactory.deploy(

@@ -3,20 +3,17 @@ package ethkey
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type State struct {
 	ID         int32
 	Address    EIP55Address
-	EVMChainID utils.Big
-	// NextNonce is used for convenience and rendering in UI but the source of
-	// truth is always the DB
-	NextNonce int64
-	Disabled  bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	lastUsed  time.Time
+	EVMChainID big.Big
+	Disabled   bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	lastUsed   time.Time
 }
 
 func (s State) KeyID() string {

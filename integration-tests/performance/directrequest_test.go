@@ -1,7 +1,6 @@
 package performance
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -11,34 +10,35 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	"github.com/google/uuid"
 )
 
 func TestDirectRequestPerformance(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment := setupDirectRequestTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -82,6 +82,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 		Name:                     "direct_request",
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               chainClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})
@@ -107,7 +108,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 
 		gom := gomega.NewGomegaWithT(t)
 		gom.Eventually(func(g gomega.Gomega) {
-			d, err := consumer.Data(context.Background())
+			d, err := consumer.Data(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
 			g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
 			l.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
@@ -128,7 +129,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 }
 
 func setupDirectRequestTest(t *testing.T) (testEnvironment *environment.Environment) {
-	network := networks.SelectedNetwork
+	network := networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConfig := ethereum.New(nil)
 	if !network.Simulated {
 		evmConfig = ethereum.New(&ethereum.Props{
@@ -139,19 +140,21 @@ func setupDirectRequestTest(t *testing.T) (testEnvironment *environment.Environm
 	}
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
-	cd, err := chainlink.NewDeployment(1, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, network),
+	cd := chainlink.New(0, map[string]interface{}{
+		"replicas": 1,
+		"toml":     networks.AddNetworksConfig(baseTOML, network),
 	})
-	require.NoError(t, err, "Error creating chainlink deployment")
+
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("performance-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
-		Test:            t,
+		NamespacePrefix:    fmt.Sprintf("performance-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
+		Test:               t,
+		PreventPodEviction: true,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment
 }

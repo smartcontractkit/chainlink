@@ -6,7 +6,7 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
 .PHONY: install
-install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
+install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
 
 .PHONY: install-git-hooks
 install-git-hooks: ## Install git hooks.
@@ -14,8 +14,6 @@ install-git-hooks: ## Install git hooks.
 
 .PHONY: install-chainlink-autoinstall
 install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
-.PHONY: operator-ui-autoinstall
-operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 
 .PHONY: pnpmdep
 pnpmdep: ## Install solidity contract dependencies through pnpm
@@ -44,30 +42,22 @@ godoc: ## Install and run godoc
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
-chainlink: operator-ui ## Build the chainlink binary.
+chainlink: ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
-chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
+chainlink-dev: ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
-chainlink-test: operator-ui ## Build a test build of chainlink binary.
-	go build -tags test $(GOFLAGS) .
+chainlink-test: ## Build a test build of chainlink binary.
+	go build $(GOFLAGS) .
 
 .PHONY: chainlink-local-start
 chainlink-local-start:
 	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
 
-.PHONY: install-solana
-install-solana: ## Build & install the chainlink-solana binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
-
-.PHONY: install-median
-install-median: ## Build & install the chainlink-median binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
-
-.PHONY: install-starknet
-install-starknet: ## Build & install the chainlink-solana binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-starknet
+.PHONY: install-medianpoc
+install-medianpoc: ## Build & install the chainlink-medianpoc binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -83,7 +73,7 @@ docker-plugins:
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	./operator_ui/install.sh
+	go generate ./core/web
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
@@ -105,11 +95,11 @@ testscripts-update: ## Update testdata/scripts/* files via testscript.
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run -tags test . local db preparetest
+	go run . local db preparetest
 
 .PHONY: testdb
 testdb-user-only: ## Prepares the test database with user only.
-	go run -tags test . local db preparetest --user-only
+	go run . local db preparetest --user-only
 
 # Format for CI
 .PHONY: presubmit
@@ -120,7 +110,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.28.1
+	go install github.com/vektra/mockery/v2@v2.38.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -135,10 +125,6 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 	--go-wsrpc_opt=paths=source_relative \
 	./core/services/synchronization/telem/*.proto
 
-.PHONY: test_need_operator_assets
-test_need_operator_assets: ## Add blank file in web assets if operator ui has not been built
-	[ -f "./core/web/assets/index.html" ] || mkdir ./core/web/assets && touch ./core/web/assets/index.html
-
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
 	go run ./core/config/docs/cmd/generate -o ./docs/
@@ -146,7 +132,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.53.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml
@@ -158,6 +144,10 @@ goreleaser-dev-build: ## Run goreleaser snapshot build
 .PHONY: goreleaser-dev-release
 goreleaser-dev-release: ## run goreleaser snapshot release
 	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
+
+.PHONY: modgraph
+modgraph:
+	./tools/bin/modgraph > go.md
 
 help:
 	@echo ""

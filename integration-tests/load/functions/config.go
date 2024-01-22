@@ -1,12 +1,14 @@
 package loadfunctions
 
 import (
-	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"fmt"
 	"math/big"
 	"os"
+
+	"github.com/pelletier/go-toml/v2"
+	"github.com/rs/zerolog/log"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 const (
@@ -54,71 +56,70 @@ type Funding struct {
 }
 
 type Soak struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type SecretsSoak struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type RealSoak struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type Stress struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type SecretsStress struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type RealStress struct {
-	RPS             int64            `toml:"rps"`
-	RequestsPerCall uint32           `toml:"requests_per_call"`
-	Duration        *models.Duration `toml:"duration"`
+	RPS             int64                  `toml:"rps"`
+	RequestsPerCall uint32                 `toml:"requests_per_call"`
+	Duration        *commonconfig.Duration `toml:"duration"`
 }
 
 type GatewayListSoak struct {
-	RPS      int64            `toml:"rps"`
-	Duration *models.Duration `toml:"duration"`
+	RPS      int64                  `toml:"rps"`
+	Duration *commonconfig.Duration `toml:"duration"`
 }
 
 type GatewaySetSoak struct {
-	RPS      int64            `toml:"rps"`
-	Duration *models.Duration `toml:"duration"`
+	RPS      int64                  `toml:"rps"`
+	Duration *commonconfig.Duration `toml:"duration"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {
 	var cfg *PerformanceConfig
 	d, err := os.ReadFile(DefaultConfigFilename)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrReadPerfConfig)
+		return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+		return nil, fmt.Errorf("%s, err: %w", ErrUnmarshalPerfConfig, err)
 	}
 	log.Debug().Interface("PerformanceConfig", cfg).Msg("Parsed performance config")
 	mpk := os.Getenv("MUMBAI_KEYS")
 	murls := os.Getenv("MUMBAI_URLS")
 	snet := os.Getenv("SELECTED_NETWORKS")
 	if mpk == "" || murls == "" || snet == "" {
-		return nil, errors.New(
+		return nil, fmt.Errorf(
 			"ensure variables are set:\nMUMBAI_KEYS variable, private keys, comma separated\nSELECTED_NETWORKS=MUMBAI\nMUMBAI_URLS variable, websocket urls, comma separated",
 		)
-	} else {
-		cfg.MumbaiPrivateKey = mpk
 	}
+	cfg.MumbaiPrivateKey = mpk
 	return cfg, nil
 }

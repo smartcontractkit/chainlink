@@ -65,20 +65,16 @@ func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, spec job.OCR2O
 	return lc, nil
 }
 
-var (
-	minOCR2MaxDurationQuery     = 20 * time.Millisecond
-	minOCR2MaxDurationQueryErr  error
-	minOCR2MaxDurationQueryOnce sync.Once
-)
+const defaultMinOCR2MaxDurationQuery = 100 * time.Millisecond
 
-func getMinOCR2MaxDurationQuery() (time.Duration, error) {
-	minOCR2MaxDurationQueryOnce.Do(func() {
-		if v := env.MinOCR2MaxDurationQuery.Get(); v != "" {
-			minOCR2MaxDurationQuery, minOCR2MaxDurationQueryErr = time.ParseDuration(v)
-			if minOCR2MaxDurationQueryErr != nil {
-				minOCR2MaxDurationQueryErr = fmt.Errorf("failed to parse %s: %w", env.MinOCR2MaxDurationQuery, minOCR2MaxDurationQueryErr)
-			}
-		}
-	})
-	return minOCR2MaxDurationQuery, minOCR2MaxDurationQueryErr
-}
+var getMinOCR2MaxDurationQuery = sync.OnceValues(func() (time.Duration, error) {
+	str := env.MinOCR2MaxDurationQuery.Get()
+	if str == "" {
+		return defaultMinOCR2MaxDurationQuery, nil
+	}
+	d, err := time.ParseDuration(str)
+	if err != nil {
+		return -1, fmt.Errorf("failed to parse %s: %w", env.MinOCR2MaxDurationQuery, err)
+	}
+	return d, nil
+})

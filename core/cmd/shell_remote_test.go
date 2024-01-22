@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,26 +13,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
@@ -57,11 +60,10 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 		fn(sopts)
 	}
 
-	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(30 * time.Millisecond)
 		f := false
 		c.EVM[0].Enabled = &f
-		c.P2P.V1.Enabled = &f
 		c.P2P.V2.Enabled = &f
 
 		if overrideFn != nil {
@@ -122,16 +124,12 @@ func TestShell_ReplayBlocks(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("flagset", 0)
-	cltest.FlagSetApplyFromAction(client.ReplayFromBlock, set, "")
+	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
 
 	require.NoError(t, set.Set("block-number", "42"))
-
-	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.ReplayFromBlock(c))
-
 	require.NoError(t, set.Set("evm-chain-id", "12345678"))
-	c = cli.NewContext(nil, set, nil)
-	assert.ErrorContains(t, client.ReplayFromBlock(c), "evmChainID does not match any local chains")
+	c := cli.NewContext(nil, set, nil)
+	assert.ErrorContains(t, client.ReplayFromBlock(c), "chain id does not match any local chains")
 
 	require.NoError(t, set.Set("evm-chain-id", "0"))
 	c = cli.NewContext(nil, set, nil)
@@ -159,7 +157,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 			client, _ := app.NewShellAndRenderer()
 
 			set := flag.NewFlagSet("create", 0)
-			cltest.FlagSetApplyFromAction(client.CreateExternalInitiator, set, "")
+			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
 
@@ -200,7 +198,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			initialExis := len(cltest.AllExternalInitiators(t, app.GetSqlxDB()))
 
 			set := flag.NewFlagSet("create", 0)
-			cltest.FlagSetApplyFromAction(client.CreateExternalInitiator, set, "")
+			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
 
 			assert.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
@@ -224,14 +222,14 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 
 	token := auth.NewToken()
 	exi, err := bridges.NewExternalInitiator(token,
-		&bridges.ExternalInitiatorRequest{Name: "name"},
+		&bridges.ExternalInitiatorRequest{Name: uuid.New().String()},
 	)
 	require.NoError(t, err)
 	err = app.BridgeORM().CreateExternalInitiator(exi)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteExternalInitiator, set, "")
+	flagSetApplyFromAction(client.DeleteExternalInitiator, set, "")
 
 	require.NoError(t, set.Parse([]string{exi.Name}))
 
@@ -249,7 +247,7 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 	client, r := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.DeleteExternalInitiator, set, "")
+	flagSetApplyFromAction(client.DeleteExternalInitiator, set, "")
 
 	require.NoError(t, set.Parse([]string{"bogus-ID"}))
 
@@ -261,17 +259,20 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 func TestShell_RemoteLogin(t *testing.T) {
 
 	app := startNewApplicationV2(t, nil)
+	orm := app.AuthenticationProvider()
+
+	u := cltest.NewUserWithSession(t, orm)
 
 	tests := []struct {
 		name, file string
 		email, pwd string
 		wantError  bool
 	}{
-		{"success prompt", "", cltest.APIEmailAdmin, cltest.Password, false},
+		{"success prompt", "", u.Email, cltest.Password, false},
 		{"success file", "../internal/fixtures/apicredentials", "", "", false},
 		{"failure prompt", "", "wrong@email.com", "wrongpwd", true},
 		{"failure file", "/tmp/doesntexist", "", "", true},
-		{"failure file w correct prompt", "/tmp/doesntexist", cltest.APIEmailAdmin, cltest.Password, true},
+		{"failure file w correct prompt", "/tmp/doesntexist", u.Email, cltest.Password, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -280,7 +281,7 @@ func TestShell_RemoteLogin(t *testing.T) {
 			client := app.NewAuthenticatingShell(prompter)
 
 			set := flag.NewFlagSet("test", 0)
-			cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+			flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 			require.NoError(t, set.Set("file", test.file))
 			require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -301,7 +302,8 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
+	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: append(enteredStrings, enteredStrings...)}
 	client := app.NewAuthenticatingShell(prompter)
 
@@ -317,7 +319,7 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 
 	// Fails without bypass
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("bypass-version-check", "false"))
 
@@ -328,7 +330,7 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 
 	// Defaults to false
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.RemoteLogin(c)
 	assert.Error(t, err)
@@ -339,6 +341,7 @@ func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 	tests := []struct {
 		name                         string
 		remoteVersion, remoteSha     string
@@ -353,7 +356,7 @@ func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+			enteredStrings := []string{u.Email, cltest.Password}
 			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingShell(prompter)
 
@@ -381,7 +384,7 @@ type mockHTTPClient struct {
 	mockSha     string
 }
 
-func (h *mockHTTPClient) Get(path string, headers ...map[string]string) (*http.Response, error) {
+func (h *mockHTTPClient) Get(ctx context.Context, path string, headers ...map[string]string) (*http.Response, error) {
 	if path == "/v2/build_info" {
 		// Return mocked response here
 		json := fmt.Sprintf(`{"version":"%s","commitSHA":"%s"}`, h.mockVersion, h.mockSha)
@@ -391,38 +394,39 @@ func (h *mockHTTPClient) Get(path string, headers ...map[string]string) (*http.R
 			Body:       r,
 		}, nil
 	}
-	return h.HTTP.Get(path, headers...)
+	return h.HTTP.Get(ctx, path, headers...)
 }
 
-func (h *mockHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
-	return h.HTTP.Post(path, body)
+func (h *mockHTTPClient) Post(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return h.HTTP.Post(ctx, path, body)
 }
 
-func (h *mockHTTPClient) Put(path string, body io.Reader) (*http.Response, error) {
-	return h.HTTP.Put(path, body)
+func (h *mockHTTPClient) Put(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return h.HTTP.Put(ctx, path, body)
 }
 
-func (h *mockHTTPClient) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
-	return h.HTTP.Patch(path, body, headers...)
+func (h *mockHTTPClient) Patch(ctx context.Context, path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
+	return h.HTTP.Patch(ctx, path, body, headers...)
 }
 
-func (h *mockHTTPClient) Delete(path string) (*http.Response, error) {
-	return h.HTTP.Delete(path)
+func (h *mockHTTPClient) Delete(ctx context.Context, path string) (*http.Response, error) {
+	return h.HTTP.Delete(ctx, path)
 }
 
 func TestShell_ChangePassword(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingShell(prompter)
 	otherClient := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -463,13 +467,14 @@ func TestShell_Profile_InvalidSecondsParam(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
+	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -493,13 +498,14 @@ func TestShell_Profile(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
+	enteredStrings := []string{u.Email, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingShell(prompter)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("file", "../internal/fixtures/apicredentials"))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -562,7 +568,8 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 	}, func(opts *startOptions) {
@@ -590,7 +597,7 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("bypass-version-check", "true"))
 	require.NoError(t, set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)}))
@@ -608,7 +615,7 @@ func TestShell_RunOCRJob_MissingJobID(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Set("bypass-version-check", "true"))
 
@@ -625,7 +632,7 @@ func TestShell_RunOCRJob_JobNotFound(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.RemoteLogin, set, "")
+	flagSetApplyFromAction(client.RemoteLogin, set, "")
 
 	require.NoError(t, set.Parse([]string{"1"}))
 	require.NoError(t, set.Set("bypass-version-check", "true"))
@@ -643,7 +650,7 @@ func TestShell_AutoLogin(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,
@@ -654,13 +661,13 @@ func TestShell_AutoLogin(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.ListJobs, fs, "")
+	flagSetApplyFromAction(client.ListJobs, fs, "")
 
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	pgtest.MustExec(t, app.GetSqlxDB(), "TRUNCATE sessions")
+	pgtest.MustExec(t, app.GetSqlxDB(), "delete from sessions where email = $1", user.Email)
 	err = client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
@@ -671,7 +678,7 @@ func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,
@@ -682,7 +689,7 @@ func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Logger, app.NewClientOpts(), client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	cltest.FlagSetApplyFromAction(client.ListJobs, fs, "")
+	flagSetApplyFromAction(client.ListJobs, fs, "")
 	err := client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.Error(t, err)
 }
@@ -694,7 +701,7 @@ func (FailingAuthenticator) Cookie() (*http.Cookie, error) {
 }
 
 // Authenticate retrieves a session ID via a cookie and saves it to disk.
-func (FailingAuthenticator) Authenticate(sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
+func (FailingAuthenticator) Authenticate(context.Context, sessions.SessionRequest) (*http.Cookie, error) {
 	return nil, errors.New("no luck")
 }
 
@@ -711,7 +718,7 @@ func TestShell_SetLogConfig(t *testing.T) {
 
 	logLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
-	cltest.FlagSetApplyFromAction(client.SetLogLevel, set, "")
+	flagSetApplyFromAction(client.SetLogLevel, set, "")
 
 	require.NoError(t, set.Set("level", logLevel))
 
@@ -723,7 +730,7 @@ func TestShell_SetLogConfig(t *testing.T) {
 
 	sqlEnabled := true
 	set = flag.NewFlagSet("logsql", 0)
-	cltest.FlagSetApplyFromAction(client.SetLogSQL, set, "")
+	flagSetApplyFromAction(client.SetLogSQL, set, "")
 
 	require.NoError(t, set.Set("enable", strconv.FormatBool(sqlEnabled)))
 	c = cli.NewContext(nil, set, nil)
@@ -734,7 +741,7 @@ func TestShell_SetLogConfig(t *testing.T) {
 
 	sqlEnabled = false
 	set = flag.NewFlagSet("logsql", 0)
-	cltest.FlagSetApplyFromAction(client.SetLogSQL, set, "")
+	flagSetApplyFromAction(client.SetLogSQL, set, "")
 
 	require.NoError(t, set.Set("disable", "true"))
 	c = cli.NewContext(nil, set, nil)

@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +17,12 @@ var _ Node = (*erroringNode)(nil)
 
 type erroringNode struct {
 	errMsg string
+}
+
+func (e *erroringNode) UnsubscribeAllExceptAliveLoop() {}
+
+func (e *erroringNode) SubscribersCount() int32 {
+	return 0
 }
 
 func (e *erroringNode) ChainID() (chainID *big.Int) { return nil }
@@ -126,7 +131,7 @@ func (e *erroringNode) State() NodeState {
 	return NodeStateUnreachable
 }
 
-func (e *erroringNode) StateAndLatest() (NodeState, int64, *utils.Big) {
+func (e *erroringNode) StateAndLatest() (NodeState, int64, *big.Int) {
 	return NodeStateUnreachable, -1, nil
 }
 

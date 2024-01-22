@@ -3,7 +3,6 @@ pragma solidity 0.8.16;
 
 import {BaseTestWithConfiguredVerifierAndFeeManager, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
-import {VerifierProxy} from "../../VerifierProxy.sol";
 
 contract VerifierActivateConfigTest is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotOwner() public {
@@ -54,7 +53,7 @@ contract VerifierActivateConfigWithDeactivatedConfigTest is BaseTestWithMultiple
     s_verifier.activateConfig(FEED_ID, s_configDigestTwo);
     changePrank(address(s_verifierProxy));
 
-    bytes memory signedReport = _generateEncodedBlob(
+    bytes memory signedReport = _generateV1EncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE_TWO + 1)

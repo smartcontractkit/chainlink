@@ -13,16 +13,15 @@ const (
 )
 
 type SingleFunctionCallGun struct {
-	ft               *FunctionsTest
-	mode             TestMode
-	times            uint32
-	source           string
-	slotID           uint8
-	slotVersion      uint64
-	encryptedSecrets []byte
-	args             []string
-	subscriptionId   uint64
-	jobId            [32]byte
+	ft             *FunctionsTest
+	mode           TestMode
+	times          uint32
+	source         string
+	slotID         uint8
+	slotVersion    uint64
+	args           []string
+	subscriptionId uint64
+	jobId          [32]byte
 }
 
 func NewSingleFunctionCallGun(
@@ -49,7 +48,7 @@ func NewSingleFunctionCallGun(
 	}
 }
 
-func (m *SingleFunctionCallGun) callReal() *wasp.CallResult {
+func (m *SingleFunctionCallGun) callReal() *wasp.Response {
 	err := m.ft.LoadTestClient.SendRequestWithDONHostedSecrets(
 		m.times,
 		m.source,
@@ -60,12 +59,12 @@ func (m *SingleFunctionCallGun) callReal() *wasp.CallResult {
 		m.jobId,
 	)
 	if err != nil {
-		return &wasp.CallResult{Error: err.Error(), Failed: true}
+		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
-	return &wasp.CallResult{}
+	return &wasp.Response{}
 }
 
-func (m *SingleFunctionCallGun) callWithSecrets() *wasp.CallResult {
+func (m *SingleFunctionCallGun) callWithSecrets() *wasp.Response {
 	err := m.ft.LoadTestClient.SendRequestWithDONHostedSecrets(
 		m.times,
 		m.source,
@@ -76,12 +75,12 @@ func (m *SingleFunctionCallGun) callWithSecrets() *wasp.CallResult {
 		m.jobId,
 	)
 	if err != nil {
-		return &wasp.CallResult{Error: err.Error(), Failed: true}
+		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
-	return &wasp.CallResult{}
+	return &wasp.Response{}
 }
 
-func (m *SingleFunctionCallGun) callWithHttp() *wasp.CallResult {
+func (m *SingleFunctionCallGun) callWithHttp() *wasp.Response {
 	err := m.ft.LoadTestClient.SendRequest(
 		m.times,
 		m.source,
@@ -91,13 +90,13 @@ func (m *SingleFunctionCallGun) callWithHttp() *wasp.CallResult {
 		m.jobId,
 	)
 	if err != nil {
-		return &wasp.CallResult{Error: err.Error(), Failed: true}
+		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
-	return &wasp.CallResult{}
+	return &wasp.Response{}
 }
 
 // Call implements example gun call, assertions on response bodies should be done here
-func (m *SingleFunctionCallGun) Call(_ *wasp.Generator) *wasp.CallResult {
+func (m *SingleFunctionCallGun) Call(_ *wasp.Generator) *wasp.Response {
 	switch m.mode {
 	case ModeSecretsOnlyPayload:
 		return m.callWithSecrets()

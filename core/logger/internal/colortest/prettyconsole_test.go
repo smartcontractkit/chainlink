@@ -61,6 +61,12 @@ func TestPrettyConsole_Write(t *testing.T) {
 			"2018-04-12T12:55:28Z \x1b[91m[FATAL] \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
 			false,
 		},
+		{
+			"control",
+			`{"ts":1523537728, "level":"fatal", "msg":"\u0008\t\n\r\u000b\u000c\ufffd\ufffd", "hash":"nuances"}`,
+			"2018-04-12T12:55:28Z \x1b[91m[FATAL] \x1b[0m\\b\t\n\r\\v\\f��                                        \x1b[34m\x1b[0m                        \n",
+			false,
+		},
 		{"broken", `{"broken":}`, `{}`, true},
 	}
 

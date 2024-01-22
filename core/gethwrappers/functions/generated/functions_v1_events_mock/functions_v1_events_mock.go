@@ -60,7 +60,7 @@ func DeployFunctionsV1EventsMock(auth *bind.TransactOpts, backend bind.ContractB
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &FunctionsV1EventsMock{FunctionsV1EventsMockCaller: FunctionsV1EventsMockCaller{contract: contract}, FunctionsV1EventsMockTransactor: FunctionsV1EventsMockTransactor{contract: contract}, FunctionsV1EventsMockFilterer: FunctionsV1EventsMockFilterer{contract: contract}}, nil
+	return address, tx, &FunctionsV1EventsMock{address: address, abi: *parsed, FunctionsV1EventsMockCaller: FunctionsV1EventsMockCaller{contract: contract}, FunctionsV1EventsMockTransactor: FunctionsV1EventsMockTransactor{contract: contract}, FunctionsV1EventsMockFilterer: FunctionsV1EventsMockFilterer{contract: contract}}, nil
 }
 
 type FunctionsV1EventsMock struct {

@@ -3,28 +3,25 @@ package test_env
 import (
 	"encoding/json"
 
+	cte "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 )
 
 type TestEnvConfig struct {
-	Networks   []string         `json:"networks"`
-	Geth       GethConfig       `json:"geth"`
-	MockServer MockServerConfig `json:"mockserver"`
-	Nodes      []ClNodeConfig   `json:"nodes"`
+	Networks        []string             `json:"networks"`
+	Geth            GethConfig           `json:"geth"`
+	MockAdapter     MockAdapterConfig    `json:"mock_adapter"`
+	ClCluster       *ClCluster           `json:"clCluster"`
+	EthereumNetwork *cte.EthereumNetwork `json:"private_ethereum_config"`
 }
 
-type MockServerConfig struct {
-	ContainerName string   `json:"container_name"`
-	EAMockUrls    []string `json:"external_adapters_mock_urls"`
+type MockAdapterConfig struct {
+	ContainerName string `json:"container_name"`
+	ImpostersPath string `json:"imposters_path"`
 }
 
 type GethConfig struct {
 	ContainerName string `json:"container_name"`
-}
-
-type ClNodeConfig struct {
-	NodeContainerName string `json:"container_name"`
-	DbContainerName   string `json:"db_container_name"`
 }
 
 func NewTestEnvConfigFromFile(path string) (*TestEnvConfig, error) {

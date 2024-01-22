@@ -13,18 +13,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/wsrpc"
-	"github.com/smartcontractkit/wsrpc/credentials"
-	"github.com/smartcontractkit/wsrpc/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/credentials"
+	"github.com/smartcontractkit/wsrpc/peer"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -39,8 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ pb.MercuryServer = &mercuryServer{}
@@ -138,33 +138,32 @@ func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
 	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &job)
+	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &job)
+	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
 }
 
 func setupNode(
 	t *testing.T,
-	port int64,
+	port int,
 	dbName string,
-	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	backend *backends.SimulatedBackend,
 	csaKey csakey.KeyV2,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
-	k := big.NewInt(port) // keys unique to port
+	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
-	rdr := keystest.NewRandReaderFromSeed(port)
+	rdr := keystest.NewRandReaderFromSeed(int64(port))
 	ocr2kb = ocr2key.MustNewInsecure(rdr, chaintype.EVM)
 
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
@@ -191,10 +190,6 @@ func setupNode(
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.TraceLogging = ptr(true)
 
-		// [P2P.V1]
-		// Enabled = false
-		c.P2P.V1.Enabled = ptr(false)
-
 		// [P2P.V2]
 		// Enabled = true
 		// AnnounceAddresses = ['$EXT_IP:17775']
@@ -204,8 +199,8 @@ func setupNode(
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
@@ -243,7 +238,7 @@ func addV1MercuryJob(
 	i int,
 	verifierAddress common.Address,
 	bootstrapPeerID string,
-	bootstrapNodePort int64,
+	bootstrapNodePort int,
 	bmBridge,
 	bidBridge,
 	askBridge,
@@ -326,7 +321,7 @@ func addV2MercuryJob(
 	i int,
 	verifierAddress common.Address,
 	bootstrapPeerID string,
-	bootstrapNodePort int64,
+	bootstrapNodePort int,
 	bmBridge,
 	serverURL string,
 	serverPubKey,
@@ -391,7 +386,7 @@ func addV3MercuryJob(
 	i int,
 	verifierAddress common.Address,
 	bootstrapPeerID string,
-	bootstrapNodePort int64,
+	bootstrapNodePort int,
 	bmBridge,
 	bidBridge,
 	askBridge,

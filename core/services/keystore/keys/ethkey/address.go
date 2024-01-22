@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 )
 
 // EIP55Address is a new type for string which persists an ethereum address in
@@ -53,10 +53,10 @@ func EIP55AddressFromAddress(a common.Address) EIP55Address {
 func (a EIP55Address) Bytes() []byte { return a.Address().Bytes() }
 
 // Big returns a big.Int representation
-func (a EIP55Address) Big() *big.Int { return a.Address().Hash().Big() }
+func (a EIP55Address) Big() *big.Int { return a.Address().Big() }
 
 // Hash returns the Hash
-func (a EIP55Address) Hash() common.Hash { return a.Address().Hash() }
+func (a EIP55Address) Hash() common.Hash { return common.BytesToHash(a.Bytes()) }
 
 // Address returns EIP55Address as a go-ethereum Address type
 func (a EIP55Address) Address() common.Address { return common.HexToAddress(a.String()) }
@@ -85,7 +85,7 @@ func (a *EIP55Address) UnmarshalText(input []byte) error {
 
 // UnmarshalJSON parses a hash from a JSON string
 func (a *EIP55Address) UnmarshalJSON(input []byte) error {
-	input = utils.RemoveQuotes(input)
+	input = bytes.TrimQuotes(input)
 	return a.UnmarshalText(input)
 }
 

@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -89,7 +89,7 @@ func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keysto
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 

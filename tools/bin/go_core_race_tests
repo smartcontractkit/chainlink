@@ -12,7 +12,7 @@ use_tee() {
     cat > "$@"
   fi
 }
-GORACE="log_path=$PWD/race" go test -json -tags test -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | use_tee "$OUTPUT_FILE"
+GORACE="log_path=$PWD/race" go test -json -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | use_tee "$OUTPUT_FILE"
 EXITCODE=${PIPESTATUS[0]}
 # Fail if any race logs are present.
 if ls race.* &>/dev/null

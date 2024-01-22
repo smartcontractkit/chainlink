@@ -33,6 +33,8 @@ type Event struct {
 }
 
 // BHS defines an interface for interacting with a BlockhashStore contract.
+//
+//go:generate mockery --quiet --name BHS --output ./mocks/ --case=underscore
 type BHS interface {
 	// Store the hash associated with blockNum.
 	Store(ctx context.Context, blockNum uint64) error
@@ -57,7 +59,7 @@ func GetUnfulfilledBlocksAndRequests(
 	blockToRequests := make(map[uint64]map[string]struct{})
 	requestIDToBlock := make(map[string]uint64)
 
-	reqs, err := coordinator.Requests(ctx, uint64(fromBlock), uint64(toBlock))
+	reqs, err := coordinator.Requests(ctx, fromBlock, toBlock)
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF requests",
 			"err", err)
@@ -71,7 +73,7 @@ func GetUnfulfilledBlocksAndRequests(
 		requestIDToBlock[req.ID] = req.Block
 	}
 
-	fuls, err := coordinator.Fulfillments(ctx, uint64(fromBlock))
+	fuls, err := coordinator.Fulfillments(ctx, fromBlock)
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF fulfillments",
 			"err", err)

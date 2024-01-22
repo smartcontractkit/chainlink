@@ -34,7 +34,7 @@ import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 
 const BYTECODE = KeeperRegistryFactory.bytecode
 const BYTECODE_CHECKSUM =
-  '0x5ef7140f5c4ec2d62f8ac3d5c4385b7e40c3441fb1e4073a9545fae5f12a0ec5'
+  '0x7e831ebc4e043fc2946449e11f0d170ba5b6085b213591973c437bc5109b1582'
 
 describe('KeeperRegistry1_3 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {

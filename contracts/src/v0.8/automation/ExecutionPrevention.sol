@@ -8,7 +8,8 @@ abstract contract ExecutionPrevention {
    * @notice method that allows it to be simulated via eth_call by checking that
    * the sender is the zero address.
    */
-  function preventExecution() internal view {
+  function _preventExecution() internal view {
+    // solhint-disable-next-line avoid-tx-origin
     if (tx.origin != address(0)) {
       revert OnlySimulatedBackend();
     }
@@ -19,7 +20,7 @@ abstract contract ExecutionPrevention {
    * that the sender is the zero address.
    */
   modifier cannotExecute() {
-    preventExecution();
+    _preventExecution();
     _;
   }
 }

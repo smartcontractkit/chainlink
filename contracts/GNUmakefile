@@ -1,7 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
-# profile defined. Adding a product to this list will make it available for
-# snapshotting.
-ALL_FOUNDRY_PRODUCTS = vrf automation llo-feeds functions automation-dev shared
+# profile defined and use the Foundry snapshots. 
+ALL_FOUNDRY_PRODUCTS = l2ep llo-feeds functions shared
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
@@ -13,9 +12,16 @@ ALL_FOUNDRY_PRODUCTS = vrf automation llo-feeds functions automation-dev shared
 #		make snapshot
 # make call example
 # 		make FOUNDRY_PROFILE=llo-feeds snapshot
+# note make snapshot skips fuzz tests named according to best practices, although forge uses
+# a static fuzz seed by default, flaky gas results per platform are still observed.
 .PHONY: snapshot
 snapshot: ## Make a snapshot for a specific product.
-	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+
+.PHONY: snapshot-diff
+snapshot-diff: ## Make a snapshot for a specific product.
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --diff gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+
 
 .PHONY: snapshot-all
 snapshot-all: ## Make a snapshot for all products.
@@ -33,11 +39,14 @@ abigen: ## Build & install abigen.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.28.1
+	go install github.com/vektra/mockery/v2@v2.35.4
+
+.PHONY: foundry
+foundry: ## Install foundry.
+	foundryup --version nightly-5b7e4cb3c882b28f3c32ba580de27ce7381f415a
 
 .PHONY: foundry-refresh
-foundry-refresh:
-	foundryup
+foundry-refresh: foundry
 	git submodule deinit -f .
 	git submodule update --init --recursive
 

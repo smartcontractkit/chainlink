@@ -26,7 +26,7 @@ import (
 	bridgesMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -37,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 )
 
 func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
@@ -635,7 +635,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
 	lggr := logger.TestLogger(t)
-	incomplete, err := r.Run(testutils.Context(t), &run, lggr, false, nil)
+	incomplete, err := r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -644,7 +644,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err = r.Run(testutils.Context(t), &run, lggr, false, nil)
+	incomplete, err = r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
@@ -657,7 +657,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(testutils.Context(t), &run, lggr, false, nil)
+	incomplete, err = r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -773,7 +773,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(testutils.Context(t), &run, logger.TestLogger(t), false, nil)
+	incomplete, err := r.Run(testutils.Context(t), run, logger.TestLogger(t), false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
@@ -941,4 +941,44 @@ en->de
 	result, err := trrs.FinalResult(lggr).SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, inputBytes, result.Value)
+}
+
+func Test_PipelineRunner_ExecuteRun(t *testing.T) {
+	t.Run("uses cached *Pipeline if available", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		lggr := logger.TestLogger(t)
+		r := pipeline.NewRunner(nil, nil, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
+
+		template := `
+succeed             [type=memo value=%d]
+succeed;
+`
+
+		spec := pipeline.Spec{DotDagSource: fmt.Sprintf(template, 1)}
+		vars := pipeline.NewVarsFrom(nil)
+
+		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		require.NoError(t, err)
+		require.Len(t, trrs, 1)
+		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+
+		// does not automatically cache
+		require.Nil(t, spec.Pipeline)
+
+		// initialize it
+		spec.Pipeline, err = spec.ParsePipeline()
+		require.NoError(t, err)
+
+		// even though this is set to 2, it should use the cached version
+		spec.DotDagSource = fmt.Sprintf(template, 2)
+
+		_, trrs, err = r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		require.NoError(t, err)
+		require.Len(t, trrs, 1)
+		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+	})
 }

@@ -2,11 +2,12 @@ package fluxmonitorv2
 
 import (
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+
+	"github.com/jmoiron/sqlx"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -21,7 +22,7 @@ type Delegate struct {
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
-	legacyChains   evm.LegacyChainContainer
+	legacyChains   legacyevm.LegacyChainContainer
 	lggr           logger.Logger
 }
 
@@ -34,7 +35,7 @@ func NewDelegate(
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
 	db *sqlx.DB,
-	legacyChains evm.LegacyChainContainer,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
@@ -59,7 +60,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the flux monitor service for the job spec
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.FluxMonitorSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", jb)
 	}

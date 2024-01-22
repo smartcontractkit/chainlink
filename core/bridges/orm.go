@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -150,6 +150,7 @@ func (o *orm) CreateBridgeType(bt *BridgeType) error {
 		if err != nil {
 			return err
 		}
+		defer stmt.Close()
 		return stmt.Get(bt, bt)
 	})
 	if err == nil {
@@ -222,6 +223,7 @@ func (o *orm) CreateExternalInitiator(externalInitiator *ExternalInitiator) (err
 		if err != nil {
 			return errors.Wrap(err, "failed to prepare named stmt")
 		}
+		defer stmt.Close()
 		return errors.Wrap(stmt.Get(externalInitiator, externalInitiator), "failed to load external_initiator")
 	})
 	return errors.Wrap(err, "CreateExternalInitiator failed")

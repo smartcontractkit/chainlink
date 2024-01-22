@@ -8,11 +8,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type (
@@ -20,6 +21,7 @@ type (
 		webhookJobRunner         *webhookJobRunner
 		externalInitiatorManager ExternalInitiatorManager
 		lggr                     logger.Logger
+		stopCh                   services.StopChan
 	}
 
 	JobRunner interface {
@@ -35,6 +37,7 @@ func NewDelegate(runner pipeline.Runner, externalInitiatorManager ExternalInitia
 		externalInitiatorManager: externalInitiatorManager,
 		webhookJobRunner:         newWebhookJobRunner(runner, lggr),
 		lggr:                     lggr,
+		stopCh:                   make(services.StopChan),
 	}
 }
 
@@ -48,7 +51,9 @@ func (d *Delegate) JobType() job.Type {
 
 func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) AfterJobCreated(jb job.Job) {
-	err := d.externalInitiatorManager.Notify(*jb.WebhookSpecID)
+	ctx, cancel := d.stopCh.NewCtx()
+	defer cancel()
+	err := d.externalInitiatorManager.Notify(ctx, *jb.WebhookSpecID)
 	if err != nil {
 		d.lggr.Errorw("Webhook delegate AfterJobCreated errored",
 			"err", err,
@@ -58,7 +63,9 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 }
 
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {
-	err := d.externalInitiatorManager.DeleteJob(*spec.WebhookSpecID)
+	ctx, cancel := d.stopCh.NewCtx()
+	defer cancel()
+	err := d.externalInitiatorManager.DeleteJob(ctx, *spec.WebhookSpecID)
 	if err != nil {
 		d.lggr.Errorw("Webhook delegate OnDeleteJob errored",
 			"err", err,
@@ -69,7 +76,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 	service := &pseudoService{
 		spec:             spec,
 		webhookJobRunner: d.webhookJobRunner,
@@ -111,7 +118,7 @@ func newWebhookJobRunner(runner pipeline.Runner, lggr logger.Logger) *webhookJob
 
 type registeredJob struct {
 	job.Job
-	chRemove utils.StopChan
+	chRemove services.StopChan
 }
 
 func (r *webhookJobRunner) addSpec(spec job.Job) error {
@@ -172,7 +179,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 
 	run := pipeline.NewRun(*spec.PipelineSpec, vars)
 
-	_, err := r.runner.Run(ctx, &run, jobLggr, true, nil)
+	_, err := r.runner.Run(ctx, run, jobLggr, true, nil)
 	if err != nil {
 		jobLggr.Errorw("Error running pipeline for webhook job", "err", err)
 		return 0, err

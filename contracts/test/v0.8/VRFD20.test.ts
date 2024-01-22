@@ -34,7 +34,7 @@ before(async () => {
     roles.defaultAccount,
   )
   vrfCoordinatorMockFactory = await ethers.getContractFactory(
-    'src/v0.8/mocks/VRFCoordinatorMock.sol:VRFCoordinatorMock',
+    'src/v0.8/vrf/mocks/VRFCoordinatorMock.sol:VRFCoordinatorMock',
     roles.defaultAccount,
   )
   vrfD20Factory = await ethers.getContractFactory(

@@ -4,15 +4,22 @@ kind: Deployment
 metadata:
   name: geth
 spec:
-  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: geth
+      # Used for testing.
+      # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+      havoc-component-group: "blockchain"
+      havoc-network-group: "blockchain"
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app: geth
+        # Used for testing.
+        # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+        havoc-component-group: "blockchain"
+        havoc-network-group: "blockchain"
         release: {{ .Release.Name }}
       annotations:
         {{- range $key, $value := .Values.podAnnotations }}
@@ -23,31 +30,39 @@ spec:
       - name: configmap-volume
         configMap:
           name: geth-cm
+      - name: devchain-volume
+        emptyDir: {}
+      securityContext:
+        {{- toYaml $.Values.geth.podSecurityContext | nindent 8 }}
       containers:
       - name: geth-network
+        securityContext:
+          {{- toYaml $.Values.geth.securityContext | nindent 12 }}
         image: "{{ default "ethereum/client-go" .Values.geth.image }}:{{ default "stable" .Values.geth.version }}"
-        command: [ "sh", "./root/init.sh" ]
+        command: [ "sh", "/app/init.sh" ]
         volumeMounts:
+        - name: devchain-volume
+          mountPath: /app/.ethereum/devchain
         - name : configmap-volume
-          mountPath: /root/init.sh
+          mountPath: /app/init.sh
           subPath: init.sh
         - name: configmap-volume
-          mountPath: /root/config
+          mountPath: /app/config
         - name: configmap-volume
-          mountPath: /root/.ethereum/devchain/keystore/key1
+          mountPath: /app/.ethereum/devchain/keystore/key1
           subPath: key1
         - name: configmap-volume
-          mountPath: /root/.ethereum/devchain/keystore/key2
+          mountPath: /app/.ethereum/devchain/keystore/key2
           subPath: key2
         - name: configmap-volume
-          mountPath: /root/.ethereum/devchain/keystore/key3
+          mountPath: /app/.ethereum/devchain/keystore/key3
           subPath: key3
         args:
           - '--dev'
           - '--password'
-          - '/root/config/password.txt'
+          - '/app/config/password.txt'
           - '--datadir'
-          - '/root/.ethereum/devchain'
+          - '/app/.ethereum/devchain'
           - '--unlock'
           - '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
           - '--unlock'
@@ -58,6 +73,8 @@ spec:
           - '--miner.etherbase'
           - '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
           - '--ipcdisable'
+          - '--http.api'
+          - 'admin,debug,web3,eth,txpool,personal,miner,net'
           - '--http'
           - '--http.vhosts'
           - '*'
@@ -102,11 +119,11 @@ spec:
         {{ end }}
 {{- with .Values.nodeSelector }}
       nodeSelector:
-{{ toYaml . | indent 8 }}
+        {{ toYaml . | indent 8 }}
 {{- end }}
 {{- with .Values.affinity }}
       affinity:
-{{ toYaml . | indent 8 }}
+        {{ toYaml . | indent 8 }}
 {{- end }}
 {{- with .Values.tolerations }}
       tolerations:

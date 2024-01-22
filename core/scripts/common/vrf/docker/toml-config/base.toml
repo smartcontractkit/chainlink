@@ -1,0 +1,30 @@
+RootDir = '/home/chainlink'
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 100
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[P2P]
+[P2P.V2]
+AnnounceAddresses = ['0.0.0.0:6690']
+ListenAddresses = ['0.0.0.0:6690']

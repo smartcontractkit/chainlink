@@ -1,5 +1,5 @@
 # CODEOWNERS Best Practices
-# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence." 
+# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
 # Misc
@@ -37,6 +37,10 @@
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team
 /core/services/blockhashstore @smartcontractkit/vrf-team
+/core/services/blockheaderfeeder @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrf.go @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrfv2.go @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/vrf-team
 /core/services/ocr2/plugins/dkg @smartcontractkit/vrf-team
 /core/services/ocr2/plugins/ocr2vrf @smartcontractkit/vrf-team
 
@@ -67,13 +71,40 @@ core/scripts/gateway @bolekk @pinebit
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @se3000 @connorwstein
-/contracts/**/*Keeper* @smartcontractkit/keepers
-/contracts/**/*Upkeep* @smartcontractkit/keepers
-/contracts/**/*Functions* @smartcontractkit/functions
+/contracts/ @RensR
+
+# First we match on project names to catch files like the compilation scripts,
+# gas snapshots and other files not places in the project directories.
+# This could give some false positives, so afterwards we match on the project directories
+# to ensure the entire directory is always owned by the correct team.
+
+/contracts/**/*shared* @RensR
+/contracts/**/*keeper* @smartcontractkit/keepers
+/contracts/**/*upkeep* @smartcontractkit/keepers
+/contracts/**/*automation* @smartcontractkit/keepers
+/contracts/**/*functions* @smartcontractkit/functions
+/contracts/**/*llo-feeds* @austinborn @Fletch153
+/contracts/**/*vrf* @smartcontractkit/vrf-team
+/contracts/**/*l2ep* @simsonraj
+/contracts/**/*operatorforwarder* @essamhassan
+
+/contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
-contracts/test/v0.8/functions @smartcontractkit/functions
+# TODO: interfaces folder, folder should be removed and files moved to the correct folders
+/contracts/src/v0.8/l2ep @simsonraj
 /contracts/src/v0.8/llo-feeds @austinborn @Fletch153
+# TODO: mocks folder, folder should be removed and files moved to the correct folders
+/contracts/src/v0.8/operatorforwarder @essamhassan
+/contracts/src/v0.8/shared @RensR
+# TODO: tests folder, folder should be removed and files moved to the correct folders
+# TODO: transmission folder, owner should be found
+/contracts/src/v0.8/vrf @smartcontractkit/vrf-team
+
+
+
+# At the end, match any files missed by the patterns above
+/contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/functions
+
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
@@ -86,6 +117,10 @@ contracts/test/v0.8/functions @smartcontractkit/functions
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
+/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-load-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-nightly-tests.yml @smartcontractkit/keepers
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 

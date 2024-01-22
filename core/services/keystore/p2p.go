@@ -22,8 +22,6 @@ type P2P interface {
 	Export(id p2pkey.PeerID, password string) ([]byte, error)
 	EnsureKey() error
 
-	GetV1KeysAsV2() ([]p2pkey.KeyV2, error)
-
 	GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 }
 
@@ -152,21 +150,6 @@ func (ks *p2p) EnsureKey() error {
 	return ks.safeAddKey(key)
 }
 
-func (ks *p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
-	v1Keys, err := ks.orm.GetEncryptedV1P2PKeys()
-	if err != nil {
-		return keys, err
-	}
-	for _, keyV1 := range v1Keys {
-		pk, err := keyV1.Decrypt(ks.password)
-		if err != nil {
-			return keys, err
-		}
-		keys = append(keys, pk.ToV2())
-	}
-	return keys, nil
-}
-
 var (
 	ErrNoP2PKey = errors.New("no p2p keys exist")
 )
@@ -177,7 +160,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if ks.isLocked() {
 		return p2pkey.KeyV2{}, ErrLocked
 	}
-	if id != "" {
+	if id != (p2pkey.PeerID{}) {
 		return ks.getByID(id)
 	} else if len(ks.keyRing.P2P) == 1 {
 		ks.logger.Warn("No P2P.PeerID set, defaulting to first key in database")

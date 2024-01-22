@@ -50,7 +50,7 @@ func DeployVRFRequestIDBaseTestHelper(auth *bind.TransactOpts, backend bind.Cont
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFRequestIDBaseTestHelper{VRFRequestIDBaseTestHelperCaller: VRFRequestIDBaseTestHelperCaller{contract: contract}, VRFRequestIDBaseTestHelperTransactor: VRFRequestIDBaseTestHelperTransactor{contract: contract}, VRFRequestIDBaseTestHelperFilterer: VRFRequestIDBaseTestHelperFilterer{contract: contract}}, nil
+	return address, tx, &VRFRequestIDBaseTestHelper{address: address, abi: *parsed, VRFRequestIDBaseTestHelperCaller: VRFRequestIDBaseTestHelperCaller{contract: contract}, VRFRequestIDBaseTestHelperTransactor: VRFRequestIDBaseTestHelperTransactor{contract: contract}, VRFRequestIDBaseTestHelperFilterer: VRFRequestIDBaseTestHelperFilterer{contract: contract}}, nil
 }
 
 type VRFRequestIDBaseTestHelper struct {

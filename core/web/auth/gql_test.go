@@ -21,7 +21,7 @@ import (
 func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	t.Parallel()
 
-	sessionORM := mocks.NewORM(t)
+	sessionORM := mocks.NewAuthenticationProvider(t)
 	sessionStore := cookie.NewStore([]byte("secret"))
 
 	r := gin.Default()
@@ -37,14 +37,14 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	r.ServeHTTP(w, req)
 }
 
 func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
 
-	sessionORM := mocks.NewORM(t)
+	sessionORM := mocks.NewAuthenticationProvider(t)
 	sessionStore := cookie.NewStore([]byte(cltest.SessionSecret))
 	sessionID := "sessionID"
 
@@ -63,7 +63,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	sessionORM.On("AuthorizedUserWithSession", sessionID).Return(clsessions.User{Email: cltest.APIEmailAdmin, Role: clsessions.UserRoleAdmin}, nil)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/", nil)
+	req := mustRequest(t, "GET", "/", nil)
 	cookie := cltest.MustGenerateSessionCookie(t, sessionID)
 	req.AddCookie(cookie)
 

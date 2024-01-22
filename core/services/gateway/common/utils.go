@@ -3,8 +3,7 @@ package common
 import (
 	"crypto/ecdsa"
 	"encoding/binary"
-
-	"golang.org/x/exp/slices"
+	"slices"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -28,6 +27,9 @@ func StringToAlignedBytes(input string, size int) []byte {
 
 func AlignedBytesToString(data []byte) string {
 	idx := slices.IndexFunc(data, func(b byte) bool { return b == 0 })
+	if idx == -1 {
+		return string(data)
+	}
 	return string(data[:idx])
 }
 

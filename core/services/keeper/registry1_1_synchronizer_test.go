@@ -12,18 +12,19 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var registryConfig1_1 = registry1_1.GetConfig{
@@ -122,7 +123,7 @@ func Test_RegistrySynchronizer1_1_Start(t *testing.T) {
 func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 	t.Parallel()
 	for _, upkeepID := range []int64{0, 1, 100, 10_000} {
-		_, err := keeper.CalcPositioningConstant(utils.NewBigI(upkeepID), cltest.NewEIP55Address())
+		_, err := keeper.CalcPositioningConstant(ubig.NewI(upkeepID), cltest.NewEIP55Address())
 		require.NoError(t, err)
 	}
 }
@@ -217,8 +218,7 @@ func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
 		upkeepConfig1_1,
 		0)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -266,8 +266,7 @@ func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
 		upkeepConfig1_1,
 		0)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -313,8 +312,7 @@ func Test_RegistrySynchronizer1_1_UpkeepCanceledLog(t *testing.T) {
 		upkeepConfig1_1,
 		3)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { require.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
@@ -352,8 +350,7 @@ func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
 		upkeepConfig1_1,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
@@ -396,8 +393,7 @@ func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
 		upkeepConfig1_1,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 

@@ -28,7 +28,7 @@ var (
 func Test_InMemoryDataSource(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
-		Return(pipeline.Run{}, pipeline.TaskRunResults{
+		Return(&pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
 					Value: mockValue,
@@ -65,7 +65,7 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 	}}, []pipeline.Task{}, 2)
 
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
-		Return(pipeline.Run{}, pipeline.TaskRunResults([]pipeline.TaskRunResult{
+		Return(&pipeline.Run{}, pipeline.TaskRunResults([]pipeline.TaskRunResult{
 			{
 				Task:   &bridgeTask,
 				Result: pipeline.Result{},
@@ -93,10 +93,19 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 
 }
 
+type mockSaver struct {
+	r *pipeline.Run
+}
+
+func (ms *mockSaver) Save(r *pipeline.Run) {
+	ms.r = r
+}
+
 func Test_NewDataSourceV2(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
+	ms := &mockSaver{}
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
-		Return(pipeline.Run{}, pipeline.TaskRunResults{
+		Return(&pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
 					Value: mockValue,
@@ -106,18 +115,18 @@ func Test_NewDataSourceV2(t *testing.T) {
 			},
 		}, nil)
 
-	resChan := make(chan pipeline.Run, 100)
-	ds := ocrcommon.NewDataSourceV2(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan, nil)
+	ds := ocrcommon.NewDataSourceV2(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), ms, nil)
 	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
-	assert.Equal(t, mockValue, val.String())   // returns expected value after pipeline run
-	assert.Equal(t, pipeline.Run{}, <-resChan) // expected data properly passed to channel
+	assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
+	assert.Equal(t, &pipeline.Run{}, ms.r)   // expected data properly passed to channel
 }
 
 func Test_NewDataSourceV1(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
+	ms := &mockSaver{}
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
-		Return(pipeline.Run{}, pipeline.TaskRunResults{
+		Return(&pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
 					Value: mockValue,
@@ -127,10 +136,9 @@ func Test_NewDataSourceV1(t *testing.T) {
 			},
 		}, nil)
 
-	resChan := make(chan pipeline.Run, 100)
-	ds := ocrcommon.NewDataSourceV1(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan, nil)
+	ds := ocrcommon.NewDataSourceV1(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), ms, nil)
 	val, err := ds.Observe(testutils.Context(t), ocrtypes.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, new(big.Int).Set(val).String()) // returns expected value after pipeline run
-	assert.Equal(t, pipeline.Run{}, <-resChan)                 // expected data properly passed to channel
+	assert.Equal(t, &pipeline.Run{}, ms.r)                     // expected data properly passed to channel
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -49,10 +50,14 @@ HandlerName = "dummy"
 [[dons]]
 DonId = "my_don_2"
 HandlerName = "dummy"
+
+[[dons.Members]]
+Name = "node one"
+Address = "0x0001020304050607080900010203040506070809"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
 }
 
@@ -70,7 +75,7 @@ HandlerName = "dummy"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -84,7 +89,7 @@ HandlerName = "no_such_handler"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -98,7 +103,25 @@ SomeOtherField = "abcd"
 `)
 
 	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	require.Error(t, err)
+}
+
+func TestGateway_NewGatewayFromConfig_InvalidNodeAddress(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := buildConfig(`
+[[dons]]
+HandlerName = "dummy"
+DonId = "my_don"
+
+[[dons.Members]]
+Name = "node one"
+Address = "0xnot_an_address"
+`)
+
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -106,10 +129,9 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, lggr), lggr)
+	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
-	require.NoError(t, gateway.Start(testutils.Context(t)))
-	require.NoError(t, gateway.Close())
+	servicetest.Run(t, gateway)
 }
 
 func requireJsonRPCResult(t *testing.T, response []byte, expectedId string, expectedResult string) {
@@ -203,7 +225,7 @@ func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	timeoutCtx, cancel := context.WithTimeout(testutils.Context(t), time.Duration(time.Millisecond*10))
+	timeoutCtx, cancel := context.WithTimeout(testutils.Context(t), time.Millisecond*10)
 	defer cancel()
 
 	req := newSignedRequest(t, "abcd", "request", "testDON", []byte{})
@@ -220,6 +242,6 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 
 	req := newSignedRequest(t, "abcd", "request", "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req)
-	requireJsonRPCError(t, response, "abcd", -32000, "failure")
-	require.Equal(t, 500, statusCode)
+	requireJsonRPCError(t, response, "abcd", -32600, "failure")
+	require.Equal(t, 400, statusCode)
 }

@@ -38,16 +38,8 @@ type abiValues struct {
 	randomnessRequestRawDataArgs abi.Arguments
 }
 
-var dontUseThisUseGetterFunctionsAbove abiValues
-var parseABIOnce sync.Once
-
-func coordinatorABIValues() *abiValues {
-	parseABIOnce.Do(readCoordinatorABI)
-	return &dontUseThisUseGetterFunctionsAbove
-}
-
-func readCoordinatorABI() {
-	v := &dontUseThisUseGetterFunctionsAbove
+var coordinatorABIValues = sync.OnceValue(func() (v *abiValues) {
+	v = new(abiValues)
 	var err error
 	v.coordinatorABI, err = abi.JSON(strings.NewReader(
 		solidity_vrf_coordinator_interface.VRFCoordinatorABI))
@@ -57,8 +49,7 @@ func readCoordinatorABI() {
 	var found bool
 	v.fulfillMethod, found = v.coordinatorABI.Methods[fulfillMethodName]
 	if !found {
-		panic(fmt.Errorf("could not find method %s in VRFCoordinator ABI",
-			fulfillMethodName))
+		panic(fmt.Errorf("could not find method %s in VRFCoordinator ABI", fulfillMethodName))
 	}
 	v.fulfillSelector = hexutil.Encode(v.fulfillMethod.ID)
 	randomnessRequestABI := v.coordinatorABI.Events["RandomnessRequest"]
@@ -68,4 +59,5 @@ func readCoordinatorABI() {
 			v.randomnessRequestRawDataArgs = append(v.randomnessRequestRawDataArgs, arg)
 		}
 	}
-}
+	return
+})

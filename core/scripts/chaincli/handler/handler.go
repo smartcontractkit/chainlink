@@ -64,9 +64,7 @@ HTTPSPort = 0
 LogPoller = true
 [OCR2]
 Enabled = true
-[P2P]
-[P2P.V2]
-Enabled = true
+
 [Keeper]
 TurnLookBack = 0
 [[EVM]]
@@ -106,24 +104,30 @@ func NewBaseHandler(cfg *config.Config) *baseHandler {
 	nodeClient := ethclient.NewClient(rpcClient)
 
 	// Parse private key
-	d := new(big.Int).SetBytes(common.FromHex(cfg.PrivateKey))
-	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-	privateKey := &ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: crypto.S256(),
-			X:     pkX,
-			Y:     pkY,
-		},
-		D: d,
-	}
+	var fromAddr common.Address
+	var privateKey *ecdsa.PrivateKey
+	if cfg.PrivateKey != "" {
+		d := new(big.Int).SetBytes(common.FromHex(cfg.PrivateKey))
+		pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
+		privateKey = &ecdsa.PrivateKey{
+			PublicKey: ecdsa.PublicKey{
+				Curve: crypto.S256(),
+				X:     pkX,
+				Y:     pkY,
+			},
+			D: d,
+		}
 
-	// Init from address
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("error casting public key to ECDSA")
+		// Init from address
+		publicKey := privateKey.Public()
+		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+		if !ok {
+			log.Fatal("error casting public key to ECDSA")
+		}
+		fromAddr = crypto.PubkeyToAddress(*publicKeyECDSA)
+	} else {
+		log.Println("WARNING: no PRIVATE_KEY set: cannot use commands that deploy contracts or send transactions")
 	}
-	fromAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
 
 	// Create link token wrapper
 	linkToken, err := link.NewLinkToken(common.HexToAddress(cfg.LinkTokenAddr), nodeClient)
@@ -395,7 +399,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	addr := fmt.Sprintf("http://localhost:%s", portStr)
 	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
 
-	if err = waitForNodeReady(addr); err != nil {
+	if err = waitForNodeReady(ctx, addr); err != nil {
 		log.Fatal(err, nodeContainerResp.ID)
 	}
 	log.Println("Node ready: ", nodeContainerResp.ID)
@@ -407,44 +411,44 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 		if writeLogs {
 			var rdr io.ReadCloser
-			rdr, err := dockerClient.ContainerLogs(ctx, nodeContainerResp.ID, types.ContainerLogsOptions{
+			rdr, err2 := dockerClient.ContainerLogs(ctx, nodeContainerResp.ID, types.ContainerLogsOptions{
 				ShowStderr: true,
 				Timestamps: true,
 			})
-			if err != nil {
+			if err2 != nil {
 				rdr.Close()
-				log.Fatal("Failed to collect logs from container: ", err)
+				log.Fatal("Failed to collect logs from container: ", err2)
 			}
 
-			stdErr, err := os.OpenFile(fmt.Sprintf("./%s-stderr.log", nodeContainerResp.ID), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-			if err != nil {
+			stdErr, err2 := os.OpenFile(fmt.Sprintf("./%s-stderr.log", nodeContainerResp.ID), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+			if err2 != nil {
 				rdr.Close()
 				stdErr.Close()
-				log.Fatal("Failed to open file: ", err)
+				log.Fatal("Failed to open file: ", err2)
 			}
 
-			if _, err := stdcopy.StdCopy(io.Discard, stdErr, rdr); err != nil {
+			if _, err2 := stdcopy.StdCopy(io.Discard, stdErr, rdr); err2 != nil {
 				rdr.Close()
 				stdErr.Close()
-				log.Fatal("Failed to write logs to file: ", err)
+				log.Fatal("Failed to write logs to file: ", err2)
 			}
 
 			rdr.Close()
 			stdErr.Close()
 		}
 
-		if err = dockerClient.ContainerStop(ctx, nodeContainerResp.ID, container.StopOptions{}); err != nil {
-			log.Fatal("Failed to stop node container: ", err)
+		if err2 := dockerClient.ContainerStop(ctx, nodeContainerResp.ID, container.StopOptions{}); err2 != nil {
+			log.Fatal("Failed to stop node container: ", err2)
 		}
-		if err = dockerClient.ContainerRemove(ctx, nodeContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
-			log.Fatal("Failed to remove node container: ", err)
+		if err2 := dockerClient.ContainerRemove(ctx, nodeContainerResp.ID, types.ContainerRemoveOptions{}); err2 != nil {
+			log.Fatal("Failed to remove node container: ", err2)
 		}
 
-		if err = dockerClient.ContainerStop(ctx, dbContainerResp.ID, container.StopOptions{}); err != nil {
-			log.Fatal("Failed to stop DB container: ", err)
+		if err2 := dockerClient.ContainerStop(ctx, dbContainerResp.ID, container.StopOptions{}); err2 != nil {
+			log.Fatal("Failed to stop DB container: ", err2)
 		}
-		if err = dockerClient.ContainerRemove(ctx, dbContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
-			log.Fatal("Failed to remove DB container: ", err)
+		if err2 := dockerClient.ContainerRemove(ctx, dbContainerResp.ID, types.ContainerRemoveOptions{}); err2 != nil {
+			log.Fatal("Failed to remove DB container: ", err2)
 		}
 	}, nil
 }
@@ -473,13 +477,13 @@ func checkAndRemoveContainer(ctx context.Context, dockerClient *client.Client, c
 	return nil
 }
 
-func waitForNodeReady(addr string) error {
+func waitForNodeReady(ctx context.Context, addr string) error {
 	client := &http.Client{}
 	defer client.CloseIdleConnections()
 	const timeout = 120
 	startTime := time.Now().Unix()
 	for {
-		req, err := http.NewRequest("GET", fmt.Sprintf("%s/health", addr), nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/health", addr), nil)
 		if err != nil {
 			return err
 		}
@@ -499,7 +503,7 @@ func waitForNodeReady(addr string) error {
 }
 
 // authenticate creates a http client with URL, email and password
-func authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPClient, error) {
+func authenticate(ctx context.Context, urlStr, email, password string, lggr logger.Logger) (cmd.HTTPClient, error) {
 	remoteNodeURL, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
@@ -510,7 +514,7 @@ func authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPC
 	store := &cmd.MemoryCookieStore{}
 
 	tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
-	if _, err = tca.Authenticate(sr); err != nil {
+	if _, err = tca.Authenticate(ctx, sr); err != nil {
 		log.Println("failed to authenticate: ", err)
 		return nil, err
 	}
@@ -518,8 +522,8 @@ func authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPC
 	return cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr), nil
 }
 
-func nodeRequest(client cmd.HTTPClient, path string) ([]byte, error) {
-	resp, err := client.Get(path)
+func nodeRequest(ctx context.Context, client cmd.HTTPClient, path string) ([]byte, error) {
+	resp, err := client.Get(ctx, path)
 	if err != nil {
 		return []byte{}, fmt.Errorf("GET error from client: %w", err)
 	}
@@ -547,8 +551,8 @@ func nodeRequest(client cmd.HTTPClient, path string) ([]byte, error) {
 }
 
 // getNodeAddress returns chainlink node's wallet address
-func getNodeAddress(client cmd.HTTPClient) (string, error) {
-	resp, err := nodeRequest(client, ethKeysEndpoint)
+func getNodeAddress(ctx context.Context, client cmd.HTTPClient) (string, error) {
+	resp, err := nodeRequest(ctx, client, ethKeysEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to get ETH keys: %w", err)
 	}
@@ -562,8 +566,8 @@ func getNodeAddress(client cmd.HTTPClient) (string, error) {
 }
 
 // getNodeOCR2Config returns chainlink node's OCR2 bundle key ID
-func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
-	resp, err := nodeRequest(client, ocr2KeysEndpoint)
+func getNodeOCR2Config(ctx context.Context, client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
+	resp, err := nodeRequest(ctx, client, ocr2KeysEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OCR2 keys: %w", err)
 	}
@@ -585,8 +589,8 @@ func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, erro
 }
 
 // getP2PKeyID returns chainlink node's P2P key ID
-func getP2PKeyID(client cmd.HTTPClient) (string, error) {
-	resp, err := nodeRequest(client, p2pKeysEndpoint)
+func getP2PKeyID(ctx context.Context, client cmd.HTTPClient) (string, error) {
+	resp, err := nodeRequest(ctx, client, p2pKeysEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to get P2P keys: %w", err)
 	}

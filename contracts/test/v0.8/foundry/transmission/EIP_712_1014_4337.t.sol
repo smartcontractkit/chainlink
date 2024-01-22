@@ -1,18 +1,18 @@
 pragma solidity ^0.8.15;
 
 import "../BaseTest.t.sol";
-import "../../../../src/v0.8/dev/transmission/4337/SmartContractAccountFactory.sol";
-import "../../../../src/v0.8/dev/transmission/testhelpers/SmartContractAccountHelper.sol";
-import "../../../../src/v0.8/dev/transmission/4337/SCA.sol";
-import "../../../../src/v0.8/dev/transmission/testhelpers/Greeter.sol";
-import "../../../../src/v0.8/dev/transmission/4337/Paymaster.sol";
+import "../../../../src/v0.8/transmission/dev/ERC-4337/SmartContractAccountFactory.sol";
+import "../../../../src/v0.8/transmission/dev/testhelpers/SmartContractAccountHelper.sol";
+import "../../../../src/v0.8/transmission/dev/ERC-4337/SCA.sol";
+import "../../../../src/v0.8/transmission/dev/testhelpers/Greeter.sol";
+import "../../../../src/v0.8/transmission/dev/ERC-4337/Paymaster.sol";
 import "../../../../src/v0.8/vendor/entrypoint/interfaces/UserOperation.sol";
 import "../../../../src/v0.8/vendor/entrypoint/core/EntryPoint.sol";
 import "../../../../src/v0.8/vendor/entrypoint/interfaces/IEntryPoint.sol";
-import "../../../../src/v0.8/dev/transmission/4337/SCALibrary.sol";
+import "../../../../src/v0.8/transmission/dev/ERC-4337/SCALibrary.sol";
 import "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import "../../../../src/v0.8/shared/interfaces/LinkTokenInterface.sol";
-import "../../../../src/v0.8/mocks/VRFCoordinatorMock.sol";
+import "../../../../src/v0.8/vrf/mocks/VRFCoordinatorMock.sol";
 import "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import "../../../../src/v0.8/vrf/testhelpers/VRFConsumer.sol";
 
@@ -135,7 +135,7 @@ contract EIP_712_1014_4337 is BaseTest {
 
     // Sign user operation.
     bytes32 userOpHash = entryPoint.getUserOpHash(op);
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, toDeployAddress);
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(userOpHash, toDeployAddress);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(END_USER_PKEY, fullHash);
     op.signature = abi.encodePacked(r, s, v - 27);
 
@@ -195,7 +195,7 @@ contract EIP_712_1014_4337 is BaseTest {
 
     // Sign user operation.
     bytes32 userOpHash = entryPoint.getUserOpHash(op);
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, toDeployAddress);
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(userOpHash, toDeployAddress);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(END_USER_PKEY, fullHash);
     op.signature = abi.encodePacked(r, s, v - 27);
 
@@ -260,7 +260,7 @@ contract EIP_712_1014_4337 is BaseTest {
 
     // Sign user operation.
     bytes32 userOpHash = entryPoint.getUserOpHash(op);
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, toDeployAddress);
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(userOpHash, toDeployAddress);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(END_USER_PKEY, fullHash);
     op.signature = abi.encodePacked(r, s, v - 27);
 
@@ -338,7 +338,7 @@ contract EIP_712_1014_4337 is BaseTest {
     });
 
     // Sign user operation.
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(entryPoint.getUserOpHash(op), toDeployAddress);
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(entryPoint.getUserOpHash(op), toDeployAddress);
     op.signature = getSignature(fullHash);
 
     // Deposit funds for the transaction.

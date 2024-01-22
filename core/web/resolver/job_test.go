@@ -3,6 +3,7 @@ package resolver
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -313,9 +314,11 @@ func TestResolver_CreateJob(t *testing.T) {
 				}
 			}
 		}`
+	uuid := uuid.New()
+	spec := fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid)
 	variables := map[string]interface{}{
 		"input": map[string]interface{}{
-			"TOML": testspecs.DirectRequestSpec,
+			"TOML": spec,
 		},
 	}
 	invalid := map[string]interface{}{
@@ -323,7 +326,7 @@ func TestResolver_CreateJob(t *testing.T) {
 			"TOML": "some wrong value",
 		},
 	}
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	jb, err := directrequest.ValidatedDirectRequestSpec(spec)
 	assert.NoError(t, err)
 
 	d, err := json.Marshal(map[string]interface{}{

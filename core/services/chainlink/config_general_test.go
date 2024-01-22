@@ -5,26 +5,24 @@ package chainlink
 import (
 	_ "embed"
 	"fmt"
+	"maps"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
-	maps "golang.org/x/exp/maps"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
-	assert.Nil(t, config.DefaultChainID())
 	assert.False(t, config.EVMRPCEnabled())
 	assert.False(t, config.EVMEnabled())
 	assert.False(t, config.CosmosEnabled())
@@ -133,9 +131,6 @@ func TestConfig_LogSQL(t *testing.T) {
 //go:embed testdata/mergingsecretsdata/secrets-database.toml
 var databaseSecretsTOML string
 
-//go:embed testdata/mergingsecretsdata/secrets-explorer.toml
-var explorerSecretsTOML string
-
 //go:embed testdata/mergingsecretsdata/secrets-password.toml
 var passwordSecretsTOML string
 
@@ -154,12 +149,13 @@ var mercurySecretsTOMLSplitTwo string
 //go:embed testdata/mergingsecretsdata/secrets-threshold.toml
 var thresholdSecretsTOML string
 
+//go:embed testdata/mergingsecretsdata/secrets-webserver-ldap.toml
+var WebServerLDAPSecretsTOML string
+
 func TestConfig_SecretsMerging(t *testing.T) {
 	t.Run("verify secrets merging in GeneralConfigOpts.New()", func(t *testing.T) {
 		databaseSecrets, err := parseSecrets(databaseSecretsTOML)
 		require.NoErrorf(t, err, "error: %s", err)
-		explorerSecrets, err1 := parseSecrets(explorerSecretsTOML)
-		require.NoErrorf(t, err1, "error: %s", err1)
 		passwordSecrets, err2 := parseSecrets(passwordSecretsTOML)
 		require.NoErrorf(t, err2, "error: %s", err2)
 		pyroscopeSecrets, err3 := parseSecrets(pyroscopeSecretsTOML)
@@ -172,6 +168,8 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		require.NoErrorf(t, err6, "error: %s", err6)
 		thresholdSecrets, err7 := parseSecrets(thresholdSecretsTOML)
 		require.NoErrorf(t, err7, "error: %s", err7)
+		webserverLDAPSecrets, err8 := parseSecrets(WebServerLDAPSecretsTOML)
+		require.NoErrorf(t, err8, "error: %s", err8)
 
 		opts := new(GeneralConfigOpts)
 		configFiles := []string{
@@ -179,13 +177,13 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		}
 		secretsFiles := []string{
 			"testdata/mergingsecretsdata/secrets-database.toml",
-			"testdata/mergingsecretsdata/secrets-explorer.toml",
 			"testdata/mergingsecretsdata/secrets-password.toml",
 			"testdata/mergingsecretsdata/secrets-pyroscope.toml",
 			"testdata/mergingsecretsdata/secrets-prometheus.toml",
 			"testdata/mergingsecretsdata/secrets-mercury-split-one.toml",
 			"testdata/mergingsecretsdata/secrets-mercury-split-two.toml",
 			"testdata/mergingsecretsdata/secrets-threshold.toml",
+			"testdata/mergingsecretsdata/secrets-webserver-ldap.toml",
 		}
 		err = opts.Setup(configFiles, secretsFiles)
 		require.NoErrorf(t, err, "error: %s", err)
@@ -196,13 +194,15 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		assert.Equal(t, databaseSecrets.Database.URL.URL().String(), opts.Secrets.Database.URL.URL().String())
 		assert.Equal(t, databaseSecrets.Database.BackupURL.URL().String(), opts.Secrets.Database.BackupURL.URL().String())
 
-		assert.Equal(t, (string)(*explorerSecrets.Explorer.AccessKey), (string)(*opts.Secrets.Explorer.AccessKey))
-		assert.Equal(t, (string)(*explorerSecrets.Explorer.Secret), (string)(*opts.Secrets.Explorer.Secret))
 		assert.Equal(t, (string)(*passwordSecrets.Password.Keystore), (string)(*opts.Secrets.Password.Keystore))
 		assert.Equal(t, (string)(*passwordSecrets.Password.VRF), (string)(*opts.Secrets.Password.VRF))
 		assert.Equal(t, (string)(*pyroscopeSecrets.Pyroscope.AuthToken), (string)(*opts.Secrets.Pyroscope.AuthToken))
 		assert.Equal(t, (string)(*prometheusSecrets.Prometheus.AuthToken), (string)(*opts.Secrets.Prometheus.AuthToken))
 		assert.Equal(t, (string)(*thresholdSecrets.Threshold.ThresholdKeyShare), (string)(*opts.Secrets.Threshold.ThresholdKeyShare))
+
+		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ServerAddress.URL().String(), opts.Secrets.WebServer.LDAP.ServerAddress.URL().String())
+		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserLogin, opts.Secrets.WebServer.LDAP.ReadOnlyUserLogin)
+		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserPass, opts.Secrets.WebServer.LDAP.ReadOnlyUserPass)
 
 		err = assertDeepEqualityMercurySecrets(*merge(mercurySecrets_a.Mercury, mercurySecrets_b.Mercury), opts.Secrets.Mercury)
 		require.NoErrorf(t, err, "merged mercury secrets unequal")

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	avaxclient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -34,11 +33,6 @@ type Environment struct {
 
 	Jc *rpc.Client
 
-	// AvaxEc is appropriately set if the environment is configured to interact with an avalanche
-	// chain. It should be used instead of the regular Ec field because avalanche calculates
-	// blockhashes differently and the regular Ec will give consistently incorrect results on basic
-	// queries (like e.g eth_blockByNumber).
-	AvaxEc  avaxclient.Client
 	ChainID int64
 }
 
@@ -83,12 +77,6 @@ func SetupEnv(overrideNonce bool) Environment {
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
 	PanicErr(err)
-
-	var avaxClient avaxclient.Client
-	if IsAvaxNetwork(chainID) {
-		avaxClient, err = avaxclient.Dial(ethURL)
-		PanicErr(err)
-	}
 
 	// Owner key. Make sure it has eth
 	b, err := hex.DecodeString(accountKey)
@@ -136,7 +124,6 @@ func SetupEnv(overrideNonce bool) Environment {
 		Owner:   owner,
 		Ec:      ec,
 		Jc:      jsonRPCClient,
-		AvaxEc:  avaxClient,
 		ChainID: chainID,
 	}
 }
@@ -184,6 +171,8 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 		prefix = "https://goerli.arbiscan.io"
 	case ArbitrumOneChainID: // Arbitrum mainnet
 		prefix = "https://arbiscan.io"
+	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
+		prefix = "https://sepolia.arbiscan.io"
 
 	case 56: // BSC mainnet
 		prefix = "https://bscscan.com"
@@ -214,8 +203,63 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	case 1666700000, 1666700001, 1666700002, 1666700003: // Harmony testnet
 		prefix = "https://explorer.testnet.harmony.one"
 
+	case 84531:
+		prefix = "https://goerli.basescan.org"
+	case 8453:
+		prefix = "https://basescan.org"
+
+	case 280: // zkSync Goerli testnet
+		prefix = "https://goerli.explorer.zksync.io"
+	case 324: // zkSync mainnet
+		prefix = "https://explorer.zksync.io"
+
 	default: // Unknown chain, return prefix as-is
 		prefix = ""
+	}
+	return
+}
+
+func automationExplorerNetworkName(chainID int64) (prefix string) {
+	switch chainID {
+	case 1: // ETH mainnet
+		prefix = "mainnet"
+	case 5: // Goerli
+		prefix = "goerli"
+	case 11155111: // Sepolia
+		prefix = "sepolia"
+
+	case 420: // Optimism Goerli
+		prefix = "optimism-goerli"
+
+	case ArbitrumGoerliChainID: // Arbitrum Goerli
+		prefix = "arbitrum-goerli"
+	case ArbitrumOneChainID: // Arbitrum mainnet
+		prefix = "arbitrum"
+	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
+		prefix = "arbitrum-sepolia"
+
+	case 56: // BSC mainnet
+		prefix = "bsc"
+	case 97: // BSC testnet
+		prefix = "bnb-chain-testnet"
+
+	case 137: // Polygon mainnet
+		prefix = "polygon"
+	case 80001: // Polygon Mumbai testnet
+		prefix = "mumbai"
+
+	case 250: // Fantom mainnet
+		prefix = "fantom"
+	case 4002: // Fantom testnet
+		prefix = "fantom-testnet"
+
+	case 43114: // Avalanche mainnet
+		prefix = "avalanche"
+	case 43113: // Avalanche testnet
+		prefix = "fuji"
+
+	default: // Unknown chain, return prefix as-is
+		prefix = "<NOT IMPLEMENTED>"
 	}
 	return
 }
@@ -238,6 +282,10 @@ func ContractExplorerLink(chainID int64, contractAddress common.Address) string 
 		return fmt.Sprintf("%s/address/%s", prefix, contractAddress.Hex())
 	}
 	return contractAddress.Hex()
+}
+
+func TenderlySimLink(simID string) string {
+	return fmt.Sprintf("https://dashboard.tenderly.co/simulator/%s", simID)
 }
 
 // ConfirmTXMined confirms that the given transaction is mined and prints useful execution information.
@@ -351,12 +399,12 @@ func FundNode(e Environment, address string, fundingAmount *big.Int) {
 	var gasLimit uint64
 	if IsArbitrumChainID(e.ChainID) {
 		to := common.HexToAddress(address)
-		estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
+		estimated, err2 := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
 			From:  e.Owner.From,
 			To:    &to,
 			Value: fundingAmount,
 		})
-		PanicErr(err)
+		PanicErr(err2)
 		gasLimit = estimated
 	} else {
 		gasLimit = uint64(21_000)
@@ -410,14 +458,14 @@ func BinarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 	return bottom
 }
 
-// Get RLP encoded headers of a list of block numbers
+// GetRlpHeaders gets RLP encoded headers of a list of block numbers
 // Makes RPC network call eth_getBlockByNumber to blockchain RPC node
 // to fetch header info
 func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks bool) (headers [][]byte, hashes []string, err error) {
 
 	hashes = make([]string, 0)
 
-	var offset *big.Int = big.NewInt(0)
+	offset := big.NewInt(0)
 	if getParentBlocks {
 		offset = big.NewInt(1)
 	}
@@ -428,19 +476,18 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 		// Avalanche block headers are special, handle them by using the avalanche rpc client
 		// rather than the regular go-ethereum ethclient.
 		if IsAvaxNetwork(env.ChainID) {
+			var h AvaHeader
 			// Get child block since it's the one that has the parent hash in its header.
-			h, err := env.AvaxEc.HeaderByNumber(
-				context.Background(),
-				new(big.Int).Set(blockNum).Add(blockNum, offset),
-			)
-			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
+			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
 			}
 			// We can still use vanilla go-ethereum rlp.EncodeToBytes, see e.g
 			// https://github.com/ava-labs/coreth/blob/e3ca41bf5295a9a7ca1aeaf29d541fcbb94f79b1/core/types/hashing.go#L49-L57.
-			rlpHeader, err = rlp.EncodeToBytes(h)
-			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+			rlpHeader, err2 = rlp.EncodeToBytes(h)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
 			}
 
 			hashes = append(hashes, h.Hash().String())
@@ -466,16 +513,16 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 
 		} else {
 			// Get child block since it's the one that has the parent hash in its header.
-			h, err := env.Ec.HeaderByNumber(
+			h, err2 := env.Ec.HeaderByNumber(
 				context.Background(),
 				new(big.Int).Set(blockNum).Add(blockNum, offset),
 			)
-			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
 			}
-			rlpHeader, err = rlp.EncodeToBytes(h)
-			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+			rlpHeader, err2 = rlp.EncodeToBytes(h)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
 			}
 
 			hashes = append(hashes, h.Hash().String())
@@ -529,4 +576,8 @@ func IsAvaxNetwork(chainID int64) bool {
 		chainID == 43113 || // Fuji testnet
 		chainID == 335 || // DFK testnet
 		chainID == 53935 // DFK mainnet
+}
+
+func UpkeepLink(chainID int64, upkeepID *big.Int) string {
+	return fmt.Sprintf("https://automation.chain.link/%s/%s", automationExplorerNetworkName(chainID), upkeepID.String())
 }

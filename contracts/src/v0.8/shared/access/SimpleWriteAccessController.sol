@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./ConfirmedOwner.sol";
-import "../interfaces/AccessControllerInterface.sol";
+import {ConfirmedOwner} from "./ConfirmedOwner.sol";
+import {AccessControllerInterface} from "../interfaces/AccessControllerInterface.sol";
 
-/**
- * @title SimpleWriteAccessController
- * @notice Gives access to accounts explicitly added to an access list by the
- * controller's owner.
- * @dev does not make any special permissions for externally, see
- * SimpleReadAccessController for that.
- */
+/// @title SimpleWriteAccessController
+/// @notice Gives access to accounts explicitly added to an access list by the controller's owner.
+/// @dev does not make any special permissions for externally, see  SimpleReadAccessController for that.
 contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwner {
   bool public checkEnabled;
-  mapping(address => bool) internal accessList;
+  mapping(address => bool) internal s_accessList;
 
   event AddedAccess(address user);
   event RemovedAccess(address user);
@@ -24,41 +20,33 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
     checkEnabled = true;
   }
 
-  /**
-   * @notice Returns the access of an address
-   * @param _user The address to query
-   */
+  /// @notice Returns the access of an address
+  /// @param _user The address to query
   function hasAccess(address _user, bytes memory) public view virtual override returns (bool) {
-    return accessList[_user] || !checkEnabled;
+    return s_accessList[_user] || !checkEnabled;
   }
 
-  /**
-   * @notice Adds an address to the access list
-   * @param _user The address to add
-   */
+  /// @notice Adds an address to the access list
+  /// @param _user The address to add
   function addAccess(address _user) external onlyOwner {
-    if (!accessList[_user]) {
-      accessList[_user] = true;
+    if (!s_accessList[_user]) {
+      s_accessList[_user] = true;
 
       emit AddedAccess(_user);
     }
   }
 
-  /**
-   * @notice Removes an address from the access list
-   * @param _user The address to remove
-   */
+  /// @notice Removes an address from the access list
+  /// @param _user The address to remove
   function removeAccess(address _user) external onlyOwner {
-    if (accessList[_user]) {
-      accessList[_user] = false;
+    if (s_accessList[_user]) {
+      s_accessList[_user] = false;
 
       emit RemovedAccess(_user);
     }
   }
 
-  /**
-   * @notice makes the access check enforced
-   */
+  /// @notice makes the access check enforced
   function enableAccessCheck() external onlyOwner {
     if (!checkEnabled) {
       checkEnabled = true;
@@ -67,9 +55,7 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
     }
   }
 
-  /**
-   * @notice makes the access check unenforced
-   */
+  /// @notice makes the access check unenforced
   function disableAccessCheck() external onlyOwner {
     if (checkEnabled) {
       checkEnabled = false;
@@ -78,10 +64,9 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
     }
   }
 
-  /**
-   * @dev reverts if the caller does not have access
-   */
+  /// @dev reverts if the caller does not have access
   modifier checkAccess() {
+    // solhint-disable-next-line custom-errors
     require(hasAccess(msg.sender, msg.data), "No access");
     _;
   }

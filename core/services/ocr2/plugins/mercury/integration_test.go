@@ -22,24 +22,26 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocr3confighelper "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	relaycodecv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	relaycodecv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
-	relaycodecv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/wsrpc/credentials"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	relaymercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	token "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
@@ -61,13 +63,13 @@ var (
 	f                      = uint8(1)
 	n                      = 4 // number of nodes
 	multiplier       int64 = 100000000
-	rawOnchainConfig       = relaymercury.OnchainConfig{
+	rawOnchainConfig       = mercurytypes.OnchainConfig{
 		Min: big.NewInt(0),
 		Max: big.NewInt(math.MaxInt64),
 	}
 	rawReportingPluginConfig = relaymercury.OffchainConfig{
 		ExpirationWindow: 1,
-		BaseUSDFeeCents:  100,
+		BaseUSDFee:       decimal.NewFromInt(100),
 	}
 )
 
@@ -153,7 +155,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
 	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
-		report, err := (&reportcodecv1.ReportCodec{}).BuildReport(relaycodecv1.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), CurrentBlockHash: make([]byte, 32)})
+		report, err := (&reportcodecv1.ReportCodec{}).BuildReport(v1.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), CurrentBlockHash: make([]byte, 32)})
 		if err != nil {
 			panic(err)
 		}
@@ -173,8 +175,8 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(19700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -183,11 +185,9 @@ func TestIntegration_MercuryV1(t *testing.T) {
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+	ports := freeport.GetN(t, n)
+	for i := 0; i < n; i++ {
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -357,7 +357,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 			err = reportcodecv1.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -421,7 +421,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 			err = reportcodecv1.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -504,7 +504,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
 	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
-		report, err := (&reportcodecv2.ReportCodec{}).BuildReport(relaycodecv2.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+		report, err := (&reportcodecv2.ReportCodec{}).BuildReport(v2.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
 		if err != nil {
 			panic(err)
 		}
@@ -524,8 +524,8 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(20700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -534,11 +534,9 @@ func TestIntegration_MercuryV2(t *testing.T) {
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+	ports := freeport.GetN(t, n)
+	for i := 0; i < n; i++ {
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -693,7 +691,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 			err = reportcodecv2.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -701,7 +699,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFeeCents)
+			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
@@ -782,7 +780,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
 	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
-		report, err := (&reportcodecv3.ReportCodec{}).BuildReport(relaycodecv3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+		report, err := (&reportcodecv3.ReportCodec{}).BuildReport(v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
 		if err != nil {
 			panic(err)
 		}
@@ -802,8 +800,8 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
-	bootstrapNodePort := int64(21700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -812,11 +810,9 @@ func TestIntegration_MercuryV3(t *testing.T) {
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+	ports := freeport.GetN(t, n)
+	for i := 0; i < n; i++ {
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -975,7 +971,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 			err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -983,7 +979,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFeeCents)
+			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))

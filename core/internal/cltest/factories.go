@@ -16,25 +16,27 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -55,8 +57,8 @@ func NewEIP55Address() ethkey.EIP55Address {
 	return e
 }
 
-func NewPeerID() p2ppeer.ID {
-	id, err := p2ppeer.Decode("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
+func NewPeerID() (id ragep2ptypes.PeerID) {
+	err := id.UnmarshalText([]byte("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw"))
 	if err != nil {
 		panic(err)
 	}
@@ -134,7 +136,7 @@ func EmptyCLIContext() *cli.Context {
 	return cli.NewContext(nil, set, nil)
 }
 
-func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.Tx {
+func NewEthTx(fromAddress common.Address) txmgr.Tx {
 	return txmgr.Tx{
 		FromAddress:    fromAddress,
 		ToAddress:      testutils.NewAddress(),
@@ -143,6 +145,18 @@ func NewEthTx(t *testing.T, fromAddress common.Address) txmgr.Tx {
 		FeeLimit:       uint32(1000000000),
 		State:          txmgrcommon.TxUnstarted,
 	}
+}
+
+func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *big.Int, data []byte) *types.Transaction {
+	tx := types.LegacyTx{
+		Nonce:    nonce,
+		To:       &to,
+		Value:    value,
+		Gas:      uint64(gasLimit),
+		GasPrice: gasPrice,
+		Data:     data,
+	}
+	return types.NewTx(&tx)
 }
 
 func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
@@ -156,7 +170,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonc
 			chainID = v
 		}
 	}
-	etx := NewEthTx(t, fromAddress)
+	etx := NewEthTx(fromAddress)
 
 	etx.BroadcastAt = &broadcastAt
 	etx.InitialBroadcastAt = &broadcastAt
@@ -172,7 +186,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
@@ -181,104 +195,19 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
 	etx, err := txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, txAttemptState txmgrtypes.TxAttemptState, opts ...interface{}) txmgr.Tx {
-	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-
-	attempt.State = txAttemptState
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
-	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
-	attempt := NewDynamicFeeEthTxAttempt(t, etx.ID)
-
-	addr := testutils.NewAddress()
-	dtx := types.DynamicFeeTx{
-		ChainID:   big.NewInt(0),
-		Nonce:     uint64(nonce),
-		GasTipCap: big.NewInt(1),
-		GasFeeCap: big.NewInt(1),
-		Gas:       242,
-		To:        &addr,
-		Value:     big.NewInt(342),
-		Data:      []byte{2, 3, 4},
-	}
-	tx := types.NewTx(&dtx)
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-
-	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address) txmgr.Tx {
-	timeNow := time.Now()
-	etx := NewEthTx(t, fromAddress)
-
-	etx.BroadcastAt = &timeNow
-	etx.InitialBroadcastAt = &timeNow
-	n := evmtypes.Nonce(nonce)
-	etx.Sequence = &n
-	etx.State = txmgrcommon.TxUnconfirmed
-	require.NoError(t, txStore.InsertTx(&etx))
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-
-	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-	t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64,
-	broadcastAt time.Time, fromAddress common.Address) txmgr.Tx {
-	etx := NewEthTx(t, fromAddress)
-
-	etx.BroadcastAt = &broadcastAt
-	etx.InitialBroadcastAt = &broadcastAt
-	n := evmtypes.Nonce(nonce)
-	etx.Sequence = &n
-	etx.State = txmgrcommon.TxConfirmedMissingReceipt
-	require.NoError(t, txStore.InsertTx(&etx))
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
-	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx.TxAttempts = append(etx.TxAttempts, attempt)
 	return etx
 }
 
 func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, fromAddress)
+	etx := NewEthTx(fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	etx.InitialBroadcastAt = &timeNow
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
 	etx.State = txmgrcommon.TxConfirmed
+	etx.MinConfirmations.SetValid(6)
 	require.NoError(t, txStore.InsertTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
@@ -286,91 +215,6 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
 	etx.TxAttempts = append(etx.TxAttempts, attempt)
 	return etx
-}
-
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce evmtypes.Nonce, fromAddress common.Address) txmgr.Tx {
-	etx := NewEthTx(t, fromAddress)
-
-	etx.Sequence = &nonce
-	etx.State = txmgrcommon.TxInProgress
-	require.NoError(t, txStore.InsertTx(&etx))
-	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-	attempt.State = txmgrtypes.TxAttemptInProgress
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustCreateUnstartedGeneratedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, chainID *big.Int, opts ...func(*txmgr.TxRequest)) (tx txmgr.Tx) {
-	txRequest := txmgr.TxRequest{
-		FromAddress: fromAddress,
-	}
-
-	// Apply the default options
-	WithDefaults()(&txRequest)
-	// Apply the optional parameters
-	for _, opt := range opts {
-		opt(&txRequest)
-	}
-	return MustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
-}
-
-func WithDefaults() func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.ToAddress = testutils.NewAddress()
-		tx.EncodedPayload = []byte{1, 2, 3}
-		tx.Value = big.Int(assets.NewEthValue(142))
-		tx.FeeLimit = uint32(1000000000)
-		tx.Strategy = txmgrcommon.NewSendEveryStrategy()
-		// Set default values for other fields if needed
-	}
-}
-
-func EvmTxRequestWithStrategy(strategy txmgrtypes.TxStrategy) func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.Strategy = strategy
-	}
-}
-
-func EvmTxRequestWithChecker(checker txmgr.TransmitCheckerSpec) func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.Checker = checker
-	}
-}
-func EvmTxRequestWithValue(value big.Int) func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.Value = value
-	}
-}
-
-func EvmTxRequestWithIdempotencyKey(idempotencyKey string) func(*txmgr.TxRequest) {
-	return func(tx *txmgr.TxRequest) {
-		tx.IdempotencyKey = &idempotencyKey
-	}
-}
-
-func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.Tx) {
-	txRequest := txmgr.TxRequest{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: encodedPayload,
-		Value:          value,
-		FeeLimit:       gasLimit,
-		Strategy:       txmgrcommon.NewSendEveryStrategy(),
-	}
-
-	return MustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
-}
-
-func MustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.TxRequest, chainID *big.Int) (tx txmgr.Tx) {
-	tx, err := txStore.CreateTransaction(txRequest, chainID)
-	require.NoError(t, err)
-	return tx
 }
 
 func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
@@ -382,7 +226,7 @@ func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:        utils.NewHash(),
+		Hash:        evmutils.NewHash(),
 		State:       txmgrtypes.TxAttemptInProgress,
 	}
 }
@@ -400,139 +244,31 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx:           hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:                  utils.NewHash(),
+		Hash:                  evmutils.NewHash(),
 		State:                 txmgrtypes.TxAttemptInProgress,
 		ChainSpecificFeeLimit: 42,
 	}
 }
 
-func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.Receipt {
-	transactionIndex := uint(NewRandomPositiveInt64())
+type RandomKey struct {
+	Nonce    int64
+	Disabled bool
 
-	receipt := evmtypes.Receipt{
-		BlockNumber:      big.NewInt(blockNumber),
-		BlockHash:        blockHash,
-		TxHash:           txHash,
-		TransactionIndex: transactionIndex,
-		Status:           status,
-	}
-
-	r := txmgr.Receipt{
-		BlockNumber:      blockNumber,
-		BlockHash:        blockHash,
-		TxHash:           txHash,
-		TransactionIndex: transactionIndex,
-		Receipt:          receipt,
-	}
-	return r
+	chainIDs []ubig.Big // nil: Fixture, set empty for none
 }
 
-func MustInsertEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.Receipt {
-	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x1)
-	id, err := txStore.InsertReceipt(&r.Receipt)
-	require.NoError(t, err)
-	r.ID = id
-	return r
-}
-
-func MustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.Receipt {
-	r := NewEthReceipt(t, blockNumber, blockHash, txHash, 0x0)
-	id, err := txStore.InsertReceipt(&r.Receipt)
-	require.NoError(t, err)
-	r.ID = id
-	return r
-}
-
-// Inserts into eth_receipts but does not update eth_txes or eth_tx_attempts
-func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.Tx) {
-	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
-	MustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
-	return etx
-}
-
-func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.Tx) {
-	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
-	receipt := evmtypes.Receipt{
-		TxHash:           etx.TxAttempts[0].Hash,
-		BlockHash:        utils.NewHash(),
-		BlockNumber:      big.NewInt(nonce),
-		TransactionIndex: uint(1),
-	}
-	err := txStore.SaveFetchedReceipts([]*evmtypes.Receipt{&receipt}, &chainID)
-	require.NoError(t, err)
-	return etx
-}
-
-func MustInsertFatalErrorEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address) txmgr.Tx {
-	etx := NewEthTx(t, fromAddress)
-	etx.Error = null.StringFrom("something exploded")
-	etx.State = txmgrcommon.TxFatalError
-
-	require.NoError(t, txStore.InsertTx(&etx))
-	return etx
-}
-
-func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore keystore.Eth) (ethkey.KeyV2, common.Address) {
-	t.Helper()
-
-	k := MustGenerateRandomKey(t)
-	MustAddKeyToKeystore(t, k, &FixtureChainID, ethKeyStore)
-
-	return k, k.Address
-}
-
-func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethKeyStore keystore.Eth) {
-	t.Helper()
-	ethKeyStore.XXXTestingOnlyAdd(key)
-	require.NoError(t, ethKeyStore.Add(key.Address, chainID))
-	require.NoError(t, ethKeyStore.Enable(key.Address, chainID))
-}
-
-// MustInsertRandomKey inserts a randomly generated (not cryptographically
-// secure) key for testing
-// By default it is enabled for the fixture chain
-func MustInsertRandomKey(
-	t testing.TB,
-	keystore keystore.Eth,
-	opts ...interface{},
-) (ethkey.KeyV2, common.Address) {
-	t.Helper()
-
-	chainIDs := []utils.Big{*utils.NewBig(&FixtureChainID)}
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case utils.Big:
-			chainIDs[0] = v
-		case []utils.Big:
-			chainIDs = v
-		}
+func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
+	if r.chainIDs == nil {
+		r.chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
 	}
 
 	key := MustGenerateRandomKey(t)
 	keystore.XXXTestingOnlyAdd(key)
 
-	for _, cid := range chainIDs {
-		var nonce int64
-		enabled := true
-		for _, opt := range opts {
-			switch v := opt.(type) {
-			case int:
-				nonce = int64(v)
-			case int64:
-				nonce = v
-			case evmtypes.Nonce:
-				nonce = v.Int64()
-			case bool:
-				enabled = v
-			default:
-				t.Logf("ignoring unknown type in MustInsertRandomKey: %T, note: chain IDs are processed earlier", opt)
-			}
-		}
+	for _, cid := range r.chainIDs {
 		require.NoError(t, keystore.Add(key.Address, cid.ToInt()))
 		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
-		err := keystore.Reset(key.Address, cid.ToInt(), nonce)
-		require.NoError(t, err)
-		if !enabled {
+		if r.Disabled {
 			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
 		}
 	}
@@ -540,29 +276,30 @@ func MustInsertRandomKey(
 	return key, key.Address
 }
 
-func MustInsertRandomEnabledKey(
-	t testing.TB,
-	keystore keystore.Eth,
-	opts ...interface{},
-) (ethkey.KeyV2, common.Address) {
-	return MustInsertRandomKey(t, keystore, append(opts, true))
-}
-
-func MustInsertRandomDisabledKey(
-	t testing.TB,
-	keystore keystore.Eth,
-	opts ...interface{},
-) (key ethkey.KeyV2, address common.Address) {
-	return MustInsertRandomKey(t, keystore, append(opts, false))
-}
-
-func MustInsertRandomKeyReturningState(t testing.TB,
-	keystore keystore.Eth,
-	opts ...interface{},
-) (ethkey.State, common.Address) {
-	k, address := MustInsertRandomKey(t, keystore, opts...)
-	state := MustGetStateForKey(t, keystore, k)
+func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
+	k, address := r.MustInsert(t, keystore)
+	state, err := keystore.GetStateForKey(k)
+	require.NoError(t, err)
 	return state, address
+}
+
+// MustInsertRandomKey inserts a randomly generated (not cryptographically secure) key for testing.
+// By default, it is enabled for the fixture chain. Pass chainIDs to override.
+// Use MustInsertRandomKeyNoChains for a key associate with no chains.
+func MustInsertRandomKey(t testing.TB, keystore keystore.Eth, chainIDs ...ubig.Big) (ethkey.KeyV2, common.Address) {
+	r := RandomKey{}
+	if len(chainIDs) > 0 {
+		r.chainIDs = chainIDs
+	}
+	return r.MustInsert(t, keystore)
+}
+
+func MustInsertRandomKeyNoChains(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
+	return RandomKey{chainIDs: []ubig.Big{}}.MustInsert(t, keystore)
+}
+
+func MustInsertRandomKeyReturningState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
+	return RandomKey{}.MustInsertWithState(t, keystore)
 }
 
 func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
@@ -571,12 +308,12 @@ func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
 	return key
 }
 
-func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
+func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
 func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
-	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
@@ -605,7 +342,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:  pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, nil, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
+	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
 	err = jorm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
@@ -616,15 +353,15 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitte
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OCROracleSpec{}
-	require.NoError(t, db.Get(&spec, `INSERT INTO ocr_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout) VALUES (
-NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0
+	require.NoError(t, db.Get(&spec, `INSERT INTO ocr_oracle_specs (created_at, updated_at, contract_address, p2pv2_bootstrappers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout, evm_chain_id) VALUES (
+NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0,0
 ) RETURNING *`, NewEIP55Address(), &ocrKeyID, &transmitterAddress))
 	return spec
 }
 
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
-	drs := &job.DirectRequestSpec{}
+	drs := &job.DirectRequestSpec{EVMChainID: (*ubig.Big)(testutils.FixtureChainID)}
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
@@ -640,7 +377,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	t.Helper()
 
 	var keeperSpec job.KeeperSpec
-	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
+	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at,evm_chain_id) VALUES ($1, $2, NOW(), NOW(), $3) RETURNING *`, contract, from, testutils.SimulatedChainID.Int64())
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
@@ -661,14 +398,14 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, tlg, cfg.Database())
-	jrm := job.NewORM(db, nil, prm, btORM, nil, tlg, cfg.Database())
+	jrm := job.NewORM(db, prm, btORM, nil, tlg, cfg.Database())
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
 }
 
 func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
-	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
+	key, _ := MustInsertRandomKey(t, ethKeyStore, *ubig.New(testutils.SimulatedChainID))
 	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
@@ -692,7 +429,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, registry keeper.Registry) keeper.UpkeepRegistration {
 	korm := keeper.NewORM(db, logger.TestLogger(t), cfg)
-	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))
+	upkeepID := ubig.NewI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
 		ExecuteGas: uint32(150_000),
@@ -756,23 +493,23 @@ func RandomLog(t *testing.T) types.Log {
 
 	topics := make([]common.Hash, 4)
 	for i := range topics {
-		topics[i] = utils.NewHash()
+		topics[i] = evmutils.NewHash()
 	}
 
 	return types.Log{
 		Address:     testutils.NewAddress(),
-		BlockHash:   utils.NewHash(),
+		BlockHash:   evmutils.NewHash(),
 		BlockNumber: uint64(mathrand.Intn(9999999)),
 		Index:       uint(mathrand.Intn(9999999)),
 		Data:        MustRandomBytes(t, 512),
-		Topics:      []common.Hash{utils.NewHash(), utils.NewHash(), utils.NewHash(), utils.NewHash()},
+		Topics:      []common.Hash{evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash()},
 	}
 }
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
 	t.Helper()
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
-	topics := []common.Hash{topic, utils.NewHash(), utils.NewHash()}
+	topics := []common.Hash{topic, evmutils.NewHash(), evmutils.NewHash()}
 	return RawNewRoundLogWithTopics(t, contractAddr, blockHash, blockNumber, logIndex, removed, topics)
 }
 

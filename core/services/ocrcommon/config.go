@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 )
 
 type Config interface {

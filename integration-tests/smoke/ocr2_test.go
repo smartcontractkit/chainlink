@@ -1,55 +1,144 @@
 package smoke
 
 import (
-	"context"
 	"fmt"
 	"math/big"
-	"strings"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	t.Parallel()
+
+	for _, test := range []struct {
+		name string
+		env  map[string]string
+	}{
+		{"legacy", map[string]string{string(env.MedianPluginCmd): ""}},
+		{"plugins", map[string]string{string(env.MedianPluginCmd): "chainlink-feeds"}},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			l := logging.GetTestLogger(t)
+
+			network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+			require.NoError(t, err, "Error building ethereum network config")
+
+			env, err := test_env.NewCLTestEnvBuilder().
+				WithTestInstance(t).
+				WithPrivateEthereumNetwork(network).
+				WithMockAdapter().
+				WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
+					node.WithOCR2(),
+					node.WithP2Pv2(),
+					node.WithTracing(),
+				)).
+				WithCLNodeOptions(test_env.WithNodeEnvVars(test.env)).
+				WithCLNodes(6).
+				WithFunding(big.NewFloat(.1)).
+				WithStandardCleanup().
+				Build()
+			require.NoError(t, err)
+
+			env.ParallelTransactions(true)
+
+			nodeClients := env.ClCluster.NodeAPIs()
+			bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
+
+			linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
+			require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+
+			err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+			require.NoError(t, err, "Error funding Chainlink nodes")
+
+			// Gather transmitters
+			var transmitters []string
+			for _, node := range workerNodes {
+				addr, err := node.PrimaryEthAddress()
+				if err != nil {
+					require.NoError(t, fmt.Errorf("error getting node's primary ETH address: %w", err))
+				}
+				transmitters = append(transmitters, addr)
+			}
+
+			ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
+			aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
+			require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
+
+			err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
+			require.NoError(t, err, "Error creating OCRv2 jobs")
+
+			ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
+			require.NoError(t, err, "Error building OCRv2 config")
+
+			err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
+			require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+
+			err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+			require.NoError(t, err, "Error starting new OCR2 round")
+			roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
+			require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+			require.Equal(t, int64(5), roundData.Answer.Int64(),
+				"Expected latest answer from OCR contract to be 5 but got %d",
+				roundData.Answer.Int64(),
+			)
+
+			err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
+			require.NoError(t, err)
+			err = actions.WatchNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+			require.NoError(t, err)
+
+			roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(2))
+			require.NoError(t, err, "Error getting latest OCR answer")
+			require.Equal(t, int64(10), roundData.Answer.Int64(),
+				"Expected latest answer from OCR contract to be 10 but got %d",
+				roundData.Answer.Int64(),
+			)
+		})
+	}
+}
+
+// Tests that just calling requestNewRound() will properly induce more rounds
+func TestOCRv2Request(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithGeth().
-		WithMockServer(1).
-		WithCLNodeConfig(node.NewConfig(node.BaseConf,
+		WithTestInstance(t).
+		WithPrivateEthereumNetwork(network).
+		WithMockAdapter().
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
 			node.WithP2Pv2(),
+			node.WithTracing(),
 		)).
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	env.ParallelTransactions(true)
 
-	nodeClients := env.GetAPIs()
+	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
@@ -68,75 +157,130 @@ func TestOCRv2Basic(t *testing.T) {
 		transmitters = append(transmitters, addr)
 	}
 
-	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient)
+	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockServer.Client, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes)
+	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
 	require.NoError(t, err, "Error building OCRv2 config")
 
 	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5)
+	err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err, "Error starting new OCR2 round")
-	roundData, err := aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
+	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 5 but got %d",
 		roundData.Answer.Int64(),
 	)
 
-	err = env.MockServer.Client.SetValuePath("ocr2", 10)
-	require.NoError(t, err)
-	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5)
+	// Keep the mockserver value the same and continually request new rounds
+	for round := 2; round <= 4; round++ {
+		err = actions.StartNewOCR2Round(int64(round), aggregatorContracts, env.EVMClient, time.Minute*5, l)
+		require.NoError(t, err, "Error starting new OCR2 round")
+		roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(int64(round)))
+		require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+		require.Equal(t, int64(5), roundData.Answer.Int64(),
+			"Expected round %d answer from OCR contract to be 5 but got %d",
+			round,
+			roundData.Answer.Int64(),
+		)
+	}
+}
+
+func TestOCRv2JobReplacement(t *testing.T) {
+	l := logging.GetTestLogger(t)
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithGeth().
+		WithMockAdapter().
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
+			node.WithOCR2(),
+			node.WithP2Pv2(),
+			node.WithTracing(),
+		)).
+		WithCLNodes(6).
+		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
+		Build()
 	require.NoError(t, err)
 
-	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))
+	env.ParallelTransactions(true)
+
+	nodeClients := env.ClCluster.NodeAPIs()
+	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
+
+	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+
+	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+	require.NoError(t, err, "Error funding Chainlink nodes")
+
+	// Gather transmitters
+	var transmitters []string
+	for _, node := range workerNodes {
+		addr, err := node.PrimaryEthAddress()
+		if err != nil {
+			require.NoError(t, fmt.Errorf("error getting node's primary ETH address: %w", err))
+		}
+		transmitters = append(transmitters, addr)
+	}
+
+	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
+	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
+
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
+	require.NoError(t, err, "Error creating OCRv2 jobs")
+
+	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
+	require.NoError(t, err, "Error building OCRv2 config")
+
+	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
+	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+
+	err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	require.NoError(t, err, "Error starting new OCR2 round")
+	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
+	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+	require.Equal(t, int64(5), roundData.Answer.Int64(),
+		"Expected latest answer from OCR contract to be 5 but got %d",
+		roundData.Answer.Int64(),
+	)
+
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
+	require.NoError(t, err)
+	err = actions.WatchNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	require.NoError(t, err)
+
+	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(2))
 	require.NoError(t, err, "Error getting latest OCR answer")
 	require.Equal(t, int64(10), roundData.Answer.Int64(),
 		"Expected latest answer from OCR contract to be 10 but got %d",
 		roundData.Answer.Int64(),
 	)
-}
 
-func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
-	testEnvironment *environment.Environment,
-	testNetwork blockchain.EVMNetwork,
-) {
-	testNetwork = networks.SelectedNetwork
-	evmConfig := ethereum.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
+	err = actions.DeleteJobs(nodeClients)
+	require.NoError(t, err)
 
-	var toml string
-	if forwardersEnabled {
-		toml = client.AddNetworkDetailedConfig(config.BaseOCR2Config, config.ForwarderNetworkDetailConfig, testNetwork)
-	} else {
-		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
-	}
+	err = actions.DeleteBridges(nodeClients)
+	require.NoError(t, err)
 
-	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": toml,
-	})
-	require.NoError(t, err, "Error creating chainlink deployment")
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 15, env.EVMClient.GetChainID().Uint64(), false)
+	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-ocr2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelmCharts(chainlinkChart)
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
+	err = actions.WatchNewOCR2Round(3, aggregatorContracts, env.EVMClient, time.Minute*3, l)
+	require.NoError(t, err, "Error starting new OCR2 round")
+	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(3))
+	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
+	require.Equal(t, int64(15), roundData.Answer.Int64(),
+		"Expected latest answer from OCR contract to be 15 but got %d",
+		roundData.Answer.Int64(),
+	)
 }

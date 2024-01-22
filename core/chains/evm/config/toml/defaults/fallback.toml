@@ -58,11 +58,14 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
+DeltaCOverride = '168h'
+DeltaCJitterOverride = '1h'
 ObservationGracePeriod = '1s'
 
 [OCR2.Automation]

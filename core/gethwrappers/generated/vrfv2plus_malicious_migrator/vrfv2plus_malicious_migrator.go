@@ -29,7 +29,7 @@ var (
 )
 
 var VRFV2PlusMaliciousMigratorMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"}],\"name\":\"setCoordinator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"setCoordinator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 	Bin: "0x608060405234801561001057600080fd5b506040516102e03803806102e083398101604081905261002f91610054565b600080546001600160a01b0319166001600160a01b0392909216919091179055610084565b60006020828403121561006657600080fd5b81516001600160a01b038116811461007d57600080fd5b9392505050565b61024d806100936000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c80638ea9811714610030575b600080fd5b61004361003e36600461012a565b610045565b005b600080546040805160c081018252838152602080820185905281830185905260608201859052608082018590528251908101835293845260a0810193909352517f9b1c385e00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff90911691639b1c385e916100d49190600401610180565b602060405180830381600087803b1580156100ee57600080fd5b505af1158015610102573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101269190610167565b5050565b60006020828403121561013c57600080fd5b813573ffffffffffffffffffffffffffffffffffffffff8116811461016057600080fd5b9392505050565b60006020828403121561017957600080fd5b5051919050565b6000602080835283518184015280840151604084015261ffff6040850151166060840152606084015163ffffffff80821660808601528060808701511660a0860152505060a084015160c08085015280518060e086015260005b818110156101f757828101840151868201610100015283016101da565b8181111561020a57600061010083880101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016939093016101000194935050505056fea164736f6c6343000806000a",
 }
 
@@ -50,7 +50,7 @@ func DeployVRFV2PlusMaliciousMigrator(auth *bind.TransactOpts, backend bind.Cont
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2PlusMaliciousMigrator{VRFV2PlusMaliciousMigratorCaller: VRFV2PlusMaliciousMigratorCaller{contract: contract}, VRFV2PlusMaliciousMigratorTransactor: VRFV2PlusMaliciousMigratorTransactor{contract: contract}, VRFV2PlusMaliciousMigratorFilterer: VRFV2PlusMaliciousMigratorFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2PlusMaliciousMigrator{address: address, abi: *parsed, VRFV2PlusMaliciousMigratorCaller: VRFV2PlusMaliciousMigratorCaller{contract: contract}, VRFV2PlusMaliciousMigratorTransactor: VRFV2PlusMaliciousMigratorTransactor{contract: contract}, VRFV2PlusMaliciousMigratorFilterer: VRFV2PlusMaliciousMigratorFilterer{contract: contract}}, nil
 }
 
 type VRFV2PlusMaliciousMigrator struct {
@@ -169,16 +169,16 @@ func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorTransactorRaw) Tran
 	return _VRFV2PlusMaliciousMigrator.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorTransactor) SetCoordinator(opts *bind.TransactOpts, _vrfCoordinator common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusMaliciousMigrator.contract.Transact(opts, "setCoordinator", _vrfCoordinator)
+func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorTransactor) SetCoordinator(opts *bind.TransactOpts, arg0 common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusMaliciousMigrator.contract.Transact(opts, "setCoordinator", arg0)
 }
 
-func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorSession) SetCoordinator(_vrfCoordinator common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusMaliciousMigrator.Contract.SetCoordinator(&_VRFV2PlusMaliciousMigrator.TransactOpts, _vrfCoordinator)
+func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorSession) SetCoordinator(arg0 common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusMaliciousMigrator.Contract.SetCoordinator(&_VRFV2PlusMaliciousMigrator.TransactOpts, arg0)
 }
 
-func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorTransactorSession) SetCoordinator(_vrfCoordinator common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusMaliciousMigrator.Contract.SetCoordinator(&_VRFV2PlusMaliciousMigrator.TransactOpts, _vrfCoordinator)
+func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorTransactorSession) SetCoordinator(arg0 common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusMaliciousMigrator.Contract.SetCoordinator(&_VRFV2PlusMaliciousMigrator.TransactOpts, arg0)
 }
 
 func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigrator) Address() common.Address {
@@ -186,7 +186,7 @@ func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigrator) Address() common.
 }
 
 type VRFV2PlusMaliciousMigratorInterface interface {
-	SetCoordinator(opts *bind.TransactOpts, _vrfCoordinator common.Address) (*types.Transaction, error)
+	SetCoordinator(opts *bind.TransactOpts, arg0 common.Address) (*types.Transaction, error)
 
 	Address() common.Address
 }

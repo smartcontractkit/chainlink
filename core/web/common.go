@@ -5,16 +5,17 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 var (
-	ErrMissingChainID = errors.New("evmChainID does not match any local chains")
-	ErrInvalidChainID = errors.New("invalid evmChainID")
-	ErrMultipleChains = errors.New("more than one chain available, you must specify evmChainID parameter")
+	ErrMissingChainID = errors.New("chain id does not match any local chains")
+	ErrEmptyChainID   = errors.New("chainID is empty")
+	ErrInvalidChainID = errors.New("invalid chain id")
+	ErrMultipleChains = errors.New("more than one chain available, you must specify chain id parameter")
 )
 
-func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain evm.Chain, err error) {
+func getChain(legacyChains legacyevm.LegacyChainContainer, chainIDstr string) (chain legacyevm.Chain, err error) {
 
 	if chainIDstr != "" && chainIDstr != "<nil>" {
 		// evm keys are expected to be parsable as a big int
@@ -33,9 +34,5 @@ func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain e
 		return nil, ErrMultipleChains
 	}
 
-	chain, err = legacyChains.Default()
-	if err != nil {
-		return nil, err
-	}
-	return chain, nil
+	return nil, ErrEmptyChainID
 }

@@ -12,10 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
+
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 )
 
@@ -363,7 +364,7 @@ func main() {
 			*consumerAddress,
 			uint16(*numWords),
 			decimal.RequireFromString(*subID).BigInt(),
-			big.NewInt(int64(*confDelay)),
+			big.NewInt(*confDelay),
 			uint32(*callbackGasLimit),
 			nil, // test consumer doesn't use any args
 		)
@@ -388,7 +389,7 @@ func main() {
 			*consumerAddress,
 			uint16(*numWords),
 			decimal.RequireFromString(*subID).BigInt(),
-			big.NewInt(int64(*confDelay)),
+			big.NewInt(*confDelay),
 			uint32(*callbackGasLimit),
 			nil, // test consumer doesn't use any args,
 			big.NewInt(*batchSize),
@@ -410,7 +411,7 @@ func main() {
 				*consumerAddress,
 				uint16(*numWords),
 				decimal.RequireFromString(*subID).BigInt(),
-				big.NewInt(int64(*confDelay)),
+				big.NewInt(*confDelay),
 				uint32(*callbackGasLimit),
 				nil, // test consumer doesn't use any args,
 				big.NewInt(*batchSize),

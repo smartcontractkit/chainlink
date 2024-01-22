@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ BHS = &BulletproofBHS{}
@@ -97,7 +96,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateTransaction(txmgr.TxRequest{
+	_, err = c.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
@@ -106,7 +105,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
 		Strategy: txmgrcommon.NewQueueingTxStrategy(c.jobID, 256, c.dbConfig.DefaultQueryTimeout()),
-	}, pg.WithParentCtx(ctx))
+	})
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")
 	}
@@ -137,14 +136,14 @@ func (c *BulletproofBHS) StoreTrusted(
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}
-	_, err = c.txm.CreateTransaction(txmgr.TxRequest{
+	_, err = c.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.trustedBHS.Address(),
 		EncodedPayload: payload,
 		FeeLimit:       c.config.LimitDefault(),
 
 		Strategy: txmgrcommon.NewSendEveryStrategy(),
-	}, pg.WithParentCtx(ctx))
+	})
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")
 	}
@@ -192,13 +191,13 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateTransaction(txmgr.TxRequest{
+	_, err = c.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
 		FeeLimit:       c.config.LimitDefault(),
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
-	}, pg.WithParentCtx(ctx))
+	})
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")
 	}

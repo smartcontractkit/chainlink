@@ -39,31 +39,41 @@ func sampleEncodedAllowlist(t *testing.T) []byte {
 func TestAllowlist_UpdateAndCheck(t *testing.T) {
 	t.Parallel()
 
-	for _, version := range []uint32{0, 1} {
-		client := mocks.NewClient(t)
-		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
-		// both contract versions have the same return type
-		client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(sampleEncodedAllowlist(t), nil)
-		config := functions.OnchainAllowlistConfig{
-			ContractVersion:    version,
-			ContractAddress:    common.Address{},
-			BlockConfirmations: 1,
-		}
-		allowlist, err := functions.NewOnchainAllowlist(client, config, logger.TestLogger(t))
-		require.NoError(t, err)
-
-		err = allowlist.Start(testutils.Context(t))
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			assert.NoError(t, allowlist.Close())
-		})
-
-		require.NoError(t, allowlist.UpdateFromContract(testutils.Context(t)))
-		require.False(t, allowlist.Allow(common.Address{}))
-		require.True(t, allowlist.Allow(common.HexToAddress(addr1)))
-		require.True(t, allowlist.Allow(common.HexToAddress(addr2)))
-		require.False(t, allowlist.Allow(common.HexToAddress(addr3)))
+	client := mocks.NewClient(t)
+	client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
+	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(sampleEncodedAllowlist(t), nil)
+	config := functions.OnchainAllowlistConfig{
+		ContractVersion:    1,
+		ContractAddress:    common.Address{},
+		BlockConfirmations: 1,
 	}
+	allowlist, err := functions.NewOnchainAllowlist(client, config, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	err = allowlist.Start(testutils.Context(t))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, allowlist.Close())
+	})
+
+	require.NoError(t, allowlist.UpdateFromContract(testutils.Context(t)))
+	require.False(t, allowlist.Allow(common.Address{}))
+	require.True(t, allowlist.Allow(common.HexToAddress(addr1)))
+	require.True(t, allowlist.Allow(common.HexToAddress(addr2)))
+	require.False(t, allowlist.Allow(common.HexToAddress(addr3)))
+}
+
+func TestAllowlist_UnsupportedVersion(t *testing.T) {
+	t.Parallel()
+
+	client := mocks.NewClient(t)
+	config := functions.OnchainAllowlistConfig{
+		ContractVersion:    0,
+		ContractAddress:    common.Address{},
+		BlockConfirmations: 1,
+	}
+	_, err := functions.NewOnchainAllowlist(client, config, logger.TestLogger(t))
+	require.Error(t, err)
 }
 
 func TestAllowlist_UpdatePeriodically(t *testing.T) {
@@ -77,7 +87,7 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 	}).Return(sampleEncodedAllowlist(t), nil)
 	config := functions.OnchainAllowlistConfig{
 		ContractAddress:    common.Address{},
-		ContractVersion:    0,
+		ContractVersion:    1,
 		BlockConfirmations: 1,
 		UpdateFrequencySec: 1,
 		UpdateTimeoutSec:   1,

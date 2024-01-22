@@ -12,12 +12,6 @@ const (
 	DefaultQueryTimeout = 10 * time.Second
 	// longQueryTimeout is a bigger upper bound for how long a SQL query should take
 	longQueryTimeout = 1 * time.Minute
-	// defaultLockTimeout controls the max time we will wait for any kind of database lock.
-	// It's good to set this to _something_ because waiting for locks forever is really bad.
-	defaultLockTimeout = 15 * time.Second
-	// defaultIdleInTxSessionTimeout controls the max time we leave a transaction open and idle.
-	// It's good to set this to _something_ because leaving transactions open forever is really bad.
-	defaultIdleInTxSessionTimeout = 1 * time.Hour
 )
 
 var _ driver.Valuer = Limit(-1)

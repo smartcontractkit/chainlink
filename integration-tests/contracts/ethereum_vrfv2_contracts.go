@@ -3,18 +3,25 @@ package contracts
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
-	"math/big"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_load_test_consumer"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2_consumer_wrapper"
 )
 
 // EthereumVRFCoordinatorV2 represents VRFV2 coordinator contract
@@ -35,7 +42,7 @@ type EthereumVRFConsumerV2 struct {
 type EthereumVRFv2Consumer struct {
 	address  *common.Address
 	client   blockchain.EVMClient
-	consumer *eth_contracts.VRFv2Consumer
+	consumer *vrf_v2_consumer_wrapper.VRFv2Consumer
 }
 
 // EthereumVRFv2LoadTestConsumer represents VRFv2 consumer contract for performing Load Tests
@@ -43,6 +50,24 @@ type EthereumVRFv2LoadTestConsumer struct {
 	address  *common.Address
 	client   blockchain.EVMClient
 	consumer *vrf_load_test_with_metrics.VRFV2LoadTestWithMetrics
+}
+
+type EthereumVRFV2Wrapper struct {
+	address *common.Address
+	client  blockchain.EVMClient
+	wrapper *vrfv2_wrapper.VRFV2Wrapper
+}
+
+type EthereumVRFV2WrapperLoadTestConsumer struct {
+	address  *common.Address
+	client   blockchain.EVMClient
+	consumer *vrfv2_wrapper_load_test_consumer.VRFV2WrapperLoadTestConsumer
+}
+
+type GetRequestConfig struct {
+	MinimumRequestConfirmations uint16
+	MaxGasLimit                 uint32
+	ProvingKeyHashes            [32]byte
 }
 
 // DeployVRFCoordinatorV2 deploys VRFV2 coordinator contract
@@ -86,14 +111,14 @@ func (e *EthereumContractDeployer) DeployVRFv2Consumer(coordinatorAddr string) (
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return eth_contracts.DeployVRFv2Consumer(auth, backend, common.HexToAddress(coordinatorAddr))
+		return vrf_v2_consumer_wrapper.DeployVRFv2Consumer(auth, backend, common.HexToAddress(coordinatorAddr))
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumVRFv2Consumer{
 		client:   e.client,
-		consumer: instance.(*eth_contracts.VRFv2Consumer),
+		consumer: instance.(*vrf_v2_consumer_wrapper.VRFv2Consumer),
 		address:  address,
 	}, err
 }
@@ -116,20 +141,37 @@ func (e *EthereumContractDeployer) DeployVRFv2LoadTestConsumer(coordinatorAddr s
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployVRFv2PlusLoadTestConsumer(coordinatorAddr string) (VRFv2PlusLoadTestConsumer, error) {
-	address, _, instance, err := e.client.DeployContract("VRFV2PlusLoadTestWithMetrics", func(
+func (e *EthereumContractDeployer) DeployVRFV2Wrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2Wrapper, error) {
+	address, _, instance, err := e.client.DeployContract("VRFV2Wrapper", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_v2plus_load_test_with_metrics.DeployVRFV2PlusLoadTestWithMetrics(auth, backend, common.HexToAddress(coordinatorAddr))
+		return vrfv2_wrapper.DeployVRFV2Wrapper(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(linkEthFeedAddr), common.HexToAddress(coordinatorAddr))
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumVRFv2PlusLoadTestConsumer{
-		client:   e.client,
-		consumer: instance.(*vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetrics),
+	return &EthereumVRFV2Wrapper{
+		address: address,
+		client:  e.client,
+		wrapper: instance.(*vrfv2_wrapper.VRFV2Wrapper),
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployVRFV2WrapperLoadTestConsumer(linkAddr string, vrfV2WrapperAddr string) (VRFv2WrapperLoadTestConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("VRFV2WrapperLoadTestConsumer", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return vrfv2_wrapper_load_test_consumer.DeployVRFV2WrapperLoadTestConsumer(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(vrfV2WrapperAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFV2WrapperLoadTestConsumer{
 		address:  address,
+		client:   e.client,
+		consumer: instance.(*vrfv2_wrapper_load_test_consumer.VRFV2WrapperLoadTestConsumer),
 	}, err
 }
 
@@ -159,6 +201,24 @@ func (v *EthereumVRFCoordinatorV2) GetSubscription(ctx context.Context, subID ui
 		return vrf_coordinator_v2.GetSubscription{}, err
 	}
 	return subscription, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) GetRequestConfig(ctx context.Context) (GetRequestConfig, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	minConfirmations, maxGas, keyHashes, err := v.coordinator.GetRequestConfig(opts)
+	if err != nil {
+		return GetRequestConfig{}, err
+	}
+	requestConfig := GetRequestConfig{
+		MinimumRequestConfirmations: minConfirmations,
+		MaxGasLimit:                 maxGas,
+		ProvingKeyHashes:            keyHashes[0],
+	}
+
+	return requestConfig, nil
 }
 
 func (v *EthereumVRFCoordinatorV2) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig) error {
@@ -196,16 +256,16 @@ func (v *EthereumVRFCoordinatorV2) RegisterProvingKey(
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2) CreateSubscription() error {
+func (v *EthereumVRFCoordinatorV2) CreateSubscription() (*types.Transaction, error) {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := v.coordinator.CreateSubscription(opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return v.client.ProcessTransaction(tx)
+	return tx, v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress string) error {
@@ -222,6 +282,145 @@ func (v *EthereumVRFCoordinatorV2) AddConsumer(subId uint64, consumerAddress str
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2) PendingRequestsExist(ctx context.Context, subID uint64) (bool, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	pendingRequestExists, err := v.coordinator.PendingRequestExists(opts, subID)
+	if err != nil {
+		return false, err
+	}
+	return pendingRequestExists, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) OracleWithdraw(recipient common.Address, amount *big.Int) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.coordinator.OracleWithdraw(opts, recipient, amount)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+// OwnerCancelSubscription cancels subscription,
+// return funds to the subscription owner,
+// down not check if pending requests for a sub exist,
+// outstanding requests may fail onchain
+func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.coordinator.OwnerCancelSubscription(
+		opts,
+		subID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
+}
+
+// CancelSubscription cancels subscription by Sub owner,
+// return funds to specified address,
+// checks if pending requests for a sub exist
+func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.coordinator.CancelSubscription(
+		opts,
+		subID,
+		to,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2) FindSubscriptionID(subID uint64) (uint64, error) {
+	owner := v.client.GetDefaultWallet().Address()
+	subscriptionIterator, err := v.coordinator.FilterSubscriptionCreated(
+		nil,
+		[]uint64{subID},
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	if !subscriptionIterator.Next() {
+		return 0, fmt.Errorf("expected at least 1 subID for the given owner %s", owner)
+	}
+
+	return subscriptionIterator.Event.SubId, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error) {
+	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
+	subscription, err := v.coordinator.WatchRandomWordsFulfilled(nil, randomWordsFulfilledEventsChannel, requestID)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for RandomWordsFulfilled event")
+		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
+			return randomWordsFulfilledEvent, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
+	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, randomWordsFulfilledEventsChannel, keyHash, subID, sender)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for RandomWordsRequested event")
+		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
+			return randomWordsFulfilledEvent, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionCanceledEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
+	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled)
+	subscription, err := v.coordinator.WatchSubscriptionCanceled(nil, eventsChannel, subID)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for SubscriptionCanceled event")
+		case sub := <-eventsChannel:
+			return sub, nil
+		}
+	}
 }
 
 // GetAllRandomWords get all VRFv2 randomness output words
@@ -304,7 +503,9 @@ func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
 }
 
 func (v *EthereumVRFConsumerV2) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
+		To: v.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -363,20 +564,27 @@ func (v *EthereumVRFv2LoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(keyHash [32]byte, subID uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) error {
+func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(
+	keyHash [32]byte,
+	subID uint64,
+	requestConfirmations uint16,
+	callbackGasLimit uint32,
+	numWords uint32,
+	requestCount uint16,
+) (*types.Transaction, error) {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tx, err := v.consumer.RequestRandomWords(opts, subID, requestConfirmations, keyHash, callbackGasLimit, numWords, requestCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return v.client.ProcessTransaction(tx)
+	return tx, v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (RequestStatus, error) {
+func (v *EthereumVRFv2Consumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2_consumer_wrapper.GetRequestStatus, error) {
 	return v.consumer.GetRequestStatus(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -402,6 +610,18 @@ func (v *EthereumVRFv2LoadTestConsumer) GetLastRequestId(ctx context.Context) (*
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
+}
+
+func (v *EthereumVRFv2LoadTestConsumer) ResetMetrics() error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.Reset(opts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error) {
@@ -441,6 +661,129 @@ func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) 
 	})
 	if err != nil {
 		return &VRFLoadTestMetrics{}, err
+	}
+
+	return &VRFLoadTestMetrics{
+		requestCount,
+		fulfilmentCount,
+		averageFulfillmentInMillions,
+		slowestFulfillment,
+		fastestFulfillment,
+	}, nil
+}
+
+func (v *EthereumVRFV2Wrapper) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumVRFV2Wrapper) SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.wrapper.SetConfig(
+		opts,
+		wrapperGasOverhead,
+		coordinatorGasOverhead,
+		wrapperPremiumPercentage,
+		keyHash,
+		maxNumWords,
+	)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFV2Wrapper) GetSubID(ctx context.Context) (uint64, error) {
+	return v.wrapper.SUBSCRIPTIONID(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumVRFV2WrapperLoadTestConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumVRFV2WrapperLoadTestConsumer) Fund(ethAmount *big.Float) error {
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
+}
+
+func (v *EthereumVRFV2WrapperLoadTestConsumer) RequestRandomness(requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.consumer.MakeRequests(opts, callbackGasLimit, requestConfirmations, numWords, requestCount)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFV2WrapperLoadTestConsumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrfv2_wrapper_load_test_consumer.GetRequestStatus, error) {
+	return v.consumer.GetRequestStatus(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}, requestID)
+}
+
+func (v *EthereumVRFV2WrapperLoadTestConsumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
+	return v.consumer.SLastRequestId(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumVRFV2WrapperLoadTestConsumer) GetWrapper(ctx context.Context) (common.Address, error) {
+	return v.consumer.IVrfV2Wrapper(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumVRFV2WrapperLoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error) {
+	requestCount, err := v.consumer.SRequestCount(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+	fulfilmentCount, err := v.consumer.SResponseCount(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	averageFulfillmentInMillions, err := v.consumer.SAverageFulfillmentInMillions(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+	slowestFulfillment, err := v.consumer.SSlowestFulfillment(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	fastestFulfillment, err := v.consumer.SFastestFulfillment(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &VRFLoadTestMetrics{

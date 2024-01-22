@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../shared/access/ConfirmedOwner.sol";
-import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/VRFV2WrapperInterface.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {VRFV2WrapperInterface} from "../interfaces/VRFV2WrapperInterface.sol";
 
 contract VRFV2WrapperUnderFundingConsumer is ConfirmedOwner {
   LinkTokenInterface internal immutable LINK;

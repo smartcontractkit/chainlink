@@ -6,22 +6,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -32,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	vrf_mocks "github.com/smartcontractkit/chainlink/v2/core/services/vrf/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
@@ -40,13 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 type vrfUniverse struct {
@@ -58,9 +60,9 @@ type vrfUniverse struct {
 	ks           keystore.Master
 	vrfkey       vrfkey.KeyV2
 	submitter    common.Address
-	txm          *txmmocks.MockEvmTxManager
+	txm          *txmgr.TxManager
 	hb           httypes.HeadBroadcaster
-	legacyChains evm.LegacyChainContainer
+	legacyChains legacyevm.LegacyChainContainer
 	cid          big.Int
 }
 
@@ -68,28 +70,33 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
+	lb.On("Register", mock.Anything, mock.Anything).Return(func() {}).Maybe()
 	ec := evmclimocks.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
+	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(51), nil).Maybe()
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
-	txm := txmmocks.NewMockEvmTxManager(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
+	orm := headtracker.NewORM(db, lggr, cfg.Database(), *testutils.FixtureChainID)
+	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
+	jrm := job.NewORM(db, prm, btORM, ks, lggr, cfg.Database())
+	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jrm := job.NewORM(db, legacyChains, prm, btORM, ks, lggr, cfg.Database())
-	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
-	k, err := ks.Eth().Create(testutils.FixtureChainID)
-	require.NoError(t, err)
+	k, err2 := ks.Eth().Create(testutils.FixtureChainID)
+	require.NoError(t, err2)
 	submitter := k.Address
 	require.NoError(t, err)
-	vrfkey, err := ks.VRF().Create()
-	require.NoError(t, err)
+	vrfkey, err3 := ks.VRF().Create()
+	require.NoError(t, err3)
 
 	return vrfUniverse{
 		jrm:          jrm,
@@ -100,7 +107,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 		ks:           ks,
 		vrfkey:       vrfkey,
 		submitter:    submitter,
-		txm:          txm,
+		txm:          &txm,
 		hb:           hb,
 		legacyChains: legacyChains,
 		cid:          *ec.ConfiguredChainID(),
@@ -116,16 +123,16 @@ func generateCallbackReturnValues(t *testing.T, fulfilled bool) []byte {
 	var args abi.Arguments = []abi.Argument{{Type: callback}}
 	if fulfilled {
 		// Empty callback
-		b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
+		b, err2 := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
 			RandomnessFee:   big.NewInt(10),
-			SeedAndBlockNum: utils.EmptyHash,
+			SeedAndBlockNum: evmutils.EmptyHash,
 		})
-		require.NoError(t, err)
+		require.NoError(t, err2)
 		return b
 	}
 	b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
 		RandomnessFee:   big.NewInt(10),
-		SeedAndBlockNum: utils.NewHash(),
+		SeedAndBlockNum: evmutils.NewHash(),
 	})
 	require.NoError(t, err)
 	return b
@@ -144,7 +151,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	vd := vrf.NewDelegate(
 		db,
@@ -155,7 +162,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 		logger.TestLogger(t),
 		cfg.Database(),
 		mailMon)
-	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String(), EVMChainID: testutils.FixtureChainID.String()})
 	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
@@ -171,7 +178,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	go func() {
 		listener.RunHeadListener(func() {})
 	}()
-	t.Cleanup(func() { listener.Stop(t) })
+	servicetest.Run(t, listener)
 	return vuni, listener, jb
 }
 
@@ -179,7 +186,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	vuni, listener, jb := setup(t)
 
 	// Same request has already been fulfilled twice
-	reqID := utils.NewHash()
+	reqID := evmutils.NewHash()
 	var reqIDBytes [32]byte
 	copy(reqIDBytes[:], reqID.Bytes())
 	listener.SetRespCount(reqIDBytes, 2)
@@ -192,17 +199,17 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 		added <- struct{}{}
 	})
 	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
-	txHash := utils.NewHash()
+	txHash := evmutils.NewHash()
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil).Maybe()
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Maybe()
 	vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil).Maybe()
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
-			preSeed,                  // preSeed
-			utils.NewHash().Bytes(),  // sender
-			utils.NewHash().Bytes(),  // fee
-			reqID.Bytes()}, []byte{}, // requestID
+			preSeed,                    // preSeed
+			evmutils.NewHash().Bytes(), // sender
+			evmutils.NewHash().Bytes(), // fee
+			reqID.Bytes()}, []byte{},   // requestID
 		),
 		// JobID is indexed, thats why it lives in the Topics.
 		Topics: []common.Hash{
@@ -224,9 +231,9 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 
 func TestDelegate_ValidLog(t *testing.T) {
 	vuni, listener, jb := setup(t)
-	txHash := utils.NewHash()
-	reqID1 := utils.NewHash()
-	reqID2 := utils.NewHash()
+	txHash := evmutils.NewHash()
+	reqID1 := evmutils.NewHash()
+	reqID2 := evmutils.NewHash()
 	keyID := vuni.vrfkey.PublicKey.String()
 	pk, err := secp256k1.NewPublicKeyFromHex(keyID)
 	require.NoError(t, err)
@@ -235,7 +242,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		added <- struct{}{}
 	})
 	preSeed := common.BigToHash(big.NewInt(42)).Bytes()
-	bh := utils.NewHash()
+	bh := evmutils.NewHash()
 	var tt = []struct {
 		reqID [32]byte
 		log   types.Log
@@ -247,8 +254,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 				Data: bytes.Join([][]byte{
 					pk.MustHash().Bytes(),                    // key hash
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
-					utils.NewHash().Bytes(),                  // sender
-					utils.NewHash().Bytes(),                  // fee
+					evmutils.NewHash().Bytes(),               // sender
+					evmutils.NewHash().Bytes(),               // fee
 					reqID1.Bytes()},                          // requestID
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
@@ -269,8 +276,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 				Data: bytes.Join([][]byte{
 					pk.MustHash().Bytes(),                    // key hash
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
-					utils.NewHash().Bytes(),                  // sender
-					utils.NewHash().Bytes(),                  // fee
+					evmutils.NewHash().Bytes(),               // sender
+					evmutils.NewHash().Bytes(),               // fee
 					reqID2.Bytes()},                          // requestID
 					[]byte{}),
 				Topics: []common.Hash{
@@ -302,19 +309,6 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Expect a call to check if the req is already fulfilled.
 		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
 
-		// Ensure we queue up a valid eth transaction
-		// Linked to requestID
-		vuni.txm.On("CreateTransaction",
-			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
-				meta := txRequest.Meta
-				return txRequest.FromAddress == vuni.submitter &&
-					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					txRequest.FeeLimit == uint32(500000) &&
-					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
-					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
-			}),
-		).Once().Return(txmgr.Tx{}, nil)
-
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
 		waitForChannel(t, added, time.Second, "request not added to the queue")
@@ -331,7 +325,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Should have 4 tasks all completed
 		assert.Len(t, runs[0].PipelineTaskRuns, 4)
 
-		p, err := vuni.ks.VRF().GenerateProof(keyID, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
+		p, err := vuni.ks.VRF().GenerateProof(keyID, evmutils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
 		require.NoError(t, err)
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -374,11 +368,11 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
-			utils.NewHash().Bytes(),                      // key hash
+			evmutils.NewHash().Bytes(),                   // key hash
 			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
-			utils.NewHash().Bytes()...), // sender
-			utils.NewHash().Bytes()...), // fee
-			utils.NewHash().Bytes()...), // requestID
+			evmutils.NewHash().Bytes()...), // sender
+			evmutils.NewHash().Bytes()...), // fee
+			evmutils.NewHash().Bytes()...), // requestID
 		// JobID is indexed, that's why it lives in the Topics.
 		Topics: []common.Hash{
 			solidity_cross_tests.VRFRandomnessRequestLogTopic(),
@@ -411,11 +405,13 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		}
 	}
 
-	// Ensure we have NOT queued up an eth transaction
-	var ethTxes []txmgr.DbEthTx
-	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
+	db := pgtest.NewSqlxDB(t)
+	cfg := pgtest.NewQConfig(false)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+
+	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)
-	require.Len(t, ethTxes, 0)
+	require.Len(t, txes, 0)
 }
 
 func TestFulfilledCheck(t *testing.T) {
@@ -440,18 +436,18 @@ func TestFulfilledCheck(t *testing.T) {
 			Data: bytes.Join([][]byte{
 				vuni.vrfkey.PublicKey.MustHash().Bytes(), // key hash
 				common.BigToHash(big.NewInt(42)).Bytes(), // seed
-				utils.NewHash().Bytes(),                  // sender
-				utils.NewHash().Bytes(),                  // fee
-				utils.NewHash().Bytes()},                 // requestID
+				evmutils.NewHash().Bytes(),               // sender
+				evmutils.NewHash().Bytes(),               // fee
+				evmutils.NewHash().Bytes()},              // requestID
 				[]byte{}),
 			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{
 				solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 				jb.ExternalIDEncodeBytesToTopic(), // jobID STRING
 			},
-			//TxHash:      utils.NewHash().Bytes(),
+			//TxHash:      evmutils.NewHash().Bytes(),
 			BlockNumber: 10,
-			//BlockHash:   utils.NewHash().Bytes(),
+			//BlockHash:   evmutils.NewHash().Bytes(),
 		}, vuni.cid, nil))
 
 	// Should queue the request, even though its already fulfilled
@@ -564,7 +560,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -592,7 +588,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -681,7 +677,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
 
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	vd := vrf.NewDelegate(
 		db,
@@ -697,7 +693,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		VRFVersion:    vrfcommon.V2Plus,
 		PublicKey:     vuni.vrfkey.PublicKey.String(),
-		FromAddresses: []string{string(vuni.submitter.Hex())},
+		FromAddresses: []string{vuni.submitter.Hex()},
 		GasLanePrice:  chain.Config().EVM().GasEstimator().PriceMax(),
 	})
 	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
