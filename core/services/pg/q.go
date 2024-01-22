@@ -2,22 +2,15 @@ package pg
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
-	"strconv"
-	"strings"
-	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonpg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 )
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -56,34 +49,21 @@ var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
 //	orm.GetFoo(1, pg.WithParentCtx(ctx)) // will wrap the supplied parent context with the default query context
 //	orm.GetFoo(1, pg.WithQueryer(tx)) // allows to pass in a running transaction or anything else that implements Queryer
 //	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
-type QOpt func(*Q)
+type QOpt = commonpg.QOpt //func(*Q)
 
 // WithQueryer sets the queryer
 func WithQueryer(queryer Queryer) QOpt {
-	return func(q *Q) {
-		if q.Queryer != nil {
-			panic("queryer already set")
-		}
-		q.Queryer = queryer
-	}
+	return commonpg.WithQueryer(queryer)
 }
 
 // WithParentCtx sets or overwrites the parent ctx
 func WithParentCtx(ctx context.Context) QOpt {
-	return func(q *Q) {
-		q.ParentCtx = ctx
-	}
+	return commonpg.WithParentCtx(ctx)
 }
 
 // If the parent has a timeout, just use that instead of DefaultTimeout
 func WithParentCtxInheritTimeout(ctx context.Context) QOpt {
-	return func(q *Q) {
-		q.ParentCtx = ctx
-		deadline, ok := q.ParentCtx.Deadline()
-		if ok {
-			q.QueryTimeout = time.Until(deadline)
-		}
-	}
+	return commonpg.WithParentCtxInheritTimeout(ctx)
 }
 
 // WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
@@ -114,255 +94,21 @@ type QConfig interface {
 //
 // This is not the prettiest construct but without macros its about the best we
 // can do.
-type Q struct {
-	Queryer
-	ParentCtx    context.Context
-	db           *sqlx.DB
-	logger       logger.SugaredLogger
-	config       QConfig
-	QueryTimeout time.Duration
-}
+
+type Q = commonpg.Q
 
 func NewQ(db *sqlx.DB, lggr logger.Logger, config QConfig, qopts ...QOpt) (q Q) {
-	for _, opt := range qopts {
-		opt(&q)
-	}
-
-	q.db = db
-	// skip two levels since we use internal helpers and also want to point up the stack to the caller of the Q method.
-	q.logger = logger.Sugared(logger.Helper(lggr, 2))
-	q.config = config
-
-	if q.Queryer == nil {
-		q.Queryer = db
-	}
-	if q.ParentCtx == nil {
-		q.ParentCtx = context.Background()
-	}
-	if q.QueryTimeout <= 0 {
-		q.QueryTimeout = q.config.DefaultQueryTimeout()
-	}
-	return
-}
-
-func (q Q) originalLogger() logger.Logger {
-	return logger.Helper(q.logger, -2)
+	return commonpg.NewQ(db, lggr, config, qopts...)
 }
 
 func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) error {
-	stmt, err := q.PrepareNamed(sql)
-	if err != nil {
-		return errors.Wrap(err, "error preparing named statement")
-	}
-	defer stmt.Close()
-	return errors.Wrap(stmt.QueryRowx(arg).Scan(dest), "error querying row")
-}
-
-func (q Q) WithOpts(qopts ...QOpt) Q {
-	return NewQ(q.db, q.originalLogger(), q.config, qopts...)
-}
-
-func (q Q) Context() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(q.ParentCtx, q.QueryTimeout)
-}
-
-func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOption) error {
-	ctx, cancel := q.Context()
-	defer cancel()
-	return SqlxTransaction(ctx, q.Queryer, q.originalLogger(), fc, txOpts...)
-}
-
-// CAUTION: A subtle problem lurks here, because the following code is buggy:
-//
-//	ctx, cancel := context.WithCancel(context.Background())
-//	rows, err := db.QueryContext(ctx, "SELECT foo")
-//	cancel() // canceling here "poisons" the scan below
-//	for rows.Next() {
-//	  rows.Scan(...)
-//	}
-//
-// We must cancel the context only after we have completely finished using the
-// returned rows or result from the query/exec
-//
-// For this reasons, the following functions return a context.CancelFunc and it
-// is up to the caller to ensure that cancel is called after it has finished
-//
-// Generally speaking, it makes more sense to use Get/Select in most cases,
-// which avoids this problem
-func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.CancelFunc, error) {
-	ctx, cancel := q.Context()
-
-	ql := q.newQueryLogger(query, args)
-	ql.logSqlQuery()
-	defer ql.postSqlLog(ctx, time.Now())
-
-	res, err := q.Queryer.ExecContext(ctx, query, args...)
-	return res, cancel, ql.withLogError(err)
-}
-func (q Q) ExecQ(query string, args ...interface{}) error {
-	ctx, cancel := q.Context()
-	defer cancel()
-
-	ql := q.newQueryLogger(query, args)
-	ql.logSqlQuery()
-	defer ql.postSqlLog(ctx, time.Now())
-
-	_, err := q.Queryer.ExecContext(ctx, query, args...)
-	return ql.withLogError(err)
-}
-func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
-	query, args, err := q.BindNamed(query, arg)
-	if err != nil {
-		return errors.Wrap(err, "error binding arg")
-	}
-	ctx, cancel := q.Context()
-	defer cancel()
-
-	ql := q.newQueryLogger(query, args)
-	ql.logSqlQuery()
-	defer ql.postSqlLog(ctx, time.Now())
-
-	_, err = q.Queryer.ExecContext(ctx, query, args...)
-	return ql.withLogError(err)
-}
-
-// Select and Get are safe to wrap the context cancellation because the rows
-// are entirely consumed within the call
-func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
-	ctx, cancel := q.Context()
-	defer cancel()
-
-	ql := q.newQueryLogger(query, args)
-	ql.logSqlQuery()
-	defer ql.postSqlLog(ctx, time.Now())
-
-	return ql.withLogError(q.Queryer.SelectContext(ctx, dest, query, args...))
-}
-
-func (q Q) SelectNamed(dest interface{}, query string, arg interface{}) error {
-	query, args, err := q.BindNamed(query, arg)
-	if err != nil {
-		return errors.Wrap(err, "error binding arg")
-	}
-	return q.Select(dest, query, args...)
-}
-
-func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
-	ctx, cancel := q.Context()
-	defer cancel()
-
-	ql := q.newQueryLogger(query, args)
-	ql.logSqlQuery()
-	defer ql.postSqlLog(ctx, time.Now())
-
-	return ql.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
-}
-
-func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
-	query, args, err := q.BindNamed(sql, arg)
-	if err != nil {
-		return errors.Wrap(err, "error binding arg")
-	}
-	ctx, cancel := q.Context()
-	defer cancel()
-
-	ql := q.newQueryLogger(query, args)
-	ql.logSqlQuery()
-	defer ql.postSqlLog(ctx, time.Now())
-
-	return ql.withLogError(errors.Wrap(q.GetContext(ctx, dest, query, args...), "error in get query"))
-}
-
-func (q Q) newQueryLogger(query string, args []interface{}) *queryLogger {
-	return &queryLogger{Q: q, query: query, args: args, str: sync.OnceValue(func() string {
-		return sprintQ(query, args)
-	})}
+	return commonpg.PrepareQueryRowx(q, sql, dest, arg)
 }
 
 // sprintQ formats the query with the given args and returns the resulting string.
 func sprintQ(query string, args []interface{}) string {
-	if args == nil {
-		return query
-	}
-	var pairs []string
-	for i, arg := range args {
-		// We print by type so one can directly take the logged query string and execute it manually in pg.
-		// Annoyingly it seems as though the logger itself will add an extra \, so you still have to remove that.
-		switch v := arg.(type) {
-		case []byte:
-			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v))
-		case common.Address:
-			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
-		case common.Hash:
-			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
-		case pq.ByteaArray:
-			var s strings.Builder
-			fmt.Fprintf(&s, "('\\x%x'", v[0])
-			for j := 1; j < len(v); j++ {
-				fmt.Fprintf(&s, ",'\\x%x'", v[j])
-			}
-			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%s)", s.String()))
-		default:
-			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
-		}
-	}
-	replacer := strings.NewReplacer(pairs...)
-	queryWithVals := replacer.Replace(query)
-	return strings.ReplaceAll(strings.ReplaceAll(queryWithVals, "\n", " "), "\t", " ")
+	return commonpg.SprintQ(query, args)
 }
 
 // queryLogger extends Q with logging helpers for a particular query w/ args.
-type queryLogger struct {
-	Q
-
-	query string
-	args  []interface{}
-
-	str func() string
-}
-
-func (q *queryLogger) String() string {
-	return q.str()
-}
-
-func (q *queryLogger) logSqlQuery() {
-	if q.config != nil && q.config.LogSQL() {
-		q.logger.Debugw("SQL QUERY", "sql", q)
-	}
-}
-
-func (q *queryLogger) withLogError(err error) error {
-	if err != nil && !errors.Is(err, sql.ErrNoRows) && q.config != nil && q.config.LogSQL() {
-		q.logger.Errorw("SQL ERROR", "err", err, "sql", q)
-	}
-	return err
-}
-
-// postSqlLog logs about context cancellation and timing after a query returns.
-// Queries which use their full timeout log critical level. More than 50% log error, and 10% warn.
-func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
-	elapsed := time.Since(begin)
-	if ctx.Err() != nil {
-		q.logger.Debugw("SQL CONTEXT CANCELLED", "ms", elapsed.Milliseconds(), "err", ctx.Err(), "sql", q)
-	}
-
-	timeout := q.QueryTimeout
-	if timeout <= 0 {
-		timeout = DefaultQueryTimeout
-	}
-
-	pct := float64(elapsed) / float64(timeout)
-	pct *= 100
-
-	kvs := []any{"ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "percent", strconv.FormatFloat(pct, 'f', 1, 64), "sql", q}
-
-	if elapsed >= timeout {
-		q.logger.Criticalw("SLOW SQL QUERY", kvs...)
-	} else if errThreshold := timeout / 5; errThreshold > 0 && elapsed > errThreshold {
-		q.logger.Errorw("SLOW SQL QUERY", kvs...)
-	} else if warnThreshold := timeout / 10; warnThreshold > 0 && elapsed > warnThreshold {
-		q.logger.Warnw("SLOW SQL QUERY", kvs...)
-	}
-
-	promSQLQueryTime.Observe(pct)
-}
+type queryLogger = commonpg.QueryLogger
