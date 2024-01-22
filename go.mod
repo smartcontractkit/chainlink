@@ -65,12 +65,12 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240122161056-177752fcd926
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240122162317-b225dc93c880
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240122163538-e4b9c8805e2d
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240122163657-771becc03051
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20231127231053-2232d3a6766d
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231219140448-151a4725f312
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240122162302-4f11edcf00df
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240122163703-49be9b61bdc0
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240122163709-ee5a7b7ebcb4
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/libocr v0.0.0-20240112202000-6359502d2ff1
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
