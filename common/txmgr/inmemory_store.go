@@ -1718,8 +1718,22 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 		wg.Add(1)
 		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
 			// TODO(jtw): THIS IS EVM SPECIFIC THIS SHOULD BE GENERALIZED
-			maxConfirmedSequence := as.MaxConfirmedSequence()
-			filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			// Get the max confirmed sequence
+			filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool { return true }
+			states := []txmgrtypes.TxState{TxConfirmed}
+			txs := as.FetchTxs(states, filter)
+			var maxConfirmedSequence SEQ
+			for _, tx := range txs {
+				if tx.Sequence == nil {
+					continue
+				}
+				if (*tx.Sequence).Int64() > maxConfirmedSequence.Int64() {
+					maxConfirmedSequence = *tx.Sequence
+				}
+			}
+
+			// Mark all unconfirmed txs with a sequence less than the max confirmed sequence as confirmed_missing_receipt
+			filter = func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 				if tx.Sequence == nil {
 					return false
 				}
@@ -1729,8 +1743,8 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 
 				return (*tx.Sequence).Int64() < maxConfirmedSequence.Int64()
 			}
-			states := []txmgrtypes.TxState{TxUnconfirmed}
-			txs := as.FetchTxs(states, filter)
+			states = []txmgrtypes.TxState{TxUnconfirmed}
+			txs = as.FetchTxs(states, filter)
 			for _, tx := range txs {
 				attempt := tx.TxAttempts[0]
 

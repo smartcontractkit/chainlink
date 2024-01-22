@@ -152,23 +152,6 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTx
 	return as.idempotencyKeyToTx[key]
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MaxConfirmedSequence() SEQ {
-	as.RLock()
-	defer as.RUnlock()
-
-	var maxSeq SEQ
-	for _, tx := range as.confirmed {
-		if tx.Sequence == nil {
-			continue
-		}
-		if (*tx.Sequence).Int64() > maxSeq.Int64() {
-			maxSeq = *tx.Sequence
-		}
-	}
-
-	return maxSeq
-}
-
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyToTxsByState(
 	txStates []txmgrtypes.TxState,
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
