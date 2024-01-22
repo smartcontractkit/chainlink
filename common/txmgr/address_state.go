@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -22,7 +21,6 @@ type AddressState[
 ] struct {
 	chainID     CHAIN_ID
 	fromAddress ADDR
-	txStore     PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
 	sync.RWMutex
 	idempotencyKeyToTx map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -47,12 +45,11 @@ func NewAddressState[
 	chainID CHAIN_ID,
 	fromAddress ADDR,
 	maxUnstarted int,
-	txStore PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) (*AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
 	as := AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		chainID:     chainID,
 		fromAddress: fromAddress,
-		txStore:     txStore,
 
 		idempotencyKeyToTx:      map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 		unstarted:               NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
@@ -63,12 +60,7 @@ func NewAddressState[
 		allTransactions:         map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{},
 	}
 
-	// Load all transactions from persistent storage
-	ctx := context.Background()
-	txs, err := txStore.AllTransactions(ctx, as.fromAddress, as.chainID)
-	if err != nil {
-		return nil, fmt.Errorf("address_state: initialization: %w", err)
-	}
+	// Load all transactions supplied
 	for i := 0; i < len(txs); i++ {
 		tx := txs[i]
 		switch tx.State {

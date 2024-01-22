@@ -79,6 +79,7 @@ func NewInMemoryStore[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	chainID CHAIN_ID,
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
@@ -99,7 +100,11 @@ func NewInMemoryStore[
 		return nil, fmt.Errorf("new_in_memory_store: %w", err)
 	}
 	for _, fromAddr := range addresses {
-		as, err := NewAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](chainID, fromAddr, maxUnstarted, txStore)
+		txs, err := txStore.AllTransactions(ctx, fromAddr, chainID)
+		if err != nil {
+			return nil, fmt.Errorf("address_state: initialization: %w", err)
+		}
+		as, err := NewAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](chainID, fromAddr, maxUnstarted, txs)
 		if err != nil {
 			return nil, fmt.Errorf("new_in_memory_store: %w", err)
 		}
