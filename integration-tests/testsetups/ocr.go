@@ -71,7 +71,6 @@ type OCRSoakTest struct {
 	chainClient      blockchain.EVMClient
 	mockServer       *ctfClient.MockserverClient
 	filterQuery      geth.FilterQuery
-	testConfig       *tc.TestConfig
 
 	ocrRoundStates []*testreporters.OCRRoundState
 	testIssues     []*testreporters.TestIssue
@@ -98,7 +97,6 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 		log:              logging.GetTestLogger(t),
 		ocrRoundStates:   make([]*testreporters.OCRRoundState, 0),
 		ocrV1InstanceMap: make(map[string]contracts.OffchainAggregator),
-		testConfig:       config,
 		ocrV2InstanceMap: make(map[string]contracts.OffchainAggregatorV2),
 	}
 	return test, test.ensureInputValues()
@@ -317,7 +315,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	reportModel.GrafanaURLProvider,
 	blockchain.EVMClient,
 ) {
-	return t, o.namespace, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.testConfig, o.chainClient
+	return t, o.namespace, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.Config, o.chainClient
 }
 
 // *********************
@@ -359,7 +357,7 @@ func (o *OCRSoakTest) SaveState() error {
 		TimeRunning:          time.Since(o.startTime),
 		TestDuration:         o.Config.OCR.Common.TestDuration.Duration,
 		OCRContractAddresses: ocrAddresses,
-		OCRVersion:           *o.testConfig.OCR.Soak.OCRVersion,
+		OCRVersion:           *o.Config.OCR.Soak.OCRVersion,
 
 		ChainURL:         o.chainClient.GetNetworkConfig().URL,
 		MockServerURL:    "http://mockserver:1080", // TODO: Make this dynamic
@@ -415,7 +413,7 @@ func (o *OCRSoakTest) LoadState() error {
 	o.timeLeft = testState.TestDuration - testState.TimeRunning
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
-	o.testConfig.OCR.Soak.OCRVersion = &testState.OCRVersion
+	o.Config.OCR.Soak.OCRVersion = &testState.OCRVersion
 
 	network := networks.MustGetSelectedNetworkConfig(o.Config.Network)[0]
 	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
@@ -475,9 +473,9 @@ func (o *OCRSoakTest) Resume() {
 		Str("Time Left", o.timeLeft.String()).
 		Msg("Resuming OCR Soak Test")
 
-	ocrAddresses := make([]common.Address, *o.testConfig.OCR.Soak.NumberOfContracts)
+	ocrAddresses := make([]common.Address, *o.Config.OCR.Soak.NumberOfContracts)
 
-	if *o.testConfig.OCR.Soak.OCRVersion == "1" {
+	if *o.Config.OCR.Soak.OCRVersion == "1" {
 		for i, ocrInstance := range o.ocrV1Instances {
 			ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
 		}
@@ -488,7 +486,7 @@ func (o *OCRSoakTest) Resume() {
 			Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
 			FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 		}
-	} else if *o.testConfig.OCR.Soak.OCRVersion == "2" {
+	} else if *o.Config.OCR.Soak.OCRVersion == "2" {
 		for i, ocrInstance := range o.ocrV2Instances {
 			ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
 		}
@@ -624,7 +622,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 		for {
 			select {
 			case event := <-eventLogs:
-				if *o.testConfig.OCR.Soak.OCRVersion == "1" {
+				if *o.Config.OCR.Soak.OCRVersion == "1" {
 					answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
 					if err != nil {
 						o.log.Warn().
@@ -640,7 +638,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 						Uint64("Round ID", answerUpdated.RoundId.Uint64()).
 						Int64("Answer", answerUpdated.Current.Int64()).
 						Msg("Answer Updated Event")
-				} else if *o.testConfig.OCR.Soak.OCRVersion == "2" {
+				} else if *o.Config.OCR.Soak.OCRVersion == "2" {
 					answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
 					if err != nil {
 						o.log.Warn().
@@ -687,9 +685,9 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 	}
 
 	var err error
-	if *o.testConfig.OCR.Soak.OCRVersion == "1" {
+	if *o.Config.OCR.Soak.OCRVersion == "1" {
 		err = actions.SetAllAdapterResponsesToTheSameValue(newValue, o.ocrV1Instances, o.workerNodes, o.mockServer)
-	} else if *o.testConfig.OCR.Soak.OCRVersion == "2" {
+	} else if *o.Config.OCR.Soak.OCRVersion == "2" {
 		err = actions.SetOCR2AllAdapterResponsesToTheSameValue(newValue, o.ocrV2Instances, o.workerNodes, o.mockServer)
 	}
 	if err != nil {
@@ -701,11 +699,11 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 		Answer:      int64(newValue),
 		FoundEvents: make(map[string][]*testreporters.FoundEvent),
 	}
-	if *o.testConfig.OCR.Soak.OCRVersion == "1" {
+	if *o.Config.OCR.Soak.OCRVersion == "1" {
 		for _, ocrInstance := range o.ocrV1Instances {
 			expectedState.FoundEvents[ocrInstance.Address()] = make([]*testreporters.FoundEvent, 0)
 		}
-	} else if *o.testConfig.OCR.Soak.OCRVersion == "2" {
+	} else if *o.Config.OCR.Soak.OCRVersion == "2" {
 		for _, ocrInstance := range o.ocrV2Instances {
 			expectedState.FoundEvents[ocrInstance.Address()] = make([]*testreporters.FoundEvent, 0)
 		}
@@ -746,7 +744,7 @@ func (o *OCRSoakTest) collectEvents() error {
 
 	sortedFoundEvents := make([]*testreporters.FoundEvent, 0)
 	for _, event := range contractEvents {
-		if *o.testConfig.OCR.Soak.OCRVersion == "1" {
+		if *o.Config.OCR.Soak.OCRVersion == "1" {
 			answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
 			if err != nil {
 				return fmt.Errorf("error parsing EventAnswerUpdated for event: %v, %w", event, err)
@@ -758,7 +756,7 @@ func (o *OCRSoakTest) collectEvents() error {
 				RoundID:     answerUpdated.RoundId.Uint64(),
 				BlockNumber: event.BlockNumber,
 			})
-		} else if *o.testConfig.OCR.Soak.OCRVersion == "2" {
+		} else if *o.Config.OCR.Soak.OCRVersion == "2" {
 			answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
 			if err != nil {
 				return fmt.Errorf("error parsing EventAnswerUpdated for event: %v, %w", event, err)
@@ -803,8 +801,8 @@ func (o *OCRSoakTest) collectEvents() error {
 // ensureValues ensures that all values needed to run the test are present
 func (o *OCRSoakTest) ensureInputValues() error {
 	ocrConfig := o.Config.OCR.Soak
-	if *o.testConfig.OCR.Soak.OCRVersion != "1" && *o.testConfig.OCR.Soak.OCRVersion != "2" {
-		return fmt.Errorf("OCR version must be 1 or 2, found %s", *o.testConfig.OCR.Soak.OCRVersion)
+	if *ocrConfig.OCRVersion != "1" && *ocrConfig.OCRVersion != "2" {
+		return fmt.Errorf("OCR version must be 1 or 2, found %s", *ocrConfig.OCRVersion)
 	}
 	if ocrConfig.NumberOfContracts != nil && *ocrConfig.NumberOfContracts <= 0 {
 		return fmt.Errorf("Number of OCR contracts must be set and greater than 0, found %d", ocrConfig.NumberOfContracts)

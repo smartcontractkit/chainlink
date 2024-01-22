@@ -25,6 +25,8 @@ func TestOCRSoak(t *testing.T) {
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
+	l.Info().Float64("Funding", *config.Common.ChainlinkNodeFunding).Msg("Using funding amount")
+
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
 	require.NoError(t, err, "Error creating soak test")
 	if !ocrSoakTest.Interrupted() {
