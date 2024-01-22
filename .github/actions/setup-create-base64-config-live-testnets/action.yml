@@ -115,13 +115,13 @@ runs:
         selected_networks=["$NETWORK"]
 
         [Network.RpcHttpUrls]
-        sepolia = $(convert_to_toml_array "$HTTP_ENDPOINTS")
+        "$NETWORK" = $(convert_to_toml_array "$HTTP_ENDPOINTS")
 
         [Network.RpcWsUrls]
-        sepolia = $(convert_to_toml_array "$WS_ENDPOINTS")
+        "$NETWORK" = $(convert_to_toml_array "$WS_ENDPOINTS")
 
         [Network.WalletKeys]
-        sepolia = $(convert_to_toml_array "$FUNDING_KEYS")
+        "$NETWORK" = $(convert_to_toml_array "$FUNDING_KEYS")
         EOF
         
         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
