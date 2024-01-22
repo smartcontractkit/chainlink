@@ -40,6 +40,14 @@ contract ScrollSequencerUptimeFeedTest is L2EPTest {
 contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest {
   /// @notice it should have been deployed with the correct initial state
   function test_InitialState() public {
+    // L1 sender address must not be the zero address
+    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.ZeroAddress.selector));
+    new ScrollSequencerUptimeFeed(address(0), address(s_mockScrollL2CrossDomainMessenger), false);
+
+    // L2 cross domain messenger address must not be the zero address
+    vm.expectRevert(abi.encodeWithSelector(ScrollSequencerUptimeFeed.ZeroAddress.selector));
+    new ScrollSequencerUptimeFeed(s_l1OwnerAddr, address(0), false);
+
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 

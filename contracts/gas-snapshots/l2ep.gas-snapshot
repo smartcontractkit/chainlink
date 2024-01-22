@@ -130,7 +130,7 @@ ScrollSequencerUptimeFeed_AggregatorV3Interface:test_AggregatorV3Interface() (ga
 ScrollSequencerUptimeFeed_AggregatorV3Interface:test_RevertGetAnswerWhenRoundDoesNotExistYet() (gas: 18035)
 ScrollSequencerUptimeFeed_AggregatorV3Interface:test_RevertGetRoundDataWhenRoundDoesNotExistYet() (gas: 18253)
 ScrollSequencerUptimeFeed_AggregatorV3Interface:test_RevertGetTimestampWhenRoundDoesNotExistYet() (gas: 17959)
-ScrollSequencerUptimeFeed_Constructor:test_InitialState() (gas: 21085)
+ScrollSequencerUptimeFeed_Constructor:test_InitialState() (gas: 185840)
 ScrollSequencerUptimeFeed_GasCosts:test_GasCosts() (gas: 64888)
 ScrollSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFunctions:test_AggregatorV2V3InterfaceAllowReadsIfConsumingContractIsWhitelisted() (gas: 597491)
 ScrollSequencerUptimeFeed_ProtectReadsOnAggregatorV2V3InterfaceFunctions:test_AggregatorV2V3InterfaceDisallowReadsIfConsumingContractIsNotWhitelisted() (gas: 573807)
