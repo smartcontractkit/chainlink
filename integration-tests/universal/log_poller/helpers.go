@@ -152,7 +152,7 @@ type ExpectedFilter struct {
 	topic          common.Hash
 }
 
-func getExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []ExpectedFilter {
+func GetExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []ExpectedFilter {
 	expectedFilters := make([]ExpectedFilter, 0)
 	for _, emitter := range logEmitters {
 		for _, event := range cfg.General.EventsToEmit {
@@ -166,7 +166,7 @@ func getExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []Expe
 	return expectedFilters
 }
 
-var nodeHasExpectedFilters = func(expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, string, error) {
+func NodeHasExpectedFilters(expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, string, error) {
 	orm, db, err := NewOrm(logger, chainID, postgresDb)
 	if err != nil {
 		return false, "", err
@@ -226,7 +226,7 @@ func getStringSlice(length int) []string {
 	return result
 }
 
-var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
+func emitEvents(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
 	address := (*logEmitter).Address().String()
 	localCounter := 0
 	defer wg.Done()
@@ -277,7 +277,7 @@ var emitEvents = func(ctx context.Context, l zerolog.Logger, logEmitter *contrac
 	}
 }
 
-var logPollerHasFinalisedEndBlock = func(endBlock int64, chainID *big.Int, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
+func LogPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
 	wg := &sync.WaitGroup{}
 
 	type boolQueryResult struct {
@@ -370,7 +370,7 @@ var logPollerHasFinalisedEndBlock = func(endBlock int64, chainID *big.Int, l zer
 	return <-allFinalisedCh, err
 }
 
-var clNodesHaveExpectedLogCount = func(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
+func ClNodesHaveExpectedLogCount(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
 	wg := &sync.WaitGroup{}
 
 	type logQueryResult struct {
@@ -488,7 +488,7 @@ func (m *MissingLogs) IsEmpty() bool {
 	return true
 }
 
-var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *Config) (MissingLogs, error) {
+func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *Config) (MissingLogs, error) {
 	wg := &sync.WaitGroup{}
 
 	type dbQueryResult struct {
@@ -650,7 +650,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 		}
 	}
 
-	expectedTotalLogsEmitted := getExpectedLogCount(cfg)
+	expectedTotalLogsEmitted := GetExpectedLogCount(cfg)
 	if int64(len(allLogsInEVMNode)) != expectedTotalLogsEmitted {
 		l.Warn().
 			Str("Actual/Expected", fmt.Sprintf("%d/%d", expectedTotalLogsEmitted, len(allLogsInEVMNode))).
@@ -660,7 +660,7 @@ var getMissingLogs = func(startBlock, endBlock int64, logEmitters []*contracts.L
 	return missingLogs, nil
 }
 
-var printMissingLogsInfo = func(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
+func PrintMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
 	var findHumanName = func(topic common.Hash) string {
 		for _, event := range cfg.General.EventsToEmit {
 			if event.ID == topic {
@@ -709,7 +709,7 @@ var printMissingLogsInfo = func(missingLogs map[string][]geth_types.Log, l zerol
 	}
 }
 
-var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
+func getEVMLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
 	allLogsInEVMNode := make([]geth_types.Log, 0)
 	for j := 0; j < len(logEmitters); j++ {
 		address := (*logEmitters[j]).Address()
@@ -739,7 +739,7 @@ var getEVMLogs = func(startBlock, endBlock int64, logEmitters []*contracts.LogEm
 	return allLogsInEVMNode, nil
 }
 
-func executeGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
+func ExecuteGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
 	if cfg.General.Generator == GeneratorType_WASP {
 		return runWaspGenerator(t, cfg, logEmitters)
 	}
@@ -855,7 +855,7 @@ func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogE
 	return int(total), nil
 }
 
-func getExpectedLogCount(cfg *Config) int64 {
+func GetExpectedLogCount(cfg *Config) int64 {
 	if cfg.General.Generator == GeneratorType_WASP {
 		if cfg.Wasp.Load.RPS != 0 {
 			return cfg.Wasp.Load.RPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds()) * int64(cfg.General.EventsPerTx)
@@ -923,7 +923,7 @@ type ChaosPauseData struct {
 	PauseData PauseData
 }
 
-var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *Config, errorCh chan error) {
+func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *Config, errorCh chan error) {
 	if cfg.ChaosConfig == nil || cfg.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
@@ -980,7 +980,7 @@ var executeChaosExperiment = func(l zerolog.Logger, testEnv *test_env.CLClusterT
 	}()
 }
 
-var GetFinalityDepth = func(chainId int64) (int64, error) {
+func GetFinalityDepth(chainId int64) (int64, error) {
 	var finalityDepth int64
 	switch chainId {
 	// Ethereum Sepolia
@@ -999,7 +999,7 @@ var GetFinalityDepth = func(chainId int64) (int64, error) {
 	return finalityDepth, nil
 }
 
-var GetEndBlockToWaitFor = func(endBlock, chainId int64, cfg *Config) (int64, error) {
+func GetEndBlockToWaitFor(endBlock, chainId int64, cfg *Config) (int64, error) {
 	if cfg.General.UseFinalityTag {
 		return endBlock + 1, nil
 	}
@@ -1021,7 +1021,7 @@ const (
 )
 
 var (
-	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
+	DefaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
 		BlockCountPerTurn:    big.NewInt(10),
@@ -1052,7 +1052,7 @@ var (
 	}
 )
 
-func setupLogPollerTestDocker(
+func SetupLogPollerTestDocker(
 	t *testing.T,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
@@ -1187,7 +1187,7 @@ func setupLogPollerTestDocker(
 	return env.EVMClient, nodeClients, env.ContractDeployer, linkToken, registry, registrar, env
 }
 
-func uploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, cfg *Config) []*contracts.LogEmitter {
+func UploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, cfg *Config) []*contracts.LogEmitter {
 	logEmitters := make([]*contracts.LogEmitter, 0)
 	for i := 0; i < cfg.General.Contracts; i++ {
 		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
@@ -1219,7 +1219,7 @@ func uploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testin
 	return logEmitters
 }
 
-func assertUpkeepIdsUniqueness(upkeepIDs []*big.Int) error {
+func AssertUpkeepIdsUniqueness(upkeepIDs []*big.Int) error {
 	upKeepIdSeen := make(map[int64]bool)
 	for _, upkeepID := range upkeepIDs {
 		if _, ok := upKeepIdSeen[upkeepID.Int64()]; ok {
@@ -1231,7 +1231,7 @@ func assertUpkeepIdsUniqueness(upkeepIDs []*big.Int) error {
 	return nil
 }
 
-func assertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error {
+func AssertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error {
 	contractAddressSeen := make(map[string]bool)
 	for _, logEmitter := range logEmitters {
 		address := (*logEmitter).Address().String()
@@ -1244,7 +1244,7 @@ func assertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error
 	return nil
 }
 
-func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
+func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
 	uniqueFilters := make(map[string]bool)
 
 	upkeepIdIndex := 0
@@ -1281,7 +1281,7 @@ func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 	return nil
 }
 
-func fluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock int64, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, testEnv *test_env.CLClusterTestEnv) (bool, error) {
+func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock int64, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, testEnv *test_env.CLClusterTestEnv) (bool, error) {
 	logCountWaitDuration, err := time.ParseDuration(duration)
 	if err != nil {
 		return false, err
@@ -1291,7 +1291,7 @@ func fluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock i
 	// not using gomega here, because I want to see which logs were missing
 	allNodesLogCountMatches := false
 	for time.Now().Before(endTime) {
-		logCountMatches, clErr := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), expectedLogCount, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		logCountMatches, clErr := ClNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), expectedLogCount, expectedFilters, l, coreLogger, testEnv.ClCluster)
 		if clErr != nil {
 			l.Warn().
 				Err(clErr).
