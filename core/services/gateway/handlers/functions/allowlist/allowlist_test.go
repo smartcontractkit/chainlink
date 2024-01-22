@@ -94,7 +94,7 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 		ContractAddress:    common.Address{},
 		ContractVersion:    1,
 		BlockConfirmations: 1,
-		UpdateFrequencySec: 1,
+		UpdateFrequencySec: 2,
 		UpdateTimeoutSec:   1,
 	}
 
@@ -128,7 +128,7 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 			ContractAddress:            common.HexToAddress(addr3),
 			ContractVersion:            1,
 			BlockConfirmations:         1,
-			UpdateFrequencySec:         1,
+			UpdateFrequencySec:         2,
 			UpdateTimeoutSec:           1,
 			StoredAllowlistBatchSize:   2,
 			OnchainAllowlistBatchSize:  16,
@@ -162,7 +162,7 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 			ContractAddress:            common.HexToAddress(addr3),
 			ContractVersion:            1,
 			BlockConfirmations:         1,
-			UpdateFrequencySec:         1,
+			UpdateFrequencySec:         2,
 			UpdateTimeoutSec:           1,
 			StoredAllowlistBatchSize:   2,
 			OnchainAllowlistBatchSize:  16,

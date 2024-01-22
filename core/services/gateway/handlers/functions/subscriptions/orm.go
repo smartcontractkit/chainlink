@@ -114,8 +114,13 @@ func (o *orm) UpsertSubscription(subscription StoredSubscription, qopts ...pg.QO
 		subscription.Flags[:],
 		o.routerContractAddress,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	o.lggr.Debugf("Successfully updated subscription: %d for routerContractAddress: %s", subscription.SubscriptionID, o.routerContractAddress)
+
+	return nil
 }
 
 func (cs *storedSubscriptionRow) encode() StoredSubscription {

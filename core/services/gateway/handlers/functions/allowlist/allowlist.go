@@ -93,8 +93,12 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 	}
 
 	if config.FetchingDelayInRangeSec == 0 {
-		lggr.Info("FetchingDelayInRangeSec not specified, using default size: ", defaultOnchainAllowlistBatchSize)
+		lggr.Info("FetchingDelayInRangeSec not specified, using default delay: ", defaultFetchingDelayInRangeSec)
 		config.FetchingDelayInRangeSec = defaultFetchingDelayInRangeSec
+	}
+
+	if config.UpdateFrequencySec != 0 && config.FetchingDelayInRangeSec >= config.UpdateFrequencySec {
+		return nil, fmt.Errorf("to avoid updates overlapping FetchingDelayInRangeSec:%d should be less than UpdateFrequencySec:%d", config.FetchingDelayInRangeSec, config.UpdateFrequencySec)
 	}
 
 	contractV1, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)

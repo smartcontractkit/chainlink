@@ -85,6 +85,7 @@ func (o *orm) CreateAllowedSenders(allowedSender []common.Address, qopts ...pg.Q
 	if err != nil {
 		return err
 	}
+
 	o.lggr.Debugf("Successfully stored allowed sender: %s for routerContractAddress: %s", allowedSender, o.routerContractAddress)
 
 	return nil
