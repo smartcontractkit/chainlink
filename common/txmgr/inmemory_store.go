@@ -40,20 +40,6 @@ var (
 	ErrCouldNotGetReceipt = errors.New("could not get receipt")
 )
 
-type PersistentTxStore[
-	ADDR types.Hashable,
-	CHAIN_ID types.ID,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
-] interface {
-	txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-
-	AllTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
-}
-
 type InMemoryStore[
 	CHAIN_ID types.ID,
 	ADDR, TX_HASH, BLOCK_HASH types.Hashable,
@@ -65,7 +51,7 @@ type InMemoryStore[
 	chainID CHAIN_ID
 
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
-	txStore  PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	txStore  txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
 	addressStatesLock sync.RWMutex
 	addressStates     map[ADDR]*AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -83,7 +69,7 @@ func NewInMemoryStore[
 	lggr logger.SugaredLogger,
 	chainID CHAIN_ID,
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
-	txStore PersistentTxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 ) (*InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
 	ms := InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		lggr:     lggr,
@@ -200,10 +186,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Check
 
 	return nil
 }
-
-/////
-// BROADCASTER FUNCTIONS
-/////
 
 // FindLatestSequence returns the latest sequence number for a given address
 // It is used to initialize the in-memory sequence map in the broadcaster
