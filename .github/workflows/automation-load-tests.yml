@@ -28,37 +28,15 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       REF_NAME: ${{ github.head_ref || github.ref_name }}
     steps:
-      - name: Add masks and export base64 config
+      - name: Get Slack config
         run: |
           SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
           echo ::add-mask::$SLACK_USER
-          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
-
-          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-
-          decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
-          CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
-          echo ::add-mask::$CHAINLINK_IMAGE
-          CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)          
-          NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
-
-          if [ -n "$CHAINLINK_IMAGE" ]; then
-            echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
-          else
-            echo "No Chainlink Image found in base64-ed config. Exiting"
-            exit 1
-          fi
-          if [ -n "$CHAINLINK_VERSION" ]; then
-            echo "CHAINLINK_VERSION=$CHAINLINK_VERSION" >> $GITHUB_ENV
-          else
-            echo "No Chainlink Version found in base64-ed config. Exiting"
-            exit 1            
-          fi   
-          if [ -n "$NETWORKS" ]; then
-            echo "NETWORKS=$NETWORKS" >> $GITHUB_ENV           
-          fi      
+          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV    
+      - name: Add masks and export base64 config
+        uses: ./.github/actions/setup-parse-base64-config
+        with:
+          base64Config: ${{ inputs.base64Config }}
       - name: Send details to Step Summary
         shell: bash
         run: |

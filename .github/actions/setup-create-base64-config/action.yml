@@ -1,34 +1,34 @@
-name: Setup Base64 Config
-description: A composite action that allows building and publishing the Chainlink image for integration testing
+name: Create Base64 Config
+description: A composite action that creates a base64-encoded config to be used by integration tests
 
 inputs:
-  run_id:
+  runId:
     description: The run id
-  test_log_collect:
+  testLogCollect:
     description: Whether to always collect logs, even for passing tests
     default: "false"
-  chainlink_image:
+  chainlinkImage:
     description: The chainlink image to use
     default: "public.ecr.aws/chainlink/chainlink"
-  chainlink_version:
+  chainlinkVersion:
     description: The git commit sha to use for the image tag
-  pyroscope_server:
+  pyroscopeServer:
     description: URL of Pyroscope server
-  pyroscope_environment: 
+  pyroscopeEnvironment: 
     description: Name of Pyroscope environment
-  pyroscope_key:
+  pyroscopeKey:
     description: Pyroscope server key
-  loki_endpoint:
+  lokiEndpoint:
     description: Loki push endpoint
-  loki_tenant_id:
+  lokiTenantId:
     description: Loki tenant id
-  loki_basic_auth:
+  lokiBasicAuth:
     description: Loki basic auth
-  logstream_log_targets:
+  logstreamLogTargets:
     description: Where to send logs (e.g. file, loki)
-  grafana_url:
+  grafanaUrl:
     description: Grafana URL
-  grafana_dashboard_url:
+  grafanaDashboardUrl:
     description: Grafana dashboard URL
 
 runs:
@@ -38,19 +38,19 @@ runs:
       shell: bash
       id: base64-config-override
       env:
-        RUN_ID: ${{ inputs.run_id }}
-        TEST_LOG_COLLECT: ${{ inputs.test_log_collect }}      
-        PYROSCOPE_SERVER: ${{ inputs.pyroscope_server }} 
-        PYROSCOPE_ENVIRONMENT: ${{ inputs.pyroscope_environment }} 
-        PYROSCOPE_KEY: ${{ inputs.pyroscope_key }} 
-        CHAINLINK_IMAGE: ${{ inputs.chainlink_image }}
-        CHAINLINK_VERSION: ${{ inputs.chainlink_version }}
-        LOKI_ENDPOINT: ${{ inputs.loki_endpoint }}
-        LOKI_TENANT_ID: ${{ inputs.loki_tenant_id }}
-        LOKI_BASIC_AUTH: ${{ inputs.loki_basic_auth }}
-        LOGSTREAM_LOG_TARGETS: ${{ inputs.logstream_log_targets }}
-        GRAFANA_URL: ${{ inputs.grafana_url }}
-        GRAFANA_DASHBOARD_URL: ${{ inputs.grafana_dashboard_url }}
+        RUN_ID: ${{ inputs.runId }}
+        TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}      
+        PYROSCOPE_SERVER: ${{ inputs.pyroscopeServer }} 
+        PYROSCOPE_ENVIRONMENT: ${{ inputs.pyroscopeEnvironment }} 
+        PYROSCOPE_KEY: ${{ inputs.pyroscopeKey }} 
+        CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+        CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+        LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
+        LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
+        LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
+        LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
+        GRAFANA_URL: ${{ inputs.grafanaUrl }}
+        GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
       run: |
         echo ::add-mask::$CHAINLINK_IMAGE        
         function convert_to_toml_array() {

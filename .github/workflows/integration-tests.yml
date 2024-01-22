@@ -273,21 +273,21 @@ jobs:
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
       - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-base64-config
+        uses: ./.github/actions/setup-create-base64-config
         with:
-          run_id: ${{ github.run_id }}
-          test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
-          chainlink_image: ${{ env.CHAINLINK_IMAGE }}
-          chainlink_version: ${{ github.sha }}        
-          pyroscope_server: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscope_environment: ${{ matrix.product.pyroscope_env }}
-          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
-          loki_endpoint: ${{ secrets.LOKI_URL }}
-          loki_tenant_id: ${{ vars.LOKI_TENANT_ID }}
-          loki_basic_auth: ${{ secrets.LOKI_BASIC_AUTH }}
-          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafana_url: ${{ vars.GRAFANA_URL }}
-          grafana_dashboard_url: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}        
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
        
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
@@ -456,7 +456,7 @@ jobs:
         run: |
           docker logs otel-collector
       - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-base64-config
+        uses: ./.github/actions/setup-create-base64-config
         with:
           run_id: ${{ github.run_id }}
           test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
