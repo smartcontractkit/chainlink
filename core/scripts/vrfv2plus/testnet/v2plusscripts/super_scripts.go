@@ -428,6 +428,10 @@ func SmokeTestBHS(e helpers.Environment) {
 	helpers.PanicErr(err)
 
 	toStore = anchorBlockNumber.Sub(anchorBlockNumber, big.NewInt(1))
+	fmt.Println("toStore", toStore.String())
+	bh, err = bhs.GetBlockhash(nil, toStore.Add(toStore, big.NewInt(1)))
+	fmt.Println("toStore+1", hexutil.Encode(bh[:]))
+	helpers.PanicErr(err)
 	tx, err = bhs.StoreVerifyHeader(e.Owner, toStore, headers[0])
 	helpers.PanicErr(err)
 	svhReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "storeVerifyHeader on", bhsContractAddress.String())
@@ -466,6 +470,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
 	// required flags
+	nativeOnly := deployCmd.Bool("native-only", false, "if true, link and link feed are not set up")
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := deployCmd.String("bhs-address", "", "address of BHS contract")
@@ -495,6 +500,15 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
 	)
+
+	if *nativeOnly {
+		if *linkAddress != "" || *linkEthAddress != "" {
+			panic("native-only flag is set, but link address or link eth address is provided")
+		}
+		if *subscriptionBalanceJuelsString != "0" {
+			panic("native-only flag is set, but link subscription balance is provided")
+		}
+	}
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
@@ -557,6 +571,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		contractAddresses,
 		coordinatorConfig,
 		*batchFulfillmentEnabled,
+		*nativeOnly,
 		nodesMap,
 	)
 
@@ -574,6 +589,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2Plus,
 	batchFulfillmentEnabled bool,
+	nativeOnly bool,
 	nodesMap map[string]model.Node,
 ) model.JobSpecs {
 	var compressedPkHex string
@@ -603,12 +619,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		helpers.PanicErr(err)
 	}
 
-	if len(contractAddresses.LinkAddress) == 0 {
+	if !nativeOnly && len(contractAddresses.LinkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
 		contractAddresses.LinkAddress = helpers.DeployLinkToken(e).String()
 	}
 
-	if len(contractAddresses.LinkEthAddress) == 0 {
+	if !nativeOnly && len(contractAddresses.LinkEthAddress) == 0 {
 		fmt.Println("\nDeploying LINK/ETH Feed...")
 		contractAddresses.LinkEthAddress = helpers.DeployLinkEthFeed(e, contractAddresses.LinkAddress, coordinatorConfig.FallbackWeiPerUnitLink).String()
 	}

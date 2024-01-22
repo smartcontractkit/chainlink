@@ -53,10 +53,12 @@ func DeployCoordinator(
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	linkTx, err := coordinator.SetLINKAndLINKNativeFeed(e.Owner,
-		common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
+	if linkAddress != "" && linkEthAddress != "" {
+		linkTx, err := coordinator.SetLINKAndLINKNativeFeed(e.Owner,
+			common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
+	}
 	return coordinatorAddress
 }
 
