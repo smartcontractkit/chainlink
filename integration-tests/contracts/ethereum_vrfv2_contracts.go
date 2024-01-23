@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
@@ -82,6 +83,12 @@ type GetRequestConfig struct {
 	MinimumRequestConfirmations uint16
 	MaxGasLimit                 uint32
 	ProvingKeyHashes            [32]byte
+}
+
+type EthereumVRFMockETHLINKFeed struct {
+	client  blockchain.EVMClient
+	feed    *vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregator
+	address *common.Address
 }
 
 // DeployVRFCoordinatorV2 deploys VRFV2 coordinator contract
@@ -279,6 +286,42 @@ func (v *EthereumVRFCoordinatorV2) GetRequestConfig(ctx context.Context) (GetReq
 	}
 
 	return requestConfig, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) GetConfig(ctx context.Context) (vrf_coordinator_v2.GetConfig, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	config, err := v.coordinator.GetConfig(opts)
+	if err != nil {
+		return vrf_coordinator_v2.GetConfig{}, err
+	}
+	return config, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) GetFallbackWeiPerUnitLink(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	fallbackWeiPerUnitLink, err := v.coordinator.GetFallbackWeiPerUnitLink(opts)
+	if err != nil {
+		return nil, err
+	}
+	return fallbackWeiPerUnitLink, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) GetFeeConfig(ctx context.Context) (vrf_coordinator_v2.GetFeeConfig, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	config, err := v.coordinator.GetFeeConfig(opts)
+	if err != nil {
+		return vrf_coordinator_v2.GetFeeConfig{}, err
+	}
+	return config, nil
 }
 
 func (v *EthereumVRFCoordinatorV2) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig) error {
@@ -569,6 +612,26 @@ func (v *EthereumVRFCoordinatorV2) WaitForSubscriptionConsumerRemoved(subID []ui
 			return nil, err
 		case <-time.After(timeout):
 			return nil, fmt.Errorf("timeout waiting for SubscriptionConsumerRemoved event")
+		case event := <-eventsChannel:
+			return event, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2) WaitForConfigSetEvent(timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2ConfigSet, error) {
+	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2ConfigSet)
+	subscription, err := v.coordinator.WatchConfigSet(nil, eventsChannel)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for ConfigSet event")
 		case event := <-eventsChannel:
 			return event, nil
 		}
@@ -1029,4 +1092,42 @@ func (v *EthereumVRFOwner) WaitForRandomWordsForcedEvent(requestIDs []*big.Int, 
 
 func (v *EthereumVRFCoordinatorTestV2) Address() string {
 	return v.address.Hex()
+}
+
+func (v *EthereumVRFMockETHLINKFeed) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumVRFMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.Ans, nil
+}
+
+func (v *EthereumVRFMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
+}
+
+func (v *EthereumVRFMockETHLINKFeed) SetBlockTimestampDeduction(blockTimestampDeduction *big.Int) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.feed.SetBlockTimestampDeduction(opts, blockTimestampDeduction)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }

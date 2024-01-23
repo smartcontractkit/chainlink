@@ -39,6 +39,9 @@ type VRFCoordinator interface {
 
 type VRFCoordinatorV2 interface {
 	GetRequestConfig(ctx context.Context) (GetRequestConfig, error)
+	GetConfig(ctx context.Context) (vrf_coordinator_v2.GetConfig, error)
+	GetFallbackWeiPerUnitLink(ctx context.Context) (*big.Int, error)
+	GetFeeConfig(ctx context.Context) (vrf_coordinator_v2.GetFeeConfig, error)
 	SetConfig(
 		minimumRequestConfirmations uint16,
 		maxGasLimit uint32,
@@ -69,6 +72,7 @@ type VRFCoordinatorV2 interface {
 	WaitForSubscriptionConsumerRemoved(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionConsumerRemoved, error)
 	WaitForSubscriptionCreatedEvent(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated, error)
 	WaitForSubscriptionFunded(subID []uint64, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionFunded, error)
+	WaitForConfigSetEvent(timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2ConfigSet, error)
 	OracleWithdraw(recipient common.Address, amount *big.Int) error
 }
 
@@ -302,6 +306,13 @@ type VRFBeaconConsumer interface {
 
 type BatchBlockhashStore interface {
 	Address() string
+}
+
+type VRFMockETHLINKFeed interface {
+	Address() string
+	LatestRoundData() (*big.Int, error)
+	LatestRoundDataUpdatedAt() (*big.Int, error)
+	SetBlockTimestampDeduction(blockTimestampDeduction *big.Int) error
 }
 
 type RequestStatus struct {

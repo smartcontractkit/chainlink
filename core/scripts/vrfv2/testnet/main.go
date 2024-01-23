@@ -723,7 +723,6 @@ func main() {
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-vrf-owner-test-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		consumerLinkAddress := loadTestConsumerDeployCmd.String("link-address", "", "link-address")
-		//consumerFundingAmountJuels := loadTestConsumerDeployCmd.String("consumer-funding-amount-juels", "0", "amount of Juels to fund consumer with")
 
 		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
 

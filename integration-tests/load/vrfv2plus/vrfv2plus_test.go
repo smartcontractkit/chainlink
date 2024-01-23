@@ -163,14 +163,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		}
 
 	} else {
-
-		//test_env.NewCLTestEnvBuilder().
-		//		WithTestInstance(t).
-		//		WithPrivateEthereumNetwork(network).
-		//		WithCLNodes(1).
-		//		WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
-		//		WithStandardCleanup().
-		//		Build()
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		vrfv2PlusConfig.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeSendingKeyFunding
 		vrfv2PlusConfig.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink

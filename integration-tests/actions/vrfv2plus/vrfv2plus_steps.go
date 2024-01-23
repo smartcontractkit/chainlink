@@ -221,7 +221,7 @@ func SetupVRFV2_5Environment(
 		vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
 		vrfv2PlusConfig.StalenessSeconds,
 		vrfv2PlusConfig.GasAfterPaymentCalculation,
-		big.NewInt(vrfv2PlusConfig.LinkNativeFeedResponse),
+		big.NewInt(vrfv2PlusConfig.FallbackWeiPerUnitLink),
 		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
 			FulfillmentFlatFeeLinkPPM:   vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
 			FulfillmentFlatFeeNativePPM: vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,

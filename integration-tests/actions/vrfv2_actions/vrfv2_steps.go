@@ -53,13 +53,9 @@ var (
 	ErrWaitTXsComplete         = "error waiting for TXs to complete"
 	ErrRequestRandomness       = "error requesting randomness"
 	ErrLoadingCoordinator      = "error loading coordinator contract"
-	ErrTransferringOwnership   = "error transferring ownership"
-	ErrAcceptVRFOwnership      = "error accepting VRF ownership"
-	ErrSetAuthSenders          = "error setting authorized senders"
 
 	ErrWaitRandomWordsRequestedEvent = "error waiting for RandomWordsRequested event"
 	ErrWaitRandomWordsFulfilledEvent = "error waiting for RandomWordsFulfilled event"
-	ErrWaitRandomWordsForcedEvent    = "error waiting for RandomWordsForced event"
 	ErrDeployWrapper                 = "error deploying VRFV2PlusWrapper"
 )
 
@@ -235,15 +231,11 @@ func CreateVRFV2Job(
 		spec.VRFOwner = vrfJobSpecConfig.VRFOwnerConfig.OwnerAddress
 		spec.UseVRFOwner = true
 	}
-	fmt.Println("OwnerAddress:", vrfJobSpecConfig.VRFOwnerConfig.OwnerAddress)
 
-	fmt.Println("OwnerAddress in VRFV2 Job Spec:", spec.VRFOwner)
-	s, err := spec.String()
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrParseJob, err)
 
 	}
-	fmt.Println("VRFV2 Job Spec:", s)
 	job, err := chainlinkNode.MustCreateJob(spec)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2Job, err)
@@ -333,7 +325,7 @@ func SetupVRFV2Environment(
 		vrfv2Config.MaxGasLimitCoordinatorConfig,
 		vrfv2Config.StalenessSeconds,
 		vrfv2Config.GasAfterPaymentCalculation,
-		big.NewInt(vrfv2Config.LinkNativeFeedResponse),
+		big.NewInt(vrfv2Config.FallbackWeiPerUnitLink),
 		vrfCoordinatorV2FeeConfig,
 	)
 	if err != nil {
@@ -389,41 +381,9 @@ func SetupVRFV2Environment(
 	}
 
 	if useVRFOwner {
-		l.Info().Msg("Setting up VRFOwner contract")
-		l.Info().
-			Str("Coordinator", vrfv2Contracts.Coordinator.Address()).
-			Str("VRFOwner", vrfv2Contracts.VRFOwner.Address()).
-			Msg("Transferring ownership of Coordinator to VRFOwner")
-		err = vrfv2Contracts.Coordinator.TransferOwnership(common.HexToAddress(vrfv2Contracts.VRFOwner.Address()))
+		err := setupVRFOwnerContract(env, vrfv2Contracts, allNativeTokenKeyAddressStrings, allNativeTokenKeyAddresses, l)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s, err %w", ErrTransferringOwnership, err)
-		}
-		err = env.EVMClient.WaitForEvents()
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
-		}
-		l.Info().
-			Str("VRFOwner", vrfv2Contracts.VRFOwner.Address()).
-			Msg("Accepting VRF Ownership")
-		err = vrfv2Contracts.VRFOwner.AcceptVRFOwnership()
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s, err %w", ErrAcceptVRFOwnership, err)
-		}
-		err = env.EVMClient.WaitForEvents()
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
-		}
-		l.Info().
-			Strs("Authorized Senders", allNativeTokenKeyAddressStrings).
-			Str("VRFOwner", vrfv2Contracts.VRFOwner.Address()).
-			Msg("Setting authorized senders for VRFOwner contract")
-		err = vrfv2Contracts.VRFOwner.SetAuthorizedSenders(allNativeTokenKeyAddresses)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s, err %w", ErrSetAuthSenders, err)
-		}
-		err = env.EVMClient.WaitForEvents()
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+			return nil, nil, nil, err
 		}
 	}
 
@@ -481,6 +441,46 @@ func SetupVRFV2Environment(
 
 	l.Info().Msg("VRFV2  environment setup is finished")
 	return vrfv2Contracts, subIDs, &data, nil
+}
+
+func setupVRFOwnerContract(env *test_env.CLClusterTestEnv, vrfv2Contracts *VRFV2Contracts, allNativeTokenKeyAddressStrings []string, allNativeTokenKeyAddresses []common.Address, l zerolog.Logger) error {
+	l.Info().Msg("Setting up VRFOwner contract")
+	l.Info().
+		Str("Coordinator", vrfv2Contracts.Coordinator.Address()).
+		Str("VRFOwner", vrfv2Contracts.VRFOwner.Address()).
+		Msg("Transferring ownership of Coordinator to VRFOwner")
+	err := vrfv2Contracts.Coordinator.TransferOwnership(common.HexToAddress(vrfv2Contracts.VRFOwner.Address()))
+	if err != nil {
+		return nil
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil
+	}
+	l.Info().
+		Str("VRFOwner", vrfv2Contracts.VRFOwner.Address()).
+		Msg("Accepting VRF Ownership")
+	err = vrfv2Contracts.VRFOwner.AcceptVRFOwnership()
+	if err != nil {
+		return nil
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil
+	}
+	l.Info().
+		Strs("Authorized Senders", allNativeTokenKeyAddressStrings).
+		Str("VRFOwner", vrfv2Contracts.VRFOwner.Address()).
+		Msg("Setting authorized senders for VRFOwner contract")
+	err = vrfv2Contracts.VRFOwner.SetAuthorizedSenders(allNativeTokenKeyAddresses)
+	if err != nil {
+		return nil
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+	}
+	return err
 }
 
 func SetupVRFV2WrapperEnvironment(
@@ -776,8 +776,18 @@ func RequestRandomnessAndWaitForFulfillment(
 	return fulfillmentEvents, err
 }
 
-// todo
-func RequestRandomnessWithForceFulfillAndWaitForFulfillment(consumer contracts.VRFv2LoadTestConsumer, coordinator contracts.VRFCoordinatorV2, vrfOwner contracts.VRFOwner, vrfv2Data *VRFV2Data, randomnessRequestCountPerRequest uint16, vrfv2Config vrfv2_config.VRFV2Config, subTopUpAmount *big.Int, linkAddress common.Address, randomWordsFulfilledEventTimeout time.Duration, l zerolog.Logger) (*vrf_owner.VRFOwnerRandomWordsForced, error) {
+func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
+	consumer contracts.VRFv2LoadTestConsumer,
+	coordinator contracts.VRFCoordinatorV2,
+	vrfOwner contracts.VRFOwner,
+	vrfv2Data *VRFV2Data,
+	randomnessRequestCountPerRequest uint16,
+	vrfv2Config vrfv2_config.VRFV2Config,
+	subTopUpAmount *big.Int,
+	linkAddress common.Address,
+	randomWordsFulfilledEventTimeout time.Duration,
+	l zerolog.Logger,
+) (*vrf_coordinator_v2.VRFCoordinatorV2ConfigSet, *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, *vrf_owner.VRFOwnerRandomWordsForced, error) {
 	logRandRequest(consumer.Address(), coordinator.Address(), 0, vrfv2Config, l)
 	_, err := consumer.RequestRandomWordsWithForceFulfill(
 		vrfv2Data.KeyHash,
@@ -789,116 +799,79 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(consumer contracts.V
 		linkAddress,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", ErrRequestRandomness, err)
+		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRequestRandomness, err)
 	}
 
-	//subCreatedEvent, err := coordinator.WaitForSubscriptionCreatedEvent(
-	//	nil,
-	//	time.Second*30,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", "error waiting subCreatedEvent", err)
-	//}
-	//l.Info().Uint64("SubID", subCreatedEvent.SubId).Msg("SubscriptionCreatedEvent")
-
-	//subConsumerAddedEvent, err := coordinator.WaitForSubscriptionConsumerAdded(
-	//	nil,
-	//	time.Second*30,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", "error waiting subConsumerAddedEvent", err)
-	//}
-	//l.Info().Uint64("SubID", subConsumerAddedEvent.SubId).Str("Consumer", subConsumerAddedEvent.Consumer.String()).Msg("subConsumerAddedEvent")
-	//
-	//randomWordsRequestedEvent, err := coordinator.WaitForRandomWordsRequestedEvent(
-	//	[][32]byte{vrfv2Data.KeyHash},
-	//	nil,
-	//	[]common.Address{common.HexToAddress(consumer.Address())},
-	//	time.Minute*1,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsRequestedEvent, err)
-	//}
-	//LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
-
-	//subFundedEvent, err := coordinator.WaitForSubscriptionFunded(
-	//	nil,
-	//	time.Second*30,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", "error waiting subFundedEvent", err)
-	//}
-	//l.Info().Uint64("SubID", subFundedEvent.SubId).Msg("subFundedEvent")
-
-	//subFundedEvent, err := coordinator.WaitForSubscriptionFunded(
-	//	nil,
-	//	time.Second*30,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", "error waiting subFundedEvent", err)
-	//}
-	//l.Info().Uint64("SubID", subFundedEvent.SubId).Msg("subFundedEvent")
-
-	//randomWordsRequestedEvent, err := coordinator.WaitForRandomWordsRequestedEvent(
-	//	[][32]byte{vrfv2Data.KeyHash},
-	//	nil,
-	//	[]common.Address{common.HexToAddress(consumer.Address())},
-	//	time.Minute*1,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsRequestedEvent, err)
-	//}
-	//
-	//LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
-	//
-	//return randomWordsRequestedEvent, err
-	//subConsumerRemoved, err := coordinator.WaitForSubscriptionConsumerRemoved(
-	//	nil,
-	//	time.Second*30,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", "error waiting SubscriptionConsumerRemoved", err)
-	//}
-	//l.Info().
-	//	Uint64("SubID", subConsumerRemoved.SubId).
-	//	Str("Consumer", subConsumerRemoved.Consumer.String()).
-	//	Msg("SubscriptionConsumerRemoved")
-
-	//subCanceledEvent, err := coordinator.WaitForSubscriptionCanceledEvent(
-	//	nil,
-	//	time.Second*30,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", "error waiting subCanceledEvent", err)
-	//}
-	//l.Info().
-	//	Uint64("SubID", subCanceledEvent.SubId).
-	//	Str("Sending funds to", subCanceledEvent.To.String()).
-	//	Str("Amount", subCanceledEvent.Amount.String()).
-	//	Msg("subCanceledEvent")
-
-	//randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
-	//	nil,
-	//	randomWordsFulfilledEventTimeout,
-	//)
-	//if err != nil {
-	//	return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsFulfilledEvent, err)
-	//}
-
-	//LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
-	//
-	randomWordsForcedEvent, err := vrfOwner.WaitForRandomWordsForcedEvent(
-		//[]*big.Int{randomWordsRequestedEvent.RequestId}
+	randomWordsRequestedEvent, err := coordinator.WaitForRandomWordsRequestedEvent(
+		[][32]byte{vrfv2Data.KeyHash},
 		nil,
-		nil,
-		nil,
-		time.Second*120,
+		[]common.Address{common.HexToAddress(consumer.Address())},
+		time.Minute*1,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsForcedEvent, err)
+		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrWaitRandomWordsRequestedEvent, err)
 	}
-	LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
-	return randomWordsForcedEvent, err
+	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent)
+
+	errorChannel := make(chan error)
+	configSetEventChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2ConfigSet)
+	randWordsFulfilledEventChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled)
+	randWordsForcedEventChannel := make(chan *vrf_owner.VRFOwnerRandomWordsForced)
+
+	go func() {
+		configSetEvent, err := coordinator.WaitForConfigSetEvent(
+			randomWordsFulfilledEventTimeout,
+		)
+		if err != nil {
+			l.Error().Err(err).Msg("error waiting for ConfigSetEvent")
+			errorChannel <- err
+		}
+		configSetEventChannel <- configSetEvent
+	}()
+
+	go func() {
+		randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
+			[]*big.Int{randomWordsRequestedEvent.RequestId},
+			randomWordsFulfilledEventTimeout,
+		)
+		if err != nil {
+			l.Error().Err(err).Msg("error waiting for RandomWordsFulfilledEvent")
+			errorChannel <- err
+		}
+		randWordsFulfilledEventChannel <- randomWordsFulfilledEvent
+	}()
+
+	go func() {
+		randomWordsForcedEvent, err := vrfOwner.WaitForRandomWordsForcedEvent(
+			[]*big.Int{randomWordsRequestedEvent.RequestId},
+			nil,
+			nil,
+			randomWordsFulfilledEventTimeout,
+		)
+		if err != nil {
+			l.Error().Err(err).Msg("error waiting for RandomWordsForcedEvent")
+			errorChannel <- err
+		}
+		randWordsForcedEventChannel <- randomWordsForcedEvent
+	}()
+
+	var configSetEvent *vrf_coordinator_v2.VRFCoordinatorV2ConfigSet
+	var randomWordsFulfilledEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
+	var randomWordsForcedEvent *vrf_owner.VRFOwnerRandomWordsForced
+	for i := 0; i < 3; i++ {
+		select {
+		case err = <-errorChannel:
+			return nil, nil, nil, err
+		case configSetEvent = <-configSetEventChannel:
+		case randomWordsFulfilledEvent = <-randWordsFulfilledEventChannel:
+			LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
+		case randomWordsForcedEvent = <-randWordsForcedEventChannel:
+			LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
+		case <-time.After(randomWordsFulfilledEventTimeout):
+			err = fmt.Errorf("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
+		}
+	}
+	return configSetEvent, randomWordsFulfilledEvent, randomWordsForcedEvent, err
 }
 
 func WaitForRequestAndFulfillmentEvents(
