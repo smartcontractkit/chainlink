@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -102,6 +103,8 @@ type logEventProvider struct {
 	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
+
+	servedLogs int64
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
@@ -140,6 +143,21 @@ func (p *logEventProvider) Start(context.Context) error {
 					lggr.Warnw("readQ is full, dropping ids", "ids", ids)
 				}
 			})
+		})
+
+		p.threadCtrl.Go(func(ctx context.Context) {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					p.lggr.Debugw("logs stats", "servedLogs", atomic.LoadInt64(&p.servedLogs), "logsInBuffer", atomic.LoadInt64(&p.buffer.logsInBuffer), "latestBlockSeen", p.buffer.latestBlockSeen())
+					prommetrics.AutomationLogsInLogBuffer.Set(float64(atomic.LoadInt64(&p.buffer.logsInBuffer)))
+				case <-ctx.Done():
+					return
+
+				}
+			}
 		})
 
 		return nil
