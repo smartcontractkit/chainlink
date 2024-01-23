@@ -532,6 +532,17 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.Len(t, etx0.TxAttempts[0].Receipts, 1)
 	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].GetBlockHash())
 	require.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
+
+	err = txStore.SaveFinalizedReceipts(testutils.Context(t), []*evmtypes.Receipt{&txmReceipt}, ethClient.ConfiguredChainID())
+	require.NoError(t, err)
+
+	etx0, err = txStore.FindTxWithAttempts(etx0.ID)
+	require.NoError(t, err)
+	require.Len(t, etx0.TxAttempts, 1)
+	require.Equal(t, etx0.TxAttempts[0].State, txmgrtypes.TxAttemptFinalized)
+	require.Len(t, etx0.TxAttempts[0].Receipts, 1)
+	require.Equal(t, txmReceipt.BlockHash, etx0.TxAttempts[0].Receipts[0].GetBlockHash())
+	require.Equal(t, txmgrcommon.TxFinalized, etx0.State)
 }
 
 func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {

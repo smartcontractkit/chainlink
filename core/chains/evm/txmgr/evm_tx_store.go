@@ -1128,7 +1128,7 @@ func (o *evmTxStore) FindConfirmedTransactions(ctx context.Context, chainID *big
 SELECT DISTINCT evm.txes.* FROM evm.txes
 INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.tx_attempts.state = 'broadcast'
 INNER JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
-WHERE evm.txes.state IN ('confirmed', 'confirmed_missing_receipt') AND evm_chain_id = $1
+WHERE evm.txes.state IN ('confirmed') AND evm_chain_id = $1
 ORDER BY nonce ASC
 `, chainID.String())
 		if err != nil {
