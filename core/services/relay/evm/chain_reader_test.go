@@ -76,10 +76,10 @@ func TestChainReader(t *testing.T) {
 			return cr.GetLatestValue(ctx, AnyContractName, triggerWithDynamicTopic, input, output) == nil
 		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 
-		assert.Equal(t, anyString, rOutput.FieldByName("Field").Interface())
+		assert.Equal(t, &anyString, rOutput.FieldByName("Field").Interface())
 		topic, err := abi.MakeTopics([]any{anyString})
 		require.NoError(t, err)
-		assert.Equal(t, topic[0][0], rOutput.FieldByName("FieldHash").Interface())
+		assert.Equal(t, &topic[0][0], rOutput.FieldByName("FieldHash").Interface())
 	})
 
 	t.Run("Multiple topics can filter together", func(t *testing.T) {
@@ -143,7 +143,9 @@ func (it *chainReaderInterfaceTester) MaxWaitTimeForEvents() time.Duration {
 func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 	t.Cleanup(func() {
 		// DB may be closed by the test already, ignore errors
-		_ = it.cr.Close()
+		if it.cr != nil {
+			_ = it.cr.Close()
+		}
 		it.cr = nil
 		it.evmTest = nil
 	})
@@ -213,6 +215,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 									"Account":  hexutil.Encode(testStruct.Account),
 								},
 							},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": anyExtraValue}},
@@ -285,7 +288,7 @@ func (it *chainReaderInterfaceTester) sendTxWithTestStruct(t *testing.T, testStr
 	tx, err := fn(
 		&it.evmTest.LatestValueHolderTransactor,
 		it.auth,
-		testStruct.Field,
+		*testStruct.Field,
 		testStruct.DifferentField,
 		uint8(testStruct.OracleID),
 		convertOracleIDs(testStruct.OracleIDs),
@@ -401,7 +404,7 @@ func getOracleIDs(first TestStruct) [32]byte {
 
 func toInternalType(testStruct TestStruct) chain_reader_example.TestStruct {
 	return chain_reader_example.TestStruct{
-		Field:          testStruct.Field,
+		Field:          *testStruct.Field,
 		DifferentField: testStruct.DifferentField,
 		OracleId:       byte(testStruct.OracleID),
 		OracleIds:      convertOracleIDs(testStruct.OracleIDs),
