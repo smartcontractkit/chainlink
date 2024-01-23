@@ -101,43 +101,51 @@ jobs:
             test: TestOCRBasic
             file: ocr
             client: geth
+            timeout: 30m
             pyroscope_env: ci-smoke-ocr-geth-simulated         
           # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE
           # - name: ocr-nethermind
           #   test: TestOCRBasic
           #   file: ocr
           #   client: nethermind
+          #   timeout: 30m
           #   pyroscope_env: ci-smoke-ocr-nethermind-simulated                          
           - name: ocr-besu
             test: TestOCRBasic
             file: ocr
             client: besu
+            timeout: 30m
             pyroscope_env: ci-smoke-ocr-besu-simulated        
           - name: ocr-erigon
             test: TestOCRBasic
             file: ocr
             client: erigon
+            timeout: 30m
             pyroscope_env: ci-smoke-ocr-erigon-simulated         
           - name: ocr2-geth
             test: TestOCRv2Basic
             file: ocr2
             client: geth
+            timeout: 30m
             pyroscope_env: ci-smoke-ocr2-geth-simulated            
           # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE            
           # - name: ocr2-nethermind
           #   test: TestOCRv2Basic
           #   file: ocr2
           #   client: nethermind
+          #   timeout: 30m
           #   pyroscope_env: ci-smoke-nethermind-evm-simulated                         
           - name: ocr2-besu
             test: TestOCRv2Basic
             file: ocr2
-            client: besu            
+            client: besu
+            timeout: 30m 
             pyroscope_env: ci-smoke-ocr2-besu-simulated      
           - name: ocr2-erigon
             test: TestOCRv2Basic
             file: ocr2
-            client: erigon            
+            client: erigon
+            timeout: 60m
             pyroscope_env: ci-smoke-ocr2-erigon-simulated                           
     runs-on: ubuntu-latest
     name: Client Compatibility Test ${{ matrix.name }}
@@ -218,7 +226,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
-          test_command_to_run: ./tests -test.timeout 30m -test.run ${{ matrix.test }}
+          test_command_to_run: ./tests -test.timeout ${{ matrix.timeout }} -test.run ${{ matrix.test }}
           binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
