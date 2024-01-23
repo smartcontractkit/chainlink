@@ -71,14 +71,14 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 				EventSig:       event1,
 				Topics:         [][]byte{event1[:], logpoller.EvmWord(uint64(i + 1000*j)).Bytes()},
 				Address:        addr,
-				TxHash:         utils.RandomAddress().Hash(),
+				TxHash:         utils.RandomHash(),
 				Data:           logpoller.EvmWord(uint64(i + 1000*j)).Bytes(),
 				CreatedAt:      blockTimestamp,
 			})
 
 		}
 		require.NoError(t, o.InsertLogs(logs))
-		require.NoError(t, o.InsertBlock(utils.RandomAddress().Hash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour), 0))
+		require.NoError(t, o.InsertBlock(utils.RandomHash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour), 0))
 	}
 
 	return event1, address1, address2
