@@ -75,6 +75,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   Mode internal immutable i_mode;
   address internal immutable i_automationForwarderLogic;
   address public allowedOrigin = address(0);
+  bool public skipReorgProtection = true;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -232,7 +233,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     address transcoder;
     address[] registrars;
     address upkeepPrivilegeManager;
-    bool skipReorgProtection;
+    //bool skipReorgProtection;
   }
 
   /**
@@ -322,7 +323,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
     bool paused; // pause switch for all upkeeps in the registry
     bool reentrancyGuard; // guard against reentrancy
-    bool skipReorgProtection;
+    //bool skipReorgProtection;
     uint96 totalPremium; // total historical payment to oracles for premium
     uint32 latestEpoch; // latest epoch for which a report was transmitted
     // 1 EVM word full
@@ -793,7 +794,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    if ( (!s_hotVars.skipReorgProtection &&
+    if ( (!skipReorgProtection &&
       (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
@@ -816,7 +817,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   ) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
-    if ( (!s_hotVars.skipReorgProtection &&
+    if ( (!skipReorgProtection &&
       (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {

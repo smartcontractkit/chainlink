@@ -314,7 +314,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: s_hotVars.paused,
       reentrancyGuard: s_hotVars.reentrancyGuard,
-      skipReorgProtection: onchainConfig.skipReorgProtection,
+      //skipReorgProtection: onchainConfig.skipReorgProtection,
       totalPremium: totalPremium,
       latestEpoch: 0 // DON restarts epoch
     });
