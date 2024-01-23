@@ -744,8 +744,8 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, cfg *logpoller.Config) l
 		contractDeployer,
 		chainClient,
 		upKeepsNeeded,
-		big.NewInt(automationDefaultLinkFunds),
-		automationDefaultUpkeepGasLimit,
+		big.NewInt(int64(9e18)),
+		uint32(2500000),
 		true,
 		false,
 	)
