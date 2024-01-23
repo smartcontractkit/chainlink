@@ -23,7 +23,14 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     address automationForwarderLogic,
     address allowedReadOnlyAddress
   )
-    AutomationRegistryBase2_2(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress)
+    AutomationRegistryBase2_2(
+      mode,
+      link,
+      linkNativeFeed,
+      fastGasFeed,
+      i_automationForwarderLogic,
+      i_allowedReadOnlyAddress
+    )
   {}
 
   // ================================================================
@@ -300,11 +307,11 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   }
 
   function getAutomationForwarderLogic() external view returns (address) {
-    return automationForwarderLogic;
+    return i_automationForwarderLogic;
   }
 
   function getAllowedReadOnlyAddress() external view returns (address) {
-    return allowedReadOnlyAddress;
+    return i_allowedReadOnlyAddress;
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
@@ -445,7 +452,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
       upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
-      skipReorgProtection: skipReorgProtection
+      skipReorgProtection: s_skipReorgProtection
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);

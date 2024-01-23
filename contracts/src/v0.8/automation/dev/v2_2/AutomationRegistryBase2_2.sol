@@ -67,9 +67,9 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
-  address internal immutable automationForwarderLogic;
-  address internal immutable allowedReadOnlyAddress;
-  bool internal skipReorgProtection;
+  address internal immutable i_automationForwarderLogic;
+  address internal immutable i_allowedReadOnlyAddress;
+  bool internal s_skipReorgProtection;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -451,23 +451,23 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
-   * @param _automationForwarderLogic the address of automation forwarder logic
-   * @param _allowedReadOnlyAddress the address of the allowed ready only address
+   * @param automationForwarderLogic the address of automation forwarder logic
+   * @param allowedReadOnlyAddress the address of the allowed ready only address
    */
   constructor(
     Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
-    address _automationForwarderLogic,
-    address _allowedReadOnlyAddress
+    address automationForwarderLogic,
+    address allowedReadOnlyAddress
   ) ConfirmedOwner(msg.sender) {
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
-    automationForwarderLogic = _automationForwarderLogic;
-    allowedReadOnlyAddress = _allowedReadOnlyAddress;
+    i_automationForwarderLogic = automationForwarderLogic;
+    i_allowedReadOnlyAddress = allowedReadOnlyAddress;
   }
 
   // ================================================================
@@ -782,7 +782,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       return false;
     }
     if (
-      (!skipReorgProtection &&
+      (!s_skipReorgProtection &&
         (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
@@ -802,7 +802,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (
-      (!skipReorgProtection &&
+      (!s_skipReorgProtection &&
         (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {

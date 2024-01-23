@@ -60,7 +60,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       uint256 linkNative
     )
   {
-    if (tx.origin != allowedReadOnlyAddress) {
+    if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
     }
 
@@ -178,7 +178,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     external
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
-    if (tx.origin != allowedReadOnlyAddress) {
+    if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
     }
     bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
@@ -198,7 +198,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     public
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
-    if (tx.origin != allowedReadOnlyAddress) {
+    if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
     }
     Upkeep memory upkeep = s_upkeep[id];
@@ -242,7 +242,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     if (!target.isContract()) revert NotAContract();
     id = _createID(triggerType);
     IAutomationForwarder forwarder = IAutomationForwarder(
-      address(new AutomationForwarder(target, address(this), automationForwarderLogic))
+      address(new AutomationForwarder(target, address(this), i_automationForwarderLogic))
     );
     _createUpkeep(
       id,
@@ -418,7 +418,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
         upkeeps[idx].forwarder = IAutomationForwarder(
-          address(new AutomationForwarder(targets[idx], address(this), automationForwarderLogic))
+          address(new AutomationForwarder(targets[idx], address(this), i_automationForwarderLogic))
         );
       }
       _createUpkeep(
