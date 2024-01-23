@@ -8,7 +8,7 @@ CREATE TABLE functions_allowlist(
 );
 
 ALTER TABLE functions_subscriptions
-ADD CONSTRAINT router_contract_address_octet_lenth CHECK (octet_length(router_contract_address) = 20);
+ADD CONSTRAINT router_contract_address_octet_length CHECK (octet_length(router_contract_address) = 20);
 
 -- +goose StatementEnd
 
@@ -16,7 +16,7 @@ ADD CONSTRAINT router_contract_address_octet_lenth CHECK (octet_length(router_co
 -- +goose StatementBegin
 
 ALTER TABLE functions_subscriptions
-DROP CONSTRAINT router_contract_address_octet_lenth;
+DROP CONSTRAINT router_contract_address_octet_length;
 
 DROP TABLE IF EXISTS functions_allowlist;
 -- +goose StatementEnd

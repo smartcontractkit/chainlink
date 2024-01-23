@@ -220,12 +220,12 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 			return errors.Wrap(err, "error calling GetAllAllowedSenders")
 		}
 	} else {
-		err = a.syncStoredAllowedAndBlockedSenders(ctx, tosContract, blockNum)
+		err = a.syncBlockedSenders(ctx, tosContract, blockNum)
 		if err != nil {
 			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
 		}
 
-		allowedSenderList, err = a.getAllowedSendersInRange(ctx, tosContract, blockNum)
+		allowedSenderList, err = a.getAllowedSendersBatched(ctx, tosContract, blockNum)
 		if err != nil {
 			return errors.Wrap(err, "failed to get allowed senders in rage")
 		}
@@ -235,7 +235,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	return nil
 }
 
-func (a *onchainAllowlist) getAllowedSendersInRange(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) ([]common.Address, error) {
+func (a *onchainAllowlist) getAllowedSendersBatched(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) ([]common.Address, error) {
 	allowedSenderList := make([]common.Address, 0)
 	count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
 		Pending:     false,
@@ -275,9 +275,9 @@ func (a *onchainAllowlist) getAllowedSendersInRange(ctx context.Context, tosCont
 	return allowedSenderList, nil
 }
 
-// syncStoredAllowedAndBlockedSenders fetches the list of blocked addresses from the contract in batches
+// syncBlockedSenders fetches the list of blocked addresses from the contract in batches
 // and removes the addresses from the functions_allowlist table if present
-func (a *onchainAllowlist) syncStoredAllowedAndBlockedSenders(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) error {
+func (a *onchainAllowlist) syncBlockedSenders(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) error {
 	count, err := tosContract.GetBlockedSendersCount(&bind.CallOpts{
 		Pending:     false,
 		BlockNumber: blockNum,
@@ -336,7 +336,7 @@ func (a *onchainAllowlist) loadStoredAllowedSenderList() {
 
 		allowedList = append(allowedList, asBatch...)
 
-		if len(asBatch) != int(a.config.StoredAllowlistBatchSize) {
+		if len(asBatch) < int(a.config.StoredAllowlistBatchSize) {
 			break
 		}
 		offset += a.config.StoredAllowlistBatchSize
