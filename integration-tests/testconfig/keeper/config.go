@@ -2,8 +2,6 @@ package keeper
 
 import (
 	"errors"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/net"
 )
 
 type Config struct {
@@ -18,24 +16,23 @@ func (c *Config) Validate() error {
 }
 
 type Common struct {
-	RegistryToTest     *string  `toml:"registry_to_test"`
-	NumberOfRegistries *int     `toml:"number_of_registries"`
-	NumberOfNodes      *int     `toml:"number_of_nodes"`
-	NumberOfUpkeeps    *int     `toml:"number_of_upkeeps"`
-	UpkeepGasLimit     *int64   `toml:"upkeep_gas_limit"`
-	CheckGasToBurn     *int64   `toml:"check_gas_to_burn"`
-	PerformGasToBurn   *int64   `toml:"perform_gas_to_burn"`
-	MaxPerformGas      *int64   `toml:"max_perform_gas"`
-	BlockRange         *int64   `toml:"block_range"`
-	BlockInterval      *int64   `toml:"block_interval"`
-	ForceSingleTxKey   *bool    `toml:"forces_single_tx_key"`
-	DeleteJobsOnEnd    *bool    `toml:"delete_jobs_on_end"`
-	RegistryAddress    *string  `toml:"registry_address"`
-	RegistrarAddress   *string  `toml:"registrar_address"`
-	LinkTokenAddress   *string  `toml:"link_token_address"`
-	EthFeedAddress     *string  `toml:"eth_feed_address"`
-	GasFeedAddress     *string  `toml:"gas_feed_address"`
-	TestInputs         []string `toml:"test_inputs"`
+	RegistryToTest     *string `toml:"registry_to_test"`
+	NumberOfRegistries *int    `toml:"number_of_registries"`
+	NumberOfNodes      *int    `toml:"number_of_nodes"`
+	NumberOfUpkeeps    *int    `toml:"number_of_upkeeps"`
+	UpkeepGasLimit     *int64  `toml:"upkeep_gas_limit"`
+	CheckGasToBurn     *int64  `toml:"check_gas_to_burn"`
+	PerformGasToBurn   *int64  `toml:"perform_gas_to_burn"`
+	MaxPerformGas      *int64  `toml:"max_perform_gas"`
+	BlockRange         *int64  `toml:"block_range"`
+	BlockInterval      *int64  `toml:"block_interval"`
+	ForceSingleTxKey   *bool   `toml:"forces_single_tx_key"`
+	DeleteJobsOnEnd    *bool   `toml:"delete_jobs_on_end"`
+	RegistryAddress    *string `toml:"registry_address"`
+	RegistrarAddress   *string `toml:"registrar_address"`
+	LinkTokenAddress   *string `toml:"link_token_address"`
+	EthFeedAddress     *string `toml:"eth_feed_address"`
+	GasFeedAddress     *string `toml:"gas_feed_address"`
 }
 
 func (c *Common) Validate() error {
@@ -69,35 +66,20 @@ func (c *Common) Validate() error {
 	if c.BlockInterval == nil || *c.BlockInterval <= 0 {
 		return errors.New("block_interval must be a positive integer")
 	}
-	if c.RegistryAddress == nil || *c.RegistryAddress == "" {
-		return errors.New("registry_address must be set")
+	if c.RegistryAddress == nil {
+		c.RegistryAddress = new(string)
 	}
-	if !net.IsValidURL(*c.RegistryAddress) {
-		return errors.New("registry_address must be a valid address")
+	if c.RegistrarAddress == nil {
+		c.RegistrarAddress = new(string)
 	}
-	if c.RegistrarAddress == nil || *c.RegistrarAddress == "" {
-		return errors.New("registrar_address must be set")
+	if c.LinkTokenAddress == nil {
+		c.LinkTokenAddress = new(string)
 	}
-	if !net.IsValidURL(*c.RegistrarAddress) {
-		return errors.New("registrar_address must be a valid address")
+	if c.EthFeedAddress == nil {
+		c.EthFeedAddress = new(string)
 	}
-	if c.LinkTokenAddress == nil || *c.LinkTokenAddress == "" {
-		return errors.New("link_token_address must be set")
-	}
-	if !net.IsValidURL(*c.LinkTokenAddress) {
-		return errors.New("link_token_address must be a valid address")
-	}
-	if c.EthFeedAddress == nil || *c.EthFeedAddress == "" {
-		return errors.New("eth_feed_address must be set")
-	}
-	if !net.IsValidURL(*c.EthFeedAddress) {
-		return errors.New("eth_feed_address must be a valid address")
-	}
-	if c.GasFeedAddress == nil || *c.GasFeedAddress == "" {
-		return errors.New("gas_feed_address must be set")
-	}
-	if !net.IsValidURL(*c.GasFeedAddress) {
-		return errors.New("gas_feed_address must be a valid address")
+	if c.GasFeedAddress == nil {
+		c.GasFeedAddress = new(string)
 	}
 	return nil
 }

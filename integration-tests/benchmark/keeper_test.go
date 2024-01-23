@@ -134,7 +134,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	}
 	networkName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
 	testName := fmt.Sprintf("%s%s", networkName, *config.Keeper.Common.RegistryToTest)
-	l.Info().Str("Test Name", testName).Strs("Test Inputs", config.Keeper.Common.TestInputs).Msg("Running Benchmark Test")
+	l.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
 	benchmarkTestNetwork := getNetworkConfig(networkName, &config)
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
@@ -314,7 +314,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s-%s",
-			keeperTestConfig.GetConfigurationName(),
+			strings.ToLower(keeperTestConfig.GetConfigurationName()),
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
 			strings.ReplaceAll(strings.ToLower(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest), "_", "-"),
 		),
