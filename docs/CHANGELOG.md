@@ -18,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the encoding used for transactions when resending in batches
 
+### Removed
+
+- Removed `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` from TOML configuration, these fields are replaced by `[[TelemetryIngress.Endpoints]]`:
+```toml
+  [[TelemetryIngress.Endpoints]]
+  Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+  ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+  URL = '...'
+  ServerPubKey = '...'
+```
+
 ## 2.8.0 - UNRELEASED
 
 ### Added
