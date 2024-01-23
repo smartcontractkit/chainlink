@@ -138,8 +138,8 @@ func (entry *codecEntry) Init() error {
 		checked[i] = reflect.StructField{Name: name, Type: checkedArg}
 	}
 
-	entry.nativeType = reflect.StructOf(native)
-	entry.checkedType = reflect.StructOf(checked)
+	entry.nativeType = structOfPointers(native)
+	entry.checkedType = structOfPointers(checked)
 	return nil
 }
 
@@ -227,13 +227,9 @@ func createTupleType(curType *abi.Type, converter func(reflect.Type) reflect.Typ
 		return curType.TupleType, curType.TupleType, nil
 	}
 
-	// Create native type ourselves to assure that it'll always have the exact memory layout of checked types
-	// Otherwise, the "unsafe" casting that will be done to convert from checked to native won't be safe.
-	// At the time of writing, the way the TupleType is built it will be the same, but I don't want to rely on that
-	// If they ever add private fields for internal tracking
-	// or anything it would break us if we don't build the native type.
-	// As an example of how it could possibly change in the future, I've seen struct{}
-	// added with tags to the top of generated structs to allow metadata exploration.
+	// Our naive types always have the same layout as the checked ones.
+	// This differs intentionally from the type.GetType() in abi as fields on structs are pointers in ours to
+	// verify that fields are intentionally set.
 	nativeFields := make([]reflect.StructField, len(curType.TupleElems))
 	checkedFields := make([]reflect.StructField, len(curType.TupleElems))
 	for i, elm := range curType.TupleElems {
@@ -247,5 +243,14 @@ func createTupleType(curType *abi.Type, converter func(reflect.Type) reflect.Typ
 		nativeFields[i].Type = nativeArgType
 		checkedFields[i].Type = checkedArgType
 	}
-	return converter(reflect.StructOf(nativeFields)), converter(reflect.StructOf(checkedFields)), nil
+	return converter(structOfPointers(nativeFields)), converter(structOfPointers(checkedFields)), nil
+}
+
+func structOfPointers(fields []reflect.StructField) reflect.Type {
+	for i := range fields {
+		if fields[i].Type.Kind() != reflect.Pointer {
+			fields[i].Type = reflect.PointerTo(fields[i].Type)
+		}
+	}
+	return reflect.StructOf(fields)
 }
