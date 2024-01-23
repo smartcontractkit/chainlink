@@ -74,7 +74,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
   address internal immutable i_automationForwarderLogic;
-  address public allowedOrigin = address(0);
+  address public allowedOrigin = address(0x1111111111111111111111111111111111111111);
   bool public skipReorgProtection = true;
 
   /**
