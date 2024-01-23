@@ -1,6 +1,7 @@
 package loadvrfv2plus
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 
@@ -41,9 +42,14 @@ func NewSingleHashGun(
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
+	billingType, err := selectBillingType(m.vrfv2PlusConfig.SubscriptionBillingType)
+	if err != nil {
+		return &wasp.Response{Error: err.Error(), Failed: true}
+	}
+
 	//randomly increase/decrease randomness request count per TX
 	randomnessRequestCountPerRequest := deviateValue(m.vrfv2PlusConfig.RandomnessRequestCountPerRequest, m.vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation)
-	_, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.LoadTestConsumers[0],
 		m.contracts.Coordinator,
@@ -51,7 +57,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
-		randBool(),
+		billingType,
 		randomnessRequestCountPerRequest,
 		m.vrfv2PlusConfig,
 		m.vrfv2PlusConfig.RandomWordsFulfilledEventTimeout,
@@ -77,4 +83,17 @@ func randBool() bool {
 }
 func randInRange(min int, max int) int {
 	return rand.Intn(max-min+1) + min
+}
+
+func selectBillingType(billingType string) (bool, error) {
+	switch billingType {
+	case vrfv2plus_config.BILLING_TYPE_LINK:
+		return false, nil
+	case vrfv2plus_config.BILLING_TYPE_NATIVE:
+		return true, nil
+	case vrfv2plus_config.BILLING_TYPE_LINK_AND_NATIVE:
+		return randBool(), nil
+	default:
+		return false, fmt.Errorf("invalid billing type: %s", billingType)
+	}
 }

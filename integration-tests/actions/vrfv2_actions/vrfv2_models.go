@@ -19,6 +19,7 @@ type VRFV2JobInfo struct {
 
 type VRFV2Contracts struct {
 	Coordinator       contracts.VRFCoordinatorV2
+	VRFOwner          contracts.VRFOwner
 	BHS               contracts.BlockHashStore
 	LoadTestConsumers []contracts.VRFv2LoadTestConsumer
 }
