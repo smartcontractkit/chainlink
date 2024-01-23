@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
@@ -10,11 +11,11 @@ type Registry struct {
 	mu sync.RWMutex
 }
 
-func (r *Registry) Get(id fmt.Stringer) (Capability, error) {
+func (r *Registry) Get(_ context.Context, id string) (Capability, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	c, ok := r.m[id.String()]
+	c, ok := r.m[id]
 	if !ok {
 		return nil, fmt.Errorf("capability not found with id %s", id)
 	}
@@ -22,8 +23,8 @@ func (r *Registry) Get(id fmt.Stringer) (Capability, error) {
 	return c, nil
 }
 
-func (r *Registry) getCapabilityOfType(id fmt.Stringer, ct CapabilityType) (Capability, error) {
-	c, err := r.Get(id)
+func (r *Registry) getCapabilityOfType(ctx context.Context, id string, ct CapabilityType) (Capability, error) {
+	c, err := r.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -35,39 +36,39 @@ func (r *Registry) getCapabilityOfType(id fmt.Stringer, ct CapabilityType) (Capa
 	return c, nil
 }
 
-func (r *Registry) GetAction(id fmt.Stringer) (SynchronousCapability, error) {
-	c, err := r.getCapabilityOfType(id, CapabilityTypeAction)
+func (r *Registry) GetAction(ctx context.Context, id string) (SynchronousCapability, error) {
+	c, err := r.getCapabilityOfType(ctx, id, CapabilityTypeAction)
 	if err != nil {
 		return nil, err
 	}
 	return c.(SynchronousCapability), err
 }
 
-func (r *Registry) GetTarget(id fmt.Stringer) (SynchronousCapability, error) {
-	c, err := r.getCapabilityOfType(id, CapabilityTypeTarget)
+func (r *Registry) GetTarget(ctx context.Context, id string) (SynchronousCapability, error) {
+	c, err := r.getCapabilityOfType(ctx, id, CapabilityTypeTarget)
 	if err != nil {
 		return nil, err
 	}
 	return c.(SynchronousCapability), err
 }
 
-func (r *Registry) GetTrigger(id fmt.Stringer) (AsynchronousCapability, error) {
-	c, err := r.getCapabilityOfType(id, CapabilityTypeTrigger)
+func (r *Registry) GetTrigger(ctx context.Context, id string) (AsynchronousCapability, error) {
+	c, err := r.getCapabilityOfType(ctx, id, CapabilityTypeTrigger)
 	if err != nil {
 		return nil, err
 	}
 	return c.(AsynchronousCapability), err
 }
 
-func (r *Registry) GetReport(id fmt.Stringer) (AsynchronousCapability, error) {
-	c, err := r.getCapabilityOfType(id, CapabilityTypeReport)
+func (r *Registry) GetReport(ctx context.Context, id string) (AsynchronousCapability, error) {
+	c, err := r.getCapabilityOfType(ctx, id, CapabilityTypeReport)
 	if err != nil {
 		return nil, err
 	}
 	return c.(AsynchronousCapability), err
 }
 
-func (r *Registry) List() []Capability {
+func (r *Registry) List(_ context.Context) []Capability {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	cl := []Capability{}
@@ -78,12 +79,12 @@ func (r *Registry) List() []Capability {
 	return cl
 }
 
-func (r *Registry) Add(c Capability) error {
+func (r *Registry) Add(_ context.Context, c Capability) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	info := c.Info()
-	id := info.Id.String()
+	id := info.Id
 	_, ok := r.m[id]
 	if ok {
 		return fmt.Errorf("capability with id: %s already exists", id)

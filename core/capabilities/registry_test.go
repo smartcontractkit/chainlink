@@ -46,9 +46,11 @@ func (m *cmockCapability) Execute(ctx context.Context, callback chan values.Map,
 }
 
 func TestRegistry(t *testing.T) {
+	ctx := context.Background()
+
 	r := NewRegistry()
 
-	id := Stringer("capability-1")
+	id := "capability-1"
 	ci, err := NewCapabilityInfo(
 		id,
 		CapabilityTypeAction,
@@ -58,23 +60,24 @@ func TestRegistry(t *testing.T) {
 	require.NoError(t, err)
 
 	c := &smockCapability{CapabilityInfo: ci}
-	err = r.Add(c)
+	err = r.Add(ctx, c)
 	require.NoError(t, err)
 
-	gc, err := r.Get(id)
+	gc, err := r.Get(ctx, id)
 	require.NoError(t, err)
 
 	assert.Equal(t, c, gc)
 
-	cs := r.List()
+	cs := r.List(ctx)
 	assert.Len(t, cs, 1)
 	assert.Equal(t, c, cs[0])
 }
 
 func TestRegistry_NoDuplicateIDs(t *testing.T) {
+	ctx := context.Background()
 	r := NewRegistry()
 
-	id := Stringer("capability-1")
+	id := "capability-1"
 	ci, err := NewCapabilityInfo(
 		id,
 		CapabilityTypeAction,
@@ -84,7 +87,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	c := &smockCapability{CapabilityInfo: ci}
-	err = r.Add(c)
+	err = r.Add(ctx, c)
 	require.NoError(t, err)
 
 	ci, err = NewCapabilityInfo(
@@ -96,7 +99,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	require.NoError(t, err)
 	c2 := &smockCapability{CapabilityInfo: ci}
 
-	err = r.Add(c2)
+	err = r.Add(ctx, c2)
 	assert.ErrorContains(t, err, "capability with id: capability-1 already exists")
 }
 
@@ -109,7 +112,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "trigger, sync",
 			newCapability: func() Capability {
-				id := uuid.New()
+				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
 					CapabilityTypeTrigger,
@@ -125,7 +128,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "reports, sync",
 			newCapability: func() Capability {
-				id := uuid.New()
+				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
 					CapabilityTypeReport,
@@ -141,7 +144,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "action, sync",
 			newCapability: func() Capability {
-				id := uuid.New()
+				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
 					CapabilityTypeAction,
@@ -156,7 +159,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "target, sync",
 			newCapability: func() Capability {
-				id := uuid.New()
+				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
 					CapabilityTypeTarget,
@@ -171,7 +174,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "trigger, async",
 			newCapability: func() Capability {
-				id := uuid.New()
+				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
 					CapabilityTypeTrigger,
@@ -186,7 +189,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "reports, async",
 			newCapability: func() Capability {
-				id := uuid.New()
+				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
 					CapabilityTypeReport,
@@ -201,7 +204,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "action, async",
 			newCapability: func() Capability {
-				id := uuid.New()
+				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
 					CapabilityTypeAction,
@@ -217,7 +220,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "target, async",
 			newCapability: func() Capability {
-				id := uuid.New()
+				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
 					CapabilityTypeTarget,
@@ -232,10 +235,11 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	reg := NewRegistry()
 	for _, tc := range tcs {
 		c := tc.newCapability()
-		err := reg.Add(c)
+		err := reg.Add(ctx, c)
 		if tc.errContains == "" {
 			require.NoError(t, err)
 
@@ -243,16 +247,16 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 			id := info.Id
 			switch info.CapabilityType {
 			case CapabilityTypeAction:
-				_, err := reg.GetAction(id)
+				_, err := reg.GetAction(ctx, id)
 				require.NoError(t, err)
 			case CapabilityTypeTarget:
-				_, err := reg.GetTarget(id)
+				_, err := reg.GetTarget(ctx, id)
 				require.NoError(t, err)
 			case CapabilityTypeTrigger:
-				_, err := reg.GetTrigger(id)
+				_, err := reg.GetTrigger(ctx, id)
 				require.NoError(t, err)
 			case CapabilityTypeReport:
-				_, err := reg.GetReport(id)
+				_, err := reg.GetReport(ctx, id)
 				require.NoError(t, err)
 			}
 		} else {

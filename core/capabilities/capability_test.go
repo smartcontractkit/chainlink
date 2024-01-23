@@ -9,7 +9,7 @@ import (
 
 func Test_CapabilityInfo(t *testing.T) {
 	ci, err := NewCapabilityInfo(
-		Stringer("capability-id"),
+		"capability-id",
 		CapabilityTypeAction,
 		"This is a mock capability that doesn't do anything.",
 		"v1.0.0",
@@ -21,7 +21,7 @@ func Test_CapabilityInfo(t *testing.T) {
 
 func Test_CapabilityInfo_Invalid(t *testing.T) {
 	_, err := NewCapabilityInfo(
-		Stringer("capability-id"),
+		"capability-id",
 		"test",
 		"This is a mock capability that doesn't do anything.",
 		"v1.0.0",
@@ -29,7 +29,7 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid capability type")
 
 	_, err = NewCapabilityInfo(
-		Stringer("&!!!"),
+		"&!!!",
 		CapabilityTypeAction,
 		"This is a mock capability that doesn't do anything.",
 		"v1.0.0",
@@ -37,7 +37,7 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid id")
 
 	_, err = NewCapabilityInfo(
-		Stringer("mock-capability"),
+		"mock-capability",
 		CapabilityTypeAction,
 		"This is a mock capability that doesn't do anything.",
 		"hello",

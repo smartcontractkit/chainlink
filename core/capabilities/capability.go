@@ -58,23 +58,8 @@ type AsynchronousCapability interface {
 	Stop(ctx context.Context) error
 }
 
-type stringer struct {
-	s string
-}
-
-func (s stringer) String() string {
-	return s.s
-}
-
-func Stringer(s string) fmt.Stringer {
-	return stringer{s: s}
-}
-
 type CapabilityInfo struct {
-	// We use `fmt.Stringer` for the ID, since an ID can take
-	// one of two forms (namely a fully-qualified ID expressed as a
-	// string), or a tags object.
-	Id             fmt.Stringer
+	Id             string
 	CapabilityType CapabilityType
 	Description    string
 	Version        string
@@ -87,12 +72,12 @@ func (c CapabilityInfo) Info() CapabilityInfo {
 var idRegex = regexp.MustCompile("[a-z0-9_\\-:]")
 
 func NewCapabilityInfo(
-	id fmt.Stringer,
+	id string,
 	capabilityType CapabilityType,
 	description string,
 	version string,
 ) (CapabilityInfo, error) {
-	if !idRegex.MatchString(id.String()) {
+	if !idRegex.MatchString(id) {
 		return CapabilityInfo{}, fmt.Errorf("invalid id: %s. Allowed: %s", id, idRegex)
 	}
 
