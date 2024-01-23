@@ -262,8 +262,7 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	}
 
 	r.App.GetLogger().Errorw("resolver getting node status", "err", chains.ErrNotFound)
-	npr, _ := NewNodePayloadResolver(nil, chains.ErrNotFound)
-	return npr, nil
+	return NewNodePayloadResolver(nil, chains.ErrNotFound)
 }
 
 func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error) {
