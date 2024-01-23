@@ -209,6 +209,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    * @member transcoder address of the transcoder contract
    * @member registrars addresses of the registrar contracts
    * @member upkeepPrivilegeManager address which can set privilege for upkeeps
+   * @member skipReorgProtection if this registry will skip re-org protection checks
    */
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
