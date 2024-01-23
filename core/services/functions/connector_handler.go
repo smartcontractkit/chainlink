@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,34 +26,34 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 
 type functionsConnectorHandler struct {
 	services.StateMachine
 
-	connector           connector.GatewayConnector
-	signerKey           *ecdsa.PrivateKey
-	nodeAddress         string
-	storage             s4.Storage
-	allowlist           functions.OnchainAllowlist
-	rateLimiter         *hc.RateLimiter
-	subscriptions       functions.OnchainSubscriptions
-	minimumBalance      assets.Link
-	listener            FunctionsListener
-	offchainTransmitter OffchainTransmitter
-	heartbeatRequests   map[RequestID]*HeartbeatResponse
-	orderedRequests     []RequestID
-	mu                  sync.Mutex
-	chStop              services.StopChan
-	shutdownWaitGroup   sync.WaitGroup
-	lggr                logger.Logger
+	connector                  connector.GatewayConnector
+	signerKey                  *ecdsa.PrivateKey
+	nodeAddress                string
+	storage                    s4.Storage
+	allowlist                  functions.OnchainAllowlist
+	rateLimiter                *hc.RateLimiter
+	subscriptions              functions.OnchainSubscriptions
+	minimumBalance             assets.Link
+	listener                   FunctionsListener
+	offchainTransmitter        OffchainTransmitter
+	allowedHeartbeatInitiators map[string]struct{}
+	heartbeatRequests          map[RequestID]*HeartbeatResponse
+	requestTimeoutSec          uint32
+	orderedRequests            []RequestID
+	mu                         sync.Mutex
+	chStop                     services.StopChan
+	shutdownWaitGroup          sync.WaitGroup
+	lggr                       logger.Logger
 }
 
-const (
-	HeartbeatRequestTimeoutSec = 240
-	HeartbeatCacheSize         = 1000
-)
+const HeartbeatCacheSize = 1000
 
 var (
 	_ connector.Signer                  = &functionsConnectorHandler{}
@@ -71,23 +72,29 @@ func InternalId(sender []byte, requestId []byte) RequestID {
 	return RequestID(crypto.Keccak256Hash(append(sender, requestId...)).Bytes())
 }
 
-func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, listener FunctionsListener, offchainTransmitter OffchainTransmitter, minimumBalance assets.Link, lggr logger.Logger) (*functionsConnectorHandler, error) {
+func NewFunctionsConnectorHandler(pluginConfig *config.PluginConfig, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, listener FunctionsListener, offchainTransmitter OffchainTransmitter, lggr logger.Logger) (*functionsConnectorHandler, error) {
 	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil || listener == nil || offchainTransmitter == nil {
 		return nil, fmt.Errorf("all dependencies must be non-nil")
 	}
+	allowedHeartbeatInitiators := make(map[string]struct{})
+	for _, initiator := range pluginConfig.AllowedHeartbeatInitiators {
+		allowedHeartbeatInitiators[strings.ToLower(initiator)] = struct{}{}
+	}
 	return &functionsConnectorHandler{
-		nodeAddress:         nodeAddress,
-		signerKey:           signerKey,
-		storage:             storage,
-		allowlist:           allowlist,
-		rateLimiter:         rateLimiter,
-		subscriptions:       subscriptions,
-		minimumBalance:      minimumBalance,
-		listener:            listener,
-		offchainTransmitter: offchainTransmitter,
-		heartbeatRequests:   make(map[RequestID]*HeartbeatResponse),
-		chStop:              make(services.StopChan),
-		lggr:                lggr.Named("FunctionsConnectorHandler"),
+		nodeAddress:                pluginConfig.GatewayConnectorConfig.NodeAddress,
+		signerKey:                  signerKey,
+		storage:                    storage,
+		allowlist:                  allowlist,
+		rateLimiter:                rateLimiter,
+		subscriptions:              subscriptions,
+		minimumBalance:             pluginConfig.MinimumSubscriptionBalance,
+		listener:                   listener,
+		offchainTransmitter:        offchainTransmitter,
+		allowedHeartbeatInitiators: allowedHeartbeatInitiators,
+		heartbeatRequests:          make(map[RequestID]*HeartbeatResponse),
+		requestTimeoutSec:          pluginConfig.RequestTimeoutSec,
+		chStop:                     make(services.StopChan),
+		lggr:                       lggr.Named("FunctionsConnectorHandler"),
 	}, nil
 }
 
@@ -211,12 +218,20 @@ func (h *functionsConnectorHandler) handleHeartbeat(ctx context.Context, gateway
 		h.sendResponseAndLog(ctx, gatewayId, requestBody, internalErrorResponse(fmt.Sprintf("failed to unmarshal request: %v", err)))
 		return
 	}
+	if _, ok := h.allowedHeartbeatInitiators[requestBody.Sender]; !ok {
+		h.sendResponseAndLog(ctx, gatewayId, requestBody, internalErrorResponse("sender not allowed to send heartbeat requests"))
+		return
+	}
 	if !bytes.Equal(request.RequestInitiator, fromAddr.Bytes()) {
 		h.sendResponseAndLog(ctx, gatewayId, requestBody, internalErrorResponse("RequestInitiator doesn't match sender"))
 		return
 	}
 	if !bytes.Equal(request.SubscriptionOwner, fromAddr.Bytes()) {
 		h.sendResponseAndLog(ctx, gatewayId, requestBody, internalErrorResponse("SubscriptionOwner doesn't match sender"))
+		return
+	}
+	if request.Timestamp < uint64(time.Now().Unix())-uint64(h.requestTimeoutSec) {
+		h.sendResponseAndLog(ctx, gatewayId, requestBody, internalErrorResponse("Request is too old"))
 		return
 	}
 
@@ -250,7 +265,7 @@ func internalErrorResponse(internalError string) HeartbeatResponse {
 func (h *functionsConnectorHandler) handleOffchainRequest(request *OffchainRequest) {
 	defer h.shutdownWaitGroup.Done()
 	stopCtx, _ := h.chStop.NewCtx()
-	ctx, cancel := context.WithTimeout(stopCtx, time.Duration(HeartbeatRequestTimeoutSec)*time.Second)
+	ctx, cancel := context.WithTimeout(stopCtx, time.Duration(h.requestTimeoutSec)*time.Second)
 	defer cancel()
 	err := h.listener.HandleOffchainRequest(ctx, request)
 	if err != nil {

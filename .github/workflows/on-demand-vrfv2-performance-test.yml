@@ -20,6 +20,7 @@ on:
           - "POLYGON_MUMBAI"
           - "AVALANCHE_FUJI"
           - "AVALANCHE_MAINNET"
+          - "NEXON_DEV"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false

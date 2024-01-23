@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
@@ -721,14 +722,19 @@ func main() {
 	case "eoa-vrf-owner-test-consumer-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-vrf-owner-test-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
-		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
+		consumerLinkAddress := loadTestConsumerDeployCmd.String("link-address", "", "link-address")
+
+		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
+
 		_, tx, _, err := vrf_owner_test_consumer.DeployVRFV2OwnerTestConsumer(
 			e.Owner,
 			e.Ec,
 			common.HexToAddress(*consumerCoordinator),
+			common.HexToAddress(*consumerLinkAddress),
 		)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+
 	case "eoa-create-sub":
 		createSubCmd := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
 		coordinatorAddress := createSubCmd.String("coordinator-address", "", "coordinator address")
@@ -853,10 +859,25 @@ func main() {
 		keyHash := request.String("key-hash", "", "key hash")
 		cbGasLimit := request.Uint("cb-gas-limit", 100_000, "request callback gas limit")
 		numWords := request.Uint("num-words", 1, "num words to request")
-		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
+		requests := request.Uint("requests", 1, "number of randomness requests to make per run")
 		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
+		subFundingAmountJuels := request.String("sub-funding-amount-juels", "0", "amount of Juels to fund subscription with")
+		vrfOwnerAddress := request.String("vrf-owner-address", "", "vrf owner address")
+		linkAddress := request.String("link-address", "", "link-address")
+
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "key-hash")
 		keyHashBytes := common.HexToHash(*keyHash)
+
+		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
+		helpers.PanicErr(err)
+
+		linkTransferTX, err := link.Transfer(e.Owner, common.HexToAddress(*consumerAddress), decimal.RequireFromString(*subFundingAmountJuels).BigInt())
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, linkTransferTX, e.ChainID, "transfer", *subFundingAmountJuels, "juels to", *consumerAddress)
+
+		consumerBalanceJuels, err := link.BalanceOf(nil, common.HexToAddress(*consumerAddress))
+		helpers.PanicErr(err)
+		fmt.Println("Consumer Balance:", consumerBalanceJuels.String(), "juels")
 
 		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
 			common.HexToAddress(*consumerAddress),
@@ -864,46 +885,77 @@ func main() {
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
-			tx, err := consumer.RequestRandomWords(
+			requestRandTX, errRequestRandomWords := consumer.RequestRandomWords(
 				e.Owner,
 				uint16(*requestConfirmations),
 				keyHashBytes,
 				uint32(*cbGasLimit),
 				uint32(*numWords),
 				uint16(*requests),
+				decimal.RequireFromString(*subFundingAmountJuels).BigInt(),
 			)
-			helpers.PanicErr(err)
-			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
-			txes = append(txes, tx)
+			helpers.PanicErr(errRequestRandomWords)
+			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, requestRandTX.Hash()))
+			txes = append(txes, requestRandTX)
 		}
-		fmt.Println("Total number of requests sent:", (*requests)*(*runs))
+
+		coordinatorAddress, err := consumer.COORDINATOR(nil)
+		helpers.PanicErr(err)
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.Ec)
+		helpers.PanicErr(err)
+
+		coordinatorOwnerAddress, err := coordinator.Owner(nil)
+		helpers.PanicErr(err)
+
+		fmt.Println("Actual Coordinator Owner Address:", coordinatorOwnerAddress.String())
+		fmt.Println("Provided VRF Owner Address:", *vrfOwnerAddress)
+		if coordinatorOwnerAddress.String() != *vrfOwnerAddress {
+			panic("Actual Coordinator Owner and provided Coordinator Owner Addresses does not match")
+		}
+
+		var subId uint64
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+
+		go func() {
+			subCreatedChan := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated)
+			subCreatedSubscription, errw := coordinator.WatchSubscriptionCreated(nil, subCreatedChan, nil)
+			helpers.PanicErr(errw)
+			defer subCreatedSubscription.Unsubscribe()
+			subscriptionCreatedEvent := <-subCreatedChan
+			subId = subscriptionCreatedEvent.SubId
+			fmt.Println("VRF Owner Test Consumer's Sub ID:", subId)
+			defer wg.Done()
+		}()
+
+		wg.Wait()
+
+		totalNumberOfRequests := (*requests) * (*runs)
+		fmt.Println("Total number of requests sent:", totalNumberOfRequests)
 		fmt.Println("fetching receipts for all transactions")
+
+		var receipt *types.Receipt
 		for i, tx := range txes {
-			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
+			receipt = helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
 		}
+		blockNumber := receipt.BlockNumber.Uint64()
+		fmt.Println("subId", subId)
+		subFundedIterator, err := coordinator.FilterSubscriptionFunded(&bind.FilterOpts{End: &blockNumber}, []uint64{subId})
+		helpers.PanicErr(err)
+
+		if !subFundedIterator.Next() {
+			panic("Sub Funded Event not found")
+		}
+
+		fmt.Println("Sub Funded, sub ID:", subFundedIterator.Event.SubId, ", Old Balance:", subFundedIterator.Event.OldBalance, ", New Balance:", subFundedIterator.Event.NewBalance)
 	case "eoa-vrf-owner-test-read-metrics":
 		request := flag.NewFlagSet("eoa-load-test-read-metrics", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
-		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
-			common.HexToAddress(*consumerAddress),
-			e.Ec)
-		helpers.PanicErr(err)
-		responseCount, err := consumer.SResponseCount(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Response Count: ", responseCount)
-		requestCount, err := consumer.SRequestCount(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Request Count: ", requestCount)
-		averageFulfillmentInMillions, err := consumer.SAverageFulfillmentInMillions(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Average Fulfillment In Millions: ", averageFulfillmentInMillions)
-		slowestFulfillment, err := consumer.SSlowestFulfillment(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Slowest Fulfillment: ", slowestFulfillment)
-		fastestFulfillment, err := consumer.SFastestFulfillment(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Fastest Fulfillment: ", fastestFulfillment)
+		metrics := getVRFOwnerTestConsumerMetrics(*consumerAddress, e)
+		printLoadTestMetrics(metrics)
+
 	case "eoa-vrf-owner-test-reset-metrics":
 		request := flag.NewFlagSet("eoa-vrf-owner-test-reset-metrics", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
@@ -1351,4 +1403,46 @@ func main() {
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
+}
+
+func getVRFOwnerTestConsumerMetrics(consumerAddress string, e helpers.Environment) LoadTestMetrics {
+	consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
+		common.HexToAddress(consumerAddress),
+		e.Ec)
+	helpers.PanicErr(err)
+	responseCount, err := consumer.SResponseCount(nil)
+	helpers.PanicErr(err)
+	requestCount, err := consumer.SRequestCount(nil)
+	helpers.PanicErr(err)
+	averageFulfillmentInMillions, err := consumer.SAverageFulfillmentInMillions(nil)
+	helpers.PanicErr(err)
+	slowestFulfillment, err := consumer.SSlowestFulfillment(nil)
+	helpers.PanicErr(err)
+	fastestFulfillment, err := consumer.SFastestFulfillment(nil)
+	helpers.PanicErr(err)
+
+	metrics := LoadTestMetrics{
+		ResponseCount:                responseCount,
+		RequestCount:                 requestCount,
+		AverageFulfillmentInMillions: averageFulfillmentInMillions,
+		SlowestFulfillment:           slowestFulfillment,
+		FastestFulfillment:           fastestFulfillment,
+	}
+	return metrics
+}
+
+func printLoadTestMetrics(metrics LoadTestMetrics) {
+	fmt.Println("Response Count: ", metrics.ResponseCount)
+	fmt.Println("Request Count: ", metrics.RequestCount)
+	fmt.Println("Average Fulfillment In Millions: ", metrics.AverageFulfillmentInMillions)
+	fmt.Println("Slowest Fulfillment: ", metrics.SlowestFulfillment)
+	fmt.Println("Fastest Fulfillment: ", metrics.FastestFulfillment)
+}
+
+type LoadTestMetrics struct {
+	ResponseCount                *big.Int
+	RequestCount                 *big.Int
+	AverageFulfillmentInMillions *big.Int
+	SlowestFulfillment           *big.Int
+	FastestFulfillment           *big.Int
 }
