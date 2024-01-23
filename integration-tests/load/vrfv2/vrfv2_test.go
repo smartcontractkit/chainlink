@@ -113,7 +113,7 @@ func TestVRFV2Performance(t *testing.T) {
 		if cfg.ExistingEnvConfig.CreateFundSubsAndAddConsumers {
 			linkToken, err := env.ContractLoader.LoadLINKToken(vrfv2Config.LinkAddress)
 			require.NoError(t, err)
-			consumers, err = vrfv2_actions.DeployVRFV2Consumers(env.ContractDeployer, coordinator, 1)
+			consumers, err = vrfv2_actions.DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), 1)
 			require.NoError(t, err)
 			err = env.EVMClient.WaitForEvents()
 			require.NoError(t, err, vrfv2_actions.ErrWaitTXsComplete)
@@ -161,9 +161,12 @@ func TestVRFV2Performance(t *testing.T) {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		vrfv2Config.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeSendingKeyFunding
 		vrfv2Config.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink
+
+		network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+		require.NoError(t, err, "Error building ethereum network config")
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
-			WithGeth().
+			WithPrivateEthereumNetwork(network).
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(vrfv2Config.ChainlinkNodeFunding)).
 			WithCustomCleanup(
@@ -196,9 +199,14 @@ func TestVRFV2Performance(t *testing.T) {
 		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 		require.NoError(t, err, "error deploying LINK contract")
 
+		useVRFOwner := true
+		useTestCoordinator := true
+
 		vrfv2Contracts, subIDs, vrfv2Data, err = vrfv2_actions.SetupVRFV2Environment(
 			env,
 			vrfv2Config,
+			useVRFOwner,
+			useTestCoordinator,
 			linkToken,
 			mockETHLinkFeed,
 			//register proving key against EOA address in order to return funds to this address

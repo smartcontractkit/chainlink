@@ -564,7 +564,6 @@ func main() {
 		coordinatorRegisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
 		registerKeyUncompressedPubKey := coordinatorRegisterKey.String("pubkey", "", "uncompressed pubkey")
-		registerKeyOracleAddress := coordinatorRegisterKey.String("oracle-address", "", "oracle address")
 		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey", "oracle-address")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*registerKeyAddress), e.Ec)
 		helpers.PanicErr(err)
@@ -574,7 +573,7 @@ func main() {
 			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 		}
 
-		v2plusscripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
+		v2plusscripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey)
 	case "coordinator-deregister-key":
 		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
 		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
