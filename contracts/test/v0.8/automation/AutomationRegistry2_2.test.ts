@@ -34,17 +34,17 @@ import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { UpkeepAutoFunder } from '../../../typechain'
 import {
   CancelledUpkeepReportEvent,
-  IKeeperRegistryMaster as IKeeperRegistry,
+  IAutomationRegistryMaster as IAutomationRegistry,
   InsufficientFundsUpkeepReportEvent,
   ReorgedUpkeepReportEvent,
   StaleUpkeepReportEvent,
   UpkeepPerformedEvent,
-} from '../../../typechain/IKeeperRegistryMaster'
+} from '../../../typechain/IAutomationRegistryMaster'
 import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import { deployRegistry21 } from './helpers'
+import { deployRegistry22 } from './helpers'
 
 const describeMaybe = process.env.SKIP_SLOW ? describe.skip : describe
 const itMaybe = process.env.SKIP_SLOW ? it.skip : it
@@ -68,9 +68,10 @@ enum Mode {
   DEFAULT,
   ARBITRUM,
   OPTIMISM,
+  SCROLL,
 }
 
-// copied from KeeperRegistryBase2_2.sol
+// copied from AutomationRegistryBase2_2.sol
 enum Trigger {
   CONDITION,
   LOG,
@@ -149,11 +150,11 @@ let personas: Personas
 let linkToken: Contract
 let linkEthFeed: MockV3Aggregator
 let gasPriceFeed: MockV3Aggregator
-let registry: IKeeperRegistry // default registry, used for most tests
-let arbRegistry: IKeeperRegistry // arbitrum registry
-let opRegistry: IKeeperRegistry // optimism registry
-let mgRegistry: IKeeperRegistry // "migrate registry" used in migration tests
-let blankRegistry: IKeeperRegistry // used to test initial configurations
+let registry: IAutomationRegistry // default registry, used for most tests
+let arbRegistry: IAutomationRegistry // arbitrum registry
+let opRegistry: IAutomationRegistry // optimism registry
+let mgRegistry: IAutomationRegistry // "migrate registry" used in migration tests
+let blankRegistry: IAutomationRegistry // used to test initial configurations
 let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
 let ltUpkeep: MockContract
@@ -388,7 +389,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe('KeeperRegistry2_2', () => {
+describe('AutomationRegistry2_2', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -418,7 +419,7 @@ describe('KeeperRegistry2_2', () => {
   let signers: Wallet[]
   let signerAddresses: string[]
   let config: any
-  let baseConfig: Parameters<IKeeperRegistry['setConfig']>
+  let baseConfig: Parameters<IAutomationRegistry['setConfig']>
   let upkeepManager: string
 
   before(async () => {
@@ -564,7 +565,7 @@ describe('KeeperRegistry2_2', () => {
   }
 
   const verifyMaxPayment = async (
-    registry: IKeeperRegistry,
+    registry: IAutomationRegistry,
     l1CostWei?: BigNumber,
   ) => {
     type TestCase = {
@@ -628,6 +629,7 @@ describe('KeeperRegistry2_2', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
+          skipReorgProtection: false,
         }),
         offchainVersion,
         offchainBytes,
@@ -708,7 +710,7 @@ describe('KeeperRegistry2_2', () => {
   }
 
   const getTransmitTx = async (
-    registry: IKeeperRegistry,
+    registry: IAutomationRegistry,
     transmitter: Signer,
     upkeepIds: BigNumber[],
     overrides: GetTransmitTXOptions = {},
@@ -794,7 +796,7 @@ describe('KeeperRegistry2_2', () => {
   }
 
   const getTransmitTxWithReport = async (
-    registry: IKeeperRegistry,
+    registry: IAutomationRegistry,
     transmitter: Signer,
     report: BytesLike,
   ) => {
@@ -891,7 +893,7 @@ describe('KeeperRegistry2_2', () => {
       offchainBytes,
     ]
 
-    registry = await deployRegistry21(
+    registry = await deployRegistry22(
       owner,
       Mode.DEFAULT,
       linkToken.address,
@@ -899,7 +901,7 @@ describe('KeeperRegistry2_2', () => {
       gasPriceFeed.address,
     )
 
-    arbRegistry = await deployRegistry21(
+    arbRegistry = await deployRegistry22(
       owner,
       Mode.ARBITRUM,
       linkToken.address,
@@ -907,7 +909,7 @@ describe('KeeperRegistry2_2', () => {
       gasPriceFeed.address,
     )
 
-    opRegistry = await deployRegistry21(
+    opRegistry = await deployRegistry22(
       owner,
       Mode.OPTIMISM,
       linkToken.address,
@@ -915,7 +917,7 @@ describe('KeeperRegistry2_2', () => {
       gasPriceFeed.address,
     )
 
-    mgRegistry = await deployRegistry21(
+    mgRegistry = await deployRegistry22(
       owner,
       Mode.DEFAULT,
       linkToken.address,
@@ -923,7 +925,7 @@ describe('KeeperRegistry2_2', () => {
       gasPriceFeed.address,
     )
 
-    blankRegistry = await deployRegistry21(
+    blankRegistry = await deployRegistry22(
       owner,
       Mode.DEFAULT,
       linkToken.address,
@@ -3544,6 +3546,7 @@ describe('KeeperRegistry2_2', () => {
       transcoder: newTranscoder,
       registrars: newRegistrars,
       upkeepPrivilegeManager: upkeepManager,
+      skipReorgProtection: false,
     }
 
     it('reverts when called by anyone but the proposed owner', async () => {
@@ -4565,6 +4568,7 @@ describe('KeeperRegistry2_2', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
+          skipReorgProtection: false,
         },
         offchainVersion,
         offchainBytes,
@@ -5209,6 +5213,7 @@ describe('KeeperRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              skipReorgProtection: false,
             },
             offchainVersion,
             offchainBytes,
@@ -5262,6 +5267,7 @@ describe('KeeperRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              skipReorgProtection: false,
             },
             offchainVersion,
             offchainBytes,
@@ -5310,6 +5316,7 @@ describe('KeeperRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              skipReorgProtection: false,
             },
             offchainVersion,
             offchainBytes,
