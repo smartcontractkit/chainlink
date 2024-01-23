@@ -53,6 +53,7 @@ type NewEnvConfig struct {
 type Common struct {
 	MinimumConfirmations   uint16 `toml:"minimum_confirmations"`
 	CancelSubsAfterTestRun bool   `toml:"cancel_subs_after_test_run"`
+	SubBillingType         string `toml:"sub_billing_type"`
 }
 
 type Funding struct {
