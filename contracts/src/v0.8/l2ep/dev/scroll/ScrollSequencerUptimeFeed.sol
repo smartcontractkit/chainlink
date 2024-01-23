@@ -102,10 +102,6 @@ contract ScrollSequencerUptimeFeed is
 
   /// @notice internal method that stores the L1 sender
   function _setL1Sender(address to) private {
-    if (to == address(0)) {
-      revert ZeroAddress();
-    }
-
     address from = s_l1Sender;
     if (from != to) {
       s_l1Sender = to;
