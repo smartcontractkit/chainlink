@@ -6,19 +6,11 @@ import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2C
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
 import {SequencerUptimeFeed} from "../../../dev/SequencerUptimeFeed.sol";
 import {ScrollValidator} from "../../../dev/scroll/ScrollValidator.sol";
+import {GasLimitValidator} from "../../../dev/GasLimitValidator.sol";
+import {GasLimitValidatorTest} from "../GasLimitValidator.t.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
-contract ScrollValidatorTest is L2EPTest {
-  /// Helper constants
-  address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = 0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b;
-  uint32 internal constant INIT_GAS_LIMIT = 1900000;
-
-  /// L2EP contracts
-  MockScrollL1CrossDomainMessenger internal s_mockScrollL1CrossDomainMessenger;
-  MockScrollL2CrossDomainMessenger internal s_mockScrollL2CrossDomainMessenger;
-  ScrollSequencerUptimeFeed internal s_scrollSequencerUptimeFeed;
-  ScrollValidator internal s_scrollValidator;
-
+contract ScrollValidatorTest is GasLimitValidatorTest {
   /// https://github.com/scroll-tech/scroll/blob/03089eaeee1193ff44c532c7038611ae123e7ef3/contracts/src/libraries/IScrollMessenger.sol#L22
   event SentMessage(
     address indexed sender,
@@ -29,90 +21,36 @@ contract ScrollValidatorTest is L2EPTest {
     bytes message
   );
 
-  /// Setup
-  function setUp() public {
-    s_mockScrollL1CrossDomainMessenger = new MockScrollL1CrossDomainMessenger();
-    s_mockScrollL2CrossDomainMessenger = new MockScrollL2CrossDomainMessenger();
-
-    s_scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(
-      address(s_mockScrollL1CrossDomainMessenger),
-      address(s_mockScrollL2CrossDomainMessenger),
+  function newValidator() internal override returns (GasLimitValidator validator) {
+    MockScrollL1CrossDomainMessenger mockScrollL1CrossDomainMessenger = new MockScrollL1CrossDomainMessenger();
+    MockScrollL2CrossDomainMessenger mockScrollL2CrossDomainMessenger = new MockScrollL2CrossDomainMessenger();
+    ScrollSequencerUptimeFeed scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(
+      address(mockScrollL1CrossDomainMessenger),
+      address(mockScrollL2CrossDomainMessenger),
       true
     );
-
-    s_scrollValidator = new ScrollValidator(
-      address(s_mockScrollL1CrossDomainMessenger),
-      address(s_scrollSequencerUptimeFeed),
-      INIT_GAS_LIMIT
-    );
-  }
-}
-
-contract ScrollValidator_SetGasLimit is ScrollValidatorTest {
-  /// @notice it correctly updates the gas limit
-  function test_CorrectlyUpdatesTheGasLimit() public {
-    uint32 newGasLimit = 2000000;
-    assertEq(s_scrollValidator.getGasLimit(), INIT_GAS_LIMIT);
-    s_scrollValidator.setGasLimit(newGasLimit);
-    assertEq(s_scrollValidator.getGasLimit(), newGasLimit);
-  }
-}
-
-contract ScrollValidator_Validate is ScrollValidatorTest {
-  /// @notice it reverts if called by account with no access
-  function test_RevertsIfCalledByAnAccountWithNoAccess() public {
-    vm.startPrank(s_strangerAddr);
-    vm.expectRevert("No access");
-    s_scrollValidator.validate(0, 0, 1, 1);
+    return
+      new ScrollValidator(
+        address(mockScrollL1CrossDomainMessenger),
+        address(scrollSequencerUptimeFeed),
+        INIT_GAS_LIMIT
+      );
   }
 
-  /// @notice it posts sequencer status when there is not status change
-  function test_PostSequencerStatusWhenThereIsNotStatusChange() public {
-    // Gives access to the s_eoaValidator
-    s_scrollValidator.addAccess(s_eoaValidator);
-
-    // Sets block.timestamp to a later date
-    uint256 futureTimestampInSeconds = block.timestamp + 5000;
-    vm.startPrank(s_eoaValidator);
-    vm.warp(futureTimestampInSeconds);
-
-    // Sets up the expected event data
-    vm.expectEmit(false, false, false, true);
+  function emitExpectedSentMessageEvent(
+    address validatorAddress,
+    bool status,
+    uint256 futureTimestampInSeconds
+  ) internal override {
     emit SentMessage(
-      address(s_scrollValidator), // sender
+      validatorAddress, // sender
       L2_SEQ_STATUS_RECORDER_ADDRESS, // target
       0, // value
       0, // nonce
       INIT_GAS_LIMIT, // gas limit
-      abi.encodeWithSelector(SequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds) // message
+      abi.encodeWithSelector(SequencerUptimeFeed.updateStatus.selector, status, futureTimestampInSeconds) // message
     );
-
-    // Runs the function (which produces the event to test)
-    s_scrollValidator.validate(0, 0, 0, 0);
   }
 
-  /// @notice it post sequencer offline
-  function test_PostSequencerOffline() public {
-    // Gives access to the s_eoaValidator
-    s_scrollValidator.addAccess(s_eoaValidator);
-
-    // Sets block.timestamp to a later date
-    uint256 futureTimestampInSeconds = block.timestamp + 10000;
-    vm.startPrank(s_eoaValidator);
-    vm.warp(futureTimestampInSeconds);
-
-    // Sets up the expected event data
-    vm.expectEmit(false, false, false, true);
-    emit SentMessage(
-      address(s_scrollValidator), // sender
-      L2_SEQ_STATUS_RECORDER_ADDRESS, // target
-      0, // value
-      0, // nonce
-      INIT_GAS_LIMIT, // gas limit
-      abi.encodeWithSelector(SequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // message
-    );
-
-    // Runs the function (which produces the event to test)
-    s_scrollValidator.validate(0, 0, 1, 1);
-  }
 }
+
