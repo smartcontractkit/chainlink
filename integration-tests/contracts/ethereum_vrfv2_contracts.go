@@ -263,11 +263,11 @@ func (v *EthereumVRFCoordinatorV2) GetOwner(ctx context.Context) (common.Address
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
-	coordinatorOwnerAddres, err := v.coordinator.Owner(opts)
+	coordinatorOwnerAddress, err := v.coordinator.Owner(opts)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return coordinatorOwnerAddres, nil
+	return coordinatorOwnerAddress, nil
 }
 
 func (v *EthereumVRFCoordinatorV2) GetRequestConfig(ctx context.Context) (GetRequestConfig, error) {
