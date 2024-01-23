@@ -6,6 +6,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -1027,6 +1028,12 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	if o.OCR2OracleSpec.FeedID != nil {
 		feedID = o.OCR2OracleSpec.FeedID.Hex()
 	}
+	relayConfig, err := toml.Marshal(struct {
+		RelayConfig job.JSONConfig `toml:"relayConfig"`
+	}{RelayConfig: o.OCR2OracleSpec.RelayConfig})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal relay config: %w", err)
+	}
 	specWrap := struct {
 		Name                     string
 		JobType                  string
@@ -1036,7 +1043,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		FeedID                   string
 		Relay                    string
 		PluginType               string
-		RelayConfig              map[string]interface{}
+		RelayConfig              string
 		PluginConfig             map[string]interface{}
 		P2PV2Bootstrappers       []string
 		OCRKeyBundleID           string
@@ -1056,7 +1063,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		FeedID:                feedID,
 		Relay:                 string(o.OCR2OracleSpec.Relay),
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
-		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		RelayConfig:           string(relayConfig),
 		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
 		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
 		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
@@ -1071,37 +1078,37 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
 forwardingAllowed                      = {{.ForwardingAllowed}}
-{{if .MaxTaskDuration}}
+{{- if .MaxTaskDuration}}
 maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
-{{if .PluginType}}
+{{- if .PluginType}}
 pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
 contractID                             = "{{.ContractID}}"
-{{if .FeedID}}
+{{- if .FeedID}}
 feedID                                 = "{{.FeedID}}" 
 {{end}}
-{{if eq .JobType "offchainreporting2" }}
+{{- if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
-{{if eq .JobType "offchainreporting2" }}
+{{- if eq .JobType "offchainreporting2" }}
 transmitterID                          = "{{.TransmitterID}}" {{end}}
-{{if .BlockchainTimeout}}
+{{- if .BlockchainTimeout}}
 blockchainTimeout                      = "{{.BlockchainTimeout}}" 
 {{end}}
-{{if .ContractConfirmations}}
+{{- if .ContractConfirmations}}
 contractConfigConfirmations            = {{.ContractConfirmations}} 
 {{end}}
-{{if .TrackerPollInterval}}
+{{- if .TrackerPollInterval}}
 contractConfigTrackerPollInterval      = "{{.TrackerPollInterval}}"
 {{end}}
-{{if .TrackerSubscribeInterval}}
+{{- if .TrackerSubscribeInterval}}
 contractConfigTrackerSubscribeInterval = "{{.TrackerSubscribeInterval}}"
 {{end}}
-{{if .P2PV2Bootstrappers}}
+{{- if .P2PV2Bootstrappers}}
 p2pv2Bootstrappers                     = [{{range .P2PV2Bootstrappers}}"{{.}}",{{end}}]{{end}}
-{{if .MonitoringEndpoint}}
+{{- if .MonitoringEndpoint}}
 monitoringEndpoint                     = "{{.MonitoringEndpoint}}" {{end}}
-{{if .ObservationSource}}
+{{- if .ObservationSource}}
 observationSource                      = """
 {{.ObservationSource}}
 """{{end}}
@@ -1109,8 +1116,7 @@ observationSource                      = """
 [pluginConfig]{{range $key, $value := .PluginConfig}}
 {{$key}} = {{$value}}{{end}}
 {{end}}
-[relayConfig]{{range $key, $value := .RelayConfig}}
-{{$key}} = {{$value}}{{end}}
+{{.RelayConfig}}
 `
 	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
