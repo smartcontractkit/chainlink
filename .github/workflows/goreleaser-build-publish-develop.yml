@@ -2,8 +2,8 @@ name: "Build publish Chainlink develop on private ECR"
 
 on:
   push:
-    branches:
-      - develop
+    # branches:
+    #   - develop
 
 jobs:
   push-chainlink-develop-goreleaser:
@@ -32,10 +32,8 @@ jobs:
           enable-docker-publish: "true"
           docker-registry: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
           enable-goreleaser-snapshot: "true"
-          goreleaser-exec: ./tools/bin/goreleaser_wrapper
-          goreleaser-config: .goreleaser.develop.yaml
-          # ISSUE: https://github.com/golang/go/issues/52690
-          zig-version: 0.11.0-dev.3380+7e0a02ee2 # TODO: update action to v0.11.x once released
+          goreleaser-config: .goreleaser.develop.ci.yaml
+          zig-version: 0.11.0
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
