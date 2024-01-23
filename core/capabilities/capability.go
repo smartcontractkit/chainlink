@@ -106,21 +106,38 @@ func NewCapabilityInfo(
 }
 
 // ExecuteSync executes a capability synchronously.
+// We are not handling a case where a capability panics and crashes.
 func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.Value, error) {
 	callback := make(chan values.Value)
 	vs := make([]values.Value, 0)
-	defer close(callback)
 
-	err := c.Execute(ctx, callback, inputs)
-	if err != nil {
-		return nil, err
-	}
+	var executionErr error
+	go func(innerCtx context.Context, innerC Capability, innerInputs values.Map) {
+		executionErr = innerC.Execute(ctx, callback, inputs)
+	}(ctx, c, inputs)
 
 	for value := range callback {
+		// TODO: Handle the case where a capability returns an error as part of the callback.
+		// if valErr, ok := value.(values.Error); ok {
+		// 	return nil, valError.Underlying
+		// }
 		vs = append(vs, value)
 	}
 
-	if len(vs) == 0 {
+	// Something went wrong when executing a capability. If this happens at any point,
+	// we want to stop the capability and return the error. We are discarding all values
+	// returned up to the error.
+	if executionErr != nil {
+		return nil, executionErr
+	}
+
+	// TODO: This is a special case for when a capability returns no values.
+	// It can happen when the channel is closed before a value is returned.
+	// if len(vs) == 0 {
+	// 	return nil, nil
+	// }
+
+	if len(vs) == 1 {
 		return vs[0], nil
 	}
 

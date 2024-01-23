@@ -24,8 +24,8 @@ func (m *cmockCapability) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (m *cmockCapability) Execute(ctx context.Context, callback chan values.Map, inputs values.Map) (values.Value, error) {
-	return nil, nil
+func (m *cmockCapability) Execute(ctx context.Context, callback chan values.Value, inputs values.Map) error {
+	return nil
 }
 
 func TestRegistry(t *testing.T) {
