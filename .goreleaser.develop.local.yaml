@@ -22,6 +22,9 @@ builds:
     flags:
       - -trimpath
       - -buildmode=pie
+    ldflags:
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
   - id: linux-amd64
     binary: "{{ .ProjectName }}"
@@ -36,6 +39,9 @@ builds:
     flags:
       - -trimpath
       - -buildmode=pie
+    ldflags:
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
 # See https://goreleaser.com/customization/docker/
 dockers:
