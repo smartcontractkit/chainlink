@@ -635,6 +635,14 @@ jobs:
       - name: Name Versions
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-upgrade-config
+        with:
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ steps.get_latest_version.outputs.latest_version }}
+          upgradeImage: ${{ env.UPGRADE_IMAGE }}
+          upgradeVersion: ${{ env.UPGRADE_VERSION }}
       - name: Run Migration Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
