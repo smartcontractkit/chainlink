@@ -877,7 +877,6 @@ var ChaosPauses = []PauseData{}
 
 var chaosPauseSyncFn = func(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, targetComponent string) ChaosPauseData {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
-	// randomBool := rand.Intn(2) == 0
 
 	randomNode := testEnv.ClCluster.Nodes[rand.Intn(len(testEnv.ClCluster.Nodes)-1)+1]
 	var component ctf_test_env.EnvComponent
@@ -930,8 +929,6 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 	}
 
 	chaosChan := make(chan ChaosPauseData, cfg.ChaosConfig.ExperimentCount)
-	// chaosChan := make(chan error, cfg.ChaosConfig.ExperimentCount)
-
 	wg := &sync.WaitGroup{}
 
 	go func() {
