@@ -776,13 +776,23 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
+	vrfJobSpecConfig := vrfv2plus.VRFJobSpecConfig{
+		ForwardingAllowed:             false,
+		CoordinatorAddress:            newCoordinator.Address(),
+		FromAddresses:                 []string{vrfv2PlusData.PrimaryEthAddress},
+		EVMChainID:                    vrfv2PlusData.ChainID.String(),
+		MinIncomingConfirmations:      int(vrfv2PlusConfig.MinimumConfirmations),
+		PublicKey:                     vrfv2PlusData.VRFKey.Data.ID,
+		EstimateGasMultiplier:         1,
+		BatchFulfillmentEnabled:       false,
+		BatchFulfillmentGasMultiplier: 1.15,
+		PollPeriod:                    time.Second * 1,
+		RequestTimeout:                time.Hour * 24,
+	}
+
 	_, err = vrfv2plus.CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
-		newCoordinator.Address(),
-		[]string{vrfv2PlusData.PrimaryEthAddress},
-		vrfv2PlusData.VRFKey.Data.ID,
-		vrfv2PlusData.ChainID.String(),
-		vrfv2PlusConfig.MinimumConfirmations,
+		vrfJobSpecConfig,
 	)
 	require.NoError(t, err, vrfv2plus.ErrCreateVRFV2PlusJobs)
 
