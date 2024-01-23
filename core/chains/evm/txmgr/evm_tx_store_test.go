@@ -9,6 +9,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -811,7 +812,7 @@ func TestORM_IsTxFinalized(t *testing.T) {
 	})
 }
 
-func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
+func TestORM_FindConfirmedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -821,25 +822,15 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	head := evmtypes.Head{
-		Hash:   utils.NewHash(),
-		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   utils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   utils.NewHash(),
-				Parent: nil,
-			},
-		},
-	}
-
-	t.Run("find all transactions confirmed in range", func(t *testing.T) {
+	t.Run("find all confirmed transactions", func(t *testing.T) {
 		etx_8 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 700, 8)
 		etx_9 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 777, 9)
+		_ = mustInsertFatalErrorEthTx(t, txStore, fromAddress)
+		_ = mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 699, 7,
+			time.Unix(1616509100, 0), fromAddress)
+		_ = mustInsertInProgressEthTxWithAttempt(t, txStore, 778, fromAddress)
 
-		etxes, err := txStore.FindTransactionsConfirmedInBlockRange(testutils.Context(t), head.Number, 8, ethClient.ConfiguredChainID())
+		etxes, err := txStore.FindConfirmedTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		assert.Len(t, etxes, 2)
 		assert.Equal(t, etxes[0].Sequence, etx_8.Sequence)

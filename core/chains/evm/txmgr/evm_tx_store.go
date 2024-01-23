@@ -820,7 +820,7 @@ ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas
 	return
 }
 
-func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+func (o *evmTxStore) saveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int, txState txmgrtypes.TxState, attemptState txmgrtypes.TxAttemptState) (err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -884,25 +884,33 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 	updated_eth_tx_attempts AS (
 		UPDATE evm.tx_attempts
 		SET
-			state = 'broadcast',
+			state = '%s',
 			broadcast_before_block_num = COALESCE(evm.tx_attempts.broadcast_before_block_num, inserted_receipts.block_number)
 		FROM inserted_receipts
 		WHERE inserted_receipts.tx_hash = evm.tx_attempts.hash
 		RETURNING evm.tx_attempts.eth_tx_id
 	)
 	UPDATE evm.txes
-	SET state = 'confirmed'
+	SET state = '%s'
 	FROM updated_eth_tx_attempts
 	WHERE updated_eth_tx_attempts.eth_tx_id = evm.txes.id
 	AND evm_chain_id = ?
 	`
 
-	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
+	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","), attemptState, txState)
 
 	stmt = sqlx.Rebind(sqlx.DOLLAR, stmt)
 
 	err = qq.ExecQ(stmt, valueArgs...)
 	return pkgerrors.Wrap(err, "SaveFetchedReceipts failed to save receipts")
+}
+
+func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+	return o.saveFetchedReceipts(ctx, r, chainID, "confirmed", txmgrtypes.TxAttemptBroadcast)
+}
+
+func (o *evmTxStore) SaveFinalizedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+	return o.saveFetchedReceipts(ctx, r, chainID, "finalized", txmgrtypes.TxAttemptFinalized)
 }
 
 // MarkAllConfirmedMissingReceipt
@@ -1109,7 +1117,7 @@ func (o *evmTxStore) UpdateTxForRebroadcast(ctx context.Context, etx Tx, etxAtte
 	})
 }
 
-func (o *evmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber, lowBlockNumber int64, chainID *big.Int) (etxs []*Tx, err error) {
+func (o *evmTxStore) FindConfirmedTransactions(ctx context.Context, chainID *big.Int) (etxs []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1120,21 +1128,21 @@ func (o *evmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, 
 SELECT DISTINCT evm.txes.* FROM evm.txes
 INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.tx_attempts.state = 'broadcast'
 INNER JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
-WHERE evm.txes.state IN ('confirmed', 'confirmed_missing_receipt') AND block_number BETWEEN $1 AND $2 AND evm_chain_id = $3
+WHERE evm.txes.state IN ('confirmed', 'confirmed_missing_receipt') AND evm_chain_id = $1
 ORDER BY nonce ASC
-`, lowBlockNumber, highBlockNumber, chainID.String())
+`, chainID.String())
 		if err != nil {
-			return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.txes")
+			return pkgerrors.Wrap(err, "FindConfirmedTransactions failed to load evm.txes")
 		}
 		etxs = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
 		if err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(ctx), pg.WithQueryer(tx)); err != nil {
-			return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.tx_attempts")
+			return pkgerrors.Wrap(err, "FindConfirmedTransactions failed to load evm.tx_attempts")
 		}
 		err = loadEthTxesAttemptsReceipts(tx, etxs)
-		return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.receipts")
+		return pkgerrors.Wrap(err, "FindConfirmedTransactions failed to load evm.receipts")
 	}, pg.OptReadOnlyTx())
-	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
+	return etxs, pkgerrors.Wrap(err, "FindConfirmedTransactions failed")
 }
 
 func (o *evmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (broadcastAt nullv4.Time, err error) {

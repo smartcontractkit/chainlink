@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -30,6 +31,10 @@ type TxmClient[
 		ctx context.Context,
 		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	) (txReceipt []R, txErr []error, err error)
+	BatchGetReceiptsWithFinalizedBlock(ctx context.Context,
+		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+		useFinalityTag bool, finalityDepth uint32) (
+		finalizedBlock *big.Int, txReceipt []R, txErr []error, funcErr error)
 }
 
 // TransactionClient contains the methods for building, simulating, broadcasting transactions

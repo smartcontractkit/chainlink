@@ -509,6 +509,69 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) get
 	return ec.client.SequenceAt(ctx, from, nil)
 }
 
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) isReceiptValid(
+	ctx context.Context,
+	l logger.SugaredLogger,
+	attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	receipt R) bool {
+
+	if ec.isReceiptNil(receipt) {
+		// NOTE: This should never happen, but it seems safer to check
+		// regardless to avoid a potential panic
+		l.AssumptionViolation("got nil receipt")
+		return false
+	}
+
+	if receipt.IsZero() {
+		l.Debug("Still waiting for receipt")
+		return false
+	}
+
+	l = l.With("blockHash", receipt.GetBlockHash().String(), "status", receipt.GetStatus(), "transactionIndex", receipt.GetTransactionIndex())
+
+	if receipt.IsUnmined() {
+		l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")
+		return false
+	}
+
+	l.Debugw("Got receipt for transaction", "blockNumber", receipt.GetBlockNumber(), "feeUsed", receipt.GetFeeUsed())
+
+	if receipt.GetTxHash().String() != attempt.Hash.String() {
+		l.Errorf("Invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.GetTxHash().String(), attempt.Hash.String())
+		return false
+	}
+
+	if receipt.GetBlockNumber() == nil {
+		l.Error("Invariant violation, receipt was missing block number")
+		return false
+	}
+
+	if receipt.GetStatus() == 0 {
+		rpcError, errExtract := ec.client.CallContract(ctx, attempt, receipt.GetBlockNumber())
+		if errExtract == nil {
+			l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "rpcError", rpcError.String())
+		} else {
+			l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.GetTxHash(), "err", errExtract)
+		}
+		// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
+		promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
+	} else {
+		promNumSuccessfulTxs.WithLabelValues(ec.chainID.String()).Add(1)
+	}
+
+	// This is only recording forwarded tx that were mined and have a status.
+	// Counters are prone to being inaccurate due to re-orgs.
+	if ec.txConfig.ForwardersEnabled() {
+		meta, metaErr := attempt.Tx.GetMeta()
+		if metaErr == nil && meta != nil && meta.FwdrDestAddress != nil {
+			// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
+			promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.GetStatus() != 0)).Add(1)
+		}
+	}
+
+	return true
+}
+
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) batchFetchReceipts(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockNum int64) (receipts []R, err error) {
@@ -532,67 +595,15 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		receipt := txReceipts[i]
 		err := txErrs[i]
 
-		l := attempt.Tx.GetLogger(lggr).With("txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
-			"txID", attempt.TxID, "err", err, "sequence", attempt.Tx.Sequence,
-		)
+		l := attempt.GetLogger(lggr)
 
 		if err != nil {
-			l.Error("FetchReceipt failed")
+			l.With("err", err).Error("FetchReceipt failed")
 			continue
 		}
 
-		if ec.isReceiptNil(receipt) {
-			// NOTE: This should never happen, but it seems safer to check
-			// regardless to avoid a potential panic
-			l.AssumptionViolation("got nil receipt")
+		if !ec.isReceiptValid(ctx, l, attempt, receipt) {
 			continue
-		}
-
-		if receipt.IsZero() {
-			l.Debug("Still waiting for receipt")
-			continue
-		}
-
-		l = l.With("blockHash", receipt.GetBlockHash().String(), "status", receipt.GetStatus(), "transactionIndex", receipt.GetTransactionIndex())
-
-		if receipt.IsUnmined() {
-			l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")
-			continue
-		}
-
-		l.Debugw("Got receipt for transaction", "blockNumber", receipt.GetBlockNumber(), "feeUsed", receipt.GetFeeUsed())
-
-		if receipt.GetTxHash().String() != attempt.Hash.String() {
-			l.Errorf("Invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.GetTxHash().String(), attempt.Hash.String())
-			continue
-		}
-
-		if receipt.GetBlockNumber() == nil {
-			l.Error("Invariant violation, receipt was missing block number")
-			continue
-		}
-
-		if receipt.GetStatus() == 0 {
-			rpcError, errExtract := ec.client.CallContract(ctx, attempt, receipt.GetBlockNumber())
-			if errExtract == nil {
-				l.Warnw("transaction reverted on-chain", "hash", receipt.GetTxHash(), "rpcError", rpcError.String())
-			} else {
-				l.Warnw("transaction reverted on-chain unable to extract revert reason", "hash", receipt.GetTxHash(), "err", err)
-			}
-			// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
-			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
-		} else {
-			promNumSuccessfulTxs.WithLabelValues(ec.chainID.String()).Add(1)
-		}
-
-		// This is only recording forwarded tx that were mined and have a status.
-		// Counters are prone to being inaccurate due to re-orgs.
-		if ec.txConfig.ForwardersEnabled() {
-			meta, metaErr := attempt.Tx.GetMeta()
-			if metaErr == nil && meta != nil && meta.FwdrDestAddress != nil {
-				// promFwdTxCount takes two labels, chainId and a boolean of whether a tx was successful or not.
-				promFwdTxCount.WithLabelValues(ec.chainID.String(), strconv.FormatBool(receipt.GetStatus() != 0)).Add(1)
-			}
 		}
 
 		receipts = append(receipts, receipt)
@@ -922,17 +933,28 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	} else {
 		ec.nConsecutiveBlocksChainTooShort = 0
 	}
-	etxs, err := ec.txStore.FindTransactionsConfirmedInBlockRange(ctx, head.BlockNumber(), head.EarliestHeadInChain().BlockNumber(), ec.chainID)
+
+	// fetch all confirmed transactions.
+	confirmedTxs, err := ec.txStore.FindConfirmedTransactions(ctx, ec.chainID)
 	if err != nil {
-		return fmt.Errorf("findTransactionsConfirmedInBlockRange failed: %w", err)
+		return fmt.Errorf("FindConfirmedTransactions failed: %w", err)
 	}
 
-	for _, etx := range etxs {
-		if !hasReceiptInLongestChain(*etx, head) {
-			if err := ec.markForRebroadcast(*etx, head); err != nil {
-				return fmt.Errorf("markForRebroadcast failed for etx %v: %w", etx.ID, err)
-			}
+	// implementation details available below this block
+	finalizedIDs, err := ec.markFinalized(ctx, head, confirmedTxs)
+	if err != nil {
+		return err
+	}
+
+	for _, tx := range confirmedTxs {
+		if _, ok := finalizedIDs[tx.ID]; ok || hasReceiptInLongestChain(*tx, head) {
+			continue
 		}
+
+		if err := ec.markForRebroadcast(*tx, head); err != nil {
+			return fmt.Errorf("markForRebroadcast failed for tx %v: %w", tx.ID, err)
+		}
+
 	}
 
 	// It is safe to process separate keys concurrently
@@ -957,6 +979,90 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	wg.Wait()
 
 	return multierr.Combine(errors...)
+}
+
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markFinalized(ctx context.Context, head types.Head[BLOCK_HASH],
+	txs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (map[int64]TX_HASH, error) {
+	finalizedTxs := make(map[int64]TX_HASH, len(txs))
+
+	if len(txs) == 0 {
+		ec.lggr.Debug("no transactions to mark finalized")
+		return finalizedTxs, nil
+	}
+
+	attemptsBatch := make([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+		0, ec.chainConfig.RPCDefaultBatchSize())
+	for _, tx := range txs {
+		for _, attempt := range tx.TxAttempts {
+			// TODO: BCI-2605 skip attempts that were broadcasted after the finalized block
+			attemptsBatch = append(attemptsBatch, attempt)
+			// save one for block fetching
+			if uint32(len(attemptsBatch)+1) >= ec.chainConfig.RPCDefaultBatchSize() {
+				err := ec.markFinalizedBatch(ctx, attemptsBatch, finalizedTxs)
+				if err != nil {
+					return nil, fmt.Errorf("failed to mark txs finalized: %w", err)
+				}
+				attemptsBatch = attemptsBatch[0:0]
+			}
+		}
+	}
+
+	if len(attemptsBatch) > 0 {
+		err := ec.markFinalizedBatch(ctx, attemptsBatch, finalizedTxs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to mark txs finalized: %w", err)
+		}
+	}
+
+	return finalizedTxs, nil
+}
+
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markFinalizedBatch(
+	ctx context.Context,
+	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	finalizedTxs map[int64]TX_HASH,
+) error {
+
+	rpcFinalizedBlock, receipts, txErrs, err := ec.client.BatchGetReceiptsWithFinalizedBlock(ctx, attempts,
+		ec.chainConfig.FinalityTagEnabled(), ec.chainConfig.FinalityDepth())
+	if err != nil {
+		return err
+	}
+
+	finalizedReceipts := make([]R, 0, len(attempts))
+	for i, receipt := range receipts {
+		attempt := attempts[i]
+		txErr := txErrs[i]
+		l := attempt.GetLogger(ec.lggr)
+		if txErr != nil {
+			l.With("err", err).Error("ReceiptFetch failed")
+			continue
+		}
+		if !ec.isReceiptValid(ctx, l, attempt, receipt) {
+			continue
+		}
+
+		if receipt.GetBlockNumber().Cmp(rpcFinalizedBlock) >= 0 {
+			l.With("batch_request_finalized_block", rpcFinalizedBlock).Debug("attempt is not finalized")
+			continue
+		}
+
+		finalizedReceipts = append(finalizedReceipts, receipt)
+		if anotherTxHash, ok := finalizedTxs[attempt.TxID]; ok {
+			const errMsg = "found two finalized attempts for single tx"
+			l.With("another_tx_hash", anotherTxHash).Critical(errMsg)
+			return errors.New(errMsg)
+		}
+		finalizedTxs[attempts[i].TxID] = attempts[i].Hash
+	}
+
+	err = ec.txStore.SaveFinalizedReceipts(ctx, finalizedReceipts, ec.chainID)
+	if err != nil {
+		return fmt.Errorf("failed to save finalized receipts: %w", err)
+	}
+
+	return nil
+
 }
 
 func hasReceiptInLongestChain[

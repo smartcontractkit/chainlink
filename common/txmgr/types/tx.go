@@ -41,6 +41,7 @@ const (
 	TxAttemptInProgress TxAttemptState = iota + 1
 	TxAttemptInsufficientFunds
 	TxAttemptBroadcast
+	TxAttemptFinalized
 	txAttemptStateCount // always at end to calculate number of states
 )
 
@@ -49,6 +50,7 @@ var txAttemptStateStrings = []string{
 	TxAttemptInProgress:        "in_progress",
 	TxAttemptInsufficientFunds: "insufficient_funds",
 	TxAttemptBroadcast:         "broadcast",
+	TxAttemptFinalized:         "finalized",
 }
 
 func NewTxAttemptState(state string) (s TxAttemptState) {
@@ -180,6 +182,15 @@ type TxAttempt[
 
 func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() string {
 	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d", a.ID, a.TxID, a.TxFee, a.TxType)
+}
+
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger.Logger) logger.SugaredLogger {
+	l := logger.Sugared(lgr)
+	if a.Tx.ID != 0 {
+		l = a.Tx.GetLogger(lgr)
+	}
+
+	return l.With("txHash", a.Hash.String(), "txAttemptID", a.ID)
 }
 
 type Tx[

@@ -53,6 +53,7 @@ type ConfirmerFeeConfig interface {
 type ConfirmerChainConfig interface {
 	RPCDefaultBatchSize() uint32
 	FinalityDepth() uint32
+	FinalityTagEnabled() bool
 }
 
 type ConfirmerDatabaseConfig interface {
