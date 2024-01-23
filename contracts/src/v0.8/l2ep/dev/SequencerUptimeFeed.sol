@@ -59,6 +59,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   mapping(uint80 roundId => Round round) private s_rounds;
 
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
+  /// @param revertIfInvalidRound if true, reverts if an invalid round ID is passed as input (otherwise returns 0 for some fields)
   constructor(address l1SenderAddress, bool revertIfInvalidRound) {
     _setL1Sender(l1SenderAddress);
     s_revertIfInvalidRound = revertIfInvalidRound;
@@ -96,7 +97,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
     _setL1Sender(to);
   }
 
-  /// @notice internal method that stores the L1 sender
+  /// @notice private method that stores the L1 sender
   function _setL1Sender(address to) private {
     address from = s_l1Sender;
     if (from != to) {
@@ -107,7 +108,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
 
   /// @dev Returns an AggregatorV2V3Interface compatible answer from status flag
   /// @param status The status flag to convert to an aggregator-compatible answer
-  function _getStatusAnswer(bool status) internal pure returns (int256) {
+  function _getStatusAnswer(bool status) private pure returns (int256) {
     return status ? int256(1) : int256(0);
   }
 
