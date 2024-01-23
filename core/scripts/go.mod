@@ -243,7 +243,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.11 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
-	github.com/smartcontractkit/chain-selectors v1.0.6 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.7 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20231218175426-6e0427c661e5 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20231127231053-2232d3a6766d // indirect
