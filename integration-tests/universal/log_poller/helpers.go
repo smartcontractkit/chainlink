@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/errors"
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -1255,7 +1254,7 @@ func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 			err := registerSingleTopicFilter(registry, upkeepID, emitterAddress, topicId)
 			randomWait(150, 300)
 			if err != nil {
-				return errors.Wrapf(err, "Error registering log trigger for log emitter %s", emitterAddress.String())
+				return fmt.Errorf("%w: Error registering log trigger for log emitter %s", err, emitterAddress.String())
 			}
 
 			if i%10 == 0 {

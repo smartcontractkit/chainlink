@@ -412,7 +412,7 @@ jobs:
             nodes: 2
             os: ubuntu-latest
             file: ocr
-            pyroscope_env: ci-smoke-ocr-evm-simulated                         
+            pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 6
             os: ubuntu-latest
