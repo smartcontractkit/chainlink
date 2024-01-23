@@ -224,6 +224,11 @@ func (e *eventBinding) encodeParams(item reflect.Value) ([]common.Hash, error) {
 		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
 	}
 
+	// abi params allow you to Pack a pointers, but MakeTopics doesn't work with pointers.
+	if err := e.derefTopics(topics); err != nil {
+		return nil, err
+	}
+
 	hashes, err := abi.MakeTopics(topics)
 	if err != nil {
 		return nil, wrapInternalErr(err)
@@ -234,6 +239,20 @@ func (e *eventBinding) encodeParams(item reflect.Value) ([]common.Hash, error) {
 	}
 
 	return hashes[0], nil
+}
+
+func (e *eventBinding) derefTopics(topics []any) error {
+	for i, topic := range topics {
+		rTopic := reflect.ValueOf(topic)
+		if rTopic.Kind() == reflect.Pointer {
+			if rTopic.IsNil() {
+				return fmt.Errorf(
+					"%w: input topic %s cannot be nil", commontypes.ErrInvalidType, e.inputInfo.Args()[i].Name)
+			}
+			topics[i] = rTopic.Elem().Interface()
+		}
+	}
+	return nil
 }
 
 func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {

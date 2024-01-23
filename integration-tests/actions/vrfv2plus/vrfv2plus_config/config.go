@@ -2,10 +2,16 @@ package vrfv2plus_config
 
 import "time"
 
+const (
+	BILLING_TYPE_LINK            = "LINK"
+	BILLING_TYPE_NATIVE          = "NATIVE"
+	BILLING_TYPE_LINK_AND_NATIVE = "LINK_AND_NATIVE"
+)
+
 type VRFV2PlusConfig struct {
 	ChainlinkNodeFunding            float64 `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"`                     // Amount of native currency to fund each chainlink node with
-	CLNodeMaxGasPriceGWei           int64   `envconfig:"MAX_GAS_PRICE_GWEI" default:"1000"`                       // Max gas price in GWei for the chainlink node
-	IsNativePayment                 bool    `envconfig:"IS_NATIVE_PAYMENT" default:"false"`                       // Whether to use native payment or LINK token
+	CLNodeMaxGasPriceGWei           int64   `envconfig:"MAX_GAS_PRICE_GWEI" default:"10"`                         // Max gas price in GWei for the chainlink node
+	SubscriptionBillingType         string  `envconfig:"SUBSCRIPTION_BILLING_TYPE" default:"LINK_AND_NATIVE"`     // Whether to use native payment or LINK token, or both
 	LinkNativeFeedResponse          int64   `envconfig:"LINK_NATIVE_FEED_RESPONSE" default:"1000000000000000000"` // Response of the LINK/ETH feed
 	MinimumConfirmations            uint16  `envconfig:"MINIMUM_CONFIRMATIONS" default:"3"`                       // Minimum number of confirmations for the VRF Coordinator
 	SubscriptionFundingAmountLink   float64 `envconfig:"SUBSCRIPTION_FUNDING_AMOUNT_LINK" default:"5"`            // Amount of LINK to fund the subscription with
