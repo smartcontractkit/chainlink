@@ -3,7 +3,9 @@ package pg
 import (
 	"context"
 	"database/sql"
+
 	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonpg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 )

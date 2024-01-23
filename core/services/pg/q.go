@@ -4,20 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonpg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 )
-
-var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
-	Name:    "sql_query_timeout_percent",
-	Help:    "SQL query time as a pecentage of timeout.",
-	Buckets: []float64{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120},
-})
 
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
 //
@@ -109,6 +100,3 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 func sprintQ(query string, args []interface{}) string {
 	return commonpg.SprintQ(query, args)
 }
-
-// queryLogger extends Q with logging helpers for a particular query w/ args.
-type queryLogger = commonpg.QueryLogger
