@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 )
 
 var (
@@ -124,6 +125,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 				coordinator,
 				consumers,
 				*vrfv2PlusConfig.General.NumberOfSubToCreate,
+				vrfv2plus_config.BillingType(*vrfv2PlusConfig.General.SubscriptionBillingType),
 			)
 			require.NoError(t, err)
 		} else {
@@ -158,6 +160,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	} else {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
+		testConfig.Common.ChainlinkNodeFunding = testConfig.VRFv2.NewEnvConfig.NodeSendingKeyFunding
 		vrfv2PlusConfig.General.SubscriptionFundingAmountLink = testConfig.VRFv2Plus.NewEnvConfig.Funding.SubFundsLink
 		vrfv2PlusConfig.General.SubscriptionFundingAmountNative = testConfig.VRFv2Plus.NewEnvConfig.Funding.SubFundsNative
 

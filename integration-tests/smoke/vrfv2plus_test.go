@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -304,6 +305,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
 			1,
+			vrfv2plus_config.BillingType(*configCopy.GetVRFv2PlusConfig().General.SubscriptionBillingType),
 		)
 		require.NoError(t, err)
 		subIDForCancelling := subIDsForCancelling[0]
@@ -403,6 +405,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
 			1,
+			vrfv2plus_config.BillingType(*configCopy.GetVRFv2PlusConfig().General.SubscriptionBillingType),
 		)
 		require.NoError(t, err)
 
@@ -562,6 +565,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusContracts.LoadTestConsumers,
 			1,
+			vrfv2plus_config.BillingType(*configCopy.GetVRFv2PlusConfig().General.SubscriptionBillingType),
 		)
 		require.NoError(t, err)
 		subIDForWithdraw := subIDsForWithdraw[0]
@@ -821,13 +825,23 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
+	vrfJobSpecConfig := vrfv2plus.VRFJobSpecConfig{
+		ForwardingAllowed:             false,
+		CoordinatorAddress:            newCoordinator.Address(),
+		FromAddresses:                 []string{vrfv2PlusData.PrimaryEthAddress},
+		EVMChainID:                    vrfv2PlusData.ChainID.String(),
+		MinIncomingConfirmations:      int(*vrfv2PlusConfig.MinimumConfirmations),
+		PublicKey:                     vrfv2PlusData.VRFKey.Data.ID,
+		EstimateGasMultiplier:         1,
+		BatchFulfillmentEnabled:       false,
+		BatchFulfillmentGasMultiplier: 1.15,
+		PollPeriod:                    time.Second * 1,
+		RequestTimeout:                time.Hour * 24,
+	}
+
 	_, err = vrfv2plus.CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
-		newCoordinator.Address(),
-		[]string{vrfv2PlusData.PrimaryEthAddress},
-		vrfv2PlusData.VRFKey.Data.ID,
-		vrfv2PlusData.ChainID.String(),
-		*vrfv2PlusConfig.MinimumConfirmations,
+		vrfJobSpecConfig,
 	)
 	require.NoError(t, err, vrfv2plus.ErrCreateVRFV2PlusJobs)
 
@@ -937,5 +951,4 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-
 }

@@ -6,6 +6,14 @@ import (
 	vrfv2 "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 )
 
+type BillingType string
+
+const (
+	BillingType_Link            BillingType = "LINK"
+	BillingType_Native          BillingType = "NATIVE"
+	BillingType_Link_and_Native BillingType = "LINK_AND_NATIVE"
+)
+
 type Config struct {
 	Common            *Common                  `toml:"Common"`
 	General           *General                 `toml:"General"`
@@ -60,6 +68,7 @@ func (c *Common) Validate() error {
 
 type General struct {
 	*vrfv2.General
+	SubscriptionBillingType         *string  `toml:"subscription_billing_type"`          // Billing type for the subscription
 	SubscriptionFundingAmountNative *float64 `toml:"subscription_funding_amount_native"` // Amount of LINK to fund the subscription with
 	FulfillmentFlatFeeLinkPPM       *uint32  `toml:"fulfillment_flat_fee_link_ppm"`      // Flat fee in ppm for LINK for the VRF Coordinator config
 	FulfillmentFlatFeeNativePPM     *uint32  `toml:"fulfillment_flat_fee_native_ppm"`    // Flat fee in ppm for native currency for the VRF Coordinator config
@@ -68,6 +77,9 @@ type General struct {
 func (c *General) Validate() error {
 	if err := c.General.Validate(); err != nil {
 		return err
+	}
+	if c.SubscriptionBillingType == nil || *c.SubscriptionBillingType == "" {
+		return errors.New("subscription_billing_type must be set to either: LINK, NATIVE, LINK_AND_NATIVE")
 	}
 	if c.SubscriptionFundingAmountNative == nil || *c.SubscriptionFundingAmountNative <= 0 {
 		return errors.New("subscription_funding_amount_native must be greater than 0")

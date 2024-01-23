@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -65,6 +66,20 @@ var (
 	ErrNativeTokenBalance            = "error waiting for RandomWordsFulfilled event"
 	ErrDeployWrapper                 = "error deploying VRFV2PlusWrapper"
 )
+
+type VRFJobSpecConfig struct {
+	ForwardingAllowed             bool
+	CoordinatorAddress            string
+	FromAddresses                 []string
+	EVMChainID                    string
+	MinIncomingConfirmations      int
+	PublicKey                     string
+	BatchFulfillmentEnabled       bool
+	BatchFulfillmentGasMultiplier float64
+	EstimateGasMultiplier         float64
+	PollPeriod                    time.Duration
+	RequestTimeout                time.Duration
+}
 
 func DeployVRFV2_5Contracts(
 	contractDeployer contracts.ContractDeployer,
@@ -112,15 +127,13 @@ func DeployVRFV2PlusConsumers(contractDeployer contracts.ContractDeployer, coord
 
 func CreateVRFV2PlusJob(
 	chainlinkNode *client.ChainlinkClient,
-	coordinatorAddress string,
-	nativeTokenKeyAddresses []string,
-	pubKeyCompressed string,
-	chainID string,
-	minIncomingConfirmations uint16,
+	vrfJobSpecConfig VRFJobSpecConfig,
 ) (*client.Job, error) {
 	jobUUID := uuid.New()
 	os := &client.VRFV2PlusTxPipelineSpec{
-		Address: coordinatorAddress,
+		Address:               vrfJobSpecConfig.CoordinatorAddress,
+		EstimateGasMultiplier: vrfJobSpecConfig.EstimateGasMultiplier,
+		FromAddress:           vrfJobSpecConfig.FromAddresses[0],
 	}
 	ost, err := os.String()
 	if err != nil {
@@ -128,16 +141,18 @@ func CreateVRFV2PlusJob(
 	}
 
 	job, err := chainlinkNode.MustCreateJob(&client.VRFV2PlusJobSpec{
-		Name:                     fmt.Sprintf("vrf-v2-plus-%s", jobUUID),
-		CoordinatorAddress:       coordinatorAddress,
-		FromAddresses:            nativeTokenKeyAddresses,
-		EVMChainID:               chainID,
-		MinIncomingConfirmations: int(minIncomingConfirmations),
-		PublicKey:                pubKeyCompressed,
-		ExternalJobID:            jobUUID.String(),
-		ObservationSource:        ost,
-		BatchFulfillmentEnabled:  false,
-		PollPeriod:               time.Second,
+		Name:                          fmt.Sprintf("vrf-v2-plus-%s", jobUUID),
+		CoordinatorAddress:            vrfJobSpecConfig.CoordinatorAddress,
+		FromAddresses:                 vrfJobSpecConfig.FromAddresses,
+		EVMChainID:                    vrfJobSpecConfig.EVMChainID,
+		MinIncomingConfirmations:      vrfJobSpecConfig.MinIncomingConfirmations,
+		PublicKey:                     vrfJobSpecConfig.PublicKey,
+		ExternalJobID:                 jobUUID.String(),
+		ObservationSource:             ost,
+		BatchFulfillmentEnabled:       vrfJobSpecConfig.BatchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: vrfJobSpecConfig.BatchFulfillmentGasMultiplier,
+		PollPeriod:                    vrfJobSpecConfig.PollPeriod,
+		RequestTimeout:                vrfJobSpecConfig.RequestTimeout,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2PlusJob, err)
@@ -223,7 +238,7 @@ func SetupVRFV2_5Environment(
 		*vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
 		*vrfv2PlusConfig.StalenessSeconds,
 		*vrfv2PlusConfig.GasAfterPaymentCalculation,
-		big.NewInt(*vrfv2PlusConfig.LinkNativeFeedResponse),
+		big.NewInt(*vrfv2PlusConfig.FallbackWeiPerUnitLink),
 		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
 			FulfillmentFlatFeeLinkPPM:   *vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
 			FulfillmentFlatFeeNativePPM: *vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
@@ -251,7 +266,9 @@ func SetupVRFV2_5Environment(
 		big.NewFloat(*vrfv2PlusConfig.SubscriptionFundingAmountNative),
 		big.NewFloat(*vrfv2PlusConfig.SubscriptionFundingAmountLink),
 		linkToken,
-		vrfv2_5Contracts.Coordinator, vrfv2_5Contracts.LoadTestConsumers, numberOfSubToCreate)
+		vrfv2_5Contracts.Coordinator, vrfv2_5Contracts.LoadTestConsumers,
+		numberOfSubToCreate,
+		vrfv2plus_config.BillingType(*vrfv2PlusConfig.SubscriptionBillingType))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -283,14 +300,24 @@ func SetupVRFV2_5Environment(
 	}
 	allNativeTokenKeyAddresses := append(newNativeTokenKeyAddresses, nativeTokenPrimaryKeyAddress)
 
+	vrfJobSpecConfig := VRFJobSpecConfig{
+		ForwardingAllowed:             false,
+		CoordinatorAddress:            vrfv2_5Contracts.Coordinator.Address(),
+		FromAddresses:                 allNativeTokenKeyAddresses,
+		EVMChainID:                    chainID.String(),
+		MinIncomingConfirmations:      int(*vrfv2PlusConfig.MinimumConfirmations),
+		PublicKey:                     pubKeyCompressed,
+		EstimateGasMultiplier:         1,
+		BatchFulfillmentEnabled:       false,
+		BatchFulfillmentGasMultiplier: 1.15,
+		PollPeriod:                    time.Second * 1,
+		RequestTimeout:                time.Hour * 24,
+	}
+
 	l.Info().Msg("Creating VRFV2 Plus Job")
 	job, err := CreateVRFV2PlusJob(
 		env.ClCluster.NodeAPIs()[0],
-		vrfv2_5Contracts.Coordinator.Address(),
-		allNativeTokenKeyAddresses,
-		pubKeyCompressed,
-		chainID.String(),
-		*vrfv2PlusConfig.MinimumConfirmations,
+		vrfJobSpecConfig,
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreateVRFV2PlusJobs, err)
@@ -353,8 +380,17 @@ func CreateFundSubsAndAddConsumers(
 	coordinator contracts.VRFCoordinatorV2_5,
 	consumers []contracts.VRFv2PlusLoadTestConsumer,
 	numberOfSubToCreate int,
+	subscriptionBillingType vrfv2plus_config.BillingType,
 ) ([]*big.Int, error) {
-	subIDs, err := CreateSubsAndFund(env, subscriptionFundingAmountNative, subscriptionFundingAmountLink, linkToken, coordinator, numberOfSubToCreate)
+	subIDs, err := CreateSubsAndFund(
+		env,
+		subscriptionFundingAmountNative,
+		subscriptionFundingAmountLink,
+		linkToken,
+		coordinator,
+		numberOfSubToCreate,
+		subscriptionBillingType,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -387,6 +423,7 @@ func CreateSubsAndFund(
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
+	subscriptionBillingType vrfv2plus_config.BillingType,
 ) ([]*big.Int, error) {
 	subs, err := CreateSubs(env, coordinator, subAmountToCreate)
 	if err != nil {
@@ -396,7 +433,15 @@ func CreateSubsAndFund(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
-	err = FundSubscriptions(env, subscriptionFundingAmountNative, subscriptionFundingAmountLink, linkToken, coordinator, subs)
+	err = FundSubscriptions(
+		env,
+		subscriptionFundingAmountNative,
+		subscriptionFundingAmountLink,
+		linkToken,
+		coordinator,
+		subs,
+		subscriptionBillingType,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -463,22 +508,45 @@ func FundSubscriptions(
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subIDs []*big.Int,
+	subscriptionBillingType vrfv2plus_config.BillingType,
 ) error {
 	for _, subID := range subIDs {
-		//Native Billing
-		amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
-		err := coordinator.FundSubscriptionWithNative(
-			subID,
-			amountWei,
-		)
-		if err != nil {
-			return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
-		}
-		//Link Billing
-		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
-		if err != nil {
-			return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
+		switch subscriptionBillingType {
+		case vrfv2plus_config.BillingType_Native:
+			//Native Billing
+			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
+			err := coordinator.FundSubscriptionWithNative(
+				subID,
+				amountWei,
+			)
+			if err != nil {
+				return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
+			}
+		case vrfv2plus_config.BillingType_Link:
+			//Link Billing
+			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
+			err := FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
+			if err != nil {
+				return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
+			}
+		case vrfv2plus_config.BillingType_Link_and_Native:
+			//Native Billing
+			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
+			err := coordinator.FundSubscriptionWithNative(
+				subID,
+				amountWei,
+			)
+			if err != nil {
+				return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
+			}
+			//Link Billing
+			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
+			err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
+			if err != nil {
+				return fmt.Errorf("%s, err %w", ErrFundSubWithLinkToken, err)
+			}
+		default:
+			return fmt.Errorf("invalid billing type: %s", subscriptionBillingType)
 		}
 	}
 	err := env.EVMClient.WaitForEvents()
@@ -661,7 +729,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 
-	err = FundSubscriptions(env, big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative), big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink), linkToken, coordinator, []*big.Int{wrapperSubID})
+	err = FundSubscriptions(env, big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative), big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink), linkToken, coordinator, []*big.Int{wrapperSubID}, vrfv2plus_config.BillingType(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionBillingType))
 	if err != nil {
 		return nil, nil, err
 	}

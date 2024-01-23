@@ -110,7 +110,7 @@ func TestVRFV2Performance(t *testing.T) {
 		if *cfg.ExistingEnvConfig.CreateFundSubsAndAddConsumers {
 			linkToken, err := env.ContractLoader.LoadLINKToken(*vrfv2Config.Performance.LinkAddress)
 			require.NoError(t, err)
-			consumers, err = vrfv2_actions.DeployVRFV2Consumers(env.ContractDeployer, coordinator, 1)
+			consumers, err = vrfv2_actions.DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), 1)
 			require.NoError(t, err)
 			err = env.EVMClient.WaitForEvents()
 			require.NoError(t, err, vrfv2_actions.ErrWaitTXsComplete)
@@ -197,9 +197,14 @@ func TestVRFV2Performance(t *testing.T) {
 		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 		require.NoError(t, err, "error deploying LINK contract")
 
+		useVRFOwner := true
+		useTestCoordinator := true
+
 		vrfv2Contracts, subIDs, vrfv2Data, err = vrfv2_actions.SetupVRFV2Environment(
 			env,
 			&testConfig,
+			useVRFOwner,
+			useTestCoordinator,
 			linkToken,
 			mockETHLinkFeed,
 			//register proving key against EOA address in order to return funds to this address

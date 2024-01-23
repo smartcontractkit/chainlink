@@ -7,6 +7,8 @@ inputs:
   testLogCollect:
     description: Whether to always collect logs, even for passing tests
     default: "false"
+  selectedNetworks:
+    description: The networks to run tests against 
   chainlinkImage:
     description: The chainlink image to use
     default: "public.ecr.aws/chainlink/chainlink"
@@ -39,7 +41,8 @@ runs:
       id: base64-config-override
       env:
         RUN_ID: ${{ inputs.runId }}
-        TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}      
+        TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}
+        SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
         PYROSCOPE_SERVER: ${{ inputs.pyroscopeServer }} 
         PYROSCOPE_ENVIRONMENT: ${{ inputs.pyroscopeEnvironment }} 
         PYROSCOPE_KEY: ${{ inputs.pyroscopeKey }} 

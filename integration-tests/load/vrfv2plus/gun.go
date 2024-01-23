@@ -1,6 +1,7 @@
 package loadvrfv2plus
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
+	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
@@ -41,11 +43,14 @@ func NewSingleHashGun(
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
-	vrfv2PlusConfig := m.testConfig.GetVRFv2PlusConfig().General
+	billingType, err := selectBillingType(*m.testConfig.GetVRFv2PlusConfig().General.SubscriptionBillingType)
+	if err != nil {
+		return &wasp.Response{Error: err.Error(), Failed: true}
+	}
 
 	//randomly increase/decrease randomness request count per TX
-	randomnessRequestCountPerRequest := deviateValue(*vrfv2PlusConfig.RandomnessRequestCountPerRequest, *vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation)
-	_, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+	randomnessRequestCountPerRequest := deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation)
+	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.LoadTestConsumers[0],
 		m.contracts.Coordinator,
@@ -53,13 +58,13 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
-		randBool(),
-		*vrfv2PlusConfig.MinimumConfirmations,
-		*vrfv2PlusConfig.CallbackGasLimit,
-		*vrfv2PlusConfig.NumberOfWords,
+		billingType,
+		*m.testConfig.GetVRFv2PlusConfig().General.MinimumConfirmations,
+		*m.testConfig.GetVRFv2PlusConfig().General.CallbackGasLimit,
+		*m.testConfig.GetVRFv2PlusConfig().General.NumberOfWords,
 		randomnessRequestCountPerRequest,
-		*vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation,
-		vrfv2PlusConfig.RandomWordsFulfilledEventTimeout.Duration,
+		*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation,
+		m.testConfig.GetVRFv2PlusConfig().General.RandomWordsFulfilledEventTimeout.Duration,
 		m.logger,
 	)
 	if err != nil {
@@ -82,4 +87,17 @@ func randBool() bool {
 }
 func randInRange(min int, max int) int {
 	return rand.Intn(max-min+1) + min
+}
+
+func selectBillingType(billingType string) (bool, error) {
+	switch vrfv2plus_config.BillingType(billingType) {
+	case vrfv2plus_config.BillingType_Link:
+		return false, nil
+	case vrfv2plus_config.BillingType_Native:
+		return true, nil
+	case vrfv2plus_config.BillingType_Link_and_Native:
+		return randBool(), nil
+	default:
+		return false, fmt.Errorf("invalid billing type: %s", billingType)
+	}
 }

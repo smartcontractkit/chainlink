@@ -82,6 +82,7 @@ cancel_subs_after_test_run = true
 max_gas_price_gwei = 1000
 link_native_feed_response = 1000000000000000000
 minimum_confirmations = 3
+subscription_billing_type = "LINK_AND_NATIVE"
 subscription_funding_amount_link = 5.0
 number_of_words = 3
 callback_gas_limit = 1000000

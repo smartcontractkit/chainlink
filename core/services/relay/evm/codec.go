@@ -18,14 +18,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-// decodeAccountHook allows strings to be converted to [32]byte allowing config to represent them as 0x...
+// decodeAccountAndAllowArraySliceHook allows:
+//
+//	strings to be converted to [32]byte allowing config to represent them as 0x...
+//	slices or arrays to be converted to a pointer to that type
+//
 // BigIntHook allows *big.Int to be represented as any integer type or a string and to go back to them.
 // Useful for config, or if when a model may use a go type that isn't a *big.Int when Pack expects one.
 // Eg: int32 in a go struct from a plugin could require a *big.Int in Pack for int24, if it fits, we shouldn't care.
 // SliceToArrayVerifySizeHook verifies that slices have the correct size when converting to an array
 // sizeVerifyBigIntHook allows our custom types that verify the number fits in the on-chain type to be converted as-if
 // it was a *big.Int
-var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
+var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountAndAllowArraySliceHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
 
 // NewCodec creates a new [commontypes.RemoteCodec] for EVM.
 // Note that names in the ABI are converted to Go names using [abi.ToCamelCase],
@@ -113,18 +117,30 @@ func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
 	return converted, converted.Verify()
 }
 
-func decodeAccountHook(from, to reflect.Type, data any) (any, error) {
-	if from.Kind() == reflect.String && to == reflect.TypeOf(common.Address{}) {
-		decoded, err := hexutil.Decode(data.(string))
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
-		} else if len(decoded) != common.AddressLength {
-			return nil, fmt.Errorf(
-				"%w: wrong number size for address expected %v got %v",
-				commontypes.ErrSliceWrongLen,
-				common.AddressLength, len(decoded))
-		}
-		return common.Address(decoded), nil
+func decodeAccountAndAllowArraySliceHook(from, to reflect.Type, data any) (any, error) {
+	if from.Kind() == reflect.String &&
+		(to == reflect.TypeOf(common.Address{}) || to == reflect.TypeOf(&common.Address{})) {
+		return decodeAddress(data)
 	}
+
+	if from.Kind() == reflect.Pointer && to.Kind() != reflect.Pointer && from != nil &&
+		(from.Elem().Kind() == reflect.Slice || from.Elem().Kind() == reflect.Array) {
+		return reflect.ValueOf(data).Elem().Interface(), nil
+	}
+
 	return data, nil
+}
+
+func decodeAddress(data any) (any, error) {
+	decoded, err := hexutil.Decode(data.(string))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
+	} else if len(decoded) != common.AddressLength {
+		return nil, fmt.Errorf(
+			"%w: wrong number size for address expected %v got %v",
+			commontypes.ErrSliceWrongLen,
+			common.AddressLength, len(decoded))
+	}
+
+	return common.Address(decoded), nil
 }
