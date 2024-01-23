@@ -30,7 +30,8 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
       logicB.getFastGasFeedAddress(),
-      logicB.getAutomationForwarderLogic()
+      logicB.getAutomationForwarderLogic(),
+      logicB.getAllowedReadOnlyAddress()
     )
     Chainable(address(logicB))
   {}
@@ -49,7 +50,6 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes memory triggerData
   )
     public
-    cannotExecute
     returns (
       bool upkeepNeeded,
       bytes memory performData,
@@ -60,6 +60,10 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       uint256 linkNative
     )
   {
+    if (tx.origin != allowedReadOnlyAddress) {
+      revert OnlySimulatedBackend();
+    }
+
     Trigger triggerType = _getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
@@ -172,9 +176,11 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes calldata extraData
   )
     external
-    cannotExecute
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
+    if (tx.origin != allowedReadOnlyAddress) {
+      revert OnlySimulatedBackend();
+    }
     bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
     return executeCallback(id, payload);
   }
@@ -190,9 +196,11 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes memory payload
   )
     public
-    cannotExecute
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
+    if (tx.origin != allowedReadOnlyAddress) {
+      revert OnlySimulatedBackend();
+    }
     Upkeep memory upkeep = s_upkeep[id];
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
@@ -234,7 +242,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     if (!target.isContract()) revert NotAContract();
     id = _createID(triggerType);
     IAutomationForwarder forwarder = IAutomationForwarder(
-      address(new AutomationForwarder(target, address(this), i_automationForwarderLogic))
+      address(new AutomationForwarder(target, address(this), automationForwarderLogic))
     );
     _createUpkeep(
       id,
@@ -410,7 +418,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
         upkeeps[idx].forwarder = IAutomationForwarder(
-          address(new AutomationForwarder(targets[idx], address(this), i_automationForwarderLogic))
+          address(new AutomationForwarder(targets[idx], address(this), automationForwarderLogic))
         );
       }
       _createUpkeep(

@@ -20,8 +20,11 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     address link,
     address linkNativeFeed,
     address fastGasFeed,
-    address automationForwarderLogic
-  ) AutomationRegistryBase2_2(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic) {}
+    address automationForwarderLogic,
+    address allowedReadOnlyAddress
+  )
+    AutomationRegistryBase2_2(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress)
+  {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -297,7 +300,11 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   }
 
   function getAutomationForwarderLogic() external view returns (address) {
-    return i_automationForwarderLogic;
+    return automationForwarderLogic;
+  }
+
+  function getAllowedReadOnlyAddress() external view returns (address) {
+    return allowedReadOnlyAddress;
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {

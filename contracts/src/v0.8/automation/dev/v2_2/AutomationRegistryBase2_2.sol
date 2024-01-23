@@ -5,7 +5,6 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import {ExecutionPrevention} from "../../ExecutionPrevention.sol";
 import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {StreamsLookupCompatibleInterface} from "../../interfaces/StreamsLookupCompatibleInterface.sol";
 import {ILogAutomation, Log} from "../../interfaces/ILogAutomation.sol";
@@ -21,7 +20,7 @@ import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
  * AutomationRegistry and AutomationRegistryLogic
  * @dev all errors, events, and internal functions should live here
  */
-abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPrevention {
+abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -68,7 +67,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
-  address internal immutable i_automationForwarderLogic;
+  address internal immutable automationForwarderLogic;
+  address internal immutable allowedReadOnlyAddress;
   bool internal skipReorgProtection;
 
   /**
@@ -139,6 +139,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
   error OnlyPausedUpkeep();
+  error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
   error PaymentGreaterThanAllLINK();
@@ -450,19 +451,23 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
+   * @param _automationForwarderLogic the address of automation forwarder logic
+   * @param _allowedReadOnlyAddress the address of the allowed ready only address
    */
   constructor(
     Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
-    address automationForwarderLogic
+    address _automationForwarderLogic,
+    address _allowedReadOnlyAddress
   ) ConfirmedOwner(msg.sender) {
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
-    i_automationForwarderLogic = automationForwarderLogic;
+    automationForwarderLogic = _automationForwarderLogic;
+    allowedReadOnlyAddress = _allowedReadOnlyAddress;
   }
 
   // ================================================================
@@ -776,8 +781,9 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    if ( !skipReorgProtection &&
-      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+    if (
+      (!skipReorgProtection &&
+        (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
       // There are two cases of reorged report
@@ -795,8 +801,9 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
-    if ( !skipReorgProtection &&
-      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+    if (
+      (!skipReorgProtection &&
+        (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
       // Reorg protection is same as conditional trigger upkeeps
