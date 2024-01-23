@@ -43,8 +43,16 @@ type Validatable interface {
 
 // Executable is an interface for executing a capability.
 type Executable interface {
+	// Start will be called when the capability is loaded by the application.
+	// Start will be called before the capability is added to the registry.
 	Start(ctx context.Context, config values.Map) (values.Value, error)
-	Execute(ctx context.Context, callback chan values.Map, inputs values.Map) (values.Value, error)
+	// Capability must respect context.Done and cleanup any request specific resources
+	// when the context is cancelled. When a request has been completed the capability
+	// is also expected to close the callback channel.
+	// Request specific configuration is passed in via the inputs parameter.
+	Execute(ctx context.Context, callback chan values.Value, inputs values.Map) error
+	// Stop will be called before the application exits.
+	// Stop will be called after the capability is removed from the registry.
 	Stop(ctx context.Context) error
 }
 
@@ -95,4 +103,26 @@ func NewCapabilityInfo(
 		Description:    description,
 		Version:        version,
 	}, nil
+}
+
+// ExecuteSync executes a capability synchronously.
+func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.Value, error) {
+	callback := make(chan values.Value)
+	vs := make([]values.Value, 0)
+	defer close(callback)
+
+	err := c.Execute(ctx, callback, inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	for value := range callback {
+		vs = append(vs, value)
+	}
+
+	if len(vs) == 0 {
+		return vs[0], nil
+	}
+
+	return &values.List{Underlying: vs}, nil
 }
