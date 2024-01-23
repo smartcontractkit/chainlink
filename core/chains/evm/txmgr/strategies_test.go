@@ -47,7 +47,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	t.Run("calls PrineUnstartedTxQueue for the given subject and queueSize, ignoring fromAddress", func(t *testing.T) {
 		strategy1 := txmgrcommon.NewDropOldestStrategy(subject, queueSize, queryTimeout)
-		mockTxStore.On("PruneUnstartedTxQueue", mock.Anything, queueSize, subject, mock.Anything, mock.Anything).Once().Return([]int64{1, 2}, nil)
+		mockTxStore.On("PruneUnstartedTxQueue", mock.Anything, queueSize-1, subject, mock.Anything, mock.Anything).Once().Return([]int64{1, 2}, nil)
 		ids, err := strategy1.PruneQueue(testutils.Context(t), mockTxStore)
 		require.NoError(t, err)
 		assert.Equal(t, []int64{1, 2}, ids)

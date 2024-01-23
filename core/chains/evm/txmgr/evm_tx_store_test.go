@@ -1813,22 +1813,22 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	t.Run("does not prune if queue has not exceeded capacity", func(t *testing.T) {
+	t.Run("does not prune if queue has not exceeded capacity-1", func(t *testing.T) {
 		subject1 := uuid.New()
 		strategy1 := txmgrcommon.NewDropOldestStrategy(subject1, uint32(5), cfg.Database().DefaultQueryTimeout())
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy1))
 		}
-		AssertCountPerSubject(t, txStore, int64(5), subject1)
+		AssertCountPerSubject(t, txStore, int64(4), subject1)
 	})
 
-	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
+	t.Run("prunes if queue has exceeded capacity-1", func(t *testing.T) {
 		subject2 := uuid.New()
 		strategy2 := txmgrcommon.NewDropOldestStrategy(subject2, uint32(3), cfg.Database().DefaultQueryTimeout())
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy2))
 		}
-		AssertCountPerSubject(t, txStore, int64(3), subject2)
+		AssertCountPerSubject(t, txStore, int64(2), subject2)
 	})
 }
 
