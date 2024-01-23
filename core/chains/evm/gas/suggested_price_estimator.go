@@ -188,7 +188,8 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 	return
 }
 
-// Refresh the gas price in case the current one has gone stale.
+// Refreshes the gas price by making a call to the RPC in case the current one has gone stale.
+// Adds the larger of BumpPercent and BumpMin configs as a buffer on top of the price returned from the RPC.
 // The only reason bumping logic would be called on the SuggestedPriceEstimator is if there was a significant price spike
 // between the last price update and when the tx was submitted. Refreshing the price helps ensure the latest market changes are accounted for.
 func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee *assets.Wei, feeLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (newGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
