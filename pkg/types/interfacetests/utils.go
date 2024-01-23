@@ -39,7 +39,7 @@ type MidLevelTestStruct struct {
 }
 
 type TestStruct struct {
-	Field          int32
+	Field          *int32
 	DifferentField string
 	OracleID       commontypes.OracleID
 	OracleIDs      [32]commontypes.OracleID
@@ -52,6 +52,16 @@ type TestStruct struct {
 type TestStructWithExtraField struct {
 	TestStruct
 	ExtraField int
+}
+
+type TestStructMissingField struct {
+	DifferentField string
+	OracleID       commontypes.OracleID
+	OracleIDs      [32]commontypes.OracleID
+	Account        []byte
+	Accounts       [][]byte
+	BigField       *big.Int
+	NestedStruct   MidLevelTestStruct
 }
 
 // compatibleTestStruct has fields in a different order
@@ -76,8 +86,9 @@ type FilterEventParams struct {
 
 func CreateTestStruct(i int, tester BasicTester) TestStruct {
 	s := fmt.Sprintf("field%v", i)
+	fv := int32(i)
 	return TestStruct{
-		Field:          int32(i),
+		Field:          &fv,
 		DifferentField: s,
 		OracleID:       commontypes.OracleID(i + 1),
 		OracleIDs:      [32]commontypes.OracleID{commontypes.OracleID(i + 2), commontypes.OracleID(i + 3)},

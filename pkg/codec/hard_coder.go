@@ -86,7 +86,10 @@ func (o *onChainHardCoder) TransformToOnChain(offChainValue any, _ string) (any,
 }
 
 func (o *onChainHardCoder) TransformToOffChain(onChainValue any, _ string) (any, error) {
-	return transformWithMaps(onChainValue, o.onToOffChainType, o.fields, hardCode, hardCodeManyHook)
+	allHooks := make([]mapstructure.DecodeHookFunc, len(o.hooks)+1)
+	copy(allHooks, o.hooks)
+	allHooks[len(o.hooks)] = hardCodeManyHook
+	return transformWithMaps(onChainValue, o.onToOffChainType, o.fields, hardCode, allHooks...)
 }
 
 func hardCode(extractMap map[string]any, key string, item any) error {
@@ -98,6 +101,11 @@ func hardCode(extractMap map[string]any, key string, item any) error {
 // This is useful because users may not know how many values are in an array ahead of time (e.g. number of reports)
 // Instead, a user can specify A.C = 10 and if A is an array, all A.C values will be set to 10
 func hardCodeManyHook(from reflect.Value, to reflect.Value) (any, error) {
+	// A slice or array could be behind pointers. mapstructure could add an extra pointer level too.
+	for to.Kind() == reflect.Pointer {
+		to = to.Elem()
+	}
+
 	switch to.Kind() {
 	case reflect.Slice, reflect.Array:
 		switch from.Kind() {

@@ -191,7 +191,7 @@ func RunChainReaderInterfaceTests(t *testing.T, tester ChainReaderInterfaceTeste
 				ts1 := CreateTestStruct(1, tester)
 				tester.TriggerEvent(t, &ts1)
 
-				filterParams := &FilterEventParams{Field: ts0.Field}
+				filterParams := &FilterEventParams{Field: *ts0.Field}
 				result := &TestStruct{}
 				assert.Never(t, func() bool {
 					err := cr.GetLatestValue(ctx, AnyContractName, EventWithFilterName, filterParams, &result)

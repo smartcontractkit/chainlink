@@ -450,6 +450,25 @@ func TestHardCoder(t *testing.T) {
 
 		assert.Equal(t, testStruct{B: 123}, onChain)
 	})
+
+	t.Run("TransformToOffChain respect hooks", func(t *testing.T) {
+		var hook mapstructure.DecodeHookFunc = func(from, to reflect.Kind, val interface{}) (any, error) {
+			if to == reflect.Int32 {
+				return int32(123), nil
+			}
+			return val, nil
+		}
+		hookedHardCoder, err := codec.NewHardCoder(map[string]any{}, map[string]any{"W": "Z"}, hook)
+		require.NoError(t, err)
+		_, err = hookedHardCoder.RetypeToOffChain(onChainType, "")
+		require.NoError(t, err)
+
+		onChain := testStruct{B: 456}
+
+		offChain, err := hookedHardCoder.TransformToOffChain(onChain, "")
+		require.NoError(t, err)
+		assert.Equal(t, int32(123), reflect.ValueOf(offChain).FieldByName("B").Interface())
+	})
 }
 
 // Since we're using the on-chain values that have their hard-coded values set to

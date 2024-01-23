@@ -180,6 +180,11 @@ func convertToTime(from reflect.Type, data any) any {
 		return time.Unix(reflect.ValueOf(data).Convert(i64Type).Int(), 0).UTC()
 	} else if from.ConvertibleTo(biType) {
 		return time.Unix(reflect.ValueOf(data).Convert(biType).Interface().(*big.Int).Int64(), 0).UTC()
+	} else if from.Kind() == reflect.Pointer {
+		rData := reflect.ValueOf(data)
+		if !rData.IsNil() {
+			return convertToTime(from.Elem(), rData.Elem().Interface())
+		}
 	}
 
 	return data

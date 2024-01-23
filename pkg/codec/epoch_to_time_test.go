@@ -34,6 +34,12 @@ func TestTimeToUnix(t *testing.T) {
 	}
 	oit := reflect.TypeOf(&otherIntegerType{})
 
+	type intPointerType struct {
+		A string
+		T *int64
+	}
+	ipt := reflect.TypeOf(&intPointerType{})
+
 	type bigIntType struct {
 		A string
 		T *big.Int
@@ -69,6 +75,7 @@ func TestTimeToUnix(t *testing.T) {
 			{"other integer types", oit},
 			{"big.Int", bit},
 			{"big.Int alias", biat},
+			{"int pointer", ipt},
 		} {
 			t.Run(test.name, func(t *testing.T) {
 				converter := codec.NewEpochToTimeModifier([]string{"T"})
@@ -123,6 +130,7 @@ func TestTimeToUnix(t *testing.T) {
 			{"other integer types", oit, &otherIntegerType{A: anyString, T: uint32(anyTimeEpoch)}},
 			{"big.Int", bit, &bigIntType{A: anyString, T: big.NewInt(anyTimeEpoch)}},
 			{"big.Int alias", biat, &bigIntAliasType{A: anyString, T: (*bigIntAlias)(big.NewInt(anyTimeEpoch))}},
+			{"int pointer", ipt, &intPointerType{A: anyString, T: &anyTimeEpoch}},
 		} {
 			t.Run(test.name, func(t *testing.T) {
 				converter := codec.NewEpochToTimeModifier([]string{"T"})
@@ -185,6 +193,7 @@ func TestTimeToUnix(t *testing.T) {
 			{"other integer types", oit, &otherIntegerType{A: anyString, T: uint32(anyTimeEpoch)}},
 			{"big.Int", bit, &bigIntType{A: anyString, T: big.NewInt(anyTimeEpoch)}},
 			{"big.Int alias", biat, &bigIntAliasType{A: anyString, T: (*bigIntAlias)(big.NewInt(anyTimeEpoch))}},
+			{"int pointer", ipt, &intPointerType{A: anyString, T: &anyTimeEpoch}},
 		} {
 			t.Run(test.name, func(t *testing.T) {
 				converter := codec.NewEpochToTimeModifier([]string{"T"})

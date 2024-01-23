@@ -69,7 +69,7 @@ func RunCodecInterfaceTests(t *testing.T, tester CodecInterfaceTester) {
 					Accounts:       item.Accounts,
 					BigField:       item.BigField,
 					DifferentField: item.DifferentField,
-					Field:          item.Field,
+					Field:          *item.Field,
 					NestedStruct:   item.NestedStruct,
 					OracleID:       item.OracleID,
 					OracleIDs:      item.OracleIDs,
@@ -118,6 +118,26 @@ func RunCodecInterfaceTests(t *testing.T, tester CodecInterfaceTester) {
 				into := TestStruct{}
 				require.NoError(t, codec.Decode(ctx, actualEncoding, &into, TestItemType))
 				assert.Equal(t, item, into)
+			},
+		},
+		{
+			name: "Encode returns an error if a field is not provided",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				ts := CreateTestStruct(0, tester)
+				item := &TestStructMissingField{
+					DifferentField: ts.DifferentField,
+					OracleID:       ts.OracleID,
+					OracleIDs:      ts.OracleIDs,
+					Account:        ts.Account,
+					Accounts:       ts.Accounts,
+					BigField:       ts.BigField,
+					NestedStruct:   ts.NestedStruct,
+				}
+
+				codec := tester.GetCodec(t)
+				_, err := codec.Encode(ctx, item, TestItemType)
+				assert.True(t, errors.Is(err, types.ErrInvalidType))
 			},
 		},
 		{
@@ -318,7 +338,7 @@ func RunCodecInterfaceTests(t *testing.T, tester CodecInterfaceTester) {
 				ctx := tests.Context(t)
 				cr := tester.GetCodec(t)
 				nilArgs := &TestStruct{
-					Field:          0,
+					Field:          nil,
 					DifferentField: "",
 					OracleID:       0,
 					OracleIDs:      [32]commontypes.OracleID{},

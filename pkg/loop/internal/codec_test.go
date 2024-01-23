@@ -64,7 +64,8 @@ func TestCodecClient(t *testing.T) {
 	t.Run("Decode returns error if type cannot be decoded in the wire format", func(t *testing.T) {
 		interfaceTester.Setup(t)
 		c := interfaceTester.GetCodec(t)
-		toDecode, err := c.Encode(tests.Context(t), &TestStruct{Field: 1}, TestItemType)
+		fv := int32(1)
+		toDecode, err := c.Encode(tests.Context(t), &TestStruct{Field: &fv}, TestItemType)
 		require.NoError(t, err)
 		err = c.Decode(tests.Context(t), toDecode, &cannotEncode{}, TestItemType)
 		assert.True(t, errors.Is(err, types.ErrInvalidType))
@@ -97,9 +98,9 @@ type fakeCodecInterfaceTester struct {
 	impl types.Codec
 }
 
-func (it *fakeCodecInterfaceTester) Setup(t *testing.T) {}
+func (it *fakeCodecInterfaceTester) Setup(_ *testing.T) {}
 
-func (it *fakeCodecInterfaceTester) GetCodec(t *testing.T) types.Codec {
+func (it *fakeCodecInterfaceTester) GetCodec(_ *testing.T) types.Codec {
 	return it.impl
 }
 
@@ -147,6 +148,14 @@ func (f *fakeCodec) Encode(_ context.Context, item any, itemType string) ([]byte
 		ts.BigField = big.NewInt(2)
 		return encoder.Marshal(ts)
 	case TestItemType, TestItemSliceType, TestItemArray2Type, TestItemArray1Type:
+		switch i := item.(type) {
+		case *TestStruct:
+			if i.Field == nil {
+				return nil, types.ErrInvalidType
+			}
+		case *TestStructMissingField:
+			return nil, types.ErrInvalidType
+		}
 		return encoder.Marshal(item)
 	}
 	return nil, types.ErrInvalidType

@@ -207,7 +207,7 @@ func (f *fakeChainReader) GetLatestValue(_ context.Context, name, method string,
 		defer f.lock.Unlock()
 		param := params.(*FilterEventParams)
 		for i := len(f.triggers) - 1; i >= 0; i-- {
-			if f.triggers[i].Field == param.Field {
+			if *f.triggers[i].Field == param.Field {
 				*returnVal.(*TestStruct) = f.triggers[i]
 				return nil
 			}

@@ -33,7 +33,7 @@ func RunCodecInterfaceFuzzTests(f *testing.F, tester CodecInterfaceTester) {
 			}
 
 			testStruct := &TestStruct{
-				Field:          field,
+				Field:          &field,
 				DifferentField: differentField,
 				OracleID:       commontypes.OracleID(oracleId),
 				OracleIDs:      oids,
