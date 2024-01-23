@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 	ocr2aggregator "github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	mock "github.com/stretchr/testify/mock"
 )

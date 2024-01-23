@@ -6,7 +6,7 @@ import (
 	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 
 	uuid "github.com/google/uuid"
 )

@@ -1167,17 +1167,10 @@ github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumv
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429 h1:xkejUBZhcBpBrTSfxc91Iwzadrb6SXw8ks69bHIQ9Ww=
 github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429/go.mod h1:wJmVvDf4XSjsahWtfUq3wvIAYEAuhr7oxmxYnEL/LGQ=
-<<<<<<< HEAD
 github.com/smartcontractkit/chainlink-common v0.1.7-0.20240123153406-eb7d880ccbe2 h1:rVxDYFNi6dIvv2fPVLkvi5j3zWXusbVmxtTXv/hbQtc=
 github.com/smartcontractkit/chainlink-common v0.1.7-0.20240123153406-eb7d880ccbe2/go.mod h1:NZ+p9FNx9jdPPfE7eBW2YER9IccxmFmLkxEvaVEEz+A=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240123153753-8e8f4f8cb9ed h1:YvYDXMMEFASNELmcJ7lHmxqGqxqB2tPYbHdOJ3BhxQ4=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240123153753-8e8f4f8cb9ed/go.mod h1:8B6ie0uNV5ohqWHbhxz7SSgQMH9JHkOIWFYehli5OuU=
-=======
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240123141952-a879db9d23b3 h1:uSLn+JbClhldYn7zm0GEALGvi6KAfrY5Kp46IX9sy0E=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240123141952-a879db9d23b3/go.mod h1:05rRF84QKlIOF5LfTBPkHdw4UpBI2G3zxRcuZ65bPjk=
-github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240120192246-4bb04c997ca0 h1:NALwENz6vQ972DuD9AZjqRjyNSxH9ptNapizQGLI+2s=
-github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240120192246-4bb04c997ca0/go.mod h1:NcVAT/GETDBvIoAej5K6OYqAtDOkF6vO5pYw/hLuYVU=
->>>>>>> 5e7b2b2bc1c0e9b94434b01e4b217e9021f8a27d
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1 h1:xYqRgZO0nMSO8CBCMR0r3WA+LZ4kNL8a6bnbyk/oBtQ=
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1/go.mod h1:GuPvyXryvbiUZIHmPeLBz4L+yJKeyGUjrDfd1KNne+o=
 github.com/smartcontractkit/chainlink-feeds v0.0.0-20231127231053-2232d3a6766d h1:w4MsbOtNk6nD/mcXLstHWk9hB6g7QLtcAfhPjhwvOaQ=

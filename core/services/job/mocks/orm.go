@@ -14,7 +14,7 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 

@@ -6,7 +6,7 @@ import (
 	big "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink-common/pkg/services/pg"
 
 	s4 "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
