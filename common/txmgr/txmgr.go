@@ -681,24 +681,35 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) createTxnA
 	txRequest txmgrtypes.TxRequest[ADDR, TX_HASH],
 	chainID CHAIN_ID,
 ) (
-	txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	error,
+	tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	err error,
 ) {
-	tx, err := b.txStore.CreateTransaction(ctx, txRequest, chainID)
-	if err != nil {
-		return tx, err
-	}
 	pruned, err := txRequest.Strategy.PruneQueue(ctx, b.txStore)
 	if err != nil {
 		return tx, err
 	}
+
+	tx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
+	if err != nil {
+		if len(pruned) > 0 {
+			b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", len(pruned)),
+				"fromAddress", txRequest.FromAddress,
+				"toAddress", txRequest.ToAddress,
+				"meta", txRequest.Meta,
+				"subject", txRequest.Strategy.Subject(),
+			)
+		}
+		return tx, err
+	}
+
 	if len(pruned) > 0 {
-		b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", len(pruned)),
+		b.logger.Warnw("Dropped transaction replaced by new transaction",
 			"fromAddress", txRequest.FromAddress,
 			"toAddress", txRequest.ToAddress,
 			"meta", txRequest.Meta,
 			"subject", txRequest.Strategy.Subject(),
-			"replacementID", tx.ID)
+			"replacementID", tx.ID,
+		)
 	}
 
 	return tx, nil
