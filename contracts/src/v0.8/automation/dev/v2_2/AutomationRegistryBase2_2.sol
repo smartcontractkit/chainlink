@@ -776,8 +776,9 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    if ( !skipReorgProtection &&
-      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+    if (
+      (!skipReorgProtection &&
+        (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
       // There are two cases of reorged report
@@ -795,8 +796,9 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
-    if ( !skipReorgProtection &&
-      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+    if (
+      (!skipReorgProtection &&
+        (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
       // Reorg protection is same as conditional trigger upkeeps
