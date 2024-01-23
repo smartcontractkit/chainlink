@@ -13,10 +13,10 @@ import (
 
 // New creates a new log event provider and recoverer.
 // using default values for the options.
-func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32) (LogEventProvider, LogRecoverer) {
+func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth, numOfLogUpkeeps, fastExecLogsHigh uint32) (LogEventProvider, LogRecoverer) {
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
-	opts := NewOptions(int64(finalityDepth))
+	opts := NewOptions(int64(finalityDepth), int64(numOfLogUpkeeps), int64(fastExecLogsHigh))
 	provider := NewLogProvider(lggr, poller, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
 
@@ -37,17 +37,25 @@ type LogTriggersOptions struct {
 	BlockLimitBurst int
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
+	// NumOfLogUpkeeps is the number of log upkeeps supported by the registry.
+	NumOfLogUpkeeps int64
+	// FastExecLogsHigh is the upper bound/maximum number of logs that we are committed to process for each upkeep,
+	// based on available capacity.
+	FastExecLogsHigh int64
 }
 
-func NewOptions(finalityDepth int64) LogTriggersOptions {
+func NewOptions(finalityDepth, numOfLogUpkeeps, fastExecLogsHigh int64) LogTriggersOptions {
 	opts := new(LogTriggersOptions)
-	opts.Defaults(finalityDepth)
+	opts.Defaults(finalityDepth, numOfLogUpkeeps, fastExecLogsHigh)
 	return *opts
 }
 
 // Defaults sets the default values for the options.
 // NOTE: o.LookbackBlocks should be set only from within tests
-func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
+func (o *LogTriggersOptions) Defaults(finalityDepth, numOfLogUpkeeps, fastExecLogsHigh int64) {
+	o.FastExecLogsHigh = defaultFastExecLogsHigh
+	o.NumOfLogUpkeeps = defaultNumOfLogUpkeeps
+
 	if o.LookbackBlocks == 0 {
 		lookbackBlocks := int64(200)
 		if lookbackBlocks < finalityDepth {
@@ -66,5 +74,16 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	}
 	if o.FinalityDepth == 0 {
 		o.FinalityDepth = finalityDepth
+	}
+	if fastExecLogsHigh == 0 {
+		o.FastExecLogsHigh = defaultFastExecLogsHigh
+	} else {
+		o.FastExecLogsHigh = fastExecLogsHigh
+	}
+	if fastExecLogsHigh > 0 {
+		o.FastExecLogsHigh = fastExecLogsHigh
+	}
+	if numOfLogUpkeeps > 0 {
+		o.NumOfLogUpkeeps = numOfLogUpkeeps
 	}
 }

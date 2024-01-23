@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
@@ -28,6 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+
+	goabi "github.com/umbracle/ethgo/abi"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -107,6 +111,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
+
 	// lookback blocks for transmit event is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var transmitLookbackBlocks int64 = 250
@@ -122,11 +127,14 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 
 	finalityDepth := client.Config().EVM().FinalityDepth()
 
+	numOfLogUpkeeps := cfgWatcher.chain.Config().EVM().OCR2().Automation().NumOfLogUpkeeps()
+	fastExecLogsHigh := cfgWatcher.chain.Config().EVM().OCR2().Automation().FastExecLogsHigh()
+
 	orm := upkeepstate.NewORM(client.ID(), r.db, r.lggr, r.dbCfg)
 	scanner := upkeepstate.NewPerformedEventsScanner(r.lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepStateStore = upkeepstate.NewUpkeepStateStore(orm, r.lggr, scanner)
 
-	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth)
+	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth, numOfLogUpkeeps, fastExecLogsHigh)
 	services.logEventProvider = logProvider
 	services.logRecoverer = logRecoverer
 	blockSubscriber := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)
@@ -140,6 +148,39 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 		packer, blockSubscriber, finalityDepth)
 
 	services.conditionalUpkeepProvider = evm.NewUpkeepProvider(al, blockSubscriber, client.LogPoller())
+
+	go func() {
+		var digest ocrtypes.ConfigDigest
+		ctx := context.Background()
+		for {
+			changeBlock, configDigest, err := cfgWatcher.configPoller.LatestConfigDetails(ctx)
+			if err != nil {
+
+			}
+			if configDigest != digest {
+				contractConfig, err := cfgWatcher.configPoller.LatestConfig(ctx, changeBlock)
+				if err != nil {
+
+				}
+
+				configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
+
+				type gaConfig struct {
+					numOfLogUpkeeps  uint32
+					fastExecLogsHigh uint32
+				}
+				var gac gaConfig
+				if err := goabi.DecodeStruct(configType, contractConfig.OnchainConfig, &gac); err != nil {
+
+				}
+
+				// set the values on the log poller
+
+				digest = configDigest
+			}
+			<-time.After(30 * time.Second)
+		}
+	}()
 
 	return services, nil
 }
