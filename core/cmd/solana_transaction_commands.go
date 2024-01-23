@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	solanaGo "github.com/gagliardetto/solana-go"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
@@ -61,7 +61,7 @@ func (p *SolanaMsgPresenter) RenderTable(rt RendererTable) error {
 // SolanaSendSol transfers sol from the node's account to a specified address.
 func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
-		return s.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
+		return s.errorOut(pkgerrors.New("three arguments expected: amount, fromAddress and toAddress"))
 	}
 
 	amount, err := strconv.ParseUint(c.Args().Get(0), 10, 64)
@@ -73,7 +73,7 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	fromAddress, err := solanaGo.PublicKeyFromBase58(unparsedFromAddress)
 	if err != nil {
 		return s.errorOut(multierr.Combine(
-			errors.Errorf("while parsing withdrawal source address %v",
+			pkgerrors.Errorf("while parsing withdrawal source address %v",
 				unparsedFromAddress), err))
 	}
 
@@ -81,13 +81,13 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	destinationAddress, err := solanaGo.PublicKeyFromBase58(unparsedDestinationAddress)
 	if err != nil {
 		return s.errorOut(multierr.Combine(
-			errors.Errorf("while parsing withdrawal destination address %v",
+			pkgerrors.Errorf("while parsing withdrawal destination address %v",
 				unparsedDestinationAddress), err))
 	}
 
 	chainID := c.String("id")
 	if chainID == "" {
-		return s.errorOut(errors.New("missing id"))
+		return s.errorOut(pkgerrors.New("missing id"))
 	}
 
 	request := solana.SendRequest{

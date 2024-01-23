@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -116,8 +116,8 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
-	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, pkgerrors.New("fake error"))
+	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(nil, pkgerrors.New("fake error"))
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)

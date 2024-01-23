@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pelletier/go-toml"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
 
 	"github.com/jmoiron/sqlx"
@@ -137,14 +137,14 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 	if passwordFile := c.String("password"); passwordFile != "" {
 		p, err := utils.PasswordFromFile(passwordFile)
 		if err != nil {
-			return nil, errors.Wrap(err, "error reading password from file")
+			return nil, pkgerrors.Wrap(err, "error reading password from file")
 		}
 		pwd = &p
 	}
 	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
 		p, err := utils.PasswordFromFile(vrfPasswordFile)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
+			return nil, pkgerrors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
 		}
 		vrfpwd = &p
 	}
@@ -153,20 +153,20 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 
 	err := s.Config.Validate()
 	if err != nil {
-		return nil, s.errorOut(errors.Wrap(err, "config validation failed"))
+		return nil, s.errorOut(pkgerrors.Wrap(err, "config validation failed"))
 	}
 
 	cfg := s.Config
 	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
 
 	if err = ldb.Open(ctx); err != nil {
-		return nil, s.errorOut(errors.Wrap(err, "opening db"))
+		return nil, s.errorOut(pkgerrors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
 	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, ldb.DB())
 	if err != nil {
-		return nil, s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
+		return nil, s.errorOut(pkgerrors.Wrap(err, "fatal error instantiating application"))
 	}
 
 	chainID := c.Int64("chainID")
@@ -236,7 +236,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 		}
 	}
 	if ocr2 == nil {
-		return nil, s.errorOut(errors.Wrap(job.ErrNoSuchKeyBundle, "evm OCR2 key bundle not found"))
+		return nil, s.errorOut(pkgerrors.Wrap(job.ErrNoSuchKeyBundle, "evm OCR2 key bundle not found"))
 	}
 	offChainPublicKey := ocr2.OffchainPublicKey()
 	configPublicKey := ocr2.ConfigEncryptionPublicKey()
@@ -353,7 +353,7 @@ func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, lggr logger.Logg
 
 func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
 	if err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password()); err != nil {
-		return errors.Wrap(err, "error authenticating keystore")
+		return pkgerrors.Wrap(err, "error authenticating keystore")
 	}
 
 	if cli.Config.EVMEnabled() {
@@ -363,7 +363,7 @@ func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Mast
 		}
 		for _, ch := range chains {
 			if err = keyStore.Eth().EnsureKeys(ch.ID()); err != nil {
-				return errors.Wrap(err, "failed to ensure keystore keys")
+				return pkgerrors.Wrap(err, "failed to ensure keystore keys")
 			}
 		}
 	}
@@ -383,19 +383,19 @@ func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Mast
 	}
 
 	if err := keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
-		return errors.Wrap(err, "failed to ensure ocr key")
+		return pkgerrors.Wrap(err, "failed to ensure ocr key")
 	}
 
 	if err := keyStore.DKGSign().EnsureKey(); err != nil {
-		return errors.Wrap(err, "failed to ensure dkgsign key")
+		return pkgerrors.Wrap(err, "failed to ensure dkgsign key")
 	}
 
 	if err := keyStore.DKGEncrypt().EnsureKey(); err != nil {
-		return errors.Wrap(err, "failed to ensure dkgencrypt key")
+		return pkgerrors.Wrap(err, "failed to ensure dkgencrypt key")
 	}
 
 	if err := keyStore.P2P().EnsureKey(); err != nil {
-		return errors.Wrap(err, "failed to ensure p2p key")
+		return pkgerrors.Wrap(err, "failed to ensure p2p key")
 	}
 
 	return nil
@@ -410,18 +410,18 @@ func createBootstrapperJob(ctx context.Context, lggr logger.Logger, c *cli.Conte
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal job spec")
+		return pkgerrors.Wrap(err, "failed to unmarshal job spec")
 	}
 	var os job.BootstrapSpec
 	err = toml.Unmarshal([]byte(sp), &os)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal job spec")
+		return pkgerrors.Wrap(err, "failed to unmarshal job spec")
 	}
 	jb.BootstrapSpec = &os
 
 	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
-		return errors.Wrap(err, "failed to add job")
+		return pkgerrors.Wrap(err, "failed to add job")
 	}
 	lggr.Info("bootstrap spec:", sp)
 
@@ -447,18 +447,18 @@ func createDKGJob(ctx context.Context, lggr logger.Logger, app chainlink.Applica
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal job spec")
+		return pkgerrors.Wrap(err, "failed to unmarshal job spec")
 	}
 	var os job.OCR2OracleSpec
 	err = toml.Unmarshal([]byte(sp), &os)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal job spec")
+		return pkgerrors.Wrap(err, "failed to unmarshal job spec")
 	}
 	jb.OCR2OracleSpec = &os
 
 	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
-		return errors.Wrap(err, "failed to add job")
+		return pkgerrors.Wrap(err, "failed to add job")
 	}
 	lggr.Info("dkg spec:", sp)
 
@@ -490,18 +490,18 @@ func createOCR2VRFJob(ctx context.Context, lggr logger.Logger, app chainlink.App
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal job spec")
+		return pkgerrors.Wrap(err, "failed to unmarshal job spec")
 	}
 	var os job.OCR2OracleSpec
 	err = toml.Unmarshal([]byte(sp), &os)
 	if err != nil {
-		return errors.Wrap(err, "failed to unmarshal job spec")
+		return pkgerrors.Wrap(err, "failed to unmarshal job spec")
 	}
 	jb.OCR2OracleSpec = &os
 
 	err = app.AddJobV2(ctx, &jb)
 	if err != nil {
-		return errors.Wrap(err, "failed to add job")
+		return pkgerrors.Wrap(err, "failed to add job")
 	}
 	lggr.Info("ocr2vrf spec:", sp)
 

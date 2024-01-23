@@ -10,7 +10,7 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
@@ -100,7 +100,7 @@ func (s *Shell) ListForwarders(c *cli.Context) (err error) {
 // DeleteForwarder deletes forwarder address from node db by id.
 func (s *Shell) DeleteForwarder(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("must pass the forwarder id to be archived"))
+		return s.errorOut(pkgerrors.New("must pass the forwarder id to be archived"))
 	}
 	resp, err := s.HTTP.Delete(s.ctx(), "/v2/nodes/evm/forwarders/"+c.Args().First())
 	if err != nil {
@@ -122,7 +122,7 @@ func (s *Shell) TrackForwarder(c *cli.Context) (err error) {
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "could not decode address"))
+		return s.errorOut(pkgerrors.Wrap(err, "could not decode address"))
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
@@ -131,7 +131,7 @@ func (s *Shell) TrackForwarder(c *cli.Context) (err error) {
 		var ok bool
 		chainID, ok = big.NewInt(0).SetString(chainIDStr, 10)
 		if !ok {
-			return s.errorOut(errors.Wrap(err, "invalid evm-chain-id"))
+			return s.errorOut(pkgerrors.Wrap(err, "invalid evm-chain-id"))
 		}
 	}
 
