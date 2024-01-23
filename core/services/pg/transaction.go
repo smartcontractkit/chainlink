@@ -22,7 +22,7 @@ func OptReadOnlyTx() TxOption {
 }
 
 func SqlTransaction(ctx context.Context, rdb *sql.DB, lggr logger.Logger, fn func(tx *sqlx.Tx) error, opts ...TxOption) (err error) {
-	return commonpg.SqlTransaction(ctx, rdb, lggr, fn, opts...)
+	return commonpg.SQLTransaction(ctx, rdb, lggr, fn, opts...)
 }
 
 // TxBeginner can be a db or a conn, anything that implements BeginTxx
