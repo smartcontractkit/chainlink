@@ -1870,7 +1870,7 @@ id < (
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil
 			}
-			return pkgerrors.Wrap(err, "DeleteUnstartedEthTx failed")
+			return fmt.Errorf("DeleteUnstartedEthTx failed: %w", err)
 		}
 		return err
 	})

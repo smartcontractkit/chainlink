@@ -23,7 +23,7 @@ func Test_SendEveryStrategy(t *testing.T) {
 
 	ids, err := s.PruneQueue(testutils.Context(t), nil)
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(ids))
+	assert.Len(t, ids, 0)
 }
 
 func Test_DropOldestStrategy_Subject(t *testing.T) {
