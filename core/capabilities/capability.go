@@ -40,26 +40,13 @@ type Validatable interface {
 type Capability interface {
 	Validatable
 	Info() CapabilityInfo
-}
-
-type SynchronousCapability interface {
-	Capability
-
-	Start(ctx context.Context, config values.Map) (values.Value, error)
-	Execute(ctx context.Context, inputs values.Map) (values.Value, error)
-	Stop(ctx context.Context) error
-}
-
-type AsynchronousCapability interface {
-	Capability
-
 	Start(ctx context.Context, config values.Map) (values.Value, error)
 	Execute(ctx context.Context, callback chan values.Map, inputs values.Map) (values.Value, error)
 	Stop(ctx context.Context) error
 }
 
 type CapabilityInfo struct {
-	Id             string
+	ID             string
 	CapabilityType CapabilityType
 	Description    string
 	Version        string
@@ -90,7 +77,7 @@ func NewCapabilityInfo(
 	}
 
 	return CapabilityInfo{
-		Id:             id,
+		ID:             id,
 		CapabilityType: capabilityType,
 		Description:    description,
 		Version:        version,
