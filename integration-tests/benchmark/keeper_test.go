@@ -295,6 +295,12 @@ var networkConfig = map[string]NetworkConfig{
 		deltaStage: 20 * time.Second,
 		funding:    big.NewFloat(ChainlinkNodeFunding),
 	},
+	"LineaGoerli": {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
+		deltaStage: 20 * time.Second,
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
 }
 
 func getEnv(key, fallback string) string {
