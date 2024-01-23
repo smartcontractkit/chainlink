@@ -19,11 +19,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
-<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240123153406-eb7d880ccbe2
-=======
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240123141952-a879db9d23b3
->>>>>>> 5e7b2b2bc1c0e9b94434b01e4b217e9021f8a27d
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240112202000-6359502d2ff1
