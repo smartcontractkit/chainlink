@@ -60,6 +60,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
   // |                           ACTIONS                            |
   // ================================================================
 
+  function setAllowedOrigin(address origin) external {
+    allowedOrigin = origin;
+  }
+
   /**
    * @inheritdoc OCR2Abstract
    */

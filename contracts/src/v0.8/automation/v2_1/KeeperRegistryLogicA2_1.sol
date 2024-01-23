@@ -49,7 +49,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     bytes memory triggerData
   )
     public
-    cannotExecuteExcept(allowedOrigin)
+    //cannotExecuteExcept(allowedOrigin)
     returns (
       bool upkeepNeeded,
       bytes memory performData,
@@ -60,6 +60,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       uint256 linkNative
     )
   {
+    if (tx.origin != allowedOrigin) {
+      revert OnlySimulatedBackend();
+    }
     Trigger triggerType = _getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];

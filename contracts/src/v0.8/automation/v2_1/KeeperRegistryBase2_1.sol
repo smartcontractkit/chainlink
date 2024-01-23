@@ -74,7 +74,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
   address internal immutable i_automationForwarderLogic;
-  address public allowedOrigin;
+  address public allowedOrigin = address(0);
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -470,11 +470,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
-  }
-
-
-  function setAllowedOrigin(address origin) external {
-    allowedOrigin = origin;
   }
 
   // ================================================================
