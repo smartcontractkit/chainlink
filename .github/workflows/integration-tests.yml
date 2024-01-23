@@ -213,8 +213,8 @@ jobs:
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
 
-          MATRIX_JSON_LP=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
-          echo "LP_JOB_MATRIX_JSON=${MATRIX_JSON_LP}" >> $GITHUB_ENV
+          LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
+          echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
 
           # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
           if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
@@ -291,7 +291,7 @@ jobs:
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL }}
           GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
-          RUN_ID: ${{ github.run_id }}          
+          RUN_ID: ${{ github.run_id }}
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -378,7 +378,7 @@ jobs:
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""          
+          QA_KUBECONFIG: ""
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -444,7 +444,7 @@ jobs:
           - name: forwarders_ocr2
             nodes: 1
             os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated           
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
@@ -579,7 +579,7 @@ jobs:
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: trace-data
-          path: ./integration-tests/smoke/traces/trace-data.json          
+          path: ./integration-tests/smoke/traces/trace-data.json
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4

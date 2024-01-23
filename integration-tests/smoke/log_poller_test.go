@@ -503,6 +503,8 @@ type logPollerEnvironment struct {
 	upKeepsNeeded int
 }
 
+// prepareEnvironment prepares environment for log poller tests by starting DON, private Ethereum network,
+// deploying registry and log emitter contracts and registering log triggered upkeeps
 func prepareEnvironment(l zerolog.Logger, t *testing.T, cfg *logpoller.Config) logPollerEnvironment {
 	if cfg.General.EventsToEmit == nil || len(cfg.General.EventsToEmit) == 0 {
 		l.Warn().Msg("No events to emit specified, using all events from log emitter contract")
@@ -555,6 +557,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, cfg *logpoller.Config) l
 	}
 }
 
+// waitForAllNodesToHaveExpectedFiltersRegisteredOrFail waits until all nodes have expected filters registered until timeout
 func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, testEnv *test_env.CLClusterTestEnv, expectedFilters []logpoller.ExpectedFilter) {
 	// Make sure that all nodes have expected filters registered before starting to emit events
 	gom := gomega.NewGomegaWithT(t)
@@ -586,6 +589,8 @@ func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, core
 		Msg("Expected filters count")
 }
 
+// conditionallyWaitUntilNodesHaveTheSameLogsAsEvm checks whether all CL nodes have the same number of logs as EVM node
+// if not, then it prints missing logs and wait for some time and checks again
 func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, allNodesLogCountMatches bool, lpTestEnv logPollerEnvironment, cfg *logpoller.Config, startBlock, endBlock int64, waitDuration string) {
 	logCountWaitDuration, err := time.ParseDuration(waitDuration)
 	require.NoError(t, err, "Error parsing log count wait duration")
