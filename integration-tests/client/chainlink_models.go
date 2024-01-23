@@ -631,6 +631,7 @@ func (d *PipelineSpec) String() (string, error) {
 type VRFV2PlusTxPipelineSpec struct {
 	Address               string
 	EstimateGasMultiplier float64
+	FromAddress           string
 }
 
 // Type returns the type of the pipeline
@@ -1128,18 +1129,21 @@ observationSource                      = """
 
 // VRFV2PlusJobSpec represents a VRFV2 job
 type VRFV2PlusJobSpec struct {
-	Name                     string        `toml:"name"`
-	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
-	ExternalJobID            string        `toml:"externalJobID"`
-	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
-	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
-	FromAddresses            []string      `toml:"fromAddresses"`
-	EVMChainID               string        `toml:"evmChainID"`
-	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
-	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
-	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
-	PollPeriod               time.Duration `toml:"pollPeriod"`
+	Name                          string        `toml:"name"`
+	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
+	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	ExternalJobID                 string        `toml:"externalJobID"`
+	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
+	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
+	FromAddresses                 []string      `toml:"fromAddresses"`
+	EVMChainID                    string        `toml:"evmChainID"`
+	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
+	BatchFulfillmentEnabled       bool          `toml:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64       `toml:"batchFulfillmentGasMultiplier"`
+	BackOffInitialDelay           time.Duration `toml:"backOffInitialDelay"`
+	BackOffMaxDelay               time.Duration `toml:"backOffMaxDelay"`
+	PollPeriod                    time.Duration `toml:"pollPeriod"`
+	RequestTimeout                time.Duration `toml:"requestTimeout"`
 }
 
 // Type returns the type of the job
@@ -1158,8 +1162,11 @@ minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"
 externalJobID            = "{{.ExternalJobID}}"
 batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
+batchFulfillmentGasMultiplier = {{.BatchFulfillmentGasMultiplier}}
 backoffInitialDelay     = "{{.BackOffInitialDelay}}"
 backoffMaxDelay         = "{{.BackOffMaxDelay}}"
+pollPeriod              = "{{.PollPeriod}}"
+requestTimeout          = "{{.RequestTimeout}}"
 observationSource = """
 {{.ObservationSource}}
 """
@@ -1206,6 +1213,7 @@ minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"
 externalJobID            = "{{.ExternalJobID}}"
 batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
+batchFulfillmentGasMultiplier = {{.BatchFulfillmentGasMultiplier}}
 backoffInitialDelay     = "{{.BackOffInitialDelay}}"
 backoffMaxDelay         = "{{.BackOffMaxDelay}}"
 pollPeriod              = "{{.PollPeriod}}"

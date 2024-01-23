@@ -380,10 +380,20 @@ func SetupVRFV2Environment(
 		allNativeTokenKeyAddresses = append(allNativeTokenKeyAddresses, common.HexToAddress(addressString))
 	}
 
+	var vrfOwnerConfig VRFOwnerConfig
 	if useVRFOwner {
 		err := setupVRFOwnerContract(env, vrfv2Contracts, allNativeTokenKeyAddressStrings, allNativeTokenKeyAddresses, l)
 		if err != nil {
 			return nil, nil, nil, err
+		}
+		vrfOwnerConfig = VRFOwnerConfig{
+			OwnerAddress: vrfv2Contracts.VRFOwner.Address(),
+			useVRFOwner:  useVRFOwner,
+		}
+	} else {
+		vrfOwnerConfig = VRFOwnerConfig{
+			OwnerAddress: "",
+			useVRFOwner:  useVRFOwner,
 		}
 	}
 
@@ -399,10 +409,7 @@ func SetupVRFV2Environment(
 		BatchFulfillmentGasMultiplier: 1.15,
 		PollPeriod:                    time.Second * 1,
 		RequestTimeout:                time.Hour * 24,
-		VRFOwnerConfig: VRFOwnerConfig{
-			OwnerAddress: vrfv2Contracts.VRFOwner.Address(),
-			useVRFOwner:  useVRFOwner,
-		},
+		VRFOwnerConfig:                vrfOwnerConfig,
 	}
 
 	l.Info().Msg("Creating VRFV2 Job")
