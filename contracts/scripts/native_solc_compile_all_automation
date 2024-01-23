@@ -60,7 +60,7 @@ compileContract automation/v2_1/KeeperRegistryLogicB2_1.sol
 compileContract automation/interfaces/v2_1/IKeeperRegistryMaster.sol
 compileContract automation/interfaces/ILogAutomation.sol
 compileContract automation/v2_1/AutomationUtils2_1.sol
-compileContract automation/v2_1/AutomationForwarderLogic.sol
+compileContract automation/AutomationForwarderLogic.sol
 compileContract automation/testhelpers/LogTriggeredStreamsLookup.sol
 compileContract automation/testhelpers/DummyProtocol.sol
 
