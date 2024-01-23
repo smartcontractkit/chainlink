@@ -2,9 +2,9 @@
  * @description this script generates a master interface for interacting with the automation registry
  * @notice run this script with pnpm ts-node ./scripts/generate-automation-master-interface.ts
  */
-import { KeeperRegistry2_2__factory as KeeperRegistry } from '../typechain/factories/KeeperRegistry2_2__factory'
-import { KeeperRegistryLogicA2_2__factory as KeeperRegistryLogicA } from '../typechain/factories/KeeperRegistryLogicA2_2__factory'
-import { KeeperRegistryLogicB2_2__factory as KeeperRegistryLogicB } from '../typechain/factories/KeeperRegistryLogicB2_2__factory'
+import { AutomationRegistry2_2__factory as Registry } from '../typechain/factories/AutomationRegistry2_2__factory'
+import { AutomationRegistryLogicA2_2__factory as RegistryLogicA } from '../typechain/factories/AutomationRegistryLogicA2_2__factory'
+import { AutomationRegistryLogicB2_2__factory as RegistryLogicB } from '../typechain/factories/AutomationRegistryLogicB2_2__factory'
 import { utils } from 'ethers'
 import fs from 'fs'
 import { exec } from 'child_process'
@@ -15,11 +15,7 @@ const tmpDest = `${dest}/tmp.txt`
 
 const combinedABI = []
 const abiSet = new Set()
-const abis = [
-  KeeperRegistry.abi,
-  KeeperRegistryLogicA.abi,
-  KeeperRegistryLogicB.abi,
-]
+const abis = [Registry.abi, RegistryLogicA.abi, RegistryLogicB.abi]
 
 for (const abi of abis) {
   for (const entry of abi) {
