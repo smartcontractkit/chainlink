@@ -515,12 +515,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		return tx, fmt.Errorf("Txm#CreateTransaction: %w", err)
 	}
 
-	tx, err = b.txStore.CreateTransaction(ctx, txRequest, b.chainID)
+	tx, err = b.createTxnAndPruneQueue(ctx, txRequest, b.chainID)
 	if err != nil {
 		return tx, err
-	}
-	if err := b.pruneQueue(ctx, txRequest, tx); err != nil {
-		return tx, fmt.Errorf("CreateTransaction failed to prune queue: %w", err)
 	}
 
 	// Trigger the Broadcaster to check for new transaction
@@ -558,12 +555,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		FeeLimit:       gasLimit,
 		Strategy:       NewSendEveryStrategy(),
 	}
-	etx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
+	etx, err = b.createTxnAndPruneQueue(ctx, txRequest, chainID)
 	if err != nil {
 		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %w", err)
-	}
-	if err := b.pruneQueue(ctx, txRequest, etx); err != nil {
-		return etx, fmt.Errorf("SendNativeToken failed to prune queue: %w", err)
 	}
 
 	// Trigger the Broadcaster to check for new transaction
@@ -682,10 +676,21 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Cou
 	return count, errors.New(n.ErrMsg)
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueue(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) createTxnAndPruneQueue(
+	ctx context.Context,
+	txRequest txmgrtypes.TxRequest[ADDR, TX_HASH],
+	chainID CHAIN_ID,
+) (
+	txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	error,
+) {
+	tx, err := b.txStore.CreateTransaction(ctx, txRequest, chainID)
+	if err != nil {
+		return tx, err
+	}
 	pruned, err := txRequest.Strategy.PruneQueue(ctx, b.txStore)
 	if err != nil {
-		return err
+		return tx, err
 	}
 	if len(pruned) > 0 {
 		b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", len(pruned)),
@@ -693,8 +698,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueue
 			"toAddress", txRequest.ToAddress,
 			"meta", txRequest.Meta,
 			"subject", txRequest.Strategy.Subject(),
-			"replacementID", etx.ID)
+			"replacementID", tx.ID)
 	}
 
-	return nil
+	return tx, nil
 }
