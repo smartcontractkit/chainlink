@@ -46,7 +46,9 @@ export const deployRegistry22 = async (
   const logicAFactory = await ethers.getContractFactory(
     'AutomationRegistryLogicA2_2',
   )
-  const registryFactory = await ethers.getContractFactory('AutomationRegistry2_2')
+  const registryFactory = await ethers.getContractFactory(
+    'AutomationRegistry2_2',
+  )
   const forwarderLogicFactory = await ethers.getContractFactory(
     'AutomationForwarderLogic',
   )
