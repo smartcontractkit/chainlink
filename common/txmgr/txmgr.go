@@ -688,29 +688,23 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) createTxnA
 	if err != nil {
 		return tx, err
 	}
+	if len(pruned) > 0 {
+		b.logger.Warnw(fmt.Sprintf("Pruned %d old unstarted transactions", len(pruned)),
+			"subject", txRequest.Strategy.Subject(),
+			"pruned", pruned,
+		)
+	}
 
 	tx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
 	if err != nil {
-		if len(pruned) > 0 {
-			b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", len(pruned)),
-				"fromAddress", txRequest.FromAddress,
-				"toAddress", txRequest.ToAddress,
-				"meta", txRequest.Meta,
-				"subject", txRequest.Strategy.Subject(),
-			)
-		}
 		return tx, err
 	}
-
-	if len(pruned) > 0 {
-		b.logger.Warnw("Dropped transaction replaced by new transaction",
-			"fromAddress", txRequest.FromAddress,
-			"toAddress", txRequest.ToAddress,
-			"meta", txRequest.Meta,
-			"subject", txRequest.Strategy.Subject(),
-			"replacementID", tx.ID,
-		)
-	}
+	b.logger.Debugw("Created transaction",
+		"fromAddress", txRequest.FromAddress,
+		"toAddress", txRequest.ToAddress,
+		"meta", txRequest.Meta,
+		"replacementID", tx.ID,
+	)
 
 	return tx, nil
 }

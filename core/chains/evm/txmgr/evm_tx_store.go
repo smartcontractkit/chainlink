@@ -1870,7 +1870,7 @@ id < (
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil
 			}
-			return fmt.Errorf("DeleteUnstartedEthTx failed: %w", err)
+			return fmt.Errorf("PruneUnstartedTxQueue failed: %w", err)
 		}
 		return err
 	})

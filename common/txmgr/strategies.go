@@ -61,7 +61,7 @@ func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrty
 	ctx, cancel = context.WithTimeout(ctx, s.queryTimeout)
 	defer cancel()
 
-	ids, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize, s.subject)
+	ids, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize-1, s.subject)
 	if err != nil {
 		return ids, fmt.Errorf("DropOldestStrategy#PruneQueue failed: %w", err)
 	}
