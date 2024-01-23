@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	disabled = true // TODO: Tracker currently disabled for BCI-2638; refactor required
 	// defaultTTL is the default time to live for abandoned transactions
 	// After this TTL, the TXM stops tracking abandoned Txs.
 	defaultTTL = 6 * time.Hour
@@ -93,11 +92,6 @@ func NewTracker[
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) (err error) {
-	if disabled {
-		tr.lggr.Info("Abandoned transaction tracking disabled")
-		return nil
-	}
-
 	tr.lggr.Info("Abandoned transaction tracking enabled")
 	return tr.StartOnce("Tracker", func() error {
 		return tr.startInternal()
