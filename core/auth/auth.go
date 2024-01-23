@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	pkgerrors "github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"golang.org/x/crypto/sha3"
