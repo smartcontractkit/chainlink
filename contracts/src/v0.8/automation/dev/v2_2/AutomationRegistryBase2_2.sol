@@ -794,7 +794,11 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     return true;
   }
 
-  function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger, HotVars memory hotVars) internal returns (bool, bytes32) {
+  function _validateLogTrigger(
+    uint256 upkeepId,
+    bytes memory rawTrigger,
+    HotVars memory hotVars
+  ) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (
