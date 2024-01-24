@@ -24,7 +24,7 @@ contract ArbitrumCrossDomainGovernor is CrossDomainGovernor {
   }
 
   /// @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
-  function requireLocalOrCrossDomainOwner() internal view override {
+  function _requireLocalOrCrossDomainOwner() internal view override {
     // solhint-disable-next-line custom-errors
     require(msg.sender == crossDomainMessenger() || msg.sender == owner(), "Sender is not the L2 messenger or owner");
   }

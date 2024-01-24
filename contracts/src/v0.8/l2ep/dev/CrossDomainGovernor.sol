@@ -26,19 +26,19 @@ abstract contract CrossDomainGovernor is
   function crossDomainMessenger() external view virtual returns (address);
 
   /// @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
-  function requireLocalOrCrossDomainOwner() internal view virtual;
+  function _requireLocalOrCrossDomainOwner() internal view virtual;
 
   /// @inheritdoc ForwarderInterface
   /// @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
   function forward(address target, bytes memory data) external override {
-    requireLocalOrCrossDomainOwner();
+    _requireLocalOrCrossDomainOwner();
     Address.functionCall(target, data, "Governor call reverted");
   }
 
   /// @inheritdoc DelegateForwarderInterface
   /// @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
   function forwardDelegate(address target, bytes memory data) external override {
-    requireLocalOrCrossDomainOwner();
+    _requireLocalOrCrossDomainOwner();
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");
   }
 }

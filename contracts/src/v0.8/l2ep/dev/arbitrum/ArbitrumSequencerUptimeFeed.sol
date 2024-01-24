@@ -35,11 +35,10 @@ contract ArbitrumSequencerUptimeFeed is SequencerUptimeFeed {
   }
 
   /// @notice Reverts if the sender is not allowed to call `updateStatus`
-  modifier requireValidSender() override {
+  function _requireValidSender() internal view override {
     if (msg.sender != AddressAliasHelper.applyL1ToL2Alias(l1Sender())) {
       revert InvalidSender();
     }
-    _;
   }
 
   /// @notice Initialise the first round. Can't be done in the constructor,
@@ -62,7 +61,11 @@ contract ArbitrumSequencerUptimeFeed is SequencerUptimeFeed {
   ///
   /// @param status Sequencer status
   /// @param timestamp Block timestamp of status update
-  function updateStatus(bool status, uint64 timestamp) external override requireInitialized requireValidSender {
+  function updateStatus(bool status, uint64 timestamp) external override requireInitialized {
+    // Checks that the sender can call updateStatus
+    _requireValidSender();
+
+    // Stores the feed state
     FeedState memory feedState = s_feedState;
 
     // Ignore if status did not change or latest recorded timestamp is newer

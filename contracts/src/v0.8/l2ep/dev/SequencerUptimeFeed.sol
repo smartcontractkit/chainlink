@@ -74,9 +74,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, ITypeAndVersio
   }
 
   /// @notice Should revert if the sender is not authorized to call `updateStatus`
-  modifier requireValidSender() virtual {
-    _;
-  }
+  function _requireValidSender() internal view virtual;
 
   /// @notice Check if a roundId is valid in this current contract state
   /// @dev Mainly used for AggregatorV2V3Interface functions
@@ -128,7 +126,11 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, ITypeAndVersio
   /// @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
   /// @param status Sequencer status
   /// @param timestamp Block timestamp of status update
-  function updateStatus(bool status, uint64 timestamp) external virtual requireInitialized requireValidSender {
+  function updateStatus(bool status, uint64 timestamp) external virtual requireInitialized {
+    // Checks that the sender can call updateStatus
+    _requireValidSender();
+
+    // Stores the feed state
     FeedState memory feedState = s_feedState;
 
     // Ignore if latest recorded timestamp is newer
@@ -137,6 +139,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, ITypeAndVersio
       return;
     }
 
+    // Record a new round or update an existing one
     if (feedState.latestStatus == status) {
       s_feedState.updatedAt = uint64(block.timestamp);
       s_rounds[feedState.latestRoundId].updatedAt = uint64(block.timestamp);

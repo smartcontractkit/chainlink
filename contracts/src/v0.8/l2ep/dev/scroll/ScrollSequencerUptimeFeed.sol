@@ -35,12 +35,11 @@ contract ScrollSequencerUptimeFeed is SequencerUptimeFeed {
   }
 
   /// @notice Reverts if the sender is not allowed to call `updateStatus`
-  modifier requireValidSender() override {
+  function _requireValidSender() internal view override {
     if (
       msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != l1Sender()
     ) {
       revert InvalidSender();
     }
-    _;
   }
 }
