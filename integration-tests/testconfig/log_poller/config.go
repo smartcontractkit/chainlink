@@ -50,7 +50,6 @@ func (c *Config) Validate() error {
 		if c.LoopedConfig == nil {
 			return fmt.Errorf("looped config is nil")
 		}
-
 		err = c.LoopedConfig.Validate()
 		if err != nil {
 			return fmt.Errorf("looped config validation failed: %w", err)
@@ -115,7 +114,8 @@ func (g *General) Validate() error {
 }
 
 type ChaosConfig struct {
-	ExperimentCount *int `toml:"experiment_count"`
+	ExperimentCount *int    `toml:"experiment_count"`
+	TargetComponent *string `toml:"target_component"`
 }
 
 func (c *ChaosConfig) Validate() error {

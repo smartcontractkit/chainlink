@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.16;
 
-import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
-import {KeeperRegistryLogicB2_1} from "./KeeperRegistryLogicB2_1.sol";
-import {Chainable} from "../Chainable.sol";
-import {AutomationForwarder} from "../AutomationForwarder.sol";
-import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
-import {UpkeepTranscoderInterfaceV2} from "../interfaces/UpkeepTranscoderInterfaceV2.sol";
-import {MigratableKeeperRegistryInterfaceV2} from "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
+import {AutomationRegistryLogicB2_2} from "./AutomationRegistryLogicB2_2.sol";
+import {Chainable} from "../../Chainable.sol";
+import {AutomationForwarder} from "../../AutomationForwarder.sol";
+import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
+import {UpkeepTranscoderInterfaceV2} from "../../interfaces/UpkeepTranscoderInterfaceV2.sol";
+import {MigratableKeeperRegistryInterfaceV2} from "../../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
- * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
+ * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
  */
-contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
+contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -23,9 +23,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
    * @param logicB the address of the second logic contract
    */
   constructor(
-    KeeperRegistryLogicB2_1 logicB
+    AutomationRegistryLogicB2_2 logicB
   )
-    KeeperRegistryBase2_1(
+    AutomationRegistryBase2_2(
       logicB.getMode(),
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),

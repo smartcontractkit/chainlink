@@ -12,8 +12,9 @@ min_emit_wait_time_ms = 200
 max_emit_wait_time_ms = 500
 
 # test-specific
-[TestLogManyFiltersPollerFinalityTag]
-[TestLogManyFiltersPollerFinalityTag.LogPoller]
+[TestLogPollerFewFiltersFixedDepth.LogPoller.General]
+use_finality_tag = false
+
 [TestLogManyFiltersPollerFinalityTag.LogPoller.General]
 contracts = 300
 events_per_tx = 3
@@ -21,7 +22,6 @@ events_per_tx = 3
 [TestLogManyFiltersPollerFinalityTag.LogPoller.Looped]
 execution_count = 30
 
-[TestLogManyFiltersPollerFixedDepth.LogPoller]
 [TestLogManyFiltersPollerFixedDepth.LogPoller.General]
 use_finality_tag = false
 contracts = 300
@@ -30,32 +30,32 @@ events_per_tx = 3
 [TestLogManyFiltersPollerFixedDepth.LogPoller.Looped]
 execution_count = 30
 
-[TestLogPollerFewFiltersFixedDepth.LogPoller]
-[TestLogPollerFewFiltersFixedDepth.LogPoller.General]
-use_finality_tag = false
+[TestLogPollerWithChaosFinalityTag.LogPoller.General]
+execution_count = 30
+[TestLogPollerWithChaosFinalityTag.LogPoller.Chaos]
+experiment_count = 4
+target_component = "chainlink"
 
-[TestLogPollerReplayFixedDepth.LogPoller]
+[TestLogPollerWithChaosFixedDepth.LogPoller.General]
+execution_count = 30
+use_finality_tag = false
+[TestLogPollerWithChaosFixedDepth.LogPoller.Chaos]
+experiment_count = 4
+target_component = "chainlink"
+
+[TestLogPollerWithChaosPostgresFinalityTag.LogPoller.General]
+execution_count = 30
+[TestLogPollerWithChaosPostgresFinalityTag.LogPoller.Chaos]
+experiment_count = 4
+target_component = "postgres"
+
+[TestLogPollerWithChaosPostgresFixedDepth.LogPoller.General]
+execution_count = 30
+use_finality_tag = false
+[TestLogPollerWithChaosPostgresFixedDepth.LogPoller.Chaos]
+experiment_count = 4
+target_component = "postgres"
+
 [TestLogPollerReplayFixedDepth.LogPoller.General]
 use_finality_tag = false
 
-[TestLogPollerWithChaosFinalityTag.LogPoller]
-[TestLogPollerWithChaosFinalityTag.LogPoller.Chaos]
-experiment_count = 10
-
-[TestLogPollerWithChaosFixedDepth.LogPoller]
-[TestLogPollerWithChaosFixedDepth.LogPoller.Chaos]
-experiment_count = 10
-use_finality_tag = false
-
-# load test specific config
-[Load.LogPoller]
-[Load.LogPoller.General]
-generator = "looped"
-contracts = 200
-events_per_tx = 20
-use_finality_tag = true
-
-[Load.LogPoller.Looped]
-execution_count = 100
-min_emit_wait_time_ms = 200
-max_emit_wait_time_ms = 500

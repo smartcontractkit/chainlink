@@ -428,6 +428,16 @@ func (c *TestConfig) Validate() error {
 		}
 	}
 
+	if c.Logging.LogStream != nil && slices.Contains(c.Logging.LogStream.LogTargets, "loki") {
+		if c.Logging.Loki == nil {
+			return fmt.Errorf("in order to use Loki as logging target you must set Loki config in logging config")
+		}
+
+		if err := c.Logging.Loki.Validate(); err != nil {
+			return errors.Wrapf(err, "loki config validation failed")
+		}
+	}
+
 	if c.Pyroscope != nil {
 		if err := c.Pyroscope.Validate(); err != nil {
 			return errors.Wrapf(err, "pyroscope config validation failed")

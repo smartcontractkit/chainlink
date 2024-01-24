@@ -19,9 +19,9 @@ jobs:
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1          
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ env.REF_NAME }}          
+          ref: ${{ env.REF_NAME }}
       - name: Setup Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
@@ -31,4 +31,4 @@ jobs:
         run: |
           cd integration-tests
           go mod download
-          go test -v -timeout 5h -v -count=1 -run ^TestLoadTestLogPoller$ ./load/log_poller/log_poller_test.go
+          go test -v -timeout 5h -v -count=1 -run ^TestLogPollerFewFiltersFixedDepth$ ./smoke/log_poller_test.go
