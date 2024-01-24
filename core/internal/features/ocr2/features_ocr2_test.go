@@ -35,6 +35,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -188,50 +189,63 @@ func setupNodeOCR2(
 
 func TestIntegration_OCR2(t *testing.T) {
 	t.Parallel()
-	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
+	testIntegration_OCR2(t)
+}
 
-	lggr := logger.TestLogger(t)
-	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, false /* useForwarders */, b, nil)
+func testIntegration_OCR2(t *testing.T) {
+	for _, test := range []struct {
+		name                string
+		chainReaderAndCodec bool
+	}{
+		{"legacy", false},
+		{"chain-reader", true},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
-	var (
-		oracles      []confighelper2.OracleIdentityExtra
-		transmitters []common.Address
-		kbs          []ocr2key.KeyBundle
-		apps         []*cltest.TestApplication
-	)
-	ports := freeport.GetN(t, 4)
-	for i := 0; i < 4; i++ {
-		node := setupNodeOCR2(t, owner, ports[i], false /* useForwarders */, b, []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		})
+			lggr := logger.TestLogger(t)
+			bootstrapNodePort := freeport.GetOne(t)
+			bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, false /* useForwarders */, b, nil)
 
-		kbs = append(kbs, node.keybundle)
-		apps = append(apps, node.app)
-		transmitters = append(transmitters, node.transmitter)
+			var (
+				oracles      []confighelper2.OracleIdentityExtra
+				transmitters []common.Address
+				kbs          []ocr2key.KeyBundle
+				apps         []*cltest.TestApplication
+			)
+			ports := freeport.GetN(t, 4)
+			for i := 0; i < 4; i++ {
+				node := setupNodeOCR2(t, owner, ports[i], false /* useForwarders */, b, []commontypes.BootstrapperLocator{
+					// Supply the bootstrap IP and port as a V2 peer address
+					{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
+				})
 
-		oracles = append(oracles, confighelper2.OracleIdentityExtra{
-			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  node.keybundle.PublicKey(),
-				TransmitAccount:   ocrtypes2.Account(node.transmitter.String()),
-				OffchainPublicKey: node.keybundle.OffchainPublicKey(),
-				PeerID:            node.peerID,
-			},
-			ConfigEncryptionPublicKey: node.keybundle.ConfigEncryptionPublicKey(),
-		})
-	}
+				kbs = append(kbs, node.keybundle)
+				apps = append(apps, node.app)
+				transmitters = append(transmitters, node.transmitter)
 
-	tick := time.NewTicker(1 * time.Second)
-	defer tick.Stop()
-	go func() {
-		for range tick.C {
-			b.Commit()
-		}
-	}()
+				oracles = append(oracles, confighelper2.OracleIdentityExtra{
+					OracleIdentity: confighelper2.OracleIdentity{
+						OnchainPublicKey:  node.keybundle.PublicKey(),
+						TransmitAccount:   ocrtypes2.Account(node.transmitter.String()),
+						OffchainPublicKey: node.keybundle.OffchainPublicKey(),
+						PeerID:            node.peerID,
+					},
+					ConfigEncryptionPublicKey: node.keybundle.ConfigEncryptionPublicKey(),
+				})
+			}
 
-	blockBeforeConfig := initOCR2(t, lggr, b, ocrContract, owner, bootstrapNode, oracles, transmitters, transmitters, func(blockNum int64) string {
-		return fmt.Sprintf(`
+			tick := time.NewTicker(1 * time.Second)
+			defer tick.Stop()
+			go func() {
+				for range tick.C {
+					b.Commit()
+				}
+			}()
+
+			blockBeforeConfig := initOCR2(t, lggr, b, ocrContract, owner, bootstrapNode, oracles, transmitters, transmitters, func(blockNum int64) string {
+				return fmt.Sprintf(`
 type				= "bootstrap"
 name				= "bootstrap"
 relay				= "evm"
@@ -241,54 +255,189 @@ contractID			= "%s"
 chainID 			= 1337
 fromBlock = %d
 `, ocrContractAddress, blockNum)
-	})
+			})
 
-	var jids []int32
-	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
-	// We expect metadata of:
-	//  latestAnswer:nil // First call
-	//  latestAnswer:0
-	//  latestAnswer:10
-	//  latestAnswer:20
-	//  latestAnswer:30
-	var metaLock sync.Mutex
-	expectedMeta := map[string]struct{}{
-		"0": {}, "10": {}, "20": {}, "30": {},
-	}
-	for i := 0; i < 4; i++ {
-		s := i
-		require.NoError(t, apps[i].Start(testutils.Context(t)))
-
-		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
-		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			time.Sleep(5 * time.Second)
-			res.WriteHeader(http.StatusOK)
-			_, err := res.Write([]byte(`{"data":10}`))
-			require.NoError(t, err)
-		}))
-		t.Cleanup(slowServers[s].Close)
-		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := io.ReadAll(req.Body)
-			require.NoError(t, err)
-			var m bridges.BridgeMetaDataJSON
-			require.NoError(t, json.Unmarshal(b, &m))
-			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
-				metaLock.Lock()
-				delete(expectedMeta, m.Meta.LatestAnswer.String())
-				metaLock.Unlock()
+			var jids []int32
+			var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+			// We expect metadata of:
+			//  latestAnswer:nil // First call
+			//  latestAnswer:0
+			//  latestAnswer:10
+			//  latestAnswer:20
+			//  latestAnswer:30
+			var metaLock sync.Mutex
+			expectedMeta := map[string]struct{}{
+				"0": {}, "10": {}, "20": {}, "30": {},
 			}
-			res.WriteHeader(http.StatusOK)
-			_, err = res.Write([]byte(`{"data":10}`))
-			require.NoError(t, err)
-		}))
-		t.Cleanup(servers[s].Close)
-		u, _ := url.Parse(servers[i].URL)
-		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
-			URL:  models.WebURL(*u),
-		}))
+			returnData := int(10)
+			for i := 0; i < 4; i++ {
+				s := i
+				require.NoError(t, apps[i].Start(testutils.Context(t)))
 
-		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), fmt.Sprintf(`
+				// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
+				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+					time.Sleep(5 * time.Second)
+					var result string
+					metaLock.Lock()
+					result = fmt.Sprintf(`{"data":%d}`, returnData)
+					metaLock.Unlock()
+					res.WriteHeader(http.StatusOK)
+					t.Logf("Slow Bridge %d returning data:10", s)
+					_, err := res.Write([]byte(result))
+					require.NoError(t, err)
+				}))
+				t.Cleanup(slowServers[s].Close)
+				servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+					b, err := io.ReadAll(req.Body)
+					require.NoError(t, err)
+					var m bridges.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal(b, &m))
+					var result string
+					metaLock.Lock()
+					result = fmt.Sprintf(`{"data":%d}`, returnData)
+					metaLock.Unlock()
+					if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+						t.Logf("Bridge %d deleting %s, from request body: %s", s, m.Meta.LatestAnswer, b)
+						metaLock.Lock()
+						delete(expectedMeta, m.Meta.LatestAnswer.String())
+						metaLock.Unlock()
+					}
+					res.WriteHeader(http.StatusOK)
+					_, err = res.Write([]byte(result))
+					require.NoError(t, err)
+				}))
+				t.Cleanup(servers[s].Close)
+				u, _ := url.Parse(servers[i].URL)
+				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
+					URL:  models.WebURL(*u),
+				}))
+
+				var chainReaderSpec string
+				if test.chainReaderAndCodec {
+					chainReaderSpec = `
+[relayConfig.chainReader.contracts.median]
+contractABI = '''
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "epoch",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "round",
+        "type": "uint8"
+      }
+    ],
+    "name": "RoundRequested",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "latestTransmissionDetails",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "configDigest",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "epoch",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "round",
+        "type": "uint8"
+      },
+      {
+        "internalType": "int192",
+        "name": "latestAnswer_",
+        "type": "int192"
+      },
+      {
+        "internalType": "uint64",
+        "name": "latestTimestamp_",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
+'''
+
+[relayConfig.chainReader.contracts.median.configs]
+LatestRoundRequested = '''
+{
+  "chainSpecificName": "RoundRequested",
+  "readType": "event"
+}
+'''
+LatestTransmissionDetails = '''
+{
+  "chainSpecificName": "latestTransmissionDetails",
+  "outputModifications": [
+    {
+      "Fields": [
+        "LatestTimestamp_"
+      ],
+      "type": "epoch to time"
+    },
+    {
+      "Fields": {
+        "LatestAnswer_": "LatestAnswer",
+        "LatestTimestamp_": "LatestTimestamp"
+      },
+      "type": "rename"
+    }
+  ]
+}
+'''
+
+[relayConfig.codec.configs.MedianReport]
+typeABI = '''
+[
+  {
+    "Name": "Timestamp",
+    "Type": "uint32"
+  },
+  {
+    "Name": "Observers",
+    "Type": "bytes32"
+  },
+  {
+    "Name": "Observations",
+    "Type": "int192[]"
+  },
+  {
+    "Name": "JuelsPerFeeCoin",
+    "Type": "int192"
+  }
+]
+'''
+`
+				}
+				ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config.OCR2(), apps[i].Config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 relay              = "evm"
 schemaVersion      = 1
@@ -315,9 +464,12 @@ observationSource  = """
 
 	answer1 [type=median index=0];
 """
+
 [relayConfig]
 chainID = 1337
 fromBlock = %d
+%s
+
 [pluginConfig]
 juelsPerFeeCoinSource = """
 		// data source 1
@@ -335,72 +487,131 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
-		require.NoError(t, err)
-		err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
-		require.NoError(t, err)
-		jids = append(jids, ocrJob.ID)
-	}
+`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), chainReaderSpec, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+				require.NoError(t, err)
+				err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
+				require.NoError(t, err)
+				jids = append(jids, ocrJob.ID)
+			}
 
-	// Assert that all the OCR jobs get a run with valid values eventually.
-	var wg sync.WaitGroup
-	for i := 0; i < 4; i++ {
-		ic := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
-			jb, err := pr[0].Outputs.MarshalJSON()
+			// Watch for OCR2AggregatorTransmitted events
+			start := uint64(0)
+			txEvents := make(chan *ocr2aggregator.OCR2AggregatorTransmitted)
+			_, err := ocrContract.WatchTransmitted(&bind.WatchOpts{Start: &start, Context: testutils.Context(t)}, txEvents)
 			require.NoError(t, err)
-			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
+			newTxEvents := make(chan *ocr2aggregator.OCR2AggregatorNewTransmission)
+			_, err = ocrContract.WatchNewTransmission(&bind.WatchOpts{Start: &start, Context: testutils.Context(t)}, newTxEvents, []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 			require.NoError(t, err)
-		}()
-	}
-	wg.Wait()
 
-	// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
-	gomega.NewGomegaWithT(t).Eventually(func() string {
-		answer, err := ocrContract.LatestAnswer(nil)
-		require.NoError(t, err)
-		return answer.String()
-	}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal("20"))
+			go func() {
+				var newTxEvent *ocr2aggregator.OCR2AggregatorNewTransmission
+				select {
+				case txEvent := <-txEvents:
+					t.Logf("txEvent: %v", txEvent)
+					if newTxEvent != nil {
+						assert.Equal(t, txEvent.Epoch, uint32(newTxEvent.EpochAndRound.Uint64()))
+					}
+				case newTxEvent = <-newTxEvents:
+					t.Logf("newTxEvent: %v", newTxEvent)
+				}
+			}()
 
-	for _, app := range apps {
-		jobs, _, err := app.JobORM().FindJobs(0, 1000)
-		require.NoError(t, err)
-		// No spec errors
-		for _, j := range jobs {
-			ignore := 0
-			for i := range j.JobSpecErrors {
-				// Non-fatal timing related error, ignore for testing.
-				if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
-					ignore++
+			for trial := 0; trial < 2; trial++ {
+				var retVal int
+
+				metaLock.Lock()
+				returnData = 10 * (trial + 1)
+				retVal = returnData
+				for i := 0; i < 4; i++ {
+					expectedMeta[fmt.Sprintf("%d", returnData*i)] = struct{}{}
+				}
+				metaLock.Unlock()
+
+				// Assert that all the OCR jobs get a run with valid values eventually.
+				var wg sync.WaitGroup
+				for i := 0; i < 4; i++ {
+					ic := i
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						completedRuns, err2 := apps[ic].JobORM().FindPipelineRunIDsByJobID(jids[ic], 0, 1000)
+						require.NoError(t, err2)
+						// Want at least 2 runs so we see all the metadata.
+						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
+						jb, err2 := pr[0].Outputs.MarshalJSON()
+						require.NoError(t, err2)
+						assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", retVal*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
+						require.NoError(t, err2)
+					}()
+				}
+				wg.Wait()
+
+				// Trail #1: 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
+				// Trial #2: 4 oracles reporting 0, 20, 40, 60. Answer should be 40 (results[4/2]).
+				gomega.NewGomegaWithT(t).Eventually(func() string {
+					answer, err2 := ocrContract.LatestAnswer(nil)
+					require.NoError(t, err2)
+					return answer.String()
+				}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal(fmt.Sprintf("%d", 2*retVal)))
+
+				for _, app := range apps {
+					jobs, _, err2 := app.JobORM().FindJobs(0, 1000)
+					require.NoError(t, err2)
+					// No spec errors
+					for _, j := range jobs {
+						ignore := 0
+						for i := range j.JobSpecErrors {
+							// Non-fatal timing related error, ignore for testing.
+							if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
+								ignore++
+							}
+						}
+						require.Len(t, j.JobSpecErrors, ignore)
+					}
+				}
+				em := map[string]struct{}{}
+				metaLock.Lock()
+				maps.Copy(em, expectedMeta)
+				metaLock.Unlock()
+				assert.Len(t, em, 0, "expected metadata %v", em)
+
+				t.Logf("======= Summary =======")
+				roundId, err2 := ocrContract.LatestRound(nil)
+				require.NoError(t, err2)
+				for i := 0; i <= int(roundId.Int64()); i++ {
+					roundData, err3 := ocrContract.GetRoundData(nil, big.NewInt(int64(i)))
+					require.NoError(t, err3)
+					t.Logf("RoundId: %d, AnsweredInRound: %d, Answer: %d, StartedAt: %v, UpdatedAt: %v", roundData.RoundId, roundData.AnsweredInRound, roundData.Answer, roundData.StartedAt, roundData.UpdatedAt)
+				}
+
+				expectedAnswer := big.NewInt(2 * int64(retVal))
+
+				// Assert we can read the latest config digest and epoch after a report has been submitted.
+				contractABI, err2 := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
+				require.NoError(t, err2)
+				apps[0].GetRelayers().LegacyEVMChains().Slice()
+				ct, err2 := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, nil)
+				require.NoError(t, err2)
+				configDigest, epoch, err2 := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
+				require.NoError(t, err2)
+				details, err2 := ocrContract.LatestConfigDetails(nil)
+				require.NoError(t, err2)
+				assert.True(t, bytes.Equal(configDigest[:], details.ConfigDigest[:]))
+				digestAndEpoch, err2 := ocrContract.LatestConfigDigestAndEpoch(nil)
+				require.NoError(t, err2)
+				assert.Equal(t, digestAndEpoch.Epoch, epoch)
+				latestTransmissionDetails, err2 := ocrContract.LatestTransmissionDetails(nil)
+				require.NoError(t, err2)
+				assert.Equal(t, expectedAnswer, latestTransmissionDetails.LatestAnswer)
+				require.NoError(t, err2)
+				newTransmissionEvents, err2 := ocrContract.FilterTransmitted(&bind.FilterOpts{Start: 0, End: nil})
+				require.NoError(t, err2)
+				for newTransmissionEvents.Next() {
+					assert.Equal(t, 3, newTransmissionEvents.Event.Epoch)
 				}
 			}
-			require.Len(t, j.JobSpecErrors, ignore)
-		}
+		})
 	}
-	em := map[string]struct{}{}
-	metaLock.Lock()
-	maps.Copy(em, expectedMeta)
-	metaLock.Unlock()
-	assert.Len(t, em, 0, "expected metadata %v", em)
-
-	// Assert we can read the latest config digest and epoch after a report has been submitted.
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-	require.NoError(t, err)
-	apps[0].GetRelayers().LegacyEVMChains().Slice()
-	ct, err := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, nil)
-	require.NoError(t, err)
-	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
-	require.NoError(t, err)
-	details, err := ocrContract.LatestConfigDetails(nil)
-	require.NoError(t, err)
-	assert.True(t, bytes.Equal(configDigest[:], details.ConfigDigest[:]))
-	digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
-	require.NoError(t, err)
-	assert.Equal(t, digestAndEpoch.Epoch, epoch)
 }
 
 func initOCR2(t *testing.T, lggr logger.Logger, b *backends.SimulatedBackend,

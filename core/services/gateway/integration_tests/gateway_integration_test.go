@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -36,18 +37,18 @@ Path = "/node"
 Port = 0
 HandshakeTimeoutMillis = 2_000
 MaxRequestBytes = 20_000
-ReadTimeoutMillis = 100
-RequestTimeoutMillis = 100
-WriteTimeoutMillis = 100
+ReadTimeoutMillis = 1000
+RequestTimeoutMillis = 1000
+WriteTimeoutMillis = 1000
 
 [UserServerConfig]
 Path = "/user"
 Port = 0
 ContentTypeHeader = "application/jsonrpc"
 MaxRequestBytes = 20_000
-ReadTimeoutMillis = 100
-RequestTimeoutMillis = 100
-WriteTimeoutMillis = 100
+ReadTimeoutMillis = 1000
+RequestTimeoutMillis = 1000
+WriteTimeoutMillis = 1000
 
 [[Dons]]
 DonId = "test_don"
@@ -72,6 +73,13 @@ Id = "test_gateway"
 URL = "%s"
 `
 
+const (
+	messageId1 = "123"
+	messageId2 = "456"
+
+	nodeResponsePayload = `{"response":"correct response"}`
+)
+
 func parseGatewayConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
 	var cfg config.GatewayConfig
 	err := toml.Unmarshal([]byte(tomlConfig), &cfg)
@@ -94,6 +102,21 @@ type client struct {
 
 func (c *client) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
 	c.done.Store(true)
+	// send back user's message without re-signing - should be ignored by the Gateway
+	_ = c.connector.SendToGateway(ctx, gatewayId, msg)
+	// send back a correct response
+	responseMsg := &api.Message{Body: api.MessageBody{
+		MessageId: msg.Body.MessageId,
+		Method:    "test",
+		DonId:     "test_don",
+		Receiver:  msg.Body.Sender,
+		Payload:   []byte(nodeResponsePayload),
+	}}
+	err := responseMsg.Sign(c.privateKey)
+	if err != nil {
+		panic(err)
+	}
+	_ = c.connector.SendToGateway(ctx, gatewayId, responseMsg)
 }
 
 func (c *client) Sign(data ...[]byte) ([]byte, error) {
@@ -111,7 +134,9 @@ func (*client) Close() error {
 func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T) {
 	t.Parallel()
 
-	nodeKeys := common.NewTestNodes(t, 1)[0]
+	testWallets := common.NewTestNodes(t, 2)
+	nodeKeys := testWallets[0]
+	userKeys := testWallets[1]
 	// Verify that addresses in config are case-insensitive
 	nodeKeys.Address = strings.ToUpper(nodeKeys.Address)
 
@@ -132,17 +157,39 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	client.connector = connector
 	servicetest.Run(t, connector)
 
-	// Send requests until one of them reaches Connector
+	// Send requests until one of them reaches Connector (i.e. the node)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		msg := &api.Message{Body: api.MessageBody{MessageId: "123", Method: "test", DonId: "test_don"}}
-		require.NoError(t, msg.Sign(nodeKeys.PrivateKey))
-		codec := api.JsonRPCCodec{}
-		rawMsg, err := codec.EncodeRequest(msg)
-		require.NoError(t, err)
-		req, err := http.NewRequestWithContext(testutils.Context(t), "POST", userUrl, bytes.NewBuffer(rawMsg))
-		require.NoError(t, err)
+		req := newHttpRequestObject(t, messageId1, userUrl, userKeys.PrivateKey)
 		httpClient := &http.Client{}
 		_, _ = httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
 		return client.done.Load()
 	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.Equal(true))
+
+	// Send another request and validate that response has correct content and sender
+	req := newHttpRequestObject(t, messageId2, userUrl, userKeys.PrivateKey)
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	rawResp, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	codec := api.JsonRPCCodec{}
+	respMsg, err := codec.DecodeResponse(rawResp)
+	require.NoError(t, err)
+	require.NoError(t, respMsg.Validate())
+	require.Equal(t, strings.ToLower(nodeKeys.Address), respMsg.Body.Sender)
+	require.Equal(t, messageId2, respMsg.Body.MessageId)
+	require.Equal(t, nodeResponsePayload, string(respMsg.Body.Payload))
+}
+
+func newHttpRequestObject(t *testing.T, messageId string, userUrl string, signerKey *ecdsa.PrivateKey) *http.Request {
+	msg := &api.Message{Body: api.MessageBody{MessageId: messageId, Method: "test", DonId: "test_don"}}
+	require.NoError(t, msg.Sign(signerKey))
+	codec := api.JsonRPCCodec{}
+	rawMsg, err := codec.EncodeRequest(msg)
+	require.NoError(t, err)
+	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", userUrl, bytes.NewBuffer(rawMsg))
+	require.NoError(t, err)
+	return req
 }
