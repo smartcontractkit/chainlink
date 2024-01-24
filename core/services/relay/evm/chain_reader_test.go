@@ -136,11 +136,11 @@ func (it *chainReaderInterfaceTester) MaxWaitTimeForEvents() time.Duration {
 	maxWaitTime := time.Second * 20
 	maxWaitTimeStr, ok := os.LookupEnv("MAX_WAIT_TIME_FOR_EVENTS_S")
 	if ok {
-		wiatS, err := strconv.ParseInt(maxWaitTimeStr, 10, 64)
+		waitS, err := strconv.ParseInt(maxWaitTimeStr, 10, 64)
 		if err != nil {
 			fmt.Printf("Error parsing MAX_WAIT_TIME_FOR_EVENTS_S: %v, defaulting to %v\n", err, maxWaitTime)
 		}
-		maxWaitTime = time.Second * time.Duration(wiatS)
+		maxWaitTime = time.Second * time.Duration(waitS)
 	}
 
 	return maxWaitTime
@@ -266,6 +266,7 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
+		FinalityDepth:            4,
 		BackfillBatchSize:        1,
 		RpcBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
