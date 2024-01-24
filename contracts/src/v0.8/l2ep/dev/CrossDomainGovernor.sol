@@ -25,25 +25,20 @@ abstract contract CrossDomainGovernor is
   /// @notice The address of the Cross Domain Messenger contract
   function crossDomainMessenger() external view virtual returns (address);
 
+  /// @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
+  function requireLocalOrCrossDomainOwner() internal view virtual;
+
   /// @inheritdoc ForwarderInterface
   /// @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
-  function forward(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
+  function forward(address target, bytes memory data) external override {
+    requireLocalOrCrossDomainOwner();
     Address.functionCall(target, data, "Governor call reverted");
   }
 
   /// @inheritdoc DelegateForwarderInterface
   /// @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
-  function forwardDelegate(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
+  function forwardDelegate(address target, bytes memory data) external override {
+    requireLocalOrCrossDomainOwner();
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");
-  }
-
-  /// @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
-  modifier onlyLocalOrCrossDomainOwner() virtual {
-    // solhint-disable-next-line custom-errors
-    require(
-      msg.sender == this.crossDomainMessenger() || msg.sender == owner(),
-      "Sender is not the L2 messenger or owner"
-    );
-    _;
   }
 }
