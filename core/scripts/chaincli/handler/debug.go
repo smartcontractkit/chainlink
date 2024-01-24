@@ -68,8 +68,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 	chainID := chainIDBig.Int64()
 
-	var triggerCallOpts *bind.CallOpts             // use latest block for conditionals, but use block from tx for log triggers
-	latestCallOpts := &bind.CallOpts{Context: ctx} // always use latest block
+	// Log triggers: always use block from tx
+	// Conditional: use latest block if no block number is provided, otherwise use block from user input
+	var triggerCallOpts *bind.CallOpts             // use a certain block
+	latestCallOpts := &bind.CallOpts{Context: ctx} // use the latest block
 
 	// connect to registry contract
 	registryAddress := gethcommon.HexToAddress(k.cfg.RegistryAddress)
@@ -139,8 +141,21 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	// check upkeep
 	if triggerType == ConditionTrigger {
 		message("upkeep identified as conditional trigger")
+
+		if len(args) > 1 {
+			// if a block number is provided, use that block for both checkUpkeep and simulatePerformUpkeep
+			blockNum, err = strconv.ParseUint(args[1], 10, 64)
+			if err != nil {
+				failCheckArgs("unable to parse block number", err)
+			}
+			triggerCallOpts = &bind.CallOpts{Context: ctx, BlockNumber: new(big.Int).SetUint64(blockNum)}
+		} else {
+			// if no block number is provided, use latest block for both checkUpkeep and simulatePerformUpkeep
+			triggerCallOpts = latestCallOpts
+		}
+
 		var tmpCheckResult iregistry21.CheckUpkeep0
-		tmpCheckResult, err = keeperRegistry21.CheckUpkeep0(latestCallOpts, upkeepID)
+		tmpCheckResult, err = keeperRegistry21.CheckUpkeep0(triggerCallOpts, upkeepID)
 		if err != nil {
 			failUnknown("failed to check upkeep: ", err)
 		}
@@ -251,11 +266,12 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
 	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
-	// handle streams lookup
+
 	if checkResult.UpkeepFailureReason != 0 {
 		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
 	}
 
+	// handle data streams lookup
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
 		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.DataStreamsLegacyURL, URL: k.cfg.DataStreamsURL, Username: k.cfg.DataStreamsID, Password: k.cfg.DataStreamsKey}
 		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)

@@ -24,8 +24,8 @@ import (
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
 
-	noMedianPlugin := map[string]string{string(env.MedianPluginCmd): ""}
-	medianPlugin := map[string]string{string(env.MedianPluginCmd): "chainlink-feeds"}
+	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
+	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
 	for _, test := range []struct {
 		name                string
 		env                 map[string]string

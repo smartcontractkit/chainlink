@@ -1,4 +1,4 @@
-package functions
+package allowlist
 
 import (
 	"context"
@@ -22,14 +22,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+const (
+	defaultStoredAllowlistBatchSize  = 1000
+	defaultOnchainAllowlistBatchSize = 100
+	defaultFetchingDelayInRangeSec   = 1
+)
+
 type OnchainAllowlistConfig struct {
 	// ContractAddress is required
 	ContractAddress    common.Address `json:"contractAddress"`
 	ContractVersion    uint32         `json:"contractVersion"`
 	BlockConfirmations uint           `json:"blockConfirmations"`
 	// UpdateFrequencySec can be zero to disable periodic updates
-	UpdateFrequencySec uint `json:"updateFrequencySec"`
-	UpdateTimeoutSec   uint `json:"updateTimeoutSec"`
+	UpdateFrequencySec        uint `json:"updateFrequencySec"`
+	UpdateTimeoutSec          uint `json:"updateTimeoutSec"`
+	StoredAllowlistBatchSize  uint `json:"storedAllowlistBatchSize"`
+	OnchainAllowlistBatchSize uint `json:"onchainAllowlistBatchSize"`
+	// StoreAllowedSendersEnabled is a feature flag that enables storing in db a copy of the allowlist.
+	StoreAllowedSendersEnabled bool `json:"storeAllowedSendersEnabled"`
+	// FetchingDelayInRangeSec prevents RPC client being rate limited when fetching the allowlist in ranges.
+	FetchingDelayInRangeSec uint `json:"fetchingDelayInRangeSec"`
 }
 
 // OnchainAllowlist maintains an allowlist of addresses fetched from the blockchain (EVM-only).
@@ -50,6 +62,7 @@ type onchainAllowlist struct {
 
 	config             OnchainAllowlistConfig
 	allowlist          atomic.Pointer[map[common.Address]struct{}]
+	orm                ORM
 	client             evmclient.Client
 	contractV1         *functions_router.FunctionsRouter
 	blockConfirmations *big.Int
@@ -58,7 +71,7 @@ type onchainAllowlist struct {
 	stopCh             services.StopChan
 }
 
-func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig, lggr logger.Logger) (OnchainAllowlist, error) {
+func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig, orm ORM, lggr logger.Logger) (OnchainAllowlist, error) {
 	if client == nil {
 		return nil, errors.New("client is nil")
 	}
@@ -68,12 +81,33 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 	if config.ContractVersion != 1 {
 		return nil, fmt.Errorf("unsupported contract version %d", config.ContractVersion)
 	}
+
+	if config.StoredAllowlistBatchSize == 0 {
+		lggr.Info("StoredAllowlistBatchSize not specified, using default size: ", defaultStoredAllowlistBatchSize)
+		config.StoredAllowlistBatchSize = defaultStoredAllowlistBatchSize
+	}
+
+	if config.OnchainAllowlistBatchSize == 0 {
+		lggr.Info("OnchainAllowlistBatchSize not specified, using default size: ", defaultOnchainAllowlistBatchSize)
+		config.OnchainAllowlistBatchSize = defaultOnchainAllowlistBatchSize
+	}
+
+	if config.FetchingDelayInRangeSec == 0 {
+		lggr.Info("FetchingDelayInRangeSec not specified, using default delay: ", defaultFetchingDelayInRangeSec)
+		config.FetchingDelayInRangeSec = defaultFetchingDelayInRangeSec
+	}
+
+	if config.UpdateFrequencySec != 0 && config.FetchingDelayInRangeSec >= config.UpdateFrequencySec {
+		return nil, fmt.Errorf("to avoid updates overlapping FetchingDelayInRangeSec:%d should be less than UpdateFrequencySec:%d", config.FetchingDelayInRangeSec, config.UpdateFrequencySec)
+	}
+
 	contractV1, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
 	}
 	allowlist := &onchainAllowlist{
 		config:             config,
+		orm:                orm,
 		client:             client,
 		contractV1:         contractV1,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
@@ -92,6 +126,8 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 			a.lggr.Info("OnchainAllowlist periodic updates are disabled")
 			return nil
 		}
+
+		a.loadStoredAllowedSenderList()
 
 		updateOnce := func() {
 			timeoutCtx, cancel := utils.ContextFromChanWithTimeout(a.stopCh, time.Duration(a.config.UpdateTimeoutSec)*time.Second)
@@ -172,17 +208,113 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_allow_list.NewTermsOfServiceAllowList")
 	}
-	addrList, err := tosContract.GetAllAllowedSenders(&bind.CallOpts{
+
+	var allowedSenderList []common.Address
+	if !a.config.StoreAllowedSendersEnabled {
+		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
+			Pending:     false,
+			BlockNumber: blockNum,
+			Context:     ctx,
+		})
+		if err != nil {
+			return errors.Wrap(err, "error calling GetAllAllowedSenders")
+		}
+	} else {
+		err = a.syncBlockedSenders(ctx, tosContract, blockNum)
+		if err != nil {
+			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
+		}
+
+		allowedSenderList, err = a.getAllowedSendersBatched(ctx, tosContract, blockNum)
+		if err != nil {
+			return errors.Wrap(err, "failed to get allowed senders in rage")
+		}
+	}
+
+	a.update(allowedSenderList)
+	return nil
+}
+
+func (a *onchainAllowlist) getAllowedSendersBatched(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) ([]common.Address, error) {
+	allowedSenderList := make([]common.Address, 0)
+	count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
 		Pending:     false,
 		BlockNumber: blockNum,
 		Context:     ctx,
 	})
 	if err != nil {
-		return errors.Wrap(err, "error calling GetAllAllowedSenders")
+		return nil, errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
 	}
-	a.update(addrList)
+
+	throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
+	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
+		<-throttleTicker.C
+
+		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
+		if idxEnd >= count {
+			idxEnd = count - 1
+		}
+
+		allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
+			Pending:     false,
+			BlockNumber: blockNum,
+			Context:     ctx,
+		}, idxStart, idxEnd)
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling GetAllowedSendersInRange")
+		}
+
+		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
+		err = a.orm.CreateAllowedSenders(allowedSendersBatch)
+		if err != nil {
+			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+		}
+	}
+	throttleTicker.Stop()
+
+	return allowedSenderList, nil
+}
+
+// syncBlockedSenders fetches the list of blocked addresses from the contract in batches
+// and removes the addresses from the functions_allowlist table if present
+func (a *onchainAllowlist) syncBlockedSenders(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) error {
+	count, err := tosContract.GetBlockedSendersCount(&bind.CallOpts{
+		Pending:     false,
+		BlockNumber: blockNum,
+		Context:     ctx,
+	})
+	if err != nil {
+		return errors.Wrap(err, "unexpected error during functions_allow_list.GetBlockedSendersCount")
+	}
+
+	throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
+	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
+		<-throttleTicker.C
+
+		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
+		if idxEnd >= count {
+			idxEnd = count - 1
+		}
+
+		blockedSendersBatch, err := tosContract.GetBlockedSendersInRange(&bind.CallOpts{
+			Pending:     false,
+			BlockNumber: blockNum,
+			Context:     ctx,
+		}, idxStart, idxEnd)
+		if err != nil {
+			return errors.Wrap(err, "error calling GetAllowedSendersInRange")
+		}
+
+		err = a.orm.DeleteAllowedSenders(blockedSendersBatch)
+		if err != nil {
+			a.lggr.Errorf("failed to delete blocked address from allowed list in storage: %w", err)
+		}
+	}
+	throttleTicker.Stop()
+
 	return nil
 }
+
 func (a *onchainAllowlist) update(addrList []common.Address) {
 	newAllowlist := make(map[common.Address]struct{})
 	for _, addr := range addrList {
@@ -190,4 +322,25 @@ func (a *onchainAllowlist) update(addrList []common.Address) {
 	}
 	a.allowlist.Store(&newAllowlist)
 	a.lggr.Infow("allowlist updated successfully", "len", len(addrList))
+}
+
+func (a *onchainAllowlist) loadStoredAllowedSenderList() {
+	allowedList := make([]common.Address, 0)
+	offset := uint(0)
+	for {
+		asBatch, err := a.orm.GetAllowedSenders(offset, a.config.StoredAllowlistBatchSize)
+		if err != nil {
+			a.lggr.Errorf("failed to get stored allowed senders: %w", err)
+			break
+		}
+
+		allowedList = append(allowedList, asBatch...)
+
+		if len(asBatch) < int(a.config.StoredAllowlistBatchSize) {
+			break
+		}
+		offset += a.config.StoredAllowlistBatchSize
+	}
+
+	a.update(allowedList)
 }
