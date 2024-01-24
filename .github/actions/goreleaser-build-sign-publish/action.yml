@@ -79,7 +79,7 @@ runs:
         install-only: true
         version: ${{ inputs.goreleaser-version }}
     - name: Setup zig
-      uses: goto-bus-stop/setup-zig@869a4299cf8ac7db4ebffaec36ad82a682f88acb # v2.0.1
+      uses: goto-bus-stop/setup-zig@7ab2955eb728f5440978d5824358023be3a2802d # v2.2.0
       with:
         version: ${{ inputs.zig-version }}
     - name: Setup cosign
