@@ -67,11 +67,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@bce4caa154b1e0e652d042788e14c8870832acd2 # v2.3.0
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
+          go_tags: embed
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           binary_name: tests
@@ -100,43 +101,51 @@ jobs:
             test: TestOCRBasic
             file: ocr
             client: geth
+            timeout: 30m
             pyroscope_env: ci-smoke-ocr-geth-simulated         
           # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE
           # - name: ocr-nethermind
           #   test: TestOCRBasic
           #   file: ocr
           #   client: nethermind
+          #   timeout: 30m
           #   pyroscope_env: ci-smoke-ocr-nethermind-simulated                          
           - name: ocr-besu
             test: TestOCRBasic
             file: ocr
             client: besu
+            timeout: 30m
             pyroscope_env: ci-smoke-ocr-besu-simulated        
           - name: ocr-erigon
             test: TestOCRBasic
             file: ocr
             client: erigon
+            timeout: 30m
             pyroscope_env: ci-smoke-ocr-erigon-simulated         
           - name: ocr2-geth
             test: TestOCRv2Basic
             file: ocr2
             client: geth
+            timeout: 30m
             pyroscope_env: ci-smoke-ocr2-geth-simulated            
           # Uncomment, when https://smartcontract-it.atlassian.net/browse/TT-753 is DONE            
           # - name: ocr2-nethermind
           #   test: TestOCRv2Basic
           #   file: ocr2
           #   client: nethermind
+          #   timeout: 30m
           #   pyroscope_env: ci-smoke-nethermind-evm-simulated                         
           - name: ocr2-besu
             test: TestOCRv2Basic
             file: ocr2
-            client: besu            
+            client: besu
+            timeout: 30m 
             pyroscope_env: ci-smoke-ocr2-besu-simulated      
           - name: ocr2-erigon
             test: TestOCRv2Basic
             file: ocr2
-            client: erigon            
+            client: erigon
+            timeout: 60m
             pyroscope_env: ci-smoke-ocr2-erigon-simulated                           
     runs-on: ubuntu-latest
     name: Client Compatibility Test ${{ matrix.name }}
@@ -145,15 +154,79 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+      - name: Prepare Base64 TOML config
         env:
+          SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           ETH2_EL_CLIENT: ${{matrix.client}}
+          CHAINLINK_VERSION: ${{ github.sha }}
+        run: |
+          convert_to_toml_array() {
+              local IFS=','
+              local input_array=($1)
+              local toml_array_format="["
+
+              for element in "${input_array[@]}"; do
+                  toml_array_format+="\"$element\","
+              done
+
+              toml_array_format="${toml_array_format%,}]"
+              echo "$toml_array_format"
+          }
+        
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
+
+          if [ -n "$ETH2_EL_CLIENT" ]; then
+            execution_layer="$ETH2_EL_CLIENT"
+          else
+            execution_layer="geth"
+          fi
+
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi          
+
+          cat << EOF > config.toml
+          [Network]
+          selected_networks=$selected_networks
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="$CHAINLINK_VERSION"
+
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+
+          [PrivateEthereumNetwork]
+          consensus_type="pos"
+          consensus_layer="prysm"
+          execution_layer="$execution_layer"
+          wait_for_finalization=false
+
+          [PrivateEthereumNetwork.EthereumChainConfig]
+          chain_id=1337
+          genesis_delay=15
+          seconds_per_slot=3
+          validator_count=8
+          slots_per_epoch=2
+          addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+          touch .root_dir
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
         with:
-          test_command_to_run: ./tests -test.timeout 30m -test.run ${{ matrix.test }}
+          test_command_to_run: ./tests -test.timeout ${{ matrix.timeout }} -test.run ${{ matrix.test }}
           binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
@@ -207,7 +280,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG> and <@U060CGGPY8H>' || 'All Good!' }}"
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U060CGGPY8H>' || 'All Good!' }}"
                       }
                     },
                     {
