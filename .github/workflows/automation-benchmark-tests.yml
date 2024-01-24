@@ -6,7 +6,7 @@ on:
         description: Chainlink image version to use
         required: true
         type: string
-        default: 2.6.0
+        default: 2.7.2
       chainlinkImage:
         description: Chainlink image repo to use
         required: true
