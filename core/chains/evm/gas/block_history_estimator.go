@@ -17,6 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
@@ -24,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 // MaxStartTime is the maximum amount of time we are allowed to spend
@@ -109,7 +109,7 @@ type (
 		blocks    []evmtypes.Block
 		blocksMu  sync.RWMutex
 		size      int64
-		mb        *utils.Mailbox[*evmtypes.Head]
+		mb        *mailbox.Mailbox[*evmtypes.Head]
 		wg        *sync.WaitGroup
 		ctx       context.Context
 		ctxCancel context.CancelFunc
@@ -139,7 +139,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
 		size:      int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
-		mb:        utils.NewSingleMailbox[*evmtypes.Head](),
+		mb:        mailbox.NewSingle[*evmtypes.Head](),
 		wg:        new(sync.WaitGroup),
 		ctx:       ctx,
 		ctxCancel: cancel,
@@ -198,7 +198,7 @@ func (b *BlockHistoryEstimator) getBlocks() []evmtypes.Block {
 // The provided context can be used to terminate Start sequence.
 func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
-		logger.Trace(b.logger, "Starting")
+		b.logger.Trace("Starting")
 
 		if b.bhConfig.CheckInclusionBlocks() > 0 {
 			b.logger.Infof("Inclusion checking enabled, bumping will be prevented on transactions that have been priced above the %d percentile for %d blocks", b.bhConfig.CheckInclusionPercentile(), b.bhConfig.CheckInclusionBlocks())
@@ -228,7 +228,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 		b.wg.Add(1)
 		go b.runLoop()
 
-		logger.Trace(b.logger, "Started")
+		b.logger.Trace("Started")
 		return nil
 	})
 }
@@ -291,7 +291,7 @@ func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPric
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, commonfee.ErrConnectivity) {
-				logger.Criticalw(b.logger, BumpingHaltedLabel, "err", err)
+				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "legacy").Inc()
 			}
@@ -467,7 +467,7 @@ func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee Dy
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, commonfee.ErrConnectivity) {
-				logger.Criticalw(b.logger, BumpingHaltedLabel, "err", err)
+				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "eip1559").Inc()
 			}
@@ -508,7 +508,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	percentile := int(b.bhConfig.TransactionPercentile())
 
-	lggr := logger.With(b.logger, "head", head)
+	lggr := b.logger.With("head", head)
 
 	blockHistory := b.getBlocks()
 	if len(blockHistory) == 0 {
@@ -630,9 +630,9 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		reqs = append(reqs, req)
 	}
 
-	lggr := logger.With(b.logger, "head", head)
+	lggr := b.logger.With("head", head)
 
-	logger.Tracew(lggr, fmt.Sprintf("Fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
+	lggr.Tracew(fmt.Sprintf("Fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
 	if err := b.batchFetch(ctx, reqs); err != nil {
 		return err
 	}
@@ -713,7 +713,7 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 			j = len(reqs)
 		}
 
-		logger.Tracew(b.logger, fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
+		b.logger.Tracew(fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
 
 		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
 		if errors.Is(err, context.DeadlineExceeded) {

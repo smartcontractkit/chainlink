@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-contrib/sessions"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var _ config.WebServer = (*webServerConfig)(nil)
@@ -153,7 +153,7 @@ func (w *webServerConfig) HTTPPort() uint16 {
 	return *w.c.HTTPPort
 }
 
-func (w *webServerConfig) SessionReaperExpiration() models.Duration {
+func (w *webServerConfig) SessionReaperExpiration() commonconfig.Duration {
 	return *w.c.SessionReaperExpiration
 }
 
@@ -170,8 +170,8 @@ func (w *webServerConfig) SessionOptions() sessions.Options {
 	}
 }
 
-func (w *webServerConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(w.c.SessionTimeout.Duration())
+func (w *webServerConfig) SessionTimeout() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(w.c.SessionTimeout.Duration())
 }
 
 func (w *webServerConfig) ListenIP() net.IP {
@@ -211,7 +211,7 @@ func (l *ldapConfig) ServerTLS() bool {
 	return *l.c.ServerTLS
 }
 
-func (l *ldapConfig) SessionTimeout() models.Duration {
+func (l *ldapConfig) SessionTimeout() commonconfig.Duration {
 	return *l.c.SessionTimeout
 }
 
@@ -219,7 +219,7 @@ func (l *ldapConfig) QueryTimeout() time.Duration {
 	return l.c.QueryTimeout.Duration()
 }
 
-func (l *ldapConfig) UserAPITokenDuration() models.Duration {
+func (l *ldapConfig) UserAPITokenDuration() commonconfig.Duration {
 	return *l.c.UserAPITokenDuration
 }
 
@@ -300,16 +300,16 @@ func (l *ldapConfig) UserApiTokenEnabled() bool {
 	return *l.c.UserApiTokenEnabled
 }
 
-func (l *ldapConfig) UpstreamSyncInterval() models.Duration {
+func (l *ldapConfig) UpstreamSyncInterval() commonconfig.Duration {
 	if l.c.UpstreamSyncInterval == nil {
-		return models.Duration{}
+		return commonconfig.Duration{}
 	}
 	return *l.c.UpstreamSyncInterval
 }
 
-func (l *ldapConfig) UpstreamSyncRateLimit() models.Duration {
+func (l *ldapConfig) UpstreamSyncRateLimit() commonconfig.Duration {
 	if l.c.UpstreamSyncRateLimit == nil {
-		return models.Duration{}
+		return commonconfig.Duration{}
 	}
 	return *l.c.UpstreamSyncRateLimit
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -21,6 +22,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -39,11 +44,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -58,19 +61,16 @@ func TestRunner(t *testing.T) {
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.P2P.V1.Enabled = ptr(true)
-		c.P2P.V1.DefaultBootstrapPeers = &[]string{
-			"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-		}
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
 		kbid := models.MustSha256HashFromHex(kb.ID())
 		c.OCR.KeyBundleID = &kbid
 		taddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress
-		c.OCR2.DatabaseTimeout = models.MustNewDuration(time.Second)
-		c.OCR2.ContractTransmitterTransmitTimeout = models.MustNewDuration(time.Second)
+		c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(time.Second)
+		c.OCR2.ContractTransmitterTransmitTimeout = commonconfig.MustNewDuration(time.Second)
 		c.Insecure.OCRDevelopmentMode = ptr(true)
 	})
 
@@ -78,7 +78,10 @@ func TestRunner(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
+	ctx := testutils.Context(t)
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	require.NoError(t, pipelineORM.Start(ctx))
+	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
 	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
@@ -86,11 +89,11 @@ func TestRunner(t *testing.T) {
 
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := NewTestORM(t, db, pipelineORM, btORM, keyStore, config.Database())
+	t.Cleanup(func() { assert.NoError(t, jobORM.Close()) })
 
 	_, placeHolderAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	require.NoError(t, runner.Start(testutils.Context(t)))
-	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
+	servicetest.Run(t, runner)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -449,8 +452,7 @@ answer1      [type=median index=0];
 		_, err = keyStore.P2P().Create()
 		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -461,7 +463,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -484,8 +486,7 @@ answer1      [type=median index=0];
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -496,7 +497,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -513,8 +514,7 @@ answer1      [type=median index=0];
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -525,7 +525,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -545,7 +545,8 @@ answer1      [type=median index=0];
 		for _, tc := range testCases {
 
 			config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.P2P.V1.Enabled = ptr(true)
+				c.P2P.V2.Enabled = ptr(true)
+				c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 				c.OCR.CaptureEATelemetry = ptr(tc.specCaptureEATelemetry)
 			})
 
@@ -568,8 +569,7 @@ answer1      [type=median index=0];
 
 			lggr := logger.TestLogger(t)
 			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-			require.NoError(t, pw.Start(testutils.Context(t)))
-			t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+			servicetest.Run(t, pw)
 			sd := ocr.NewDelegate(
 				db,
 				jobORM,
@@ -580,7 +580,7 @@ answer1      [type=median index=0];
 				legacyChains,
 				lggr,
 				config.Database(),
-				srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+				servicetest.Run(t, mailboxtest.NewMonitor(t)),
 			)
 
 			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
@@ -613,8 +613,7 @@ answer1      [type=median index=0];
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		t.Cleanup(func() { assert.NoError(t, pw.Close()) })
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -625,7 +624,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
@@ -748,7 +747,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.JobPipeline.ExternalInitiatorsEnabled = &t
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
@@ -927,7 +926,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.JobPipeline.ExternalInitiatorsEnabled = &t
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)

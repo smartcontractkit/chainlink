@@ -18,6 +18,7 @@ library SmartContractAccountHelper {
       SCA.executeTransactionFromEntryPoint.selector,
       abi.encode(endContract, value, block.timestamp + deadline, data)
     );
+    return encoding;
   }
 
   function getFullHashForSigning(bytes32 userOpHash, address scaAddress) public view returns (bytes32) {
@@ -29,6 +30,7 @@ library SmartContractAccountHelper {
     address entryPoint
   ) public pure returns (bytes memory initCode) {
     initCode = bytes.concat(INITIALIZE_CODE, abi.encode(owner, entryPoint));
+    return initCode;
   }
 
   function getInitCode(
@@ -46,6 +48,7 @@ library SmartContractAccountHelper {
         initializeCodeWithConstructor
       )
     );
+    return initCode;
   }
 
   /// @dev Computes the smart contract address that results from a CREATE2 operation, per EIP-1014.

@@ -19,6 +19,9 @@ import (
 
 	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -38,12 +41,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	evmrelay_mocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types/mocks"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	sync_mocks "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FunctionsListenerUniverse struct {
@@ -81,7 +82,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	broadcaster := log_mocks.NewBroadcaster(t)
 	broadcaster.On("AddDependents", 1)
-	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
@@ -160,7 +161,7 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(1, 0), // tier no 1 of request size, allows up to 100 bytes
 		Data:              make([]byte, 12),
@@ -175,9 +176,8 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 		close(doneCh)
 	}).Return(nil)
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
@@ -194,7 +194,7 @@ func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 	request := &functions_service.OffchainRequest{
 		RequestId:         RequestID[:],
 		RequestInitiator:  SubscriptionOwner.Bytes(),
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
@@ -210,7 +210,7 @@ func TestFunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
 	request := &functions_service.OffchainRequest{
 		RequestId:         RequestID[:],
 		RequestInitiator:  []byte("invalid_address"),
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
@@ -238,7 +238,7 @@ func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 	request := &functions_service.OffchainRequest{
 		RequestId:         RequestID[:],
 		RequestInitiator:  SubscriptionOwner.Bytes(),
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner.Bytes(),
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
@@ -255,7 +255,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(1, 0), // tier no 1 of request size, allows up to 100 bytes
 		Data:              make([]byte, 12),
@@ -270,9 +270,8 @@ func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) 
 		close(doneCh)
 	}).Return(nil)
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *testing.T) {
@@ -292,7 +291,7 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 	cborBytes = cborBytes[1:]
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(1, 1), // tiers no 1 of request size and secrets size, allow up to 100 bytes
 		Data:              cborBytes,
@@ -312,9 +311,8 @@ func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *te
 		close(doneCh)
 	}).Return(nil)
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
@@ -326,7 +324,7 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(0, 0), // tier no 0 of request size, allows only for max 10 bytes
 		Data:              make([]byte, 20),
@@ -339,9 +337,8 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 		close(doneCh)
 	}).Return(nil)
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
@@ -353,7 +350,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 
 	request := types.OracleRequest{
 		RequestId:         RequestID,
-		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionId:    SubscriptionID,
 		SubscriptionOwner: SubscriptionOwner,
 		Flags:             packFlags(1, 0), // tier no 1 of request size, allows up to 100 bytes
 		Data:              make([]byte, 12),
@@ -395,9 +392,8 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 		doneCh <- true
 	})
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_TimeoutRequests(t *testing.T) {
@@ -411,9 +407,8 @@ func TestFunctionsListener_TimeoutRequests(t *testing.T) {
 		doneCh <- true
 	})
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	<-doneCh
-	uni.service.Close()
 }
 
 func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
@@ -434,7 +429,6 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 		ormCallExited.Done()
 	}).Return(errors.New("timeout"))
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.service)
 	ormCallExited.Wait() // should not freeze
-	uni.service.Close()
 }

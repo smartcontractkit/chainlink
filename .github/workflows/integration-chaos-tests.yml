@@ -12,7 +12,6 @@ env:
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
   TEST_SUITE: chaos
   TEST_ARGS: -test.timeout 1h
-  SELECTED_NETWORKS: SIMULATED
   CHAINLINK_COMMIT_SHA: ${{ github.sha }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   TEST_LOG_LEVEL: debug
@@ -108,6 +107,24 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Prepare Base64 TOML config
+        env:
+          CHAINLINK_VERSION: ${{ github.sha }}                 
+        run: |
+          echo ::add-mask::$CHAINLINK_IMAGE
+          
+          cat << EOF > config.toml
+          [Network]
+          selected_networks=["SIMULATED"]
+          
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="$CHAINLINK_VERSION" 
+          EOF
+          
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV             
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         with:

@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,17 +20,20 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -85,11 +86,9 @@ func TestConfigPoller(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := pgtest.NewQConfig(false)
 		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
-		ctx := testutils.Context(t)
 		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
 		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
-		require.NoError(t, lp.Start(ctx))
-		t.Cleanup(func() { lp.Close() })
+		servicetest.Run(t, lp)
 	}
 
 	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
@@ -328,12 +327,12 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 	for i := 0; i < 4; i++ {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  utils.RandomAddress().Bytes(),
-				TransmitAccount:   ocrtypes2.Account(utils.RandomAddress().Hex()),
-				OffchainPublicKey: utils.RandomBytes32(),
+				OnchainPublicKey:  evmutils.RandomAddress().Bytes(),
+				TransmitAccount:   ocrtypes2.Account(evmutils.RandomAddress().Hex()),
+				OffchainPublicKey: evmutils.RandomBytes32(),
 				PeerID:            utils.MustNewPeerID(),
 			},
-			ConfigEncryptionPublicKey: utils.RandomBytes32(),
+			ConfigEncryptionPublicKey: evmutils.RandomBytes32(),
 		})
 	}
 	// Gnerate OnchainConfig

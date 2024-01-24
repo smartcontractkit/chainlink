@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
@@ -176,8 +176,8 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{
-					{EvmChainId: utils.NewBig(big.NewInt(5)), LogIndex: 1},
-					{EvmChainId: utils.NewBig(big.NewInt(6)), LogIndex: 2},
+					{EvmChainId: ubig.New(big.NewInt(5)), LogIndex: 1},
+					{EvmChainId: ubig.New(big.NewInt(6)), LogIndex: 2},
 				},
 				OutputErr: nil,
 			},

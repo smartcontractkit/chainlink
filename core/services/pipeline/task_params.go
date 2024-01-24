@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
+	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -122,8 +123,8 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
 		// first check if this is a valid hex-encoded string
-		if utils.HasHexPrefix(v) {
-			noHexPrefix := utils.RemoveHexPrefix(v)
+		if commonhex.HasPrefix(v) {
+			noHexPrefix := commonhex.TrimPrefix(v)
 			bs, err := hex.DecodeString(noHexPrefix)
 			if err == nil {
 				*b = bs
@@ -333,7 +334,7 @@ func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
 	case int16:
 		n = int32(v)
 	case int32:
-		n = int32(v)
+		n = v
 	case int64:
 		if v > math.MaxInt32 || v < math.MinInt32 {
 			return errors.Wrap(ErrBadInput, "overflows int32")
@@ -452,7 +453,7 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	case []byte:
 		switch len(v) {
 		case 42:
-			bs, err := utils.TryParseHex(string(v))
+			bs, err := commonhex.DecodeString(string(v))
 			if err == nil {
 				*a = AddressParam(common.BytesToAddress(bs))
 				return nil
@@ -763,7 +764,7 @@ func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
 	case int32:
 		n = big.NewInt(int64(v))
 	case int64:
-		n = big.NewInt(int64(v))
+		n = big.NewInt(v)
 	case float64: // when decoding from db: JSON numbers are floats
 		if v < math.MinInt64 || v > math.MaxUint64 {
 			return errors.Wrapf(ErrBadInput, "cannot cast %v to u/int64", v)

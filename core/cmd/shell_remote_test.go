@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,12 +14,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -32,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
@@ -59,10 +61,9 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	}
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = models.MustNewDuration(30 * time.Millisecond)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(30 * time.Millisecond)
 		f := false
 		c.EVM[0].Enabled = &f
-		c.P2P.V1.Enabled = &f
 		c.P2P.V2.Enabled = &f
 
 		if overrideFn != nil {
@@ -383,7 +384,7 @@ type mockHTTPClient struct {
 	mockSha     string
 }
 
-func (h *mockHTTPClient) Get(path string, headers ...map[string]string) (*http.Response, error) {
+func (h *mockHTTPClient) Get(ctx context.Context, path string, headers ...map[string]string) (*http.Response, error) {
 	if path == "/v2/build_info" {
 		// Return mocked response here
 		json := fmt.Sprintf(`{"version":"%s","commitSHA":"%s"}`, h.mockVersion, h.mockSha)
@@ -393,23 +394,23 @@ func (h *mockHTTPClient) Get(path string, headers ...map[string]string) (*http.R
 			Body:       r,
 		}, nil
 	}
-	return h.HTTP.Get(path, headers...)
+	return h.HTTP.Get(ctx, path, headers...)
 }
 
-func (h *mockHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
-	return h.HTTP.Post(path, body)
+func (h *mockHTTPClient) Post(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return h.HTTP.Post(ctx, path, body)
 }
 
-func (h *mockHTTPClient) Put(path string, body io.Reader) (*http.Response, error) {
-	return h.HTTP.Put(path, body)
+func (h *mockHTTPClient) Put(ctx context.Context, path string, body io.Reader) (*http.Response, error) {
+	return h.HTTP.Put(ctx, path, body)
 }
 
-func (h *mockHTTPClient) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
-	return h.HTTP.Patch(path, body, headers...)
+func (h *mockHTTPClient) Patch(ctx context.Context, path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
+	return h.HTTP.Patch(ctx, path, body, headers...)
 }
 
-func (h *mockHTTPClient) Delete(path string) (*http.Response, error) {
-	return h.HTTP.Delete(path)
+func (h *mockHTTPClient) Delete(ctx context.Context, path string) (*http.Response, error) {
+	return h.HTTP.Delete(ctx, path)
 }
 
 func TestShell_ChangePassword(t *testing.T) {
@@ -567,7 +568,8 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
-		c.P2P.V1.Enabled = ptr(true)
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 	}, func(opts *startOptions) {
@@ -699,7 +701,7 @@ func (FailingAuthenticator) Cookie() (*http.Cookie, error) {
 }
 
 // Authenticate retrieves a session ID via a cookie and saves it to disk.
-func (FailingAuthenticator) Authenticate(sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
+func (FailingAuthenticator) Authenticate(context.Context, sessions.SessionRequest) (*http.Cookie, error) {
 	return nil, errors.New("no luck")
 }
 

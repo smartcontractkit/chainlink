@@ -27,5 +27,7 @@ contract SmartContractAccountFactory {
     }
 
     emit ContractCreated(scaAddress);
+
+    return scaAddress;
   }
 }

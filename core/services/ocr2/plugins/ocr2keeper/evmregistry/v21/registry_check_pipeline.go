@@ -6,11 +6,13 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
@@ -105,7 +107,7 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state uint8, retryable bool) {
+func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	// verify check block number and hash are valid
 	h, ok := r.bs.queryBlocksMap(checkBlock.Int64())
 	// if this block number/hash combo exists in block subscriber, this check block and hash still exist on chain and are valid
@@ -128,7 +130,7 @@ func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *
 }
 
 // verifyLogExists checks that the log still exists on chain, returns failure reason, pipeline error, and retryable
-func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (uint8, uint8, bool) {
+func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (encoding.UpkeepFailureReason, encoding.PipelineExecutionState, bool) {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
 	checkBlockHash := common.BytesToHash(p.Trigger.BlockHash[:])
@@ -197,7 +199,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
-		case ocr2keepers.LogTrigger:
+		case types.LogTrigger:
 			reason, state, retryable := r.verifyLogExists(upkeepId, p)
 			if reason != encoding.UpkeepFailureReasonNone || state != encoding.NoPipelineError {
 				results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)

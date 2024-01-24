@@ -23,6 +23,8 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
 	"github.com/smartcontractkit/chainlink-vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
@@ -38,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -397,7 +398,7 @@ func (c *coordinator) ReportBlocks(
 
 	// TODO BELOW: Write tests for the new blockhash retrieval.
 	// Obtain recent blockhashes, ordered by ascending block height.
-	for i := recentBlockHashesStartHeight; i <= uint64(currentHeight); i++ {
+	for i := recentBlockHashesStartHeight; i <= currentHeight; i++ {
 		recentBlockHashes = append(recentBlockHashes, blockhashesMapping[i])
 	}
 
@@ -517,7 +518,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	}
 
 	// Get a mapping of block numbers to block hashes.
-	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, uint64(currentHeight), recentBlockHashesStartHeight))
+	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, currentHeight, recentBlockHashesStartHeight))
 	if err != nil {
 		err = errors.Wrap(err, "get blockhashes for ReportBlocks")
 	}

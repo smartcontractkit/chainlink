@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [vrf, automation, llo-feeds, functions, shared]
+        product: [vrf, automation, llo-feeds, l2ep, functions, shared]
     needs: [changes]
     name: Foundry Tests ${{ matrix.product }}
     # See https://github.com/foundry-rs/foundry/issues/3827
@@ -58,7 +58,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # Has to match the `make foundry` version.
-          version: nightly-09fe3e041369a816365a020f715ad6f94dbce9f2
+          version: nightly-5b7e4cb3c882b28f3c32ba580de27ce7381f415a
 
       - name: Run Forge build
         if: needs.changes.outputs.changes == 'true'

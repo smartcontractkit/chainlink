@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -23,7 +24,6 @@ import (
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type (
@@ -110,7 +110,7 @@ type noChecker struct{}
 // Check satisfies the TransmitChecker interface.
 func (noChecker) Check(
 	_ context.Context,
-	_ logger.Logger,
+	_ logger.SugaredLogger,
 	_ Tx,
 	_ TxAttempt,
 ) error {
@@ -125,7 +125,7 @@ type SimulateChecker struct {
 // Check satisfies the TransmitChecker interface.
 func (s *SimulateChecker) Check(
 	ctx context.Context,
-	l logger.Logger,
+	l logger.SugaredLogger,
 	tx Tx,
 	a TxAttempt,
 ) error {
@@ -148,7 +148,7 @@ func (s *SimulateChecker) Check(
 	err := s.Client.CallContext(ctx, &b, "eth_call", callArg, evmclient.ToBlockNumArg(nil))
 	if err != nil {
 		if jErr := evmclient.ExtractRPCErrorOrNil(err); jErr != nil {
-			logger.Criticalw(l, "Transaction reverted during simulation",
+			l.Criticalw("Transaction reverted during simulation",
 				"ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
 			return errors.Errorf("transaction reverted during simulation: %s", jErr.String())
 		}
@@ -175,7 +175,7 @@ type VRFV1Checker struct {
 // Check satisfies the TransmitChecker interface.
 func (v *VRFV1Checker) Check(
 	ctx context.Context,
-	l logger.Logger,
+	l logger.SugaredLogger,
 	tx Tx,
 	_ TxAttempt,
 ) error {
@@ -252,7 +252,7 @@ func (v *VRFV1Checker) Check(
 			"meta", tx.Meta,
 			"reqID", reqID)
 		return nil
-	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+	} else if bytes.IsEmpty(callback.SeedAndBlockNum[:]) {
 		// Request already fulfilled
 		l.Infow("Request already fulfilled",
 			"err", err,
@@ -284,7 +284,7 @@ type VRFV2Checker struct {
 // Check satisfies the TransmitChecker interface.
 func (v *VRFV2Checker) Check(
 	ctx context.Context,
-	l logger.Logger,
+	l logger.SugaredLogger,
 	tx Tx,
 	_ TxAttempt,
 ) error {
@@ -344,7 +344,7 @@ func (v *VRFV2Checker) Check(
 			"blockNumber", h.Number,
 		)
 		return nil
-	} else if utils.IsEmpty(callback[:]) {
+	} else if bytes.IsEmpty(callback[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled and we should skip it.
 		l.Infow("Request already fulfilled.",
 			"ethTxID", tx.ID,

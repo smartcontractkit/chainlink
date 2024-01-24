@@ -19,8 +19,14 @@ type VRFV2JobInfo struct {
 
 type VRFV2Contracts struct {
 	Coordinator       contracts.VRFCoordinatorV2
+	VRFOwner          contracts.VRFOwner
 	BHS               contracts.BlockHashStore
 	LoadTestConsumers []contracts.VRFv2LoadTestConsumer
+}
+
+type VRFV2WrapperContracts struct {
+	VRFV2Wrapper      contracts.VRFV2Wrapper
+	LoadTestConsumers []contracts.VRFv2WrapperLoadTestConsumer
 }
 
 // VRFV2PlusKeyData defines a jobs into and proving key info
