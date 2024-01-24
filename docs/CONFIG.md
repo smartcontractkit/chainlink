@@ -244,8 +244,6 @@ LeaseRefreshInterval determines how often to refresh the lease lock. Also contro
 [TelemetryIngress]
 UniConn = true # Default
 Logging = false # Default
-ServerPubKey = 'test-pub-key' # Example
-URL = 'https://prom.test' # Example
 BufferSize = 100 # Default
 MaxBatchSize = 50 # Default
 SendInterval = '500ms' # Default
@@ -265,18 +263,6 @@ UniConn toggles which ws connection style is used.
 Logging = false # Default
 ```
 Logging toggles verbose logging of the raw telemetry messages being sent.
-
-### ServerPubKey
-```toml
-ServerPubKey = 'test-pub-key' # Example
-```
-ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
-
-### URL
-```toml
-URL = 'https://prom.test' # Example
-```
-URL is where to send telemetry. This field will be removed in a furture version
 
 ### BufferSize
 ```toml
@@ -5014,6 +5000,7 @@ GasLimit = 14500000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'scroll'
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5094,6 +5081,7 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'scroll'
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5448,7 +5436,7 @@ BlockBackfillSkip enables skipping of very long backfills.
 ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync
+Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync, scroll
 
 ### FinalityDepth
 ```toml
