@@ -63,7 +63,7 @@ contract ArbitrumSequencerUptimeFeed_UpdateStatus is ArbitrumSequencerUptimeFeed
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(abi.encodeWithSelector(SequencerUptimeFeed.InvalidSender.selector));
+    vm.expectRevert(SequencerUptimeFeed.InvalidSender.selector);
     s_arbitrumSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
