@@ -1,7 +1,7 @@
 # ***
 # This workflow is a monstrosity of copy-paste, and that's to increase legibility in reporting and running, so the code be damned.
 # I suspect this can be cleaned up significantly with some clever trickery of the GitHub actions matrices, but I am not that clever.
-# We want each chain to run in parallel, but each test within the chain needs to be able to run sequentially 
+# We want each chain to run in parallel, but each test within the chain needs to be able to run sequentially
 # (we're trying to eliminate this as a requirement, should make it a lot easier).
 # Each chain can have a variety of tests to run.
 # We also want reporting to be clear in the start-slack-thread and post-test-results-to-slack jobs.
@@ -59,7 +59,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
-        with: 
+        with:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
           git_commit_sha: ${{ github.sha }}
@@ -73,7 +73,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    name: Build Tests Binary 
+    name: Build Tests Binary
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -89,7 +89,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -227,7 +227,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-sepolia
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -244,9 +244,9 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests          
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -264,7 +264,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 
   bsc-testnet-tests:
     # TODO: BSC RPCs are all in a bad state right now, so we're skipping these tests until they're fixed
@@ -289,7 +289,7 @@ jobs:
             test: TestAutomationBasic/registry_2_1_logtrigger
     name: BSC Testnet ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
-    steps:           
+    steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
@@ -299,7 +299,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-bsc-testnet
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -316,9 +316,9 @@ jobs:
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests           
-      - name: Run Tests       
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+          name: tests
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -336,7 +336,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 
   optimism-sepolia-smoke-tests:
     environment: integration
@@ -369,7 +369,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-optimism-sepolia
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -382,13 +382,13 @@ jobs:
           network: "optimism_sepolia"
           httpEndpoints: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests      
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -406,7 +406,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 
   arbitrum-sepolia-smoke-tests:
     environment: integration
@@ -439,7 +439,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -452,13 +452,13 @@ jobs:
           network: "arbitrum_sepolia"
           httpEndpoints: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -476,7 +476,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 
   base-sepolia-smoke-tests:
     environment: integration
@@ -505,7 +505,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-base-sepolia
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -518,13 +518,13 @@ jobs:
           network: "base_sepolia"
           httpEndpoints: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -542,8 +542,8 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
-  
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+
   polygon-mumbai-smoke-tests:
     environment: integration
     permissions:
@@ -575,7 +575,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-polygon-mumbai
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -588,13 +588,13 @@ jobs:
           network: "polygon_mumbai"
           httpEndpoints: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -612,7 +612,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 
   avalanche-fuji-smoke-tests:
     environment: integration
@@ -645,7 +645,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-avalanche-fuji
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -658,13 +658,13 @@ jobs:
           network: "avalanche_fuji"
           httpEndpoints: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -682,7 +682,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 
   fantom-testnet-smoke-tests:
     environment: integration
@@ -715,7 +715,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-fantom-testnet
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -728,13 +728,13 @@ jobs:
           network: "fantom_testnet"
           httpEndpoints: ${{ secrets.QA_FANTOM_TESTNET_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_FANTOM_TESTNET_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -752,7 +752,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 
   celo-alfajores-smoke-tests:
     environment: integration
@@ -781,7 +781,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-celo-alfajores
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -794,13 +794,13 @@ jobs:
           network: "celo_alfajores"
           httpEndpoints: ${{ secrets.QA_CELO_ALFAJORES_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_CELO_ALFAJORES_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -818,8 +818,8 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
-     
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+
   scroll-sepolia-smoke-tests:
     # TODO: Disabled until bug TT-767 is fixed
     if: false
@@ -849,7 +849,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-scroll-sepolia
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -862,13 +862,13 @@ jobs:
           network: "scroll_sepolia"
           httpEndpoints: ${{ secrets.QA_SCROLL_SEPOLIA_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_SCROLL_SEPOLIA_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests         
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -886,7 +886,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 
   linea-goerli-smoke-tests:
     environment: integration
@@ -915,7 +915,7 @@ jobs:
           runId: ${{ github.run_id }}
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}        
+          chainlinkVersion: ${{ github.sha }}
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-linea-goerli
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -928,13 +928,13 @@ jobs:
           network: "linea_goerli"
           httpEndpoints: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
           wsEndpoints: ${{ secrets.QA_LINEA_GOERLI_URLS }}
-          fundingKeys: ${{ secrets.QA_EVM_KEYS }}    
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
-          name: tests               
+          name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -952,4 +952,4 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@952abab6367aaff96102abf9ef751ef36fe9ea29 # v2.3.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4

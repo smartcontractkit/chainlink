@@ -1,4 +1,4 @@
-package functions
+package subscriptions
 
 import (
 	"fmt"
@@ -16,27 +16,27 @@ import (
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
-	GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error)
-	UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error
+	GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]StoredSubscription, error)
+	UpsertSubscription(subscription StoredSubscription, qopts ...pg.QOpt) error
 }
 
 type orm struct {
 	q                     pg.Q
+	lggr                  logger.Logger
 	routerContractAddress common.Address
 }
 
 var _ ORM = (*orm)(nil)
 var (
-	ErrInvalidParameters = errors.New("invalid parameters provided to create a subscription cache ORM")
+	ErrInvalidParameters = errors.New("invalid parameters provided to create a subscription contract ORM")
 )
 
 const (
 	tableName = "functions_subscriptions"
 )
 
-type cachedSubscriptionRow struct {
+type storedSubscriptionRow struct {
 	SubscriptionID        uint64
 	Owner                 common.Address
 	Balance               int64
@@ -54,13 +54,14 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, routerContractAddre
 
 	return &orm{
 		q:                     pg.NewQ(db, lggr, cfg),
+		lggr:                  lggr,
 		routerContractAddress: routerContractAddress,
 	}, nil
 }
 
-func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSubscription, error) {
-	var cacheSubscriptions []CachedSubscription
-	var cacheSubscriptionRows []cachedSubscriptionRow
+func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]StoredSubscription, error) {
+	var storedSubscriptions []StoredSubscription
+	var storedSubscriptionRows []storedSubscriptionRow
 	stmt := fmt.Sprintf(`
 		SELECT subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address
 		FROM %s
@@ -69,21 +70,21 @@ func (o *orm) GetSubscriptions(offset, limit uint, qopts ...pg.QOpt) ([]CachedSu
 		OFFSET $2
 		LIMIT $3;
 	`, tableName)
-	err := o.q.WithOpts(qopts...).Select(&cacheSubscriptionRows, stmt, o.routerContractAddress, offset, limit)
+	err := o.q.WithOpts(qopts...).Select(&storedSubscriptionRows, stmt, o.routerContractAddress, offset, limit)
 	if err != nil {
-		return cacheSubscriptions, err
+		return storedSubscriptions, err
 	}
 
-	for _, cs := range cacheSubscriptionRows {
-		cacheSubscriptions = append(cacheSubscriptions, cs.encode())
+	for _, cs := range storedSubscriptionRows {
+		storedSubscriptions = append(storedSubscriptions, cs.encode())
 	}
 
-	return cacheSubscriptions, nil
+	return storedSubscriptions, nil
 }
 
 // UpsertSubscription will update if a subscription exists or create if it does not.
 // In case a subscription gets deleted we will update it with an owner address equal to 0x0.
-func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QOpt) error {
+func (o *orm) UpsertSubscription(subscription StoredSubscription, qopts ...pg.QOpt) error {
 	stmt := fmt.Sprintf(`
 		INSERT INTO %s (subscription_id, owner, balance, blocked_balance, proposed_owner, consumers, flags, router_contract_address)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (subscription_id, router_contract_address) DO UPDATE
@@ -97,6 +98,11 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 		subscription.BlockedBalance = big.NewInt(0)
 	}
 
+	var consumers [][]byte
+	for _, c := range subscription.Consumers {
+		consumers = append(consumers, c.Bytes())
+	}
+
 	_, err := o.q.WithOpts(qopts...).Exec(
 		stmt,
 		subscription.SubscriptionID,
@@ -104,21 +110,26 @@ func (o *orm) UpsertSubscription(subscription CachedSubscription, qopts ...pg.QO
 		subscription.Balance.Int64(),
 		subscription.BlockedBalance.Int64(),
 		subscription.ProposedOwner,
-		subscription.Consumers,
+		consumers,
 		subscription.Flags[:],
 		o.routerContractAddress,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	o.lggr.Debugf("Successfully updated subscription: %d for routerContractAddress: %s", subscription.SubscriptionID, o.routerContractAddress)
+
+	return nil
 }
 
-func (cs *cachedSubscriptionRow) encode() CachedSubscription {
+func (cs *storedSubscriptionRow) encode() StoredSubscription {
 	consumers := make([]common.Address, 0)
 	for _, csc := range cs.Consumers {
 		consumers = append(consumers, common.BytesToAddress(csc))
 	}
 
-	return CachedSubscription{
+	return StoredSubscription{
 		SubscriptionID: cs.SubscriptionID,
 		IFunctionsSubscriptionsSubscription: functions_router.IFunctionsSubscriptionsSubscription{
 			Balance:        big.NewInt(cs.Balance),
