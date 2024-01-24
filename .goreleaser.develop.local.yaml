@@ -7,6 +7,10 @@ env:
   - IMAGE_LABEL_LICENSES="MIT"
   - IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/{{ .ProjectName }}"
 
+before:
+  hooks:
+    - ./tools/bin/goreleaser_utils before_hook
+
 # See https://goreleaser.com/customization/build/
 builds:
   - id: linux-arm64
@@ -15,6 +19,8 @@ builds:
       - linux
     goarch:
       - arm64
+    hooks:
+      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
       - CC=zig cc -target aarch64-linux-gnu
@@ -32,6 +38,8 @@ builds:
       - linux
     goarch:
       - amd64
+    hooks:
+      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
       - CC=zig cc -target x86_64-linux-gnu
@@ -52,6 +60,8 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tmp/linux_amd64/chainlink-feeds
+      - tmp/linux_amd64/chainlink-solana
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -67,6 +77,7 @@ dockers:
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root-amd64"
+
   - id: root-linux-arm64
     dockerfile: core/chainlink.goreleaser.Dockerfile
     use: buildx
@@ -74,6 +85,8 @@ dockers:
     goarch: arm64
     extra_files:
       - tmp/linux_arm64/libs
+      - tmp/linux_arm64/chainlink-feeds
+      - tmp/linux_arm64/chainlink-solana
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -89,6 +102,7 @@ dockers:
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-arm64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root-arm64"
+
   - id: linux-amd64
     dockerfile: core/chainlink.goreleaser.Dockerfile
     use: buildx
@@ -96,6 +110,8 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tmp/linux_amd64/chainlink-feeds
+      - tmp/linux_amd64/chainlink-solana
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -120,6 +136,8 @@ dockers:
     goarch: arm64
     extra_files:
       - tmp/linux_arm64/libs
+      - tmp/linux_arm64/chainlink-feeds
+      - tmp/linux_arm64/chainlink-solana
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
