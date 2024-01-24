@@ -17,10 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/ocr2vrf"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/ocr2vrf/ocr2vrf_constants"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -34,7 +34,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	testConfig, err := tc.GetConfig("Smoke", tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -66,7 +66,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
 	require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
 
-	_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf_actions.SetupOCR2VRFUniverse(
+	_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf.SetupOCR2VRFUniverse(
 		t,
 		linkToken,
 		mockETHLinkFeed,
@@ -78,7 +78,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	)
 
 	//Request and Redeem Randomness
-	requestID := ocr2vrf_actions.RequestAndRedeemRandomness(
+	requestID := ocr2vrf.RequestAndRedeemRandomness(
 		t,
 		consumerContract,
 		chainClient,
@@ -101,7 +101,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	testConfig, err := tc.GetConfig("Smoke", tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -133,7 +133,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	mockETHLinkFeed, err := contractDeployer.DeployMockETHLINKFeed(ocr2vrf_constants.LinkEthFeedResponse)
 	require.NoError(t, err, "Error deploying Mock ETH/LINK Feed")
 
-	_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf_actions.SetupOCR2VRFUniverse(
+	_, _, vrfBeaconContract, consumerContract, subID := ocr2vrf.SetupOCR2VRFUniverse(
 		t,
 		linkToken,
 		mockETHLinkFeed,
@@ -144,7 +144,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 		testNetwork,
 	)
 
-	requestID := ocr2vrf_actions.RequestRandomnessFulfillmentAndWaitForFulfilment(
+	requestID := ocr2vrf.RequestRandomnessFulfillmentAndWaitForFulfilment(
 		t,
 		consumerContract,
 		chainClient,

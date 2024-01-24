@@ -1,4 +1,4 @@
-package ocr2vrf_actions
+package ocr2vrf
 
 import (
 	"crypto/ed25519"

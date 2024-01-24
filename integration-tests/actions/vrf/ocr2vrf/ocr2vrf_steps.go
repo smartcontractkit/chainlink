@@ -1,4 +1,4 @@
-package ocr2vrf_actions
+package ocr2vrf
 
 import (
 	"math/big"
@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/ocr2vrf/ocr2vrf_constants"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
