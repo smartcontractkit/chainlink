@@ -3,27 +3,27 @@ pragma solidity 0.8.19;
 
 import {AggregatorV2V3Interface} from "../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {AggregatorInterface} from "../../shared/interfaces/AggregatorInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessController.sol";
 
 /// @title ScrollSequencerUptimeFeed - L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates, and records a new answer if the status changed
-abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersionInterface, SimpleReadAccessController {
+abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, ITypeAndVersion, SimpleReadAccessController {
   /// @dev Round info (for uptime history)
   struct Round {
-    bool status;
-    uint64 startedAt;
-    uint64 updatedAt;
+    uint64 startedAt; // ─╮ The timestamp at which the round started
+    uint64 updatedAt; //  │ The timestamp at which the round was updated
+    bool status; // ──────╯ The sequencer status for the round
   }
 
   /// @dev Packed state struct to save sloads
   struct FeedState {
-    uint80 latestRoundId;
-    bool latestStatus;
-    uint64 startedAt;
-    uint64 updatedAt;
+    uint80 latestRoundId; // ─╮ The ID of the latest round
+    uint64 startedAt; //      │ The date at which the latest round started
+    uint64 updatedAt; //      │ The date at which the latest round was updated
+    bool latestStatus; // ────╯ The status of the latest round
   }
 
   /// @notice Sender is not the L2 messenger
@@ -74,9 +74,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   }
 
   /// @notice Should revert if the sender is not authorized to call `updateStatus`
-  modifier requireValidSender() virtual {
-    _;
-  }
+  function _requireValidSender() internal view virtual;
 
   /// @notice Check if a roundId is valid in this current contract state
   /// @dev Mainly used for AggregatorV2V3Interface functions
@@ -118,8 +116,8 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   /// @param timestamp The L1 block timestamp of status update
   /// @param updatedAt The timestamp to use for the updatedAt field (which should normally be uint64(block.timestamp))
   function _recordRound(uint80 roundId, bool status, uint64 timestamp, uint64 updatedAt) internal {
-    s_rounds[roundId] = Round(status, timestamp, updatedAt);
-    s_feedState = FeedState(roundId, status, timestamp, updatedAt);
+    s_rounds[roundId] = Round(timestamp, updatedAt, status);
+    s_feedState = FeedState(roundId, timestamp, updatedAt, status);
     emit NewRound(roundId, msg.sender, timestamp);
     emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
   }
@@ -128,7 +126,11 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
   /// @dev This function will revert if not called from `l1Sender` via the L1->L2 messenger.
   /// @param status Sequencer status
   /// @param timestamp Block timestamp of status update
-  function updateStatus(bool status, uint64 timestamp) external virtual requireInitialized requireValidSender {
+  function updateStatus(bool status, uint64 timestamp) external virtual requireInitialized {
+    // Checks that the sender can call updateStatus
+    _requireValidSender();
+
+    // Stores the feed state
     FeedState memory feedState = s_feedState;
 
     // Ignore if latest recorded timestamp is newer
@@ -137,6 +139,7 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersion
       return;
     }
 
+    // Record a new round or update an existing one
     if (feedState.latestStatus == status) {
       s_feedState.updatedAt = uint64(block.timestamp);
       s_rounds[feedState.latestRoundId].updatedAt = uint64(block.timestamp);

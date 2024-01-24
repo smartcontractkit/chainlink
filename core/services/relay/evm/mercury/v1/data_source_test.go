@@ -432,7 +432,6 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		// This can happen in some cases e.g. RPC node is offline
 		headTracker.On("LatestChain").Return((*evmtypes.Head)(nil))
-
 		ds.mercuryChainReader = evm.NewChainReader(headTracker)
 		obs := v1.Observation{}
 		err := ds.setLatestBlocks(testutils.Context(t), &obs)

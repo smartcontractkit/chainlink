@@ -25,6 +25,7 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
@@ -504,12 +505,6 @@ type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
 
-func defaultPathFromPluginName(pluginName string) string {
-	// By default we install the command on the system path, in the
-	// form: `chainlink-<plugin name>`
-	return fmt.Sprintf("chainlink-%s", pluginName)
-}
-
 func (d *Delegate) newServicesGenericPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -530,9 +525,11 @@ func (d *Delegate) newServicesGenericPlugin(
 		return nil, err
 	}
 
+	plugEnv := env.NewPlugin(p.PluginName)
+
 	command := p.Command
 	if command == "" {
-		command = defaultPathFromPluginName(p.PluginName)
+		command = plugEnv.Cmd.Get()
 	}
 
 	// Add the default pipeline to the pluginConfig
@@ -587,8 +584,22 @@ func (d *Delegate) newServicesGenericPlugin(
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
 	}
 
+	envVars, err := plugins.ParseEnvFile(plugEnv.Env.Get())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse median env file: %w", err)
+	}
+	if len(p.EnvVars) > 0 {
+		for k, v := range p.EnvVars {
+			envVars = append(envVars, k+"="+v)
+		}
+	}
+
 	pluginLggr := lggr.Named(p.PluginName).Named(spec.ContractID).Named(spec.GetID())
-	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()), command)
+	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(plugins.CmdConfig{
+		ID:  fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()),
+		Cmd: command,
+		Env: envVars,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register loop: %w", err)
 	}

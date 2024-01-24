@@ -35,7 +35,8 @@ contract OptimismCrossDomainGovernor is CrossDomainGovernor {
     return i_crossDomainMessengerAddr;
   }
 
-  function _onlyLocalOrCrossDomainOwner() internal view override {
+  /// @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
+  function _requireLocalOrCrossDomainOwner() internal view override {
     // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
     // solhint-disable-next-line custom-errors
     require(

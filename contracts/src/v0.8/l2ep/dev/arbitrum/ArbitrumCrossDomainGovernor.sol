@@ -23,6 +23,12 @@ contract ArbitrumCrossDomainGovernor is CrossDomainGovernor {
     return AddressAliasHelper.applyL1ToL2Alias(l1Owner());
   }
 
+  /// @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
+  function _requireLocalOrCrossDomainOwner() internal view override {
+    // solhint-disable-next-line custom-errors
+    require(msg.sender == crossDomainMessenger() || msg.sender == owner(), "Sender is not the L2 messenger or owner");
+  }
+
   /// @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyL1Owner() override {
     // solhint-disable-next-line custom-errors
@@ -35,13 +41,5 @@ contract ArbitrumCrossDomainGovernor is CrossDomainGovernor {
     // solhint-disable-next-line custom-errors
     require(msg.sender == AddressAliasHelper.applyL1ToL2Alias(s_l1PendingOwner), "Must be proposed L1 owner");
     _;
-  }
-
-  function _onlyLocalOrCrossDomainOwner() internal view override {
-    // solhint-disable-next-line custom-errors
-    require(
-      msg.sender == this.crossDomainMessenger() || msg.sender == owner(),
-      "Sender is not the L2 messenger or owner"
-    );
   }
 }

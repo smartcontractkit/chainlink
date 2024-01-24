@@ -35,10 +35,10 @@ contract ArbitrumValidator is Validator {
 
   /// Config for L1 -> L2 Arbitrum retryable ticket message
   struct GasConfig {
-    uint256 maxGas;
-    uint256 gasPriceBid;
+    uint256 maxGas; //
+    uint256 gasPriceBid; //
     uint256 baseFee; // Will use block.baseFee if set to 0
-    address gasPriceL1FeedAddr;
+    address gasPriceL1FeedAddr; //
   }
 
   /// Helper Variable(s)

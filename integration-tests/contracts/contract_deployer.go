@@ -21,6 +21,7 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
@@ -87,6 +88,7 @@ type ContractDeployer interface {
 	LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error)
 	DeployVRFContract() (VRF, error)
 	DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error)
+	DeployVRFMockETHLINKFeed(answer *big.Int) (VRFMockETHLINKFeed, error)
 	LoadETHLINKFeed(address common.Address) (MockETHLINKFeed, error)
 	DeployMockGasFeed(answer *big.Int) (MockGasFeed, error)
 	LoadGasFeed(address common.Address) (MockGasFeed, error)
@@ -113,6 +115,8 @@ type ContractDeployer interface {
 	DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error)
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
 	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
+	DeployVRFOwner(coordinatorAddr string) (VRFOwner, error)
+	DeployVRFCoordinatorTestV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (*EthereumVRFCoordinatorTestV2, error)
 	DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error)
 	DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error)
 	DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error)
@@ -696,6 +700,23 @@ func (e *EthereumContractDeployer) DeployMockETHLINKFeed(answer *big.Int) (MockE
 	return &EthereumMockETHLINKFeed{
 		client:  e.client,
 		feed:    instance.(*mock_ethlink_aggregator_wrapper.MockETHLINKAggregator),
+		address: address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployVRFMockETHLINKFeed(answer *big.Int) (VRFMockETHLINKFeed, error) {
+	address, _, instance, err := e.client.DeployContract("VRFMockETHLINKAggregator", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return vrf_mock_ethlink_aggregator.DeployVRFMockETHLINKAggregator(auth, backend, answer)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFMockETHLINKFeed{
+		client:  e.client,
+		feed:    instance.(*vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregator),
 		address: address,
 	}, err
 }

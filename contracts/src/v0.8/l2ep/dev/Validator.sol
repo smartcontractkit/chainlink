@@ -2,11 +2,11 @@
 pragma solidity 0.8.19;
 
 import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 import {SimpleWriteAccessController} from "../../shared/access/SimpleWriteAccessController.sol";
 
-abstract contract Validator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
+abstract contract Validator is ITypeAndVersion, AggregatorValidatorInterface, SimpleWriteAccessController {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
 

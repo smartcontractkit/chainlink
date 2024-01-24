@@ -11,6 +11,9 @@ contract OptimismSequencerUptimeFeed is SequencerUptimeFeed {
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "OptimismSequencerUptimeFeed 1.0.0";
 
+  /// @notice Address must not be the zero address
+  error ZeroAddress();
+
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   IL2CrossDomainMessenger private immutable s_l2CrossDomainMessenger;
 
@@ -22,18 +25,21 @@ contract OptimismSequencerUptimeFeed is SequencerUptimeFeed {
     address l2CrossDomainMessengerAddr,
     bool initialStatus
   ) SequencerUptimeFeed(l1SenderAddress, true) {
+    if (l2CrossDomainMessengerAddr == address(0)) {
+      revert ZeroAddress();
+    }
+
     s_l2CrossDomainMessenger = IL2CrossDomainMessenger(l2CrossDomainMessengerAddr);
 
     _recordRound(1, initialStatus, uint64(block.timestamp), uint64(block.timestamp));
   }
 
   /// @notice Reverts if the sender is not allowed to call `updateStatus`
-  modifier requireValidSender() override {
+  function _requireValidSender() internal view override {
     if (
       msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != l1Sender()
     ) {
       revert InvalidSender();
     }
-    _;
   }
 }
