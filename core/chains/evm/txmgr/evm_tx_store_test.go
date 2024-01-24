@@ -798,31 +798,6 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 	})
 }
 
-func TestORM_IsTxFinalized(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-
-	t.Run("confirmed tx not past finality_depth", func(t *testing.T) {
-		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
-		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 2, tx.ID, ethClient.ConfiguredChainID())
-		require.NoError(t, err)
-		require.False(t, finalized)
-	})
-
-	t.Run("confirmed tx past finality_depth", func(t *testing.T) {
-		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
-		finalized, err := txStore.IsTxFinalized(testutils.Context(t), 10, tx.ID, ethClient.ConfiguredChainID())
-		require.NoError(t, err)
-		require.True(t, finalized)
-	})
-}
-
 func TestORM_FindConfirmedTransactions(t *testing.T) {
 	t.Parallel()
 

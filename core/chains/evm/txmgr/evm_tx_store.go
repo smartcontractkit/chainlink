@@ -1179,25 +1179,6 @@ AND evm_chain_id = $1`, chainID.String()).Scan(&earliestUnconfirmedTxBlock)
 	return earliestUnconfirmedTxBlock, err
 }
 
-func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (finalized bool, err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
-	defer cancel()
-
-	var count int32
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	err = qq.GetContext(ctx, &count, `
-    SELECT COUNT(evm.receipts.receipt) FROM evm.txes
-    INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
-    INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
-    WHERE evm.receipts.block_number <= ($1 - evm.txes.min_confirmations)
-    AND evm.txes.id = $2 AND evm.txes.evm_chain_id = $3`, blockHeight, txID, chainID.String())
-	if err != nil {
-		return false, fmt.Errorf("failed to retrieve transaction reciepts: %w", err)
-	}
-	return count > 0, nil
-}
-
 func saveAttemptWithNewState(ctx context.Context, q pg.Queryer, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
 	var dbAttempt DbEthTxAttempt
 	dbAttempt.FromTxAttempt(&attempt)

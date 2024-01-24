@@ -254,11 +254,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 		}
 
 		switch tx.State {
-		case TxConfirmed:
-			if err := tr.handleConfirmedTx(tx, blockHeight); err != nil {
-				return fmt.Errorf("failed to handle confirmed txes: %w", err)
-			}
-		case TxConfirmedMissingReceipt, TxUnconfirmed:
+		case TxConfirmedMissingReceipt, TxUnconfirmed, TxConfirmed:
 			// Keep tracking tx
 		case TxInProgress, TxUnstarted:
 			// Tx could never be sent on chain even once. That means that we need to sign
@@ -269,28 +265,11 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 				return fmt.Errorf("failed to mark tx as fatal: %w", err)
 			}
 			delete(tr.txCache, id)
-		case TxFatalError:
+		case TxFatalError, TxFinalized:
 			delete(tr.txCache, id)
 		default:
 			tr.lggr.Errorw(fmt.Sprintf("unhandled transaction state: %v", tx.State))
 		}
-	}
-
-	return nil
-}
-
-// handleConfirmedTx removes a transaction from the tracker if it's been finalized on chain
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleConfirmedTx(
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	blockHeight int64,
-) error {
-	finalized, err := tr.txStore.IsTxFinalized(tr.ctx, blockHeight, tx.ID, tr.chainID)
-	if err != nil {
-		return fmt.Errorf("failed to check if tx is finalized: %w", err)
-	}
-
-	if finalized {
-		delete(tr.txCache, tx.ID)
 	}
 
 	return nil
