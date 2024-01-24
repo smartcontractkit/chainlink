@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 2.8.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.8.0 - 2024-01-24
 
 ### Added
 
@@ -91,9 +93,11 @@ Starting in `v2.9.0`:
 - `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
 - `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
 
-...
+## 2.7.2 - 2023-12-14
 
-<!-- unreleasedstop -->
+### Fixed
+
+- Fixed a bug that caused nodes without OCR or OCR2 enabled to fail config validation if `P2P.V2` was not explicitly disabled. With this fix, NOPs will not have to make changes to their config. 
 
 ## 2.7.1 - 2023-11-21
 
