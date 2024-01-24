@@ -84,7 +84,7 @@ require (
 	github.com/ugorji/go/codec v1.2.12
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/umbracle/ethgo v0.1.3
-	github.com/unrolled/secure v1.13.0
+	github.com/unrolled/secure v1.14.0
 	github.com/urfave/cli v1.22.14
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.1.0
