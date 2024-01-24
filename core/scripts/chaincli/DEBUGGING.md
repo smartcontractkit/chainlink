@@ -41,10 +41,10 @@ For detailed transaction simulation logs, set up Tenderly credentials. Refer to 
 
 Execute the following command based on your upkeep type:
 
-- For conditional upkeep:
+- For conditional upkeep, if a block number is given we use that block, otherwise we use the latest block:
 
     ```bash
-    go run main.go keeper debug UPKEEP_ID
+    go run main.go keeper debug UPKEEP_ID [OPTIONAL BLOCK_NUMBER]
     ```
 
 - For log trigger upkeep:
