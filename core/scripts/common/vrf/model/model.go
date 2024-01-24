@@ -49,3 +49,12 @@ type VRFKeyRegistrationConfig struct {
 	VRFKeyUncompressedPubKey string
 	RegisterAgainstAddress   string
 }
+
+type CoordinatorJobSpecConfig struct {
+	BatchFulfillmentEnabled       bool
+	BatchFulfillmentGasMultiplier float64
+	EstimateGasMultiplier         float64
+	PollPeriod                    string
+	RequestTimeout                string
+	RevertsPipelineEnabled        bool
+}
