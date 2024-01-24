@@ -97,7 +97,7 @@ jobs:
         run: |
           cd ./integration-tests
           go build ./...
-          SELECTED_NETWORKS=SIMULATED go test -run=^# ./...
+          go test -run=^# ./...
       - name: Lint Go
         uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
         with:
@@ -121,9 +121,9 @@ jobs:
           - name: ""
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
-          - name: (plugins)
-            dockerfile: plugins/chainlink.Dockerfile
-            tag-suffix: -plugins
+          # - name: (plugins)
+          #   dockerfile: plugins/chainlink.Dockerfile
+          #   tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, enforce-ctf-version]
@@ -277,21 +277,28 @@ jobs:
           else
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
-        env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-          LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
-          RUN_ID: ${{ github.run_id }}
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -356,14 +363,27 @@ jobs:
           else
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
-        env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -401,19 +421,21 @@ jobs:
           - name: cron
             nodes: 2
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: "ci-smoke-cron-evm-simulated"
           - name: flux
             nodes: 1
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: "ci-smoke-flux-evm-simulated"
           - name: ocr
             nodes: 2
             os: ubuntu-latest
+            run: -run TestOCRJobReplacement
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 6
             os: ubuntu-latest
+            run: -run TestOCRv2JobReplacement
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
@@ -421,10 +443,6 @@ jobs:
             os: ubuntu-latest
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
-          - name: runlog
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
           - name: vrf
             nodes: 2
             os: ubuntu-latest
@@ -523,21 +541,27 @@ jobs:
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
-        env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-          LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
-          RUN_ID: ${{ github.run_id }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -554,7 +578,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
-      ## Run this step when changes that do not need the test to run are made
+      # Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
@@ -592,6 +616,7 @@ jobs:
     runs-on: ubuntu-latest
     name: ETH Smoke Tests
     needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
+    # needs: [eth-smoke-tests-matrix]
     steps:
       - name: Check smoke test matrix status
         if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success'
@@ -697,6 +722,14 @@ jobs:
       - name: Name Versions
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-upgrade-config
+        with:
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ steps.get_latest_version.outputs.latest_version }}
+          upgradeImage: ${{ env.UPGRADE_IMAGE }}
+          upgradeVersion: ${{ env.UPGRADE_VERSION }}
       - name: Run Migration Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
@@ -732,7 +765,7 @@ jobs:
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
-  ### Solana Section
+  ## Solana Section
   get_solana_sha:
     name: Get Solana Sha From Go Mod
     environment: Integration

@@ -11,12 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
@@ -42,11 +42,17 @@ func TestOCRv2Basic(t *testing.T) {
 
 			l := logging.GetTestLogger(t)
 
-			network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+			config, err := tc.GetConfig("Smoke", tc.OCR2)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 			require.NoError(t, err, "Error building ethereum network config")
 
 			env, err := test_env.NewCLTestEnvBuilder().
 				WithTestInstance(t).
+				WithTestConfig(&config).
 				WithPrivateEthereumNetwork(network).
 				WithMockAdapter().
 				WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -124,11 +130,17 @@ func TestOCRv2Request(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -202,8 +214,14 @@ func TestOCRv2Request(t *testing.T) {
 func TestOCRv2JobReplacement(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
