@@ -1272,7 +1272,7 @@ describe('AutomationRegistry2_2', () => {
         }
       })
 
-      it.only('handles case when check block number is older than 256 blocks', async () => {
+      it('handles case when check block number is older than 256 blocks', async () => {
         for (let i = 0; i < 256; i++) {
           await ethers.provider.send('evm_mine', [])
         }
