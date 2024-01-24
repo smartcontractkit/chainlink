@@ -46,16 +46,6 @@ func (t *telemetryIngressConfig) UseBatchSend() bool {
 	return *t.c.UseBatchSend
 }
 
-// Deprecated: Use TelemetryIngressEndpoint.ServerPubKey, this field will be removed in future versions
-func (t *telemetryIngressConfig) ServerPubKey() string {
-	return *t.c.ServerPubKey
-}
-
-// Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
-func (t *telemetryIngressConfig) URL() *url.URL {
-	return t.c.URL.URL()
-}
-
 func (t *telemetryIngressConfig) Endpoints() []config.TelemetryIngressEndpoint {
 	var endpoints []config.TelemetryIngressEndpoint
 	for _, e := range t.c.Endpoints {

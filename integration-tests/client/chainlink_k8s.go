@@ -2,7 +2,6 @@
 package client
 
 import (
-	"fmt"
 	"os"
 	"regexp"
 
@@ -42,16 +41,8 @@ func NewChainlinkK8sClient(c *ChainlinkConfig, podName, chartName string) (*Chai
 // Note: You need to call Run() on the test environment for changes to take effect
 // Note: This function is not thread safe, call from a single thread
 func (c *ChainlinkK8sClient) UpgradeVersion(testEnvironment *environment.Environment, newImage, newVersion string) error {
-	if newVersion == "" {
-		return fmt.Errorf("new version is empty")
-	}
-	if newImage == "" {
-		newImage = os.Getenv("CHAINLINK_IMAGE")
-	}
 	log.Info().
 		Str("Chart Name", c.ChartName).
-		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
-		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
 		Str("New Image", newImage).
 		Str("New Version", newVersion).
 		Msg("Upgrading Chainlink Node")
