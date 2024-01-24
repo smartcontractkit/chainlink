@@ -73,7 +73,7 @@ runs:
       with:
         go-version-file: "go.mod"
     - name: Setup goreleaser
-      uses: goreleaser/goreleaser-action@b508e2e3ef3b19d4e4146d4f8fb3ba9db644a757 # v3.2.0
+      uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 # v5.0.0
       with:
         distribution: goreleaser
         install-only: true
