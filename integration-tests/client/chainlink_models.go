@@ -6,6 +6,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -628,7 +629,9 @@ func (d *PipelineSpec) String() (string, error) {
 
 // VRFV2TxPipelineSpec VRFv2 request with tx callback
 type VRFV2PlusTxPipelineSpec struct {
-	Address string
+	Address               string
+	EstimateGasMultiplier float64
+	FromAddress           string
 }
 
 // Type returns the type of the pipeline
@@ -650,9 +653,10 @@ generate_proof [type=vrfv2plus
                 topics="$(jobRun.logTopics)"]
 estimate_gas [type=estimategaslimit
              to="{{ .Address }}"
-             multiplier="1.1"
+             multiplier="{{ .EstimateGasMultiplier }}"
              data="$(generate_proof.output)"]
 simulate_fulfillment [type=ethcall
+					  from="{{ .FromAddress }}"	
                       to="{{ .Address }}"
                       gas="$(estimate_gas)"
                       gasPrice="$(jobSpec.maxGasPrice)"
@@ -665,7 +669,9 @@ decode_log->generate_proof->estimate_gas->simulate_fulfillment`
 
 // VRFV2TxPipelineSpec VRFv2 request with tx callback
 type VRFV2TxPipelineSpec struct {
-	Address string
+	Address               string
+	EstimateGasMultiplier float64
+	FromAddress           string
 }
 
 // Type returns the type of the pipeline
@@ -687,9 +693,10 @@ vrf          [type=vrfv2
              topics="$(jobRun.logTopics)"]
 estimate_gas [type=estimategaslimit
              to="{{ .Address }}"
-             multiplier="1.1"
+             multiplier="{{ .EstimateGasMultiplier }}"
              data="$(vrf.output)"]
 simulate [type=ethcall
+          from="{{ .FromAddress }}"
           to="{{ .Address }}"
           gas="$(estimate_gas)"
           gasPrice="$(jobSpec.maxGasPrice)"
@@ -1027,6 +1034,12 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	if o.OCR2OracleSpec.FeedID != nil {
 		feedID = o.OCR2OracleSpec.FeedID.Hex()
 	}
+	relayConfig, err := toml.Marshal(struct {
+		RelayConfig job.JSONConfig `toml:"relayConfig"`
+	}{RelayConfig: o.OCR2OracleSpec.RelayConfig})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal relay config: %w", err)
+	}
 	specWrap := struct {
 		Name                     string
 		JobType                  string
@@ -1036,7 +1049,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		FeedID                   string
 		Relay                    string
 		PluginType               string
-		RelayConfig              map[string]interface{}
+		RelayConfig              string
 		PluginConfig             map[string]interface{}
 		P2PV2Bootstrappers       []string
 		OCRKeyBundleID           string
@@ -1056,7 +1069,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		FeedID:                feedID,
 		Relay:                 string(o.OCR2OracleSpec.Relay),
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
-		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		RelayConfig:           string(relayConfig),
 		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
 		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
 		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
@@ -1071,37 +1084,37 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 type                                   = "{{ .JobType }}"
 name                                   = "{{.Name}}"
 forwardingAllowed                      = {{.ForwardingAllowed}}
-{{if .MaxTaskDuration}}
+{{- if .MaxTaskDuration}}
 maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
-{{if .PluginType}}
+{{- if .PluginType}}
 pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
 contractID                             = "{{.ContractID}}"
-{{if .FeedID}}
+{{- if .FeedID}}
 feedID                                 = "{{.FeedID}}" 
 {{end}}
-{{if eq .JobType "offchainreporting2" }}
+{{- if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
-{{if eq .JobType "offchainreporting2" }}
+{{- if eq .JobType "offchainreporting2" }}
 transmitterID                          = "{{.TransmitterID}}" {{end}}
-{{if .BlockchainTimeout}}
+{{- if .BlockchainTimeout}}
 blockchainTimeout                      = "{{.BlockchainTimeout}}" 
 {{end}}
-{{if .ContractConfirmations}}
+{{- if .ContractConfirmations}}
 contractConfigConfirmations            = {{.ContractConfirmations}} 
 {{end}}
-{{if .TrackerPollInterval}}
+{{- if .TrackerPollInterval}}
 contractConfigTrackerPollInterval      = "{{.TrackerPollInterval}}"
 {{end}}
-{{if .TrackerSubscribeInterval}}
+{{- if .TrackerSubscribeInterval}}
 contractConfigTrackerSubscribeInterval = "{{.TrackerSubscribeInterval}}"
 {{end}}
-{{if .P2PV2Bootstrappers}}
+{{- if .P2PV2Bootstrappers}}
 p2pv2Bootstrappers                     = [{{range .P2PV2Bootstrappers}}"{{.}}",{{end}}]{{end}}
-{{if .MonitoringEndpoint}}
+{{- if .MonitoringEndpoint}}
 monitoringEndpoint                     = "{{.MonitoringEndpoint}}" {{end}}
-{{if .ObservationSource}}
+{{- if .ObservationSource}}
 observationSource                      = """
 {{.ObservationSource}}
 """{{end}}
@@ -1109,26 +1122,28 @@ observationSource                      = """
 [pluginConfig]{{range $key, $value := .PluginConfig}}
 {{$key}} = {{$value}}{{end}}
 {{end}}
-[relayConfig]{{range $key, $value := .RelayConfig}}
-{{$key}} = {{$value}}{{end}}
+{{.RelayConfig}}
 `
 	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
 
 // VRFV2PlusJobSpec represents a VRFV2 job
 type VRFV2PlusJobSpec struct {
-	Name                     string        `toml:"name"`
-	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
-	ExternalJobID            string        `toml:"externalJobID"`
-	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
-	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
-	FromAddresses            []string      `toml:"fromAddresses"`
-	EVMChainID               string        `toml:"evmChainID"`
-	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
-	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
-	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
-	PollPeriod               time.Duration `toml:"pollPeriod"`
+	Name                          string        `toml:"name"`
+	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
+	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	ExternalJobID                 string        `toml:"externalJobID"`
+	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
+	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
+	FromAddresses                 []string      `toml:"fromAddresses"`
+	EVMChainID                    string        `toml:"evmChainID"`
+	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
+	BatchFulfillmentEnabled       bool          `toml:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64       `toml:"batchFulfillmentGasMultiplier"`
+	BackOffInitialDelay           time.Duration `toml:"backOffInitialDelay"`
+	BackOffMaxDelay               time.Duration `toml:"backOffMaxDelay"`
+	PollPeriod                    time.Duration `toml:"pollPeriod"`
+	RequestTimeout                time.Duration `toml:"requestTimeout"`
 }
 
 // Type returns the type of the job
@@ -1147,8 +1162,11 @@ minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"
 externalJobID            = "{{.ExternalJobID}}"
 batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
+batchFulfillmentGasMultiplier = {{.BatchFulfillmentGasMultiplier}}
 backoffInitialDelay     = "{{.BackOffInitialDelay}}"
 backoffMaxDelay         = "{{.BackOffMaxDelay}}"
+pollPeriod              = "{{.PollPeriod}}"
+requestTimeout          = "{{.RequestTimeout}}"
 observationSource = """
 {{.ObservationSource}}
 """
@@ -1158,17 +1176,24 @@ observationSource = """
 
 // VRFV2JobSpec represents a VRFV2 job
 type VRFV2JobSpec struct {
-	Name                     string        `toml:"name"`
-	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
-	ExternalJobID            string        `toml:"externalJobID"`
-	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
-	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
-	FromAddresses            []string      `toml:"fromAddresses"`
-	EVMChainID               string        `toml:"evmChainID"`
-	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
-	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
-	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
+	Name                          string        `toml:"name"`
+	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
+	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	ExternalJobID                 string        `toml:"externalJobID"`
+	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
+	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
+	FromAddresses                 []string      `toml:"fromAddresses"`
+	EVMChainID                    string        `toml:"evmChainID"`
+	UseVRFOwner                   bool          `toml:"useVRFOwner"`
+	VRFOwner                      string        `toml:"vrfOwnerAddress"`
+	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
+	CustomRevertsPipelineEnabled  bool          `toml:"customRevertsPipelineEnabled"`
+	PollPeriod                    time.Duration `toml:"pollPeriod"`
+	RequestTimeout                time.Duration `toml:"requestTimeout"`
+	BatchFulfillmentEnabled       bool          `toml:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64       `toml:"batchFulfillmentGasMultiplier"`
+	BackOffInitialDelay           time.Duration `toml:"backOffInitialDelay"`
+	BackOffMaxDelay               time.Duration `toml:"backOffMaxDelay"`
 }
 
 // Type returns the type of the job
@@ -1180,6 +1205,7 @@ func (v *VRFV2JobSpec) String() (string, error) {
 type                     = "vrf"
 schemaVersion            = 1
 name                     = "{{.Name}}"
+forwardingAllowed        = {{.ForwardingAllowed}}
 coordinatorAddress       = "{{.CoordinatorAddress}}"
 fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
@@ -1187,8 +1213,13 @@ minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"
 externalJobID            = "{{.ExternalJobID}}"
 batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
+batchFulfillmentGasMultiplier = {{.BatchFulfillmentGasMultiplier}}
 backoffInitialDelay     = "{{.BackOffInitialDelay}}"
 backoffMaxDelay         = "{{.BackOffMaxDelay}}"
+pollPeriod              = "{{.PollPeriod}}"
+requestTimeout          = "{{.RequestTimeout}}"
+customRevertsPipelineEnabled = true
+{{ if .UseVRFOwner }}vrfOwnerAddress                = "{{.VRFOwner}}"{{ else }}{{ end }}
 observationSource = """
 {{.ObservationSource}}
 """

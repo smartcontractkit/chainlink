@@ -11,17 +11,25 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestOCRBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	config, err := tc.GetConfig("Smoke", tc.OCR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodes(6).
@@ -67,8 +75,14 @@ func TestOCRJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig("Smoke", tc.OCR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(6).

@@ -61,7 +61,7 @@ contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeed
     vm.startPrank(s_strangerAddr, s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.InvalidSender.selector));
+    vm.expectRevert(OptimismSequencerUptimeFeed.InvalidSender.selector);
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -74,7 +74,7 @@ contract OptimismSequencerUptimeFeed_UpdateStatus is OptimismSequencerUptimeFeed
     s_mockOptimismL2CrossDomainMessenger.setSender(s_strangerAddr);
 
     // Tries to update the status from an unauthorized account
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.InvalidSender.selector));
+    vm.expectRevert(OptimismSequencerUptimeFeed.InvalidSender.selector);
     s_optimismSequencerUptimeFeed.updateStatus(true, uint64(1));
   }
 
@@ -257,7 +257,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getRoundData(2);
   }
 
@@ -267,7 +267,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getAnswer(2);
   }
 
@@ -277,7 +277,7 @@ contract OptimismSequencerUptimeFeed_AggregatorV3Interface is OptimismSequencerU
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Gets data from a round that has not happened yet
-    vm.expectRevert(abi.encodeWithSelector(OptimismSequencerUptimeFeed.NoDataPresent.selector));
+    vm.expectRevert(OptimismSequencerUptimeFeed.NoDataPresent.selector);
     s_optimismSequencerUptimeFeed.getTimestamp(2);
   }
 }

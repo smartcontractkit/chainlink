@@ -54,7 +54,7 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 		URLs:                      []string{cfg.NetworkWSURL},
 		HTTPURLs:                  []string{cfg.NetworkHTTPURL},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
+		Timeout:                   blockchain.StrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
