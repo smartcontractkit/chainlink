@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/big"
 	"os"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -46,9 +45,6 @@ func printGetLegacyGas(ctx context.Context, e gas.EvmEstimator, calldata []byte,
 }
 
 const max = 50_000_000
-const bumpPercent = 20
-
-var bumpMin = assets.NewWei(big.NewInt(5_000_000_000))
 
 func withEstimator(ctx context.Context, lggr logger.SugaredLogger, url string, f func(e gas.EvmEstimator)) {
 	rc, err := rpc.Dial(url)
@@ -56,7 +52,7 @@ func withEstimator(ctx context.Context, lggr logger.SugaredLogger, url string, f
 		log.Fatal(err)
 	}
 	ec := ethclient.NewClient(rc)
-	e := gas.NewArbitrumEstimator(lggr, &config{max: max, bumpPercent: bumpPercent, bumpMin: bumpMin}, rc, ec)
+	e := gas.NewArbitrumEstimator(lggr, &config{max: max}, rc, ec)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	err = e.Start(ctx)
