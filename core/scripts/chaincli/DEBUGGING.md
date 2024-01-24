@@ -22,7 +22,7 @@ Ensure the following fields are provided in your `.env` file:
 
 #### Optional Fields (Streams Lookup)
 
-If your targeted upkeep involves streams lookup, include the following information:
+If your targeted upkeep involves streams lookup, please provide the following details. If you are using Data Streams v0.3 (which is likely), only provide the DATA_STREAMS_URL. The DATA_STREAMS_LEGACY_URL is specifically for Data Streams v0.2.
 
 - `DATA_STREAMS_ID`
 - `DATA_STREAMS_KEY`

@@ -1,0 +1,61 @@
+# product defaults
+[LogPoller]
+[LogPoller.General]
+generator = "looped"
+contracts = 2
+events_per_tx = 4
+use_finality_tag = true
+
+[LogPoller.Looped]
+execution_count = 100
+min_emit_wait_time_ms = 200
+max_emit_wait_time_ms = 500
+
+# test-specific
+[TestLogPollerFewFiltersFixedDepth.LogPoller.General]
+use_finality_tag = false
+
+[TestLogManyFiltersPollerFinalityTag.LogPoller.General]
+contracts = 300
+events_per_tx = 3
+
+[TestLogManyFiltersPollerFinalityTag.LogPoller.Looped]
+execution_count = 30
+
+[TestLogManyFiltersPollerFixedDepth.LogPoller.General]
+use_finality_tag = false
+contracts = 300
+events_per_tx = 3
+
+[TestLogManyFiltersPollerFixedDepth.LogPoller.Looped]
+execution_count = 30
+
+[TestLogPollerWithChaosFinalityTag.LogPoller.General]
+execution_count = 30
+[TestLogPollerWithChaosFinalityTag.LogPoller.Chaos]
+experiment_count = 4
+target_component = "chainlink"
+
+[TestLogPollerWithChaosFixedDepth.LogPoller.General]
+execution_count = 30
+use_finality_tag = false
+[TestLogPollerWithChaosFixedDepth.LogPoller.Chaos]
+experiment_count = 4
+target_component = "chainlink"
+
+[TestLogPollerWithChaosPostgresFinalityTag.LogPoller.General]
+execution_count = 30
+[TestLogPollerWithChaosPostgresFinalityTag.LogPoller.Chaos]
+experiment_count = 4
+target_component = "postgres"
+
+[TestLogPollerWithChaosPostgresFixedDepth.LogPoller.General]
+execution_count = 30
+use_finality_tag = false
+[TestLogPollerWithChaosPostgresFixedDepth.LogPoller.Chaos]
+experiment_count = 4
+target_component = "postgres"
+
+[TestLogPollerReplayFixedDepth.LogPoller.General]
+use_finality_tag = false
+
