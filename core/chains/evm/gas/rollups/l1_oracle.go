@@ -31,8 +31,8 @@ type ethClient interface {
 }
 
 type priceEntry struct {
-	price          *assets.Wei
-	timestamp			time.Time
+	price     *assets.Wei
+	timestamp time.Time
 }
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
@@ -269,7 +269,7 @@ func (o *l1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err erro
 	}
 	// Validate the price has been updated within the pollPeriod * 2
 	// Allowing double the poll period before declaring the price stale to give ample time for the refresh to process
-	if time.Since(timestamp) > o.pollPeriod * 2 {
+	if time.Since(timestamp) > o.pollPeriod*2 {
 		return l1GasPrice, fmt.Errorf("gas price is stale")
 	}
 	return
