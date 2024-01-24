@@ -452,7 +452,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
       upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
-      skipReorgProtection: s_skipReorgProtection
+      skipReorgProtection: s_hotVars.skipReorgProtection
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);

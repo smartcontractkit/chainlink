@@ -102,7 +102,8 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
         report.triggers[i],
-        upkeepTransmitInfo[i]
+        upkeepTransmitInfo[i],
+        hotVars
       );
 
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
@@ -312,7 +313,8 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       paused: s_hotVars.paused,
       reentrancyGuard: s_hotVars.reentrancyGuard,
       totalPremium: totalPremium,
-      latestEpoch: 0 // DON restarts epoch
+      latestEpoch: 0, // DON restarts epoch
+      skipReorgProtection: onchainConfig.skipReorgProtection
     });
 
     s_storage = Storage({
@@ -331,7 +333,10 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
+<<<<<<< HEAD
     s_skipReorgProtection = onchainConfig.skipReorgProtection;
+=======
+>>>>>>> AUTO-8798
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(_blockNum());

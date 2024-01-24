@@ -69,7 +69,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   Mode internal immutable i_mode;
   address internal immutable i_automationForwarderLogic;
   address internal immutable i_allowedReadOnlyAddress;
-  bool internal s_skipReorgProtection;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -311,16 +310,16 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
 
   /// @dev Config + State storage struct which is on hot transmit path
   struct HotVars {
-    uint8 f; // maximum number of faulty oracles
-    uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
-    uint32 flatFeeMicroLink; // flat fee charged to user for every perform
-    uint24 stalenessSeconds; // Staleness tolerance for feeds
-    uint16 gasCeilingMultiplier; // multiplier on top of fast gas feed for upper bound
-    bool paused; // pause switch for all upkeeps in the registry
-    bool reentrancyGuard; // guard against reentrancy
-    uint96 totalPremium; // total historical payment to oracles for premium
-    uint32 latestEpoch; // latest epoch for which a report was transmitted
-    // 1 EVM word full
+    uint96 totalPremium; // ─────────╮ total historical payment to oracles for premium
+    uint32 paymentPremiumPPB; //     │ premium percentage charged to user over tx cost
+    uint32 flatFeeMicroLink; //      │ flat fee charged to user for every perform
+    uint32 latestEpoch; //           │ latest epoch for which a report was transmitted
+    uint24 stalenessSeconds; //      │ Staleness tolerance for feeds
+    uint16 gasCeilingMultiplier; //  │ multiplier on top of fast gas feed for upper bound
+    uint8 f; //                      │ maximum number of faulty oracles
+    bool paused; //                  │ pause switch for all upkeeps in the registry
+    bool reentrancyGuard; // ────────╯ guard against reentrancy
+    bool skipReorgProtection; //     if this registry should skip re-org protection mechanism
   }
 
   /// @dev Config + State storage struct which is not on hot transmit path
@@ -741,14 +740,15 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   function _prePerformChecks(
     uint256 upkeepId,
     bytes memory rawTrigger,
-    UpkeepTransmitInfo memory transmitInfo
+    UpkeepTransmitInfo memory transmitInfo,
+    HotVars memory hotVars
   ) internal returns (bool, bytes32) {
     bytes32 dedupID;
     if (transmitInfo.triggerType == Trigger.CONDITION) {
-      if (!_validateConditionalTrigger(upkeepId, rawTrigger, transmitInfo)) return (false, dedupID);
+      if (!_validateConditionalTrigger(upkeepId, rawTrigger, transmitInfo, hotVars)) return (false, dedupID);
     } else if (transmitInfo.triggerType == Trigger.LOG) {
       bool valid;
-      (valid, dedupID) = _validateLogTrigger(upkeepId, rawTrigger);
+      (valid, dedupID) = _validateLogTrigger(upkeepId, rawTrigger, hotVars);
       if (!valid) return (false, dedupID);
     } else {
       revert InvalidTriggerType();
@@ -773,7 +773,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   function _validateConditionalTrigger(
     uint256 upkeepId,
     bytes memory rawTrigger,
-    UpkeepTransmitInfo memory transmitInfo
+    UpkeepTransmitInfo memory transmitInfo,
+    HotVars memory hotVars
   ) internal returns (bool) {
     ConditionalTrigger memory trigger = abi.decode(rawTrigger, (ConditionalTrigger));
     if (trigger.blockNum < transmitInfo.upkeep.lastPerformedBlockNumber) {
@@ -782,7 +783,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       return false;
     }
     if (
-      (!s_skipReorgProtection &&
+      (!hotVars.skipReorgProtection &&
         (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
@@ -798,11 +799,15 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     return true;
   }
 
-  function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool, bytes32) {
+  function _validateLogTrigger(
+    uint256 upkeepId,
+    bytes memory rawTrigger,
+    HotVars memory hotVars
+  ) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (
-      (!s_skipReorgProtection &&
+      (!hotVars.skipReorgProtection &&
         (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
