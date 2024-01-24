@@ -68,7 +68,6 @@ enum Mode {
   DEFAULT,
   ARBITRUM,
   OPTIMISM,
-  SCROLL,
 }
 
 // copied from AutomationRegistryBase2_2.sol
