@@ -301,6 +301,12 @@ var networkConfig = map[string]NetworkConfig{
 		deltaStage: 20 * time.Second,
 		funding:    big.NewFloat(ChainlinkNodeFunding),
 	},
+	"GnosisChiado": {
+		upkeepSLA:  int64(120),
+		blockTime:  6 * time.Second,
+		deltaStage: 20 * time.Second,
+		funding:    big.NewFloat(ChainlinkNodeFunding),
+	},
 }
 
 func getEnv(key, fallback string) string {
