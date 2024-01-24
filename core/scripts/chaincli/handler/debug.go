@@ -75,7 +75,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	registryAddress := gethcommon.HexToAddress(k.cfg.RegistryAddress)
 	keeperRegistry21, err := iregistry21.NewIKeeperRegistryMaster(registryAddress, k.client)
 	if err != nil {
-		failUnknown("failed to connect to registry contract", err)
+		failUnknown("failed to connect to the registry contract", err)
 	}
 
 	// verify contract is correct
