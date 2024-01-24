@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -23,12 +24,21 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
+
+var ocr2vrfSmokeConfig *testconfig.TestConfig
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -44,7 +54,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -91,6 +101,11 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -106,7 +121,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
+		err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -149,7 +164,15 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 }
 
 func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
+	if ocr2vrfSmokeConfig == nil {
+		c, err := testconfig.GetConfig("Smoke", tc.OCR2VRF)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ocr2vrfSmokeConfig = &c
+	}
+
+	testNetwork = networks.MustGetSelectedNetworkConfig(ocr2vrfSmokeConfig.Network)[0]
 	evmConfig := eth.New(nil)
 	if !testNetwork.Simulated {
 		evmConfig = eth.New(&eth.Props{
@@ -159,14 +182,20 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		})
 	}
 
-	cd := chainlink.New(0, map[string]interface{}{
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(ocr2vrfSmokeConfig.ChainlinkImage, target)
+		ctf_config.MightConfigOverridePyroscopeKey(ocr2vrfSmokeConfig.Pyroscope, target)
+	}
+
+	cd := chainlink.NewWithOverride(0, map[string]interface{}{
 		"replicas": 6,
 		"toml": networks.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
+			ocr2vrfSmokeConfig.Pyroscope,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			testNetwork,
 		),
-	})
+	}, ocr2vrfSmokeConfig.ChainlinkImage, overrideFn)
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
