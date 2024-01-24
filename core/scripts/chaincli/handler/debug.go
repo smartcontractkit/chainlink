@@ -257,7 +257,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
-		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.MercuryLegacyURL, URL: k.cfg.MercuryURL, Username: k.cfg.MercuryID, Password: k.cfg.MercuryKey}
+		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.DataStreamsLegacyURL, URL: k.cfg.DataStreamsURL, Username: k.cfg.DataStreamsID, Password: k.cfg.DataStreamsKey}
 		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)
 		lggr, _ := logger.NewLogger()
 		blockSub := &blockSubscriber{k.client}
@@ -282,25 +282,25 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			}
 
 			if streamsLookup.IsMercuryV02() {
-				message("using mercury lookup v0.2")
+				message("using data streams lookup v0.2")
 				// check if upkeep is allowed to use mercury v0.2
 				var allowed bool
 				_, _, _, allowed, err = streams.AllowedToUseMercury(triggerCallOpts, upkeepID)
 				if err != nil {
-					failUnknown("failed to check if upkeep is allowed to use mercury", err)
+					failUnknown("failed to check if upkeep is allowed to use data streams", err)
 				}
 				if !allowed {
 					resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
 				}
 			} else if streamsLookup.IsMercuryV03() {
 				// handle v0.3
-				message("using mercury lookup v0.3")
+				message("using data streams lookup v0.3")
 			} else {
 				resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
 			}
 
-			if k.cfg.MercuryLegacyURL == "" || k.cfg.MercuryURL == "" || k.cfg.MercuryID == "" || k.cfg.MercuryKey == "" {
-				failCheckConfig("Mercury configs not set properly, check your MERCURY_LEGACY_URL, MERCURY_URL, MERCURY_ID and MERCURY_KEY", nil)
+			if k.cfg.DataStreamsLegacyURL == "" || k.cfg.DataStreamsURL == "" || k.cfg.DataStreamsID == "" || k.cfg.DataStreamsKey == "" {
+				failCheckConfig("Data streams configs not set properly, check your DATA_STREAMS_LEGACY_URL, DATA_STREAMS_URL, DATA_STREAMS_ID and DATA_STREAMS_KEY", nil)
 			}
 
 			// do mercury request
@@ -314,16 +314,16 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
 			if checkResults[0].PipelineExecutionState == uint8(encoding.InvalidMercuryRequest) {
-				resolveIneligible("the mercury request data is invalid")
+				resolveIneligible("the data streams request data is invalid")
 			}
 			if err != nil {
-				failCheckConfig("failed to do mercury request ", err)
+				failCheckConfig("failed to do data streams request ", err)
 			}
 
 			// do checkCallback
 			err = streams.CheckCallback(ctx, values, streamsLookup, checkResults, 0)
 			if err != nil {
-				failUnknown("failed to execute mercury callback ", err)
+				failUnknown("failed to execute data streams callback ", err)
 			}
 			if checkResults[0].IneligibilityReason != 0 {
 				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResults[0].IneligibilityReason))
