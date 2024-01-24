@@ -208,7 +208,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    * @member transcoder address of the transcoder contract
    * @member registrars addresses of the registrar contracts
    * @member upkeepPrivilegeManager address which can set privilege for upkeeps
-   * @member skipReorgProtection if this registry will skip re-org protection checks
+   * @member reorgProtectionEnabled if this registry will enable re-org protection checks
    */
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
@@ -226,7 +226,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     address transcoder;
     address[] registrars;
     address upkeepPrivilegeManager;
-    bool skipReorgProtection;
+    bool reorgProtectionEnabled;
   }
 
   /**
@@ -318,7 +318,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     uint8 f; //                      │ maximum number of faulty oracles
     bool paused; //                  │ pause switch for all upkeeps in the registry
     bool reentrancyGuard; // ────────╯ guard against reentrancy
-    bool skipReorgProtection; //     if this registry should skip re-org protection mechanism
+    bool reorgProtectionEnabled; //    if this registry should enable re-org protection mechanism
   }
 
   /// @dev Config + State storage struct which is not on hot transmit path
@@ -778,7 +778,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
       return false;
     }
     if (
-      (!hotVars.skipReorgProtection &&
+      (hotVars.reorgProtectionEnabled &&
         (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {
@@ -802,7 +802,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (
-      (!hotVars.skipReorgProtection &&
+      (hotVars.reorgProtectionEnabled &&
         (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= _blockNum()
     ) {

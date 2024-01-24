@@ -310,7 +310,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       reentrancyGuard: s_hotVars.reentrancyGuard,
       totalPremium: totalPremium,
       latestEpoch: 0, // DON restarts epoch
-      skipReorgProtection: onchainConfig.skipReorgProtection
+      reorgProtectionEnabled: onchainConfig.reorgProtectionEnabled
     });
 
     s_storage = Storage({
