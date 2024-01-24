@@ -36,4 +36,12 @@ contract ArbitrumCrossDomainGovernor is CrossDomainGovernor {
     require(msg.sender == AddressAliasHelper.applyL1ToL2Alias(s_l1PendingOwner), "Must be proposed L1 owner");
     _;
   }
+
+  function _onlyLocalOrCrossDomainOwner() internal view override {
+    // solhint-disable-next-line custom-errors
+    require(
+      msg.sender == this.crossDomainMessenger() || msg.sender == owner(),
+      "Sender is not the L2 messenger or owner"
+    );
+  }
 }
