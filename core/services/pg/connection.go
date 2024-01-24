@@ -1,7 +1,6 @@
 package pg
 
 import (
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -35,8 +34,6 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		// txdb.Register
 		uri = uuid.New().String()
 	}
-
-<<<<<<< HEAD
 	// Initialize sql/sqlx
 	sqldb, err := otelsql.Open(string(dialect), uri,
 		otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
@@ -49,27 +46,10 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 			OmitConnectorConnect: true,
 			OmitConnQuery:        false,
 		}),
-=======
-	driverName, err := otelsql.Register(string(dialect),
-		otelsql.AllowRoot(),
-		otelsql.TraceQueryWithoutArgs(),
-		otelsql.TraceRowsClose(),
-		otelsql.TraceRowsAffected(),
-		otelsql.WithSystem(semconv.DBSystemPostgreSQL),
->>>>>>> c663024e86 (feature/sql-tracing: adding tracing to our db)
 	)
 	if err != nil {
 		return nil, err
 	}
-<<<<<<< HEAD
-=======
-
-	// Initialize sql/sqlx
-	sqldb, err := sql.Open(driverName, uri)
-	if err != nil {
-		return nil, err
-	}
->>>>>>> c663024e86 (feature/sql-tracing: adding tracing to our db)
 	db = sqlx.NewDb(sqldb, string(dialect))
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 

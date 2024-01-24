@@ -2,6 +2,7 @@ run:
   timeout: 15m0s
 linters:
   enable:
+    - contextcheck
     - exhaustive
     - exportloopref
     - revive
