@@ -200,6 +200,7 @@ func TestOCRv2Request(t *testing.T) {
 }
 
 func TestOCRv2JobReplacement(t *testing.T) {
+	t.Parallel()
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
