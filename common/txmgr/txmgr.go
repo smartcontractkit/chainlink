@@ -522,7 +522,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		return tx, fmt.Errorf("Txm#CreateTransaction: %w", err)
 	}
 
-	tx, err = b.createTxnAndPruneQueue(ctx, txRequest, b.chainID)
+	tx, err = b.pruneQueueAndCreateTxn(ctx, txRequest, b.chainID)
 	if err != nil {
 		return tx, err
 	}
@@ -562,7 +562,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		FeeLimit:       gasLimit,
 		Strategy:       NewSendEveryStrategy(),
 	}
-	etx, err = b.createTxnAndPruneQueue(ctx, txRequest, chainID)
+	etx, err = b.pruneQueueAndCreateTxn(ctx, txRequest, chainID)
 	if err != nil {
 		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %w", err)
 	}
@@ -683,7 +683,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Cou
 	return count, errors.New(n.ErrMsg)
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) createTxnAndPruneQueue(
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueueAndCreateTxn(
 	ctx context.Context,
 	txRequest txmgrtypes.TxRequest[ADDR, TX_HASH],
 	chainID CHAIN_ID,

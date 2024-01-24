@@ -61,7 +61,7 @@ func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrty
 	ctx, cancel = context.WithTimeout(ctx, s.queryTimeout)
 	defer cancel()
 
-	// NOTE: We prune one less than the queue size because we will be adding a new transaction to the queue right after this PruneQueue call
+	// NOTE: We prune one less than the queue size to prevent the queue from exceeding the max queue size. Which could occur if a new transaction is added to the queue right after we prune.
 	ids, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize-1, s.subject)
 	if err != nil {
 		return ids, fmt.Errorf("DropOldestStrategy#PruneQueue failed: %w", err)
