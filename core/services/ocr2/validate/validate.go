@@ -136,10 +136,11 @@ type Config struct {
 }
 
 type innerConfig struct {
-	Command       string `json:"command"`
-	ProviderType  string `json:"providerType"`
-	PluginName    string `json:"pluginName"`
-	TelemetryType string `json:"telemetryType"`
+	Command       string            `json:"command"`
+	EnvVars       map[string]string `json:"envVars"`
+	ProviderType  string            `json:"providerType"`
+	PluginName    string            `json:"pluginName"`
+	TelemetryType string            `json:"telemetryType"`
 	Config
 }
 
