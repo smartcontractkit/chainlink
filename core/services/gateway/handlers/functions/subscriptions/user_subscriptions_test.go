@@ -1,4 +1,4 @@
-package functions_test
+package subscriptions_test
 
 import (
 	"math/big"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,7 +14,7 @@ import (
 func TestUserSubscriptions(t *testing.T) {
 	t.Parallel()
 
-	us := functions.NewUserSubscriptions()
+	us := subscriptions.NewUserSubscriptions()
 
 	t.Run("GetMaxUserBalance for unknown user", func(t *testing.T) {
 		_, err := us.GetMaxUserBalance(utils.RandomAddress())
@@ -60,7 +60,7 @@ func TestUserSubscriptions_UpdateSubscription(t *testing.T) {
 	t.Parallel()
 
 	t.Run("update balance", func(t *testing.T) {
-		us := functions.NewUserSubscriptions()
+		us := subscriptions.NewUserSubscriptions()
 		owner := utils.RandomAddress()
 
 		updated := us.UpdateSubscription(1, &functions_router.IFunctionsSubscriptionsSubscription{
@@ -77,7 +77,7 @@ func TestUserSubscriptions_UpdateSubscription(t *testing.T) {
 	})
 
 	t.Run("updated proposed owner", func(t *testing.T) {
-		us := functions.NewUserSubscriptions()
+		us := subscriptions.NewUserSubscriptions()
 		owner := utils.RandomAddress()
 
 		updated := us.UpdateSubscription(1, &functions_router.IFunctionsSubscriptionsSubscription{
@@ -94,7 +94,7 @@ func TestUserSubscriptions_UpdateSubscription(t *testing.T) {
 		assert.True(t, updated)
 	})
 	t.Run("remove subscriptions", func(t *testing.T) {
-		us := functions.NewUserSubscriptions()
+		us := subscriptions.NewUserSubscriptions()
 		user2 := utils.RandomAddress()
 		user2Balance1 := big.NewInt(50)
 		user2Balance2 := big.NewInt(70)
@@ -126,7 +126,7 @@ func TestUserSubscriptions_UpdateSubscription(t *testing.T) {
 	})
 
 	t.Run("remove a non existing subscription", func(t *testing.T) {
-		us := functions.NewUserSubscriptions()
+		us := subscriptions.NewUserSubscriptions()
 		updated := us.UpdateSubscription(3, &functions_router.IFunctionsSubscriptionsSubscription{
 			Owner: utils.ZeroAddress,
 		})
@@ -134,7 +134,7 @@ func TestUserSubscriptions_UpdateSubscription(t *testing.T) {
 	})
 
 	t.Run("no actual changes", func(t *testing.T) {
-		us := functions.NewUserSubscriptions()
+		us := subscriptions.NewUserSubscriptions()
 		subscription := &functions_router.IFunctionsSubscriptionsSubscription{
 			Owner:          utils.RandomAddress(),
 			Balance:        big.NewInt(25),

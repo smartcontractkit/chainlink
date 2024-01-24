@@ -23,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	fallow "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
+	fsub "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -60,10 +62,10 @@ var (
 type FunctionsHandlerConfig struct {
 	ChainID string `json:"chainId"`
 	// Not specifying OnchainAllowlist config disables allowlist checks
-	OnchainAllowlist *OnchainAllowlistConfig `json:"onchainAllowlist"`
+	OnchainAllowlist *fallow.OnchainAllowlistConfig `json:"onchainAllowlist"`
 	// Not specifying OnchainSubscriptions config disables minimum balance checks
-	OnchainSubscriptions       *OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
-	MinimumSubscriptionBalance *assets.Link                `json:"minimumSubscriptionBalance"`
+	OnchainSubscriptions       *fsub.OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
+	MinimumSubscriptionBalance *assets.Link                     `json:"minimumSubscriptionBalance"`
 	// Not specifying RateLimiter config disables rate limiting
 	UserRateLimiter            *hc.RateLimiterConfig `json:"userRateLimiter"`
 	NodeRateLimiter            *hc.RateLimiterConfig `json:"nodeRateLimiter"`
@@ -79,8 +81,8 @@ type functionsHandler struct {
 	donConfig                  *config.DONConfig
 	don                        handlers.DON
 	pendingRequests            hc.RequestCache[PendingRequest]
-	allowlist                  OnchainAllowlist
-	subscriptions              OnchainSubscriptions
+	allowlist                  fallow.OnchainAllowlist
+	subscriptions              fsub.OnchainSubscriptions
 	minimumBalance             *assets.Link
 	userRateLimiter            *hc.RateLimiter
 	nodeRateLimiter            *hc.RateLimiter
@@ -105,13 +107,18 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 		return nil, err
 	}
 	lggr = lggr.Named("FunctionsHandler:" + donConfig.DonId)
-	var allowlist OnchainAllowlist
+	var allowlist fallow.OnchainAllowlist
 	if cfg.OnchainAllowlist != nil {
 		chain, err2 := legacyChains.Get(cfg.ChainID)
 		if err2 != nil {
 			return nil, err2
 		}
-		allowlist, err2 = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, lggr)
+
+		orm, err2 := fallow.NewORM(db, lggr, qcfg, cfg.OnchainAllowlist.ContractAddress)
+		if err2 != nil {
+			return nil, err2
+		}
+		allowlist, err2 = fallow.NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, orm, lggr)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -129,19 +136,19 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err
 		}
 	}
-	var subscriptions OnchainSubscriptions
+	var subscriptions fsub.OnchainSubscriptions
 	if cfg.OnchainSubscriptions != nil {
 		chain, err2 := legacyChains.Get(cfg.ChainID)
 		if err2 != nil {
 			return nil, err2
 		}
 
-		orm, err2 := NewORM(db, lggr, qcfg, cfg.OnchainSubscriptions.ContractAddress)
+		orm, err2 := fsub.NewORM(db, lggr, qcfg, cfg.OnchainSubscriptions.ContractAddress)
 		if err2 != nil {
 			return nil, err2
 		}
 
-		subscriptions, err2 = NewOnchainSubscriptions(chain.Client(), *cfg.OnchainSubscriptions, orm, lggr)
+		subscriptions, err2 = fsub.NewOnchainSubscriptions(chain.Client(), *cfg.OnchainSubscriptions, orm, lggr)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -159,8 +166,8 @@ func NewFunctionsHandler(
 	donConfig *config.DONConfig,
 	don handlers.DON,
 	pendingRequestsCache hc.RequestCache[PendingRequest],
-	allowlist OnchainAllowlist,
-	subscriptions OnchainSubscriptions,
+	allowlist fallow.OnchainAllowlist,
+	subscriptions fsub.OnchainSubscriptions,
 	minimumBalance *assets.Link,
 	userRateLimiter *hc.RateLimiter,
 	nodeRateLimiter *hc.RateLimiter,
