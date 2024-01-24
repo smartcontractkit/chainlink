@@ -83,8 +83,12 @@ go.work*
 # This sometimes shows up for some reason
 tools/flakeytests/coverage.txt
 
+# Integration tests create these files
 .test_summary/
 .run.id
 
 # Fuzz tests can create these files
 **/testdata/fuzz/*
+
+# Runtime test configuration that might contain secrets
+overrides.toml

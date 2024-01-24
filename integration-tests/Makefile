@@ -60,12 +60,12 @@ lint:
 	golangci-lint --color=always run ./... --fix -v
 
 build:
-	@go build ./... && SELECTED_NETWORKS=SIMULATED go test -run=^# ./...
+	@go build ./... go test -run=^# ./...
 
 # Builds the test image
 # tag: the tag for the test image being built, example: tag=tate
 # base_tag: the tag for the base-test-image to use, example: base_tag=latest
-# suite: the test suites to build into the image, example: suite="chaos soak smoke reorg migration performance"
+# suite: the test suites to build into the image, example: suite="chaos soak smoke reorg migration"
 # push: set to true if you want the image pushed or leave blank if not, example: push=true
 .PHONY: build_test_image
 build_test_image:
@@ -89,10 +89,11 @@ run_tracing:
 
 ## Test Runner
 .PHONY: run
-run: # Need to set network first in case it's unset. Doesn't matter for the runner
-	SELECTED_NETWORKS="SIMULATED" go run .
+run:
+	go run .
 
 ## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
+## Remember to set selected_networks and CL image in the TOML file (e.g. overrides.toml)
 
 # Smoke
 .PHONY: test_smoke_product
@@ -122,23 +123,15 @@ test_chaos_network: install_gotestfmt ## Run all smoke tests
 test_chaos_verbose: ## Run all smoke tests with verbose logging
 	go test -timeout 24h -count=1 -v $(args) ./chaos
 
-# Performance
-.PHONY: test_perf
-test_perf: ## Run core node performance tests.
-	TEST_LOG_LEVEL="disabled" \
-	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
-	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt
-
 # Migrations
 .PHONY: test_node_migrations
-test_node_migrations: install_gotestfmt ## Run all node migration tests
+test_node_migrations: install_gotestfmt ## Run all node migration tests.
 	TEST_LOG_LEVEL="disabled" \
 	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_node_migrations_simulated
-test_node_migrations_simulated: install_gotestfmt
+test_node_migrations_simulated: install_gotestfmt 
 	TEST_LOG_LEVEL="disabled" \
-	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_node_migrations_verbose
@@ -147,7 +140,6 @@ test_node_migrations_verbose:
 
 .PHONY: test_node_migrations_simulated_verbose
 test_node_migrations_simulated_verbose:
-	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -v $(args) ./migration
 
 # Soak
@@ -157,7 +149,7 @@ test_soak_ocr:
 
 .PHONY: test_soak_ocr_simulated
 test_soak_ocr_simulated:
-	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestOCRSoak ./soak
+	go test -v -count=1 -run TestOCRSoak ./soak
 
 .PHONY: test_soak_forwarder_ocr
 test_soak_forwarder_ocr:
@@ -165,7 +157,7 @@ test_soak_forwarder_ocr:
 
 .PHONY: test_soak_forwarder_ocr_simulated
 test_soak_forwarder_ocr_simulated:
-	SELECTED_NETWORKS="SIMULATED" go test -v -count=1 -run TestForwarderOCRSoak ./soak
+	go test -v -count=1 -run TestForwarderOCRSoak ./soak
 
 .PHONY: test_soak_automation
 test_soak_automation:
@@ -173,8 +165,6 @@ test_soak_automation:
 
 .PHONY: test_soak_automation_simulated
 test_soak_automation_simulated:
-	SELECTED_NETWORKS="SIMULATED" \
-	TEST_INPUTS="TEST_TYPE=SOAK,NUMBEROFCONTRACTS=50,BLOCKRANGE=1000,BLOCKINTERVAL=50,GRAFANA_DASHBOARD_URL=https://chainlinklabs.grafana.net/d/Q8n6m1unz/chainlink-keepers-qa?orgId=1" \
 	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_benchmark_automation
@@ -204,11 +194,9 @@ build_plugin_docker_image:
 # args: the args to pass to the test runner, example: args="--focus @cron -p"
 # product: the product to run tests for, example: product=cron
 # example usage: make run_test_with_local_image image=chainlink tag=latest-dev product=cron
+# remember to put the case CL image name and tag in the TOML config (and don't forget about selected network configuration)
 .PHONY: run_test_with_local_image
 run_test_with_local_image: build_docker_image
-	CHAINLINK_IMAGE=$(image) \
-	CHAINLINK_VERSION=$(tag) \
-	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2"  \
 	ARGS="$(args)" \
 	PRODUCT=$(product) 	\
 	./scripts/run_product_tests

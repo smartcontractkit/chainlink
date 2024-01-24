@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+	//TODO switch to TOML too?
 	lokiDS := os.Getenv("DATA_SOURCE_NAME")
 	d, err := wasp.NewDashboard(nil,
 		[]dashboard.Option{
