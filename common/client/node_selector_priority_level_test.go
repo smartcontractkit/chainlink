@@ -17,72 +17,75 @@ func TestPriorityLevelNodeSelector(t *testing.T) {
 	t.Parallel()
 
 	type nodeClient NodeClient[types.ID, Head]
-	var nodes []Node[types.ID, Head, nodeClient]
-	n1 := newMockNode[types.ID, Head, nodeClient](t)
-	n1.On("State").Return(nodeStateAlive)
-	n1.On("Order").Return(int32(1))
-
-	n2 := newMockNode[types.ID, Head, nodeClient](t)
-	n2.On("State").Return(nodeStateAlive)
-	n2.On("Order").Return(int32(1))
-
-	n3 := newMockNode[types.ID, Head, nodeClient](t)
-	n3.On("State").Return(nodeStateAlive)
-	n3.On("Order").Return(int32(1))
-
-	nodes = append(nodes, n1, n2, n3)
-	selector := newNodeSelector(NodeSelectionModePriorityLevel, nodes)
-	assert.Same(t, nodes[0], selector.Select())
-	assert.Same(t, nodes[1], selector.Select())
-	assert.Same(t, nodes[2], selector.Select())
-	assert.Same(t, nodes[0], selector.Select())
-	assert.Same(t, nodes[1], selector.Select())
-	assert.Same(t, nodes[2], selector.Select())
-}
-
-func TestPriorityLevelNodeSelector_None(t *testing.T) {
-	t.Parallel()
-
-	type nodeClient NodeClient[types.ID, Head]
-	var nodes []Node[types.ID, Head, nodeClient]
-
-	for i := 0; i < 3; i++ {
-		node := newMockNode[types.ID, Head, nodeClient](t)
-		if i == 0 {
-			// first node is out of sync
-			node.On("State").Return(nodeStateOutOfSync)
-			node.On("Order").Return(int32(1))
-		} else {
-			// others are unreachable
-			node.On("State").Return(nodeStateUnreachable)
-			node.On("Order").Return(int32(1))
-		}
-		nodes = append(nodes, node)
+	type testNode struct {
+		order int32
+		state nodeState
+	}
+	type testCase struct {
+		name   string
+		nodes  []testNode
+		expect []int // indexes of the nodes expected to be returned by Select
 	}
 
-	selector := newNodeSelector(NodeSelectionModePriorityLevel, nodes)
-	assert.Nil(t, selector.Select())
-}
+	testCases := []testCase{
+		{
+			name: "TwoNodesSameOrder: Highest Allowed Order",
+			nodes: []testNode{
+				{order: 1, state: nodeStateAlive},
+				{order: 1, state: nodeStateAlive},
+			},
+			expect: []int{0, 1, 0, 1, 0, 1},
+		},
+		{
+			name: "TwoNodesSameOrder: Lowest Allowed Order",
+			nodes: []testNode{
+				{order: 100, state: nodeStateAlive},
+				{order: 100, state: nodeStateAlive},
+			},
+			expect: []int{0, 1, 0, 1, 0, 1},
+		},
+		{
+			name: "NoneAvailable",
+			nodes: []testNode{
+				{order: 1, state: nodeStateOutOfSync},
+				{order: 1, state: nodeStateUnreachable},
+				{order: 1, state: nodeStateUnreachable},
+			},
+			expect: []int{}, // no nodes should be selected
+		},
+		{
+			name: "DifferentOrder",
+			nodes: []testNode{
+				{order: 1, state: nodeStateAlive},
+				{order: 2, state: nodeStateAlive},
+				{order: 3, state: nodeStateAlive},
+			},
+			expect: []int{0, 0}, // only the highest order node should be selected
+		},
+	}
 
-func TestPriorityLevelNodeSelector_DifferentOrder(t *testing.T) {
-	t.Parallel()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var nodes []Node[types.ID, Head, nodeClient]
+			for _, tn := range tc.nodes {
+				node := newMockNode[types.ID, Head, nodeClient](t)
+				node.On("State").Return(tn.state)
+				node.On("Order").Return(tn.order)
+				nodes = append(nodes, node)
+			}
 
-	type nodeClient NodeClient[types.ID, Head]
-	var nodes []Node[types.ID, Head, nodeClient]
-	n1 := newMockNode[types.ID, Head, nodeClient](t)
-	n1.On("State").Return(nodeStateAlive)
-	n1.On("Order").Return(int32(1))
+			selector := newNodeSelector(NodeSelectionModePriorityLevel, nodes)
+			for _, idx := range tc.expect {
+				if idx >= len(nodes) {
+					t.Fatalf("Invalid node index %d in test case '%s'", idx, tc.name)
+				}
+				assert.Same(t, nodes[idx], selector.Select())
+			}
 
-	n2 := newMockNode[types.ID, Head, nodeClient](t)
-	n2.On("State").Return(nodeStateAlive)
-	n2.On("Order").Return(int32(2))
-
-	n3 := newMockNode[types.ID, Head, nodeClient](t)
-	n3.On("State").Return(nodeStateAlive)
-	n3.On("Order").Return(int32(3))
-
-	nodes = append(nodes, n1, n2, n3)
-	selector := newNodeSelector(NodeSelectionModePriorityLevel, nodes)
-	assert.Same(t, nodes[0], selector.Select())
-	assert.Same(t, nodes[0], selector.Select())
+			// Check for nil selection if expected slice is empty
+			if len(tc.expect) == 0 {
+				assert.Nil(t, selector.Select())
+			}
+		})
+	}
 }
