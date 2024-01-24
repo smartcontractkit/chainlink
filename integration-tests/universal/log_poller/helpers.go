@@ -44,6 +44,9 @@ import (
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 )
 
 var (
@@ -153,7 +156,7 @@ type ExpectedFilter struct {
 }
 
 // GetExpectedFilters returns a slice of ExpectedFilter structs based on the provided log emitters and config
-func GetExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *Config) []ExpectedFilter {
+func GetExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *lp_config.Config) []ExpectedFilter {
 	expectedFilters := make([]ExpectedFilter, 0)
 	for _, emitter := range logEmitters {
 		for _, event := range cfg.General.EventsToEmit {
@@ -230,11 +233,11 @@ func getStringSlice(length int) []string {
 }
 
 // emitEvents emits events from the provided log emitter concurrently according to the provided config
-func emitEvents(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
+func emitEvents(ctx context.Context, l zerolog.Logger, logEmitter *contracts.LogEmitter, cfg *lp_config.Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
 	address := (*logEmitter).Address().String()
 	localCounter := 0
 	defer wg.Done()
-	for i := 0; i < cfg.LoopedConfig.ExecutionCount; i++ {
+	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
 		for _, event := range cfg.General.EventsToEmit {
 			select {
 			case <-ctx.Done():
@@ -245,13 +248,13 @@ func emitEvents(ctx context.Context, l zerolog.Logger, logEmitter *contracts.Log
 				var err error
 				switch event.Name {
 				case "Log1":
-					_, err = (*logEmitter).EmitLogInts(getIntSlice(cfg.General.EventsPerTx))
+					_, err = (*logEmitter).EmitLogInts(getIntSlice(*cfg.General.EventsPerTx))
 				case "Log2":
-					_, err = (*logEmitter).EmitLogIntsIndexed(getIntSlice(cfg.General.EventsPerTx))
+					_, err = (*logEmitter).EmitLogIntsIndexed(getIntSlice(*cfg.General.EventsPerTx))
 				case "Log3":
-					_, err = (*logEmitter).EmitLogStrings(getStringSlice(cfg.General.EventsPerTx))
+					_, err = (*logEmitter).EmitLogStrings(getStringSlice(*cfg.General.EventsPerTx))
 				case "Log4":
-					_, err = (*logEmitter).EmitLogIntMultiIndexed(1, 1, cfg.General.EventsPerTx)
+					_, err = (*logEmitter).EmitLogIntMultiIndexed(1, 1, *cfg.General.EventsPerTx)
 				default:
 					err = fmt.Errorf("unknown event name: %s", event.Name)
 				}
@@ -262,13 +265,13 @@ func emitEvents(ctx context.Context, l zerolog.Logger, logEmitter *contracts.Log
 					}
 					return
 				}
-				localCounter += cfg.General.EventsPerTx
+				localCounter += *cfg.General.EventsPerTx
 
-				randomWait(cfg.LoopedConfig.FuzzConfig.MinEmitWaitTimeMs, cfg.LoopedConfig.FuzzConfig.MaxEmitWaitTimeMs)
+				randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
 			}
 
 			if (i+1)%10 == 0 {
-				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", i+1, cfg.LoopedConfig.ExecutionCount)).Msg("Emitted all three events")
+				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", i+1, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitted all three events")
 			}
 		}
 	}
@@ -496,7 +499,7 @@ func (m *MissingLogs) IsEmpty() bool {
 }
 
 // GetMissingLogs returns a map of CL node name to missing logs in that node compared to EVM node to which the provided evm client is connected
-func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *Config) (MissingLogs, error) {
+func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *lp_config.Config) (MissingLogs, error) {
 	wg := &sync.WaitGroup{}
 
 	type dbQueryResult struct {
@@ -669,7 +672,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 }
 
 // PrintMissingLogsInfo prints various useful information about the missing logs
-func PrintMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *Config) {
+func PrintMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Logger, cfg *lp_config.Config) {
 	var findHumanName = func(topic common.Hash) string {
 		for _, event := range cfg.General.EventsToEmit {
 			if event.ID == topic {
@@ -720,7 +723,7 @@ func PrintMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Log
 
 // getEVMLogs returns a slice of all logs emitted by the provided log emitters in the provided block range,
 // which are present in the EVM node to which the provided evm client is connected
-func getEVMLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *Config) ([]geth_types.Log, error) {
+func getEVMLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *lp_config.Config) ([]geth_types.Log, error) {
 	allLogsInEVMNode := make([]geth_types.Log, 0)
 	for j := 0; j < len(logEmitters); j++ {
 		address := (*logEmitters[j]).Address()
@@ -751,8 +754,8 @@ func getEVMLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter,
 }
 
 // ExecuteGenerator executes the configured generator and returns the total number of logs emitted
-func ExecuteGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
-	if cfg.General.Generator == GeneratorType_WASP {
+func ExecuteGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contracts.LogEmitter) (int, error) {
+	if *cfg.General.Generator == lp_config.GeneratorType_WASP {
 		return runWaspGenerator(t, cfg, logEmitters)
 	}
 
@@ -760,14 +763,14 @@ func ExecuteGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 }
 
 // runWaspGenerator runs the wasp generator and returns the total number of logs emitted
-func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
+func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := logging.GetTestLogger(t)
 
 	var RPSprime int64
 
 	// if LPS is set, we need to calculate based on countract count and events per transaction
-	if cfg.Wasp.Load.LPS > 0 {
-		RPSprime = cfg.Wasp.Load.LPS / int64(cfg.General.Contracts) / int64(cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
+	if *cfg.Wasp.LPS > 0 {
+		RPSprime = *cfg.Wasp.LPS / int64(*cfg.General.Contracts) / int64(*cfg.General.EventsPerTx) / int64(len(cfg.General.EventsToEmit))
 
 		if RPSprime < 1 {
 			return 0, fmt.Errorf("invalid load configuration, effective RPS would have been zero. Adjust LPS, contracts count, events per tx or events to emit")
@@ -775,8 +778,8 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 	}
 
 	// if RPS is set simply split it between contracts
-	if cfg.Wasp.Load.RPS > 0 {
-		RPSprime = cfg.Wasp.Load.RPS / int64(cfg.General.Contracts)
+	if *cfg.Wasp.RPS > 0 {
+		RPSprime = *cfg.Wasp.RPS / int64(*cfg.General.Contracts)
 	}
 
 	counter := &Counter{
@@ -791,16 +794,16 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 			T:                     t,
 			LoadType:              wasp.RPS,
 			GenName:               fmt.Sprintf("log_poller_gen_%s", (*logEmitter).Address().String()),
-			RateLimitUnitDuration: cfg.Wasp.Load.RateLimitUnitDuration.Duration(),
-			CallTimeout:           cfg.Wasp.Load.CallTimeout.Duration(),
+			RateLimitUnitDuration: cfg.Wasp.RateLimitUnitDuration.Duration,
+			CallTimeout:           cfg.Wasp.CallTimeout.Duration,
 			Schedule: wasp.Plain(
 				RPSprime,
-				cfg.Wasp.Load.Duration.Duration(),
+				cfg.Wasp.Duration.Duration,
 			),
 			Gun: NewLogEmitterGun(
 				logEmitter,
 				cfg.General.EventsToEmit,
-				cfg.General.EventsPerTx,
+				*cfg.General.EventsPerTx,
 				l,
 			),
 			SharedData: counter,
@@ -818,7 +821,7 @@ func runWaspGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmi
 }
 
 // runLoopedGenerator runs the looped generator and returns the total number of logs emitted
-func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogEmitter) (int, error) {
+func runLoopedGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := logging.GetTestLogger(t)
 
 	// Start emitting events in parallel, each contract is emitting events in a separate goroutine
@@ -870,15 +873,15 @@ func runLoopedGenerator(t *testing.T, cfg *Config, logEmitters []*contracts.LogE
 }
 
 // GetExpectedLogCount returns the expected number of logs to be emitted based on the provided config
-func GetExpectedLogCount(cfg *Config) int64 {
-	if cfg.General.Generator == GeneratorType_WASP {
-		if cfg.Wasp.Load.RPS != 0 {
-			return cfg.Wasp.Load.RPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds()) * int64(cfg.General.EventsPerTx)
+func GetExpectedLogCount(cfg *lp_config.Config) int64 {
+	if *cfg.General.Generator == lp_config.GeneratorType_WASP {
+		if *cfg.Wasp.RPS != 0 {
+			return *cfg.Wasp.RPS * int64(cfg.Wasp.Duration.Seconds()) * int64(*cfg.General.EventsPerTx)
 		}
-		return cfg.Wasp.Load.LPS * int64(cfg.Wasp.Load.Duration.Duration().Seconds())
+		return *cfg.Wasp.LPS * int64(cfg.Wasp.Duration.Duration.Seconds())
 	}
 
-	return int64(len(cfg.General.EventsToEmit) * cfg.LoopedConfig.ExecutionCount * cfg.General.Contracts * cfg.General.EventsPerTx)
+	return int64(len(cfg.General.EventsToEmit) * *cfg.LoopedConfig.ExecutionCount * *cfg.General.Contracts * *cfg.General.EventsPerTx)
 }
 
 type PauseData struct {
@@ -939,20 +942,20 @@ type ChaosPauseData struct {
 }
 
 // ExecuteChaosExperiment executes the configured chaos experiment, which consist of pausing CL node or Postgres containers
-func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *Config, errorCh chan error) {
-	if cfg.ChaosConfig == nil || cfg.ChaosConfig.ExperimentCount == 0 {
+func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *lp_config.Config, errorCh chan error) {
+	if cfg.ChaosConfig == nil || *cfg.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
 	}
 
-	chaosChan := make(chan ChaosPauseData, cfg.ChaosConfig.ExperimentCount)
+	chaosChan := make(chan ChaosPauseData, *cfg.ChaosConfig.ExperimentCount)
 	wg := &sync.WaitGroup{}
 
 	go func() {
 		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
 		guardChan := make(chan struct{}, 1)
 
-		for i := 0; i < cfg.ChaosConfig.ExperimentCount; i++ {
+		for i := 0; i < *cfg.ChaosConfig.ExperimentCount; i++ {
 			i := i
 			wg.Add(1)
 			guardChan <- struct{}{}
@@ -963,7 +966,7 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 					current := i + 1
 					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, cfg.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
 				}()
-				chaosChan <- chaosPauseSyncFn(l, testEnv, cfg.ChaosConfig.TargetComponent)
+				chaosChan <- chaosPauseSyncFn(l, testEnv, *cfg.ChaosConfig.TargetComponent)
 				time.Sleep(10 * time.Second)
 			}()
 		}
@@ -1015,8 +1018,8 @@ func GetFinalityDepth(chainId int64) (int64, error) {
 }
 
 // GetEndBlockToWaitFor returns the end block to wait for based on chain id and finality tag provided in config
-func GetEndBlockToWaitFor(endBlock, chainId int64, cfg *Config) (int64, error) {
-	if cfg.General.UseFinalityTag {
+func GetEndBlockToWaitFor(endBlock, chainId int64, cfg *lp_config.Config) (int64, error) {
+	if *cfg.General.UseFinalityTag {
 		return endBlock + 1, nil
 	}
 
@@ -1076,6 +1079,7 @@ func SetupLogPollerTestDocker(
 	upkeepsNeeded int,
 	lpPollingInterval time.Duration,
 	finalityTagEnabled bool,
+	testConfig *tc.TestConfig,
 ) (
 	blockchain.EVMClient,
 	[]*client.ChainlinkClient,
@@ -1086,9 +1090,10 @@ func SetupLogPollerTestDocker(
 	*test_env.CLClusterTestEnv,
 ) {
 	l := logging.GetTestLogger(t)
+
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.MustGetSelectedNetworksFromEnv()[0]
+	network := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
 
 	finalityDepth, err := GetFinalityDepth(network.ChainID)
 	require.NoError(t, err, "Error getting finality depth")
@@ -1137,6 +1142,7 @@ func SetupLogPollerTestDocker(
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
+		WithTestConfig(testConfig).
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(cfg).
 		WithCLNodes(clNodesCount).
@@ -1204,9 +1210,9 @@ func SetupLogPollerTestDocker(
 }
 
 // UploadLogEmitterContractsAndWaitForFinalisation uploads the configured number of log emitter contracts and waits for the upload blocks to be finalised
-func UploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, cfg *Config) []*contracts.LogEmitter {
+func UploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, cfg *lp_config.Config) []*contracts.LogEmitter {
 	logEmitters := make([]*contracts.LogEmitter, 0)
-	for i := 0; i < cfg.General.Contracts; i++ {
+	for i := 0; i < *cfg.General.Contracts; i++ {
 		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
 		logEmitters = append(logEmitters, &logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
@@ -1265,7 +1271,7 @@ func AssertContractAddressUniquneness(logEmitters []*contracts.LogEmitter) error
 
 // RegisterFiltersAndAssertUniquness registers the configured log filters and asserts that the filters are unique
 // meaning that for each log emitter address and topic there is only one filter
-func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
+func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []*contracts.LogEmitter, cfg *lp_config.Config, upKeepsNeeded int) error {
 	uniqueFilters := make(map[string]bool)
 
 	upkeepIdIndex := 0
