@@ -66,9 +66,9 @@ func (o *orm) GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.
 	return addresses, nil
 }
 
-func (o *orm) CreateAllowedSenders(allowedSender []common.Address, qopts ...pg.QOpt) error {
+func (o *orm) CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.QOpt) error {
 	var valuesPlaceholder []string
-	for i := 1; i <= len(allowedSender)*2; i += 2 {
+	for i := 1; i <= len(allowedSenders)*2; i += 2 {
 		valuesPlaceholder = append(valuesPlaceholder, fmt.Sprintf("($%d, $%d)", i, i+1))
 	}
 
@@ -77,7 +77,7 @@ func (o *orm) CreateAllowedSenders(allowedSender []common.Address, qopts ...pg.Q
 		VALUES %s ON CONFLICT (allowed_address, router_contract_address) DO NOTHING;`, tableName, strings.Join(valuesPlaceholder, ", "))
 
 	var args []interface{}
-	for _, as := range allowedSender {
+	for _, as := range allowedSenders {
 		args = append(args, as, o.routerContractAddress)
 	}
 
@@ -86,7 +86,7 @@ func (o *orm) CreateAllowedSenders(allowedSender []common.Address, qopts ...pg.Q
 		return err
 	}
 
-	o.lggr.Debugf("Successfully stored allowed sender: %s for routerContractAddress: %s", allowedSender, o.routerContractAddress)
+	o.lggr.Debugf("Successfully stored allowed senders: %v for routerContractAddress: %s", allowedSenders, o.routerContractAddress)
 
 	return nil
 }
@@ -117,7 +117,7 @@ func (o *orm) DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.
 		return err
 	}
 
-	o.lggr.Debugf("Successfully removed blocked senders from the allowed list: %s for routerContractAddress: %s. rowsAffected: %d", blockedSenders, o.routerContractAddress, rowsAffected)
+	o.lggr.Debugf("Successfully removed blocked senders from the allowed list: %v for routerContractAddress: %s. rowsAffected: %d", blockedSenders, o.routerContractAddress, rowsAffected)
 
 	return nil
 }
