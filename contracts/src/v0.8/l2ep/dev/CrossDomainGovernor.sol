@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {TypeAndVersionInterface} from ".././../interfaces/TypeAndVersionInterface.sol";
 import {DelegateForwarderInterface} from "./interfaces/DelegateForwarderInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {ForwarderInterface} from "./interfaces/ForwarderInterface.sol";
 
 import {CrossDomainOwnable} from "./CrossDomainOwnable.sol";
@@ -15,9 +15,9 @@ import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils
 /// can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
 abstract contract CrossDomainGovernor is
   DelegateForwarderInterface,
-  TypeAndVersionInterface,
   ForwarderInterface,
-  CrossDomainOwnable
+  CrossDomainOwnable,
+  ITypeAndVersion
 {
   /// @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
   constructor(address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {}

@@ -3,14 +3,14 @@ pragma solidity 0.8.19;
 
 import {AggregatorV2V3Interface} from "../../shared/interfaces/AggregatorV2V3Interface.sol";
 import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {AggregatorInterface} from "../../shared/interfaces/AggregatorInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessController.sol";
 
 /// @title ScrollSequencerUptimeFeed - L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates, and records a new answer if the status changed
-abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, TypeAndVersionInterface, SimpleReadAccessController {
+abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, ITypeAndVersion, SimpleReadAccessController {
   /// @dev Round info (for uptime history)
   struct Round {
     bool status;
