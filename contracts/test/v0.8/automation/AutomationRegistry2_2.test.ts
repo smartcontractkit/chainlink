@@ -2813,12 +2813,12 @@ describe('AutomationRegistry2_2', () => {
       // upkeep 1 perform should succeed with empty performData
       await getTransmitTx(registry, keeper1, [upkeepID1], {
         gasPrice: gasWei.mul(gasCeilingMultiplier),
-      }),
-        // upkeep 2 perform should succeed with max performData size
-        await getTransmitTx(registry, keeper1, [upkeepID2], {
-          gasPrice: gasWei.mul(gasCeilingMultiplier),
-          performData: maxPerformData,
-        })
+      })
+      // upkeep 2 perform should succeed with max performData size
+      await getTransmitTx(registry, keeper1, [upkeepID2], {
+        gasPrice: gasWei.mul(gasCeilingMultiplier),
+        performData: maxPerformData,
+      })
     })
   })
 
@@ -3886,23 +3886,21 @@ describe('AutomationRegistry2_2', () => {
       for (let i = 0; i < signerAddresses.length; i++) {
         const signer = signerAddresses[i]
         if (!newSigners.includes(signer)) {
-          assert((await registry.getSignerInfo(signer)).active == false)
+          assert(!(await registry.getSignerInfo(signer)).active)
           assert((await registry.getSignerInfo(signer)).index == 0)
         }
       }
       // New signer addresses should be active
       for (let i = 0; i < newSigners.length; i++) {
         const signer = newSigners[i]
-        assert((await registry.getSignerInfo(signer)).active == true)
+        assert((await registry.getSignerInfo(signer)).active)
         assert((await registry.getSignerInfo(signer)).index == i)
       }
       // Old transmitter addresses which are not in new transmitter should be non active, update lastCollected but retain other info
       for (let i = 0; i < keeperAddresses.length; i++) {
         const transmitter = keeperAddresses[i]
         if (!newKeepers.includes(transmitter)) {
-          assert(
-            (await registry.getTransmitterInfo(transmitter)).active == false,
-          )
+          assert(!(await registry.getTransmitterInfo(transmitter)).active)
           assert((await registry.getTransmitterInfo(transmitter)).index == i)
           assert(
             (await registry.getTransmitterInfo(transmitter)).lastCollected.eq(
@@ -3916,7 +3914,7 @@ describe('AutomationRegistry2_2', () => {
       // New transmitter addresses should be active
       for (let i = 0; i < newKeepers.length; i++) {
         const transmitter = newKeepers[i]
-        assert((await registry.getTransmitterInfo(transmitter)).active == true)
+        assert((await registry.getTransmitterInfo(transmitter)).active)
         assert((await registry.getTransmitterInfo(transmitter)).index == i)
         assert(
           (await registry.getTransmitterInfo(transmitter)).lastCollected.eq(
@@ -4799,7 +4797,7 @@ describe('AutomationRegistry2_2', () => {
         expect((await registry.getState()).state.numUpkeeps).to.equal(
           numUpkeeps,
         )
-        const forwarder = await IAutomationForwarderFactory.connect(
+        const forwarder = IAutomationForwarderFactory.connect(
           forwarderAddress,
           owner,
         )

@@ -333,10 +333,6 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
-<<<<<<< HEAD
-    s_skipReorgProtection = onchainConfig.skipReorgProtection;
-=======
->>>>>>> AUTO-8798
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(_blockNum());

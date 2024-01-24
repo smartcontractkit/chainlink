@@ -28,8 +28,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       link,
       linkNativeFeed,
       fastGasFeed,
-      i_automationForwarderLogic,
-      i_allowedReadOnlyAddress
+      automationForwarderLogic,
+      allowedReadOnlyAddress
     )
   {}
 
