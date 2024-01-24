@@ -13,17 +13,17 @@ import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessCo
 abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, ITypeAndVersion, SimpleReadAccessController {
   /// @dev Round info (for uptime history)
   struct Round {
-    bool status;
-    uint64 startedAt;
-    uint64 updatedAt;
+    uint64 startedAt; // ─╮ The timestamp at which the round started
+    uint64 updatedAt; //  │ The timestamp at which the round was updated
+    bool status; // ──────╯ The sequencer status for the round
   }
 
   /// @dev Packed state struct to save sloads
   struct FeedState {
-    uint80 latestRoundId;
-    bool latestStatus;
-    uint64 startedAt;
-    uint64 updatedAt;
+    uint80 latestRoundId; // ─╮ The ID of the latest round
+    uint64 startedAt; //      │ The date at which the latest round started
+    uint64 updatedAt; //      │ The date at which the latest round was updated
+    bool latestStatus; // ────╯ The status of the latest round
   }
 
   /// @notice Sender is not the L2 messenger
@@ -118,8 +118,8 @@ abstract contract SequencerUptimeFeed is AggregatorV2V3Interface, ITypeAndVersio
   /// @param timestamp The L1 block timestamp of status update
   /// @param updatedAt The timestamp to use for the updatedAt field (which should normally be uint64(block.timestamp))
   function _recordRound(uint80 roundId, bool status, uint64 timestamp, uint64 updatedAt) internal {
-    s_rounds[roundId] = Round(status, timestamp, updatedAt);
-    s_feedState = FeedState(roundId, status, timestamp, updatedAt);
+    s_rounds[roundId] = Round(timestamp, updatedAt, status);
+    s_feedState = FeedState(roundId, timestamp, updatedAt, status);
     emit NewRound(roundId, msg.sender, timestamp);
     emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
   }
