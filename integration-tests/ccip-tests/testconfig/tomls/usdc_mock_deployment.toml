@@ -1,0 +1,7 @@
+[CCIP]
+[CCIP.Groups]
+[CCIP.Groups.smoke]
+USDCMockDeployment = true
+NoOfTokensPerChain = 1
+NoOfTokensInMsg = 1
+AmountPerToken = 1

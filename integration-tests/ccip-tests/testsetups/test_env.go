@@ -209,9 +209,12 @@ func DeployLocalCluster(
 				}
 				ccipNode, err := test_env.NewClNode(
 					[]string{env.Network.Name},
-					clNode.Image, clNode.Tag, toml, test_env.WithPgDBOptions(
+					clNode.Image, clNode.Tag, toml,
+					test_env.WithPgDBOptions(
 						ctftestenv.WithPostgresImageName(clNode.DBImage),
-						ctftestenv.WithPostgresImageVersion(clNode.DBTag)))
+						ctftestenv.WithPostgresImageVersion(clNode.DBTag)),
+					test_env.WithLogStream(env.LogStream),
+				)
 				if err != nil {
 					return err
 				}
@@ -236,7 +239,9 @@ func DeployLocalCluster(
 					testInputs.EnvInput.Chainlink.Common.Tag,
 					toml, test_env.WithPgDBOptions(
 						ctftestenv.WithPostgresImageName(testInputs.EnvInput.Chainlink.Common.DBImage),
-						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.Chainlink.Common.DBTag)))
+						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.Chainlink.Common.DBTag)),
+					test_env.WithLogStream(env.LogStream),
+				)
 				if err != nil {
 					return err
 				}

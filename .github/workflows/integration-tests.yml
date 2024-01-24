@@ -316,13 +316,20 @@ jobs:
         product:
           - name: ccip-smoke
             nodes: 1
-            os: ubuntu20.04-16cores-64GB
+            os: ubuntu-latest
             file: ccip
             dir: ccip-tests/smoke
             run: -run ^TestSmokeCCIPForBidirectionalLane$
+          - name: ccip-smoke-usdc
+            nodes: 1
+            os: ubuntu-latest
+            file: ccip
+            dir: ccip-tests/smoke
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/usdc_mock_deployment.toml
           - name: ccip-smoke-db-compatibility
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu-latest
             file: ccip
             dir: ccip-tests/smoke
             run: -run ^TestSmokeCCIPForBidirectionalLane$

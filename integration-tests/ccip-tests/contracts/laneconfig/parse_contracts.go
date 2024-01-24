@@ -28,6 +28,8 @@ type CommonContracts struct {
 	PriceRegistry    string   `json:"price_registry"`
 	WrappedNative    string   `json:"wrapped_native"`
 	Multicall        string   `json:"multicall,omitempty"`
+	TokenTransmitter string   `json:"token_transmitter,omitempty"`
+	TokenMessenger   string   `json:"token_messenger,omitempty"`
 }
 
 type SourceContracts struct {

@@ -180,6 +180,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 		res.Failed = true
 		return res
 	}
+
 	err = sourceCCIP.Common.ChainClient.MarkTxAsSentOnL2(sendTx)
 
 	if err != nil {
