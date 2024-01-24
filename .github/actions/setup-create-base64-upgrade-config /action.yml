@@ -3,7 +3,7 @@ description: A composite action that creates a base64-encoded config to be used 
 
 inputs:
   selectedNetworks:
-    description: The networks to run tests against 
+    description: The networks to run tests against
   chainlinkImage:
     description: The chainlink image to upgrade from
     default: "public.ecr.aws/chainlink/chainlink"
@@ -40,13 +40,13 @@ runs:
           toml_array_format="${toml_array_format%,}]"
           echo "$toml_array_format"
         }
-        
-        selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")      
+
+        selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")
 
         cat << EOF > config.toml
         [Network]
         selected_networks=$selected_networks
-        
+
         [ChainlinkImage]
         image="$CHAINLINK_IMAGE"
         version="$CHAINLINK_VERSION"
@@ -55,7 +55,7 @@ runs:
         image="$UPGRADE_IMAGE"
         version="$UPGRADE_VERSION"
         EOF
-        
+
         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
