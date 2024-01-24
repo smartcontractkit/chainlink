@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -95,26 +97,41 @@ func (o *DbORM) InsertBlock(blockHash common.Hash, blockNumber int64, blockTimes
 // Each address/event pair must have a unique job id, so it may be removed when the job is deleted.
 // If a second job tries to overwrite the same pair, this should fail.
 func (o *DbORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
+	topicArrays := []types.HashArray{filter.Topic2, filter.Topic3, filter.Topic4}
 	args, err := newQueryArgs(o.chainID).
 		withCustomArg("name", filter.Name).
-		withCustomArg("retention", filter.Retention).
+		withRetention(filter.Retention).
+		withLogsPerBlock(filter.LogsPerBlock).
 		withAddressArray(filter.Addresses).
 		withEventSigArray(filter.EventSigs).
+		withTopicArrays(filter.Topic2, filter.Topic3, filter.Topic4).
 		toArgs()
 	if err != nil {
 		return err
 	}
 	// '::' has to be escaped in the query string
 	// https://github.com/jmoiron/sqlx/issues/91, https://github.com/jmoiron/sqlx/issues/428
-	return o.q.WithOpts(qopts...).ExecQNamed(`
+	var topicsColumns, topicsSql strings.Builder
+	for n, topicValues := range topicArrays {
+		if len(topicValues) != 0 {
+			topicCol := fmt.Sprintf("topic%d", n+2)
+			fmt.Fprintf(&topicsColumns, ", %s", topicCol)
+			fmt.Fprintf(&topicsSql, ",\n(SELECT unnest(:%s ::::BYTEA[]) %s) t%d", topicCol, topicCol, n+2)
+		}
+	}
+	query := fmt.Sprintf(`
 		INSERT INTO evm.log_poller_filters
-	  		(name, evm_chain_id, retention, created_at, address, event)
+	  		(name, evm_chain_id, retention, logs_per_block, created_at, address, event %s)
 		SELECT * FROM
-			(SELECT :name, :evm_chain_id ::::NUMERIC, :retention ::::BIGINT, NOW()) x,
+			(SELECT :name, :evm_chain_id ::::NUMERIC, :retention ::::BIGINT, :logs_per_block ::::NUMERIC, NOW()) x,
 			(SELECT unnest(:address_array ::::BYTEA[]) addr) a,
 			(SELECT unnest(:event_sig_array ::::BYTEA[]) ev) e
-		ON CONFLICT (name, evm_chain_id, address, event) 
-		DO UPDATE SET retention=:retention ::::BIGINT`, args)
+			%s
+		ON CONFLICT  (hash_record_extended((name, evm_chain_id, address, event, topic2, topic3, topic4), 0))
+		DO UPDATE SET retention=:retention ::::BIGINT, logs_per_block=:logs_per_block ::::NUMERIC`,
+		topicsColumns.String(),
+		topicsSql.String())
+	return o.q.WithOpts(qopts...).ExecQNamed(query, args)
 }
 
 // DeleteFilter removes all events,address pairs associated with the Filter
@@ -130,6 +147,10 @@ func (o *DbORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
 	err := q.Select(&rows, `SELECT name,
 			ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses, 
 			ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs,
+			ARRAY_AGG(DISTINCT topic2 ORDER BY topic2) FILTER(WHERE topic2 IS NOT NULL) AS topic2,
+			ARRAY_AGG(DISTINCT topic3 ORDER BY topic3) FILTER(WHERE topic3 IS NOT NULL) AS topic3,
+			ARRAY_AGG(DISTINCT topic4 ORDER BY topic4) FILTER(WHERE topic4 IS NOT NULL) AS topic4,
+			MAX(logs_per_block) AS logs_per_block,
 			MAX(retention) AS retention
 		FROM evm.log_poller_filters WHERE evm_chain_id = $1
 		GROUP BY name`, ubig.New(o.chainID))

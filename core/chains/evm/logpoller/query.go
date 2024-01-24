@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
@@ -52,6 +53,16 @@ func (q *queryArgs) withEventSig(eventSig common.Hash) *queryArgs {
 
 func (q *queryArgs) withEventSigArray(eventSigs []common.Hash) *queryArgs {
 	return q.withCustomArg("event_sig_array", concatBytes(eventSigs))
+}
+
+func (q *queryArgs) withTopicArray(topicValues types.HashArray, topicNum uint64) *queryArgs {
+	return q.withCustomArg(fmt.Sprintf("topic%d", topicNum), concatBytes(topicValues))
+}
+
+func (q *queryArgs) withTopicArrays(topic2Vals types.HashArray, topic3Vals types.HashArray, topic4Vals types.HashArray) *queryArgs {
+	return q.withTopicArray(topic2Vals, 2).
+		withTopicArray(topic3Vals, 3).
+		withTopicArray(topic4Vals, 4)
 }
 
 func (q *queryArgs) withAddress(address common.Address) *queryArgs {
@@ -125,6 +136,14 @@ func (q *queryArgs) withBlockTimestampAfter(after time.Time) *queryArgs {
 
 func (q *queryArgs) withTxHash(hash common.Hash) *queryArgs {
 	return q.withCustomHashArg("tx_hash", hash)
+}
+
+func (q *queryArgs) withRetention(retention time.Duration) *queryArgs {
+	return q.withCustomArg("retention", retention)
+}
+
+func (q *queryArgs) withLogsPerBlock(logsPerBlock *ubig.Big) *queryArgs {
+	return q.withCustomArg("logs_per_block", logsPerBlock)
 }
 
 func (q *queryArgs) withCustomHashArg(name string, arg common.Hash) *queryArgs {

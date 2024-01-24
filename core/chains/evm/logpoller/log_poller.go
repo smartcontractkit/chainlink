@@ -153,10 +153,14 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Durati
 }
 
 type Filter struct {
-	Name      string // see FilterName(id, args) below
-	EventSigs evmtypes.HashArray
-	Addresses evmtypes.AddressArray
-	Retention time.Duration
+	Name         string // see FilterName(id, args) below
+	Addresses    evmtypes.AddressArray
+	EventSigs    evmtypes.HashArray // list of possible values for eventsig (aka topic1)
+	Topic2       evmtypes.HashArray // list of possible values for topic2
+	Topic3       evmtypes.HashArray // list of possible values for topic3
+	Topic4       evmtypes.HashArray // list of possible values for topic4
+	Retention    time.Duration
+	LogsPerBlock *ubig.Big // rate limit ( maximum # of logs per block to save to db )
 }
 
 // FilterName is a suggested convenience function for clients to construct unique filter names
