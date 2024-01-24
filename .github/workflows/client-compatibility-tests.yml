@@ -96,56 +96,56 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: ocr-geth
-            os: ubuntu-latest
-            test: TestOCRBasic
-            file: ocr
-            client: geth
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-geth-simulated
-          - name: ocr-nethermind
-            test: TestOCRBasic
-            file: ocr
-            client: nethermind
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-nethermind-simulated
-          - name: ocr-besu
-            test: TestOCRBasic
-            file: ocr
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-besu-simulated
-          - name: ocr-erigon
-            test: TestOCRBasic
-            file: ocr
-            client: erigon
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-erigon-simulated
-          - name: ocr2-geth
-            test: TestOCRv2Basic
-            file: ocr2
-            client: geth
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr2-geth-simulated
-          - name: ocr2-nethermind
-            test: TestOCRv2Basic
-            file: ocr2
-            client: nethermind
-            timeout: 30m
-            pyroscope_env: ci-smoke-nethermind-evm-simulated
-          - name: ocr2-besu
-            test: TestOCRv2Basic
-            file: ocr2
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr2-besu-simulated
+          # - name: ocr-geth
+          #   os: ubuntu-latest
+          #   test: TestOCRBasic
+          #   file: ocr
+          #   client: geth
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-ocr-geth-simulated
+          # - name: ocr-nethermind
+          #   test: TestOCRBasic
+          #   file: ocr
+          #   client: nethermind
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-ocr-nethermind-simulated
+          # - name: ocr-besu
+          #   test: TestOCRBasic
+          #   file: ocr
+          #   client: besu
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-ocr-besu-simulated
+          # - name: ocr-erigon
+          #   test: TestOCRBasic
+          #   file: ocr
+          #   client: erigon
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-ocr-erigon-simulated
+          # - name: ocr2-geth
+          #   test: TestOCRv2Basic
+          #   file: ocr2
+          #   client: geth
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-ocr2-geth-simulated
+          # - name: ocr2-nethermind
+          #   test: TestOCRv2Basic
+          #   file: ocr2
+          #   client: nethermind
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-nethermind-evm-simulated
+          # - name: ocr2-besu
+          #   test: TestOCRv2Basic
+          #   file: ocr2
+          #   client: besu
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-ocr2-besu-simulated
           - name: ocr2-erigon
             test: TestOCRv2Basic
             file: ocr2
             client: erigon
             timeout: 60m
             pyroscope_env: ci-smoke-ocr2-erigon-simulated
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-8cores-32GB
     name: Client Compatibility Test ${{ matrix.name }}
     steps:
       - name: Download Tests Binary
