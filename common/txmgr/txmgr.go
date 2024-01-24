@@ -698,7 +698,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) createTxnA
 	if len(pruned) > 0 {
 		b.logger.Warnw(fmt.Sprintf("Pruned %d old unstarted transactions", len(pruned)),
 			"subject", txRequest.Strategy.Subject(),
-			"pruned", pruned,
+			"pruned-tx-ids", pruned,
 		)
 	}
 
@@ -710,7 +710,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) createTxnA
 		"fromAddress", txRequest.FromAddress,
 		"toAddress", txRequest.ToAddress,
 		"meta", txRequest.Meta,
-		"replacementID", tx.ID,
+		"transactionID", tx.ID,
 	)
 
 	return tx, nil
