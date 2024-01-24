@@ -192,12 +192,16 @@ func RunChainReaderInterfaceTests(t *testing.T, tester ChainReaderInterfaceTeste
 				tester.TriggerEvent(t, &ts1)
 
 				filterParams := &FilterEventParams{Field: *ts0.Field}
-				result := &TestStruct{}
 				assert.Never(t, func() bool {
+					result := &TestStruct{}
 					err := cr.GetLatestValue(ctx, AnyContractName, EventWithFilterName, filterParams, &result)
 					return err == nil && reflect.DeepEqual(result, &ts1)
 				}, tester.MaxWaitTimeForEvents(), time.Millisecond*10)
-
+				// get the result one more time to verify it.
+				// Using the result from the Never statement by creating result outside the block is a data race
+				result := &TestStruct{}
+				err := cr.GetLatestValue(ctx, AnyContractName, EventWithFilterName, filterParams, &result)
+				require.NoError(t, err)
 				assert.Equal(t, &ts0, result)
 			},
 		},
