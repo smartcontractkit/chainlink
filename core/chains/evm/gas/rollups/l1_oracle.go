@@ -2,7 +2,6 @@ package rollups
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -20,6 +19,7 @@ import (
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -28,6 +28,11 @@ import (
 //go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
 type ethClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+}
+
+type priceEntry struct {
+	price          *assets.Wei
+	timestamp			time.Time
 }
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
@@ -42,7 +47,7 @@ type l1Oracle struct {
 	gasPriceMethod      string
 	l1GasPriceMethodAbi abi.ABI
 	l1GasPriceMu        sync.RWMutex
-	l1GasPrice          *assets.Wei
+	l1GasPrice          priceEntry
 
 	l1GasCostAddress   string
 	gasCostMethod      string
@@ -94,10 +99,7 @@ const (
 	KromaGasOracle_l1BaseFee = "l1BaseFee"
 
 	// Interval at which to poll for L1BaseFee. A good starting point is the L1 block time.
-	PollPeriod = 12 * time.Second
-
-	// RPC call timeout
-	queryTimeout = 10 * time.Second
+	PollPeriod = 6 * time.Second
 )
 
 var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma, config.ChainScroll}
@@ -206,53 +208,69 @@ func (o *l1Oracle) run() {
 		}
 	}
 }
-
 func (o *l1Oracle) refresh() (t *time.Timer) {
+	t, err := o.refreshWithError()
+	if err != nil {
+		o.SvcErrBuffer.Append(err)
+	}
+	return
+}
+
+func (o *l1Oracle) refreshWithError() (t *time.Timer, err error) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	var callData, b []byte
-	var err error
 	precompile := common.HexToAddress(o.l1GasPriceAddress)
 	callData, err = o.l1GasPriceMethodAbi.Pack(o.gasPriceMethod)
 	if err != nil {
-		o.logger.Errorf("failed to pack calldata for %s L1 gas price method: %w", o.chainType, err)
-		return
+		errMsg := fmt.Sprintf("failed to pack calldata for %s L1 gas price method", o.chainType)
+		o.logger.Errorf(errMsg)
+		return t, fmt.Errorf("%s: %w", errMsg, err)
 	}
 	b, err = o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &precompile,
 		Data: callData,
 	}, nil)
 	if err != nil {
-		o.logger.Errorf("gas oracle contract call failed: %v", err)
-		return
+		errMsg := fmt.Sprint("gas oracle contract call failed")
+		o.logger.Errorf(errMsg)
+		return t, fmt.Errorf("%s: %w", errMsg, err)
 	}
 
 	if len(b) != 32 { // returns uint256;
-		o.logger.Criticalf("return data length (%d) different than expected (%d)", len(b), 32)
-		return
+		errMsg := fmt.Sprintf("return data length (%d) different than expected (%d)", len(b), 32)
+		o.logger.Criticalf(errMsg)
+		return t, fmt.Errorf(errMsg)
 	}
 	price := new(big.Int).SetBytes(b)
 
 	o.l1GasPriceMu.Lock()
 	defer o.l1GasPriceMu.Unlock()
-	o.l1GasPrice = assets.NewWei(price)
+	o.l1GasPrice = priceEntry{price: assets.NewWei(price), timestamp: time.Now()}
 	return
 }
 
 func (o *l1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
+	var timestamp time.Time
 	ok := o.IfStarted(func() {
 		o.l1GasPriceMu.RLock()
-		l1GasPrice = o.l1GasPrice
+		l1GasPrice = o.l1GasPrice.price
+		timestamp = o.l1GasPrice.timestamp
 		o.l1GasPriceMu.RUnlock()
 	})
 	if !ok {
-		return l1GasPrice, errors.New("L1GasOracle is not started; cannot estimate gas")
+		return l1GasPrice, fmt.Errorf("L1GasOracle is not started; cannot estimate gas")
 	}
 	if l1GasPrice == nil {
-		return l1GasPrice, errors.New("failed to get l1 gas price; gas price not set")
+		return l1GasPrice, fmt.Errorf("failed to get l1 gas price; gas price not set")
+	}
+	// Validate the price has been updated within the pollPeriod * 2
+	// Allowing double the poll period before declaring the price stale to give ample time for the refresh to process
+	if time.Since(timestamp) > o.pollPeriod * 2 {
+		return l1GasPrice, fmt.Errorf("gas price is stale")
 	}
 	return
 }
@@ -260,7 +278,7 @@ func (o *l1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err erro
 // Gets the L1 gas cost for the provided transaction at the specified block num
 // If block num is not provided, the value on the latest block num is used
 func (o *l1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, client.QueryTimeout)
 	defer cancel()
 	var callData, b []byte
 	var err error
