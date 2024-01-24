@@ -1280,6 +1280,11 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmc
 	ethClient.On("Close").Return().Maybe()
 }
 
+func RequireBatchElemMatchesParams(t *testing.T, req rpc.BatchElem, method string, args ...interface{}) {
+	require.Equal(t, method, req.Method)
+	require.Equal(t, args, req.Args)
+}
+
 func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
 	return req.Method == method &&
 		len(req.Args) == 1 && req.Args[0] == arg

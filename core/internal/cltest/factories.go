@@ -199,6 +199,14 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 }
 
 func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
+	return mustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, broadcastBeforeBlockNum, fromAddress, false)
+}
+
+func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
+	return mustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, broadcastBeforeBlockNum, fromAddress, true)
+}
+
+func mustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address, isMissingReceipt bool) txmgr.Tx {
 	timeNow := time.Now()
 	etx := NewEthTx(fromAddress)
 
@@ -207,6 +215,9 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
 	etx.State = txmgrcommon.TxConfirmed
+	if isMissingReceipt {
+		etx.State = txmgrcommon.TxConfirmedMissingReceipt
+	}
 	etx.MinConfirmations.SetValid(6)
 	require.NoError(t, txStore.InsertTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)

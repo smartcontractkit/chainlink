@@ -14,6 +14,8 @@ import (
 )
 
 // TxmClient is a superset of all the methods needed for the txm
+//
+//go:generate mockery --quiet --name TxmClient --output ./mocks/ --case=underscore
 type TxmClient[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,

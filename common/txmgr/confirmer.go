@@ -940,14 +940,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 		return fmt.Errorf("FindConfirmedTransactions failed: %w", err)
 	}
 
-	// implementation details available below this block
 	finalizedIDs, err := ec.markFinalized(ctx, head, confirmedTxs)
 	if err != nil {
 		return err
 	}
 
 	for _, tx := range confirmedTxs {
-		if _, ok := finalizedIDs[tx.ID]; ok || hasReceiptInLongestChain(*tx, head) {
+		if _, ok := finalizedIDs[tx.ID]; ok || hasReceiptInLongestChain(*tx, head) || hasReceiptHigherThanHead(*tx, head) {
 			continue
 		}
 
@@ -965,14 +964,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	wg.Add(len(ec.enabledAddresses))
 	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
+			defer wg.Done()
 			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()
 				errors = append(errors, err)
 				errMu.Unlock()
 				ec.lggr.Errorw("Error in handleAnyInProgressAttempts", "err", err, "fromAddress", fromAddress)
 			}
-
-			wg.Done()
 		}(address)
 	}
 
@@ -1029,6 +1027,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 		return err
 	}
 
+	if len(receipts) != len(attempts) || len(txErrs) != len(attempts) {
+		const errMsg = "invariant violation expected number of attempts to match number of resulting receipts/errors"
+		ec.lggr.With("receipts", receipts, "attempts", attempts, "txErrs", txErrs).Criticalw(errMsg)
+		return errors.New(errMsg)
+
+	}
+
 	finalizedReceipts := make([]R, 0, len(attempts))
 	for i, receipt := range receipts {
 		attempt := attempts[i]
@@ -1063,6 +1068,24 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 
 	return nil
 
+}
+
+func hasReceiptHigherThanHead[
+	CHAIN_ID types.ID,
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
+](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) bool {
+	for _, attempt := range etx.TxAttempts {
+		for _, receipt := range attempt.Receipts {
+			if receipt.GetBlockNumber().Int64() > head.BlockNumber() {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func hasReceiptInLongestChain[

@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
+//go:generate mockery --quiet --name TxmClient --output ./mocks/ --case=underscore
+
 // Type aliases for EVM
 type (
 	Confirmer              = txmgr.Confirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]

@@ -76,6 +76,7 @@ type TestEvmTxStore interface {
 	CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error)
 	FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error)
 	UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error
+	DeleteAll(ctx context.Context) error
 }
 
 type evmTxStore struct {
@@ -2096,4 +2097,14 @@ func (o *evmTxStore) mergeContexts(ctx context.Context) (context.Context, contex
 		stop()
 		cancel(context.Canceled)
 	}
+}
+
+// DeleteAll - removes all of the transactions and child entities. Only for tests
+func (o *evmTxStore) DeleteAll(ctx context.Context) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	_, err := qq.Exec(`DELETE FROM evm.txes`)
+	return err
 }
