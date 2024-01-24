@@ -7,13 +7,13 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
 	github.com/K-Phoen/grabana v0.21.17
+	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/cli/go-gh/v2 v2.0.0
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.4.0
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.10.9
 	github.com/manifoldco/promptui v0.9.0
 	github.com/onsi/gomega v1.30.0
@@ -25,20 +25,22 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240123141952-a879db9d23b3
-	github.com/smartcontractkit/chainlink-testing-framework v1.22.6
+	github.com/smartcontractkit/chainlink-testing-framework v1.23.0
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240112202000-6359502d2ff1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wasp v0.4.0
+	github.com/smartcontractkit/wasp v0.4.1
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
+	github.com/test-go/testify v1.1.4
 	github.com/testcontainers/testcontainers-go v0.23.0
 	github.com/umbracle/ethgo v0.1.3
 	go.dedis.ch/kyber/v3 v3.1.0
 	go.uber.org/ratelimit v0.2.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.5.0
+	golang.org/x/text v0.14.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
@@ -46,7 +48,6 @@ require (
 exclude github.com/hashicorp/consul v1.2.1
 
 replace (
-	// Required until https://github.com/testcontainers/testcontainers-go/pull/1971 is merged
 	github.com/testcontainers/testcontainers-go => github.com/Tofel/testcontainers-go v0.0.0-20231130110817-e6fbf9498b56
 	// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 	k8s.io/api => k8s.io/api v0.25.11
@@ -284,6 +285,7 @@ require (
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
+	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -436,7 +438,6 @@ require (
 	golang.org/x/oauth2 v0.15.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/term v0.15.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.16.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
@@ -485,4 +486,7 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
+	// type func(a Label, b Label) bool of func(a, b Label) bool {…} does not match inferred type func(a Label, b Label) int for func(a E, b E) int
+	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
 )

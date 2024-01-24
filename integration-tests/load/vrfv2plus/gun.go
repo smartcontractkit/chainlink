@@ -9,32 +9,33 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
+	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
 
 type SingleHashGun struct {
-	contracts       *vrfv2plus.VRFV2_5Contracts
-	keyHash         [32]byte
-	subIDs          []*big.Int
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
-	logger          zerolog.Logger
+	contracts  *vrfv2plus.VRFV2_5Contracts
+	keyHash    [32]byte
+	subIDs     []*big.Int
+	testConfig types.VRFv2PlusTestConfig
+	logger     zerolog.Logger
 }
 
 func NewSingleHashGun(
 	contracts *vrfv2plus.VRFV2_5Contracts,
 	keyHash [32]byte,
 	subIDs []*big.Int,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	testConfig types.VRFv2PlusTestConfig,
 	logger zerolog.Logger,
 ) *SingleHashGun {
 	return &SingleHashGun{
-		contracts:       contracts,
-		keyHash:         keyHash,
-		subIDs:          subIDs,
-		vrfv2PlusConfig: vrfv2PlusConfig,
-		logger:          logger,
+		contracts:  contracts,
+		keyHash:    keyHash,
+		subIDs:     subIDs,
+		testConfig: testConfig,
+		logger:     logger,
 	}
 }
 
@@ -42,13 +43,13 @@ func NewSingleHashGun(
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
-	billingType, err := selectBillingType(m.vrfv2PlusConfig.SubscriptionBillingType)
+	billingType, err := selectBillingType(*m.testConfig.GetVRFv2PlusConfig().General.SubscriptionBillingType)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
 
 	//randomly increase/decrease randomness request count per TX
-	randomnessRequestCountPerRequest := deviateValue(m.vrfv2PlusConfig.RandomnessRequestCountPerRequest, m.vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation)
+	randomnessRequestCountPerRequest := deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation)
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.LoadTestConsumers[0],
@@ -58,9 +59,12 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
 		billingType,
+		*m.testConfig.GetVRFv2PlusConfig().General.MinimumConfirmations,
+		*m.testConfig.GetVRFv2PlusConfig().General.CallbackGasLimit,
+		*m.testConfig.GetVRFv2PlusConfig().General.NumberOfWords,
 		randomnessRequestCountPerRequest,
-		m.vrfv2PlusConfig,
-		m.vrfv2PlusConfig.RandomWordsFulfilledEventTimeout,
+		*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation,
+		m.testConfig.GetVRFv2PlusConfig().General.RandomWordsFulfilledEventTimeout.Duration,
 		m.logger,
 	)
 	if err != nil {
@@ -86,12 +90,12 @@ func randInRange(min int, max int) int {
 }
 
 func selectBillingType(billingType string) (bool, error) {
-	switch billingType {
-	case vrfv2plus_config.BILLING_TYPE_LINK:
+	switch vrfv2plus_config.BillingType(billingType) {
+	case vrfv2plus_config.BillingType_Link:
 		return false, nil
-	case vrfv2plus_config.BILLING_TYPE_NATIVE:
+	case vrfv2plus_config.BillingType_Native:
 		return true, nil
-	case vrfv2plus_config.BILLING_TYPE_LINK_AND_NATIVE:
+	case vrfv2plus_config.BillingType_Link_and_Native:
 		return randBool(), nil
 	default:
 		return false, fmt.Errorf("invalid billing type: %s", billingType)
