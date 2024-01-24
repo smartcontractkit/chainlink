@@ -740,7 +740,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
       if (!_validateConditionalTrigger(upkeepId, rawTrigger, transmitInfo)) return (false, dedupID);
     } else if (transmitInfo.triggerType == Trigger.LOG) {
       bool valid;
-      (valid, dedupID) = _validateLogTrigger(upkeepId, rawTrigger, transmitInfo);
+      (valid, dedupID) = _validateLogTrigger(upkeepId, rawTrigger);
       if (!valid) return (false, dedupID);
     } else {
       revert InvalidTriggerType();
@@ -789,11 +789,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     return true;
   }
 
-  function _validateLogTrigger(
-    uint256 upkeepId,
-    bytes memory rawTrigger,
-    UpkeepTransmitInfo memory transmitInfo
-  ) internal returns (bool, bytes32) {
+  function _validateLogTrigger(uint256 upkeepId, bytes memory rawTrigger) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (

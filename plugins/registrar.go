@@ -8,7 +8,7 @@ import (
 
 // RegistrarConfig generates contains static configuration inher
 type RegistrarConfig interface {
-	RegisterLOOP(loopId string, cmdName string) (func() *exec.Cmd, loop.GRPCOpts, error)
+	RegisterLOOP(config CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error)
 }
 
 type registarConfig struct {
@@ -27,11 +27,8 @@ func NewRegistrarConfig(grpcOpts loop.GRPCOpts, loopRegistrationFn func(loopId s
 }
 
 // RegisterLOOP calls the configured loopRegistrationFn. The loopRegistrationFn must act as a global registry for LOOPs and must be idempotent.
-func (pc *registarConfig) RegisterLOOP(loopID string, cmdName string) (func() *exec.Cmd, loop.GRPCOpts, error) {
-	cmdFn, err := NewCmdFactory(pc.loopRegistrationFn, CmdConfig{
-		ID:  loopID,
-		Cmd: cmdName,
-	})
+func (pc *registarConfig) RegisterLOOP(cfg CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error) {
+	cmdFn, err := NewCmdFactory(pc.loopRegistrationFn, cfg)
 	if err != nil {
 		return nil, loop.GRPCOpts{}, err
 	}

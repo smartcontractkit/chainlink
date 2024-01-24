@@ -189,7 +189,10 @@ func setupNodeOCR2(
 
 func TestIntegration_OCR2(t *testing.T) {
 	t.Parallel()
+	testIntegration_OCR2(t)
+}
 
+func testIntegration_OCR2(t *testing.T) {
 	for _, test := range []struct {
 		name                string
 		chainReaderAndCodec bool
@@ -199,8 +202,6 @@ func TestIntegration_OCR2(t *testing.T) {
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 			lggr := logger.TestLogger(t)
