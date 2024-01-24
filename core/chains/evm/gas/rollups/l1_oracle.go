@@ -235,7 +235,7 @@ func (o *l1Oracle) refreshWithError() (t *time.Timer, err error) {
 		Data: callData,
 	}, nil)
 	if err != nil {
-		errMsg := fmt.Sprint("gas oracle contract call failed")
+		errMsg := "gas oracle contract call failed"
 		o.logger.Errorf(errMsg)
 		return t, fmt.Errorf("%s: %w", errMsg, err)
 	}
