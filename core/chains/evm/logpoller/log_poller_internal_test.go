@@ -275,6 +275,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		BackfillBatchSize:        3,
 		RpcBatchSize:             3,
 		KeepFinalizedBlocksDepth: 20,
+		BackupPollerBlockDelay:   100,
 	}
 	lp := NewLogPoller(orm, ec, lggr, lpOpts)
 
