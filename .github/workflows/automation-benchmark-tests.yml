@@ -27,6 +27,7 @@ on:
           - BASE_GOERLI
           - ARBITRUM_SEPOLIA
           - LINEA_GOERLI
+          - GNOSIS_CHIADO
       TestInputs:
         description: TestInputs
         required: false
