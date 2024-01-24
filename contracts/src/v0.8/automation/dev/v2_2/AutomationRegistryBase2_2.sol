@@ -967,4 +967,13 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     _;
     s_hotVars.reentrancyGuard = false;
   }
+
+  /**
+   * @notice only allows a pre-configured address to initiate offchain read
+   */
+  function _preventExecution() internal view {
+    if (tx.origin != i_allowedReadOnlyAddress) {
+      revert OnlySimulatedBackend();
+    }
+  }
 }

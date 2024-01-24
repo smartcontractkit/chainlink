@@ -23,14 +23,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     address automationForwarderLogic,
     address allowedReadOnlyAddress
   )
-    AutomationRegistryBase2_2(
-      mode,
-      link,
-      linkNativeFeed,
-      fastGasFeed,
-      automationForwarderLogic,
-      allowedReadOnlyAddress
-    )
+    AutomationRegistryBase2_2(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress)
   {}
 
   // ================================================================

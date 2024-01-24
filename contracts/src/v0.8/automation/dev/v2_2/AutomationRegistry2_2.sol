@@ -197,9 +197,8 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     uint256 id,
     bytes calldata performData
   ) external returns (bool success, uint256 gasUsed) {
-    if (tx.origin != i_allowedReadOnlyAddress) {
-      revert OnlySimulatedBackend();
-    }
+    _preventExecution();
+
     if (s_hotVars.paused) revert RegistryPaused();
     Upkeep memory upkeep = s_upkeep[id];
     (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);

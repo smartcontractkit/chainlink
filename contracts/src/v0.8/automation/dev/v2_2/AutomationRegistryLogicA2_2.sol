@@ -60,9 +60,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       uint256 linkNative
     )
   {
-    if (tx.origin != i_allowedReadOnlyAddress) {
-      revert OnlySimulatedBackend();
-    }
+    _preventExecution();
 
     Trigger triggerType = _getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
@@ -178,9 +176,8 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     external
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
-    if (tx.origin != i_allowedReadOnlyAddress) {
-      revert OnlySimulatedBackend();
-    }
+    _preventExecution();
+
     bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
     return executeCallback(id, payload);
   }
@@ -198,9 +195,8 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     public
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
-    if (tx.origin != i_allowedReadOnlyAddress) {
-      revert OnlySimulatedBackend();
-    }
+    _preventExecution();
+
     Upkeep memory upkeep = s_upkeep[id];
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
