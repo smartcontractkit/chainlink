@@ -11,6 +11,10 @@ Enabled = true
 [GasEstimator]
 # Fantom network has been slow to include txs at times when using the BlockHistory estimator, and the recommendation is to use SuggestedPrice mode.
 Mode = 'SuggestedPrice'
+# We don't want to place any limits on the minimum gas price with the SuggestedPrice estimator
+PriceMin = '0'
+# Never bump gas
+BumpThreshold = 0
 
 [OCR2.Automation]
 GasLimit = 3800000

@@ -8,6 +8,10 @@ RPCBlockQueryDelay = 2
 
 [GasEstimator]
 Mode = 'SuggestedPrice'
+# We don't want to place any limits on the minimum gas price with the SuggestedPrice estimator
+PriceMin = '0'
+# Never bump gas
+BumpThreshold = 0
 
 [OCR2.Automation]
 GasLimit = 3800000
