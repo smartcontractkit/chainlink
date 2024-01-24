@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	logpoller "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -25,262 +27,42 @@ import (
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
 func TestLogPollerFewFiltersFixedDepth(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      2,
-			EventsPerTx:    4,
-			UseFinalityTag: false,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 100,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
-			},
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-
-	// this was added only to support triggering tests from CI with custom values
-	err := cfg.OverrideFromEnv()
-	require.NoError(t, err, fmt.Sprintf("Error overriding config from env: %v", err))
-
-	executeBasicLogPollerTest(t, &cfg)
+	executeBasicLogPollerTest(t)
 }
 
 func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      2,
-			EventsPerTx:    4,
-			UseFinalityTag: true,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 100,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
-			},
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-
-	executeBasicLogPollerTest(t, &cfg)
+	executeBasicLogPollerTest(t)
 }
 
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
 func TestLogPollerManyFiltersFixedDepth(t *testing.T) {
 	t.Skip("Execute manually, when needed as it runs for a long time")
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      300,
-			EventsPerTx:    3,
-			UseFinalityTag: false,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 30,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
-			},
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-
-	executeBasicLogPollerTest(t, &cfg)
+	executeBasicLogPollerTest(t)
 }
 
 func TestLogPollerManyFiltersFinalityTag(t *testing.T) {
 	t.Skip("Execute manually, when needed as it runs for a long time")
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      300,
-			EventsPerTx:    3,
-			UseFinalityTag: true,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 30,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
-			},
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-
-	executeBasicLogPollerTest(t, &cfg)
+	executeBasicLogPollerTest(t)
 }
 
 // consistency test that introduces random distruptions by pausing either Chainlink or Postgres containers for random interval of 5-20 seconds
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerWithChaosFixedDepth(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      2,
-			EventsPerTx:    100,
-			UseFinalityTag: false,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 70,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 100,
-				MaxEmitWaitTimeMs: 300,
-			},
-		},
-		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 4,
-			TargetComponent: "chainlink",
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-
-	executeBasicLogPollerTest(t, &cfg)
+	executeBasicLogPollerTest(t)
 }
 
 func TestLogPollerWithChaosFinalityTag(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      2,
-			EventsPerTx:    100,
-			UseFinalityTag: true,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 120,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 100,
-				MaxEmitWaitTimeMs: 300,
-			},
-		},
-		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 6,
-			TargetComponent: "chainlink",
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-
-	executeBasicLogPollerTest(t, &cfg)
-}
-
-func TestLogPollerWithChaosPostgresFinalityTag(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      2,
-			EventsPerTx:    100,
-			UseFinalityTag: true,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 120,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 100,
-				MaxEmitWaitTimeMs: 300,
-			},
-		},
-		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 6,
-			TargetComponent: "postgres",
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-
-	executeBasicLogPollerTest(t, &cfg)
+	executeBasicLogPollerTest(t)
 }
 
 func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      2,
-			EventsPerTx:    100,
-			UseFinalityTag: false,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 120,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 100,
-				MaxEmitWaitTimeMs: 300,
-			},
-		},
-		ChaosConfig: &logpoller.ChaosConfig{
-			ExperimentCount: 6,
-			TargetComponent: "postgres",
-		},
-	}
+	executeBasicLogPollerTest(t)
+}
 
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-
-	executeBasicLogPollerTest(t, &cfg)
+func TestLogPollerWithChaosPostgresFinalityTag(t *testing.T) {
+	executeBasicLogPollerTest(t)
 }
 
 // consistency test that registers filters after events were emitted and then triggers replay via API
@@ -289,72 +71,31 @@ func TestLogPollerWithChaosPostgresFixedDepth(t *testing.T) {
 // with approximate emission of 24 logs per second for ~110 seconds
 // 6 filters are registered
 func TestLogPollerReplayFixedDepth(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      2,
-			EventsPerTx:    4,
-			UseFinalityTag: false,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 100,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
-			},
-		},
-	}
-
-	eventsToEmit := []abi.Event{}
-	for _, event := range logpoller.EmitterABI.Events {
-		eventsToEmit = append(eventsToEmit, event)
-	}
-
-	cfg.General.EventsToEmit = eventsToEmit
-	consistencyTimeout := "5m"
-
-	executeLogPollerReplay(t, &cfg, consistencyTimeout)
+	executeLogPollerReplay(t, "5m")
 }
 
 func TestLogPollerReplayFinalityTag(t *testing.T) {
-	cfg := logpoller.Config{
-		General: &logpoller.General{
-			Generator:      logpoller.GeneratorType_Looped,
-			Contracts:      2,
-			EventsPerTx:    4,
-			UseFinalityTag: true,
-		},
-		LoopedConfig: &logpoller.LoopedConfig{
-			ContractConfig: logpoller.ContractConfig{
-				ExecutionCount: 100,
-			},
-			FuzzConfig: logpoller.FuzzConfig{
-				MinEmitWaitTimeMs: 200,
-				MaxEmitWaitTimeMs: 500,
-			},
-		},
-	}
+	executeLogPollerReplay(t, "5m")
+}
+
+// HELPER FUNCTIONS
+func executeBasicLogPollerTest(t *testing.T) {
+	testConfig, err := tc.GetConfig(t.Name(), tc.LogPoller)
+	require.NoError(t, err, "Error getting config")
 
 	eventsToEmit := []abi.Event{}
 	for _, event := range logpoller.EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}
 
+	cfg := testConfig.LogPoller
 	cfg.General.EventsToEmit = eventsToEmit
-	consistencyTimeout := "5m"
 
-	executeLogPollerReplay(t, &cfg, consistencyTimeout)
-}
-
-func executeBasicLogPollerTest(t *testing.T, cfg *logpoller.Config) {
 	l := logging.GetTestLogger(t)
 	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
 
-	lpTestEnv := prepareEnvironment(l, t, cfg)
+	lpTestEnv := prepareEnvironment(l, t, &testConfig)
 	testEnv := lpTestEnv.testEnv
-	var err error
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
@@ -417,13 +158,23 @@ func executeBasicLogPollerTest(t *testing.T, cfg *logpoller.Config) {
 	conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l, coreLogger, t, allNodesLogCountMatches, lpTestEnv, cfg, startBlock, endBlock, "5m")
 }
 
-func executeLogPollerReplay(t *testing.T, cfg *logpoller.Config, consistencyTimeout string) {
+func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
+	testConfig, err := tc.GetConfig(t.Name(), tc.LogPoller)
+	require.NoError(t, err, "Error getting config")
+
+	eventsToEmit := []abi.Event{}
+	for _, event := range logpoller.EmitterABI.Events {
+		eventsToEmit = append(eventsToEmit, event)
+	}
+
+	cfg := testConfig.LogPoller
+	cfg.General.EventsToEmit = eventsToEmit
+
 	l := logging.GetTestLogger(t)
 	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
 
-	lpTestEnv := prepareEnvironment(l, t, cfg)
+	lpTestEnv := prepareEnvironment(l, t, &testConfig)
 	testEnv := lpTestEnv.testEnv
-	var err error
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
@@ -505,7 +256,8 @@ type logPollerEnvironment struct {
 
 // prepareEnvironment prepares environment for log poller tests by starting DON, private Ethereum network,
 // deploying registry and log emitter contracts and registering log triggered upkeeps
-func prepareEnvironment(l zerolog.Logger, t *testing.T, cfg *logpoller.Config) logPollerEnvironment {
+func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfig) logPollerEnvironment {
+	cfg := testConfig.LogPoller
 	if cfg.General.EventsToEmit == nil || len(cfg.General.EventsToEmit) == 0 {
 		l.Warn().Msg("No events to emit specified, using all events from log emitter contract")
 		for _, event := range logpoller.EmitterABI.Events {
@@ -517,11 +269,17 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, cfg *logpoller.Config) l
 
 	var (
 		err           error
-		upKeepsNeeded = cfg.General.Contracts * len(cfg.General.EventsToEmit)
+		upKeepsNeeded = *cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := logpoller.SetupLogPollerTestDocker(
-		t, ethereum.RegistryVersion_2_1, logpoller.DefaultOCRRegistryConfig, upKeepsNeeded, time.Duration(500*time.Millisecond), cfg.General.UseFinalityTag,
+		t,
+		ethereum.RegistryVersion_2_1,
+		logpoller.DefaultOCRRegistryConfig,
+		upKeepsNeeded,
+		time.Duration(500*time.Millisecond),
+		*cfg.General.UseFinalityTag,
+		testConfig,
 	)
 
 	_, upkeepIDs := actions.DeployConsumers(
@@ -591,7 +349,7 @@ func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, core
 
 // conditionallyWaitUntilNodesHaveTheSameLogsAsEvm checks whether all CL nodes have the same number of logs as EVM node
 // if not, then it prints missing logs and wait for some time and checks again
-func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, allNodesLogCountMatches bool, lpTestEnv logPollerEnvironment, cfg *logpoller.Config, startBlock, endBlock int64, waitDuration string) {
+func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, allNodesLogCountMatches bool, lpTestEnv logPollerEnvironment, cfg *lp_config.Config, startBlock, endBlock int64, waitDuration string) {
 	logCountWaitDuration, err := time.ParseDuration(waitDuration)
 	require.NoError(t, err, "Error parsing log count wait duration")
 

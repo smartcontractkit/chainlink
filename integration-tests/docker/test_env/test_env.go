@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"os"
 	"runtime/debug"
 	"testing"
 
@@ -23,6 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+
+	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -149,14 +150,15 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 	return te.MockAdapter.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, opts ...ClNodeOption) error {
+// pass config here
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig core_testconfig.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
 		opts = append(opts, WithSecrets(secretsConfig), WithLogStream(te.LogStream))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode, err := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_VERSION"), nodeConfig, opts...)
+			ocrNode, err := NewClNode([]string{te.Network.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, opts...)
 			if err != nil {
 				return err
 			}

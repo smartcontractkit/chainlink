@@ -22,6 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 type CleanUpType string
@@ -52,6 +54,7 @@ type CLTestEnvBuilder struct {
 	chainOptionsFn         []ChainOption
 	evmClientNetworkOption []EVMClientNetworkOption
 	ethereumNetwork        *test_env.EthereumNetwork
+	testConfig             tc.GlobalTestConfig
 
 	/* funding */
 	ETHFunds *big.Float
@@ -110,6 +113,11 @@ func (b *CLTestEnvBuilder) WithoutLogStream() *CLTestEnvBuilder {
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithTestConfig(cfg tc.GlobalTestConfig) *CLTestEnvBuilder {
+	b.testConfig = cfg
 	return b
 }
 
@@ -213,6 +221,10 @@ func (b *CLTestEnvBuilder) EVMClientNetworkOptions(opts ...EVMClientNetworkOptio
 }
 
 func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
+	if b.testConfig == nil {
+		return nil, fmt.Errorf("test config must be set")
+	}
+
 	if b.te == nil {
 		var err error
 		b, err = b.WithTestEnv(nil)
@@ -227,7 +239,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if b.hasLogStream {
-		b.te.LogStream, err = logstream.NewLogStream(b.te.t, nil)
+		b.te.LogStream, err = logstream.NewLogStream(b.te.t, b.testConfig.GetLoggingConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -273,7 +285,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				b.l.Info().Str("Absolute path", logPath).Msg("LogStream logs folder location")
 			}
 
-			if b.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+			if b.t.Failed() || *b.testConfig.GetLoggingConfig().TestLogCollect {
 				// we can't do much if this fails, so we just log the error in logstream
 				_ = b.te.LogStream.FlushAndShutdown()
 				b.te.LogStream.PrintLogTargetsLocations()
@@ -303,27 +315,26 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, fmt.Errorf("cannot create nodes with custom config without nonDevNetworks")
 		}
 
-		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig, b.clNodesOpts...)
+		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}
 		return b.te, nil
 	}
 
-	networkConfig := networks.MustGetSelectedNetworksFromEnv()[0]
+	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.GetNetworkConfig())[0]
 	var rpcProvider test_env.RpcProvider
 	if b.ethereumNetwork != nil && networkConfig.Simulated {
 		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
 		// in general it seems we have no methods for saving config to file and we only load it from file
 		// but I don't know how that config file is to be created or whether anyone ever done that
-		var enCfg test_env.EthereumNetwork
 		b.ethereumNetwork.DockerNetworkNames = []string{b.te.Network.Name}
 		networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.ethereumNetwork)
 		if err != nil {
 			return nil, err
 		}
 		b.te.RpcProvider = rpcProvider
-		b.te.PrivateEthereumConfig = &enCfg
+		b.te.PrivateEthereumConfig = b.ethereumNetwork
 	}
 
 	if !b.isNonEVM {
@@ -387,7 +398,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 
-		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig, b.clNodesOpts...)
+		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
 		if err != nil {
 			return nil, err
 		}
