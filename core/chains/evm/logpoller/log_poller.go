@@ -449,6 +449,20 @@ func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (i
 	return mathutil.Min(requested, lastProcessed.BlockNumber), nil
 }
 
+func (lp *logPoller) loadFilters() error {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+	filters, err := lp.orm.LoadFilters(pg.WithParentCtx(lp.ctx))
+
+	if err != nil {
+		return pkgerrors.Wrapf(err, "Failed to load initial filters from db, retrying")
+	}
+
+	lp.filters = filters
+	lp.filterDirty = true
+	return nil
+}
+
 func (lp *logPoller) run() {
 	defer lp.wg.Done()
 	logPollTick := time.After(0)
@@ -456,60 +470,20 @@ func (lp *logPoller) run() {
 	backupLogPollTick := time.After(100 * time.Millisecond)
 	filtersLoaded := false
 
-	loadFilters := func() error {
-		lp.filterMu.Lock()
-		defer lp.filterMu.Unlock()
-		filters, err := lp.orm.LoadFilters(pg.WithParentCtx(lp.ctx))
-
-		if err != nil {
-			return pkgerrors.Wrapf(err, "Failed to load initial filters from db, retrying")
-		}
-
-		lp.filters = filters
-		lp.filterDirty = true
-		filtersLoaded = true
-		return nil
-	}
-
 	for {
 		select {
 		case <-lp.ctx.Done():
 			return
 		case fromBlockReq := <-lp.replayStart:
-			fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
-			if err == nil {
-				if !filtersLoaded {
-					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
-					if err = loadFilters(); err != nil {
-						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
-					}
-				}
-				if err == nil {
-					// Serially process replay requests.
-					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
-					lp.PollAndSaveLogs(lp.ctx, fromBlock)
-					lp.lggr.Infow("Executing replay finished", "fromBlock", fromBlock, "requested", fromBlockReq)
-				}
-			} else {
-				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
-			}
-			select {
-			case <-lp.ctx.Done():
-				// We're shutting down, notify client and exit
-				select {
-				case lp.replayComplete <- ErrReplayRequestAborted:
-				default:
-				}
-				return
-			case lp.replayComplete <- err:
-			}
+			lp.handleReplayRequest(fromBlockReq, filtersLoaded)
 		case <-logPollTick:
 			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
 			if !filtersLoaded {
-				if err := loadFilters(); err != nil {
+				if err := lp.loadFilters(); err != nil {
 					lp.lggr.Errorw("Failed loading filters in main logpoller loop, retrying later", "err", err)
 					continue
 				}
+				filtersLoaded = true
 			}
 
 			// Always start from the latest block in the db.
@@ -593,6 +567,36 @@ func (lp *logPoller) backgroundWorkerRun() {
 				logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 241))
 			}
 		}
+	}
+}
+
+func (lp *logPoller) handleReplayRequest(fromBlockReq int64, filtersLoaded bool) {
+	fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
+	if err == nil {
+		if !filtersLoaded {
+			lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
+			if err = lp.loadFilters(); err != nil {
+				lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
+			}
+		}
+		if err == nil {
+			// Serially process replay requests.
+			lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
+			lp.PollAndSaveLogs(lp.ctx, fromBlock)
+			lp.lggr.Infow("Executing replay finished", "fromBlock", fromBlock, "requested", fromBlockReq)
+		}
+	} else {
+		lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
+	}
+	select {
+	case <-lp.ctx.Done():
+		// We're shutting down, notify client and exit
+		select {
+		case lp.replayComplete <- ErrReplayRequestAborted:
+		default:
+		}
+		return
+	case lp.replayComplete <- err:
 	}
 }
 
