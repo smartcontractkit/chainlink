@@ -2,15 +2,15 @@
  * @description this script generates a master interface for interacting with the automation registry
  * @notice run this script with pnpm ts-node ./scripts/generate-automation-master-interface.ts
  */
-import { KeeperRegistry2_1__factory as KeeperRegistry } from '../typechain/factories/KeeperRegistry2_1__factory'
-import { KeeperRegistryLogicA2_1__factory as KeeperRegistryLogicA } from '../typechain/factories/KeeperRegistryLogicA2_1__factory'
-import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicB } from '../typechain/factories/KeeperRegistryLogicB2_1__factory'
+import { KeeperRegistry2_2__factory as KeeperRegistry } from '../typechain/factories/KeeperRegistry2_2__factory'
+import { KeeperRegistryLogicA2_2__factory as KeeperRegistryLogicA } from '../typechain/factories/KeeperRegistryLogicA2_2__factory'
+import { KeeperRegistryLogicB2_2__factory as KeeperRegistryLogicB } from '../typechain/factories/KeeperRegistryLogicB2_2__factory'
 import { utils } from 'ethers'
 import fs from 'fs'
 import { exec } from 'child_process'
 
-const dest = 'src/v0.8/automation/interfaces/v2_1'
-const srcDest = `${dest}/IKeeperRegistryMaster.sol`
+const dest = 'src/v0.8/automation/dev/interfaces/v2_2'
+const srcDest = `${dest}/IAutomationRegistryMaster.sol`
 const tmpDest = `${dest}/tmp.txt`
 
 const combinedABI = []
@@ -44,7 +44,7 @@ const checksum = utils.id(abis.join(''))
 fs.writeFileSync(`${tmpDest}`, JSON.stringify(combinedABI))
 
 const cmd = `
-cat ${tmpDest} | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${srcDest} IKeeperRegistryMaster;
+cat ${tmpDest} | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${srcDest} IAutomationRegistryMaster;
 echo "// abi-checksum: ${checksum}" | cat - ${srcDest} > ${tmpDest} && mv ${tmpDest} ${srcDest};
 pnpm prettier --write ${srcDest};
 `

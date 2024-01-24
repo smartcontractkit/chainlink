@@ -41,6 +41,8 @@ contract ScrollSequencerUptimeFeed is
   error InvalidSender();
   /// @notice Replacement for AggregatorV3Interface "No data present"
   error NoDataPresent();
+  /// @notice Address must not be the zero address
+  error ZeroAddress();
 
   event L1SenderTransferred(address indexed from, address indexed to);
   /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
@@ -68,6 +70,10 @@ contract ScrollSequencerUptimeFeed is
   /// @param l2CrossDomainMessengerAddr Address of the L2CrossDomainMessenger contract
   /// @param initialStatus The initial status of the feed
   constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) {
+    if (l2CrossDomainMessengerAddr == address(0)) {
+      revert ZeroAddress();
+    }
+
     _setL1Sender(l1SenderAddress);
     s_l2CrossDomainMessenger = IL2ScrollMessenger(l2CrossDomainMessengerAddr);
 
