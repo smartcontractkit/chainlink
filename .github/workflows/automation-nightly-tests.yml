@@ -54,6 +54,7 @@ jobs:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
+      SELECTED_NETWORKS: "SIMULATED"
     strategy:
       fail-fast: false
       matrix:
