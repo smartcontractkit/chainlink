@@ -206,7 +206,7 @@ jobs:
           ./scripts/compareTestList.sh ./smoke/automation_test.go
           ./scripts/compareTestList.sh ./smoke/keeper_test.go
           ./scripts/compareTestList.sh ./smoke/log_poller_test.go
-          ./scripts/compartTestList.sh ./smoke/ocr2_test.go
+          ./scripts/compareTestList.sh ./smoke/ocr2_test.go
       - name: Build Test Matrix Lists
         id: build-test-matrix-list
         run: |
