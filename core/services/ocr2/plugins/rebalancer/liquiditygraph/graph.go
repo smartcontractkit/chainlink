@@ -28,7 +28,7 @@ type LiquidityGraph interface {
 	GetLiquidity(n models.NetworkSelector) (*big.Int, error)
 
 	// AddConnection adds a new directed graph edge.
-	AddConnection(from, to models.NetworkSelector) bool
+	AddConnection(from, to models.NetworkSelector) error
 
 	// HasConnection returns true if a connection from/to the provided network exist.
 	HasConnection(from, to models.NetworkSelector) bool
@@ -123,16 +123,19 @@ func (g *Graph) GetLiquidity(n models.NetworkSelector) (*big.Int, error) {
 	return w, nil
 }
 
-func (g *Graph) AddConnection(from, to models.NetworkSelector) bool {
-	if !g.HasNetwork(from) || !g.HasNetwork(to) {
-		return false
+func (g *Graph) AddConnection(from, to models.NetworkSelector) error {
+	if !g.HasNetwork(from) {
+		return fmt.Errorf("network %d not found", from)
+	}
+	if !g.HasNetwork(to) {
+		return fmt.Errorf("network %d not found", to)
 	}
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	g.networksGraph[from] = append(g.networksGraph[from], to)
-	return true
+	return nil
 }
 
 func (g *Graph) HasConnection(from, to models.NetworkSelector) bool {

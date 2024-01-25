@@ -153,7 +153,11 @@ func (e EvmRebalancer) Discover(ctx context.Context, lmFactory Factory) (*Regist
 		for destNetworkID, lmAddr := range destinationLMs {
 			netSel := destNetworkID
 
-			g.AddConnection(elem.networkSel, netSel)
+			_ = g.AddNetwork(netSel, big.NewInt(0))
+
+			if err := g.AddConnection(elem.networkSel, netSel); err != nil {
+				return nil, nil, fmt.Errorf("add connection: %w", err)
+			}
 
 			newElem := qItem{networkSel: netSel, lmAddress: common.Address(lmAddr)}
 			if !seen.Contains(newElem) {

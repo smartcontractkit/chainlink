@@ -46,8 +46,8 @@ func TestGraph(t *testing.T) {
 	for netSel2 == netSel1 {
 		netSel2 = rand.Intn(numNetworks)
 	}
-	assert.True(t, g.AddConnection(models.NetworkSelector(netSel1), models.NetworkSelector(netSel2)))
-	assert.False(t, g.AddConnection(models.NetworkSelector(numNetworks+1), models.NetworkSelector(numNetworks+2)))
+	assert.NoError(t, g.AddConnection(models.NetworkSelector(netSel1), models.NetworkSelector(netSel2)))
+	assert.Error(t, g.AddConnection(models.NetworkSelector(numNetworks+1), models.NetworkSelector(numNetworks+2)))
 
 	assert.True(t, g.SetLiquidity(models.NetworkSelector(netSel2), big.NewInt(999)))
 	liq, err = g.GetLiquidity(models.NetworkSelector(netSel2))
@@ -94,5 +94,5 @@ func runGraphOperations(t *testing.T, numNetworks int, g liquiditygraph.Liquidit
 	g.SetLiquidity(newNetID, big.NewInt(1234))
 	_, err = g.GetLiquidity(newNetID)
 	assert.NoError(t, err)
-	g.AddConnection(models.NetworkSelector(1), models.NetworkSelector(2))
+	_ = g.AddConnection(models.NetworkSelector(1), models.NetworkSelector(2))
 }
