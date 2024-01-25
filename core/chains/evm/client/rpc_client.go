@@ -479,8 +479,8 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
-func (client *rpcClient) FinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
-	return client.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+func (r *rpcClient) FinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
 }
 
 func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
