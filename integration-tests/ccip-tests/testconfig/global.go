@@ -11,6 +11,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
@@ -31,7 +32,7 @@ const (
 )
 
 var (
-	//go:embed tomls/default.toml
+	//go:embed tomls/ccip-default.toml
 	DefaultConfig []byte
 )
 

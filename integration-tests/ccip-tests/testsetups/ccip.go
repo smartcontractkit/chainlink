@@ -110,7 +110,7 @@ func (p *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 	var err error
 	p.SelectedNetworks, err = p.EnvInput.EVMNetworks()
 	if err != nil {
-		allError = multierr.Append(allError, fmt.Errorf("failed to get networks: %v", err))
+		allError = multierr.Append(allError, fmt.Errorf("failed to get networks: %w", err))
 		return allError
 	}
 	networkByChainID := make(map[string]blockchain.EVMNetwork)
