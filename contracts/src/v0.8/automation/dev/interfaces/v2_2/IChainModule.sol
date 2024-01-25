@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.16;
 
-interface IChainSpecific {
+interface IChainModule {
   // retrieve the native block number of a chain. e.g. L2 block number on Arbitrum
   function blockNumber() external view returns (uint256);
 

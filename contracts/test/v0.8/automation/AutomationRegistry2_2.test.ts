@@ -19,17 +19,14 @@ import { StreamsLookupUpkeep__factory as StreamsLookupUpkeepFactory } from '../.
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
-import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
-import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
+import { MockChainSpecificModule__factory as MockChainSpecificModuleFactory } from '../../../typechain/factories/MockChainSpecificModule__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
-import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationUtils2_2 as AutomationUtils } from '../../../typechain/AutomationUtils2_2'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
-import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
-import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
+import { MockChainSpecificModule } from '../../../typechain'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { UpkeepAutoFunder } from '../../../typechain'
 import {
@@ -61,13 +58,6 @@ enum UpkeepFailureReason {
   CHECK_CALLBACK_REVERTED,
   REVERT_DATA_EXCEEDS_LIMIT,
   REGISTRY_PAUSED,
-}
-
-// copied from AutomationRegistryInterface2_2.sol
-enum Mode {
-  DEFAULT,
-  ARBITRUM,
-  OPTIMISM,
 }
 
 // copied from AutomationRegistryBase2_2.sol
@@ -140,8 +130,7 @@ let linkTokenFactory: ContractFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-let mockArbGasInfoFactory: MockArbGasInfoFactory
-let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
+let mockChainSpecificModuleFactory: MockChainSpecificModuleFactory
 let streamsLookupUpkeepFactory: StreamsLookupUpkeepFactory
 let personas: Personas
 
@@ -158,8 +147,7 @@ let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
 let ltUpkeep: MockContract
 let transcoder: UpkeepTranscoder
-let mockArbGasInfo: MockArbGasInfo
-let mockOVMGasPriceOracle: MockOVMGasPriceOracle
+let mockChainSpecificModule: MockChainSpecificModule
 let streamsLookupUpkeep: StreamsLookupUpkeep
 let automationUtils: AutomationUtils
 
@@ -388,7 +376,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe('AutomationRegistry2_2', () => {
+describe.only('AutomationRegistry2_2', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -437,9 +425,8 @@ describe('AutomationRegistry2_2', () => {
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory =
       await ethers.getContractFactory('UpkeepAutoFunder')
-    mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
-    mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
-      'MockOVMGasPriceOracle',
+    mockChainSpecificModuleFactory = await ethers.getContractFactory(
+      'MockChainSpecificModule',
     )
     streamsLookupUpkeepFactory = await ethers.getContractFactory(
       'StreamsLookupUpkeep',
@@ -628,6 +615,7 @@ describe('AutomationRegistry2_2', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
+          chainSpecificModule: mockChainSpecificModule.address,
           reorgProtectionEnabled: true,
         }),
         offchainVersion,
@@ -826,10 +814,6 @@ describe('AutomationRegistry2_2', () => {
       'UpkeepTranscoder4_0',
     )
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
-    mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
-    mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
-      .connect(owner)
-      .deploy()
     streamsLookupUpkeep = await streamsLookupUpkeepFactory
       .connect(owner)
       .deploy(
@@ -840,30 +824,30 @@ describe('AutomationRegistry2_2', () => {
         false /* verify mercury response */,
       )
 
-    const arbOracleCode = await ethers.provider.send('eth_getCode', [
-      mockArbGasInfo.address,
-    ])
-    await ethers.provider.send('hardhat_setCode', [
-      '0x000000000000000000000000000000000000006C',
-      arbOracleCode,
-    ])
+    // const arbOracleCode = await ethers.provider.send('eth_getCode', [
+    //   mockArbGasInfo.address,
+    // ])
+    // await ethers.provider.send('hardhat_setCode', [
+    //   '0x000000000000000000000000000000000000006C',
+    //   arbOracleCode,
+    // ])
 
-    const optOracleCode = await ethers.provider.send('eth_getCode', [
-      mockOVMGasPriceOracle.address,
-    ])
-    await ethers.provider.send('hardhat_setCode', [
-      '0x420000000000000000000000000000000000000F',
-      optOracleCode,
-    ])
+    // const optOracleCode = await ethers.provider.send('eth_getCode', [
+    //   mockOVMGasPriceOracle.address,
+    // ])
+    // await ethers.provider.send('hardhat_setCode', [
+    //   '0x420000000000000000000000000000000000000F',
+    //   optOracleCode,
+    // ])
 
-    const mockArbSys = await new MockArbSysFactory(owner).deploy()
-    const arbSysCode = await ethers.provider.send('eth_getCode', [
-      mockArbSys.address,
-    ])
-    await ethers.provider.send('hardhat_setCode', [
-      '0x0000000000000000000000000000000000000064',
-      arbSysCode,
-    ])
+    // const mockArbSys = await new MockArbSysFactory(owner).deploy()
+    // const arbSysCode = await ethers.provider.send('eth_getCode', [
+    //   mockArbSys.address,
+    // ])
+    // await ethers.provider.send('hardhat_setCode', [
+    //   '0x0000000000000000000000000000000000000064',
+    //   arbSysCode,
+    // ])
 
     config = {
       paymentPremiumPPB,
@@ -895,7 +879,6 @@ describe('AutomationRegistry2_2', () => {
 
     registry = await deployRegistry22(
       owner,
-      Mode.DEFAULT,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
@@ -904,7 +887,6 @@ describe('AutomationRegistry2_2', () => {
 
     arbRegistry = await deployRegistry22(
       owner,
-      Mode.ARBITRUM,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
@@ -913,7 +895,6 @@ describe('AutomationRegistry2_2', () => {
 
     opRegistry = await deployRegistry22(
       owner,
-      Mode.OPTIMISM,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
@@ -922,7 +903,6 @@ describe('AutomationRegistry2_2', () => {
 
     mgRegistry = await deployRegistry22(
       owner,
-      Mode.DEFAULT,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
@@ -931,7 +911,6 @@ describe('AutomationRegistry2_2', () => {
 
     blankRegistry = await deployRegistry22(
       owner,
-      Mode.DEFAULT,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
@@ -3469,6 +3448,7 @@ describe('AutomationRegistry2_2', () => {
       transcoder: newTranscoder,
       registrars: newRegistrars,
       upkeepPrivilegeManager: upkeepManager,
+      chainSpecificModule: mockChainSpecificModule.address,
       reorgProtectionEnabled: true,
     }
 

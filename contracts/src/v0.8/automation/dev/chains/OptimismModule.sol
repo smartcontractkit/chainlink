@@ -2,19 +2,19 @@
 pragma solidity 0.8.16;
 
 import {OVM_GasPriceOracle} from "./../../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import "../interfaces/v2_2/IChainSpecific.sol";
+import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
-contract OptimismAndBaseModule is IChainSpecific {
+contract OptimismModule is IChainModule {
   /// @dev OP_L1_DATA_FEE_PADDING includes 35 bytes for L1 data padding for Optimism and BASE
   bytes internal constant OP_L1_DATA_FEE_PADDING =
     hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
   /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
-  address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
+  address private constant OVM_GASPRICEORACLE_ADDR = 0x420000000000000000000000000000000000000F;
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
-  function blockHash(uint256 blockNumber) external view returns (bytes32) {
-    return blockhash(blockNumber);
+  function blockHash(uint256 blocknumber) external view returns (bytes32) {
+    return blockhash(blocknumber);
   }
 
   function blockNumber() external view returns (uint256) {

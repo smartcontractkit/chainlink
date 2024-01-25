@@ -3,33 +3,37 @@ pragma solidity 0.8.16;
 
 import {ArbSys} from "./../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {ArbGasInfo} from "./../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import "../interfaces/v2_2/IChainSpecific.sol";
+import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
-contract ArbitrumModule is IChainSpecific {
-  /// @dev ARBSYS_ADDR is the address of the ArbSys precompile on Arbitrum.
+contract ArbitrumModule is IChainModule {
+  /// @dev ARB_SYS_ADDR is the address of the ArbSys precompile on Arbitrum.
   /// @dev reference: https://github.com/OffchainLabs/nitro/blob/v2.0.14/contracts/src/precompiles/ArbSys.sol#L10
-  address private constant ARBSYS_ADDR = address(0x0000000000000000000000000000000000000064);
-  ArbSys private constant ARBSYS = ArbSys(ARBSYS_ADDR);
+  address private constant ARB_SYS_ADDR = 0x0000000000000000000000000000000000000064;
+  ArbSys private constant ARB_SYS = ArbSys(ARB_SYS_ADDR);
 
-  /// @dev ARBGAS_ADDR is the address of the ArbGasInfo precompile on Arbitrum.
+  /// @dev ARB_GAS_ADDR is the address of the ArbGasInfo precompile on Arbitrum.
   /// @dev reference: https://github.com/OffchainLabs/nitro/blob/v2.0.14/contracts/src/precompiles/ArbGasInfo.sol#L10
-  address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
-  ArbGasInfo private constant ARBGAS = ArbGasInfo(ARBGAS_ADDR);
+  address private constant ARB_GAS_ADDR = 0x000000000000000000000000000000000000006C;
+  ArbGasInfo private constant ARB_GAS = ArbGasInfo(ARB_GAS_ADDR);
 
-  function blockHash(uint256 blockNumber) external view returns (bytes32) {
-    return ARBSYS.arbBlockHash(blockNumber);
+  function blockHash(uint256 n) external view returns (bytes32) {
+    uint256 blockNum = ARB_SYS.arbBlockNumber();
+    if (n >= blockNum || blockNum - n > 256) {
+      return "";
+    }
+    return ARB_SYS.arbBlockHash(n);
   }
 
   function blockNumber() external view returns (uint256) {
-    return ARBSYS.arbBlockNumber();
+    return ARB_SYS.arbBlockNumber();
   }
 
   function getL1Fee(bytes calldata) external view returns (uint256) {
-    return ARBGAS.getCurrentTxL1GasFees();
+    return ARB_GAS.getCurrentTxL1GasFees();
   }
 
   function getMaxL1Fee(uint256 dataSize) external view returns (uint256) {
-    (, uint256 perL1CalldataUnit, , , , ) = ARBGAS.getPricesInWei();
+    (, uint256 perL1CalldataUnit, , , , ) = ARB_GAS.getPricesInWei();
     return perL1CalldataUnit * dataSize * 16;
   }
 }

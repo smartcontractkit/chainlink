@@ -14,7 +14,7 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
-import "../interfaces/v2_2/IChainSpecific.sol";
+import "../interfaces/v2_2/IChainModule.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -265,7 +265,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     address transcoder;
     address[] registrars;
     address upkeepPrivilegeManager;
-    address chainSpecificModule;
+    IChainModule chainModule;
     bool reorgProtectionEnabled;
   }
 
@@ -359,7 +359,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     bool paused; //                  │ pause switch for all upkeeps in the registry
     bool reentrancyGuard; // ────────╯ guard against reentrancy
     bool reorgProtectionEnabled; //    if this registry should enable re-org protection mechanism
-    IChainSpecific chainSpecificModule; // the address of chain specific module
+    IChainModule chainModule; //       the interface of chain specific module
   }
 
   /// @dev Config + State storage struct which is not on hot transmit path
@@ -556,7 +556,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    */
   function _createID(Trigger triggerType) internal view returns (uint256) {
     bytes1 empty;
-    IChainSpecific chainModule = s_hotVars.chainSpecificModule;
+    IChainModule chainModule = s_hotVars.chainModule;
     bytes memory idBytes = abi.encodePacked(
       keccak256(abi.encode(chainModule.blockHash((chainModule.blockNumber() - 1)), address(this), s_storage.nonce))
     );
@@ -623,10 +623,10 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
 
     uint256 l1CostWei = 0;
     if (isExecution) {
-      l1CostWei = hotVars.chainSpecificModule.getL1Fee(msg.data);
+      l1CostWei = hotVars.chainModule.getL1Fee(msg.data);
     } else {
       // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
-      l1CostWei = hotVars.gasCeilingMultiplier * hotVars.chainSpecificModule.getMaxL1Fee(s_storage.maxPerformDataSize);
+      l1CostWei = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize);
     }
     // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
@@ -759,21 +759,23 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    */
   function _prePerformChecks(
     uint256 upkeepId,
+    uint256 blocknumber,
     bytes memory rawTrigger,
     UpkeepTransmitInfo memory transmitInfo,
     HotVars memory hotVars
   ) internal returns (bool, bytes32) {
     bytes32 dedupID;
     if (transmitInfo.triggerType == Trigger.CONDITION) {
-      if (!_validateConditionalTrigger(upkeepId, rawTrigger, transmitInfo, hotVars)) return (false, dedupID);
+      if (!_validateConditionalTrigger(upkeepId, blocknumber, rawTrigger, transmitInfo, hotVars))
+        return (false, dedupID);
     } else if (transmitInfo.triggerType == Trigger.LOG) {
       bool valid;
-      (valid, dedupID) = _validateLogTrigger(upkeepId, rawTrigger, hotVars);
+      (valid, dedupID) = _validateLogTrigger(upkeepId, blocknumber, rawTrigger, hotVars);
       if (!valid) return (false, dedupID);
     } else {
       revert InvalidTriggerType();
     }
-    if (transmitInfo.upkeep.maxValidBlocknumber <= hotVars.chainSpecificModule.blockNumber()) {
+    if (transmitInfo.upkeep.maxValidBlocknumber <= blocknumber) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
       emit CancelledUpkeepReport(upkeepId, rawTrigger);
@@ -792,6 +794,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    */
   function _validateConditionalTrigger(
     uint256 upkeepId,
+    uint256 blocknumber,
     bytes memory rawTrigger,
     UpkeepTransmitInfo memory transmitInfo,
     HotVars memory hotVars
@@ -802,11 +805,10 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
-    IChainSpecific chainModule = hotVars.chainSpecificModule;
     if (
       (hotVars.reorgProtectionEnabled &&
-        (trigger.blockHash != bytes32("") && chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
-      trigger.blockNum >= chainModule.blockNumber()
+        (trigger.blockHash != bytes32("") && hotVars.chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
+      trigger.blockNum >= blocknumber
     ) {
       // There are two cases of reorged report
       // 1. trigger block number is in future: this is an edge case during extreme deep reorgs of chain
@@ -822,16 +824,16 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
 
   function _validateLogTrigger(
     uint256 upkeepId,
+    uint256 blocknumber,
     bytes memory rawTrigger,
     HotVars memory hotVars
   ) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
-    IChainSpecific chainModule = hotVars.chainSpecificModule;
     if (
       (hotVars.reorgProtectionEnabled &&
-        (trigger.blockHash != bytes32("") && chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
-      trigger.blockNum >= chainModule.blockNumber()
+        (trigger.blockHash != bytes32("") && hotVars.chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
+      trigger.blockNum >= blocknumber
     ) {
       // Reorg protection is same as conditional trigger upkeeps
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
@@ -878,11 +880,11 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    */
   function _updateTriggerMarker(
     uint256 upkeepID,
-    UpkeepTransmitInfo memory upkeepTransmitInfo,
-    HotVars memory hotVars
+    uint256 blocknumber,
+    UpkeepTransmitInfo memory upkeepTransmitInfo
   ) internal {
     if (upkeepTransmitInfo.triggerType == Trigger.CONDITION) {
-      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(hotVars.chainSpecificModule.blockNumber());
+      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(blocknumber);
     } else if (upkeepTransmitInfo.triggerType == Trigger.LOG) {
       s_dedupKeys[upkeepTransmitInfo.dedupID] = true;
       emit DedupKeyAdded(upkeepTransmitInfo.dedupID);
@@ -900,6 +902,36 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   ) internal nonReentrant returns (bool success, uint256 gasUsed) {
     performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
     return forwarder.forward(performGas, performData);
+  }
+
+  /**
+   * @dev does postPerform payment processing for an upkeep. Deducts upkeep's balance and increases
+   * amount spent.
+   */
+  function _postPerformPayment1(
+    HotVars memory hotVars,
+    uint256 i,
+    Report memory report,
+    UpkeepTransmitInfo memory upkeepTransmitInfo,
+    //uint256 fastGasWei,
+    //uint256 linkNative,
+    uint16 numBatchedUpkeeps
+  ) internal returns (uint96 gasReimbursement, uint96 premium) {
+    (gasReimbursement, premium) = _calculatePaymentAmount(
+      hotVars,
+      upkeepTransmitInfo.gasUsed,
+      upkeepTransmitInfo.gasOverhead,
+      report.fastGasWei,
+      report.linkNative,
+      numBatchedUpkeeps,
+      true
+    );
+
+    uint96 payment = gasReimbursement + premium;
+
+    s_upkeep[report.upkeepIds[i]].balance -= payment;
+    s_upkeep[report.upkeepIds[i]].amountSpent += payment;
+    return (gasReimbursement, premium);
   }
 
   /**

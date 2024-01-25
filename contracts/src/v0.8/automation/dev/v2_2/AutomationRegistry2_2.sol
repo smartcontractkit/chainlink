@@ -8,7 +8,7 @@ import {AutomationRegistryLogicB2_2} from "./AutomationRegistryLogicB2_2.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
-import {IChainSpecific} from "../interfaces/v2_2/IChainSpecific.sol";
+import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
@@ -95,6 +95,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     uint16 numUpkeepsPassedChecks;
 
+    uint256 blocknumber = hotVars.chainModule.blockNumber();
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
       upkeepTransmitInfo[i].triggerType = _getTriggerType(report.upkeepIds[i]);
@@ -109,6 +110,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       );
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
+        blocknumber,
         report.triggers[i],
         upkeepTransmitInfo[i],
         hotVars
@@ -131,7 +133,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
       // Store last perform block number / deduping key for upkeep
-      _updateTriggerMarker(report.upkeepIds[i], upkeepTransmitInfo[i], hotVars);
+      _updateTriggerMarker(report.upkeepIds[i], blocknumber, upkeepTransmitInfo[i]);
     }
     // No upkeeps to be performed in this report
     if (numUpkeepsPassedChecks == 0) {
@@ -321,7 +323,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       totalPremium: totalPremium,
       latestEpoch: 0, // DON restarts epoch
       reorgProtectionEnabled: onchainConfig.reorgProtectionEnabled,
-      chainSpecificModule: IChainSpecific(onchainConfig.chainSpecificModule)
+      chainModule: onchainConfig.chainModule
     });
 
     s_storage = Storage({
@@ -342,7 +344,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(IChainSpecific(onchainConfig.chainSpecificModule).blockNumber());
+    s_storage.latestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
     s_storage.configCount += 1;
 
     bytes memory onchainConfigBytes = abi.encode(onchainConfig);

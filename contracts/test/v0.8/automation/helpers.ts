@@ -59,7 +59,6 @@ export const deployRegistry22 = async (
   const logicB = await logicBFactory
     .connect(from)
     .deploy(
-      mode,
       link,
       linkNative,
       fastgas,
