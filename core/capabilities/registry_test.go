@@ -75,7 +75,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 
 	ci, err = NewCapabilityInfo(
 		id,
-		CapabilityTypeReport,
+		CapabilityTypeConsensus,
 		"capability-2-description",
 		"v1.0.0",
 	)
@@ -143,7 +143,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
-					CapabilityTypeReport,
+					CapabilityTypeConsensus,
 					"capability-1-description",
 					"v1.0.0",
 				)

@@ -2,8 +2,10 @@ package capabilities
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
+	"time"
 
 	"golang.org/x/mod/semver"
 
@@ -11,22 +13,39 @@ import (
 )
 
 // CapabilityType is an enum for the type of capability.
-type CapabilityType string
+type CapabilityType int
 
 // CapabilityType enum values.
 const (
-	CapabilityTypeTrigger CapabilityType = "trigger"
-	CapabilityTypeAction  CapabilityType = "action"
-	CapabilityTypeReport  CapabilityType = "report"
-	CapabilityTypeTarget  CapabilityType = "target"
+	CapabilityTypeTrigger CapabilityType = iota
+	CapabilityTypeAction
+	CapabilityTypeConsensus
+	CapabilityTypeTarget
 )
+
+// String returns a string representation of CapabilityType
+func (c CapabilityType) String() string {
+	switch c {
+	case CapabilityTypeTrigger:
+		return "trigger"
+	case CapabilityTypeAction:
+		return "action"
+	case CapabilityTypeConsensus:
+		return "report"
+	case CapabilityTypeTarget:
+		return "target"
+	}
+
+	// Panic as this should be unreachable.
+	panic("unknown capability type")
+}
 
 // IsValid checks if the capability type is valid.
 func (c CapabilityType) IsValid() error {
 	switch c {
 	case CapabilityTypeTrigger,
 		CapabilityTypeAction,
-		CapabilityTypeReport,
+		CapabilityTypeConsensus,
 		CapabilityTypeTarget:
 		return nil
 	}
@@ -36,8 +55,7 @@ func (c CapabilityType) IsValid() error {
 
 // Validatable is an interface for validating the config and inputs of a capability.
 type Validatable interface {
-	ValidateConfig(config values.Map) error
-	ExampleOutput() values.Value
+	ExampleOutput(inputs values.Map) values.Value
 	ValidateInput(inputs values.Map) error
 }
 
@@ -76,7 +94,11 @@ func (c CapabilityInfo) Info() CapabilityInfo {
 	return c
 }
 
-var idRegex = regexp.MustCompile("[a-z0-9_\\-:]")
+var idRegex = regexp.MustCompile(`[a-z0-9_\-:]`)
+
+const (
+	idMaxLength = 128
+)
 
 // NewCapabilityInfo returns a new CapabilityInfo.
 func NewCapabilityInfo(
@@ -85,6 +107,9 @@ func NewCapabilityInfo(
 	description string,
 	version string,
 ) (CapabilityInfo, error) {
+	if len(id) > idMaxLength {
+		return CapabilityInfo{}, fmt.Errorf("invalid id: %s exceeds max length %d", id, idMaxLength)
+	}
 	if !idRegex.MatchString(id) {
 		return CapabilityInfo{}, fmt.Errorf("invalid id: %s. Allowed: %s", id, idRegex)
 	}
@@ -105,23 +130,41 @@ func NewCapabilityInfo(
 	}, nil
 }
 
+var defaultExecuteTimeout = 10 * time.Second
+
 // ExecuteSync executes a capability synchronously.
 // We are not handling a case where a capability panics and crashes.
 func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.Value, error) {
+	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
+	defer cancel()
+
 	callback := make(chan values.Value)
 	vs := make([]values.Value, 0)
 
 	var executionErr error
-	go func(innerCtx context.Context, innerC Capability, innerInputs values.Map) {
-		executionErr = innerC.Execute(ctx, callback, inputs)
-	}(ctx, c, inputs)
+	go func(innerCtx context.Context, innerC Capability, innerInputs values.Map, innerCallback chan values.Value) {
+		executionErr = innerC.Execute(innerCtx, innerCallback, innerInputs)
+	}(ctxWithT, c, inputs, callback)
 
-	for value := range callback {
-		// TODO: Handle the case where a capability returns an error as part of the callback.
-		// if valErr, ok := value.(values.Error); ok {
-		// 	return nil, valError.Underlying
-		// }
-		vs = append(vs, value)
+outerLoop:
+	for {
+		select {
+		case value, isOpen := <-callback:
+			if !isOpen {
+				break outerLoop
+			}
+			// An error means execution has been interrupted.
+			// We'll return the value discarding values received
+			// until now.
+			if valErr, ok := value.(*values.Error); ok {
+				return nil, valErr.Underlying
+			}
+
+			vs = append(vs, value)
+		case <-ctx.Done():
+			return nil, errors.New("context timed out")
+		}
+
 	}
 
 	// Something went wrong when executing a capability. If this happens at any point,
@@ -131,12 +174,12 @@ func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.V
 		return nil, executionErr
 	}
 
-	// TODO: This is a special case for when a capability returns no values.
-	// It can happen when the channel is closed before a value is returned.
-	// if len(vs) == 0 {
-	// 	return nil, nil
-	// }
+	if len(vs) == 0 {
+		return nil, errors.New("capability did not return any values")
+	}
 
+	// If the capability returned only one value,
+	// let's unwrap it to improve usability.
 	if len(vs) == 1 {
 		return vs[0], nil
 	}

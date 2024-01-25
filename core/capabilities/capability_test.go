@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 func Test_CapabilityInfo(t *testing.T) {
@@ -24,7 +25,7 @@ func Test_CapabilityInfo(t *testing.T) {
 func Test_CapabilityInfo_Invalid(t *testing.T) {
 	_, err := NewCapabilityInfo(
 		"capability-id",
-		"test",
+		CapabilityType(5),
 		"This is a mock capability that doesn't do anything.",
 		"v1.0.0",
 	)
@@ -51,23 +52,48 @@ type mockCapabilityWithExecute struct {
 	Executable
 	Validatable
 	CapabilityInfo
+	ExecuteFn func(ctx context.Context, callback chan values.Value, inputs values.Map) error
 }
 
-var mcwe = &mockCapabilityWithExecute{}
-
 func (m *mockCapabilityWithExecute) Execute(ctx context.Context, callback chan values.Value, inputs values.Map) error {
-	val, _ := values.NewString("hello")
-	callback <- val
-
-	close(callback)
-
-	return nil
+	return m.ExecuteFn(ctx, callback, inputs)
 }
 
 func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
-	config, _ := values.NewMap(map[string]interface{}{})
-	val, err := ExecuteSync(nil, mcwe, *config)
+	mcwe := &mockCapabilityWithExecute{
+		ExecuteFn: func(ctx context.Context, callback chan values.Value, inputs values.Map) error {
+			val, _ := values.NewString("hello")
+			callback <- val
 
-	assert.NoError(t, err)
+			close(callback)
+
+			return nil
+		},
+	}
+	config, _ := values.NewMap(map[string]interface{}{})
+	val, err := ExecuteSync(context.Background(), mcwe, *config)
+
+	assert.NoError(t, err, val)
 	assert.Equal(t, "hello", val.(*values.String).Underlying)
+}
+
+func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
+	es, _ := values.NewString("hello")
+	expectedList := []values.Value{es, es, es}
+	mcwe := &mockCapabilityWithExecute{
+		ExecuteFn: func(ctx context.Context, callback chan values.Value, inputs values.Map) error {
+			callback <- es
+			callback <- es
+			callback <- es
+
+			close(callback)
+
+			return nil
+		},
+	}
+	config, _ := values.NewMap(map[string]interface{}{})
+	val, err := ExecuteSync(context.Background(), mcwe, *config)
+
+	assert.NoError(t, err, val)
+	assert.ElementsMatch(t, expectedList, val.(*values.List).Underlying)
 }
