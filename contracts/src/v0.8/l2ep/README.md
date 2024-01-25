@@ -15,9 +15,9 @@ The `/dev` folder contains subfolders for each chain that
 has an L2EP solution implemented for it (e.g. `/scroll`, `/arbitrum`,
 `/optimism`). It also contains a subfolder named `/interfaces`,
 which stores shared interface types between all the supported
-contracts. The top-level contracts (e.g. `CrossDomainOwnable.sol`)
+contracts. The top-level contracts (e.g. `Validator.sol`)
 serve as either abstract or parent contracts that are meant
-to be reused for each indiviudal chain.
+to be reused for each individual chain.
 
 ## The `/test` Folder
 
