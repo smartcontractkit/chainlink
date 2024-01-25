@@ -23,7 +23,11 @@ contract ScrollModule is IChainSpecific {
     return block.number;
   }
 
-  function _getL1Fee(bytes calldata txCallData) external view returns (uint256) {
+  function _getL1FeeForTransaction(bytes calldata txCallData) external view returns (uint256) {
+    return SCROLL_ORACLE.getL1Fee(bytes.concat(txCallData, SCROLL_L1_FEE_DATA_PADDING));
+  }
+
+  function _getL1FeeForSimulation(bytes calldata txCallData) external view returns (uint256) {
     return SCROLL_ORACLE.getL1Fee(bytes.concat(txCallData, SCROLL_L1_FEE_DATA_PADDING));
   }
 }

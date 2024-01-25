@@ -12,7 +12,11 @@ contract ChainModuleBase is IChainSpecific {
     return blockhash(blockNumber);
   }
 
-  function _getL1Fee(bytes calldata) external pure returns (uint256) {
+  function _getL1FeeForTransaction(bytes calldata) external pure returns (uint256) {
+    return 0;
+  }
+
+  function _getL1FeeForSimulation(bytes calldata) external view returns (uint256) {
     return 0;
   }
 }

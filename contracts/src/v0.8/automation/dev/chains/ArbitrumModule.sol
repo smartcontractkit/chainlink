@@ -24,7 +24,15 @@ contract ArbitrumModule is IChainSpecific {
     return ARBSYS.arbBlockNumber();
   }
 
-  function _getL1Fee(bytes calldata) external view returns (uint256) {
+  function _getL1FeeForTransaction(bytes calldata) external view returns (uint256) {
     return ARBGAS.getCurrentTxL1GasFees();
+  }
+
+  function _getL1FeeForSimulation(bytes calldata txCallData) external view returns (uint256) {
+    // fee is 4 per 0 byte, 16 per non-zero byte - we assume all non-zero and
+    // max data size to calculate max payment
+    (, uint256 perL1CalldataUnit, , , , ) = ARBGAS.getPricesInWei();
+    l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
+    return 0;
   }
 }

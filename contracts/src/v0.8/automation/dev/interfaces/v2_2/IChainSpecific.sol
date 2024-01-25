@@ -10,5 +10,9 @@ interface IChainSpecific {
 
   // retrieve the L1 data fee for a L2 transaction. it should return 0 for L1 chains and
   // L2 chains which don't have L1 fee component.
-  function _getL1Fee(bytes calldata) external view returns (uint256);
+  function _getL1FeeForTransaction(bytes calldata txCallData) external view returns (uint256);
+
+  // retrieve the L1 data fee for a L2 simulation. it should return 0 for L1 chains and
+  // L2 chains which don't have L1 fee component.
+  function _getL1FeeForSimulation(bytes calldata txCallData) external view returns (uint256);
 }
