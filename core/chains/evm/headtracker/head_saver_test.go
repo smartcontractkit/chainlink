@@ -43,7 +43,6 @@ func (c *config) BlockEmissionIdleWarningThreshold() time.Duration {
 func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
-	//cfg := configtest.NewGeneralConfig(t, nil)
 	htCfg := &config{finalityDepth: uint32(1)}
 	orm := headtracker.NewORM(cltest.FixtureChainID, db)
 	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
