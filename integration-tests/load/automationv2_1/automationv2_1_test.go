@@ -182,7 +182,7 @@ Load Config:
 	}
 
 	testEnvironment := environment.New(&environment.Config{
-		TTL: time.Hour * 24, // 1 day,
+		TTL: loadDuration + time.Hour*6,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s",
 			testType,
