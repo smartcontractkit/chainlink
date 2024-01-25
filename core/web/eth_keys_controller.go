@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -82,6 +83,7 @@ func (ekc *ETHKeysController) formatETHKeyResponse() gin.HandlerFunc {
 //
 //	"<application>/keys/eth"
 func (ekc *ETHKeysController) Index(c *gin.Context) {
+	deepPrint(c)
 	ethKeyStore := ekc.app.GetKeyStore().Eth()
 	var keys []ethkey.KeyV2
 	var err error
@@ -117,6 +119,21 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	jsonAPIResponseWithStatus(c, resources, "keys", http.StatusOK)
 
 }
+
+func deepPrint(c *gin.Context) {
+    for key, value := range c.Keys {
+        switch v := value.(type) {
+        case string:
+            fmt.Printf("%s: %s\n", key, v)
+        case fmt.Stringer: // Any type that implements the Stringer interface
+            fmt.Printf("%s: %s\n", key, v.String())
+        // Add more cases as necessary for different types
+        default:
+            fmt.Printf("%s: %#v\n", key, v) // Fallback for unknown types
+        }
+    }
+}
+
 
 // Create adds a new account
 // Example:
