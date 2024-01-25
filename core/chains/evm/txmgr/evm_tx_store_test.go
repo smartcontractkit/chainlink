@@ -500,7 +500,44 @@ func TestORM_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
 	assert.Equal(t, etx0.TxAttempts[0].ID, attempts[0].ID)
 }
 
-func TestORM_SaveFetchedReceipts(t *testing.T) {
+func TestORM_MarkFinalized(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	blockNum := int64(42)
+	etx0 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, blockNum)
+	newAttempt := cltest.NewLegacyEthTxAttempt(t, etx0.ID)
+	newAttempt.BroadcastBeforeBlockNum = &blockNum
+	newAttempt.State = txmgrtypes.TxAttemptBroadcast
+	// ensure that gas prices are unique
+	newAttempt.TxFee.Legacy = newAttempt.TxFee.Legacy.Add(assets.NewWei(big.NewInt(10)))
+	require.NoError(t, txStore.InsertTxAttempt(&newAttempt))
+
+	etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 1, blockNum)
+
+	err := txStore.MarkFinalized(testutils.Context(t), []int64{etx0.TxAttempts[0].ID})
+	require.NoError(t, err)
+
+	etx0, err = txStore.FindTxWithAttempts(etx0.ID)
+	require.NoError(t, err)
+	require.Len(t, etx0.TxAttempts, 2)
+	// as we've finalized attempt with lower price - it will be second
+	require.Equal(t, txmgrtypes.TxAttemptBroadcast, etx0.TxAttempts[0].State)
+	require.Equal(t, txmgrtypes.TxAttemptFinalized, etx0.TxAttempts[1].State)
+	require.Equal(t, txmgrcommon.TxFinalized, etx0.State)
+
+	etx1, err = txStore.FindTxWithAttempts(etx1.ID)
+	require.NoError(t, err)
+	require.Len(t, etx1.TxAttempts, 1)
+	require.Equal(t, txmgrcommon.TxConfirmed, etx1.State)
+}
+
+func TestORM_SaveReceipts(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)

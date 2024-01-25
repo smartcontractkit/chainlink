@@ -37,6 +37,7 @@ type TxmClient[
 		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		useFinalityTag bool, finalityDepth uint32) (
 		finalizedBlock *big.Int, txReceipt []R, txErr []error, funcErr error)
+	FinalizedBlockHash(ctx context.Context) (BLOCK_HASH, *big.Int, error)
 }
 
 // TransactionClient contains the methods for building, simulating, broadcasting transactions

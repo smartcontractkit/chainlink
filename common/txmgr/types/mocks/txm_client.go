@@ -218,6 +218,43 @@ func (_m *TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Configure
 	return r0
 }
 
+// FinalizedBlockHash provides a mock function with given fields: ctx
+func (_m *TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FinalizedBlockHash(ctx context.Context) (BLOCK_HASH, *big.Int, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FinalizedBlockHash")
+	}
+
+	var r0 BLOCK_HASH
+	var r1 *big.Int
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (BLOCK_HASH, *big.Int, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) BLOCK_HASH); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(BLOCK_HASH)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) *big.Int); ok {
+		r1 = rf(ctx)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // PendingSequenceAt provides a mock function with given fields: ctx, addr
 func (_m *TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error) {
 	ret := _m.Called(ctx, addr)

@@ -63,6 +63,7 @@ type Client interface {
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
+	FinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
 
@@ -280,7 +281,11 @@ func (client *client) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 
 func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
 	hex := ToBlockNumArg(number)
-	err = client.pool.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
+	return client.headByNumber(ctx, hex)
+}
+
+func (client *client) headByNumber(ctx context.Context, num string) (head *evmtypes.Head, err error) {
+	err = client.pool.CallContext(ctx, &head, "eth_getBlockByNumber", num, false)
 	if err != nil {
 		return nil, err
 	}
@@ -290,6 +295,10 @@ func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *
 	}
 	head.EVMChainID = ubig.New(client.ConfiguredChainID())
 	return
+}
+
+func (client *client) FinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	return client.headByNumber(ctx, rpc.FinalizedBlockNumber.String())
 }
 
 func (client *client) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {

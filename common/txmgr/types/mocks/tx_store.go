@@ -872,6 +872,24 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConf
 	return r0
 }
 
+// MarkFinalized provides a mock function with given fields: ctx, attempts
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkFinalized(ctx context.Context, attempts []int64) error {
+	ret := _m.Called(ctx, attempts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkFinalized")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
+		r0 = rf(ctx, attempts)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, finalityDepth, chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
 	ret := _m.Called(ctx, blockNum, finalityDepth, chainID)
@@ -990,9 +1008,9 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetched
 	return r0
 }
 
-// SaveFinalizedReceipts provides a mock function with given fields: ctx, r, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFinalizedReceipts(ctx context.Context, r []R, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, r, chainID)
+// SaveFinalizedReceipts provides a mock function with given fields: ctx, receipts, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFinalizedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, receipts, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFinalizedReceipts")
@@ -1000,7 +1018,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFinaliz
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, []R, CHAIN_ID) error); ok {
-		r0 = rf(ctx, r, chainID)
+		r0 = rf(ctx, receipts, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}

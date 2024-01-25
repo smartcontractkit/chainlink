@@ -366,6 +366,34 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 	return r0, r1
 }
 
+// FinalizedBlock provides a mock function with given fields: ctx
+func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD]) FinalizedBlock(ctx context.Context) (HEAD, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FinalizedBlock")
+	}
+
+	var r0 HEAD
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (HEAD, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) HEAD); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(HEAD)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LINKBalance provides a mock function with given fields: ctx, accountAddress, linkAddress
 func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD]) LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error) {
 	ret := _m.Called(ctx, accountAddress, linkAddress)

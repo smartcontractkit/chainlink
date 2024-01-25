@@ -906,12 +906,34 @@ func (o *evmTxStore) saveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 	return pkgerrors.Wrap(err, "SaveFetchedReceipts failed to save receipts")
 }
 
-func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) error {
 	return o.saveFetchedReceipts(ctx, r, chainID, "confirmed", txmgrtypes.TxAttemptBroadcast)
 }
 
-func (o *evmTxStore) SaveFinalizedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+func (o *evmTxStore) SaveFinalizedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) error {
 	return o.saveFetchedReceipts(ctx, r, chainID, "finalized", txmgrtypes.TxAttemptFinalized)
+}
+
+func (o *evmTxStore) MarkFinalized(ctx context.Context, attempts []int64) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	if len(attempts) == 0 {
+		return nil
+	}
+
+	stmt := `
+	WITH updated_eth_tx_attempts AS (
+		UPDATE evm.tx_attempts SET state = 'finalized' WHERE id = ANY ($1) RETURNING evm.tx_attempts.eth_tx_id
+	)
+	UPDATE evm.txes
+	SET state = 'finalized'
+	FROM updated_eth_tx_attempts
+	WHERE updated_eth_tx_attempts.eth_tx_id = evm.txes.id
+	`
+	err := qq.ExecQ(stmt, pq.Array(attempts))
+	return pkgerrors.Wrap(err, "MarkFinalized failed to update state")
 }
 
 // MarkAllConfirmedMissingReceipt

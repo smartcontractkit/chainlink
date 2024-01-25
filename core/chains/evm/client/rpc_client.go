@@ -479,9 +479,17 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
+func (client *rpcClient) FinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	return client.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+}
+
 func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
 	hex := ToBlockNumArg(number)
-	err = r.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
+	return r.blockByNumber(ctx, hex)
+}
+
+func (r *rpcClient) blockByNumber(ctx context.Context, number string) (head *evmtypes.Head, err error) {
+	err = r.CallContext(ctx, &head, "eth_getBlockByNumber", number, false)
 	if err != nil {
 		return nil, err
 	}

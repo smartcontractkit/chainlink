@@ -150,6 +150,15 @@ func newGetBatchReceiptsReq(attempts []TxAttempt) (reqs []rpc.BatchElem, txRecei
 	return reqs, txReceipts, txErrs
 }
 
+func (c *evmTxmClient) FinalizedBlockHash(ctx context.Context) (common.Hash, *big.Int, error) {
+	head, err := c.client.FinalizedBlock(ctx)
+	if err != nil || head == nil {
+		return common.Hash{}, big.NewInt(0), err
+	}
+
+	return head.Hash, big.NewInt(head.BlockNumber()), nil
+}
+
 // TODO: test me
 func (c *evmTxmClient) BatchGetReceiptsWithFinalizedBlock(ctx context.Context, attempts []TxAttempt, useFinalityTag bool, finalityDepth uint32) (
 	finalizedBlock *big.Int, txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {

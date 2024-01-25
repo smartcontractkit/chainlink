@@ -993,6 +993,24 @@ func (_m *EvmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainI
 	return r0
 }
 
+// MarkFinalized provides a mock function with given fields: ctx, attempts
+func (_m *EvmTxStore) MarkFinalized(ctx context.Context, attempts []int64) error {
+	ret := _m.Called(ctx, attempts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkFinalized")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
+		r0 = rf(ctx, attempts)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, finalityDepth, chainID
 func (_m *EvmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int) error {
 	ret := _m.Called(ctx, blockNum, finalityDepth, chainID)
@@ -1111,9 +1129,9 @@ func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, receipts []*evmty
 	return r0
 }
 
-// SaveFinalizedReceipts provides a mock function with given fields: ctx, r, chainID
-func (_m *EvmTxStore) SaveFinalizedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) error {
-	ret := _m.Called(ctx, r, chainID)
+// SaveFinalizedReceipts provides a mock function with given fields: ctx, receipts, chainID
+func (_m *EvmTxStore) SaveFinalizedReceipts(ctx context.Context, receipts []*evmtypes.Receipt, chainID *big.Int) error {
+	ret := _m.Called(ctx, receipts, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFinalizedReceipts")
@@ -1121,7 +1139,7 @@ func (_m *EvmTxStore) SaveFinalizedReceipts(ctx context.Context, r []*evmtypes.R
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, *big.Int) error); ok {
-		r0 = rf(ctx, r, chainID)
+		r0 = rf(ctx, receipts, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}

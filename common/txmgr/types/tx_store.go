@@ -40,7 +40,8 @@ type TxStore[
 	// Update tx to mark that its callback has been signaled
 	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error
 	SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) (err error)
-	SaveFinalizedReceipts(ctx context.Context, r []R, chainID CHAIN_ID) (err error)
+	SaveFinalizedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) (err error)
+	MarkFinalized(ctx context.Context, attempts []int64) error
 
 	// additional methods for tx store management
 	CheckTxQueueCapacity(ctx context.Context, fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAIN_ID) (err error)

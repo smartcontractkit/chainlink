@@ -196,13 +196,17 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
+	return c.headerToHead(header), nil
+}
+
+func (c *SimulatedBackendClient) headerToHead(header *types.Header) *evmtypes.Head {
 	return &evmtypes.Head{
 		EVMChainID: ubig.NewI(c.chainId.Int64()),
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
 		ParentHash: header.ParentHash,
 		Timestamp:  time.Unix(int64(header.Time), 0),
-	}, nil
+	}
 }
 
 // HeadByHash returns our own header type.
@@ -213,13 +217,7 @@ func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) 
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
-	return &evmtypes.Head{
-		EVMChainID: ubig.NewI(c.chainId.Int64()),
-		Hash:       header.Hash(),
-		Number:     header.Number.Int64(),
-		ParentHash: header.ParentHash,
-		Timestamp:  time.Unix(int64(header.Time), 0),
-	}, nil
+	return c.headerToHead(header), nil
 }
 
 // BlockByNumber returns a geth block type.
@@ -621,6 +619,11 @@ func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, resul
 	}
 
 	return nil
+}
+
+func (c *SimulatedBackendClient) FinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	header := c.b.Blockchain().CurrentFinalBlock()
+	return c.headerToHead(header), nil
 }
 
 func toCallMsg(params map[string]interface{}) ethereum.CallMsg {

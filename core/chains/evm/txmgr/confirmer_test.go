@@ -2683,11 +2683,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		require.NoError(t, txStore.DeleteAll(testutils.Context(t)))
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
-		receipt := mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
-
-		ethClient.On("BatchGetReceiptsWithFinalizedBlock", mock.Anything, mock.Anything,
-			config.EVM().FinalityTagEnabled(), config.EVM().FinalityDepth(),
-		).Return(big.NewInt(0), []*evmtypes.Receipt{txmgr.DbReceiptToEvmReceipt(&receipt)}, []error{nil}, nil).Once()
+		_ = mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
@@ -2770,7 +2766,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Include one within head height but a different block hash
 		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attemptHash)
 
-		// none of the receipts are found on markFinalized step
+		// none of the receipts are found
 		ethClient.On("BatchGetReceiptsWithFinalizedBlock", mock.Anything, mock.Anything,
 			config.EVM().FinalityTagEnabled(), config.EVM().FinalityDepth(),
 		).Return(big.NewInt(0), []*evmtypes.Receipt{nil}, []error{nil}, nil).Once()
@@ -2809,7 +2805,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Receipt is within head height but a different block hash
 		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt3.Hash)
 
-		// none of the receipts are found on markFinalized step
+		// none of the receipts are found
 		ethClient.On("BatchGetReceiptsWithFinalizedBlock", mock.Anything, mock.Anything,
 			config.EVM().FinalityTagEnabled(), config.EVM().FinalityDepth(),
 		).Return(big.NewInt(0), []*evmtypes.Receipt{nil, nil, nil}, []error{nil, nil, nil}, nil).Once()
@@ -2844,11 +2840,6 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		attempt := etx.TxAttempts[0]
 		// Add receipt that is higher than head
 		mustInsertEthReceipt(t, txStore, head.Number+1, utils.NewHash(), attempt.Hash)
-
-		// none of the receipts are found on markFinalized step
-		ethClient.On("BatchGetReceiptsWithFinalizedBlock", mock.Anything, mock.Anything,
-			config.EVM().FinalityTagEnabled(), config.EVM().FinalityDepth(),
-		).Return(big.NewInt(0), []*evmtypes.Receipt{nil}, []error{nil}, nil)
 
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
 

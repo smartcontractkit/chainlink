@@ -274,3 +274,7 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	//return rpc.TransactionReceipt(ctx, txHash)
 	return rpc.TransactionReceiptGeth(ctx, txHash)
 }
+
+func (c *chainClient) FinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	return c.multiNode.FinalizedBlock(ctx)
+}
