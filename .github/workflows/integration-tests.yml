@@ -699,7 +699,7 @@ jobs:
     # needs: [eth-smoke-tests-matrix]
     steps:
       - name: Check smoke test matrix status
-        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success' || eth-smoke-tests-matrix-ocr2 != 'success' || eth-smoke-tests-matrix-log-poller != 'success'
+        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success' || needs.eth-smoke-tests-matrix-ocr2 != 'success' || needs.eth-smoke-tests-matrix-log-poller != 'success'
         run: |
           echo "${{ needs.eth-smoke-tests-matrix.result }}"
           exit 1
