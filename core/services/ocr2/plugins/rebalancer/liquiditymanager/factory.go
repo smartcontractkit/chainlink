@@ -45,14 +45,14 @@ func WithEvmDep(networkID models.NetworkSelector, lp logpoller.LogPoller, ethCli
 	}
 }
 
-func (b *BaseRebalancerFactory) NewRebalancer(networkID models.NetworkSelector, address models.Address) (Rebalancer, error) {
-	switch typ := networkID.Type(); typ {
+func (b *BaseRebalancerFactory) NewRebalancer(networkSel models.NetworkSelector, address models.Address) (Rebalancer, error) {
+	switch typ := networkSel.Type(); typ {
 	case models.NetworkTypeEvm:
-		evmDeps, exists := b.evmDeps[networkID]
+		evmDeps, exists := b.evmDeps[networkSel]
 		if !exists {
 			return nil, fmt.Errorf("evm dependencies not found")
 		}
-		return NewEvmRebalancer(address, networkID, evmDeps.ethClient, evmDeps.lp)
+		return NewEvmRebalancer(address, networkSel, evmDeps.ethClient, evmDeps.lp)
 	default:
 		return nil, fmt.Errorf("liquidity manager of type %v is not supported", typ)
 	}

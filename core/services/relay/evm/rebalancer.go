@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -159,8 +160,13 @@ func newRebalancerConfigProvider(
 
 	var lmFactoryOpts []liquiditymanager.Opt
 	for _, chain := range chains.Slice() {
+		ch, exists := chainsel.ChainByEvmChainID(chain.ID().Uint64())
+		if !exists {
+			return nil, nil, nil, fmt.Errorf("chain %d not found", chain.ID().Uint64())
+		}
+
 		lmFactoryOpts = append(lmFactoryOpts, liquiditymanager.WithEvmDep(
-			rebalancermodels.NetworkSelector(chain.ID().Int64()),
+			rebalancermodels.NetworkSelector(ch.Selector),
 			chain.LogPoller(),
 			chain.Client(),
 		))

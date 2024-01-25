@@ -30,6 +30,12 @@ type LiquidityGraph interface {
 	// AddConnection adds a new directed graph edge.
 	AddConnection(from, to models.NetworkSelector) bool
 
+	// HasConnection returns true if a connection from/to the provided network exist.
+	HasConnection(from, to models.NetworkSelector) bool
+
+	// GetNeighbors returns the neighboring network selectors.
+	GetNeighbors(from models.NetworkSelector) ([]models.NetworkSelector, bool)
+
 	// IsEmpty returns true when the graph does not contain any network.
 	IsEmpty() bool
 
@@ -127,6 +133,44 @@ func (g *Graph) AddConnection(from, to models.NetworkSelector) bool {
 
 	g.networksGraph[from] = append(g.networksGraph[from], to)
 	return true
+}
+
+func (g *Graph) HasConnection(from, to models.NetworkSelector) bool {
+	if !g.HasNetwork(from) || !g.HasNetwork(to) {
+		return false
+	}
+
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	neibs, exist := g.networksGraph[from]
+	if !exist {
+		return false
+	}
+
+	for _, net := range neibs {
+		if net == to {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Graph) GetNeighbors(from models.NetworkSelector) ([]models.NetworkSelector, bool) {
+	if !g.HasNetwork(from) {
+		return nil, false
+	}
+
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	neibs, exist := g.networksGraph[from]
+	if !exist {
+		return nil, false
+	}
+
+	sort.Slice(neibs, func(i, j int) bool { return neibs[i] < neibs[j] })
+	return neibs, exist
 }
 
 func (g *Graph) IsEmpty() bool {

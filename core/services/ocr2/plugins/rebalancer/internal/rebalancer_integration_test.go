@@ -17,6 +17,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/hashicorp/consul/sdk/freeport"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -54,8 +55,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const (
-	mainChainID = int64(1337)
+var (
+	mainChainID = int64(chainsel.GETH_TESTNET.EvmChainID)
 )
 
 func TestRebalancer_Integration(t *testing.T) {
@@ -343,6 +344,8 @@ fromBlock = %d
 			require.NoError(t, tapp.Stop())
 		})
 
+		mainChain := mustGetChainByEvmID(t, testutils.SimulatedChainID.Int64())
+
 		jobSpec := fmt.Sprintf(
 			`
 type                 	= "offchainreporting2"
@@ -367,7 +370,7 @@ fromBlock               = %d
 
 [pluginConfig]
 liquidityManagerAddress = "%s"
-liquidityManagerNetwork = %d
+liquidityManagerNetwork = "%d"
 closePluginTimeoutSec = 10
 [pluginConfig.rebalancerConfig]
 type = "random"
@@ -381,7 +384,7 @@ checkSourceDestEqual = false
 			mainFromBlock,
 			buildFollowerChainsFromBlocksToml(blocksBeforeConfig),
 			mainContract.Hex(),
-			testutils.SimulatedChainID)
+			mainChain.Selector)
 		t.Log("Creating rebalancer job with spec:\n", jobSpec)
 		ocrJob2, err2 := validate.ValidatedOracleSpecToml(
 			apps[i].GetConfig().OCR2(),
@@ -589,14 +592,23 @@ func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amoun
 func createChains(t *testing.T, numChains int) (owner *bind.TransactOpts, chains map[int64]*backends.SimulatedBackend) {
 	owner = testutils.MustNewSimTransactor(t)
 	chains = make(map[int64]*backends.SimulatedBackend)
-	for i := 0; i < numChains; i++ {
-		chainID := mainChainID + int64(i)
-		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
+
+	chains[mainChainID] = backends.NewSimulatedBackend(core.GenesisAlloc{
+		owner.From: core.GenesisAccount{
+			Balance: assets.Ether(10000).ToInt(),
+		},
+	}, 30e6)
+
+	for chainID := int64(chainsel.TEST_90000001.EvmChainID); chainID < int64(chainsel.TEST_90000020.EvmChainID); chainID++ {
+		chains[chainID] = backends.NewSimulatedBackend(core.GenesisAlloc{
 			owner.From: core.GenesisAccount{
 				Balance: assets.Ether(10000).ToInt(),
 			},
 		}, 30e6)
-		chains[chainID] = backend
+
+		if len(chains) == numChains {
+			break
+		}
 	}
 	return
 }
@@ -647,7 +659,8 @@ func deployContracts(
 		require.NoError(t, err)
 
 		// deploy the rebalancer and set the liquidity container to be the lock release pool
-		rebalancerAddr, _, _, err := rebalancer.DeployRebalancer(owner, backend, wethAddress, uint64(chainID), lockReleasePoolAddress)
+		ch := mustGetChainByEvmID(t, chainID)
+		rebalancerAddr, _, _, err := rebalancer.DeployRebalancer(owner, backend, wethAddress, ch.Selector, lockReleasePoolAddress)
 		require.NoError(t, err, "failed to deploy Rebalancer contract")
 		rebalancer, err := rebalancer.NewRebalancer(rebalancerAddr, backend)
 		require.NoError(t, err, "failed to create Rebalancer wrapper")
@@ -741,11 +754,13 @@ func createConnectedNetwork(
 			continue
 		}
 		// follower -> main connection
+		remoteChain := mustGetChainByEvmID(t, mainChainID)
+
 		_, err := uni.rebalancer.SetCrossChainRebalancer(
 			owner,
 			rebalancer.IRebalancerCrossChainRebalancerArgs{
 				RemoteRebalancer:    universes[mainChainID].rebalancer.Address(),
-				RemoteChainSelector: uint64(mainChainID),
+				RemoteChainSelector: remoteChain.Selector,
 				Enabled:             true,
 				LocalBridge:         uni.bridgeAdapter.Address(),
 				RemoteToken:         universes[mainChainID].wethToken.Address(),
@@ -753,7 +768,7 @@ func createConnectedNetwork(
 		require.NoError(t, err, "failed to SetCrossChainRebalancer from follower to main chain")
 		chains[chainID].Commit()
 
-		mgr, err := uni.rebalancer.GetCrossChainRebalancer(&bind.CallOpts{Context: testutils.Context(t)}, uint64(mainChainID))
+		mgr, err := uni.rebalancer.GetCrossChainRebalancer(&bind.CallOpts{Context: testutils.Context(t)}, remoteChain.Selector)
 		require.NoError(t, err)
 		require.Equal(t, universes[mainChainID].rebalancer.Address(), mgr.RemoteRebalancer)
 		require.Equal(t, uni.bridgeAdapter.Address(), mgr.LocalBridge)
@@ -761,11 +776,13 @@ func createConnectedNetwork(
 		require.True(t, mgr.Enabled)
 
 		// main -> follower connection
+		remoteChain = mustGetChainByEvmID(t, chainID)
+
 		_, err = universes[mainChainID].rebalancer.SetCrossChainRebalancer(
 			owner,
 			rebalancer.IRebalancerCrossChainRebalancerArgs{
 				RemoteRebalancer:    uni.rebalancer.Address(),
-				RemoteChainSelector: uint64(chainID),
+				RemoteChainSelector: remoteChain.Selector,
 				Enabled:             true,
 				LocalBridge:         universes[mainChainID].bridgeAdapter.Address(),
 				RemoteToken:         uni.wethToken.Address(),
@@ -773,7 +790,8 @@ func createConnectedNetwork(
 		require.NoError(t, err, "failed to add neighbor from main to follower chain")
 		chains[mainChainID].Commit()
 
-		mgr, err = universes[mainChainID].rebalancer.GetCrossChainRebalancer(&bind.CallOpts{Context: testutils.Context(t)}, uint64(chainID))
+		mgr, err = universes[mainChainID].rebalancer.GetCrossChainRebalancer(
+			&bind.CallOpts{Context: testutils.Context(t)}, remoteChain.Selector)
 		require.NoError(t, err)
 		require.Equal(t, uni.rebalancer.Address(), mgr.RemoteRebalancer)
 		require.Equal(t, universes[mainChainID].bridgeAdapter.Address(), mgr.LocalBridge)
@@ -804,4 +822,10 @@ func createConnectedNetwork(
 			require.Len(t, mgrs, 1, "unexpected number of neighbors on follower chain")
 		}
 	}
+}
+
+func mustGetChainByEvmID(t *testing.T, chainID int64) chainsel.Chain {
+	ch, exists := chainsel.ChainByEvmChainID(uint64(chainID))
+	require.True(t, exists)
+	return ch
 }

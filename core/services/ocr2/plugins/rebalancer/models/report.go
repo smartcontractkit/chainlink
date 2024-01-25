@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -132,7 +133,14 @@ func (r ReportMetadata) ToLiquidityInstructions() (rebalancer_report_encoder.IRe
 }
 
 func (r ReportMetadata) GetDestinationChain() relay.ID {
-	return relay.NewID(relay.EVM, fmt.Sprintf("%d", r.NetworkID))
+	networkID := r.NetworkID
+
+	ch, exists := chainsel.ChainBySelector(uint64(r.NetworkID))
+	if exists {
+		networkID = NetworkSelector(ch.EvmChainID)
+	}
+
+	return relay.NewID(relay.EVM, fmt.Sprintf("%d", networkID))
 }
 
 func (r ReportMetadata) GetDestinationConfigDigest() ocrtypes.ConfigDigest {

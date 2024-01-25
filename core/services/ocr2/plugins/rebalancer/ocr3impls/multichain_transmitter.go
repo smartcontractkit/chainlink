@@ -54,6 +54,9 @@ func (m *multichainTransmitterOCR3[RI]) Transmit(ctx context.Context, configDige
 	if !ok {
 		return fmt.Errorf("no transmitter for chain %s", destChain)
 	}
-	m.lggr.Infow("multichain transmitter: transmitting to chain", "destChain", destChain.String(), "configDigest", rwi.Info.GetDestinationConfigDigest().Hex())
+	m.lggr.Infow("multichain transmitter: transmitting to chain",
+		"destChain", destChain.String(),
+		"configDigest", rwi.Info.GetDestinationConfigDigest().Hex(),
+	)
 	return transmitter.Transmit(ctx, rwi.Info.GetDestinationConfigDigest(), seqNr, rwi, sigs)
 }
