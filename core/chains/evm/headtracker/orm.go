@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -29,6 +30,9 @@ type ORM interface {
 
 var _ ORM = &orm{}
 
+// TODO: Set a reasonable timeout
+const defaultTimeout = 100 * time.Millisecond
+
 type orm struct {
 	chainID ubig.Big
 	db      sqlutil.Queryer
@@ -49,12 +53,16 @@ func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) e
 	$1, $2, $3, $4, $5, $6, $7, $8)
 	ON CONFLICT (evm_chain_id, hash) DO NOTHING`
 
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	_, err := orm.db.ExecContext(ctx, query, head.Hash, head.Number, head.ParentHash, head.CreatedAt, head.Timestamp, head.L1BlockNumber, orm.chainID, head.BaseFeePerGas)
 
 	return errors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
 func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	_, err = orm.db.ExecContext(ctx, `
 	DELETE FROM evm.heads
 	WHERE evm_chain_id = $1 AND number < (
@@ -72,6 +80,8 @@ func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
 
 func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	if err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID); err != nil {
 		return nil, err
 	}
@@ -83,6 +93,8 @@ func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
 }
 
 func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	err = orm.db.SelectContext(ctx, &heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
 	err = errors.Wrap(err, "LatestHeads failed")
 	return
@@ -90,6 +102,8 @@ func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.
 
 func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
