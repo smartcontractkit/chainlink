@@ -66,28 +66,16 @@ func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Rem
 	return nil
 }
 
-// Prune removes the transactions that match the filter
-func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prune(maxUnstarted int, filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+// PruneByTxIDs removes the transactions with the given IDs from the queue
+func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneByTxIDs(ids []int64) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	pq.Lock()
 	defer pq.Unlock()
 
-	if len(pq.txs) <= maxUnstarted {
-		return nil
-	}
-
-	// Remove all transactions that are oldest, unstarted, and match the filter
 	removed := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	for i := 0; i < len(pq.txs); i++ {
-		tx := pq.txs[i]
-		if filter(tx) {
+	for _, id := range ids {
+		if tx := pq.RemoveTxByID(id); tx != nil {
 			removed = append(removed, *tx)
 		}
-		if len(pq.txs)-len(removed) <= maxUnstarted {
-			break
-		}
-	}
-	for _, tx := range removed {
-		pq.RemoveTxByID(tx.ID)
 	}
 
 	return removed

@@ -127,15 +127,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 		return tx, fmt.Errorf("create_transaction: %w", err)
 	}
 
-	// Prune the in-memory txs
-	pruned, err := txRequest.Strategy.PruneQueue(ctx, ms)
-	if err != nil {
-		return tx, fmt.Errorf("CreateTransaction failed to prune in-memory txs: %w", err)
-	}
-	if pruned > 0 {
-		ms.lggr.Warnf("Dropped %d old transactions from transaction queue", pruned)
-	}
-
 	// Add the request to the Unstarted channel to be processed by the Broadcaster
 	if err := as.AddTxToUnstarted(&tx); err != nil {
 		return *ms.deepCopyTx(tx), fmt.Errorf("create_transaction: %w", err)
@@ -927,34 +918,21 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	return txs, nil
 }
 
-func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (int64, error) {
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) ([]int64, error) {
 	// Persist to persistent storage
-	n, err := ms.txStore.PruneUnstartedTxQueue(ctx, queueSize, subject)
+	ids, err := ms.txStore.PruneUnstartedTxQueue(ctx, queueSize, subject)
 	if err != nil {
-		return 0, err
+		return ids, err
 	}
 
 	// Update in memory store
-	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if !tx.Subject.Valid {
-			return false
-		}
-
-		return tx.Subject.UUID == subject
-	}
-	var m int
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		m += as.PruneUnstartedTxQueue(queueSize, filter)
+		as.PruneUnstartedTxQueue(ids)
 	}
 
-	if n != int64(m) {
-		// TODO: WHAT SHOULD HAPPEN HERE IF THE COUNTS DON'T MATCH?
-		return n, fmt.Errorf("prune_unstarted_tx_queue: inmemory prune(%d) does not match persistence(%d) ", m, n)
-	}
-
-	return n, nil
+	return ids, nil
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
