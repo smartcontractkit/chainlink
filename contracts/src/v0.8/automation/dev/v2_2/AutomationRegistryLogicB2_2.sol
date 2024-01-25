@@ -437,7 +437,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
-      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
+      reorgProtectionEnabled: s_hotVars.reorgProtectionEnabled
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
