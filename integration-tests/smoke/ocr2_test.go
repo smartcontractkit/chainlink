@@ -211,7 +211,6 @@ func TestOCRv2Request(t *testing.T) {
 	}
 }
 
-// TestOCRv2JobReplacement tests that a
 func TestOCRv2JobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
