@@ -28,7 +28,13 @@ type LiquidityGraph interface {
 	GetLiquidity(n models.NetworkSelector) (*big.Int, error)
 
 	// AddConnection adds a new directed graph edge.
-	AddConnection(from, to models.NetworkSelector) bool
+	AddConnection(from, to models.NetworkSelector) error
+
+	// HasConnection returns true if a connection from/to the provided network exist.
+	HasConnection(from, to models.NetworkSelector) bool
+
+	// GetNeighbors returns the neighboring network selectors.
+	GetNeighbors(from models.NetworkSelector) ([]models.NetworkSelector, bool)
 
 	// IsEmpty returns true when the graph does not contain any network.
 	IsEmpty() bool
@@ -117,16 +123,57 @@ func (g *Graph) GetLiquidity(n models.NetworkSelector) (*big.Int, error) {
 	return w, nil
 }
 
-func (g *Graph) AddConnection(from, to models.NetworkSelector) bool {
-	if !g.HasNetwork(from) || !g.HasNetwork(to) {
-		return false
+func (g *Graph) AddConnection(from, to models.NetworkSelector) error {
+	if !g.HasNetwork(from) {
+		return fmt.Errorf("network %d not found", from)
+	}
+	if !g.HasNetwork(to) {
+		return fmt.Errorf("network %d not found", to)
 	}
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	g.networksGraph[from] = append(g.networksGraph[from], to)
-	return true
+	return nil
+}
+
+func (g *Graph) HasConnection(from, to models.NetworkSelector) bool {
+	if !g.HasNetwork(from) || !g.HasNetwork(to) {
+		return false
+	}
+
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	neibs, exist := g.networksGraph[from]
+	if !exist {
+		return false
+	}
+
+	for _, net := range neibs {
+		if net == to {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Graph) GetNeighbors(from models.NetworkSelector) ([]models.NetworkSelector, bool) {
+	if !g.HasNetwork(from) {
+		return nil, false
+	}
+
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	neibs, exist := g.networksGraph[from]
+	if !exist {
+		return nil, false
+	}
+
+	sort.Slice(neibs, func(i, j int) bool { return neibs[i] < neibs[j] })
+	return neibs, exist
 }
 
 func (g *Graph) IsEmpty() bool {

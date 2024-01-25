@@ -10,7 +10,6 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -115,14 +114,14 @@ func (e EvmRebalancer) Discover(ctx context.Context, lmFactory Factory) (*Regist
 	lms := NewRegistry()
 
 	type qItem struct {
-		networkID models.NetworkSelector
-		lmAddress common.Address
+		networkSel models.NetworkSelector
+		lmAddress  common.Address
 	}
 
 	seen := mapset.NewSet[qItem]()
 	queue := mapset.NewSet[qItem]()
 
-	elem := qItem{networkID: e.networkSel, lmAddress: e.addr}
+	elem := qItem{networkSel: e.networkSel, lmAddress: e.addr}
 	queue.Add(elem)
 	seen.Add(elem)
 
@@ -133,18 +132,18 @@ func (e EvmRebalancer) Discover(ctx context.Context, lmFactory Factory) (*Regist
 		}
 
 		// TODO: investigate fetching the balance here.
-		g.AddNetwork(elem.networkID, big.NewInt(0))
+		g.AddNetwork(elem.networkSel, big.NewInt(0))
 
-		lm, err := lmFactory.NewRebalancer(elem.networkID, models.Address(elem.lmAddress))
+		lm, err := lmFactory.NewRebalancer(elem.networkSel, models.Address(elem.lmAddress))
 		if err != nil {
 			return nil, nil, fmt.Errorf("init liquidity manager: %w", err)
 		}
 
-		lms.Add(elem.networkID, models.Address(elem.lmAddress))
+		lms.Add(elem.networkSel, models.Address(elem.lmAddress))
 
 		destinationLMs, err := lm.GetRebalancers(ctx)
 		if err != nil {
-			return nil, nil, fmt.Errorf("get %v destination liquidity managers: %w", elem.networkID, err)
+			return nil, nil, fmt.Errorf("get %v destination liquidity managers: %w", elem.networkSel, err)
 		}
 
 		if destinationLMs == nil {
@@ -152,15 +151,21 @@ func (e EvmRebalancer) Discover(ctx context.Context, lmFactory Factory) (*Regist
 		}
 
 		for destNetworkID, lmAddr := range destinationLMs {
-			g.AddConnection(elem.networkID, destNetworkID)
+			netSel := destNetworkID
 
-			newElem := qItem{networkID: destNetworkID, lmAddress: common.Address(lmAddr)}
+			_ = g.AddNetwork(netSel, big.NewInt(0))
+
+			if err := g.AddConnection(elem.networkSel, netSel); err != nil {
+				return nil, nil, fmt.Errorf("add connection: %w", err)
+			}
+
+			newElem := qItem{networkSel: netSel, lmAddress: common.Address(lmAddr)}
 			if !seen.Contains(newElem) {
 				queue.Add(newElem)
 				seen.Add(newElem)
 
-				if _, exists := lms.Get(destNetworkID); !exists {
-					lms.Add(destNetworkID, lmAddr)
+				if _, exists := lms.Get(netSel); !exists {
+					lms.Add(netSel, lmAddr)
 				}
 			}
 		}

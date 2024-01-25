@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -120,15 +122,19 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 		Network: relay.EVM,
 		ChainID: testutils.SimulatedChainID.String(),
 	}
+
+	ch, exists := chainsel.ChainByEvmChainID(uint64(mustStrToI64(t, masterChain.ChainID)))
+	assert.True(t, exists)
+
 	// for this test only one LM is "deployed"
 	// so the discovery will return a single LM which is the master LM
 	reg := liquiditymanager.NewRegistry()
-	reg.Add(models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address()))
+	reg.Add(models.NetworkSelector(ch.Selector), models.Address(uni.wrapper.Address()))
 	mockMasterLM := lm_mocks.NewRebalancer(t)
 	mockMasterLM.On("Discover", mock.Anything, mock.Anything).Return(reg, liquiditygraph.NewGraph(), nil)
 	defer mockMasterLM.AssertExpectations(t)
 	mockLMFactory := mocks.NewFactory(t)
-	mockLMFactory.On("NewRebalancer", models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni.wrapper.Address())).
+	mockLMFactory.On("NewRebalancer", models.NetworkSelector(ch.Selector), models.Address(uni.wrapper.Address())).
 		Return(mockMasterLM, nil)
 	defer mockLMFactory.AssertExpectations(t)
 	tracker, err := ocr3impls.NewMultichainConfigTracker(
@@ -210,20 +216,27 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 	// simulated chain id but that should be fine for this test.
 	masterChain := relay.ID{
 		Network: relay.EVM,
-		ChainID: testutils.NewRandomEVMChainID().String(),
+		ChainID: strconv.FormatUint(chainsel.TEST_90000001.EvmChainID, 10),
 	}
 	secondChain := relay.ID{
 		Network: relay.EVM,
-		ChainID: testutils.NewRandomEVMChainID().String(),
+		ChainID: strconv.FormatUint(chainsel.TEST_90000002.EvmChainID, 10),
 	}
+
+	chain1, exists := chainsel.ChainByEvmChainID(uint64(mustStrToI64(t, masterChain.ChainID)))
+	assert.True(t, exists)
+
+	chain2, exists := chainsel.ChainByEvmChainID(uint64(mustStrToI64(t, secondChain.ChainID)))
+	assert.True(t, exists)
+
 	reg := liquiditymanager.NewRegistry()
-	reg.Add(models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address()))
-	reg.Add(models.NetworkSelector(mustStrToI64(t, secondChain.ChainID)), models.Address(uni2.wrapper.Address()))
+	reg.Add(models.NetworkSelector(chain1.Selector), models.Address(uni1.wrapper.Address()))
+	reg.Add(models.NetworkSelector(chain2.Selector), models.Address(uni2.wrapper.Address()))
 	mockMasterLM := lm_mocks.NewRebalancer(t)
 	mockMasterLM.On("Discover", mock.Anything, mock.Anything).Return(reg, liquiditygraph.NewGraph(), nil)
 	defer mockMasterLM.AssertExpectations(t)
 	mockLMFactory := mocks.NewFactory(t)
-	mockLMFactory.On("NewRebalancer", models.NetworkSelector(mustStrToI64(t, masterChain.ChainID)), models.Address(uni1.wrapper.Address())).
+	mockLMFactory.On("NewRebalancer", models.NetworkSelector(chain1.Selector), models.Address(uni1.wrapper.Address())).
 		Return(mockMasterLM, nil)
 	defer mockLMFactory.AssertExpectations(t)
 	tracker, err := ocr3impls.NewMultichainConfigTracker(

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -94,12 +95,18 @@ func NewMultichainConfigTracker(
 
 	// before we register filters we need to discover all the available liquidity managers
 	// on all the chains
-	masterChainID, err := strconv.ParseInt(masterChain.ChainID, 10, 64)
+	masterChainID, err := strconv.ParseUint(masterChain.ChainID, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse network ID %s: %w", masterChain, err)
 	}
+
+	chain, exists := chainsel.ChainByEvmChainID(masterChainID)
+	if !exists {
+		return nil, fmt.Errorf("chain selector for chain %d not found", masterChainID)
+	}
+
 	masterLM, err := lmFactory.NewRebalancer(
-		models.NetworkSelector(masterChainID), // todo: probably need to find selector from chain id first
+		models.NetworkSelector(chain.Selector),
 		models.Address(masterContract))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create master liquidity manager: %w", err)
@@ -122,13 +129,19 @@ func NewMultichainConfigTracker(
 	// Register filters on all log pollers
 	contracts := make(map[relay.ID]common.Address)
 	for id, lp := range logPollers {
-		nid, err2 := strconv.ParseInt(id.ChainID, 10, 64)
+		nid, err2 := strconv.ParseUint(id.ChainID, 10, 64)
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to parse network ID %s: %w", id, err2)
 		}
-		address, ok := all[models.NetworkSelector(nid)]
+
+		ch, exists := chainsel.ChainByEvmChainID(nid)
+		if !exists {
+			return nil, fmt.Errorf("chain %d not found", nid)
+		}
+
+		address, ok := all[models.NetworkSelector(ch.Selector)]
 		if !ok {
-			return nil, fmt.Errorf("no liquidity manager found for network ID %d", nid)
+			return nil, fmt.Errorf("no liquidity manager found for network selector %d", ch.Selector)
 		}
 		fName := configTrackerFilterName(id, common.Address(address))
 		err2 = lp.RegisterFilter(logpoller.Filter{

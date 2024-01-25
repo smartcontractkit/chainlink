@@ -42,7 +42,11 @@ func (r *randomRebalancer) ComputeTransfersToBalance(
 	var transfers []models.Transfer
 	for i := 0; i < int(numTransfers); i++ {
 		randSourceChain := pickRandom(rng, g.GetNetworks())
-		randDestChain := pickRandom(rng, g.GetNetworks())
+		neighbors, exist := g.GetNeighbors(randSourceChain)
+		if !exist {
+			return nil, fmt.Errorf("%d not found", randSourceChain)
+		}
+		randDestChain := pickRandom(rng, neighbors)
 		r.lggr.Infow("RandomRebalancer: generated random transfer source and dest", "sourceChain", randSourceChain, "destChain", randDestChain)
 		if r.checkSourceDestEqual && randSourceChain == randDestChain {
 			continue
@@ -60,6 +64,7 @@ func (r *randomRebalancer) ComputeTransfersToBalance(
 		}
 		amount := rng.Int63n(liqSource.Int64())
 		r.lggr.Infow("RandomRebalancer: generated random transfer amount", "amount", amount)
+
 		transfers = append(transfers, models.Transfer{
 			From:   randSourceChain,
 			To:     randDestChain,
