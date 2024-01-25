@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/wasp"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
