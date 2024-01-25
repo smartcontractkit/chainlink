@@ -1,4 +1,4 @@
-package ocr2vrf
+package ocr2vrf_actions
 
 import ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
