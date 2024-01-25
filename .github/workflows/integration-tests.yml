@@ -418,6 +418,10 @@ jobs:
       fail-fast: false
       matrix:
         product:
+          - name: runlog
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: "ci-smoke-runlog-evm-simulated"
           - name: cron
             nodes: 2
             os: ubuntu-latest
@@ -429,13 +433,11 @@ jobs:
           - name: ocr
             nodes: 2
             os: ubuntu-latest
-            run: -run TestOCRJobReplacement
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 6
             os: ubuntu-latest
-            run: -run TestOCRv2JobReplacement
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
@@ -448,7 +450,7 @@ jobs:
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
-            nodes: 2
+            nodes: 3
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
@@ -456,11 +458,11 @@ jobs:
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
-            nodes: 1
+            nodes: 2
             os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: forwarders_ocr2
-            nodes: 1
+            nodes: 2
             os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}

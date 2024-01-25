@@ -14,7 +14,7 @@ inputs:
     description: The git commit sha to use for the image tag
   pyroscopeServer:
     description: URL of Pyroscope server
-  pyroscopeEnvironment: 
+  pyroscopeEnvironment:
     description: Name of Pyroscope environment
   pyroscopeKey:
     description: Pyroscope server key
@@ -47,9 +47,9 @@ runs:
       id: base64-config-override
       env:
         RUN_ID: ${{ inputs.runId }}
-        PYROSCOPE_SERVER: ${{ inputs.pyroscopeServer }} 
-        PYROSCOPE_ENVIRONMENT: ${{ inputs.pyroscopeEnvironment }} 
-        PYROSCOPE_KEY: ${{ inputs.pyroscopeKey }} 
+        PYROSCOPE_SERVER: ${{ inputs.pyroscopeServer }}
+        PYROSCOPE_ENVIRONMENT: ${{ inputs.pyroscopeEnvironment }}
+        PYROSCOPE_KEY: ${{ inputs.pyroscopeKey }}
         CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
         CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
         LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
@@ -81,15 +81,15 @@ runs:
         else
           pyroscope_enabled=false
         fi
-        
+
         cat << EOF > config.toml
         [Common]
-        chainlink_node_funding=0.5        
-        
+        chainlink_node_funding=0.5
+
         [ChainlinkImage]
         image="$CHAINLINK_IMAGE"
         version="$CHAINLINK_VERSION"
-        
+
         [Pyroscope]
         enabled=$pyroscope_enabled
         server_url="$PYROSCOPE_SERVER"
@@ -109,7 +109,7 @@ runs:
 
         [Logging.Grafana]
         base_url="$GRAFANA_URL"
-        dasboard_url="$GRAFANA_DASHBOARD_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
 
         [Network]
         selected_networks=["$NETWORK"]
@@ -123,7 +123,7 @@ runs:
         [Network.WalletKeys]
         "$NETWORK" = $(convert_to_toml_array "$FUNDING_KEYS")
         EOF
-        
+
         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
