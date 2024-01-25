@@ -6,7 +6,7 @@ inputs:
     description: Base64-encoded config to decode
 
 runs:
-  using: composite  
+  using: composite
   steps:
     - name: Add masks and export base64 config
       shell: bash
@@ -14,9 +14,9 @@ runs:
         decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
         CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
         echo ::add-mask::$CHAINLINK_IMAGE
-        CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)          
+        CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
         NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
-        ETH2_EL_CLIENT=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*execution_layer[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)          
+        ETH2_EL_CLIENT=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*execution_layer[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
 
         if [ -n "$CHAINLINK_IMAGE" ]; then
           echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
@@ -28,11 +28,11 @@ runs:
           echo "CHAINLINK_VERSION=$CHAINLINK_VERSION" >> $GITHUB_ENV
         else
           echo "No Chainlink Version found in base64-ed config. Exiting"
-          exit 1            
-        fi   
+          exit 1
+        fi
         if [ -n "$NETWORKS" ]; then
-          echo "NETWORKS=$NETWORKS" >> $GITHUB_ENV           
-        fi      
+          echo "NETWORKS=$NETWORKS" >> $GITHUB_ENV
+        fi
         if [ -n "$ETH2_EL_CLIENT" ]; then
-          echo "ETH2_EL_CLIENT=$ETH2_EL_CLIENT" >> $GITHUB_ENV           
+          echo "ETH2_EL_CLIENT=$ETH2_EL_CLIENT" >> $GITHUB_ENV
         fi
