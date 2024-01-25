@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -30,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
@@ -38,7 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
+	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
@@ -142,15 +143,15 @@ func TestLogTrigger(t *testing.T) {
 		Msg("Test Config")
 
 	testConfigFormat := `Number of Nodes: %d
-		Duration: %d
-		Block Time: %d
-		Spec Type: %s
-		Log Level: %s
-		Image: %s
-		Tag: %s
+Duration: %d
+Block Time: %d
+Spec Type: %s
+Log Level: %s
+Image: %s
+Tag: %s
 		
-		Load Config:
-		%s`
+Load Config:
+%s`
 
 	prettyLoadConfig, err := toml.Marshal(loadedTestConfig.Automation.Load)
 	require.NoError(t, err, "Error marshalling load config")
@@ -230,7 +231,11 @@ func TestLogTrigger(t *testing.T) {
 	}
 
 	if *loadedTestConfig.Pyroscope.Enabled {
+		serverUrl := os.Getenv("PYROSCOPE_SERVER")
+		serverKey := os.Getenv("PYROSCOPE_KEY")
 		loadedTestConfig.Pyroscope.Environment = &testEnvironment.Cfg.Namespace
+		loadedTestConfig.Pyroscope.ServerUrl = &serverUrl
+		loadedTestConfig.Pyroscope.Key = &serverKey
 	}
 
 	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
@@ -245,8 +250,8 @@ func TestLogTrigger(t *testing.T) {
 		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
 
 		var overrideFn = func(_ interface{}, target interface{}) {
-			ctf_config.MustConfigOverrideChainlinkVersion(loadedTestConfig.ChainlinkImage, target)
-			ctf_config.MightConfigOverridePyroscopeKey(loadedTestConfig.Pyroscope, target)
+			ctfconfig.MustConfigOverrideChainlinkVersion(loadedTestConfig.ChainlinkImage, target)
+			ctfconfig.MightConfigOverridePyroscopeKey(loadedTestConfig.Pyroscope, target)
 		}
 
 		cd := chainlink.NewWithOverride(i, map[string]any{
@@ -336,7 +341,7 @@ func TestLogTrigger(t *testing.T) {
 	}
 
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
-	loadConfigs := make([]a_config.Load, 0)
+	loadConfigs := make([]aconfig.Load, 0)
 	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
 	require.NoError(t, err, "Error building concurrent chain client")
 
@@ -351,7 +356,7 @@ func TestLogTrigger(t *testing.T) {
 				Int("Out Of", *u.NumberOfUpkeeps).
 				Msg("Deployed Automation Log Trigger Consumer Contract")
 
-			loadCfg := a_config.Load{
+			loadCfg := aconfig.Load{
 				NumberOfEvents:                u.NumberOfEvents,
 				NumberOfSpamMatchingEvents:    u.NumberOfSpamMatchingEvents,
 				NumberOfSpamNonMatchingEvents: u.NumberOfSpamNonMatchingEvents,
