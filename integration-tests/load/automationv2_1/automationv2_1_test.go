@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -231,11 +230,7 @@ Load Config:
 	}
 
 	if *loadedTestConfig.Pyroscope.Enabled {
-		serverUrl := os.Getenv("PYROSCOPE_SERVER")
-		serverKey := os.Getenv("PYROSCOPE_KEY")
 		loadedTestConfig.Pyroscope.Environment = &testEnvironment.Cfg.Namespace
-		loadedTestConfig.Pyroscope.ServerUrl = &serverUrl
-		loadedTestConfig.Pyroscope.Key = &serverKey
 	}
 
 	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
