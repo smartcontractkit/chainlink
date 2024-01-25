@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "TestOCRv2Basic",
+      "label": "ubuntu-latest",
+      "nodes": 4
+    },
+    {
+      "name": "TestOCRv2Request",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestOCRv2JobReplacement",
+      "label": "ubuntu-latest"
+    }
+  ]
+}
