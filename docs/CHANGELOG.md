@@ -111,6 +111,7 @@ Starting in `v2.9.0`:
 
 - Added new configuration field named `LeaseDuration` for `EVM.NodePool` that will periodically check if internal subscriptions are connected to the "best" (as defined by the `SelectionMode`) node and switch to it if necessary. Setting this value to `0s` will disable this feature.
 - Added multichain telemetry support. Each network/chainID pair must be configured using the new fields:
+
 ```toml
 [[TelemetryIngress.Endpoints]]
 Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
@@ -118,7 +119,9 @@ ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
 URL = '...'
 ServerPubKey = '...'
 ```
+
 These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
+
 - Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
 
 - LogPoller will now use finality tags to dynamically determine finality on evm chains if `EVM.FinalityTagEnabled=true`, rather than the fixed `EVM.FinalityDepth` specified in toml config
@@ -167,7 +170,9 @@ All nodes will have to remove the following configuration field: `ExplorerURL`
 - Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
 - Fixed a bug that would cause the node to shut down while performing backup
 - Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint
-- Fixed a bug where prices would not be parsed correctly in telemetry data
+  <<<<<<< HEAD
+- # Fixed a bug where prices would not be parsed correctly in telemetry data
+  > > > > > > > master
 
 ## 2.5.0 - 2023-09-13
 

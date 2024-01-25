@@ -144,7 +144,7 @@ jobs:
       - name: Build Chainlink Image
         if: needs.changes.outputs.src == 'true'
         uses: ./.github/actions/build-chainlink-image
-        with: 
+        with:
           tag_suffix: ${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
           git_commit_sha: ${{ github.sha }}
@@ -832,7 +832,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get_solana_sha.outputs.sha }}
+          ref: a28100b7f2954604a8ca2ff9ec7bccc6ec952953 # temporarily using specific commit for release branch ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16

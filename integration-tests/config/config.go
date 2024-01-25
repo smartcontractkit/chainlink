@@ -6,6 +6,10 @@ Enabled = true
 
 [P2P]
 [P2P.V2]
+Enabled = false
+
+[P2P]
+[P2P.V2]
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 
