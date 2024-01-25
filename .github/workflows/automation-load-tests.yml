@@ -49,16 +49,8 @@ jobs:
         run: |
           decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
 
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
-
           # use Pyroscope config from GH secrets and merge it with base64 input
           cat << EOF > config.toml
-          [Pyroscope]
-          enabled=$pyroscope_enabled
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key="$PYROSCOPE_KEY"
