@@ -888,7 +888,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 		case randomWordsForcedEvent = <-randWordsForcedEventChannel:
 			LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
 		case <-time.After(randomWordsFulfilledEventTimeout):
-			err = fmt.Errorf("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
+			return nil, nil, nil, fmt.Errorf("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
 		}
 	}
 	return configSetEvent, randomWordsFulfilledEvent, randomWordsForcedEvent, err
