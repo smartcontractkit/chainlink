@@ -265,6 +265,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   bsc-testnet-tests:
     # TODO: BSC RPCs are all in a bad state right now, so we're skipping these tests until they're fixed
@@ -337,6 +339,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   optimism-sepolia-smoke-tests:
     environment: integration
@@ -407,6 +411,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   arbitrum-sepolia-smoke-tests:
     environment: integration
@@ -477,6 +483,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   base-sepolia-smoke-tests:
     environment: integration
@@ -543,6 +551,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   polygon-mumbai-smoke-tests:
     environment: integration
@@ -613,6 +623,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   avalanche-fuji-smoke-tests:
     environment: integration
@@ -683,6 +695,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   fantom-testnet-smoke-tests:
     environment: integration
@@ -753,6 +767,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   celo-alfajores-smoke-tests:
     environment: integration
@@ -819,6 +835,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   scroll-sepolia-smoke-tests:
     # TODO: Disabled until bug TT-767 is fixed
@@ -887,6 +905,8 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   linea-goerli-smoke-tests:
     environment: integration
@@ -953,3 +973,5 @@ jobs:
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
