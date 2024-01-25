@@ -4,19 +4,19 @@ pragma solidity 0.8.16;
 import "../interfaces/v2_2/IChainSpecific.sol";
 
 contract ChainModuleBase is IChainSpecific {
-  function _blockNumber() external view returns (uint256) {
+  function blockNumber() external view returns (uint256) {
     return block.number;
   }
 
-  function _blockHash(uint256 blockNumber) external view returns (bytes32) {
+  function blockHash(uint256 blockNumber) external view returns (bytes32) {
     return blockhash(blockNumber);
   }
 
-  function _getL1FeeForTransaction(bytes calldata) external pure returns (uint256) {
+  function getL1Fee(bytes calldata) external pure returns (uint256) {
     return 0;
   }
 
-  function _getL1FeeForSimulation(bytes calldata) external view returns (uint256) {
+  function getMaxL1Fee(uint256) external pure returns (uint256) {
     return 0;
   }
 }

@@ -26,7 +26,6 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     AutomationRegistryLogicB2_2 logicB
   )
     AutomationRegistryBase2_2(
-      logicB.getMode(),
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
       logicB.getFastGasFeedAddress(),
@@ -287,10 +286,10 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bool canceled = upkeep.maxValidBlocknumber != UINT32_MAX;
     bool isOwner = msg.sender == owner();
 
-    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > _blockNum())) revert CannotCancel();
+    uint256 height = s_hotVars.chainSpecificModule.blockNumber();
+    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > height)) revert CannotCancel();
     if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
-    uint256 height = _blockNum();
     if (!isOwner) {
       height = height + CANCELLATION_DELAY;
     }

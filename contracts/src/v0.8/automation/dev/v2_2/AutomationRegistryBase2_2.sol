@@ -14,6 +14,7 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
+import "../interfaces/v2_2/IChainSpecific.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -66,7 +67,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
-  Mode internal immutable i_mode;
   address internal immutable i_automationForwarderLogic;
   address internal immutable i_allowedReadOnlyAddress;
 
@@ -162,12 +162,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     BIDIRECTIONAL
   }
 
-  enum Mode {
-    DEFAULT,
-    ARBITRUM,
-    OPTIMISM
-  }
-
   enum Trigger {
     CONDITION,
     LOG
@@ -252,6 +246,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @member registrars addresses of the registrar contracts
    * @member upkeepPrivilegeManager address which can set privilege for upkeeps
    * @member reorgProtectionEnabled if this registry enables re-org protection checks
+   * @member chainSpecificModule the chain specific module
+   * @member reorgProtectionEnabled if this registry will enable re-org protection checks
    */
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
@@ -269,6 +265,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     address transcoder;
     address[] registrars;
     address upkeepPrivilegeManager;
+    address chainSpecificModule;
     bool reorgProtectionEnabled;
   }
 
@@ -362,6 +359,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     bool paused; //                  │ pause switch for all upkeeps in the registry
     bool reentrancyGuard; // ────────╯ guard against reentrancy
     bool reorgProtectionEnabled; //    if this registry should enable re-org protection mechanism
+    IChainSpecific chainSpecificModule; // the address of chain specific module
   }
 
   /// @dev Config + State storage struct which is not on hot transmit path
@@ -452,6 +450,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event ChainSpecificModuleUpdated(address newModule);
   event DedupKeyAdded(bytes32 indexed dedupKey);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
@@ -488,7 +487,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   event Unpaused(address account);
 
   /**
-   * @param mode the contract mode of default, Arbitrum, or Optimism
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
@@ -496,14 +494,12 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @param allowedReadOnlyAddress the address of the allowed read only address
    */
   constructor(
-    Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
   ) ConfirmedOwner(msg.sender) {
-    i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
@@ -560,8 +556,9 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    */
   function _createID(Trigger triggerType) internal view returns (uint256) {
     bytes1 empty;
+    IChainSpecific chainModule = s_hotVars.chainSpecificModule;
     bytes memory idBytes = abi.encodePacked(
-      keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce))
+      keccak256(abi.encode(chainModule.blockHash((chainModule.blockNumber() - 1)), address(this), s_storage.nonce))
     );
     for (uint256 idx = 4; idx < 15; idx++) {
       idBytes[idx] = empty;
@@ -625,30 +622,11 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     }
 
     uint256 l1CostWei = 0;
-    if (i_mode == Mode.OPTIMISM) {
-      bytes memory txCallData = new bytes(0);
-      if (isExecution) {
-        txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
-      } else {
-        // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
-        // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
-        // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
-        txCallData = new bytes(4 * s_storage.maxPerformDataSize);
-      }
-      l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
-    } else if (i_mode == Mode.ARBITRUM) {
-      if (isExecution) {
-        l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
-      } else {
-        // fee is 4 per 0 byte, 16 per non-zero byte - we assume all non-zero and
-        // max data size to calculate max payment
-        (, uint256 perL1CalldataUnit, , , , ) = ARB_NITRO_ORACLE.getPricesInWei();
-        l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
-      }
-    }
-    // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
-    if (!isExecution) {
-      l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
+    if (isExecution) {
+      l1CostWei = hotVars.chainSpecificModule.getL1Fee(msg.data);
+    } else {
+      // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
+      l1CostWei = hotVars.gasCeilingMultiplier * hotVars.chainSpecificModule.getMaxL1Fee(s_storage.maxPerformDataSize);
     }
     // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
@@ -795,7 +773,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     } else {
       revert InvalidTriggerType();
     }
-    if (transmitInfo.upkeep.maxValidBlocknumber <= _blockNum()) {
+    if (transmitInfo.upkeep.maxValidBlocknumber <= hotVars.chainSpecificModule.blockNumber()) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
       emit CancelledUpkeepReport(upkeepId, rawTrigger);
@@ -824,10 +802,11 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
+    IChainSpecific chainModule = hotVars.chainSpecificModule;
     if (
       (hotVars.reorgProtectionEnabled &&
-        (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
-      trigger.blockNum >= _blockNum()
+        (trigger.blockHash != bytes32("") && chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
+      trigger.blockNum >= chainModule.blockNumber()
     ) {
       // There are two cases of reorged report
       // 1. trigger block number is in future: this is an edge case during extreme deep reorgs of chain
@@ -848,10 +827,11 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   ) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
+    IChainSpecific chainModule = hotVars.chainSpecificModule;
     if (
       (hotVars.reorgProtectionEnabled &&
-        (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
-      trigger.blockNum >= _blockNum()
+        (trigger.blockHash != bytes32("") && chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
+      trigger.blockNum >= chainModule.blockNumber()
     ) {
       // Reorg protection is same as conditional trigger upkeeps
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
@@ -896,9 +876,13 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @dev updates a storage marker for this upkeep to prevent duplicate and out of order performances
    * @dev for conditional triggers we set the latest block number, for log triggers we store a dedupID
    */
-  function _updateTriggerMarker(uint256 upkeepID, UpkeepTransmitInfo memory upkeepTransmitInfo) internal {
+  function _updateTriggerMarker(
+    uint256 upkeepID,
+    UpkeepTransmitInfo memory upkeepTransmitInfo,
+    HotVars memory hotVars
+  ) internal {
     if (upkeepTransmitInfo.triggerType == Trigger.CONDITION) {
-      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(_blockNum());
+      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(hotVars.chainSpecificModule.blockNumber());
     } else if (upkeepTransmitInfo.triggerType == Trigger.LOG) {
       s_dedupKeys[upkeepTransmitInfo.dedupID] = true;
       emit DedupKeyAdded(upkeepTransmitInfo.dedupID);
@@ -970,34 +954,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   function _requireAdminAndNotCancelled(uint256 upkeepId) internal view {
     if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
     if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-  }
-
-  /**
-   * @dev returns the current block number in a chain agnostic manner
-   */
-  function _blockNum() internal view returns (uint256) {
-    if (i_mode == Mode.ARBITRUM) {
-      return ARB_SYS.arbBlockNumber();
-    } else {
-      return block.number;
-    }
-  }
-
-  /**
-   * @dev returns the blockhash of the provided block number in a chain agnostic manner
-   * @param n the blocknumber to retrieve the blockhash for
-   * @return blockhash the blockhash of block number n, or 0 if n is out queryable of range
-   */
-  function _blockHash(uint256 n) internal view returns (bytes32) {
-    if (i_mode == Mode.ARBITRUM) {
-      uint256 blockNum = ARB_SYS.arbBlockNumber();
-      if (n >= blockNum || blockNum - n > 256) {
-        return "";
-      }
-      return ARB_SYS.arbBlockHash(n);
-    } else {
-      return blockhash(n);
-    }
   }
 
   /**

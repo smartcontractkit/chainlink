@@ -13,19 +13,22 @@ contract OptimismAndBaseModule is IChainSpecific {
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
-  function _blockHash(uint256 blockNumber) external view returns (bytes32) {
+  function blockHash(uint256 blockNumber) external view returns (bytes32) {
     return blockhash(blockNumber);
   }
 
-  function _blockNumber() external view returns (uint256) {
+  function blockNumber() external view returns (uint256) {
     return block.number;
   }
 
-  function _getL1FeeForTransaction(bytes calldata txCallData) external view returns (uint256) {
+  function getL1Fee(bytes calldata txCallData) external view returns (uint256) {
     return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(txCallData, OP_L1_DATA_FEE_PADDING));
   }
 
-  function _getL1FeeForSimulation(bytes calldata txCallData) external view returns (uint256) {
+  function getMaxL1Fee(uint256 dataSize) external view returns (uint256) {
+    // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have all non zero-bytes.
+    // Instead of setting bytes to non-zero, we initialize 'new bytes' of length 4*dataSize to cover for zero bytes.
+    bytes memory txCallData = new bytes(4 * dataSize);
     return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(txCallData, OP_L1_DATA_FEE_PADDING));
   }
 }

@@ -15,19 +15,22 @@ contract ScrollModule is IChainSpecific {
   address private constant SCROLL_ORACLE_ADDR = address(0x5300000000000000000000000000000000000002);
   IScrollL1GasPriceOracle internal constant SCROLL_ORACLE = IScrollL1GasPriceOracle(SCROLL_ORACLE_ADDR);
 
-  function _blockHash(uint256 blockNumber) external view returns (bytes32) {
-    return blockhash(blockNumber);
+  function blockHash(uint256 blocknumber) external view returns (bytes32) {
+    return blockhash(blocknumber);
   }
 
-  function _blockNumber() external view returns (uint256) {
+  function blockNumber() external view returns (uint256) {
     return block.number;
   }
 
-  function _getL1FeeForTransaction(bytes calldata txCallData) external view returns (uint256) {
+  function getL1Fee(bytes calldata txCallData) external view returns (uint256) {
     return SCROLL_ORACLE.getL1Fee(bytes.concat(txCallData, SCROLL_L1_FEE_DATA_PADDING));
   }
 
-  function _getL1FeeForSimulation(bytes calldata txCallData) external view returns (uint256) {
+  function getMaxL1Fee(uint256 dataSize) external view returns (uint256) {
+    // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have all non zero-bytes.
+    // Instead of setting bytes to non-zero, we initialize 'new bytes' of length 4*dataSize to cover for zero bytes.
+    bytes memory txCallData = new bytes(4 * dataSize);
     return SCROLL_ORACLE.getL1Fee(bytes.concat(txCallData, SCROLL_L1_FEE_DATA_PADDING));
   }
 }
