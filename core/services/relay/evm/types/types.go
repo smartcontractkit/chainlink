@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,43 +9,100 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"gopkg.in/guregu/null.v2"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type ChainReaderConfig struct {
-	// ChainContractReaders key is contract name
-	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
+	// Contracts key is contract name
+	Contracts map[string]ChainContractReader `json:"contracts" toml:"contracts"`
+}
+
+type CodecConfig struct {
+	// Configs key is the type's name for the codec
+	Configs map[string]ChainCodecConfig `json:"configs" toml:"configs"`
+}
+
+type ChainCodecConfig struct {
+	TypeABI         string                `json:"typeAbi" toml:"typeABI"`
+	ModifierConfigs codec.ModifiersConfig `toml:"modifierConfigs,omitempty"`
 }
 
 type ChainContractReader struct {
-	ContractABI string `json:"contractABI"`
-	// ChainReaderDefinitions key is chainAgnostic read name.
-	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
+	ContractABI string `json:"contractABI" toml:"contractABI"`
+	// key is genericName from config
+	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
 }
 
-type ChainReaderDefinition struct {
-	ChainSpecificName string         `json:"chainSpecificName"` // chain specific contract method name or event type.
-	Params            map[string]any `json:"params"`
-	ReturnValues      []string       `json:"returnValues"`
-	CacheEnabled      bool           `json:"cacheEnabled"`
-	ReadType          ReadType       `json:"readType"`
+type ChainReaderDefinition chainReaderDefinitionFields
+
+// chainReaderDefinitionFields has the fields for ChainReaderDefinition but no methods.
+// This is necessary because package json recognizes the text encoding methods used for TOML,
+// and would infinitely recurse on itself.
+type chainReaderDefinitionFields struct {
+	CacheEnabled bool `json:"cacheEnabled,omitempty"`
+	// chain specific contract method name or event type.
+	ChainSpecificName   string                `json:"chainSpecificName"`
+	ReadType            ReadType              `json:"readType,omitempty"`
+	InputModifications  codec.ModifiersConfig `json:"inputModifications,omitempty"`
+	OutputModifications codec.ModifiersConfig `json:"outputModifications,omitempty"`
+
+	// EventInputFields allows you to choose which indexed fields are expected from the input
+	EventInputFields []string `json:"eventInputFields,omitempty"`
 }
 
-type ReadType int64
+func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
+	var b bytes.Buffer
+	e := json.NewEncoder(&b)
+	e.SetIndent("", "  ")
+	if err := e.Encode((*chainReaderDefinitionFields)(d)); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func (d *ChainReaderDefinition) UnmarshalText(b []byte) error {
+	return json.Unmarshal(b, (*chainReaderDefinitionFields)(d))
+}
+
+type ReadType int
 
 const (
-	Method ReadType = 0
-	Event  ReadType = 1
+	Method ReadType = iota
+	Event
 )
+
+func (r ReadType) String() string {
+	switch r {
+	case Method:
+		return "method"
+	case Event:
+		return "event"
+	}
+	return fmt.Sprintf("ReadType(%d)", r)
+}
+
+func (r ReadType) MarshalText() ([]byte, error) {
+	return []byte(r.String()), nil
+}
+
+func (r *ReadType) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "method":
+		*r = Method
+		return nil
+	case "event":
+		*r = Event
+		return nil
+	}
+	return fmt.Errorf("unrecognized ReadType: %s", string(text))
+}
 
 type RelayConfig struct {
 	ChainID                *big.Big           `json:"chainID"`
@@ -52,6 +110,7 @@ type RelayConfig struct {
 	EffectiveTransmitterID null.String        `json:"effectiveTransmitterID"`
 	ConfigContractAddress  *common.Address    `json:"configContractAddress"`
 	ChainReader            *ChainReaderConfig `json:"chainReader"`
+	Codec                  *CodecConfig       `json:"codec"`
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
@@ -64,14 +123,14 @@ type RelayConfig struct {
 	FromBlocks map[string]int64 `json:"fromBlocks"`
 }
 
+var ErrBadRelayConfig = errors.New("bad relay config")
+
 type RelayOpts struct {
 	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
 	// make this private and wrap the arg fields with funcs on RelayOpts
-	commontypes.RelayArgs
+	types.RelayArgs
 	c *RelayConfig
 }
-
-var ErrBadRelayConfig = errors.New("bad relay config")
 
 func NewRelayOpts(args types.RelayArgs) *RelayOpts {
 	return &RelayOpts{
@@ -102,9 +161,9 @@ type ConfigPoller interface {
 	Replay(ctx context.Context, fromBlock int64) error
 }
 
-// TODO(FUN-668): Migrate this fully into commontypes.FunctionsProvider
+// TODO(FUN-668): Migrate this fully into types.FunctionsProvider
 type FunctionsProvider interface {
-	commontypes.FunctionsProvider
+	types.FunctionsProvider
 	LogPollerWrapper() LogPollerWrapper
 }
 

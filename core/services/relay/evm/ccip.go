@@ -64,6 +64,10 @@ func (c *ccipCommitProvider) ChainReader() commontypes.ChainReader {
 	return nil
 }
 
+func (c *ccipCommitProvider) Codec() commontypes.Codec {
+	return nil
+}
+
 type ccipExecutionProvider struct {
 	*configWatcher
 	contractTransmitter *contractTransmitter
@@ -102,5 +106,9 @@ func (c *ccipExecutionProvider) ContractTransmitter() ocrtypes.ContractTransmitt
 }
 
 func (c *ccipExecutionProvider) ChainReader() commontypes.ChainReader {
+	return nil
+}
+
+func (c *ccipExecutionProvider) Codec() commontypes.Codec {
 	return nil
 }

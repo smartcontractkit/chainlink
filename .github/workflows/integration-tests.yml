@@ -45,7 +45,7 @@ jobs:
           echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
       - name: Enforce CTF Version
         if: steps.condition-check.outputs.should-enforce == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework
@@ -87,7 +87,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup Go
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -97,7 +97,7 @@ jobs:
         run: |
           cd ./integration-tests
           go build ./...
-          SELECTED_NETWORKS=SIMULATED go test -run=^# ./...
+          go test -run=^# ./...
       - name: Lint Go
         uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
         with:
@@ -121,15 +121,15 @@ jobs:
           - name: ""
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
-          - name: (plugins)
-            dockerfile: plugins/chainlink.Dockerfile
-            tag-suffix: -plugins
+          # - name: (plugins)
+          #   dockerfile: plugins/chainlink.Dockerfile
+          #   tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true'
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
@@ -142,7 +142,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
-        if: needs.changes.outputs.src == 'true'
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/build-chainlink-image
         with:
           tag_suffix: ${{ matrix.image.tag-suffix }}
@@ -164,7 +164,7 @@ jobs:
     needs: [changes]
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true'
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
@@ -177,7 +177,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Test Image
-        if: needs.changes.outputs.src == 'true'
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/build-test-image
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -189,7 +189,8 @@ jobs:
 #    runs-on: ubuntu-latest
 #    name: Compare/Build Automation Test List
 #    outputs:
-#      matrix: ${{ env.MATRIX_JSON }}
+#      automation-matrix: ${{ env.AUTOMATION_JOB_MATRIX_JSON }}
+#      lp-matrix: ${{ env.LP_JOB_MATRIX_JSON }}
 #    steps:
 #      - name: Check for Skip Tests Label
 #        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
@@ -203,6 +204,7 @@ jobs:
 #          cd ./integration-tests
 #          ./scripts/compareTestList.sh ./smoke/automation_test.go
 #          ./scripts/compareTestList.sh ./smoke/keeper_test.go
+#          ./scripts/compareTestList.sh ./smoke/log_poller_test.go
 #      - name: Build Test Matrix Lists
 #        id: build-test-matrix-list
 #        run: |
@@ -211,23 +213,112 @@ jobs:
 #          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
 #          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
 #
+#          LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
+#          echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
+#
 #          # if we running a PR against the develop branch we should only run the automation tests unless we are in the merge group event
 #          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
 #            echo "We are in a merge_group event, run both automation and keepers tests"
-#            echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+#            echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
 #          else
 #            echo "we are not in a merge_group event, if this is a PR to develop run only automation tests, otherwise run everything because we could be running against a release branch"
 #            target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.base.ref)
 #            if [[ "$target_branch" == "develop" ]]; then
 #              echo "only run automation tests"
-#              echo "MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
+#              echo "AUTOMATION_JOB_MATRIX_JSON=${MATRIX_JSON_AUTOMATION}" >> $GITHUB_ENV
 #            else
 #              echo "run both automation and keepers tests"
-#              echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+#              echo "AUTOMATION_JOB_MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
 #            fi
 #          fi
-
+#
 #  eth-smoke-tests-matrix-automation:
+#    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+#    environment: integration
+#    permissions:
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    needs:
+#      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
+#    env:
+#      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+#      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+#      CHAINLINK_ENV_USER: ${{ github.actor }}
+#      TEST_LOG_LEVEL: debug
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        product: ${{fromJson(needs.compare-tests.outputs.automation-matrix)}}
+#    runs-on: ${{ matrix.product.os }}
+#    name: ETH Smoke Tests ${{ matrix.product.name }}
+#    steps:
+#      - name: Collect Metrics
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+#        with:
+#          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+#          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+#          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+#        continue-on-error: true
+#      - name: Checkout the repo
+#        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+#        with:
+#          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+#      - name: Build Go Test Command
+#        id: build-go-test-command
+#        run: |
+#          # if the matrix.product.run is set, use it for a different command
+#          if [ "${{ matrix.product.run }}" != "" ]; then
+#            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+#          else
+#            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+#          fi
+#      - name: Prepare Base64 TOML override
+#        uses: ./.github/actions/setup-create-base64-config
+#        with:
+#          runId: ${{ github.run_id }}
+#          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+#          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+#          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+#          chainlinkVersion: ${{ github.sha }}
+#          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+#          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+#          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+#          lokiEndpoint: ${{ secrets.LOKI_URL }}
+#          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+#          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+#          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+#          grafanaUrl: ${{ vars.GRAFANA_URL }}
+#          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+#
+#      ## Run this step when changes that require tests to be run are made
+#      - name: Run Tests
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+#        with:
+#          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+#          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+#          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+#          cl_image_tag: ${{ github.sha }}
+#          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+#          artifacts_location: ./integration-tests/smoke/logs/
+#          publish_check_name: ${{ matrix.product.name }}
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+#          cache_restore_only: "true"
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_KUBECONFIG: ""
+#      - name: Print failed test summary
+#        if: always()
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+#
+#  eth-smoke-tests-matrix-log-poller:
 #    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
 #    environment: integration
 #    permissions:
@@ -245,7 +336,7 @@ jobs:
 #    strategy:
 #      fail-fast: false
 #      matrix:
-#        product: ${{fromJson(needs.compare-tests.outputs.matrix)}}
+#        product: ${{fromJson(needs.compare-tests.outputs.lp-matrix)}}
 #    runs-on: ${{ matrix.product.os }}
 #    name: ETH Smoke Tests ${{ matrix.product.name }}
 #    steps:
@@ -272,14 +363,27 @@ jobs:
 #          else
 #            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
 #          fi
+#      - name: Prepare Base64 TOML override
+#        uses: ./.github/actions/setup-create-base64-config
+#        with:
+#          runId: ${{ github.run_id }}
+#          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+#          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+#          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+#          chainlinkVersion: ${{ github.sha }}
+#          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+#          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+#          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+#          lokiEndpoint: ${{ secrets.LOKI_URL }}
+#          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+#          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+#          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+#          grafanaUrl: ${{ vars.GRAFANA_URL }}
+#          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
 #      ## Run this step when changes that require tests to be run are made
 #      - name: Run Tests
 #        if: needs.changes.outputs.src == 'true'
 #        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
-#        env:
-#          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-#          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-#          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
 #        with:
 #          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
 #          test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -297,7 +401,7 @@ jobs:
 #          QA_KUBECONFIG: ""
 
   eth-smoke-tests-matrix:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
       checks: write
@@ -352,21 +456,25 @@ jobs:
             os: ubuntu20.04-16cores-64GB
             file: ccip
             run: -run ^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
-          - name: cron
-            nodes: 1
+          - name: runlog
+            nodes: 2
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: "ci-smoke-runlog-evm-simulated"
+          - name: cron
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: "ci-smoke-cron-evm-simulated"
           - name: flux
             nodes: 1
             os: ubuntu-latest
-            pyroscope_env: ""
+            pyroscope_env: "ci-smoke-flux-evm-simulated"
           - name: ocr
-            nodes: 1
+            nodes: 2
             os: ubuntu-latest
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
-            nodes: 1
+            nodes: 6
             os: ubuntu-latest
             run: -run TestOCRBasic
             file: ocr
@@ -430,39 +538,35 @@ jobs:
             client: erigon
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
-            nodes: 1
+            nodes: 6
             os: ubuntu-latest
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
-          - name: runlog
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
           - name: vrf
-            nodes: 1
+            nodes: 2
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
-            nodes: 1
+            nodes: 2
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
-            nodes: 1
+            nodes: 3
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
-            nodes: 1
+            nodes: 2
             os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: forwarders_ocr2
-            nodes: 1
+            nodes: 2
             os: ubuntu-latest
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true'
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
         with:
@@ -549,21 +653,28 @@ jobs:
           if [ "${{ matrix.product.config_path }}" != "" ]; then
             echo "base_64_override=$(base64 -w 0 -i ${{ matrix.product.config_path }})" >> "$GITHUB_OUTPUT"
           fi
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          LOKI_URL: ${{ secrets.LOKI_URL }}
-          LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-          LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
-          GRAFANA_DATASOURCE: ${{ vars.GRAFANA_DATASOURCE }}
-          RUN_ID: ${{ github.run_id }}
           BASE64_TEST_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
           TEST_BASE64_TEST_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
         with:
@@ -572,7 +683,7 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}${{ matrix.product.tag_suffix }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.product.name }}-test-logs
+          artifacts_name: ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}-test-logs
           artifacts_location: ./integration-tests/smoke/logs/
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -582,10 +693,10 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
-      ## Run this step when changes that do not need the test to run are made
+      # Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -610,25 +721,9 @@ jobs:
           path: ./integration-tests/smoke/traces/trace-data.json
       - name: Print failed test summary
         if: always()
-        run: |
-          directory="./integration-tests/smoke/.test_summary"
-          files=("$directory"/*)
-          if [ -d "$directory" ]; then
-            echo "Test summary folder found"
-            if [ ${#files[@]} -gt 0 ]; then
-              first_file="${files[0]}"
-              echo "Name of the first test summary file: $(basename "$first_file")"
-              echo "### Failed Test Execution Logs Dashboard (over VPN):" >> $GITHUB_STEP_SUMMARY
-              cat "$first_file" | jq -r '.loki[] | "* [\(.test_name)](\(.value))"' >> $GITHUB_STEP_SUMMARY
-              if [ ${#files[@]} -gt 1 ]; then
-                echo "Found more than one test summary file. This is incorrect, there should be only one file"
-              fi
-            else
-                echo "Test summary directory is empty. This should not happen"
-            fi
-          else
-            echo "No test summary folder found. If no test failed or log collection wasn't explicitly requested this is correct. Exiting"
-          fi
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: ./integration-tests/smoke/
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
@@ -694,7 +789,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_download_vendor_packages_command: |
             cd ./integration-tests
@@ -741,8 +836,16 @@ jobs:
       - name: Name Versions
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-upgrade-config
+        with:
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ steps.get_latest_version.outputs.latest_version }}
+          upgradeImage: ${{ env.UPGRADE_IMAGE }}
+          upgradeVersion: ${{ env.UPGRADE_VERSION }}
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -776,7 +879,7 @@ jobs:
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
-  ### Solana Section
+  ## Solana Section
 #  get_solana_sha:
 #    name: Get Solana Sha From Go Mod
 #    environment: Integration
@@ -854,7 +957,7 @@ jobs:
 #    steps:
 #      - name: Check if image exists
 #        id: check-image
-#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 #        with:
 #          repository: chainlink-solana-tests
 #          tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -884,7 +987,7 @@ jobs:
 #        FORCE_COLOR: 1
 #    steps:
 #      - name: Collect Metrics
-#        if: needs.changes.outputs.src == 'true'
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
 #        id: collect-gha-metrics
 #        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
 #        with:
@@ -900,8 +1003,8 @@ jobs:
 #          repository: smartcontractkit/chainlink-solana
 #          ref: ${{ needs.get_solana_sha.outputs.sha }}
 #      - name: Build contracts
-#        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
-#        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@23816fcf7d380a30c87b6d87e4fb0ca94419b259 # stable action on April 17 2023
+#        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
+#        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@21675b3a7dcdff8e790391708d4763020cace21e # stable action on December 18 2023
 #        with:
 #          ref: ${{ needs.get_solana_sha.outputs.sha }}
 #
@@ -925,7 +1028,7 @@ jobs:
 #      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
 #    steps:
 #      - name: Collect Metrics
-#        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
+#        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
 #        id: collect-gha-metrics
 #        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
 #        with:
@@ -934,13 +1037,13 @@ jobs:
 #          this-job-name: Solana Build Test Image
 #        continue-on-error: true
 #      - name: Checkout the repo
-#        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
+#        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
 #        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 #        with:
 #          repository: smartcontractkit/chainlink-solana
 #          ref: ${{ needs.get_solana_sha.outputs.sha }}
 #      - name: Build Test Image
-#        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
+#        if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
 #        uses: ./.github/actions/build-test-image
 #        with:
 #          tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -976,7 +1079,7 @@ jobs:
 #      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
 #    steps:
 #      - name: Collect Metrics
-#        if: needs.changes.outputs.src == 'true'
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
 #        id: collect-gha-metrics
 #        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
 #        with:
@@ -991,8 +1094,8 @@ jobs:
 #          repository: smartcontractkit/chainlink-solana
 #          ref: ${{ needs.get_solana_sha.outputs.sha }}
 #      - name: Run Setup
-#        if: needs.changes.outputs.src == 'true'
-#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 #        with:
 #          go_mod_path: ./integration-tests/go.mod
 #          cache_restore_only: true
@@ -1004,7 +1107,7 @@ jobs:
 #          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 #          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 #      - name: Pull Artfacts
-#        if: needs.changes.outputs.src == 'true'
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
 #        run: |
 #          IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
 #          # Pull the Docker image
@@ -1020,8 +1123,8 @@ jobs:
 #          # Remove the created container
 #          docker rm "$CONTAINER_ID"
 #      - name: Run Tests
-#        if: needs.changes.outputs.src == 'true'
-#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+#        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
 #        with:
 #          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
 #          cl_repo: ${{ env.CHAINLINK_IMAGE }}

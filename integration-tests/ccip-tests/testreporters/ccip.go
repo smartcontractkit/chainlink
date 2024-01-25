@@ -210,7 +210,7 @@ type CCIPTestReporter struct {
 	mu             *sync.Mutex
 }
 
-func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
+func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client, _ testreporters.GrafanaURLProvider) error {
 	// do not send slack notification for soak and load tests
 	if !strings.Contains(strings.ToLower(r.t.Name()), "soak") && !strings.Contains(strings.ToLower(r.t.Name()), "load") {
 		return nil

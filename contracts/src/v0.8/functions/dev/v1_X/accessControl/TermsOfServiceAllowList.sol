@@ -20,7 +20,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.1.0";
 
   EnumerableSet.AddressSet private s_allowedSenders;
-  mapping(address => bool) private s_blockedSenders;
+  EnumerableSet.AddressSet private s_blockedSenders;
 
   event AddedAccess(address user);
   event BlockedAccess(address user);
@@ -29,6 +29,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   error InvalidSignature();
   error InvalidUsage();
   error RecipientIsBlocked();
+  error InvalidCalldata();
 
   TermsOfServiceAllowListConfig private s_config;
 
@@ -70,7 +71,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
   /// @inheritdoc ITermsOfServiceAllowList
   function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external override {
-    if (s_blockedSenders[recipient]) {
+    if (s_blockedSenders.contains(recipient)) {
       revert RecipientIsBlocked();
     }
 
@@ -101,6 +102,32 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     return s_allowedSenders.values();
   }
 
+  /// @inheritdoc ITermsOfServiceAllowList
+  function getAllowedSendersCount() external view override returns (uint64) {
+    return uint64(s_allowedSenders.length());
+  }
+
+  /// @inheritdoc ITermsOfServiceAllowList
+  function getAllowedSendersInRange(
+    uint64 allowedSenderIdxStart,
+    uint64 allowedSenderIdxEnd
+  ) external view override returns (address[] memory allowedSenders) {
+    if (
+      allowedSenderIdxStart > allowedSenderIdxEnd ||
+      allowedSenderIdxEnd >= s_allowedSenders.length() ||
+      s_allowedSenders.length() == 0
+    ) {
+      revert InvalidCalldata();
+    }
+
+    allowedSenders = new address[]((allowedSenderIdxEnd - allowedSenderIdxStart) + 1);
+    for (uint256 i = 0; i <= allowedSenderIdxEnd - allowedSenderIdxStart; ++i) {
+      allowedSenders[i] = s_allowedSenders.at(uint256(allowedSenderIdxStart + i));
+    }
+
+    return allowedSenders;
+  }
+
   /// @inheritdoc IAccessController
   function hasAccess(address user, bytes calldata /* data */) external view override returns (bool) {
     if (!s_config.enabled) {
@@ -118,19 +145,45 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     if (!s_config.enabled) {
       return false;
     }
-    return s_blockedSenders[sender];
+    return s_blockedSenders.contains(sender);
   }
 
   /// @inheritdoc ITermsOfServiceAllowList
   function blockSender(address sender) external override onlyOwner {
     s_allowedSenders.remove(sender);
-    s_blockedSenders[sender] = true;
+    s_blockedSenders.add(sender);
     emit BlockedAccess(sender);
   }
 
   /// @inheritdoc ITermsOfServiceAllowList
   function unblockSender(address sender) external override onlyOwner {
-    s_blockedSenders[sender] = false;
+    s_blockedSenders.remove(sender);
     emit UnblockedAccess(sender);
+  }
+
+  /// @inheritdoc ITermsOfServiceAllowList
+  function getBlockedSendersCount() external view override returns (uint64) {
+    return uint64(s_blockedSenders.length());
+  }
+
+  /// @inheritdoc ITermsOfServiceAllowList
+  function getBlockedSendersInRange(
+    uint64 blockedSenderIdxStart,
+    uint64 blockedSenderIdxEnd
+  ) external view override returns (address[] memory blockedSenders) {
+    if (
+      blockedSenderIdxStart > blockedSenderIdxEnd ||
+      blockedSenderIdxEnd >= s_blockedSenders.length() ||
+      s_blockedSenders.length() == 0
+    ) {
+      revert InvalidCalldata();
+    }
+
+    blockedSenders = new address[]((blockedSenderIdxEnd - blockedSenderIdxStart) + 1);
+    for (uint256 i = 0; i <= blockedSenderIdxEnd - blockedSenderIdxStart; ++i) {
+      blockedSenders[i] = s_blockedSenders.at(uint256(blockedSenderIdxStart + i));
+    }
+
+    return blockedSenders;
   }
 }

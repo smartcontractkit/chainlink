@@ -26,6 +26,9 @@ echo "Test exit code: ${exit_code}"
 if [ $exit_code -eq 3 ]; then
 echo "Test was interrupted, exiting with 1 exit code to trigger K8s to restart"
   exit 1  # Exiting with non-zero status to trigger pod restart
+else 
+  echo "Test either panicked or had some sort of failure. We're exiting with a non-zero exit code so that K8s doesn't restart the pod."
+  echo "TEST_FAILED"
 fi
 
 # Sleep for the amount of time provided by the POST_RUN_SLEEP env var

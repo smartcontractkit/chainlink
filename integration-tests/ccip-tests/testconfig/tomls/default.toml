@@ -9,7 +9,19 @@ TTL = '5h'
 # for example , if Networks = ['SIMULATED_1', 'SIMULATED_2', 'SIMULATED_3'],
 # then lanes will be set up between SIMULATED_1 and SIMULATED_2, SIMULATED_1 and SIMULATED_3, SIMULATED_2 and SIMULATED_3
 # default value is ['SIMULATED_1', 'SIMULATED_2'] which means that test will create two private geth networks from scratch and set up lanes between them
-Networks = ['SIMULATED_1', 'SIMULATED_2']
+[CCIP.Env.Network]
+selected_networks= ['SIMULATED_1', 'SIMULATED_2']
+
+[CCIP.Env.Logging]
+test_log_collect=false # if set to true will save logs even if test did not fail
+
+[CCIP.Env.Logging.LogStream]
+# supported targets: file, loki, in-memory. if empty no logs will be persistet
+log_targets=["file"]
+# context timeout for starting log producer and also time-frame for requesting logs
+log_producer_timeout="10s"
+# number of retries before log producer gives up and stops listening to logs
+log_producer_retry_limit=10
 
 # these values will be used to set up chainlink DON
 # along with these values, the secrets needs to be specified as part of .env variables

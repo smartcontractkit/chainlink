@@ -111,8 +111,8 @@ func ChainlinkChart(
 	clProps["chainlink"] = map[string]interface{}{
 		"resources": SetResourceProfile(testInputs.EnvInput.Chainlink.NodeCPU, testInputs.EnvInput.Chainlink.NodeMemory),
 		"image": map[string]any{
-			"image":   testInputs.EnvInput.Chainlink.Common.Image,
-			"version": testInputs.EnvInput.Chainlink.Common.Tag,
+			"image":   pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkImage.Image),
+			"version": pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkImage.Version),
 		},
 	}
 
@@ -140,8 +140,8 @@ func ChainlinkChart(
 				"name": clNode.Name,
 				"chainlink": map[string]any{
 					"image": map[string]any{
-						"image":   clNode.Image,
-						"version": clNode.Tag,
+						"image":   pointer.GetString(clNode.ChainlinkImage.Image),
+						"version": pointer.GetString(clNode.ChainlinkImage.Version),
 					},
 				},
 				"db": map[string]any{
@@ -174,6 +174,7 @@ func DeployLocalCluster(
 ) (*test_env.CLClusterTestEnv, func() error) {
 	selectedNetworks := testInputs.SelectedNetworks
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestConfig(testInputs.EnvInput).
 		WithTestInstance(t).
 		WithPrivateGethChains(selectedNetworks).
 		WithMockAdapter().
@@ -209,7 +210,8 @@ func DeployLocalCluster(
 				}
 				ccipNode, err := test_env.NewClNode(
 					[]string{env.Network.Name},
-					clNode.Image, clNode.Tag, toml,
+					pointer.GetString(clNode.ChainlinkImage.Image),
+					pointer.GetString(clNode.ChainlinkImage.Version), toml,
 					test_env.WithPgDBOptions(
 						ctftestenv.WithPostgresImageName(clNode.DBImage),
 						ctftestenv.WithPostgresImageVersion(clNode.DBTag)),
@@ -235,8 +237,8 @@ func DeployLocalCluster(
 				}
 				ccipNode, err := test_env.NewClNode(
 					[]string{env.Network.Name},
-					testInputs.EnvInput.Chainlink.Common.Image,
-					testInputs.EnvInput.Chainlink.Common.Tag,
+					pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkImage.Image),
+					pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkImage.Version),
 					toml, test_env.WithPgDBOptions(
 						ctftestenv.WithPostgresImageName(testInputs.EnvInput.Chainlink.Common.DBImage),
 						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.Chainlink.Common.DBTag)),
@@ -272,13 +274,13 @@ func UpgradeNodes(
 		env := ccipEnv.LocalCluster
 		for i, clNode := range env.ClCluster.Nodes {
 			if i <= startIndex || i >= endIndex {
-				upgradeImage := testInputs.EnvInput.Chainlink.Common.UpgradeImage
-				upgradeTag := testInputs.EnvInput.Chainlink.Common.UpgradeTag
+				upgradeImage := pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkUpgradeImage.Image)
+				upgradeTag := pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkUpgradeImage.Version)
 				// if individual node upgrade image is provided, use that
 				if len(testInputs.EnvInput.Chainlink.Nodes) > 0 {
 					if i < len(testInputs.EnvInput.Chainlink.Nodes) {
-						upgradeImage = testInputs.EnvInput.Chainlink.Nodes[i].UpgradeImage
-						upgradeTag = testInputs.EnvInput.Chainlink.Nodes[i].UpgradeTag
+						upgradeImage = pointer.GetString(testInputs.EnvInput.Chainlink.Nodes[i].ChainlinkUpgradeImage.Image)
+						upgradeTag = pointer.GetString(testInputs.EnvInput.Chainlink.Nodes[i].ChainlinkUpgradeImage.Version)
 					}
 				}
 				err := clNode.UpgradeVersion(upgradeImage, upgradeTag)
@@ -300,17 +302,17 @@ func UpgradeNodes(
 		var clientsToUpgrade []*integrationclient.ChainlinkK8sClient
 		for i, clNode := range nodeClients {
 			if i <= startIndex || i >= endIndex {
-				upgradeImage := testInputs.EnvInput.Chainlink.Common.UpgradeImage
-				upgradeTag := testInputs.EnvInput.Chainlink.Common.UpgradeTag
+				upgradeImage := testInputs.EnvInput.Chainlink.Common.ChainlinkUpgradeImage.Image
+				upgradeTag := testInputs.EnvInput.Chainlink.Common.ChainlinkUpgradeImage.Version
 				// if individual node upgrade image is provided, use that
 				if len(testInputs.EnvInput.Chainlink.Nodes) > 0 {
 					if i < len(testInputs.EnvInput.Chainlink.Nodes) {
-						upgradeImage = testInputs.EnvInput.Chainlink.Nodes[i].UpgradeImage
-						upgradeTag = testInputs.EnvInput.Chainlink.Nodes[i].UpgradeTag
+						upgradeImage = testInputs.EnvInput.Chainlink.Nodes[i].ChainlinkUpgradeImage.Image
+						upgradeTag = testInputs.EnvInput.Chainlink.Nodes[i].ChainlinkUpgradeImage.Version
 					}
 				}
 				clientsToUpgrade = append(clientsToUpgrade, clNode)
-				err := clNode.UpgradeVersion(k8Env, upgradeImage, upgradeTag)
+				err := clNode.UpgradeVersion(k8Env, pointer.GetString(upgradeImage), pointer.GetString(upgradeTag))
 				if err != nil {
 					return err
 				}
