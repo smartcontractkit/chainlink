@@ -13,7 +13,7 @@ on:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    runs-on: ubuntu20.04-4cores-16GB
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
@@ -26,7 +26,7 @@ jobs:
 
       - name: Set up Go
         if: ${{ matrix.language == 'go' }}
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version-file: 'go.mod'
 
@@ -35,12 +35,12 @@ jobs:
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.13.4
+        uses: github/codeql-action/init@65c74964a9ed8c44ed9f19d4bbc5757a6a8e9ab9 # codeql-bundle-v2.16.1
         with:
           languages: ${{ matrix.language }}
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.13.4
+        uses: github/codeql-action/analyze@65c74964a9ed8c44ed9f19d4bbc5757a6a8e9ab9 # codeql-bundle-v2.16.1
 
       - name: Collect Metrics
         if: always()

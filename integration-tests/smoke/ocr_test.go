@@ -11,23 +11,30 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestOCRBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	config, err := tc.GetConfig("Smoke", tc.OCR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err)
 
@@ -47,7 +54,7 @@ func TestOCRBasic(t *testing.T) {
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -56,7 +63,7 @@ func TestOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(2, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -68,8 +75,14 @@ func TestOCRJobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig("Smoke", tc.OCR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(6).
@@ -94,7 +107,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -103,7 +116,7 @@ func TestOCRJobReplacement(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(2, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -120,7 +133,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID())
 	require.NoError(t, err)
 
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))

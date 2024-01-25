@@ -3,6 +3,7 @@ package flakeytests
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,7 +34,7 @@ type tester interface {
 }
 
 type reporter interface {
-	Report(r *Report) error
+	Report(ctx context.Context, r *Report) error
 }
 
 type parseFn func(readers ...io.Reader) (*Report, error)
@@ -297,7 +298,7 @@ func dedupeEntries(report *Report) (*Report, error) {
 	return out, nil
 }
 
-func (r *Runner) Run() error {
+func (r *Runner) Run(ctx context.Context) error {
 	parseReport, err := r.parse(r.readers...)
 	if err != nil {
 		return err
@@ -323,5 +324,5 @@ func (r *Runner) Run() error {
 		return err
 	}
 
-	return r.reporter.Report(report)
+	return r.reporter.Report(ctx, report)
 }

@@ -244,8 +244,6 @@ LeaseRefreshInterval determines how often to refresh the lease lock. Also contro
 [TelemetryIngress]
 UniConn = true # Default
 Logging = false # Default
-ServerPubKey = 'test-pub-key' # Example
-URL = 'https://prom.test' # Example
 BufferSize = 100 # Default
 MaxBatchSize = 50 # Default
 SendInterval = '500ms' # Default
@@ -265,18 +263,6 @@ UniConn toggles which ws connection style is used.
 Logging = false # Default
 ```
 Logging toggles verbose logging of the raw telemetry messages being sent.
-
-### ServerPubKey
-```toml
-ServerPubKey = 'test-pub-key' # Example
-```
-ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
-
-### URL
-```toml
-URL = 'https://prom.test' # Example
-```
-URL is where to send telemetry. This field will be removed in a furture version
 
 ### BufferSize
 ```toml
@@ -1588,6 +1574,19 @@ LatestReportDeadline = "5s" # Default
 ```
 LatestReportDeadline controls how long to wait for a response from the
 mercury server before retrying. Setting this to zero will wait indefinitely.
+
+## Mercury.TLS
+```toml
+[Mercury.TLS]
+CertFile = "/path/to/client/certs.pem" # Example
+```
+Mercury.TLS controls client settings for when the node talks to traditional web servers or load balancers.
+
+### CertFile
+```toml
+CertFile = "/path/to/client/certs.pem" # Example
+```
+CertFile is the path to a PEM file of trusted root certificate authority certificates
 
 ## EVM
 EVM defaults depend on ChainID:
@@ -5001,6 +5000,7 @@ GasLimit = 14500000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'scroll'
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5081,6 +5081,7 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'scroll'
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5435,7 +5436,7 @@ BlockBackfillSkip enables skipping of very long backfills.
 ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync
+Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync, scroll
 
 ### FinalityDepth
 ```toml
@@ -5741,7 +5742,9 @@ BumpMin is the minimum fixed amount of wei by which gas is bumped on each transa
 ```toml
 BumpPercent = 20 # Default
 ```
-BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
+BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
+
+The `SuggestedPriceEstimator` adds the larger of `BumpPercent` and `BumpMin` on top of the price provided by the RPC when bumping a transaction's gas.
 
 ### BumpThreshold
 ```toml
@@ -5785,8 +5788,8 @@ If you are using BlockHistoryEstimator (default for most chains):
 
 Bumping works as follows:
 
-- Increase tipcap by `max(tipcap * (1 + GasBumpPercent), tipcap + GasBumpWei)`
-- Increase feecap by `max(feecap * (1 + GasBumpPercent), feecap + GasBumpWei)`
+- Increase tipcap by `max(tipcap * (1 + BumpPercent), tipcap + BumpMin)`
+- Increase feecap by `max(feecap * (1 + BumpPercent), feecap + BumpMin)`
 
 A quick note on terminology - Chainlink nodes use the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
 

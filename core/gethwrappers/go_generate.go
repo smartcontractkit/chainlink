@@ -55,8 +55,14 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/KeeperRegistryLogicA2_1/KeeperRegistryLogicA2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistryLogicA2_1/KeeperRegistryLogicA2_1.bin KeeperRegistryLogicA keeper_registry_logic_a_wrapper_2_1
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/KeeperRegistryLogicB2_1/KeeperRegistryLogicB2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistryLogicB2_1/KeeperRegistryLogicB2_1.bin KeeperRegistryLogicB keeper_registry_logic_b_wrapper_2_1
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/IKeeperRegistryMaster/IKeeperRegistryMaster.abi ../../contracts/solc/v0.8.16/IKeeperRegistryMaster/IKeeperRegistryMaster.bin IKeeperRegistryMaster i_keeper_registry_master_wrapper_2_1
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/ILogAutomation/ILogAutomation.abi ../../contracts/solc/v0.8.16/ILogAutomation/ILogAutomation.bin ILogAutomation i_log_automation
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationUtils2_1/AutomationUtils2_1.abi ../../contracts/solc/v0.8.16/AutomationUtils2_1/AutomationUtils2_1.bin AutomationUtils automation_utils_2_1
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistrar2_2/AutomationRegistrar2_2.abi ../../contracts/solc/v0.8.16/AutomationRegistrar2_2/AutomationRegistrar2_2.bin AutomationRegistrar automation_registrar_wrapper2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistry2_2/AutomationRegistry2_2.abi ../../contracts/solc/v0.8.16/AutomationRegistry2_2/AutomationRegistry2_2.bin AutomationRegistry keeper_registry_wrapper_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistryLogicA2_2/AutomationRegistryLogicA2_2.abi ../../contracts/solc/v0.8.16/AutomationRegistryLogicA2_2/AutomationRegistryLogicA2_2.bin AutomationRegistryLogicA keeper_registry_logic_a_wrapper_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistryLogicB2_2/AutomationRegistryLogicB2_2.abi ../../contracts/solc/v0.8.16/AutomationRegistryLogicB2_2/AutomationRegistryLogicB2_2.bin AutomationRegistryLogicB keeper_registry_logic_b_wrapper_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/IAutomationRegistryMaster/IAutomationRegistryMaster.abi ../../contracts/solc/v0.8.16/IAutomationRegistryMaster/IAutomationRegistryMaster.bin IAutomationRegistryMaster i_keeper_registry_master_wrapper_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationUtils2_2/AutomationUtils2_2.abi ../../contracts/solc/v0.8.16/AutomationUtils2_2/AutomationUtils2_2.bin AutomationUtils automation_utils_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/ILogAutomation/ILogAutomation.abi ../../contracts/solc/v0.8.16/ILogAutomation/ILogAutomation.bin ILogAutomation i_log_automation
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.bin AutomationForwarderLogic automation_forwarder_logic
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpkeepCounter.bin LogUpkeepCounter log_upkeep_counter_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.abi ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.bin SimpleLogUpkeepCounter simple_log_upkeep_counter_wrapper
@@ -103,11 +109,14 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy/VRFV2TransparentUpgradeableProxy.abi ../../contracts/solc/v0.8.6/VRFV2TransparentUpgradeableProxy/VRFV2TransparentUpgradeableProxy.bin VRFV2TransparentUpgradeableProxy vrfv2_transparent_upgradeable_proxy
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin/VRFV2ProxyAdmin.abi ../../contracts/solc/v0.8.6/VRFV2ProxyAdmin/VRFV2ProxyAdmin.bin VRFV2ProxyAdmin vrfv2_proxy_admin
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/ChainSpecificUtilHelper/ChainSpecificUtilHelper.abi ../../contracts/solc/v0.8.6/ChainSpecificUtilHelper/ChainSpecificUtilHelper.bin ChainSpecificUtilHelper chain_specific_util_helper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorTestV2/VRFCoordinatorTestV2.abi ../../contracts/solc/v0.8.6/VRFCoordinatorTestV2/VRFCoordinatorTestV2.bin VRFCoordinatorTestV2 vrf_coordinator_test_v2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFMockETHLINKAggregator/VRFMockETHLINKAggregator.abi ../../contracts/solc/v0.8.6/VRFMockETHLINKAggregator/VRFMockETHLINKAggregator.bin VRFMockETHLINKAggregator vrf_mock_ethlink_aggregator
 
 // VRF V2 Wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2Wrapper/VRFV2Wrapper.abi ../../contracts/solc/v0.8.6/VRFV2Wrapper/VRFV2Wrapper.bin VRFV2Wrapper vrfv2_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2WrapperInterface/VRFV2WrapperInterface.abi ../../contracts/solc/v0.8.6/VRFV2WrapperInterface/VRFV2WrapperInterface.bin VRFV2WrapperInterface vrfv2_wrapper_interface
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2WrapperConsumerExample/VRFV2WrapperConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2WrapperConsumerExample/VRFV2WrapperConsumerExample.bin VRFV2WrapperConsumerExample vrfv2_wrapper_consumer_example
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2WrapperLoadTestConsumer/VRFV2WrapperLoadTestConsumer.abi ../../contracts/solc/v0.8.6/VRFV2WrapperLoadTestConsumer/VRFV2WrapperLoadTestConsumer.bin VRFV2WrapperLoadTestConsumer vrfv2_wrapper_load_test_consumer
 
 // Keepers X VRF v2
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeepersVRFConsumer/KeepersVRFConsumer.abi ../../contracts/solc/v0.8.6/KeepersVRFConsumer/KeepersVRFConsumer.bin KeepersVRFConsumer keepers_vrf_consumer
@@ -138,7 +147,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.bin MockAggregatorProxy mock_aggregator_proxy
 
 // Log tester
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/LogEmitter/LogEmitter.abi ../../contracts/solc/v0.8.19/LogEmitter/LogEmitter.bin LogEmitter log_emitter
+
+// ChainReader test contract
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.abi ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.bin LatestValueHolder chain_reader_example
 
 // Chainlink Functions
 //go:generate go generate ./functions

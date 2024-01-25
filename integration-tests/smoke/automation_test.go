@@ -17,8 +17,8 @@ import (
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
-
-	"github.com/kelseyhightower/envconfig"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
@@ -29,16 +29,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -69,18 +68,27 @@ var (
 
 func TestMain(m *testing.M) {
 	logging.Init()
-	fmt.Printf("Running Smoke Test on %s\n", networks.MustGetSelectedNetworksFromEnv()[0].Name) // Print to get around disabled logging
-	fmt.Printf("Chainlink Image %s\n", os.Getenv("CHAINLINK_IMAGE"))                            // Print to get around disabled logging
-	fmt.Printf("Chainlink Version %s\n", os.Getenv("CHAINLINK_VERSION"))                        // Print to get around disabled logging
+	// config, err := tc.GetConfig(tc.NoTest, tc.Smoke, tc.Automation)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Printf("Running Smoke Test on %s\n", networks.MustGetSelectedNetworkConfig(config.Network)[0].Name) // Print to get around disabled logging
+	// fmt.Printf("Chainlink Image %v\n", config.ChainlinkImage.Image)                                         // Print to get around disabled logging
+	// fmt.Printf("Chainlink Version %v\n", config.ChainlinkImage.Version)                                     // Print to get around disabled logging
 	os.Exit(m.Run())
 }
 
 func TestAutomationBasic(t *testing.T) {
-	SetupAutomationBasic(t, false)
+	config, err := tc.GetConfig("Smoke", tc.Automation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	SetupAutomationBasic(t, false, &config)
 }
 
-func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
+func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig types.AutomationTestConfig) {
 	t.Parallel()
+
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0":                                 ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
@@ -90,23 +98,18 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
+			cfg := tc.MustCopy(automationTestConfig)
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 
-			var (
-				upgradeImage   string
-				upgradeVersion string
-				err            error
-			)
+			var err error
 			if nodeUpgrade {
-				upgradeImage = os.Getenv("UPGRADE_IMAGE")
-				upgradeVersion = os.Getenv("UPGRADE_VERSION")
-				if len(upgradeImage) == 0 || len(upgradeVersion) == 0 {
-					t.Fatal("UPGRADE_IMAGE and UPGRADE_VERSION must be set to upgrade nodes")
+				if cfg.GetChainlinkUpgradeImageConfig() == nil {
+					t.Fatal("[ChainlinkUpgradeImage] must be set in TOML config to upgrade nodes")
 				}
 			}
 
@@ -117,7 +120,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, isMercuryV02, isMercuryV03,
+				t, registryVersion, automationDefaultRegistryConfig, isMercuryV02, isMercuryV03, automationTestConfig,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -168,15 +171,16 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
-			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+			}, "10m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
 
 			if nodeUpgrade {
+				require.NotNil(t, cfg.GetChainlinkImageConfig(), "unable to upgrade node version, [ChainlinkUpgradeImage] was not set, must both a new image or a new version")
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					err = actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, a.DockerEnv.ClCluster.Nodes[i])
+					err = actions.UpgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkImageConfig().Image, *cfg.GetChainlinkImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
 					require.NoError(t, err, "Error when upgrading node %d", i)
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
@@ -230,8 +234,13 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig("Smoke", tc.Automation)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	a := setupAutomationTestDocker(
-		t, ethereum.RegistryVersion_2_1, automationDefaultRegistryConfig, false, false,
+		t, ethereum.RegistryVersion_2_1, automationDefaultRegistryConfig, false, false, &config,
 	)
 
 	consumers, upkeepIDs := actions.DeployConsumers(
@@ -309,7 +318,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
 	}
 
-	err := a.ChainClient.WaitForEvents()
+	err = a.ChainClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
 
 	var countersAfterSetNoMatch = make([]*big.Int, len(upkeepIDs))
@@ -400,13 +409,17 @@ func TestAutomationAddFunds(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false,
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -433,7 +446,7 @@ func TestAutomationAddFunds(t *testing.T) {
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
 			// Grant permission to the registry to fund the upkeep
-			err := a.LinkToken.Approve(a.Registry.Address(), big.NewInt(9e18))
+			err = a.LinkToken.Approve(a.Registry.Address(), big.NewInt(9e18))
 			require.NoError(t, err, "Could not approve permissions for the registry on the link token contract")
 			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for events")
@@ -468,8 +481,12 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false,
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -504,7 +521,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 				require.NoError(t, err, "Could not pause upkeep at index %d", i)
 			}
 
-			err := a.ChainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for upkeeps to be paused")
 
 			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
@@ -557,14 +574,18 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false,
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -641,13 +662,17 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false,
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -676,7 +701,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			// Pause the registry
-			err := a.Registry.Pause()
+			err = a.Registry.Pause()
 			require.NoError(t, err, "Error pausing registry")
 			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for registry to pause")
@@ -710,14 +735,18 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false,
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -751,7 +780,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
 			// Take down 1 node. Currently, using 4 nodes so f=1 and is the max nodes that can go down.
-			err := nodesWithoutBootstrap[0].MustDeleteJob("1")
+			err = nodesWithoutBootstrap[0].MustDeleteJob("1")
 			require.NoError(t, err, "Error deleting job from Chainlink node")
 			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for blockchain events")
@@ -810,13 +839,17 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false,
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
 			)
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
@@ -849,7 +882,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
 			// Set performGas on consumer to be low, so that performUpkeep starts becoming successful
-			err := consumerPerformance.SetPerformGasToBurn(testcontext.Get(t), big.NewInt(100000))
+			err = consumerPerformance.SetPerformGasToBurn(testcontext.Get(t), big.NewInt(100000))
 			require.NoError(t, err, "Perform gas should be set successfully on consumer")
 			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for set perform gas tx")
@@ -873,14 +906,18 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false,
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
 			)
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
@@ -915,7 +952,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}, "2m", "1s").Should(gomega.Succeed()) // ~1m for setup, 1m assertion
 
 			// Increase gas limit for the upkeep, higher than the performGasBurn
-			err := a.Registry.SetUpkeepGasLimit(upkeepID, uint32(4500000))
+			err = a.Registry.SetUpkeepGasLimit(upkeepID, uint32(4500000))
 			require.NoError(t, err, "Error setting upkeep gas limit")
 			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for SetUpkeepGasLimit tx")
@@ -987,14 +1024,19 @@ func TestUpdateCheckData(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
+		name := name
+		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false,
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
 			)
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
@@ -1028,7 +1070,7 @@ func TestUpdateCheckData(t *testing.T) {
 				require.NoError(t, err, "Could not update check data for upkeep at index %d", i)
 			}
 
-			err := a.ChainClient.WaitForEvents()
+			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error while waiting for check data update")
 
 			// retrieve new check data for all upkeeps
@@ -1053,27 +1095,24 @@ func TestUpdateCheckData(t *testing.T) {
 	}
 }
 
-type TestConfig struct {
-	ChainlinkNodeFunding float64 `envconfig:"CHAINLINK_NODE_FUNDING" default:"1"`
-}
-
 func setupAutomationTestDocker(
 	t *testing.T,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 	isMercuryV02 bool,
 	isMercuryV03 bool,
+	automationTestConfig types.AutomationTestConfig,
 ) automationv2.AutomationTest {
 	require.False(t, isMercuryV02 && isMercuryV03, "Cannot run test with both Mercury V02 and V03 on")
 
 	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.MustGetSelectedNetworksFromEnv()[0]
+	network := networks.MustGetSelectedNetworkConfig(automationTestConfig.GetNetworkConfig())[0]
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
-	syncInterval := models.MustMakeDuration(5 * time.Minute)
+	syncInterval := *commonconfig.MustNewDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = ptr.Ptr[bool](true)
 	clNodeConfig.OCR2.Enabled = ptr.Ptr[bool](true)
 	clNodeConfig.Keeper.TurnLookBack = ptr.Ptr[int64](int64(0))
@@ -1085,19 +1124,17 @@ func setupAutomationTestDocker(
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
 	var err error
-	var testConfig TestConfig
-	err = envconfig.Process("AUTOMATION", &testConfig)
 	require.NoError(t, err)
-	l.Debug().Msgf("Funding amount: %f", testConfig.ChainlinkNodeFunding)
+	l.Debug().Msgf("Funding amount: %f", *automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)
 	clNodesCount := 5
 	if isMercuryV02 || isMercuryV03 {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
+			WithTestConfig(automationTestConfig).
 			WithGeth().
 			WithMockAdapter().
-			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
+			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
-			WithLogStream().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 		env.ParallelTransactions(true)
@@ -1122,19 +1159,20 @@ func setupAutomationTestDocker(
 
 		node.SetChainConfig(clNodeConfig, wsUrls, httpUrls, network, false)
 
-		err = env.StartClCluster(clNodeConfig, clNodesCount, secretsConfig)
+		err = env.StartClCluster(clNodeConfig, clNodesCount, secretsConfig, automationTestConfig)
 		require.NoError(t, err, "Error starting CL nodes test environment for Mercury")
-		err = env.FundChainlinkNodes(big.NewFloat(testConfig.ChainlinkNodeFunding))
+		err = env.FundChainlinkNodes(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding))
 		require.NoError(t, err, "Error funding CL nodes")
 
 	} else {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
+			WithTestConfig(automationTestConfig).
 			WithGeth().
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).
-			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
+			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment")

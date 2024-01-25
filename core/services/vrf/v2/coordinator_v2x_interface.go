@@ -36,9 +36,11 @@ type CoordinatorV2_X interface {
 	GetConfig(opts *bind.CallOpts) (Config, error)
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 	OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
+	Withdraw(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error)
+	WithdrawNative(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error)
 	LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic
 	Version() vrfcommon.Version
-	RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
+	RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
 	FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error)
 	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error)
 	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error)
@@ -130,6 +132,14 @@ func (c *coordinatorV2) OracleWithdraw(opts *bind.TransactOpts, recipient common
 	return c.coordinator.OracleWithdraw(opts, recipient, amount)
 }
 
+func (c *coordinatorV2) Withdraw(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return nil, errors.New("withdraw not implemented for v2")
+}
+
+func (c *coordinatorV2) WithdrawNative(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return nil, errors.New("withdrawNative not implemented for v2")
+}
+
 func (c *coordinatorV2) LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic {
 	return map[common.Hash][][]log.Topic{
 		vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
@@ -144,8 +154,8 @@ func (c *coordinatorV2) Version() vrfcommon.Version {
 	return c.vrfVersion
 }
 
-func (c *coordinatorV2) RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
-	return c.coordinator.RegisterProvingKey(opts, oracle, publicProvingKey)
+func (c *coordinatorV2) RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
+	return c.coordinator.RegisterProvingKey(opts, *oracle, publicProvingKey)
 }
 
 func (c *coordinatorV2) FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error) {
@@ -281,7 +291,15 @@ func (c *coordinatorV2_5) ParseLog(log types.Log) (generated.AbigenLog, error) {
 }
 
 func (c *coordinatorV2_5) OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	return c.coordinator.OracleWithdraw(opts, recipient, amount)
+	return nil, errors.New("oracle withdraw not implemented for v2.5")
+}
+
+func (c *coordinatorV2_5) Withdraw(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return c.coordinator.Withdraw(opts, recipient)
+}
+
+func (c *coordinatorV2_5) WithdrawNative(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error) {
+	return c.coordinator.WithdrawNative(opts, recipient)
 }
 
 func (c *coordinatorV2_5) LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic {
@@ -298,8 +316,11 @@ func (c *coordinatorV2_5) Version() vrfcommon.Version {
 	return c.vrfVersion
 }
 
-func (c *coordinatorV2_5) RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
-	return c.coordinator.RegisterProvingKey(opts, oracle, publicProvingKey)
+func (c *coordinatorV2_5) RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
+	if oracle != nil {
+		return nil, errors.New("oracle address not supported for registering proving key in v2.5")
+	}
+	return c.coordinator.RegisterProvingKey(opts, publicProvingKey)
 }
 
 func (c *coordinatorV2_5) FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error) {

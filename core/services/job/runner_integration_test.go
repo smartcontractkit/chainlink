@@ -23,8 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -68,8 +69,8 @@ func TestRunner(t *testing.T) {
 		c.OCR.KeyBundleID = &kbid
 		taddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress
-		c.OCR2.DatabaseTimeout = models.MustNewDuration(time.Second)
-		c.OCR2.ContractTransmitterTransmitTimeout = models.MustNewDuration(time.Second)
+		c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(time.Second)
+		c.OCR2.ContractTransmitterTransmitTimeout = commonconfig.MustNewDuration(time.Second)
 		c.Insecure.OCRDevelopmentMode = ptr(true)
 	})
 
@@ -462,7 +463,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -496,7 +497,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -524,7 +525,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -579,7 +580,7 @@ answer1      [type=median index=0];
 				legacyChains,
 				lggr,
 				config.Database(),
-				servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+				servicetest.Run(t, mailboxtest.NewMonitor(t)),
 			)
 
 			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
@@ -623,7 +624,7 @@ answer1      [type=median index=0];
 			legacyChains,
 			lggr,
 			config.Database(),
-			servicetest.Run(t, mailbox.NewMonitor(t.Name())),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
@@ -746,7 +747,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.JobPipeline.ExternalInitiatorsEnabled = &t
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
@@ -925,7 +926,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.JobPipeline.ExternalInitiatorsEnabled = &t
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)

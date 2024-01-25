@@ -88,10 +88,6 @@ LeaseRefreshInterval = '1s' # Default
 UniConn = true # Default
 # Logging toggles verbose logging of the raw telemetry messages being sent.
 Logging = false # Default
-# ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
-ServerPubKey = 'test-pub-key' # Example
-# URL is where to send telemetry. This field will be removed in a furture version
-URL = 'https://prom.test' # Example
 # BufferSize is the number of telemetry messages to buffer before dropping new ones.
 BufferSize = 100 # Default
 # MaxBatchSize is the maximum number of messages to batch into one telemetry request.
@@ -574,3 +570,8 @@ MaxStaleAge = "1h" # Default
 # LatestReportDeadline controls how long to wait for a response from the
 # mercury server before retrying. Setting this to zero will wait indefinitely.
 LatestReportDeadline = "5s" # Default
+
+# Mercury.TLS controls client settings for when the node talks to traditional web servers or load balancers.
+[Mercury.TLS]
+# CertFile is the path to a PEM file of trusted root certificate authority certificates
+CertFile = "/path/to/client/certs.pem" # Example

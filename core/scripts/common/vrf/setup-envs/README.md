@@ -15,7 +15,46 @@ export ETH_CHAIN_ID=
 export ACCOUNT_KEY=
 ```
 5. execute from `core/scripts/common/vrf/setup-envs` folder
-   * `--vrf-version` - "v2" or "v2plus" 
+   * `--vrf-version` - "v2" or "v2plus"
+
+#### VRF V2
+```
+go run . \
+--vrf-version="v2" \
+--vrf-primary-node-url=http://localhost:6610 \
+--vrf-primary-creds-file <path_to_file_with_creds> \
+--vrf-backup-node-url=http://localhost:6611 \
+--vrf-bk-creds-file <path_to_file_with_creds> \
+--bhs-node-url=http://localhost:6612 \
+--bhs-creds-file <path_to_file_with_creds> \
+--bhs-backup-node-url=http://localhost:6613 \
+--bhs-bk-creds-file <path_to_file_with_creds> \
+--bhf-node-url=http://localhost:6614 \
+--bhf-creds-file <path_to_file_with_creds> \
+--num-eth-keys=1 \
+--num-vrf-keys=1 \
+--sending-key-funding-amount="1e17" \
+--deploy-contracts-and-create-jobs="true" \
+--subscription-balance="1e19" \
+--subscription-balance-native="1e18" \
+--batch-fulfillment-enabled="true" \
+--batch-fulfillment-gas-multiplier=1.1 \
+--estimate-gas-multiplier=1.1 \
+--poll-period="5s" \
+--request-timeout="30m0s" \
+--reverts-pipeline-enabled="true" \
+--min-confs=3 \
+--register-vrf-key-against-address=<vrf key will be registered against this address 
+in order to call oracleWithdraw from this address> \
+--deploy-vrfv2-owner="true" \
+--use-test-coordinator="true"
+```
+#### VRF V2 Plus
+* does not need to register VRF key against address 
+* does not need to deploy VRFV2Owner contract
+* does not need to use test coordinator
+
+VRF V2 Plus example:
 ```
 go run . \
 --vrf-version="v2plus" \
@@ -36,10 +75,11 @@ go run . \
 --subscription-balance="1e19" \
 --subscription-balance-native="1e18" \
 --batch-fulfillment-enabled="true" \
---min-confs=3 \
---register-vrf-key-against-address=<vrf key will be registered against this address 
-in order to call oracleWithdraw from this address> \
---deploy-vrfv2-owner="true"
+--batch-fulfillment-gas-multiplier=1.1 \
+--estimate-gas-multiplier=1.1 \
+--poll-period="5s" \
+--request-timeout="30m0s" \
+--min-confs=3 
 ```
 
 Optional parameters - will not be deployed if specified 

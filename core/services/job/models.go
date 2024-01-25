@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -27,26 +28,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 )
 
 const (
+	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
+	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
+	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
 	Cron                    Type = (Type)(pipeline.CronJobType)
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
 	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
-	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
-	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
+	Gateway                 Type = (Type)(pipeline.GatewayJobType)
 	Keeper                  Type = (Type)(pipeline.KeeperJobType)
-	VRF                     Type = (Type)(pipeline.VRFJobType)
-	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
-	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	LegacyGasStationServer  Type = (Type)(pipeline.LegacyGasStationServerJobType)
 	LegacyGasStationSidecar Type = (Type)(pipeline.LegacyGasStationSidecarJobType)
+	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
+	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
+	Stream                  Type = (Type)(pipeline.StreamJobType)
+	VRF                     Type = (Type)(pipeline.VRFJobType)
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
-	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
-	Gateway                 Type = (Type)(pipeline.GatewayJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -70,52 +71,55 @@ func (t Type) SchemaVersion() uint32 {
 
 var (
 	requiresPipelineSpec = map[Type]bool{
+		BlockHeaderFeeder:       false,
+		BlockhashStore:          false,
+		Bootstrap:               false,
 		Cron:                    true,
 		DirectRequest:           true,
 		FluxMonitor:             true,
-		OffchainReporting:       false, // bootstrap jobs do not require it
-		OffchainReporting2:      false, // bootstrap jobs do not require it
+		Gateway:                 false,
 		Keeper:                  false, // observationSource is injected in the upkeep executor
-		VRF:                     true,
-		Webhook:                 true,
-		BlockhashStore:          false,
-		BlockHeaderFeeder:       false,
 		LegacyGasStationServer:  false,
 		LegacyGasStationSidecar: false,
-		Bootstrap:               false,
-		Gateway:                 false,
+		OffchainReporting2:      false, // bootstrap jobs do not require it
+		OffchainReporting:       false, // bootstrap jobs do not require it
+		Stream:                  true,
+		VRF:                     true,
+		Webhook:                 true,
 	}
 	supportsAsync = map[Type]bool{
+		BlockHeaderFeeder:       false,
+		BlockhashStore:          false,
+		Bootstrap:               false,
 		Cron:                    true,
 		DirectRequest:           true,
 		FluxMonitor:             false,
-		OffchainReporting:       false,
-		OffchainReporting2:      false,
+		Gateway:                 false,
 		Keeper:                  true,
-		VRF:                     true,
-		Webhook:                 true,
-		BlockhashStore:          false,
-		BlockHeaderFeeder:       false,
 		LegacyGasStationServer:  false,
 		LegacyGasStationSidecar: false,
-		Bootstrap:               false,
-		Gateway:                 false,
+		OffchainReporting2:      false,
+		OffchainReporting:       false,
+		Stream:                  true,
+		VRF:                     true,
+		Webhook:                 true,
 	}
 	schemaVersions = map[Type]uint32{
+		BlockHeaderFeeder:       1,
+		BlockhashStore:          1,
+		Bootstrap:               1,
 		Cron:                    1,
 		DirectRequest:           1,
 		FluxMonitor:             1,
-		OffchainReporting:       1,
-		OffchainReporting2:      1,
+		Gateway:                 1,
 		Keeper:                  1,
-		VRF:                     1,
-		Webhook:                 1,
-		BlockhashStore:          1,
-		BlockHeaderFeeder:       1,
 		LegacyGasStationServer:  1,
 		LegacyGasStationSidecar: 1,
-		Bootstrap:               1,
-		Gateway:                 1,
+		OffchainReporting2:      1,
+		OffchainReporting:       1,
+		Stream:                  1,
+		VRF:                     1,
+		Webhook:                 1,
 	}
 )
 
@@ -232,7 +236,7 @@ func (pr *PipelineRun) SetID(value string) error {
 	if err != nil {
 		return err
 	}
-	pr.ID = int64(ID)
+	pr.ID = ID
 	return nil
 }
 
@@ -273,7 +277,8 @@ func (s *OCROracleSpec) SetID(value string) error {
 	return nil
 }
 
-// JSONConfig is a Go mapping for JSON based database properties.
+// JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
+// sql.Scanner and driver.Valuer.
 type JSONConfig map[string]interface{}
 
 // Bytes returns the raw bytes
@@ -361,7 +366,7 @@ func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
 
 func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
 	if s.ChainID != "" {
-		return relay.ChainID(s.ChainID), nil
+		return s.ChainID, nil
 	}
 	// backward compatible job spec
 	return s.getChainIdFromRelayConfig()
@@ -375,13 +380,13 @@ func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (relay.ChainID, error) {
 	}
 	switch t := v.(type) {
 	case string:
-		return relay.ChainID(t), nil
+		return t, nil
 	case int, int64, int32:
-		return relay.ChainID(fmt.Sprintf("%d", v)), nil
+		return fmt.Sprintf("%d", v), nil
 	case float64:
 		// backward compatibility with JSONConfig.EVMChainID
 		i := int64(t)
-		return relay.ChainID(strconv.FormatInt(i, 10)), nil
+		return strconv.FormatInt(i, 10), nil
 
 	default:
 		return "", fmt.Errorf("unable to parse chainID: unexpected type %T", t)

@@ -167,9 +167,9 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 					if !sr.Confirmed {
 						continue
 					}
-					k := key{address: sr.Address.String(), slotID: uint(sr.SlotId)}
+					k := key{address: sr.Address.String(), slotID: sr.SlotId}
 					if _, ok := snapshotVersionsMap[k]; ok {
-						toBeAdded = append(toBeAdded, rkey{address: sr.Address, slotID: uint(sr.SlotId)})
+						toBeAdded = append(toBeAdded, rkey{address: sr.Address, slotID: sr.SlotId})
 						if len(toBeAdded) == maxRemainingRows {
 							break
 						}
@@ -332,7 +332,7 @@ func snapshotToVersionMap(rows []*s4.SnapshotRow) map[key]uint64 {
 	m := make(map[key]uint64)
 	for _, row := range rows {
 		if row.Confirmed {
-			m[key{address: row.Address.String(), slotID: uint(row.SlotId)}] = row.Version
+			m[key{address: row.Address.String(), slotID: row.SlotId}] = row.Version
 		}
 	}
 	return m

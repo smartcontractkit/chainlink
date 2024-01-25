@@ -33,6 +33,7 @@ import (
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -326,12 +327,12 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 	for i := 0; i < 4; i++ {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  utils.RandomAddress().Bytes(),
-				TransmitAccount:   ocrtypes2.Account(utils.RandomAddress().Hex()),
-				OffchainPublicKey: utils.RandomBytes32(),
+				OnchainPublicKey:  evmutils.RandomAddress().Bytes(),
+				TransmitAccount:   ocrtypes2.Account(evmutils.RandomAddress().Hex()),
+				OffchainPublicKey: evmutils.RandomBytes32(),
 				PeerID:            utils.MustNewPeerID(),
 			},
-			ConfigEncryptionPublicKey: utils.RandomBytes32(),
+			ConfigEncryptionPublicKey: evmutils.RandomBytes32(),
 		})
 	}
 	// Gnerate OnchainConfig

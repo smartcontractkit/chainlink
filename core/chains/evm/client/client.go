@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -220,7 +220,8 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 
 func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
-	return ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	returnCode := ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	return returnCode, err
 }
 
 // SendTransaction also uses the sendonly HTTP RPC URLs if set

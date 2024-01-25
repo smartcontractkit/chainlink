@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -146,6 +147,18 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 	}
 }
 
+func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *big.Int, data []byte) *types.Transaction {
+	tx := types.LegacyTx{
+		Nonce:    nonce,
+		To:       &to,
+		Value:    value,
+		Gas:      uint64(gasLimit),
+		GasPrice: gasPrice,
+		Data:     data,
+	}
+	return types.NewTx(&tx)
+}
+
 func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
@@ -173,7 +186,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
@@ -213,7 +226,7 @@ func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:        utils.NewHash(),
+		Hash:        evmutils.NewHash(),
 		State:       txmgrtypes.TxAttemptInProgress,
 	}
 }
@@ -231,7 +244,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx:           hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:                  utils.NewHash(),
+		Hash:                  evmutils.NewHash(),
 		State:                 txmgrtypes.TxAttemptInProgress,
 		ChainSpecificFeeLimit: 42,
 	}
@@ -300,7 +313,7 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 }
 
 func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
-	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, ubig.New(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
@@ -480,23 +493,23 @@ func RandomLog(t *testing.T) types.Log {
 
 	topics := make([]common.Hash, 4)
 	for i := range topics {
-		topics[i] = utils.NewHash()
+		topics[i] = evmutils.NewHash()
 	}
 
 	return types.Log{
 		Address:     testutils.NewAddress(),
-		BlockHash:   utils.NewHash(),
+		BlockHash:   evmutils.NewHash(),
 		BlockNumber: uint64(mathrand.Intn(9999999)),
 		Index:       uint(mathrand.Intn(9999999)),
 		Data:        MustRandomBytes(t, 512),
-		Topics:      []common.Hash{utils.NewHash(), utils.NewHash(), utils.NewHash(), utils.NewHash()},
+		Topics:      []common.Hash{evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash()},
 	}
 }
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
 	t.Helper()
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
-	topics := []common.Hash{topic, utils.NewHash(), utils.NewHash()}
+	topics := []common.Hash{topic, evmutils.NewHash(), evmutils.NewHash()}
 	return RawNewRoundLogWithTopics(t, contractAddr, blockHash, blockNumber, logIndex, removed, topics)
 }
 

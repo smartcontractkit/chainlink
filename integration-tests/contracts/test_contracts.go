@@ -55,6 +55,18 @@ func (e *LogEmitterContract) EmitLogIntsIndexed(ints []int) (*types.Transaction,
 	return tx, e.client.ProcessTransaction(tx)
 }
 
+func (e *LogEmitterContract) EmitLogIntMultiIndexed(ints int, ints2 int, count int) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.EmitLog4(opts, big.NewInt(int64(ints)), big.NewInt(int64(ints2)), big.NewInt(int64(count)))
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
 func (e *LogEmitterContract) EmitLogStrings(strings []string) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {

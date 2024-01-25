@@ -521,7 +521,7 @@ func (r *OCR2SpecResolver) P2PV2Bootstrappers() *[]string {
 
 // Relay resolves the spec's relay
 func (r *OCR2SpecResolver) Relay() string {
-	return string(r.spec.Relay)
+	return r.spec.Relay
 }
 
 // RelayConfig resolves the spec's relay config
@@ -899,7 +899,7 @@ func (r *BootstrapSpecResolver) ContractID() string {
 
 // Relay resolves the spec's relay
 func (r *BootstrapSpecResolver) Relay() string {
-	return string(r.spec.Relay)
+	return r.spec.Relay
 }
 
 // RelayConfig resolves the spec's relay config

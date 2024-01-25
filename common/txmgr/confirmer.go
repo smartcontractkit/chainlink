@@ -14,10 +14,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
@@ -824,7 +825,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	case client.Underpriced:
 		// This should really not ever happen in normal operation since we
 		// already bumped above the required minimum in broadcaster.
-		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
+		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "attempt", attempt)
 		// "Lazily" load attempts here since the overwhelmingly common case is
 		// that we don't need them unless we enter this path
 		if err := ec.txStore.LoadTxAttempts(ctx, &etx); err != nil {
@@ -867,10 +868,9 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// Broadcaster can never create a TxAttempt that will
 		// fatally error.
 		lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
-			"err", sendError,
 			"fee", attempt.TxFee,
 			"feeLimit", etx.FeeLimit,
-			"signedRawTx", utils.EnsureHexPrefix(hex.EncodeToString(attempt.SignedRawTx)),
+			"signedRawTx", commonhex.EnsurePrefix(hex.EncodeToString(attempt.SignedRawTx)),
 			"blockHeight", blockHeight,
 		)
 		ec.SvcErrBuffer.Append(sendError)
@@ -879,7 +879,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	case client.TransactionAlreadyKnown:
 		// Sequence too low indicated that a transaction at this sequence was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
-		lggr.Debugw("Sequence already used", "txAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
+		lggr.Debugw("Sequence already used", "txAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	case client.InsufficientFunds:

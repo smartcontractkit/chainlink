@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_EthKeyStore(t *testing.T) {
@@ -36,8 +36,8 @@ func Test_EthKeyStore(t *testing.T) {
 	ethKeyStore := keyStore.Eth()
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
-		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
-		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm.key_states")))
+		require.NoError(t, commonutils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
+		require.NoError(t, commonutils.JustError(db.Exec("DELETE FROM evm.key_states")))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 	const statesTableName = "evm.key_states"
@@ -337,7 +337,7 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	k, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	chainID := big.NewInt(evmclient.NullClientChainID)
-	tx := types.NewTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
+	tx := cltest.NewLegacyTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
 
 	randomAddress := testutils.NewAddress()
 	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)
@@ -361,8 +361,8 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 	ks := keyStore.Eth()
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
-		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
-		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm.key_states")))
+		require.NoError(t, commonutils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
+		require.NoError(t, commonutils.JustError(db.Exec("DELETE FROM evm.key_states")))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 

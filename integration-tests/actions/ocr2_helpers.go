@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
@@ -376,6 +377,7 @@ func StartNewOCR2Round(
 	timeout time.Duration,
 	logger zerolog.Logger,
 ) error {
+	time.Sleep(5 * time.Second)
 	for i := 0; i < len(ocrInstances); i++ {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
@@ -383,7 +385,30 @@ func StartNewOCR2Round(
 		}
 		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout, logger)
 		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
-		err = client.WaitForEvents()
+		err = ocrRound.Wait() // wait for OCR Round to complete
+		if err != nil {
+			return fmt.Errorf("failed to wait for OCR Round %d to complete instance %d", roundNumber, i)
+		}
+		if !ocrRound.Complete() {
+			return fmt.Errorf("failed to complete OCR Round %d for ocr instance %d", roundNumber, i)
+		}
+	}
+	return nil
+}
+
+// WatchNewOCR2Round is the same as StartNewOCR2Round but does NOT explicitly request a new round
+// as that can cause odd behavior in tandem with changing adapter values in OCR2
+func WatchNewOCR2Round(
+	roundNumber int64,
+	ocrInstances []contracts.OffchainAggregatorV2,
+	client blockchain.EVMClient,
+	timeout time.Duration,
+	logger zerolog.Logger,
+) error {
+	for i := 0; i < len(ocrInstances); i++ {
+		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout, logger)
+		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
+		err := client.WaitForEvents()
 		if err != nil {
 			return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
 		}
