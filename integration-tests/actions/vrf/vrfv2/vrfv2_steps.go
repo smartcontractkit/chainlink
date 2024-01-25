@@ -44,6 +44,7 @@ var (
 	ErrABIEncodingFunding      = "error Abi encoding subscriptionID"
 	ErrSendingLinkToken        = "error sending Link token"
 	ErrCreatingVRFv2Job        = "error creating VRFv2 job"
+	ErrCreatingBHSJob          = "error creating BHS job"
 	ErrParseJob                = "error parsing job definition"
 	ErrDeployVRFV2Contracts    = "error deploying VRFV2 contracts"
 	ErrSetVRFCoordinatorConfig = "error setting config for VRF Coordinator contract"
@@ -245,6 +246,33 @@ func CreateVRFV2Job(
 	return job, nil
 }
 
+func CreateBHSJob(
+	chainlinkNode *client.ChainlinkClient,
+	bhsJobSpecConfig client.BlockhashStoreJobSpec,
+) (*client.Job, error) {
+	jobUUID := uuid.New()
+	spec := &client.BlockhashStoreJobSpec{
+		Name:                     fmt.Sprintf("bhs-%s", jobUUID),
+		ForwardingAllowed:        bhsJobSpecConfig.ForwardingAllowed,
+		CoordinatorV2Address:     bhsJobSpecConfig.CoordinatorV2Address,
+		CoordinatorV2PlusAddress: bhsJobSpecConfig.CoordinatorV2PlusAddress,
+		BlockhashStoreAddress:    bhsJobSpecConfig.BlockhashStoreAddress,
+		FromAddresses:            bhsJobSpecConfig.FromAddresses,
+		EVMChainID:               bhsJobSpecConfig.EVMChainID,
+		ExternalJobID:            jobUUID.String(),
+		WaitBlocks:               bhsJobSpecConfig.WaitBlocks,
+		LookbackBlocks:           bhsJobSpecConfig.LookbackBlocks,
+		PollPeriod:               bhsJobSpecConfig.PollPeriod,
+		RunTimeout:               bhsJobSpecConfig.RunTimeout,
+	}
+
+	job, err := chainlinkNode.MustCreateJob(spec)
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrCreatingBHSJob, err)
+	}
+	return job, nil
+}
+
 func VRFV2RegisterProvingKey(
 	vrfKey *client.VRFKey,
 	oracleAddress string,
@@ -285,6 +313,7 @@ func FundVRFCoordinatorV2Subscription(
 // SetupVRFV2Environment will create specified number of subscriptions and add the same conumer/s to each of them
 func SetupVRFV2Environment(
 	env *test_env.CLClusterTestEnv,
+	nodesToCreate []VRFNodeType,
 	vrfv2TestConfig types.VRFv2TestConfig,
 	useVRFOwner bool,
 	useTestCoordinator bool,
@@ -295,7 +324,7 @@ func SetupVRFV2Environment(
 	numberOfConsumers int,
 	numberOfSubToCreate int,
 	l zerolog.Logger,
-) (*VRFV2Contracts, []uint64, *VRFV2Data, error) {
+) (*VRFV2Contracts, []uint64, *VRFV2Data, map[VRFNodeType]*VRFNode, error) {
 	l.Info().Msg("Starting VRFV2 environment setup")
 	l.Info().Msg("Deploying VRFV2 contracts")
 	vrfv2Contracts, err := DeployVRFV2Contracts(
@@ -307,7 +336,7 @@ func SetupVRFV2Environment(
 		useTestCoordinator,
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2Contracts, err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2Contracts, err)
 	}
 	vrfv2Config := vrfv2TestConfig.GetVRFv2Config().General
 	vrfCoordinatorV2FeeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
@@ -331,11 +360,11 @@ func SetupVRFV2Environment(
 		vrfCoordinatorV2FeeConfig,
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrSetVRFCoordinatorConfig, err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrSetVRFCoordinatorConfig, err)
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrWaitTXsComplete, err)
 	}
 	l.Info().
 		Str("Coordinator", vrfv2Contracts.Coordinator.Address()).
@@ -347,33 +376,33 @@ func SetupVRFV2Environment(
 		linkToken,
 		vrfv2Contracts.Coordinator, vrfv2Contracts.LoadTestConsumers, numberOfSubToCreate)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	l.Info().Str("Node URL", env.ClCluster.NodeAPIs()[0].URL()).Msg("Creating VRF Key on the Node")
 	vrfKey, err := env.ClCluster.NodeAPIs()[0].MustCreateVRFKey()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2Key, err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2Key, err)
 	}
 	pubKeyCompressed := vrfKey.Data.ID
 
 	l.Info().Str("Coordinator", vrfv2Contracts.Coordinator.Address()).Msg("Registering Proving Key")
 	provingKey, err := VRFV2RegisterProvingKey(vrfKey, registerProvingKeyAgainstAddress, vrfv2Contracts.Coordinator)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRegisteringProvingKey, err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrRegisteringProvingKey, err)
 	}
 	keyHash, err := vrfv2Contracts.Coordinator.HashOfKey(context.Background(), provingKey)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreatingProvingKeyHash, err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreatingProvingKeyHash, err)
 	}
 
 	chainID := env.EVMClient.GetChainID()
 	newNativeTokenKeyAddresses, err := CreateAndFundSendingKeys(env, vrfv2TestConfig, numberOfTxKeysToCreate, chainID)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrNodePrimaryKey, err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrNodePrimaryKey, err)
 	}
 	allNativeTokenKeyAddressStrings := append(newNativeTokenKeyAddresses, nativeTokenPrimaryKeyAddress)
 	allNativeTokenKeyAddresses := make([]common.Address, len(allNativeTokenKeyAddressStrings))
@@ -386,7 +415,7 @@ func SetupVRFV2Environment(
 	if useVRFOwner {
 		err := setupVRFOwnerContract(env, vrfv2Contracts, allNativeTokenKeyAddressStrings, allNativeTokenKeyAddresses, l)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		vrfOwnerConfig = VRFOwnerConfig{
 			OwnerAddress: vrfv2Contracts.VRFOwner.Address(),
@@ -399,28 +428,64 @@ func SetupVRFV2Environment(
 		}
 	}
 
-	vrfJobSpecConfig := VRFJobSpecConfig{
-		ForwardingAllowed:             false,
-		CoordinatorAddress:            vrfv2Contracts.Coordinator.Address(),
-		FromAddresses:                 allNativeTokenKeyAddressStrings,
-		EVMChainID:                    chainID.String(),
-		MinIncomingConfirmations:      int(*vrfv2Config.MinimumConfirmations),
-		PublicKey:                     pubKeyCompressed,
-		EstimateGasMultiplier:         1,
-		BatchFulfillmentEnabled:       false,
-		BatchFulfillmentGasMultiplier: 1.15,
-		PollPeriod:                    time.Second * 1,
-		RequestTimeout:                time.Hour * 24,
-		VRFOwnerConfig:                vrfOwnerConfig,
+	var vrfV2job, bhsJob *client.Job
+	var nodesMap = make(map[VRFNodeType]*VRFNode)
+	for i, nodeType := range nodesToCreate {
+		nodesMap[nodeType] = &VRFNode{
+			CLNode: env.ClCluster.Nodes[i],
+		}
 	}
 
-	l.Info().Msg("Creating VRFV2 Job")
-	vrfV2job, err := CreateVRFV2Job(
-		env.ClCluster.NodeAPIs()[0],
-		vrfJobSpecConfig,
-	)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreateVRFV2Jobs, err)
+	if vrfNode, exists := nodesMap[VRF]; exists {
+		vrfJobSpecConfig := VRFJobSpecConfig{
+			ForwardingAllowed:             false,
+			CoordinatorAddress:            vrfv2Contracts.Coordinator.Address(),
+			FromAddresses:                 allNativeTokenKeyAddressStrings,
+			EVMChainID:                    chainID.String(),
+			MinIncomingConfirmations:      int(*vrfv2Config.MinimumConfirmations),
+			PublicKey:                     pubKeyCompressed,
+			EstimateGasMultiplier:         1,
+			BatchFulfillmentEnabled:       false,
+			BatchFulfillmentGasMultiplier: 1.15,
+			PollPeriod:                    time.Second * 1,
+			RequestTimeout:                time.Hour * 24,
+			VRFOwnerConfig:                vrfOwnerConfig,
+		}
+
+		l.Info().Msg("Creating VRFV2 Job")
+		vrfV2job, err = CreateVRFV2Job(
+			vrfNode.CLNode.API,
+			vrfJobSpecConfig,
+		)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreateVRFV2Jobs, err)
+		}
+		nodesMap[VRF].Job = vrfV2job
+	}
+
+	if bhsNode, exists := nodesMap[BHS]; exists {
+		bhsSpec := client.BlockhashStoreJobSpec{
+			ForwardingAllowed:        false,
+			CoordinatorV2Address:     vrfv2Contracts.Coordinator.Address(),
+			CoordinatorV2PlusAddress: vrfv2Contracts.Coordinator.Address(),
+			BlockhashStoreAddress:    vrfv2Contracts.BHS.Address(),
+			FromAddresses:            allNativeTokenKeyAddressStrings,
+			EVMChainID:               chainID.String(),
+			WaitBlocks:               1,
+			LookbackBlocks:           1,
+			PollPeriod:               time.Second * 1,
+			RunTimeout:               time.Hour * 24,
+		}
+
+		l.Info().Msg("Creating BHS Job")
+		bhsJob, err = CreateBHSJob(
+			bhsNode.CLNode.API,
+			bhsSpec,
+		)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreateVRFV2Jobs, err)
+		}
+		nodesMap[BHS].Job = bhsJob
 	}
 
 	// this part is here because VRFv2 can work with only a specific key
@@ -432,7 +497,7 @@ func SetupVRFV2Environment(
 	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
 	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRestartCLNode, err)
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrRestartCLNode, err)
 	}
 
 	vrfv2KeyData := VRFV2KeyData{
@@ -443,13 +508,11 @@ func SetupVRFV2Environment(
 
 	data := VRFV2Data{
 		vrfv2KeyData,
-		vrfV2job,
 		nativeTokenPrimaryKeyAddress,
 		chainID,
 	}
-
 	l.Info().Msg("VRFV2  environment setup is finished")
-	return vrfv2Contracts, subIDs, &data, nil
+	return vrfv2Contracts, subIDs, &data, nodesMap, nil
 }
 
 func setupVRFOwnerContract(env *test_env.CLClusterTestEnv, vrfv2Contracts *VRFV2Contracts, allNativeTokenKeyAddressStrings []string, allNativeTokenKeyAddresses []common.Address, l zerolog.Logger) error {
@@ -888,7 +951,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 		case randomWordsForcedEvent = <-randWordsForcedEventChannel:
 			LogRandomWordsForcedEvent(l, vrfOwner, randomWordsForcedEvent)
 		case <-time.After(randomWordsFulfilledEventTimeout):
-			return nil, nil, nil, fmt.Errorf("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
+			err = fmt.Errorf("timeout waiting for ConfigSet, RandomWordsFulfilled and RandomWordsForced events")
 		}
 	}
 	return configSetEvent, randomWordsFulfilledEvent, randomWordsForcedEvent, err

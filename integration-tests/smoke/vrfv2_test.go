@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -58,8 +57,9 @@ func TestVRFv2Basic(t *testing.T) {
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
 	numberOfTxKeysToCreate := 1
-	vrfv2Contracts, subIDs, vrfv2Data, err := vrfv2.SetupVRFV2Environment(
+	vrfv2Contracts, subIDs, vrfv2Data, nodesMap, err := vrfv2.SetupVRFV2Environment(
 		env,
+		[]vrfv2.VRFNodeType{vrfv2.VRF},
 		&config,
 		useVRFOwner,
 		useTestCoordinator,
@@ -84,7 +84,7 @@ func TestVRFv2Basic(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		subBalanceBeforeRequest := subscription.Balance
 
-		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2Data.VRFJob.Data.ID)
+		jobRunsBeforeTest, err := nodesMap[vrfv2.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfv2.VRF].Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
@@ -109,7 +109,7 @@ func TestVRFv2Basic(t *testing.T) {
 		subBalanceAfterRequest := subscription.Balance
 		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
 
-		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2Data.VRFJob.Data.ID)
+		jobRuns, err := nodesMap[vrfv2.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfv2.VRF].Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
@@ -481,8 +481,9 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
 	numberOfTxKeysToCreate := 2
-	vrfv2Contracts, subIDs, vrfv2Data, err := vrfv2.SetupVRFV2Environment(
+	vrfv2Contracts, subIDs, vrfv2Data, nodesMap, err := vrfv2.SetupVRFV2Environment(
 		env,
+		[]vrfv2.VRFNodeType{vrfv2.VRF},
 		&config,
 		useVRFOwner,
 		useTestCoordinator,
@@ -504,7 +505,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
-		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
+		txKeys, _, err := nodesMap[vrfv2.VRF].CLNode.API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
 
 		require.Equal(t, numberOfTxKeysToCreate+1, len(txKeys.Data))
@@ -579,8 +580,9 @@ func TestVRFOwner(t *testing.T) {
 	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
 	numberOfTxKeysToCreate := 1
-	vrfv2Contracts, subIDs, vrfv2Data, err := vrfv2.SetupVRFV2Environment(
+	vrfv2Contracts, subIDs, vrfv2Data, _, err := vrfv2.SetupVRFV2Environment(
 		env,
+		[]vrfv2.VRFNodeType{vrfv2.VRF},
 		&config,
 		useVRFOwner,
 		useTestCoordinator,
@@ -674,5 +676,69 @@ func TestVRFOwner(t *testing.T) {
 		require.Equal(t, *configCopy.VRFv2.General.FulfillmentFlatFeeLinkPPMTier1, coordinatorFeeConfig.FulfillmentFlatFeeLinkPPMTier1)
 		require.Equal(t, *configCopy.VRFv2.General.ReqsForTier2, coordinatorFeeConfig.ReqsForTier2.Int64())
 		require.Equal(t, *configCopy.VRFv2.General.FallbackWeiPerUnitLink, coordinatorFallbackWeiPerUnitLinkConfig.Int64())
+	})
+}
+
+func TestBHS(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.VRFv2)
+	require.NoError(t, err, "Error getting config")
+
+	useVRFOwner := true
+	useTestCoordinator := true
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(network).
+		WithCLNodes(2).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err, "error creating test env")
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
+
+	require.NoError(t, err)
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	require.NoError(t, err)
+
+	// register proving key against oracle address (sending key) in order to test oracleWithdraw
+	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
+
+	numberOfTxKeysToCreate := 1
+	vrfv2Contracts, subIDs, _, nodesMap, err := vrfv2.SetupVRFV2Environment(
+		env,
+		[]vrfv2.VRFNodeType{vrfv2.VRF, vrfv2.BHS},
+		&config,
+		useVRFOwner,
+		useTestCoordinator,
+		linkToken,
+		mockETHLinkFeed,
+		defaultWalletAddress,
+		numberOfTxKeysToCreate,
+		1,
+		1,
+		l,
+	)
+	require.NoError(t, err, "error setting up VRF v2 env")
+
+	subID := subIDs[0]
+
+	subscription, err := vrfv2Contracts.Coordinator.GetSubscription(context.Background(), subID)
+	require.NoError(t, err, "error getting subscription information")
+
+	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.Coordinator)
+
+	t.Run("Request Randomness With Force-Fulfill", func(t *testing.T) {
+		_ = config.MustCopy().(tc.TestConfig)
+
+		require.Equal(t, 2, len(nodesMap))
 	})
 }

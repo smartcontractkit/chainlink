@@ -149,7 +149,6 @@ func TestVRFV2Performance(t *testing.T) {
 				EncodedProvingKey: [2]*big.Int{},
 				KeyHash:           common.HexToHash(*vrfv2Config.Performance.KeyHash),
 			},
-			VRFJob:            nil,
 			PrimaryEthAddress: "",
 			ChainID:           nil,
 		}
@@ -200,8 +199,9 @@ func TestVRFV2Performance(t *testing.T) {
 		useVRFOwner := true
 		useTestCoordinator := true
 
-		vrfv2Contracts, subIDs, vrfv2Data, err = vrfv2.SetupVRFV2Environment(
+		vrfv2Contracts, subIDs, vrfv2Data, _, err = vrfv2.SetupVRFV2Environment(
 			env,
+			[]vrfv2.VRFNodeType{vrfv2.VRF},
 			&testConfig,
 			useVRFOwner,
 			useTestCoordinator,

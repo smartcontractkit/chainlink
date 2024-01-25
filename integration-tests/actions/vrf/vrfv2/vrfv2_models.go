@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
 type VRFV2EncodedProvingKey [2]*big.Int
@@ -38,7 +39,29 @@ type VRFV2KeyData struct {
 
 type VRFV2Data struct {
 	VRFV2KeyData
-	VRFJob            *client.Job
 	PrimaryEthAddress string
 	ChainID           *big.Int
+}
+
+type VRFNodeType int
+
+const (
+	VRF VRFNodeType = iota + 1
+	VRF_Backup
+	BHS
+	BHS_Backup
+	BHF
+)
+
+func (n VRFNodeType) String() string {
+	return [...]string{"VRF", "VRF_Backup", "BHS", "BHS_Backup", "BHF"}[n-1]
+}
+
+func (n VRFNodeType) Index() int {
+	return int(n)
+}
+
+type VRFNode struct {
+	CLNode *test_env.ClNode
+	Job    *client.Job
 }
