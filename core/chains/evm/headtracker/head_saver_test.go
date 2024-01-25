@@ -11,7 +11,6 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
@@ -44,9 +43,9 @@ func (c *config) BlockEmissionIdleWarningThreshold() time.Duration {
 func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
+	//cfg := configtest.NewGeneralConfig(t, nil)
 	htCfg := &config{finalityDepth: uint32(1)}
-	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
+	orm := headtracker.NewORM(cltest.FixtureChainID, db) // TODO:, lggr, cfg.Database(), )
 	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
 	return saver, orm
 }
