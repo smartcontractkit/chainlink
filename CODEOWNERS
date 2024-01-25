@@ -25,7 +25,7 @@
 /core/services/pg @smartcontractkit/foundations @samsondav
 /core/services/pipeline @smartcontractkit/foundations @smartcontractkit/integrations
 /core/services/synchronization @smartcontractkit/foundations
-/core/services/telemetry @smartcontractkit/telemetry
+/core/services/telemetry @smartcontractkit/realtime
 /core/services/relay/evm/mercury @smartcontractkit/mercury-team
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/integrations
 
@@ -76,7 +76,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/functions @smartcontractkit/functions
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/l2ep @simsonraj
-/contracts/src/v0.8/llo-feeds @austinborn @Fletch153
+/contracts/src/v0.8/llo-feeds @smartcontractkit/mercury-team
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @RensR
 /contracts/src/v0.8/shared @RensR
