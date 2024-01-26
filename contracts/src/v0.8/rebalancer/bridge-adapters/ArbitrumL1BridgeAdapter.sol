@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IL1BridgeAdapter} from "../interfaces/IBridge.sol";
+import {IBridgeAdapter} from "../interfaces/IBridge.sol";
 
 import {IL1GatewayRouter} from "@arbitrum/token-bridge-contracts/contracts/tokenbridge/ethereum/gateway/IL1GatewayRouter.sol";
+import {IGatewayRouter} from "@arbitrum/token-bridge-contracts/contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -39,11 +40,10 @@ interface IOutbox {
 
 /// @notice Arbitrum L1 Bridge adapter
 /// @dev Auto unwraps and re-wraps wrapped eth in the bridge.
-contract ArbitrumL1BridgeAdapter is IL1BridgeAdapter {
+contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
   using SafeERC20 for IERC20;
 
   IL1GatewayRouter internal immutable i_l1GatewayRouter;
-  address internal immutable i_l1ERC20Gateway;
   IOutbox internal immutable i_l1Outbox;
 
   // TODO not static?
@@ -54,36 +54,54 @@ contract ArbitrumL1BridgeAdapter is IL1BridgeAdapter {
   // Nonce to use for L2 deposits to allow for better tracking offchain.
   uint64 private s_nonce = 0;
 
-  constructor(IL1GatewayRouter l1GatewayRouter, IOutbox l1Outbox, address l1ERC20Gateway) {
-    if (
-      address(l1GatewayRouter) == address(0) || address(l1Outbox) == address(0) || address(l1ERC20Gateway) == address(0)
-    ) {
+  error NoGatewayForToken(address token);
+
+  constructor(IL1GatewayRouter l1GatewayRouter, IOutbox l1Outbox) {
+    if (address(l1GatewayRouter) == address(0) || address(l1Outbox) == address(0)) {
       revert BridgeAddressCannotBeZero();
     }
     i_l1GatewayRouter = l1GatewayRouter;
     i_l1Outbox = l1Outbox;
-    i_l1ERC20Gateway = l1ERC20Gateway;
   }
 
-  function sendERC20(address l1Token, address, address recipient, uint256 amount) external payable {
-    IERC20(l1Token).safeTransferFrom(msg.sender, address(this), amount);
+  /// @inheritdoc IBridgeAdapter
+  function sendERC20(
+    address localToken,
+    address /* remoteToken */,
+    address recipient,
+    uint256 amount
+  ) external payable override returns (bytes memory) {
+    // receive the token transfer from the msg.sender
+    IERC20(localToken).safeTransferFrom(msg.sender, address(this), amount);
 
-    IERC20(l1Token).approve(i_l1ERC20Gateway, amount);
+    // Note: the gateway router could return 0x0 for the gateway address
+    // if that token is not yet registered
+    address gateway = IGatewayRouter(address(i_l1GatewayRouter)).getGateway(localToken);
+    if (gateway == address(0)) {
+      revert NoGatewayForToken(localToken);
+    }
+
+    // approve the gateway to transfer the token amount sent to the adapter
+    IERC20(localToken).safeApprove(gateway, amount);
 
     uint256 wantedNativeFeeCoin = getBridgeFeeInNative();
     if (msg.value < wantedNativeFeeCoin) {
       revert InsufficientEthValue(wantedNativeFeeCoin, msg.value);
     }
 
-    i_l1GatewayRouter.outboundTransferCustomRefund{value: msg.value}(
-      l1Token,
-      recipient,
-      recipient,
-      amount,
-      MAX_GAS,
-      GAS_PRICE_BID,
-      abi.encode(MAX_SUBMISSION_COST, bytes(""))
-    );
+    // TODO: return data bombs?
+    // The router will route the call to the gateway that we approved
+    // above. The gateway will then transfer the tokens to the L2.
+    return
+      i_l1GatewayRouter.outboundTransferCustomRefund{value: msg.value}(
+        localToken,
+        recipient,
+        recipient,
+        amount,
+        MAX_GAS,
+        GAS_PRICE_BID,
+        abi.encode(MAX_SUBMISSION_COST, bytes(""))
+      );
   }
 
   function getBridgeFeeInNative() public pure returns (uint256) {
@@ -107,19 +125,20 @@ contract ArbitrumL1BridgeAdapter is IL1BridgeAdapter {
     bytes data;
   }
 
-  /// @param l2Sender sender if original message (i.e., caller of ArbSys.sendTxToL1)
-  /// @param l1Receiver destination address for L1 contract call
-  function finalizeWithdrawERC20FromL2(
-    address l2Sender,
-    address l1Receiver,
+  /// @notice Finalize an L2 -> L1 transfer.
+  /// @param remoteSender sender if original message (i.e., caller of ArbSys.sendTxToL1)
+  /// @param localReceiver destination address for L1 contract call
+  function finalizeWithdrawERC20(
+    address remoteSender,
+    address localReceiver,
     bytes calldata arbitrumFinalizationPayload
   ) external {
     ArbitrumFinalizationPayload memory payload = abi.decode(arbitrumFinalizationPayload, (ArbitrumFinalizationPayload));
     i_l1Outbox.executeTransaction(
       payload.proof,
       payload.index,
-      l2Sender,
-      l1Receiver,
+      remoteSender,
+      localReceiver,
       payload.l2Block,
       payload.l1Block,
       payload.l2Timestamp,

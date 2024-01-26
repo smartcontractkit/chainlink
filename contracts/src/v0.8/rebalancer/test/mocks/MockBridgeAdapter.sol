@@ -2,7 +2,7 @@
 // solhint-disable one-contract-per-file
 pragma solidity ^0.8.0;
 
-import {IBridgeAdapter, IL1BridgeAdapter} from "../../interfaces/IBridge.sol";
+import {IBridgeAdapter} from "../../interfaces/IBridge.sol";
 import {ILiquidityContainer} from "../../interfaces/ILiquidityContainer.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -10,7 +10,7 @@ import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 
 /// @notice Mock L1 Bridge adapter
 /// @dev Sends the L1 tokens from the msg sender to address(this)
-contract MockL1BridgeAdapter is IL1BridgeAdapter, ILiquidityContainer {
+contract MockL1BridgeAdapter is IBridgeAdapter, ILiquidityContainer {
   using SafeERC20 for IERC20;
 
   error InsufficientLiquidity();
@@ -21,8 +21,15 @@ contract MockL1BridgeAdapter is IL1BridgeAdapter, ILiquidityContainer {
     i_token = token;
   }
 
-  function sendERC20(address l1Token, address, address, uint256 amount) external payable {
-    IERC20(l1Token).transferFrom(msg.sender, address(this), amount);
+  /// @notice Simply transferFrom msg.sender the tokens that are to be bridged.
+  function sendERC20(
+    address localToken,
+    address /* remoteToken */,
+    address /* receiver */,
+    uint256 amount
+  ) external payable override returns (bytes memory) {
+    IERC20(localToken).transferFrom(msg.sender, address(this), amount);
+    return "";
   }
 
   /// @notice Mock function to finalize a withdrawal from L2
@@ -47,16 +54,37 @@ contract MockL1BridgeAdapter is IL1BridgeAdapter, ILiquidityContainer {
     i_token.safeTransfer(msg.sender, amount);
     emit LiquidityRemoved(msg.sender, amount);
   }
+
+  // No-op
+  function finalizeWithdrawERC20(
+    address /* remoteSender */,
+    address /* localReceiver */,
+    bytes calldata /* bridgeSpecificData */
+  ) external {}
 }
 
 /// @notice Mock L2 Bridge adapter
 /// @dev Sends the L2 tokens from the msg sender to address(this)
 contract MockL2BridgeAdapter is IBridgeAdapter {
-  function sendERC20(address, address l2token, address, uint256 amount) external payable {
-    IERC20(l2token).transferFrom(msg.sender, address(this), amount);
+  /// @notice Simply transferFrom msg.sender the tokens that are to be bridged.
+  function sendERC20(
+    address localToken,
+    address /* remoteToken */,
+    address /* recipient */,
+    uint256 amount
+  ) external payable override returns (bytes memory) {
+    IERC20(localToken).transferFrom(msg.sender, address(this), amount);
+    return "";
   }
 
   function getBridgeFeeInNative() external pure returns (uint256) {
     return 0;
   }
+
+  // No-op
+  function finalizeWithdrawERC20(
+    address /* remoteSender */,
+    address /* localReceiver */,
+    bytes calldata /* bridgeSpecificData */
+  ) external override {}
 }

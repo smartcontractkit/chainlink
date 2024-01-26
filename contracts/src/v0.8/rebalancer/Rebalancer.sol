@@ -160,8 +160,34 @@ contract Rebalancer is IRebalancer, OCR3Base {
     );
   }
 
-  function _receiveLiquidity(uint64 remoteChainSelector, uint256 amount, bytes memory bridgeData) internal {
-    // TODO
+  function _receiveLiquidity(
+    uint64 remoteChainSelector,
+    uint256 amount,
+    bytes memory, //bridgeData,
+    uint64 ocrSeqNum
+  ) internal {
+    // check if the remote chain is supported
+    CrossChainRebalancer memory remoteRebalancer = s_crossChainRebalancer[remoteChainSelector];
+    if (!remoteRebalancer.enabled) {
+      revert InvalidRemoteChain(remoteChainSelector);
+    }
+
+    // finalize the withdrawal through the bridge adapter
+    // TODO: handle edge case where withdrawal is done already
+    // TODO: remoteRebalancer.localBridge.finalizeWithdrawERC20(amount, bridgeData);
+
+    // inject liquidity into the liquidity container
+    // approve and liquidity container should transferFrom
+    i_localToken.safeIncreaseAllowance(address(s_localLiquidityContainer), amount);
+    s_localLiquidityContainer.provideLiquidity(amount);
+
+    emit LiquidityTransferred(
+      ocrSeqNum,
+      remoteChainSelector,
+      i_localChainSelector,
+      address(s_localLiquidityContainer),
+      amount
+    );
   }
 
   function _report(bytes calldata report, uint64 ocrSeqNum) internal override {
@@ -181,7 +207,8 @@ contract Rebalancer is IRebalancer, OCR3Base {
       _receiveLiquidity(
         instructions.receiveLiquidityParams[i].remoteChainSelector,
         instructions.receiveLiquidityParams[i].amount,
-        instructions.receiveLiquidityParams[i].bridgeData
+        instructions.receiveLiquidityParams[i].bridgeData,
+        ocrSeqNum
       );
     }
 
