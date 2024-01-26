@@ -369,7 +369,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "stream",
 			tomlTemplate: func(_ string) string {
-				return testspecs.GenerateStreamSpec(testspecs.StreamSpecParams{Name: "ETH/USD"}).Toml()
+				return testspecs.GenerateStreamSpec(testspecs.StreamSpecParams{Name: "ETH/USD", StreamID: 32}).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -384,6 +384,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				assert.Equal(t, jb.Name.ValueOrZero(), resource.Name)
+				assert.Equal(t, jb.StreamID, resource.StreamID)
 			},
 		},
 	}

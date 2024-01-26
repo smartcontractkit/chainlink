@@ -82,13 +82,14 @@ type Txm[
 	FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
-	logger         logger.SugaredLogger
-	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	config         txmgrtypes.TransactionManagerChainConfig
-	txConfig       txmgrtypes.TransactionManagerTransactionsConfig
-	keyStore       txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
-	chainID        CHAIN_ID
-	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	logger                  logger.SugaredLogger
+	txStore                 txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	config                  txmgrtypes.TransactionManagerChainConfig
+	txConfig                txmgrtypes.TransactionManagerTransactionsConfig
+	keyStore                txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	chainID                 CHAIN_ID
+	checkerFactory          TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	pruneQueueAndCreateLock sync.Mutex
 
 	chHeads        chan HEAD
 	trigger        chan ADDR
@@ -522,7 +523,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		return tx, fmt.Errorf("Txm#CreateTransaction: %w", err)
 	}
 
-	tx, err = b.txStore.CreateTransaction(ctx, txRequest, b.chainID)
+	tx, err = b.pruneQueueAndCreateTxn(ctx, txRequest, b.chainID)
 	if err != nil {
 		return tx, err
 	}
@@ -562,7 +563,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		FeeLimit:       gasLimit,
 		Strategy:       NewSendEveryStrategy(),
 	}
-	etx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
+	etx, err = b.pruneQueueAndCreateTxn(ctx, txRequest, chainID)
 	if err != nil {
 		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %w", err)
 	}
@@ -681,4 +682,40 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Fin
 
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error) {
 	return count, errors.New(n.ErrMsg)
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueueAndCreateTxn(
+	ctx context.Context,
+	txRequest txmgrtypes.TxRequest[ADDR, TX_HASH],
+	chainID CHAIN_ID,
+) (
+	tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	err error,
+) {
+	b.pruneQueueAndCreateLock.Lock()
+	defer b.pruneQueueAndCreateLock.Unlock()
+
+	pruned, err := txRequest.Strategy.PruneQueue(ctx, b.txStore)
+	if err != nil {
+		return tx, err
+	}
+	if len(pruned) > 0 {
+		b.logger.Warnw(fmt.Sprintf("Pruned %d old unstarted transactions", len(pruned)),
+			"subject", txRequest.Strategy.Subject(),
+			"pruned-tx-ids", pruned,
+		)
+	}
+
+	tx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
+	if err != nil {
+		return tx, err
+	}
+	b.logger.Debugw("Created transaction",
+		"fromAddress", txRequest.FromAddress,
+		"toAddress", txRequest.ToAddress,
+		"meta", txRequest.Meta,
+		"transactionID", tx.ID,
+	)
+
+	return tx, nil
 }
