@@ -114,15 +114,32 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
     // Total: 37,185 gas.
     uint32 gasAfterPaymentCalculation;
+    // Flat fee charged per fulfillment in millionths of native.
+    // So fee range is [0, 2^32/10^6].
+    uint32 fulfillmentFlatFeeNativePPM;
+    // Discount relative to fulfillmentFlatFeeNativePPM for link payment in millionths of native
+    // Should not exceed fulfillmentFlatFeeNativePPM
+    // So fee range is [0, 2^32/10^6].
+    uint32 fulfillmentFlatFeeLinkDiscountPPM;
+    // nativePremiumPercentage is the percentage of the total gas costs that is added to the final premium for native payment
+    // nativePremiumPercentage = 10 means 10% of the total gas costs is added. only integral percentage is allowed
+    uint8 nativePremiumPercentage;
+    // linkPremiumPercentage is the percentage of total gas costs that is added to the final premium for link payment
+    // linkPremiumPercentage = 10 means 10% of the total gas costs is added. only integral percentage is allowed
+    uint8 linkPremiumPercentage;
   }
   Config public s_config;
 
   error Reentrant();
   modifier nonReentrant() {
+    _nonReentrant();
+    _;
+  }
+
+  function _nonReentrant() internal view {
     if (s_config.reentrancyLock) {
       revert Reentrant();
     }
-    _;
   }
 
   constructor() ConfirmedOwner(msg.sender) {}
@@ -431,6 +448,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   modifier onlySubOwner(uint256 subId) {
+    _onlySubOwner(subId);
+    _;
+  }
+
+  function _onlySubOwner(uint256 subId) internal view {
     address owner = s_subscriptionConfigs[subId].owner;
     if (owner == address(0)) {
       revert InvalidSubscription();
@@ -438,6 +460,5 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (msg.sender != owner) {
       revert MustBeSubOwner(owner);
     }
-    _;
   }
 }
