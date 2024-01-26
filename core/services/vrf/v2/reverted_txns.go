@@ -48,7 +48,7 @@ type (
 	}
 )
 
-var ReqScanTimeRangeInDB string = "1 hour"
+var ReqScanTimeRangeInDB = "1 hour"
 
 func (lsn *listenerV2) runRevertedTxnsHandler(pollPeriod time.Duration) {
 	pollPeriod = pollPeriod + time.Second*3
@@ -552,7 +552,7 @@ func (lsn *listenerV2) filterBatchRevertedTxn(ctx context.Context,
 	txnReceiptDB TxnReceiptDB) (
 	[]RevertedVRFTxn, error) {
 	if len(txnReceiptDB.EncodedPayload) <= 4 {
-		return nil, fmt.Errorf("Invalid EncodedPayload: %v\n", hexutil.Encode(txnReceiptDB.EncodedPayload))
+		return nil, fmt.Errorf("invalid encodedPayload: %v\n", hexutil.Encode(txnReceiptDB.EncodedPayload))
 	}
 	unpackedInputs, err := batchCoordinatorV2ABI.Methods["fulfillRandomWords"].Inputs.Unpack(txnReceiptDB.EncodedPayload[4:])
 	if err != nil {

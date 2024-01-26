@@ -174,7 +174,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
-    if (fulfillmentFlatFeeLinkDiscountPPM > fulfillmentFlatFeeNativePPM) {
+    if (fulfillmentFlatFeeNativePPM > 0 && fulfillmentFlatFeeLinkDiscountPPM >= fulfillmentFlatFeeNativePPM) {
       revert LinkDiscountTooHigh(fulfillmentFlatFeeLinkDiscountPPM, fulfillmentFlatFeeNativePPM);
     }
     s_config = Config({
@@ -453,8 +453,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // Increment the req count for the subscription.
     // stack too deep error
     {
-      uint64 reqCount = s_subscriptions[rc.subId].reqCount;
-      s_subscriptions[rc.subId].reqCount = reqCount + 1;
+      s_subscriptions[rc.subId].reqCount = s_subscriptions[rc.subId].reqCount + 1;
     }
 
     bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;

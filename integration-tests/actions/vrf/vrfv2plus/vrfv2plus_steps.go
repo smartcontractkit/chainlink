@@ -282,7 +282,7 @@ func SetupVRFV2_5Environment(
 	pubKeyCompressed := vrfKey.Data.ID
 
 	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Registering Proving Key")
-	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, vrfv2_5Contracts.Coordinator, uint64(vrfv2PlusConfig.CLNodeMaxGasPriceGWei)*1e9)
+	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, vrfv2_5Contracts.Coordinator, uint64(*vrfv2PlusConfig.CLNodeMaxGasPriceGWei)*1e9)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRegisteringProvingKey, err)
 	}

@@ -174,9 +174,7 @@ func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
 			ForceFulfillmentAttempt: 4, EVMReceipt: evmtypes.Receipt{Status: 0}},
 	}
 	allForceTxns := []v2.TxnReceiptDB{}
-	for _, r := range revertedForceTxns {
-		allForceTxns = append(allForceTxns, r)
-	}
+	allForceTxns = append(allForceTxns, revertedForceTxns...)
 	allForceTxns = append(allForceTxns, v2.TxnReceiptDB{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
 		ForceFulfillmentAttempt: 5})
 	res := v2.UniqueByReqID(revertedForceTxns, allForceTxns)
@@ -282,6 +280,7 @@ func fulfillVRFReq(t *testing.T,
 	ec := th.uni.backend
 	chainID := th.uni.backend.Blockchain().Config().ChainID
 	chain, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	require.NoError(t, err)
 
 	metadata := &txmgr.TxMeta{
 		RequestID:     ptr(common.BytesToHash(req.requestID.Bytes())),
@@ -347,6 +346,7 @@ func fulfilBatchVRFReq(t *testing.T,
 	ec := th.uni.backend
 	chainID := th.uni.backend.Blockchain().Config().ChainID
 	chain, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	require.NoError(t, err)
 
 	etx, err := chain.TxManager().CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 		FromAddress:    th.key1.EIP55Address.Address(),
@@ -553,7 +553,6 @@ type revertTxnTH struct {
 
 	// VRF Req Details
 	subs []*vrfSub
-	reqs []*vrfReq
 }
 
 // Constructor for handling reverted txns test harness
