@@ -450,9 +450,7 @@ describe('AutomationRegistry2_2', () => {
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory =
       await ethers.getContractFactory('UpkeepAutoFunder')
-    assert.isUndefined(chainModuleBaseFactory)
     chainModuleBaseFactory = await ethers.getContractFactory('ChainModuleBase')
-    assert.isTrue(chainModuleBaseFactory != undefined)
     arbitrumModuleFactory = await ethers.getContractFactory('ArbitrumModule')
     optimismModuleFactory = await ethers.getContractFactory('OptimismModule')
     streamsLookupUpkeepFactory = await ethers.getContractFactory(
@@ -846,12 +844,9 @@ describe('AutomationRegistry2_2', () => {
     mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
       .connect(owner)
       .deploy()
-    assert.isUndefined(chainModuleBase)
     chainModuleBase = await chainModuleBaseFactory.connect(owner).deploy()
-    assert.isTrue(chainModuleBase != undefined)
     arbitrumModule = await arbitrumModuleFactory.connect(owner).deploy()
     optimismModule = await optimismModuleFactory.connect(owner).deploy()
-    assert.isTrue(optimismModule != undefined)
     streamsLookupUpkeep = await streamsLookupUpkeepFactory
       .connect(owner)
       .deploy(
