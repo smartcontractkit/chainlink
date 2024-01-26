@@ -52,18 +52,18 @@ type mockCapabilityWithExecute struct {
 	Executable
 	Validatable
 	CapabilityInfo
-	ExecuteFn func(ctx context.Context, callback chan values.Value, inputs values.Map) error
+	ExecuteFn func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
 }
 
-func (m *mockCapabilityWithExecute) Execute(ctx context.Context, callback chan values.Value, inputs values.Map) error {
+func (m *mockCapabilityWithExecute) Execute(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
 	return m.ExecuteFn(ctx, callback, inputs)
 }
 
 func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan values.Value, inputs values.Map) error {
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
 			val, _ := values.NewString("hello")
-			callback <- val
+			callback <- CapabilityResponse{val, nil}
 
 			close(callback)
 
@@ -81,10 +81,10 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 	es, _ := values.NewString("hello")
 	expectedList := []values.Value{es, es, es}
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan values.Value, inputs values.Map) error {
-			callback <- es
-			callback <- es
-			callback <- es
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+			callback <- CapabilityResponse{es, nil}
+			callback <- CapabilityResponse{es, nil}
+			callback <- CapabilityResponse{es, nil}
 
 			close(callback)
 

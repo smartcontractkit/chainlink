@@ -59,6 +59,12 @@ type Validatable interface {
 	ValidateInput(inputs values.Map) error
 }
 
+// CapabilityResponse is a struct for the Execute response of a capability.
+type CapabilityResponse struct {
+	value values.Value
+	err   error
+}
+
 // Executable is an interface for executing a capability.
 type Executable interface {
 	// Start will be called when the capability is loaded by the application.
@@ -68,7 +74,7 @@ type Executable interface {
 	// when the context is cancelled. When a request has been completed the capability
 	// is also expected to close the callback channel.
 	// Request specific configuration is passed in via the inputs parameter.
-	Execute(ctx context.Context, callback chan values.Value, inputs values.Map) error
+	Execute(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
 	// Stop will be called before the application exits.
 	// Stop will be called after the capability is removed from the registry.
 	Stop(ctx context.Context) error
@@ -138,29 +144,29 @@ func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.V
 	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
 	defer cancel()
 
-	callback := make(chan values.Value)
+	callback := make(chan CapabilityResponse)
 	vs := make([]values.Value, 0)
 
 	var executionErr error
-	go func(innerCtx context.Context, innerC Capability, innerInputs values.Map, innerCallback chan values.Value) {
+	go func(innerCtx context.Context, innerC Capability, innerInputs values.Map, innerCallback chan CapabilityResponse) {
 		executionErr = innerC.Execute(innerCtx, innerCallback, innerInputs)
 	}(ctxWithT, c, inputs, callback)
 
 outerLoop:
 	for {
 		select {
-		case value, isOpen := <-callback:
+		case response, isOpen := <-callback:
 			if !isOpen {
 				break outerLoop
 			}
 			// An error means execution has been interrupted.
 			// We'll return the value discarding values received
 			// until now.
-			if valErr, ok := value.(*values.Error); ok {
-				return nil, valErr.Underlying
+			if response.err != nil {
+				return nil, response.err
 			}
 
-			vs = append(vs, value)
+			vs = append(vs, response.value)
 		case <-ctx.Done():
 			return nil, errors.New("context timed out")
 		}
