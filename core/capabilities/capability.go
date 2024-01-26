@@ -162,13 +162,14 @@ func ExecuteSync(ctx context.Context, c CallbackExecutable, inputs *values.Map) 
 	defer cancel()
 
 	callback := make(chan CapabilityResponse)
+	sec := make(chan error)
+
+	go func(innerCtx context.Context, innerC CallbackExecutable, innerInputs *values.Map, innerCallback chan CapabilityResponse, errCh chan error) {
+		setupErr := innerC.Execute(innerCtx, innerCallback, innerInputs)
+		sec <- setupErr
+	}(ctxWithT, c, inputs, callback, sec)
+
 	vs := make([]values.Value, 0)
-
-	var setupErr error
-	go func(innerCtx context.Context, innerC CallbackExecutable, innerInputs *values.Map, innerCallback chan CapabilityResponse) {
-		setupErr = innerC.Execute(innerCtx, innerCallback, innerInputs)
-	}(ctxWithT, c, inputs, callback)
-
 outerLoop:
 	for {
 		select {
@@ -191,6 +192,7 @@ outerLoop:
 		}
 	}
 
+	setupErr := <-sec
 	// Something went wrong when setting up a capability.
 	if setupErr != nil {
 		return nil, setupErr
