@@ -114,7 +114,7 @@ type TxHistoryReaper[CHAIN_ID types.ID] interface {
 }
 
 type UnstartedTxQueuePruner interface {
-	PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (n int64, err error)
+	PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (ids []int64, err error)
 }
 
 // R is the raw unparsed transaction receipt

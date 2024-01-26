@@ -24,6 +24,8 @@ import (
 
 type ArbConfig interface {
 	LimitMax() uint32
+	BumpPercent() uint16
+	BumpMin() *assets.Wei
 }
 
 //go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
@@ -56,7 +58,7 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient
 	lggr = logger.Named(lggr, "ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		EvmEstimator:   NewSuggestedPriceEstimator(lggr, rpcClient),
+		EvmEstimator:   NewSuggestedPriceEstimator(lggr, rpcClient, cfg),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
