@@ -26,6 +26,66 @@ func (r *Registry) Get(_ context.Context, id string) (BaseCapability, error) {
 	return c, nil
 }
 
+// GetTrigger gets a capability from the registry and tries to coerce it to the TriggerCapability interface.
+func (r *Registry) GetTrigger(ctx context.Context, id string) (TriggerCapability, error) {
+	c, err := r.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	tc, ok := c.(TriggerCapability)
+	if !ok {
+		return nil, fmt.Errorf("capability with id: %s does not satisfy the capability interface", id)
+	}
+
+	return tc, nil
+}
+
+// GetAction gets a capability from the registry and tries to coerce it to the ActionCapability interface.
+func (r *Registry) GetAction(ctx context.Context, id string) (ActionCapability, error) {
+	c, err := r.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	ac, ok := c.(ActionCapability)
+	if !ok {
+		return nil, fmt.Errorf("capability with id: %s does not satisfy the capability interface", id)
+	}
+
+	return ac, nil
+}
+
+// GetConsensus gets a capability from the registry and tries to coerce it to the ActionCapability interface.
+func (r *Registry) GetConsensus(ctx context.Context, id string) (ConsensusCapability, error) {
+	c, err := r.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	cc, ok := c.(ConsensusCapability)
+	if !ok {
+		return nil, fmt.Errorf("capability with id: %s does not satisfy the capability interface", id)
+	}
+
+	return cc, nil
+}
+
+// GetTarget gets a capability from the registry and tries to coerce it to the ActionCapability interface.
+func (r *Registry) GetTarget(ctx context.Context, id string) (TargetCapability, error) {
+	c, err := r.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	tc, ok := c.(TargetCapability)
+	if !ok {
+		return nil, fmt.Errorf("capability with id: %s does not satisfy the capability interface", id)
+	}
+
+	return tc, nil
+}
+
 // List lists all the capabilities in the registry.
 func (r *Registry) List(_ context.Context) []BaseCapability {
 	r.mu.RLock()
@@ -44,6 +104,32 @@ func (r *Registry) Add(_ context.Context, c BaseCapability) error {
 	defer r.mu.Unlock()
 
 	info := c.Info()
+
+	switch info.CapabilityType {
+	case CapabilityTypeTrigger:
+		_, ok := c.(TriggerCapability)
+		if !ok {
+			return fmt.Errorf("trigger capability does not satisfy TriggerCapability interface")
+		}
+	case CapabilityTypeAction:
+		_, ok := c.(ActionCapability)
+		if !ok {
+			return fmt.Errorf("action does not satisfy ActionCapability interface")
+		}
+	case CapabilityTypeConsensus:
+		_, ok := c.(ConsensusCapability)
+		if !ok {
+			return fmt.Errorf("consensus capability does not satisfy ConsensusCapability interface")
+		}
+	case CapabilityTypeTarget:
+		_, ok := c.(TargetCapability)
+		if !ok {
+			return fmt.Errorf("target capability does not satisfy TargetCapability interface")
+		}
+	default:
+		return fmt.Errorf("unknown capability type: %s", info.CapabilityType)
+	}
+
 	id := info.ID
 	_, ok := r.m[id]
 	if ok {

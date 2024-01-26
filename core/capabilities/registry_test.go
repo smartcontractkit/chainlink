@@ -19,6 +19,18 @@ func (m *cmockCapability) Execute(ctx context.Context, callback chan CapabilityR
 	return nil
 }
 
+type tmockCapability struct {
+	CapabilityInfo
+}
+
+func (m *tmockCapability) RegisterTrigger(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+	return nil
+}
+
+func (m *tmockCapability) UnregisterTrigger(ctx context.Context, inputs values.Map) error {
+	return nil
+}
+
 func TestRegistry(t *testing.T) {
 	ctx := context.Background()
 
@@ -80,12 +92,13 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 	tcs := []struct {
 		name          string
-		newCapability func() BaseCapability
+		newCapability func(ctx context.Context, reg *Registry) error
+		getCapability func(ctx context.Context, reg *Registry, id string) error
 		errContains   string
 	}{
 		{
-			name: "action, sync",
-			newCapability: func() BaseCapability {
+			name: "action",
+			newCapability: func(ctx context.Context, reg *Registry) error {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
@@ -95,12 +108,17 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				return &cmockCapability{CapabilityInfo: ci}
+				c := &cmockCapability{CapabilityInfo: ci}
+				return reg.Add(ctx, c)
+			},
+			getCapability: func(ctx context.Context, reg *Registry, id string) error {
+				_, err := reg.GetAction(ctx, id)
+				return err
 			},
 		},
 		{
-			name: "target, sync",
-			newCapability: func() BaseCapability {
+			name: "target",
+			newCapability: func(ctx context.Context, reg *Registry) error {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
@@ -110,12 +128,17 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				return &cmockCapability{CapabilityInfo: ci}
+				c := &cmockCapability{CapabilityInfo: ci}
+				return reg.Add(ctx, c)
+			},
+			getCapability: func(ctx context.Context, reg *Registry, id string) error {
+				_, err := reg.GetTarget(ctx, id)
+				return err
 			},
 		},
 		{
-			name: "trigger, async",
-			newCapability: func() BaseCapability {
+			name: "trigger",
+			newCapability: func(ctx context.Context, reg *Registry) error {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
@@ -125,12 +148,17 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				return &cmockCapability{CapabilityInfo: ci}
+				c := &tmockCapability{CapabilityInfo: ci}
+				return reg.Add(ctx, c)
+			},
+			getCapability: func(ctx context.Context, reg *Registry, id string) error {
+				_, err := reg.GetTrigger(ctx, id)
+				return err
 			},
 		},
 		{
-			name: "reports, async",
-			newCapability: func() BaseCapability {
+			name: "consensus",
+			newCapability: func(ctx context.Context, reg *Registry) error {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
@@ -140,7 +168,12 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				return &cmockCapability{CapabilityInfo: ci}
+				c := &cmockCapability{CapabilityInfo: ci}
+				return reg.Add(ctx, c)
+			},
+			getCapability: func(ctx context.Context, reg *Registry, id string) error {
+				_, err := reg.GetConsensus(ctx, id)
+				return err
 			},
 		},
 	}
@@ -148,8 +181,9 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 	ctx := context.Background()
 	reg := NewRegistry()
 	for _, tc := range tcs {
-		c := tc.newCapability()
-		err := reg.Add(ctx, c)
-		require.NoError(t, err)
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.newCapability(ctx, reg)
+			require.NoError(t, err)
+		})
 	}
 }

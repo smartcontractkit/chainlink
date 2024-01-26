@@ -80,7 +80,7 @@ type BaseCapability interface {
 // TriggerCapability interface needs to be implemented by all trigger capabilities.
 type TriggerCapability interface {
 	BaseCapability
-	RegisterTrigger(ctx context.Context, inputs values.Map, callback chan CapabilityResponse) error
+	RegisterTrigger(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
 	UnregisterTrigger(ctx context.Context, inputs values.Map) error
 }
 
@@ -97,7 +97,7 @@ type ConsensusCapability interface {
 }
 
 // TargetsCapability interface needs to be implemented by all target capabilities.
-type TargetsCapability interface {
+type TargetCapability interface {
 	BaseCapability
 	CallbackExecutable
 }
