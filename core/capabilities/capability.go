@@ -55,8 +55,8 @@ func (c CapabilityType) IsValid() error {
 
 // CapabilityResponse is a struct for the Execute response of a capability.
 type CapabilityResponse struct {
-	value values.Value
-	err   error
+	Value values.Value
+	Err   error
 }
 
 // CallbackExecutable is an interface for executing a capability.
@@ -67,7 +67,7 @@ type CallbackExecutable interface {
 	// Request specific configuration is passed in via the inputs parameter.
 	// A successful response must always return a value. An error is assumed otherwise.
 	// The intent is to make the API explicit.
-	Execute(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
+	Execute(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error
 }
 
 // BaseCapability interface needs to be implemented by all capability types.
@@ -80,8 +80,8 @@ type BaseCapability interface {
 // TriggerCapability interface needs to be implemented by all trigger capabilities.
 type TriggerCapability interface {
 	BaseCapability
-	RegisterTrigger(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
-	UnregisterTrigger(ctx context.Context, inputs values.Map) error
+	RegisterTrigger(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error
+	UnregisterTrigger(ctx context.Context, inputs *values.Map) error
 }
 
 // ActionCapability interface needs to be implemented by all action capabilities.
@@ -157,7 +157,7 @@ var defaultExecuteTimeout = 10 * time.Second
 // We are not handling a case where a capability panics and crashes.
 // There is default timeout of 10 seconds. If a capability takes longer than
 // that then it should be executed asynchronously.
-func ExecuteSync(ctx context.Context, c CallbackExecutable, inputs values.Map) (values.Value, error) {
+func ExecuteSync(ctx context.Context, c CallbackExecutable, inputs *values.Map) (values.Value, error) {
 	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
 	defer cancel()
 
@@ -165,7 +165,7 @@ func ExecuteSync(ctx context.Context, c CallbackExecutable, inputs values.Map) (
 	vs := make([]values.Value, 0)
 
 	var setupErr error
-	go func(innerCtx context.Context, innerC CallbackExecutable, innerInputs values.Map, innerCallback chan CapabilityResponse) {
+	go func(innerCtx context.Context, innerC CallbackExecutable, innerInputs *values.Map, innerCallback chan CapabilityResponse) {
 		setupErr = innerC.Execute(innerCtx, innerCallback, innerInputs)
 	}(ctxWithT, c, inputs, callback)
 
@@ -179,11 +179,11 @@ outerLoop:
 			// An error means execution has been interrupted.
 			// We'll return the value discarding values received
 			// until now.
-			if response.err != nil {
-				return nil, response.err
+			if response.Err != nil {
+				return nil, response.Err
 			}
 
-			vs = append(vs, response.value)
+			vs = append(vs, response.Value)
 
 		// Timeout when a capability panics, crashes, and does not close the channel.
 		case <-ctxWithT.Done():

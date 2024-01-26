@@ -52,16 +52,16 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 type mockCapabilityWithExecute struct {
 	CallbackExecutable
 	CapabilityInfo
-	ExecuteFn func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
+	ExecuteFn func(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error
 }
 
-func (m *mockCapabilityWithExecute) Execute(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+func (m *mockCapabilityWithExecute) Execute(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error {
 	return m.ExecuteFn(ctx, callback, inputs)
 }
 
 func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error {
 			val, _ := values.NewString("hello")
 			callback <- CapabilityResponse{val, nil}
 
@@ -71,7 +71,7 @@ func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
 		},
 	}
 	config, _ := values.NewMap(map[string]interface{}{})
-	val, err := ExecuteSync(context.Background(), mcwe, *config)
+	val, err := ExecuteSync(context.Background(), mcwe, config)
 
 	assert.NoError(t, err, val)
 	assert.Equal(t, "hello", val.(*values.String).Underlying)
@@ -81,7 +81,7 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 	es, _ := values.NewString("hello")
 	expectedList := []values.Value{es, es, es}
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error {
 			callback <- CapabilityResponse{es, nil}
 			callback <- CapabilityResponse{es, nil}
 			callback <- CapabilityResponse{es, nil}
@@ -92,7 +92,7 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 		},
 	}
 	config, _ := values.NewMap(map[string]interface{}{})
-	val, err := ExecuteSync(context.Background(), mcwe, *config)
+	val, err := ExecuteSync(context.Background(), mcwe, config)
 
 	assert.NoError(t, err, val)
 	assert.ElementsMatch(t, expectedList, val.(*values.List).Underlying)
@@ -101,13 +101,13 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 func Test_ExecuteSyncCapabilitySetupErrors(t *testing.T) {
 	expectedErr := errors.New("something went wrong during setup")
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error {
 			close(callback)
 			return expectedErr
 		},
 	}
 	config, _ := values.NewMap(map[string]interface{}{})
-	val, err := ExecuteSync(context.Background(), mcwe, *config)
+	val, err := ExecuteSync(context.Background(), mcwe, config)
 
 	assert.ErrorContains(t, err, expectedErr.Error())
 	assert.Nil(t, val)
@@ -119,12 +119,12 @@ func Test_ExecuteSyncTimeout(t *testing.T) {
 	cancel()
 
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error {
 			return nil
 		},
 	}
 	config, _ := values.NewMap(map[string]interface{}{})
-	val, err := ExecuteSync(ctxWithTimeout, mcwe, *config)
+	val, err := ExecuteSync(ctxWithTimeout, mcwe, config)
 
 	assert.ErrorContains(t, err, "context timed out. If you did not set a timeout, be aware that the default ExecuteSync timeout is")
 	assert.Nil(t, val)
@@ -133,7 +133,7 @@ func Test_ExecuteSyncTimeout(t *testing.T) {
 func Test_ExecuteSyncCapabilityErrors(t *testing.T) {
 	expectedErr := errors.New("something went wrong during execution")
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error {
 			callback <- CapabilityResponse{nil, expectedErr}
 
 			close(callback)
@@ -142,7 +142,7 @@ func Test_ExecuteSyncCapabilityErrors(t *testing.T) {
 		},
 	}
 	config, _ := values.NewMap(map[string]interface{}{})
-	val, err := ExecuteSync(context.Background(), mcwe, *config)
+	val, err := ExecuteSync(context.Background(), mcwe, config)
 
 	assert.ErrorContains(t, err, expectedErr.Error())
 	assert.Nil(t, val)
@@ -150,13 +150,13 @@ func Test_ExecuteSyncCapabilityErrors(t *testing.T) {
 
 func Test_ExecuteSyncDoesNotReturnValues(t *testing.T) {
 	mcwe := &mockCapabilityWithExecute{
-		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error {
 			close(callback)
 			return nil
 		},
 	}
 	config, _ := values.NewMap(map[string]interface{}{})
-	val, err := ExecuteSync(context.Background(), mcwe, *config)
+	val, err := ExecuteSync(context.Background(), mcwe, config)
 
 	assert.ErrorContains(t, err, "capability did not return any values")
 	assert.Nil(t, val)
