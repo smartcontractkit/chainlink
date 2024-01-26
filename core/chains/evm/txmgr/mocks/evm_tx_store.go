@@ -1058,22 +1058,24 @@ func (_m *EvmTxStore) PreloadTxes(ctx context.Context, attempts []types.TxAttemp
 }
 
 // PruneUnstartedTxQueue provides a mock function with given fields: ctx, queueSize, subject
-func (_m *EvmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (int64, error) {
+func (_m *EvmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) ([]int64, error) {
 	ret := _m.Called(ctx, queueSize, subject)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PruneUnstartedTxQueue")
 	}
 
-	var r0 int64
+	var r0 []int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) ([]int64, error)); ok {
 		return rf(ctx, queueSize, subject)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) []int64); ok {
 		r0 = rf(ctx, queueSize, subject)
 	} else {
-		r0 = ret.Get(0).(int64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int64)
+		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, uint32, uuid.UUID) error); ok {

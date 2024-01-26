@@ -22,7 +22,7 @@ Ensure the following fields are provided in your `.env` file:
 
 #### Optional Fields (Streams Lookup)
 
-If your targeted upkeep involves streams lookup, include the following information:
+If your targeted upkeep involves streams lookup, please provide the following details. If you are using Data Streams v0.3 (which is likely), only provide the DATA_STREAMS_URL. The DATA_STREAMS_LEGACY_URL is specifically for Data Streams v0.2.
 
 - `DATA_STREAMS_ID`
 - `DATA_STREAMS_KEY`
@@ -41,10 +41,10 @@ For detailed transaction simulation logs, set up Tenderly credentials. Refer to 
 
 Execute the following command based on your upkeep type:
 
-- For conditional upkeep:
+- For conditional upkeep, if a block number is given we use that block, otherwise we use the latest block:
 
     ```bash
-    go run main.go keeper debug UPKEEP_ID
+    go run main.go keeper debug UPKEEP_ID [OPTIONAL BLOCK_NUMBER]
     ```
 
 - For log trigger upkeep:
