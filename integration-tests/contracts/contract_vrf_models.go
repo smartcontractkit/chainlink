@@ -87,10 +87,14 @@ type VRFCoordinatorV2_5 interface {
 		stalenessSeconds uint32,
 		gasAfterPaymentCalculation uint32,
 		fallbackWeiPerUnitLink *big.Int,
-		feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig,
+		fulfillmentFlatFeeNativePPM uint32,
+		fulfillmentFlatFeeLinkDiscountPPM uint32,
+		nativePremiumPercentage uint8,
+		linkPremiumPercentage uint8,
 	) error
 	RegisterProvingKey(
 		publicProvingKey [2]*big.Int,
+		gasLaneMaxGas uint64,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
 	CreateSubscription() (*types.Transaction, error)
@@ -127,7 +131,10 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 		stalenessSeconds uint32,
 		gasAfterPaymentCalculation uint32,
 		fallbackWeiPerUnitLink *big.Int,
-		feeConfig vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
+		fulfillmentFlatFeeNativePPM uint32,
+		fulfillmentFlatFeeLinkDiscountPPM uint32,
+		nativePremiumPercentage uint8,
+		linkPremiumPercentage uint8,
 	) error
 	RegisterProvingKey(
 		publicProvingKey [2]*big.Int,

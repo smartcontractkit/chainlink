@@ -1682,7 +1682,7 @@ func testMaliciousConsumer(
 	time.Sleep(1 * time.Second)
 
 	// Register a proving key associated with the VRF job.
-	registerProvingKeyHelper(t, uni, uni.rootContract, vrfkey)
+	registerProvingKeyHelper(t, uni, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.maliciousConsumerContract.CreateSubscriptionAndFund(carol,

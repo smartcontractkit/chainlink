@@ -146,6 +146,10 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
 
+	// Used for VRF to know if the txn is a ForceFulfilment txn
+	ForceFulfilled          *bool   `json:"ForceFulfilled,omitempty"`
+	ForceFulfillmentAttempt *uint64 `json:"ForceFulfillmentAttempt,omitempty"`
+
 	// Used only for forwarded txs, tracks the original destination address.
 	// When this is set, it indicates tx is forwarded through To address.
 	FwdrDestAddress *ADDR `json:"ForwarderDestAddress,omitempty"`

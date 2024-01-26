@@ -1076,6 +1076,7 @@ func newRandomnessFulfilledLogV2Plus(
 		e.OutputSeed,
 		e.Payment,
 		e.Success,
+		e.OnlyPremium,
 	)
 	require.NoError(t, err)
 
