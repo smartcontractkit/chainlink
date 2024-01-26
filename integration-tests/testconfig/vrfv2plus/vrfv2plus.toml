@@ -37,6 +37,9 @@ wrapper_consumer_funding_amount_link = 10
 subscription_funding_amount_native=1
 fulfillment_flat_fee_link_ppm=500
 fulfillment_flat_fee_native_ppm=500
+fulfillment_flat_fee_link_discount_ppm=100
+native_premium_percentage=1
+link_premium_percentage=1
 
 # load test specific config
 [Load.VRFv2Plus]
