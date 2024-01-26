@@ -7,7 +7,7 @@ inputs:
     required: false
   zig-version:
     description: The zig version
-    default: 0.11.0
+    default: 0.10.1
     required: false
   cosign-version:
     description: The cosign version
