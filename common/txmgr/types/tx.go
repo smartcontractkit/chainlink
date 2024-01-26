@@ -30,7 +30,7 @@ type TxStrategy interface {
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
 	// unstarted txs and deletion options
-	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (n int64, err error)
+	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (ids []int64, err error)
 }
 
 type TxAttemptState int8

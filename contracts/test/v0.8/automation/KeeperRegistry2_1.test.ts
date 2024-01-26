@@ -79,7 +79,7 @@ describe('KeeperRegistry2_1 - Frozen [ @skip-coverage ]', () => {
     )
     assert.equal(
       ethers.utils.id(AutomationForwarderLogicFactory.bytecode),
-      '0x195e2d7ecc26c75206820a5d3bd16e3a0214dc9764cc335f5d2c457cda90fe84',
+      '0x6b89065111e9236407329fae3d68b33c311b7d3b6c2ae3dd15c1691a28b1aca7',
       'AutomationForwarderLogic bytecode has changed',
     )
   })

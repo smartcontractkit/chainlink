@@ -41,7 +41,7 @@ func CalculateBumpedFee(
 	toChainUnit feeUnitToChainUnit,
 ) (*big.Int, error) {
 	maxFeePrice := bigmath.Min(maxFeePriceInput, maxBumpPrice)
-	bumpedFeePrice := maxBumpedFee(originalfeePrice, bumpPercent, bumpMin)
+	bumpedFeePrice := MaxBumpedFee(originalfeePrice, bumpPercent, bumpMin)
 
 	// Update bumpedFeePrice if currentfeePrice is higher than bumpedFeePrice and within maxFeePrice
 	bumpedFeePrice = maxFee(lggr, currentfeePrice, bumpedFeePrice, maxFeePrice, "fee price", toChainUnit)
@@ -61,7 +61,7 @@ func CalculateBumpedFee(
 }
 
 // Returns highest bumped fee price of originalFeePrice bumped by fixed units or percentage.
-func maxBumpedFee(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
+func MaxBumpedFee(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
 	return bigmath.Max(
 		addPercentage(originalFeePrice, feeBumpPercent),
 		new(big.Int).Add(originalFeePrice, feeBumpUnits),

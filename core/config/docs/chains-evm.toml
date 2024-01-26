@@ -161,7 +161,9 @@ LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 # BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 BumpMin = '5 gwei' # Default
-# BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
+# BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
+#
+# The `SuggestedPriceEstimator` adds the larger of `BumpPercent` and `BumpMin` on top of the price provided by the RPC when bumping a transaction's gas.
 BumpPercent = 20 # Default
 # BumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
 BumpThreshold = 3 # Default
@@ -193,8 +195,8 @@ BumpTxDepth = 16 # Example
 #
 # Bumping works as follows:
 #
-# - Increase tipcap by `max(tipcap * (1 + GasBumpPercent), tipcap + GasBumpWei)`
-# - Increase feecap by `max(feecap * (1 + GasBumpPercent), feecap + GasBumpWei)`
+# - Increase tipcap by `max(tipcap * (1 + BumpPercent), tipcap + BumpMin)`
+# - Increase feecap by `max(feecap * (1 + BumpPercent), feecap + BumpMin)`
 #
 # A quick note on terminology - Chainlink nodes use the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
 #

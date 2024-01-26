@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   echo "Baz=Val" >> median.env  
   CL_MEDIAN_ENV="median.env"
   ```
+- Gas bumping logic to the `SuggestedPriceEstimator`
 
 ### Fixed
 

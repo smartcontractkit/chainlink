@@ -28,23 +28,23 @@ func Test_Registry(t *testing.T) {
 	t.Run("Get", func(t *testing.T) {
 		sr := newRegistry(lggr, runner)
 
-		sr.streams["foo"] = &mockStream{run: &pipeline.Run{ID: 1}}
-		sr.streams["bar"] = &mockStream{run: &pipeline.Run{ID: 2}}
-		sr.streams["baz"] = &mockStream{run: &pipeline.Run{ID: 3}}
+		sr.streams[1] = &mockStream{run: &pipeline.Run{ID: 1}}
+		sr.streams[2] = &mockStream{run: &pipeline.Run{ID: 2}}
+		sr.streams[3] = &mockStream{run: &pipeline.Run{ID: 3}}
 
-		v, exists := sr.Get("foo")
+		v, exists := sr.Get(1)
 		assert.True(t, exists)
-		assert.Equal(t, sr.streams["foo"], v)
+		assert.Equal(t, sr.streams[1], v)
 
-		v, exists = sr.Get("bar")
+		v, exists = sr.Get(2)
 		assert.True(t, exists)
-		assert.Equal(t, sr.streams["bar"], v)
+		assert.Equal(t, sr.streams[2], v)
 
-		v, exists = sr.Get("baz")
+		v, exists = sr.Get(3)
 		assert.True(t, exists)
-		assert.Equal(t, sr.streams["baz"], v)
+		assert.Equal(t, sr.streams[3], v)
 
-		v, exists = sr.Get("qux")
+		v, exists = sr.Get(4)
 		assert.Nil(t, v)
 		assert.False(t, exists)
 	})
@@ -53,54 +53,54 @@ func Test_Registry(t *testing.T) {
 
 		t.Run("registers new stream", func(t *testing.T) {
 			assert.Len(t, sr.streams, 0)
-			err := sr.Register("foo", pipeline.Spec{ID: 32, DotDagSource: "source"}, nil)
+			err := sr.Register(1, pipeline.Spec{ID: 32, DotDagSource: "source"}, nil)
 			require.NoError(t, err)
 			assert.Len(t, sr.streams, 1)
 
-			v, exists := sr.Get("foo")
+			v, exists := sr.Get(1)
 			require.True(t, exists)
 			strm := v.(*stream)
-			assert.Equal(t, StreamID("foo"), strm.id)
+			assert.Equal(t, StreamID(1), strm.id)
 			assert.Equal(t, int32(32), strm.spec.ID)
 		})
 
 		t.Run("errors when attempt to re-register a stream with an existing ID", func(t *testing.T) {
 			assert.Len(t, sr.streams, 1)
-			err := sr.Register("foo", pipeline.Spec{ID: 33, DotDagSource: "source"}, nil)
+			err := sr.Register(1, pipeline.Spec{ID: 33, DotDagSource: "source"}, nil)
 			require.Error(t, err)
 			assert.Len(t, sr.streams, 1)
-			assert.EqualError(t, err, "stream already registered for id: \"foo\"")
+			assert.EqualError(t, err, "stream already registered for id: 1")
 
-			v, exists := sr.Get("foo")
+			v, exists := sr.Get(1)
 			require.True(t, exists)
 			strm := v.(*stream)
-			assert.Equal(t, StreamID("foo"), strm.id)
+			assert.Equal(t, StreamID(1), strm.id)
 			assert.Equal(t, int32(32), strm.spec.ID)
 		})
 	})
 	t.Run("Unregister", func(t *testing.T) {
 		sr := newRegistry(lggr, runner)
 
-		sr.streams["foo"] = &mockStream{run: &pipeline.Run{ID: 1}}
-		sr.streams["bar"] = &mockStream{run: &pipeline.Run{ID: 2}}
-		sr.streams["baz"] = &mockStream{run: &pipeline.Run{ID: 3}}
+		sr.streams[1] = &mockStream{run: &pipeline.Run{ID: 1}}
+		sr.streams[2] = &mockStream{run: &pipeline.Run{ID: 2}}
+		sr.streams[3] = &mockStream{run: &pipeline.Run{ID: 3}}
 
 		t.Run("unregisters a stream", func(t *testing.T) {
 			assert.Len(t, sr.streams, 3)
 
-			sr.Unregister("foo")
+			sr.Unregister(1)
 
 			assert.Len(t, sr.streams, 2)
-			_, exists := sr.streams["foo"]
+			_, exists := sr.streams[1]
 			assert.False(t, exists)
 		})
 		t.Run("no effect when unregistering a non-existent stream", func(t *testing.T) {
 			assert.Len(t, sr.streams, 2)
 
-			sr.Unregister("foo")
+			sr.Unregister(1)
 
 			assert.Len(t, sr.streams, 2)
-			_, exists := sr.streams["foo"]
+			_, exists := sr.streams[1]
 			assert.False(t, exists)
 		})
 	})
