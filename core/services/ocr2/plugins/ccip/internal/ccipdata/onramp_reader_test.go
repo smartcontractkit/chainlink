@@ -58,8 +58,8 @@ func TestOnRampReaderInit(t *testing.T) {
 			version: ccipdata.V1_2_0,
 		},
 		{
-			name:    "OnRampReader_V1_3_0",
-			version: ccipdata.V1_3_0,
+			name:    "OnRampReader_V1_4_0",
+			version: ccipdata.V1_4_0,
 		},
 	}
 
@@ -90,8 +90,8 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 		onRampAddress = setupOnRampV1_1_0(t, user, bc)
 	case ccipdata.V1_2_0:
 		onRampAddress = setupOnRampV1_2_0(t, user, bc)
-	case ccipdata.V1_3_0:
-		onRampAddress = setupOnRampV1_3_0(t, user, bc)
+	case ccipdata.V1_4_0:
+		onRampAddress = setupOnRampV1_4_0(t, user, bc)
 	default:
 		require.Fail(t, "Unknown version: ", version)
 	}
@@ -311,7 +311,7 @@ func setupOnRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 	return onRampAddress
 }
 
-func setupOnRampV1_3_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
+func setupOnRampV1_4_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
 	linkTokenAddress := common.HexToAddress("0x000011")
 	staticConfig := evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
 		LinkToken:         linkTokenAddress,
@@ -390,7 +390,7 @@ func testVersionSpecificOnRampReader(t *testing.T, th onRampReaderTH, version st
 		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000110"))
 	case ccipdata.V1_2_0:
 		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000120"))
-	case ccipdata.V1_3_0:
+	case ccipdata.V1_4_0:
 		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000130"))
 	default:
 		require.Fail(t, "Unknown version: ", version)
