@@ -19,14 +19,23 @@ import { StreamsLookupUpkeep__factory as StreamsLookupUpkeepFactory } from '../.
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
-import { MockChainSpecificModule__factory as MockChainSpecificModuleFactory } from '../../../typechain/factories/MockChainSpecificModule__factory'
+import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
+import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
+import { ChainModuleBase__factory as ChainModuleBaseFactory } from '../../../typechain/factories/ChainModuleBase__factory'
+import { ArbitrumModule__factory as ArbitrumModuleFactory } from '../../../typechain/factories/ArbitrumModule__factory'
+import { OptimismModule__factory as OptimismModuleFactory } from '../../../typechain/factories/OptimismModule__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
+import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationUtils2_2 as AutomationUtils } from '../../../typechain/AutomationUtils2_2'
+import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
+import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
-import { MockChainSpecificModule } from '../../../typechain'
+import { ChainModuleBase } from '../../../typechain/ChainModuleBase'
+import { ArbitrumModule } from '../../../typechain/ArbitrumModule'
+import { OptimismModule } from '../../../typechain/OptimismModule'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { UpkeepAutoFunder } from '../../../typechain'
 import {
@@ -102,7 +111,7 @@ const emptyBytes32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 const transmitGasOverhead = 1_000_000
-const checkGasOverhead = 400_000
+const checkGasOverhead = 400_000 + 3_500 // 3_500 for the overhead to call chain module
 
 const stalenessSeconds = BigNumber.from(43820)
 const gasCeilingMultiplier = BigNumber.from(2)
@@ -127,10 +136,14 @@ let logTriggerConfig: string
 
 // Smart contract factories
 let linkTokenFactory: ContractFactory
+let mockArbGasInfoFactory: MockArbGasInfoFactory
+let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-let mockChainSpecificModuleFactory: MockChainSpecificModuleFactory
+let chainModuleBaseFactory: ChainModuleBaseFactory
+let arbitrumModuleFactory: ArbitrumModuleFactory
+let optimismModuleFactory: OptimismModuleFactory
 let streamsLookupUpkeepFactory: StreamsLookupUpkeepFactory
 let personas: Personas
 
@@ -143,11 +156,15 @@ let arbRegistry: IAutomationRegistry // arbitrum registry
 let opRegistry: IAutomationRegistry // optimism registry
 let mgRegistry: IAutomationRegistry // "migrate registry" used in migration tests
 let blankRegistry: IAutomationRegistry // used to test initial configurations
+let mockArbGasInfo: MockArbGasInfo
+let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
 let ltUpkeep: MockContract
 let transcoder: UpkeepTranscoder
-let mockChainSpecificModule: MockChainSpecificModule
+let chainModuleBase: ChainModuleBase
+let arbitrumModule: ArbitrumModule
+let optimismModule: OptimismModule
 let streamsLookupUpkeep: StreamsLookupUpkeep
 let automationUtils: AutomationUtils
 
@@ -376,7 +393,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe.only('AutomationRegistry2_2', () => {
+describe('AutomationRegistry2_2', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -406,7 +423,11 @@ describe.only('AutomationRegistry2_2', () => {
   let signers: Wallet[]
   let signerAddresses: string[]
   let config: any
+  let arbConfig: any
+  let opConfig: any
   let baseConfig: Parameters<IAutomationRegistry['setConfig']>
+  let arbConfigParams: Parameters<IAutomationRegistry['setConfig']>
+  let opConfigParams: Parameters<IAutomationRegistry['setConfig']>
   let upkeepManager: string
 
   before(async () => {
@@ -422,12 +443,18 @@ describe.only('AutomationRegistry2_2', () => {
     mockV3AggregatorFactory = (await ethers.getContractFactory(
       'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
+    mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
+    mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
+      'MockOVMGasPriceOracle',
+    )
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory =
       await ethers.getContractFactory('UpkeepAutoFunder')
-    mockChainSpecificModuleFactory = await ethers.getContractFactory(
-      'MockChainSpecificModule',
-    )
+    assert.isUndefined(chainModuleBaseFactory)
+    chainModuleBaseFactory = await ethers.getContractFactory('ChainModuleBase')
+    assert.isTrue(chainModuleBaseFactory != undefined)
+    arbitrumModuleFactory = await ethers.getContractFactory('ArbitrumModule')
+    optimismModuleFactory = await ethers.getContractFactory('OptimismModule')
     streamsLookupUpkeepFactory = await ethers.getContractFactory(
       'StreamsLookupUpkeep',
     )
@@ -552,6 +579,7 @@ describe.only('AutomationRegistry2_2', () => {
 
   const verifyMaxPayment = async (
     registry: IAutomationRegistry,
+    chainModuleAddress: string,
     l1CostWei?: BigNumber,
   ) => {
     type TestCase = {
@@ -615,7 +643,7 @@ describe.only('AutomationRegistry2_2', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
-          chainSpecificModule: mockChainSpecificModule.address,
+          chainModule: chainModuleAddress,
           reorgProtectionEnabled: true,
         }),
         offchainVersion,
@@ -814,6 +842,16 @@ describe.only('AutomationRegistry2_2', () => {
       'UpkeepTranscoder4_0',
     )
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
+    mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
+    mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
+      .connect(owner)
+      .deploy()
+    assert.isUndefined(chainModuleBase)
+    chainModuleBase = await chainModuleBaseFactory.connect(owner).deploy()
+    assert.isTrue(chainModuleBase != undefined)
+    arbitrumModule = await arbitrumModuleFactory.connect(owner).deploy()
+    optimismModule = await optimismModuleFactory.connect(owner).deploy()
+    assert.isTrue(optimismModule != undefined)
     streamsLookupUpkeep = await streamsLookupUpkeepFactory
       .connect(owner)
       .deploy(
@@ -824,30 +862,30 @@ describe.only('AutomationRegistry2_2', () => {
         false /* verify mercury response */,
       )
 
-    // const arbOracleCode = await ethers.provider.send('eth_getCode', [
-    //   mockArbGasInfo.address,
-    // ])
-    // await ethers.provider.send('hardhat_setCode', [
-    //   '0x000000000000000000000000000000000000006C',
-    //   arbOracleCode,
-    // ])
+    const arbOracleCode = await ethers.provider.send('eth_getCode', [
+      mockArbGasInfo.address,
+    ])
+    await ethers.provider.send('hardhat_setCode', [
+      '0x000000000000000000000000000000000000006C',
+      arbOracleCode,
+    ])
 
-    // const optOracleCode = await ethers.provider.send('eth_getCode', [
-    //   mockOVMGasPriceOracle.address,
-    // ])
-    // await ethers.provider.send('hardhat_setCode', [
-    //   '0x420000000000000000000000000000000000000F',
-    //   optOracleCode,
-    // ])
+    const optOracleCode = await ethers.provider.send('eth_getCode', [
+      mockOVMGasPriceOracle.address,
+    ])
+    await ethers.provider.send('hardhat_setCode', [
+      '0x420000000000000000000000000000000000000F',
+      optOracleCode,
+    ])
 
-    // const mockArbSys = await new MockArbSysFactory(owner).deploy()
-    // const arbSysCode = await ethers.provider.send('eth_getCode', [
-    //   mockArbSys.address,
-    // ])
-    // await ethers.provider.send('hardhat_setCode', [
-    //   '0x0000000000000000000000000000000000000064',
-    //   arbSysCode,
-    // ])
+    const mockArbSys = await new MockArbSysFactory(owner).deploy()
+    const arbSysCode = await ethers.provider.send('eth_getCode', [
+      mockArbSys.address,
+    ])
+    await ethers.provider.send('hardhat_setCode', [
+      '0x0000000000000000000000000000000000000064',
+      arbSysCode,
+    ])
 
     config = {
       paymentPremiumPPB,
@@ -865,14 +903,36 @@ describe.only('AutomationRegistry2_2', () => {
       transcoder: transcoder.address,
       registrars: [],
       upkeepPrivilegeManager: upkeepManager,
+      chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
     }
+
+    arbConfig = { ...config }
+    arbConfig.chainModule = arbitrumModule.address
+    opConfig = { ...config }
+    opConfig.chainModule = optimismModule.address
 
     baseConfig = [
       signerAddresses,
       keeperAddresses,
       f,
       encodeConfig(config),
+      offchainVersion,
+      offchainBytes,
+    ]
+    arbConfigParams = [
+      signerAddresses,
+      keeperAddresses,
+      f,
+      encodeConfig(arbConfig),
+      offchainVersion,
+      offchainBytes,
+    ]
+    opConfigParams = [
+      signerAddresses,
+      keeperAddresses,
+      f,
+      encodeConfig(opConfig),
       offchainVersion,
       offchainBytes,
     ]
@@ -924,8 +984,11 @@ describe.only('AutomationRegistry2_2', () => {
       await registry.getPerPerformByteGasOverhead()
     cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
+    await registry.connect(owner).setConfig(...baseConfig)
+    await mgRegistry.connect(owner).setConfig(...baseConfig)
+    await arbRegistry.connect(owner).setConfig(...arbConfigParams)
+    await opRegistry.connect(owner).setConfig(...opConfigParams)
     for (const reg of [registry, arbRegistry, opRegistry, mgRegistry]) {
-      await reg.connect(owner).setConfig(...baseConfig)
       await reg.connect(owner).setPayees(payees)
       await linkToken.connect(admin).approve(reg.address, toWei('1000'))
       await linkToken.connect(owner).approve(reg.address, toWei('1000'))
@@ -2714,12 +2777,12 @@ describe.only('AutomationRegistry2_2', () => {
       // upkeep 1 perform should succeed with empty performData
       await getTransmitTx(registry, keeper1, [upkeepID1], {
         gasPrice: gasWei.mul(gasCeilingMultiplier),
-      }),
-        // upkeep 2 perform should succeed with max performData size
-        await getTransmitTx(registry, keeper1, [upkeepID2], {
-          gasPrice: gasWei.mul(gasCeilingMultiplier),
-          performData: maxPerformData,
-        })
+      })
+      // upkeep 2 perform should succeed with max performData size
+      await getTransmitTx(registry, keeper1, [upkeepID2], {
+        gasPrice: gasWei.mul(gasCeilingMultiplier),
+        performData: maxPerformData,
+      })
     })
   })
 
@@ -3226,15 +3289,15 @@ describe.only('AutomationRegistry2_2', () => {
     const l1CostWeiArb = arbL1PriceinWei.mul(16).mul(maxPerformDataSize)
     const l1CostWeiOpt = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     itMaybe('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(registry)
+      await verifyMaxPayment(registry, chainModuleBase.address)
     })
 
     itMaybe('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(arbRegistry, l1CostWeiArb)
+      await verifyMaxPayment(arbRegistry, arbitrumModule.address, l1CostWeiArb)
     })
 
     itMaybe('calculates the max fee appropriately for Optimism', async () => {
-      await verifyMaxPayment(opRegistry, l1CostWeiOpt)
+      await verifyMaxPayment(opRegistry, optimismModule.address, l1CostWeiOpt)
     })
 
     it('uses the fallback gas price if the feed has issues', async () => {
@@ -3415,7 +3478,7 @@ describe.only('AutomationRegistry2_2', () => {
     })
   })
 
-  describeMaybe('#setConfig - onchain', () => {
+  describeMaybe('#setConfig - onchain', async () => {
     const payment = BigNumber.from(1)
     const flatFee = BigNumber.from(2)
     const maxGas = BigNumber.from(6)
@@ -3448,7 +3511,7 @@ describe.only('AutomationRegistry2_2', () => {
       transcoder: newTranscoder,
       registrars: newRegistrars,
       upkeepPrivilegeManager: upkeepManager,
-      chainSpecificModule: mockChainSpecificModule.address,
+      chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
     }
 
@@ -3784,23 +3847,21 @@ describe.only('AutomationRegistry2_2', () => {
       for (let i = 0; i < signerAddresses.length; i++) {
         const signer = signerAddresses[i]
         if (!newSigners.includes(signer)) {
-          assert((await registry.getSignerInfo(signer)).active == false)
+          assert(!(await registry.getSignerInfo(signer)).active)
           assert((await registry.getSignerInfo(signer)).index == 0)
         }
       }
       // New signer addresses should be active
       for (let i = 0; i < newSigners.length; i++) {
         const signer = newSigners[i]
-        assert((await registry.getSignerInfo(signer)).active == true)
+        assert((await registry.getSignerInfo(signer)).active)
         assert((await registry.getSignerInfo(signer)).index == i)
       }
       // Old transmitter addresses which are not in new transmitter should be non active, update lastCollected but retain other info
       for (let i = 0; i < keeperAddresses.length; i++) {
         const transmitter = keeperAddresses[i]
         if (!newKeepers.includes(transmitter)) {
-          assert(
-            (await registry.getTransmitterInfo(transmitter)).active == false,
-          )
+          assert(!(await registry.getTransmitterInfo(transmitter)).active)
           assert((await registry.getTransmitterInfo(transmitter)).index == i)
           assert(
             (await registry.getTransmitterInfo(transmitter)).lastCollected.eq(
@@ -3814,7 +3875,7 @@ describe.only('AutomationRegistry2_2', () => {
       // New transmitter addresses should be active
       for (let i = 0; i < newKeepers.length; i++) {
         const transmitter = newKeepers[i]
-        assert((await registry.getTransmitterInfo(transmitter)).active == true)
+        assert((await registry.getTransmitterInfo(transmitter)).active)
         assert((await registry.getTransmitterInfo(transmitter)).index == i)
         assert(
           (await registry.getTransmitterInfo(transmitter)).lastCollected.eq(
@@ -4443,6 +4504,7 @@ describe.only('AutomationRegistry2_2', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
+          chainModule: chainModuleBase.address,
           reorgProtectionEnabled: true,
         },
         offchainVersion,
@@ -4665,7 +4727,7 @@ describe.only('AutomationRegistry2_2', () => {
         expect((await registry.getState()).state.numUpkeeps).to.equal(
           numUpkeeps,
         )
-        const forwarder = await IAutomationForwarderFactory.connect(
+        const forwarder = IAutomationForwarderFactory.connect(
           forwarderAddress,
           owner,
         )
@@ -5084,6 +5146,7 @@ describe.only('AutomationRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
             },
             offchainVersion,
@@ -5138,6 +5201,7 @@ describe.only('AutomationRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
             },
             offchainVersion,
@@ -5187,6 +5251,7 @@ describe.only('AutomationRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
             },
             offchainVersion,

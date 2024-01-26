@@ -69,7 +69,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     bytes32[3] calldata reportContext,
     bytes calldata rawReport,
     bytes32[] calldata rs,
-    bytes32[] calldata ss,
+    bytes32[] memory ss,
     bytes32 rawVs
   ) external override {
     uint256 gasOverhead = gasleft();
