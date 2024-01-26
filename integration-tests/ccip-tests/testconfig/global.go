@@ -308,6 +308,8 @@ func (c *Chainlink) ReadSecrets() error {
 				Image:   &image,
 				Version: &tag,
 			}
+		} else {
+			c.Nodes[i].ChainlinkImage = c.Common.ChainlinkImage
 		}
 		upgradeImage, _ := osutil.GetEnv(fmt.Sprintf("UPGRADE_IMAGE-%d", i+1))
 		upgradeTag, _ := osutil.GetEnv(fmt.Sprintf("UPGRADE_VERSION-%d", i+1))
@@ -316,6 +318,8 @@ func (c *Chainlink) ReadSecrets() error {
 				Image:   &upgradeImage,
 				Version: &upgradeTag,
 			}
+		} else {
+			c.Nodes[i].ChainlinkUpgradeImage = c.Common.ChainlinkUpgradeImage
 		}
 	}
 	return nil
@@ -362,11 +366,35 @@ func (n *Node) Merge(from *Node) {
 		n.Name = from.Name
 	}
 	if n.ChainlinkImage == nil {
-		n.ChainlinkImage = from.ChainlinkImage
+		if from.ChainlinkImage != nil {
+			n.ChainlinkImage = &ctfconfig.ChainlinkImageConfig{
+				Image:   from.ChainlinkImage.Image,
+				Version: from.ChainlinkImage.Version,
+			}
+		}
+	} else {
+		if n.ChainlinkImage.Image == nil && from.ChainlinkImage != nil {
+			n.ChainlinkImage.Image = from.ChainlinkImage.Image
+		}
+		if n.ChainlinkImage.Version == nil && from.ChainlinkImage != nil {
+			n.ChainlinkImage.Version = from.ChainlinkImage.Version
+		}
 	}
 
 	if n.ChainlinkUpgradeImage == nil {
-		n.ChainlinkUpgradeImage = from.ChainlinkUpgradeImage
+		if from.ChainlinkUpgradeImage != nil {
+			n.ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
+				Image:   from.ChainlinkUpgradeImage.Image,
+				Version: from.ChainlinkUpgradeImage.Version,
+			}
+		}
+	} else {
+		if n.ChainlinkUpgradeImage.Image == nil && from.ChainlinkUpgradeImage != nil {
+			n.ChainlinkUpgradeImage.Image = from.ChainlinkUpgradeImage.Image
+		}
+		if n.ChainlinkUpgradeImage.Version == nil && from.ChainlinkUpgradeImage != nil {
+			n.ChainlinkUpgradeImage.Version = from.ChainlinkUpgradeImage.Version
+		}
 	}
 
 	if n.DBImage == "" {
