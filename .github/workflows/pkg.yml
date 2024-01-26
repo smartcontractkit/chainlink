@@ -21,7 +21,7 @@ jobs:
         run: go test -race ./... -coverpkg=./... -coverprofile=pkg_coverage.out
       
       - name: Fuzz Tests
-        run: go test github.com/smartcontractkit/chainlink-common/pkg/loop/internal -fuzz . -fuzztime 12s
+        run: cd fuzz && ./fuzz_all_native.py --ci
       
       - name: Upload Go test results
         if: always()
