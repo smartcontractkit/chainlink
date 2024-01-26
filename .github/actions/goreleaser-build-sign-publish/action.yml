@@ -5,6 +5,9 @@ inputs:
     description: The goreleaser version
     default: 1.23.0
     required: false
+  goreleaser-key:
+    description: The goreleaser key
+    required: false
   zig-version:
     description: The zig version
     default: 0.10.1
@@ -78,6 +81,8 @@ runs:
         distribution: goreleaser-pro
         install-only: true
         version: ${{ inputs.goreleaser-version }}
+      env:
+        GORELEASER_KEY: ${{ inputs.goreleaser-key }}
     - name: Setup zig
       uses: goto-bus-stop/setup-zig@7ab2955eb728f5440978d5824358023be3a2802d # v2.2.0
       with:

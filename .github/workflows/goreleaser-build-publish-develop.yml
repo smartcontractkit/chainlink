@@ -34,7 +34,8 @@ jobs:
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
-          zig-version: 0.10.1
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+          zig-version: 0.11.0
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
