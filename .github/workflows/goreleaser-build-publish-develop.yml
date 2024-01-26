@@ -32,6 +32,7 @@ jobs:
           enable-docker-publish: "true"
           docker-registry: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
           enable-goreleaser-snapshot: "true"
+          goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.ci.yaml
           zig-version: 0.11.0
       - name: Collect Metrics
