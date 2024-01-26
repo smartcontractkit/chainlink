@@ -74,6 +74,8 @@ type Executable interface {
 	// when the context is cancelled. When a request has been completed the capability
 	// is also expected to close the callback channel.
 	// Request specific configuration is passed in via the inputs parameter.
+	// A successful response must always return a value. An error is assumed otherwise.
+	// The intent is to make the API explicit.
 	Execute(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
 	// Stop will be called before the application exits.
 	// Stop will be called after the capability is removed from the registry.
@@ -140,6 +142,8 @@ var defaultExecuteTimeout = 10 * time.Second
 
 // ExecuteSync executes a capability synchronously.
 // We are not handling a case where a capability panics and crashes.
+// There is default timeout of 10 seconds. If a capability takes longer than
+// that then it should be executed asynchronously.
 func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.Value, error) {
 	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
 	defer cancel()
@@ -167,10 +171,11 @@ outerLoop:
 			}
 
 			vs = append(vs, response.value)
-		case <-ctx.Done():
-			return nil, errors.New("context timed out")
-		}
 
+		// Timeout when a capability panics, crashes, and does not close the channel.
+		case <-ctxWithT.Done():
+			return nil, fmt.Errorf("context timed out. If you did not set a timeout, be aware that the default ExecuteSync timeout is %f seconds", defaultExecuteTimeout.Seconds())
+		}
 	}
 
 	// Something went wrong when executing a capability. If this happens at any point,
@@ -180,6 +185,8 @@ outerLoop:
 		return nil, executionErr
 	}
 
+	// If the capability did not return any values, we deem it as an error.
+	// The intent is for the API to be explicit.
 	if len(vs) == 0 {
 		return nil, errors.New("capability did not return any values")
 	}
