@@ -138,14 +138,14 @@ func (o *SuggestedPriceEstimator) forceRefresh(ctx context.Context) (err error) 
 	select {
 	case o.chForceRefetch <- ch:
 	case <-o.chStop:
-		return errors.New("estimator stopped")
+		return pkgerrors.New("estimator stopped")
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 	select {
 	case <-ch:
 	case <-o.chStop:
-		return errors.New("estimator stopped")
+		return pkgerrors.New("estimator stopped")
 	case <-ctx.Done():
 		return ctx.Err()
 	}
