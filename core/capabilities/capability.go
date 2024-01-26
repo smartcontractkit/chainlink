@@ -151,9 +151,9 @@ func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.V
 	callback := make(chan CapabilityResponse)
 	vs := make([]values.Value, 0)
 
-	var executionErr error
+	var setupErr error
 	go func(innerCtx context.Context, innerC Capability, innerInputs values.Map, innerCallback chan CapabilityResponse) {
-		executionErr = innerC.Execute(innerCtx, innerCallback, innerInputs)
+		setupErr = innerC.Execute(innerCtx, innerCallback, innerInputs)
 	}(ctxWithT, c, inputs, callback)
 
 outerLoop:
@@ -178,11 +178,9 @@ outerLoop:
 		}
 	}
 
-	// Something went wrong when executing a capability. If this happens at any point,
-	// we want to stop the capability and return the error. We are discarding all values
-	// returned up to the error.
-	if executionErr != nil {
-		return nil, executionErr
+	// Something went wrong when setting up a capability.
+	if setupErr != nil {
+		return nil, setupErr
 	}
 
 	// If the capability did not return any values, we deem it as an error.

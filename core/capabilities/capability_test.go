@@ -2,6 +2,7 @@ package capabilities
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,4 +97,68 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 
 	assert.NoError(t, err, val)
 	assert.ElementsMatch(t, expectedList, val.(*values.List).Underlying)
+}
+
+func Test_ExecuteSyncCapabilitySetupErrors(t *testing.T) {
+	expectedErr := errors.New("something went wrong during setup")
+	mcwe := &mockCapabilityWithExecute{
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+			close(callback)
+			return expectedErr
+		},
+	}
+	config, _ := values.NewMap(map[string]interface{}{})
+	val, err := ExecuteSync(context.Background(), mcwe, *config)
+
+	assert.ErrorContains(t, err, expectedErr.Error())
+	assert.Nil(t, val)
+}
+
+func Test_ExecuteSyncTimeout(t *testing.T) {
+	ctxWithTimeout := context.Background()
+	ctxWithTimeout, cancel := context.WithCancel(ctxWithTimeout)
+	cancel()
+
+	mcwe := &mockCapabilityWithExecute{
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+			return nil
+		},
+	}
+	config, _ := values.NewMap(map[string]interface{}{})
+	val, err := ExecuteSync(ctxWithTimeout, mcwe, *config)
+
+	assert.ErrorContains(t, err, "context timed out. If you did not set a timeout, be aware that the default ExecuteSync timeout is")
+	assert.Nil(t, val)
+}
+
+func Test_ExecuteSyncCapabilityErrors(t *testing.T) {
+	expectedErr := errors.New("something went wrong during execution")
+	mcwe := &mockCapabilityWithExecute{
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+			callback <- CapabilityResponse{nil, expectedErr}
+
+			close(callback)
+
+			return nil
+		},
+	}
+	config, _ := values.NewMap(map[string]interface{}{})
+	val, err := ExecuteSync(context.Background(), mcwe, *config)
+
+	assert.ErrorContains(t, err, expectedErr.Error())
+	assert.Nil(t, val)
+}
+
+func Test_ExecuteSyncDoesNotReturnValues(t *testing.T) {
+	mcwe := &mockCapabilityWithExecute{
+		ExecuteFn: func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
+			close(callback)
+			return nil
+		},
+	}
+	config, _ := values.NewMap(map[string]interface{}{})
+	val, err := ExecuteSync(context.Background(), mcwe, *config)
+
+	assert.ErrorContains(t, err, "capability did not return any values")
+	assert.Nil(t, val)
 }
