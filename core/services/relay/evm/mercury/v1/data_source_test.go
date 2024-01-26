@@ -21,6 +21,7 @@ import (
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -30,7 +31,6 @@ import (
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ mercurytypes.ServerFetcher = &mockFetcher{}
@@ -432,7 +432,6 @@ func TestMercury_SetLatestBlocks(t *testing.T) {
 		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		// This can happen in some cases e.g. RPC node is offline
 		headTracker.On("LatestChain").Return((*evmtypes.Head)(nil))
-
 		ds.mercuryChainReader = evm.NewChainReader(headTracker)
 		obs := v1.Observation{}
 		err := ds.setLatestBlocks(testutils.Context(t), &obs)

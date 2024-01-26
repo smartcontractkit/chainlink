@@ -69,21 +69,33 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 	// create l1Oracle only if it is supported for the chain
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
-		l1Oracle = rollups.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
+		l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
 	}
+	var newEstimator func(logger.Logger) EvmEstimator
 	switch s {
 	case "Arbitrum":
-		return NewWrappedEvmEstimator(NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient)
+		}
 	case "BlockHistory":
-		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID())
+		}
 	case "FixedPrice":
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewFixedPriceEstimator(geCfg, bh, lggr)
+		}
 	case "L2Suggested", "SuggestedPrice":
-		return NewWrappedEvmEstimator(NewSuggestedPriceEstimator(lggr, ethClient), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg)
+		}
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			return NewFixedPriceEstimator(geCfg, bh, lggr)
+		}
 	}
+	return NewWrappedEvmEstimator(lggr, newEstimator, df, l1Oracle)
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
@@ -150,6 +162,7 @@ func (fee EvmFee) ValidDynamic() bool {
 // WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
 type WrappedEvmEstimator struct {
 	services.StateMachine
+	lggr logger.Logger
 	EvmEstimator
 	EIP1559Enabled bool
 	l1Oracle       rollups.L1Oracle
@@ -157,16 +170,18 @@ type WrappedEvmEstimator struct {
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(e EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle) EvmFeeEstimator {
+func NewWrappedEvmEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle) EvmFeeEstimator {
+	lggr = logger.Named(lggr, "WrappedEvmEstimator")
 	return &WrappedEvmEstimator{
-		EvmEstimator:   e,
+		lggr:           lggr,
+		EvmEstimator:   newEstimator(lggr),
 		EIP1559Enabled: eip1559Enabled,
 		l1Oracle:       l1Oracle,
 	}
 }
 
 func (e *WrappedEvmEstimator) Name() string {
-	return fmt.Sprintf("WrappedEvmEstimator(%s)", e.EvmEstimator.Name())
+	return e.lggr.Name()
 }
 
 func (e *WrappedEvmEstimator) Start(ctx context.Context) error {
@@ -389,7 +404,7 @@ func BumpDynamicFeeOnly(config bumpConfig, feeCapBufferBlocks uint16, lggr logge
 // - A configured percentage bump (EVM.GasEstimator.BumpPercent) on top of the baseline tip cap.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline tip cap.
 // The baseline tip cap is the maximum of the previous tip cap attempt and the node's current tip cap.
-// It increases the max fee cap by GasBumpPercent
+// It increases the max fee cap by BumpPercent
 //
 // NOTE: We would prefer to have set a large FeeCap and leave it fixed, bumping
 // the Tip only. Unfortunately due to a flaw of how EIP-1559 is implemented we

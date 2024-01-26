@@ -1,7 +1,7 @@
 # ***
 # This workflow is a monstrosity of copy-paste, and that's to increase legibility in reporting and running, so the code be damned.
 # I suspect this can be cleaned up significantly with some clever trickery of the GitHub actions matrices, but I am not that clever.
-# We want each chain to run in parallel, but each test within the chain needs to be able to run sequentially 
+# We want each chain to run in parallel, but each test within the chain needs to be able to run sequentially
 # (we're trying to eliminate this as a requirement, should make it a lot easier).
 # Each chain can have a variety of tests to run.
 # We also want reporting to be clear in the start-slack-thread and post-test-results-to-slack jobs.
@@ -10,7 +10,7 @@
 name: Live Testnet Tests
 on:
   schedule:
-    - cron: "0 0 * * *" # Run every Sunday at midnight
+    - cron: "0 5 * * *" # Run every night at midnight EST
   push:
     tags:
       - "*"
@@ -21,50 +21,17 @@ env:
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
   CHAINLINK_NODE_FUNDING: .5
+  PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+  LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+  LOKI_URL: ${{ secrets.LOKI_URL }}
+  LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+  LOGSTREAM_LOG_TARGETS: loki
+  GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+  RUN_ID: ${{ github.run_id }}
 
   CHAINLINK_COMMIT_SHA: ${{ github.sha }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   TEST_LOG_LEVEL: debug
-  EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
-
-  SEPOLIA_URLS: ${{ secrets.QA_SEPOLIA_URLS }}
-  SEPOLIA_HTTP_URLS: ${{ secrets.QA_SEPOLIA_HTTP_URLS }}
-
-  BSC_TESTNET_URLS: ${{ secrets.QA_BSC_TESTNET_URLS }}
-  BSC_TESTNET_HTTP_URLS: ${{ secrets.QA_BSC_TESTNET_HTTP_URLS }}
-
-  OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
-  OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
-
-  OPTIMISM_SEPOLIA_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
-  OPTIMISM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
-
-  ARBITRUM_SEPOLIA_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
-  ARBITRUM_SEPOLIA_HTTP_URLS: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
-
-  BASE_GOERLI_URLS: ${{ secrets.QA_BASE_GOERLI_URLS }}
-  BASE_GOERLI_HTTP_URLS: ${{ secrets.QA_BASE_GOERLI_HTTP_URLS }}
-
-  BASE_SEPOLIA_URLS: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
-  BASE_SEPOLIA_HTTP_URLS: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
-
-  POLYGON_MUMBAI_URLS: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
-  POLYGON_MUMBAI_HTTP_URLS: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
-
-  AVALANCHE_FUJI_URLS: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
-  AVALANCHE_FUJI_HTTP_URLS: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
-
-  FANTOM_TESTNET_URLS: ${{ secrets.QA_FANTOM_TESTNET_URLS }}
-  FANTOM_TESTNET_HTTP_URLS: ${{ secrets.QA_FANTOM_TESTNET_HTTP_URLS }}
-
-  CELO_ALFAJORES_URLS: ${{ secrets.QA_CELO_ALFAJORES_URLS }}
-  CELO_ALFAJORES_HTTP_URLS: ${{ secrets.QA_CELO_ALFAJORES_HTTP_URLS }}
-
-  SCROLL_SEPOLIA_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_URLS }}
-  SCROLL_SEPOLIA_HTTP_URLS: ${{ secrets.QA_SCROLL_SEPOLIA_HTTP_URLS }}
-
-  LINEA_GOERLI_URLS: ${{ secrets.QA_LINEA_GOERLI_URLS }}
-  LINEA_GOERLI_HTTP_URLS: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
 
 jobs:
 
@@ -92,7 +59,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
-        with: 
+        with:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
           git_commit_sha: ${{ github.sha }}
@@ -122,11 +89,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
+          go_tags: embed
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           binary_name: tests
@@ -147,7 +115,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [sepolia-smoke-tests, bsc-testnet-tests, optimism-goerli-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-goerli-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, scroll-sepolia-smoke-tests, linea-goerli-smoke-tests]
+    needs: [sepolia-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, linea-goerli-smoke-tests]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -208,86 +176,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network: [Sepolia, Optimism Goerli, Optimism Sepolia, Arbitrum Sepolia, Base Goerli, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Scroll Sepolia, Linea Goerli]
+        network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Linea Goerli]
     steps:
-      - name: Get Results
-        id: test-results
-        run: |
-          # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
-          echo "Querying test results"
-
-          PARSED_RESULTS=$(curl \
-          -H "Authorization: Bearer ${{ github.token }}" \
-          'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r --arg pattern "^${{ matrix.network }} (?<product>.*?) Tests$" '.jobs[]
-          | select(.name | test($pattern)) as $job
-          | $job.steps[]
-          | select(.name == "Run Tests")
-          | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), product: ("*" + ($job.name | capture($pattern).product) + "*") }')
-
-          echo "Parsed Results:"
-          echo $PARSED_RESULTS
-
-          ALL_SUCCESS=true
-          echo "Checking for failures"
-          echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
-          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
-              ALL_SUCCESS=false
-              break
-          done
-          echo "Success: $ALL_SUCCESS"
-
-          echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
-
-          FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[] 
-          | { 
-            conclusion: .conclusion, 
-            product: .product 
-            }
-          ]
-          | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"\(.product): \(.conclusion)\"}}")
-          | join(",")')
-
-          echo "Formatted Results:"
-          echo $FORMATTED_RESULTS
-
-          # Cleans out backslashes and quotes from jq
-          CLEAN_RESULTS=$(echo "$FORMATTED_RESULTS" | sed 's/\\\"/"/g' | sed 's/^"//;s/"$//')
-
-          echo "Clean Results"
-          echo $CLEAN_RESULTS
-
-          echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
-
-      - name: Test Details
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
-          payload: |
-            {
-              "thread_ts": "${{ needs.start-slack-thread.outputs.thread_ts }}",
-              "attachments": [
-                {
-                  "color": "${{ steps.test-results.outputs.all_success == 'true' && '#2E7D32' || '#C62828' }}",
-                  "blocks": [
-                    {
-                      "type": "header",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "${{ matrix.network }} ${{ steps.test-results.outputs.all_success == 'true' && ':white_check_mark:' || ':x:'}}",
-                        "emoji": true
-                      }
-                    },
-                    {
-                      "type": "divider"
-                    },
-                    ${{ steps.test-results.outputs.results }}
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Post Test Results
+        uses: ./.github/actions/notify-slack-jobs-result
+        with:
+          github_token: ${{ github.token }}
+          github_repository: ${{ github.repository }}
+          workflow_run_id: ${{ github.run_id }}
+          github_job_name_regex: ^${{ matrix.network }} (?<cap>.*?) Tests$
+          message_title: ${{ matrix.network }}
+          slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
+          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
+          slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
 
   # End Reporting Jobs
 
@@ -299,8 +204,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -315,16 +218,35 @@ jobs:
     name: Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-sepolia
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "sepolia"
+          httpEndpoints: ${{ secrets.QA_SEPOLIA_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_SEPOLIA_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -340,8 +262,15 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   bsc-testnet-tests:
+    # TODO: BSC RPCs are all in a bad state right now, so we're skipping these tests until they're fixed
+    if: false
     environment: integration
     permissions:
       checks: write
@@ -349,8 +278,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: BSC_TESTNET
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -365,16 +292,35 @@ jobs:
     name: BSC Testnet ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-bsc-testnet
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "bsc_testnet"
+          httpEndpoints: ${{ secrets.QA_BSC_TESTNET_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_BSC_TESTNET_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-bsc-testnet
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -390,56 +336,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
-  optimism-goerli-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: OPTIMISM_GOERLI
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-          - product: Automation Conditional
-            test: TestAutomationBasic/registry_2_1_conditional
-          - product: Automation Log Trigger
-            test: TestAutomationBasic/registry_2_1_logtrigger
-    name: Optimism Goerli ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
-          name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          test_directory: "./"
 
   optimism-sepolia-smoke-tests:
     environment: integration
@@ -449,8 +350,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: OPTIMISM_SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -465,16 +364,35 @@ jobs:
     name: Optimism Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-optimism-sepolia
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "optimism_sepolia"
+          httpEndpoints: ${{ secrets.QA_OPTIMISM_SEPOLIA_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_OPTIMISM_SEPOLIA_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-optimism-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -490,6 +408,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   arbitrum-sepolia-smoke-tests:
     environment: integration
@@ -499,8 +422,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: ARBITRUM_SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -515,16 +436,35 @@ jobs:
     name: Arbitrum Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "arbitrum_sepolia"
+          httpEndpoints: ${{ secrets.QA_ARBITRUM_SEPOLIA_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_ARBITRUM_SEPOLIA_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-arbitrum-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -540,52 +480,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
-  base-goerli-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: BASE_GOERLI
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#example-adding-configurations
-          - product: OCR
-            test: TestOCRBasic
-    name: Base Goerli ${{ matrix.product }} Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
-          name: tests
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-        with:
-          test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
-          binary_name: tests
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          test_directory: "./"
 
   base-sepolia-smoke-tests:
     environment: integration
@@ -595,8 +494,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: BASE_SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -607,16 +504,35 @@ jobs:
     name: Base Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-base-sepolia
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "base_sepolia"
+          httpEndpoints: ${{ secrets.QA_BASE_SEPOLIA_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_BASE_SEPOLIA_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-base-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -632,7 +548,12 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-  
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
+
   polygon-mumbai-smoke-tests:
     environment: integration
     permissions:
@@ -641,8 +562,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: POLYGON_MUMBAI
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -657,16 +576,35 @@ jobs:
     name: Polygon Mumbai ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-polygon-mumbai
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "polygon_mumbai"
+          httpEndpoints: ${{ secrets.QA_POLYGON_MUMBAI_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_POLYGON_MUMBAI_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-polygon-mumbai
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -682,6 +620,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   avalanche-fuji-smoke-tests:
     environment: integration
@@ -691,8 +634,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: AVALANCHE_FUJI
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -707,16 +648,35 @@ jobs:
     name: Avalanche Fuji ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-avalanche-fuji
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "avalanche_fuji"
+          httpEndpoints: ${{ secrets.QA_AVALANCHE_FUJI_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_AVALANCHE_FUJI_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-avalanche-fuji
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -732,6 +692,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   fantom-testnet-smoke-tests:
     environment: integration
@@ -741,8 +706,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: FANTOM_TESTNET
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -757,16 +720,35 @@ jobs:
     name: Fantom Testnet ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-fantom-testnet
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "fantom_testnet"
+          httpEndpoints: ${{ secrets.QA_FANTOM_TESTNET_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_FANTOM_TESTNET_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-fantom-testnet
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -782,6 +764,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   celo-alfajores-smoke-tests:
     environment: integration
@@ -791,8 +778,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: CELO_ALFAJORES
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -803,16 +788,35 @@ jobs:
     name: Celo Alfajores ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-celo-alfajores
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "celo_alfajores"
+          httpEndpoints: ${{ secrets.QA_CELO_ALFAJORES_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_CELO_ALFAJORES_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-celo-alfajores
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -828,8 +832,15 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
+
   scroll-sepolia-smoke-tests:
+    # TODO: Disabled until bug TT-767 is fixed
+    if: false
     environment: integration
     permissions:
       checks: write
@@ -837,8 +848,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: SCROLL_SEPOLIA
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -849,16 +858,35 @@ jobs:
     name: Scroll Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-scroll-sepolia
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "scroll_sepolia"
+          httpEndpoints: ${{ secrets.QA_SCROLL_SEPOLIA_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_SCROLL_SEPOLIA_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-scroll-sepolia
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -874,6 +902,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"
 
   linea-goerli-smoke-tests:
     environment: integration
@@ -883,8 +916,6 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, build-tests]
-    env:
-      SELECTED_NETWORKS: LINEA_GOERLI
     strategy:
       max-parallel: 1
       fail-fast: false
@@ -895,16 +926,35 @@ jobs:
     name: Linea Goerli ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config-live-testnets
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ci-smoke-${{ matrix.product }}-linea-goerli
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          network: "linea_goerli"
+          httpEndpoints: ${{ secrets.QA_LINEA_GOERLI_HTTP_URLS }}
+          wsEndpoints: ${{ secrets.QA_LINEA_GOERLI_URLS }}
+          fundingKeys: ${{ secrets.QA_EVM_KEYS }}
       - name: Download Tests Binary
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
-        env:
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-smoke-${{ matrix.product }}-linea-goerli
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -920,3 +970,8 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
+        with:
+          test_directory: "./"

@@ -67,7 +67,7 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{})
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs c
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ethKeystore)
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{})
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +114,10 @@ func (c *dkgProvider) ChainReader() commontypes.ChainReader {
 	return nil
 }
 
+func (c *dkgProvider) Codec() commontypes.Codec {
+	return nil
+}
+
 type ocr2vrfProvider struct {
 	*configWatcher
 	contractTransmitter ContractTransmitter
@@ -124,6 +128,10 @@ func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 }
 
 func (c *ocr2vrfProvider) ChainReader() commontypes.ChainReader {
+	return nil
+}
+
+func (c *ocr2vrfProvider) Codec() commontypes.Codec {
 	return nil
 }
 

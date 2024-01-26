@@ -7,14 +7,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
@@ -45,34 +46,34 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 	c.Insecure.OCRDevelopmentMode = ptr(true)
 	c.InsecureFastScrypt = ptr(true)
-	c.ShutdownGracePeriod = models.MustNewDuration(testutils.DefaultWaitTimeout)
+	c.ShutdownGracePeriod = commonconfig.MustNewDuration(testutils.DefaultWaitTimeout)
 
 	c.Database.Dialect = dialects.TransactionWrappedPostgres
 	c.Database.Lock.Enabled = ptr(false)
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)
 	c.Database.MigrateOnStartup = ptr(false)
-	c.Database.DefaultLockTimeout = models.MustNewDuration(1 * time.Minute)
+	c.Database.DefaultLockTimeout = commonconfig.MustNewDuration(1 * time.Minute)
 
-	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
+	c.JobPipeline.ReaperInterval = commonconfig.MustNewDuration(0)
 
 	c.P2P.V2.Enabled = ptr(false)
 
-	c.WebServer.SessionTimeout = models.MustNewDuration(2 * time.Minute)
-	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
+	c.WebServer.SessionTimeout = commonconfig.MustNewDuration(2 * time.Minute)
+	c.WebServer.BridgeResponseURL = commonconfig.MustParseURL("http://localhost:6688")
 	testIP := net.ParseIP("127.0.0.1")
 	c.WebServer.ListenIP = &testIP
 	c.WebServer.TLS.ListenIP = &testIP
 
-	chainID := utils.NewBigI(evmclient.NullClientChainID)
+	chainID := big.NewI(evmclient.NullClientChainID)
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
 		Nodes: evmcfg.EVMNodes{
 			&evmcfg.Node{
 				Name:     ptr("test"),
-				WSURL:    &models.URL{},
-				HTTPURL:  &models.URL{},
+				WSURL:    &commonconfig.URL{},
+				HTTPURL:  &commonconfig.URL{},
 				SendOnly: new(bool),
 				Order:    ptr[int32](100),
 			},
@@ -95,7 +96,7 @@ func NewGeneralConfigSimulated(t testing.TB, overrideFn func(*chainlink.Config, 
 // simulated is a config override func that appends the simulated EVM chain (testutils.SimulatedChainID),
 // or replaces the null chain (client.NullClientChainID) if that is the only entry.
 func simulated(c *chainlink.Config, s *chainlink.Secrets) {
-	chainID := utils.NewBig(testutils.SimulatedChainID)
+	chainID := big.New(testutils.SimulatedChainID)
 	enabled := true
 	cfg := evmcfg.EVMConfig{
 		ChainID: chainID,
@@ -103,7 +104,7 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 		Enabled: &enabled,
 		Nodes:   evmcfg.EVMNodes{&validTestNode},
 	}
-	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(utils.NewBigI(client.NullClientChainID)) == 0 {
+	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(big.NewI(client.NullClientChainID)) == 0 {
 		c.EVM[0] = &cfg // replace null, if only entry
 	} else {
 		c.EVM = append(c.EVM, &cfg)
@@ -112,8 +113,8 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 
 var validTestNode = evmcfg.Node{
 	Name:     ptr("simulated-node"),
-	WSURL:    models.MustParseURL("WSS://simulated-wss.com/ws"),
-	HTTPURL:  models.MustParseURL("http://simulated.com"),
+	WSURL:    commonconfig.MustParseURL("WSS://simulated-wss.com/ws"),
+	HTTPURL:  commonconfig.MustParseURL("http://simulated.com"),
 	SendOnly: nil,
 	Order:    ptr(int32(1)),
 }

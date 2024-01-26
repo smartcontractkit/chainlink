@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
@@ -32,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -55,8 +57,8 @@ func NewEIP55Address() ethkey.EIP55Address {
 	return e
 }
 
-func NewPeerID() p2ppeer.ID {
-	id, err := p2ppeer.Decode("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
+func NewPeerID() (id ragep2ptypes.PeerID) {
+	err := id.UnmarshalText([]byte("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw"))
 	if err != nil {
 		panic(err)
 	}
@@ -145,6 +147,18 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 	}
 }
 
+func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, gasPrice *big.Int, data []byte) *types.Transaction {
+	tx := types.LegacyTx{
+		Nonce:    nonce,
+		To:       &to,
+		Value:    value,
+		Gas:      uint64(gasLimit),
+		GasPrice: gasPrice,
+		Data:     data,
+	}
+	return types.NewTx(&tx)
+}
+
 func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
@@ -172,7 +186,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
@@ -212,7 +226,7 @@ func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:        utils.NewHash(),
+		Hash:        evmutils.NewHash(),
 		State:       txmgrtypes.TxAttemptInProgress,
 	}
 }
@@ -230,7 +244,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx:           hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
-		Hash:                  utils.NewHash(),
+		Hash:                  evmutils.NewHash(),
 		State:                 txmgrtypes.TxAttemptInProgress,
 		ChainSpecificFeeLimit: 42,
 	}
@@ -240,12 +254,12 @@ type RandomKey struct {
 	Nonce    int64
 	Disabled bool
 
-	chainIDs []utils.Big // nil: Fixture, set empty for none
+	chainIDs []ubig.Big // nil: Fixture, set empty for none
 }
 
 func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
 	if r.chainIDs == nil {
-		r.chainIDs = []utils.Big{*utils.NewBig(&FixtureChainID)}
+		r.chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
 	}
 
 	key := MustGenerateRandomKey(t)
@@ -272,7 +286,7 @@ func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (eth
 // MustInsertRandomKey inserts a randomly generated (not cryptographically secure) key for testing.
 // By default, it is enabled for the fixture chain. Pass chainIDs to override.
 // Use MustInsertRandomKeyNoChains for a key associate with no chains.
-func MustInsertRandomKey(t testing.TB, keystore keystore.Eth, chainIDs ...utils.Big) (ethkey.KeyV2, common.Address) {
+func MustInsertRandomKey(t testing.TB, keystore keystore.Eth, chainIDs ...ubig.Big) (ethkey.KeyV2, common.Address) {
 	r := RandomKey{}
 	if len(chainIDs) > 0 {
 		r.chainIDs = chainIDs
@@ -281,7 +295,7 @@ func MustInsertRandomKey(t testing.TB, keystore keystore.Eth, chainIDs ...utils.
 }
 
 func MustInsertRandomKeyNoChains(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
-	return RandomKey{chainIDs: []utils.Big{}}.MustInsert(t, keystore)
+	return RandomKey{chainIDs: []ubig.Big{}}.MustInsert(t, keystore)
 }
 
 func MustInsertRandomKeyReturningState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
@@ -299,7 +313,7 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 }
 
 func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
-	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
@@ -347,7 +361,7 @@ NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0,0
 
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
-	drs := &job.DirectRequestSpec{EVMChainID: (*utils.Big)(testutils.FixtureChainID)}
+	drs := &job.DirectRequestSpec{EVMChainID: (*ubig.Big)(testutils.FixtureChainID)}
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
@@ -391,7 +405,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 }
 
 func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
-	key, _ := MustInsertRandomKey(t, ethKeyStore, *utils.NewBig(testutils.SimulatedChainID))
+	key, _ := MustInsertRandomKey(t, ethKeyStore, *ubig.New(testutils.SimulatedChainID))
 	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
@@ -415,7 +429,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, registry keeper.Registry) keeper.UpkeepRegistration {
 	korm := keeper.NewORM(db, logger.TestLogger(t), cfg)
-	upkeepID := utils.NewBigI(int64(mathrand.Uint32()))
+	upkeepID := ubig.NewI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
 		ExecuteGas: uint32(150_000),
@@ -479,23 +493,23 @@ func RandomLog(t *testing.T) types.Log {
 
 	topics := make([]common.Hash, 4)
 	for i := range topics {
-		topics[i] = utils.NewHash()
+		topics[i] = evmutils.NewHash()
 	}
 
 	return types.Log{
 		Address:     testutils.NewAddress(),
-		BlockHash:   utils.NewHash(),
+		BlockHash:   evmutils.NewHash(),
 		BlockNumber: uint64(mathrand.Intn(9999999)),
 		Index:       uint(mathrand.Intn(9999999)),
 		Data:        MustRandomBytes(t, 512),
-		Topics:      []common.Hash{utils.NewHash(), utils.NewHash(), utils.NewHash(), utils.NewHash()},
+		Topics:      []common.Hash{evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash()},
 	}
 }
 
 func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
 	t.Helper()
 	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
-	topics := []common.Hash{topic, utils.NewHash(), utils.NewHash()}
+	topics := []common.Hash{topic, evmutils.NewHash(), evmutils.NewHash()}
 	return RawNewRoundLogWithTopics(t, contractAddr, blockHash, blockNumber, logIndex, removed, topics)
 }
 

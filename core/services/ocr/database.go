@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type db struct {
@@ -161,7 +161,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 }
 
 func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp, p ocrtypes.PendingTransmission) error {
-	median := utils.NewBig(p.Median)
+	median := big.New(p.Median)
 	var rs [][]byte
 	var ss [][]byte
 	// Note: p.Rs and p.Ss are of type [][32]byte.
@@ -207,6 +207,7 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTime
 }
 
 func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission, error) {
+	//nolint sqlclosecheck false positive
 	rows, err := d.q.QueryContext(ctx, `
 SELECT
 	config_digest,
@@ -232,7 +233,7 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 		k := ocrtypes.ReportTimestamp{}
 		p := ocrtypes.PendingTransmission{}
 
-		var median utils.Big
+		var median big.Big
 		var rs [][]byte
 		var ss [][]byte
 		var vs []byte
@@ -317,6 +318,7 @@ LIMIT 1
 	if err != nil {
 		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
+	defer func() { err = multierr.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var configDigest []byte
@@ -336,8 +338,6 @@ LIMIT 1
 	if err = rows.Err(); err != nil {
 		return
 	}
-
-	err = multierr.Combine(err, rows.Close())
 
 	return
 }

@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
@@ -32,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -52,7 +52,7 @@ type ORM interface {
 	FindJobTx(ctx context.Context, id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
-	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (int32, error)
+	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (int32, error)
 	FindOCR2JobIDByAddress(contractID string, feedID *common.Hash, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
@@ -326,14 +326,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				evm_chain_id, from_addresses, poll_period, requested_confs_delay,
 				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled,
 				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay, gas_lane_price,
-                vrf_owner_address,
+                vrf_owner_address, custom_reverts_pipeline_enabled,
 				created_at, updated_at)
 			VALUES (
 				:coordinator_address, :public_key, :min_incoming_confirmations,
 				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay,
 				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
 				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay, :gas_lane_price,
-			    :vrf_owner_address,
+			    :vrf_owner_address, :custom_reverts_pipeline_enabled,
 				NOW(), NOW())
 			RETURNING id;`
 
@@ -440,6 +440,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create GatewaySpec for jobSpec")
 			}
 			jb.GatewaySpecID = &specID
+		case Stream:
+			// 'stream' type has no associated spec, nothing to do here
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -695,7 +697,7 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 
 		return nil
 	})
-	return jobs, int(count), err
+	return jobs, count, err
 }
 
 func LoadDefaultVRFPollPeriod(vrfs VRFSpec) *VRFSpec {
@@ -832,7 +834,7 @@ func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) 
 }
 
 // FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
-func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (jobID int32, err error) {
+func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (jobID int32, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := `

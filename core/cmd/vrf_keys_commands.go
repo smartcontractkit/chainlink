@@ -118,7 +118,7 @@ func (ps VRFKeyPresenters) RenderTable(rt RendererTable) error {
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
 // the vrf password file provided when starting the chainlink node.
 func (s *Shell) CreateVRFKey(_ *cli.Context) error {
-	resp, err := s.HTTP.Post("/v2/keys/vrf", nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/vrf", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -154,7 +154,7 @@ func (s *Shell) ImportVRFKey(c *cli.Context) error {
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := s.HTTP.Post("/v2/keys/vrf/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/vrf/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -195,7 +195,7 @@ func (s *Shell) ExportVRFKey(c *cli.Context) error {
 	}
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := s.HTTP.Post("/v2/keys/vrf/export/"+pk.String()+"?newpassword="+normalizedPassword, nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/vrf/export/"+pk.String()+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
@@ -248,7 +248,7 @@ func (s *Shell) DeleteVRFKey(c *cli.Context) error {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := s.HTTP.Delete(fmt.Sprintf("/v2/keys/vrf/%s%s", id, queryStr))
+	resp, err := s.HTTP.Delete(s.ctx(), fmt.Sprintf("/v2/keys/vrf/%s%s", id, queryStr))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -276,7 +276,7 @@ func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
 
 // ListKeys Lists the keys in the db
 func (s *Shell) ListVRFKeys(_ *cli.Context) error {
-	resp, err := s.HTTP.Get("/v2/keys/vrf", nil)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/vrf", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}

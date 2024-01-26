@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default
+spec:
+  podSelector:
+    matchLabels: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+  {{- if and .Values.networkPolicyDefault.ingress.allowCustomCidrs (not (empty .Values.networkPolicyDefault.ingress.customCidrs)) }}
+  # Using a comma separated list to make it easy to pass in with:
+  # `helm template ... --set networkPolicyDefault.ingress.customCidrs=...`
+  {{- $cidrs := splitList "," .Values.networkPolicyDefault.ingress.customCidrs }}
+    - from:
+      {{- range $cidr := $cidrs }}
+      - ipBlock:
+          cidr: {{ $cidr | quote }}
+      {{- end }}
+  {{- else }}
+    # Deny all ingress if no rules are specified. Rules can still be specified in other templates.
+    - {}
+  {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "{{ $.Release.Namespace }}"
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53

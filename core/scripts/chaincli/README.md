@@ -122,3 +122,5 @@ You can use the `grep` and `grepv` flags to filter log lines, e.g. to only show 
 ```shell
 ./chaincli keeper logs --grep keepers-plugin
 ```
+
+---

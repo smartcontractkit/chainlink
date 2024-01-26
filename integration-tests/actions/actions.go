@@ -4,6 +4,7 @@ package actions
 import (
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -258,10 +259,11 @@ func TeardownSuite(
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
+	grafnaUrlProvider testreporters.GrafanaURLProvider,
 	clients ...blockchain.EVMClient,
 ) error {
 	l := logging.GetTestLogger(t)
-	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel, grafnaUrlProvider); err != nil {
 		return fmt.Errorf("Error dumping environment logs, leaving environment running for manual retrieval, err: %w", err)
 	}
 	// Delete all jobs to stop depleting the funds
@@ -302,11 +304,12 @@ func TeardownRemoteSuite(
 	namespace string,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
+	grafnaUrlProvider testreporters.GrafanaURLProvider,
 	client blockchain.EVMClient,
 ) error {
 	l := logging.GetTestLogger(t)
 	var err error
-	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter); err != nil {
+	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter, grafnaUrlProvider); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
@@ -415,8 +418,8 @@ func UpgradeChainlinkNodeVersions(
 	newImage, newVersion string,
 	nodes ...*client.ChainlinkK8sClient,
 ) error {
-	if newImage == "" && newVersion == "" {
-		return fmt.Errorf("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
+	if newImage == "" || newVersion == "" {
+		return errors.New("New image and new version is needed to upgrade the node")
 	}
 	for _, node := range nodes {
 		if err := node.UpgradeVersion(testEnvironment, newImage, newVersion); err != nil {

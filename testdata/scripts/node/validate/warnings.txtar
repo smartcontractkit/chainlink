@@ -75,8 +75,6 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [AuditLogger]
 Enabled = false
@@ -262,6 +260,9 @@ TLSCertPath = 'something'
 LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
 LatestReportDeadline = '5s'
+
+[Mercury.TLS]
+CertFile = ''
 
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'

@@ -40,8 +40,6 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
@@ -237,6 +235,9 @@ test = 'load'
 LatestReportTTL = '1m40s'
 MaxStaleAge = '1m41s'
 LatestReportDeadline = '1m42s'
+
+[Mercury.TLS]
+CertFile = ''
 
 [[EVM]]
 ChainID = '1'

@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -33,8 +33,8 @@ func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore,
 
 func generateEnabledAddresses(t *testing.T, keyStore keystore.Eth, chainID *big.Int) []common.Address {
 	var enabledAddresses []common.Address
-	_, addr1 := cltest.MustInsertRandomKey(t, keyStore, *utils.NewBigI(chainID.Int64()))
-	_, addr2 := cltest.MustInsertRandomKey(t, keyStore, *utils.NewBigI(chainID.Int64()))
+	_, addr1 := cltest.MustInsertRandomKey(t, keyStore, *ubig.NewI(chainID.Int64()))
+	_, addr2 := cltest.MustInsertRandomKey(t, keyStore, *ubig.NewI(chainID.Int64()))
 	enabledAddresses = append(enabledAddresses, addr1, addr2)
 	return enabledAddresses
 }
@@ -49,6 +49,7 @@ func containsID(txes []*txmgr.Tx, id int64) bool {
 }
 
 func TestEvmTracker_Initialization(t *testing.T) {
+	t.Skip("BCI-2638 tracker disabled")
 	t.Parallel()
 
 	tracker, _, _, _ := newTestEvmTrackerSetup(t)
@@ -65,6 +66,7 @@ func TestEvmTracker_Initialization(t *testing.T) {
 }
 
 func TestEvmTracker_AddressTracking(t *testing.T) {
+	t.Skip("BCI-2638 tracker disabled")
 	t.Parallel()
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
@@ -94,6 +96,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 	})
 
 	t.Run("stop tracking finalized tx", func(t *testing.T) {
+		t.Skip("BCI-2638 tracker disabled")
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
@@ -118,6 +121,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 }
 
 func TestEvmTracker_ExceedingTTL(t *testing.T) {
+	t.Skip("BCI-2638 tracker disabled")
 	t.Parallel()
 
 	t.Run("confirmed but unfinalized transaction still tracked", func(t *testing.T) {

@@ -14,6 +14,7 @@ import (
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -34,7 +35,7 @@ type Core struct {
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
 	RootDir             *string
-	ShutdownGracePeriod *models.Duration
+	ShutdownGracePeriod *commonconfig.Duration
 
 	Feature          Feature          `toml:",omitempty"`
 	Database         Database         `toml:",omitempty"`
@@ -310,9 +311,9 @@ func (f *Feature) setFrom(f2 *Feature) {
 }
 
 type Database struct {
-	DefaultIdleInTxSessionTimeout *models.Duration
-	DefaultLockTimeout            *models.Duration
-	DefaultQueryTimeout           *models.Duration
+	DefaultIdleInTxSessionTimeout *commonconfig.Duration
+	DefaultLockTimeout            *commonconfig.Duration
+	DefaultQueryTimeout           *commonconfig.Duration
 	Dialect                       dialects.DialectName `toml:"-"`
 	LogQueries                    *bool
 	MaxIdleConns                  *int64
@@ -353,9 +354,9 @@ func (d *Database) setFrom(f *Database) {
 }
 
 type DatabaseListener struct {
-	MaxReconnectDuration *models.Duration
-	MinReconnectInterval *models.Duration
-	FallbackPollInterval *models.Duration
+	MaxReconnectDuration *commonconfig.Duration
+	MinReconnectInterval *commonconfig.Duration
+	FallbackPollInterval *commonconfig.Duration
 }
 
 func (d *DatabaseListener) setFrom(f *DatabaseListener) {
@@ -372,8 +373,8 @@ func (d *DatabaseListener) setFrom(f *DatabaseListener) {
 
 type DatabaseLock struct {
 	Enabled              *bool
-	LeaseDuration        *models.Duration
-	LeaseRefreshInterval *models.Duration
+	LeaseDuration        *commonconfig.Duration
+	LeaseRefreshInterval *commonconfig.Duration
 }
 
 func (l *DatabaseLock) Mode() string {
@@ -408,7 +409,7 @@ func (l *DatabaseLock) setFrom(f *DatabaseLock) {
 // Note: url is stored in Secrets.DatabaseBackupURL
 type DatabaseBackup struct {
 	Dir              *string
-	Frequency        *models.Duration
+	Frequency        *commonconfig.Duration
 	Mode             *config.DatabaseBackupMode
 	OnVersionUpgrade *bool
 }
@@ -433,19 +434,16 @@ type TelemetryIngress struct {
 	Logging      *bool
 	BufferSize   *uint16
 	MaxBatchSize *uint16
-	SendInterval *models.Duration
-	SendTimeout  *models.Duration
+	SendInterval *commonconfig.Duration
+	SendTimeout  *commonconfig.Duration
 	UseBatchSend *bool
 	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
-
-	URL          *models.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
-	ServerPubKey *string     `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, this field will be removed in future versions
 }
 
 type TelemetryIngressEndpoint struct {
 	Network      *string
 	ChainID      *string
-	URL          *models.URL
+	URL          *commonconfig.URL
 	ServerPubKey *string
 }
 
@@ -474,31 +472,11 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	if v := f.Endpoints; v != nil {
 		t.Endpoints = v
 	}
-	if v := f.ServerPubKey; v != nil {
-		t.ServerPubKey = v
-	}
-	if v := f.URL; v != nil {
-		t.URL = v
-	}
-}
-
-func (t *TelemetryIngress) ValidateConfig() (err error) {
-	if (!t.URL.IsZero() || *t.ServerPubKey != "") && len(t.Endpoints) > 0 {
-		return configutils.ErrInvalid{Name: "URL", Value: t.URL.String(),
-			Msg: `Cannot set both TelemetryIngress.URL and TelemetryIngress.ServerPubKey alongside TelemetryIngress.Endpoints. Please use only TelemetryIngress.Endpoints:
-			[[TelemetryIngress.Endpoints]]
-			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
-			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
-			URL = '...'
-			ServerPubKey = '...'`}
-	}
-
-	return nil
 }
 
 type AuditLogger struct {
 	Enabled        *bool
-	ForwardToUrl   *models.URL
+	ForwardToUrl   *commonconfig.URL
 	JsonWrapperKey *string
 	Headers        *[]models.ServiceHeader
 }
@@ -597,15 +575,15 @@ func (l *LogFile) setFrom(f *LogFile) {
 type WebServer struct {
 	AuthenticationMethod    *string
 	AllowOrigins            *string
-	BridgeResponseURL       *models.URL
-	BridgeCacheTTL          *models.Duration
-	HTTPWriteTimeout        *models.Duration
+	BridgeResponseURL       *commonconfig.URL
+	BridgeCacheTTL          *commonconfig.Duration
+	HTTPWriteTimeout        *commonconfig.Duration
 	HTTPPort                *uint16
 	SecureCookies           *bool
-	SessionTimeout          *models.Duration
-	SessionReaperExpiration *models.Duration
+	SessionTimeout          *commonconfig.Duration
+	SessionReaperExpiration *commonconfig.Duration
 	HTTPMaxSize             *utils.FileSize
-	StartTimeout            *models.Duration
+	StartTimeout            *commonconfig.Duration
 	ListenIP                *net.IP
 
 	LDAP      WebServerLDAP      `toml:",omitempty"`
@@ -708,9 +686,9 @@ func (w *WebServerMFA) setFrom(f *WebServerMFA) {
 
 type WebServerRateLimit struct {
 	Authenticated         *int64
-	AuthenticatedPeriod   *models.Duration
+	AuthenticatedPeriod   *commonconfig.Duration
 	Unauthenticated       *int64
-	UnauthenticatedPeriod *models.Duration
+	UnauthenticatedPeriod *commonconfig.Duration
 }
 
 func (w *WebServerRateLimit) setFrom(f *WebServerRateLimit) {
@@ -760,8 +738,8 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 
 type WebServerLDAP struct {
 	ServerTLS                   *bool
-	SessionTimeout              *models.Duration
-	QueryTimeout                *models.Duration
+	SessionTimeout              *commonconfig.Duration
+	QueryTimeout                *commonconfig.Duration
 	BaseUserAttr                *string
 	BaseDN                      *string
 	UsersDN                     *string
@@ -773,9 +751,9 @@ type WebServerLDAP struct {
 	RunUserGroupCN              *string
 	ReadUserGroupCN             *string
 	UserApiTokenEnabled         *bool
-	UserAPITokenDuration        *models.Duration
-	UpstreamSyncInterval        *models.Duration
-	UpstreamSyncRateLimit       *models.Duration
+	UserAPITokenDuration        *commonconfig.Duration
+	UpstreamSyncInterval        *commonconfig.Duration
+	UpstreamSyncRateLimit       *commonconfig.Duration
 }
 
 func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
@@ -864,10 +842,10 @@ func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
 
 type JobPipeline struct {
 	ExternalInitiatorsEnabled *bool
-	MaxRunDuration            *models.Duration
+	MaxRunDuration            *commonconfig.Duration
 	MaxSuccessfulRuns         *uint64
-	ReaperInterval            *models.Duration
-	ReaperThreshold           *models.Duration
+	ReaperInterval            *commonconfig.Duration
+	ReaperThreshold           *commonconfig.Duration
 	ResultWriteQueueDepth     *uint32
 
 	HTTPRequest JobPipelineHTTPRequest `toml:",omitempty"`
@@ -897,7 +875,7 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 }
 
 type JobPipelineHTTPRequest struct {
-	DefaultTimeout *models.Duration
+	DefaultTimeout *commonconfig.Duration
 	MaxSize        *utils.FileSize
 }
 
@@ -927,11 +905,11 @@ func (m *FluxMonitor) setFrom(f *FluxMonitor) {
 type OCR2 struct {
 	Enabled                            *bool
 	ContractConfirmations              *uint32
-	BlockchainTimeout                  *models.Duration
-	ContractPollInterval               *models.Duration
-	ContractSubscribeInterval          *models.Duration
-	ContractTransmitterTransmitTimeout *models.Duration
-	DatabaseTimeout                    *models.Duration
+	BlockchainTimeout                  *commonconfig.Duration
+	ContractPollInterval               *commonconfig.Duration
+	ContractSubscribeInterval          *commonconfig.Duration
+	ContractTransmitterTransmitTimeout *commonconfig.Duration
+	DatabaseTimeout                    *commonconfig.Duration
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
 	CaptureAutomationCustomTelemetry   *bool
@@ -984,10 +962,10 @@ func (o *OCR2) setFrom(f *OCR2) {
 
 type OCR struct {
 	Enabled                      *bool
-	ObservationTimeout           *models.Duration
-	BlockchainTimeout            *models.Duration
-	ContractPollInterval         *models.Duration
-	ContractSubscribeInterval    *models.Duration
+	ObservationTimeout           *commonconfig.Duration
+	BlockchainTimeout            *commonconfig.Duration
+	ContractPollInterval         *commonconfig.Duration
+	ContractSubscribeInterval    *commonconfig.Duration
 	DefaultTransactionQueueDepth *uint32
 	// Optional
 	KeyBundleID          *models.Sha256Hash
@@ -1063,8 +1041,8 @@ type P2PV2 struct {
 	Enabled              *bool
 	AnnounceAddresses    *[]string
 	DefaultBootstrappers *[]ocrcommontypes.BootstrapperLocator
-	DeltaDial            *models.Duration
-	DeltaReconcile       *models.Duration
+	DeltaDial            *commonconfig.Duration
+	DeltaReconcile       *commonconfig.Duration
 	ListenAddresses      *[]string
 }
 
@@ -1128,7 +1106,7 @@ type KeeperRegistry struct {
 	CheckGasOverhead    *uint32
 	PerformGasOverhead  *uint32
 	MaxPerformDataSize  *uint32
-	SyncInterval        *models.Duration
+	SyncInterval        *commonconfig.Duration
 	SyncUpkeepQueueSize *uint32
 }
 
@@ -1153,9 +1131,9 @@ func (k *KeeperRegistry) setFrom(f *KeeperRegistry) {
 type AutoPprof struct {
 	Enabled              *bool
 	ProfileRoot          *string
-	PollInterval         *models.Duration
-	GatherDuration       *models.Duration
-	GatherTraceDuration  *models.Duration
+	PollInterval         *commonconfig.Duration
+	GatherDuration       *commonconfig.Duration
+	GatherTraceDuration  *commonconfig.Duration
 	MaxProfileSize       *utils.FileSize
 	CPUProfileRate       *int64 // runtime.SetCPUProfileRate
 	MemProfileRate       *int64 // runtime.MemProfileRate
@@ -1287,9 +1265,9 @@ func (ins *Insecure) setFrom(f *Insecure) {
 }
 
 type MercuryCache struct {
-	LatestReportTTL      *models.Duration
-	MaxStaleAge          *models.Duration
-	LatestReportDeadline *models.Duration
+	LatestReportTTL      *commonconfig.Duration
+	MaxStaleAge          *commonconfig.Duration
+	LatestReportDeadline *commonconfig.Duration
 }
 
 func (mc *MercuryCache) setFrom(f *MercuryCache) {
@@ -1304,12 +1282,37 @@ func (mc *MercuryCache) setFrom(f *MercuryCache) {
 	}
 }
 
+type MercuryTLS struct {
+	CertFile *string
+}
+
+func (m *MercuryTLS) setFrom(f *MercuryTLS) {
+	if v := f.CertFile; v != nil {
+		m.CertFile = v
+	}
+}
+
+func (m *MercuryTLS) ValidateConfig() (err error) {
+	if *m.CertFile != "" {
+		if !isValidFilePath(*m.CertFile) {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "CertFile", Value: *m.CertFile, Msg: "must be a valid file path"})
+		}
+	}
+	return
+}
+
 type Mercury struct {
 	Cache MercuryCache `toml:",omitempty"`
+	TLS   MercuryTLS   `toml:",omitempty"`
 }
 
 func (m *Mercury) setFrom(f *Mercury) {
 	m.Cache.setFrom(&f.Cache)
+	m.TLS.setFrom(&f.TLS)
+}
+
+func (m *Mercury) ValidateConfig() (err error) {
+	return m.TLS.ValidateConfig()
 }
 
 type MercuryCredentials struct {

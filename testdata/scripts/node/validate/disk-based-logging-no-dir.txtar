@@ -96,8 +96,6 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [AuditLogger]
 Enabled = false
@@ -283,6 +281,9 @@ TLSCertPath = ''
 LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
 LatestReportDeadline = '5s'
+
+[Mercury.TLS]
+CertFile = ''
 
 [[EVM]]
 ChainID = '1'

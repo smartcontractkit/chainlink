@@ -26,9 +26,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) client.Client {
@@ -417,7 +417,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	t.Parallel()
 
-	tx := types.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
@@ -449,7 +449,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Parallel()
 
-	tx := types.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		switch method {
@@ -494,7 +494,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
-	tx := types.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	t.Run("returns Fatal error type when error message is fatal", func(t *testing.T) {
 		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {

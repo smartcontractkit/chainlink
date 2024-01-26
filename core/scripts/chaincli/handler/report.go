@@ -85,24 +85,26 @@ func OCR2AutomationReports(hdlr *baseHandler, txs []string) error {
 	}
 
 	txRes, txErr, err = getSimulationsForTxs(hdlr, simBatch)
+	if err != nil {
+		return err
+	}
 	for i := range txRes {
 		if txErr[i] == nil {
 			continue
 		}
 
-		err, ok := txErr[i].(JsonError)
+		err2, ok := txErr[i].(JsonError) //nolint:errorlint
 		if ok {
-			decoded, err := hexutil.Decode(err.ErrorData().(string))
+			decoded, err := hexutil.Decode(err2.ErrorData().(string))
 			if err != nil {
 				elements[i].Err = err.Error()
 				continue
 			}
 
 			elements[i].Err = ocr2Txs[i].DecodeError(decoded)
-		} else if err != nil {
-			elements[i].Err = err.Error()
+		} else if err2 != nil {
+			elements[i].Err = err2.Error()
 		}
-
 	}
 
 	data := make([][]string, len(elements))
@@ -235,15 +237,12 @@ func (t *OCR2Transaction) BlockNumber() (uint64, error) {
 			block, err := hexutil.DecodeUint64(blStr)
 			if err != nil {
 				return 0, fmt.Errorf("failed to parse block number: %s", err)
-			} else {
-				return block, nil
 			}
-		} else {
-			return 0, fmt.Errorf("not a string")
+			return block, nil
 		}
-	} else {
-		return 0, fmt.Errorf("not found")
+		return 0, fmt.Errorf("not a string")
 	}
+	return 0, fmt.Errorf("not found")
 }
 
 func (t *OCR2Transaction) To() *common.Address {
@@ -278,7 +277,7 @@ func (t *OCR2Transaction) DecodeError(b []byte) string {
 		}
 	}
 
-	return fmt.Sprintf("%s", j)
+	return j
 }
 
 func NewOCR2TransmitTx(raw map[string]interface{}) (*OCR2TransmitTx, error) {
@@ -335,17 +334,15 @@ func (t *OCR2TransmitTx) SetStaticValues(elem *OCR2ReportDataElem) {
 	if err != nil {
 		elem.Err = err.Error()
 		return
-	} else {
-		elem.From = from.String()
 	}
+	elem.From = from.String()
 
 	block, err := t.BlockNumber()
 	if err != nil {
 		elem.Err = err.Error()
 		return
-	} else {
-		elem.BlockNumber = fmt.Sprintf("%d", block)
 	}
+	elem.BlockNumber = fmt.Sprintf("%d", block)
 
 	upkeeps, err := t.UpkeepsInTransmit()
 	if err != nil {

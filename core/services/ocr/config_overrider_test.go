@@ -14,9 +14,10 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
@@ -72,7 +73,7 @@ func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
 		Run(checkFlagsAddress(t, uni.contractAddress)).
 		Return([]bool{true, true}, nil)
 
-	require.NoError(t, uni.overrider.Start(testutils.Context(t)))
+	servicetest.Run(t, uni.overrider)
 
 	// not hibernating initially
 	require.Nil(t, uni.overrider.ConfigOverride())
@@ -102,7 +103,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 			Run(checkFlagsAddress(t, uni.contractAddress)).
 			Return([]bool{true, true}, nil)
 
-		require.NoError(t, uni.overrider.Start(testutils.Context(t)))
+		servicetest.Run(t, uni.overrider)
 
 		// not hibernating initially
 		require.Nil(t, uni.overrider.ConfigOverride())
@@ -130,7 +131,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 			Run(checkFlagsAddress(t, uni.contractAddress)).
 			Return([]bool{true, false}, nil)
 
-		require.NoError(t, uni.overrider.Start(testutils.Context(t)))
+		servicetest.Run(t, uni.overrider)
 
 		// initially enters hibernation
 		expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
@@ -187,7 +188,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 func checkFlagsAddress(t *testing.T, contractAddress ethkey.EIP55Address) func(args mock.Arguments) {
 	return func(args mock.Arguments) {
 		require.Equal(t, []common.Address{
-			utils.ZeroAddress,
+			evmutils.ZeroAddress,
 			contractAddress.Address(),
 		}, args.Get(1).([]common.Address))
 	}

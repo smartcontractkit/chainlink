@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -17,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
@@ -25,8 +26,8 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 
-	peerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
-	require.NoError(t, err)
+	var peerID ragep2ptypes.PeerID
+	require.NoError(t, peerID.UnmarshalText([]byte(configtest.DefaultPeerID)))
 
 	t.Run("with no p2p keys returns error", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -52,9 +53,8 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		})
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 
-		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
+		servicetest.Run(t, pw)
 		require.Equal(t, k.PeerID(), pw.PeerID)
-		require.NoError(t, pw.Close())
 	})
 
 	t.Run("with one p2p key and mismatching P2P.PeerID returns error", func(t *testing.T) {
@@ -89,9 +89,8 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 
-		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
+		servicetest.Run(t, pw)
 		require.Equal(t, k2.PeerID(), pw.PeerID)
-		require.NoError(t, pw.Close())
 	})
 
 	t.Run("with multiple p2p keys and mismatching P2P.PeerID returns error", func(t *testing.T) {
@@ -124,8 +123,8 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	cfg = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.PeerID = ptr(k.PeerID())
-		c.P2P.V2.DeltaDial = models.MustNewDuration(100 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(1 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(1 * time.Second)
 
 		p2paddresses := []string{
 			"127.0.0.1:17193",

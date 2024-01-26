@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +21,7 @@ func TestInMemoryORM(t *testing.T) {
 	signature := testutils.Random32Byte()
 	expiration := time.Now().Add(time.Minute).UnixMilli()
 	row := &s4.Row{
-		Address:    utils.NewBig(address.Big()),
+		Address:    big.New(address.Big()),
 		SlotId:     slotId,
 		Payload:    payload[:],
 		Version:    3,
@@ -33,7 +33,7 @@ func TestInMemoryORM(t *testing.T) {
 	orm := s4.NewInMemoryORM()
 
 	t.Run("row not found", func(t *testing.T) {
-		_, err := orm.Get(utils.NewBig(address.Big()), slotId)
+		_, err := orm.Get(big.New(address.Big()), slotId)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
@@ -41,7 +41,7 @@ func TestInMemoryORM(t *testing.T) {
 		err := orm.Update(row)
 		assert.NoError(t, err)
 
-		e, err := orm.Get(utils.NewBig(address.Big()), slotId)
+		e, err := orm.Get(big.New(address.Big()), slotId)
 		assert.NoError(t, err)
 		assert.Equal(t, row, e)
 	})
@@ -59,7 +59,7 @@ func TestInMemoryORM(t *testing.T) {
 		err = orm.Update(row)
 		assert.NoError(t, err)
 
-		e, err := orm.Get(utils.NewBig(address.Big()), slotId)
+		e, err := orm.Get(big.New(address.Big()), slotId)
 		assert.NoError(t, err)
 		assert.Equal(t, row, e)
 	})
@@ -76,7 +76,7 @@ func TestInMemoryORM_DeleteExpired(t *testing.T) {
 		thisAddress[0] = byte(i)
 
 		row := &s4.Row{
-			Address:    utils.NewBig(thisAddress.Big()),
+			Address:    big.New(thisAddress.Big()),
 			SlotId:     1,
 			Payload:    []byte{},
 			Version:    1,
@@ -109,7 +109,7 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 		thisAddress[0] = byte(i)
 
 		row := &s4.Row{
-			Address:    utils.NewBig(thisAddress.Big()),
+			Address:    big.New(thisAddress.Big()),
 			SlotId:     1,
 			Payload:    []byte{},
 			Version:    1,
@@ -139,7 +139,7 @@ func TestInMemoryORM_GetSnapshot(t *testing.T) {
 		thisAddress[0] = byte(i)
 
 		row := &s4.Row{
-			Address:    utils.NewBig(thisAddress.Big()),
+			Address:    big.New(thisAddress.Big()),
 			SlotId:     1,
 			Payload:    []byte{},
 			Version:    uint64(i),

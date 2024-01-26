@@ -8,12 +8,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -53,7 +53,7 @@ type Resender[
 	interval            time.Duration
 	config              txmgrtypes.ResenderChainConfig
 	txConfig            txmgrtypes.ResenderTransactionsConfig
-	logger              logger.Logger
+	logger              logger.SugaredLogger
 	lastAlertTimestamps map[string]time.Time
 
 	ctx    context.Context
@@ -93,7 +93,7 @@ func NewResender[
 		pollInterval,
 		config,
 		txConfig,
-		logger.Named(lggr, "Resender"),
+		logger.Sugared(logger.Named(lggr, "Resender")),
 		make(map[string]time.Time),
 		ctx,
 		cancel,
@@ -140,7 +140,8 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnco
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
 	}
 
-	resendAddresses = append(resendAddresses, er.tracker.GetAbandonedAddresses()...)
+	// Tracker currently disabled for BCI-2638; refactor required
+	// resendAddresses = append(resendAddresses, er.tracker.GetAbandonedAddresses()...)
 
 	ageThreshold := er.txConfig.ResendAfterThreshold()
 	maxInFlightTransactions := er.txConfig.MaxInFlight()

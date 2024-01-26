@@ -14,11 +14,13 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -27,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const bridgeResponse = `{
@@ -45,6 +46,7 @@ const bridgeResponse = `{
 var trrs = pipeline.TaskRunResults{
 	pipeline.TaskRunResult{
 		Task: &pipeline.BridgeTask{
+			Name:     "test-bridge-1",
 			BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
 		},
 		Result: pipeline.Result{
@@ -61,6 +63,7 @@ var trrs = pipeline.TaskRunResults{
 	},
 	pipeline.TaskRunResult{
 		Task: &pipeline.BridgeTask{
+			Name:     "test-bridge-2",
 			BaseTask: pipeline.NewBaseTask(0, "ds2", nil, nil, 0),
 		},
 		Result: pipeline.Result{
@@ -77,6 +80,7 @@ var trrs = pipeline.TaskRunResults{
 	},
 	pipeline.TaskRunResult{
 		Task: &pipeline.BridgeTask{
+			Name:     "test-bridge-3",
 			BaseTask: pipeline.NewBaseTask(0, "ds3", nil, nil, 0),
 		},
 		Result: pipeline.Result{
@@ -147,7 +151,7 @@ func TestGetChainID(t *testing.T) {
 	}
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
-	j.OCROracleSpec.EVMChainID = (*utils.Big)(big.NewInt(1234567890))
+	j.OCROracleSpec.EVMChainID = (*ubig.Big)(big.NewInt(1234567890))
 	assert.Equal(t, "1234567890", e.getChainID())
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
@@ -206,14 +210,14 @@ func TestSendEATelemetry(t *testing.T) {
 		OCROracleSpec: &job.OCROracleSpec{
 			ContractAddress:    ethkey.EIP55AddressFromAddress(feedAddress),
 			CaptureEATelemetry: true,
-			EVMChainID:         (*utils.Big)(big.NewInt(9)),
+			EVMChainID:         (*ubig.Big)(big.NewInt(9)),
 		},
 	}
 
 	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
 	doneCh := make(chan struct{})
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry Mercury"))
-	require.NoError(t, enhancedTelemService.Start(testutils.Context(t)))
+	servicetest.Run(t, enhancedTelemService)
 	trrs := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
@@ -324,7 +328,7 @@ func TestCollectAndSend(t *testing.T) {
 	doneCh := make(chan struct{})
 
 	enhancedTelemService := NewEnhancedTelemetryService(&jb, enhancedTelemChan, doneCh, monitoringEndpoint, lggr.Named("Enhanced Telemetry"))
-	require.NoError(t, enhancedTelemService.Start(testutils.Context(t)))
+	servicetest.Run(t, enhancedTelemService)
 	finalResult := &pipeline.FinalResult{
 		Values:      []interface{}{"123456"},
 		AllErrors:   nil,
@@ -389,6 +393,7 @@ func TestCollectAndSend(t *testing.T) {
 var trrsMercuryV1 = pipeline.TaskRunResults{
 	pipeline.TaskRunResult{
 		Task: &pipeline.BridgeTask{
+			Name:        "link-usd-test-bridge-v1",
 			BaseTask:    pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
 			RequestData: `{"data":{"to":"LINK","from":"USD"}}`,
 		},
@@ -425,6 +430,7 @@ var trrsMercuryV1 = pipeline.TaskRunResults{
 var trrsMercuryV2 = pipeline.TaskRunResults{
 	pipeline.TaskRunResult{
 		Task: &pipeline.BridgeTask{
+			Name:        "link-usd-test-bridge-v2",
 			BaseTask:    pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
 			RequestData: `{"data":{"to":"LINK","from":"USD"}}`,
 		},
@@ -476,6 +482,7 @@ func TestGetPricesFromResults(t *testing.T) {
 	trrs2 := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-1",
 				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
 			},
 			Result: pipeline.Result{
@@ -574,7 +581,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 		lggr:               lggr,
 		monitoringEndpoint: monitoringEndpoint,
 	}
-	require.NoError(t, e.Start(testutils.Context(t)))
+	servicetest.Run(t, &e)
 
 	wg.Add(1)
 
@@ -629,6 +636,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: pipeline.TaskRunResults{
 			pipeline.TaskRunResult{Task: &pipeline.BridgeTask{
+				Name:     "test-mercury-bridge-1",
 				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
 			},
 				Result: pipeline.Result{
@@ -656,7 +664,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 
 	wg.Wait()
 	require.Equal(t, 2, logs.Len())
-	require.Contains(t, logs.All()[0].Message, "cannot get bridge response from bridge task")
+	require.Contains(t, logs.All()[0].Message, `cannot get bridge response from bridge task, job=0, id=ds1, name="test-mercury-bridge-1"`)
 	require.Contains(t, logs.All()[1].Message, "cannot parse EA telemetry")
 	chDone <- struct{}{}
 }
@@ -690,7 +698,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 		lggr:               lggr,
 		monitoringEndpoint: monitoringEndpoint,
 	}
-	require.NoError(t, e.Start(testutils.Context(t)))
+	servicetest.Run(t, &e)
 
 	wg.Add(1)
 
@@ -743,6 +751,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: pipeline.TaskRunResults{
 			pipeline.TaskRunResult{Task: &pipeline.BridgeTask{
+				Name:     "test-mercury-bridge-2",
 				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
 			},
 				Result: pipeline.Result{

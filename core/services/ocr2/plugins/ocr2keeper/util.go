@@ -3,6 +3,10 @@ package ocr2keeper
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+
 	"github.com/jmoiron/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -11,20 +15,16 @@ import (
 	ocr2keepers20coordinator "github.com/smartcontractkit/chainlink-automation/pkg/v2/coordinator"
 	ocr2keepers20polling "github.com/smartcontractkit/chainlink-automation/pkg/v2/observer/polling"
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
-	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	ocr2keepers21 "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	evmregistry20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20"
 	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	evmregistry21transmit "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type Encoder20 interface {
@@ -43,9 +43,9 @@ var (
 	ErrNoChainFromSpec = fmt.Errorf("could not create chain from spec")
 )
 
-func EVMProvider(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, error) {
+func EVMProvider(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keystore.Eth, dbCfg pg.QConfig) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
-	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, pr, spec, lggr.Named("OCR2KeeperRelayer"))
+	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(db, chain, lggr.Named("OCR2KeeperRelayer"), ethKeystore, dbCfg)
 
 	keeperProvider, err := ocr2keeperRelayer.NewOCR2KeeperProvider(
 		types.RelayArgs{
@@ -71,7 +71,8 @@ func EVMDependencies20(
 	db *sqlx.DB,
 	lggr logger.Logger,
 	chain legacyevm.Chain,
-	pr pipeline.Runner,
+	ethKeystore keystore.Eth,
+	dbCfg pg.QConfig,
 ) (evmrelay.OCR2KeeperProvider, *evmregistry20.EvmRegistry, Encoder20, *evmregistry20.LogProvider, error) {
 	var err error
 
@@ -79,7 +80,7 @@ func EVMDependencies20(
 	var registry *evmregistry20.EvmRegistry
 
 	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
+	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, ethKeystore, dbCfg); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
@@ -108,31 +109,9 @@ func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error)
 }
 
 func EVMDependencies21(
-	spec job.Job,
-	db *sqlx.DB,
-	lggr logger.Logger,
-	chain legacyevm.Chain,
-	pr pipeline.Runner,
-	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
-	dbCfg pg.QConfig,
-) (evmrelay.OCR2KeeperProvider, evmregistry21.AutomationServices, error) {
-	var err error
-	var keeperProvider evmrelay.OCR2KeeperProvider
-
-	oSpec := spec.OCR2OracleSpec
-	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
-		return nil, nil, err
-	}
-
-	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	services, err := evmregistry21.New(rAddr, chain, mc, keyring, lggr, db, dbCfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return keeperProvider, services, err
+) (evmregistry21.AutomationServices, error) {
+	return evmregistry21.New(keyring)
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
