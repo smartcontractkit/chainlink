@@ -59,7 +59,7 @@ func Test_Stream(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	runner := &mockRunner{}
 	spec := pipeline.Spec{}
-	id := StreamID("stream-id-foo")
+	id := StreamID(123)
 	ctx := testutils.Context(t)
 
 	t.Run("Run", func(t *testing.T) {
