@@ -8,7 +8,6 @@ import {AutomationRegistryLogicB2_2} from "./AutomationRegistryLogicB2_2.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
-import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
