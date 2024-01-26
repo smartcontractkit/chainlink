@@ -1,4 +1,4 @@
-package v1_3_0
+package v1_4_0
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 )
 
-func TestHasherV1_3_0(t *testing.T) {
+func TestHasherV1_4_0(t *testing.T) {
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
 	onRampABI := abihelpers.MustParseABI(evm_2_evm_onramp.EVM2EVMOnRampABI)
