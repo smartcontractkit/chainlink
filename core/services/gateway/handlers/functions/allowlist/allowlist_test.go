@@ -50,6 +50,9 @@ func TestAllowlist_UpdateAndCheck(t *testing.T) {
 	}
 
 	orm := amocks.NewORM(t)
+	orm.On("PurgeAllowedSenders").Times(1).Return(nil)
+	orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
+
 	allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -99,7 +102,9 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 	}
 
 	orm := amocks.NewORM(t)
+	orm.On("PurgeAllowedSenders").Times(1).Return(nil)
 	orm.On("GetAllowedSenders", uint(0), uint(1000)).Return([]common.Address{}, nil)
+	orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
 
 	allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -114,6 +119,7 @@ func TestAllowlist_UpdatePeriodically(t *testing.T) {
 		return allowlist.Allow(common.HexToAddress(addr1)) && !allowlist.Allow(common.HexToAddress(addr3))
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
+
 func TestAllowlist_UpdateFromContract(t *testing.T) {
 	t.Parallel()
 
@@ -151,7 +157,7 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 	})
 
-	t.Run("OK-fetch_complete_list_of_allowed_senders_without_storing", func(t *testing.T) {
+	t.Run("OK-fetch_complete_list_of_allowed_senders", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
 		client := mocks.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
@@ -171,6 +177,9 @@ func TestAllowlist_UpdateFromContract(t *testing.T) {
 		}
 
 		orm := amocks.NewORM(t)
+		orm.On("PurgeAllowedSenders").Times(1).Return(nil)
+		orm.On("CreateAllowedSenders", []common.Address{common.HexToAddress(addr1), common.HexToAddress(addr2)}).Times(1).Return(nil)
+
 		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.TestLogger(t))
 		require.NoError(t, err)
 

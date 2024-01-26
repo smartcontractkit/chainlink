@@ -219,6 +219,17 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		if err != nil {
 			return errors.Wrap(err, "error calling GetAllAllowedSenders")
 		}
+
+		err = a.orm.PurgeAllowedSenders()
+		if err != nil {
+			a.lggr.Errorf("failed to purge allowedSenderList: %w", err)
+		}
+
+		err = a.orm.CreateAllowedSenders(allowedSenderList)
+		if err != nil {
+			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+		}
+
 	} else {
 		err = a.syncBlockedSenders(ctx, tosContract, blockNum)
 		if err != nil {
