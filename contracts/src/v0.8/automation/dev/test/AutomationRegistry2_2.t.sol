@@ -8,7 +8,7 @@ import {AutomationRegistryBase2_2} from "../v2_2/AutomationRegistryBase2_2.sol";
 import {AutomationRegistryLogicA2_2} from "../v2_2/AutomationRegistryLogicA2_2.sol";
 import {AutomationRegistryLogicB2_2} from "../v2_2/AutomationRegistryLogicB2_2.sol";
 import {IAutomationRegistryMaster} from "../interfaces/v2_2/IAutomationRegistryMaster.sol";
-import {AutomationCompatibleInterface} from "../../interfaces/AutomationCompatibleInterface.sol";
+import {ChainModuleBase} from "../chains/ChainModuleBase.sol";
 
 contract AutomationRegistry2_2_SetUp is BaseTest {
   address internal constant LINK_ETH_FEED = 0x1111111111111111111111111111111111111110;
@@ -29,6 +29,8 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
   address[] internal s_valid_transmitters;
   address[] internal s_registrars;
 
+  IAutomationRegistryMaster internal registryMaster;
+
   function setUp() public override {
     s_valid_transmitters = new address[](4);
     for (uint160 i = 0; i < 4; ++i) {
@@ -43,12 +45,9 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
 
     s_registrars = new address[](1);
     s_registrars[0] = 0x3a0eDE26aa188BFE00b9A0C9A431A1a0CA5f7966;
-  }
 
-  function deployRegistry2_2(AutomationRegistryBase2_2.Mode mode) public returns (IAutomationRegistryMaster) {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
     AutomationRegistryLogicB2_2 logicB2_2 = new AutomationRegistryLogicB2_2(
-      mode,
       LINK_TOKEN,
       LINK_ETH_FEED,
       FAST_GAS_FEED,
@@ -56,19 +55,15 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
       ZERO_ADDRESS
     );
     AutomationRegistryLogicA2_2 logicA2_2 = new AutomationRegistryLogicA2_2(logicB2_2);
-    IAutomationRegistryMaster registry2_2 = IAutomationRegistryMaster(
+    registryMaster = IAutomationRegistryMaster(
       address(new AutomationRegistry2_2(AutomationRegistryLogicB2_2(address(logicA2_2))))
     );
-    return registry2_2;
   }
 }
 
 contract AutomationRegistry2_2_LatestConfigDetails is AutomationRegistry2_2_SetUp {
   function testGet() public {
-    IAutomationRegistryMaster registry = IAutomationRegistryMaster(
-      address(deployRegistry2_2(AutomationRegistryBase2_2.Mode(0)))
-    );
-    (uint32 configCount, uint32 blockNumber, bytes32 configDigest) = registry.latestConfigDetails();
+    (uint32 configCount, uint32 blockNumber, bytes32 configDigest) = registryMaster.latestConfigDetails();
     assertEq(configCount, 0);
     assertEq(blockNumber, 0);
     assertEq(configDigest, "");
@@ -105,11 +100,9 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
   );
 
   function testSetConfigSuccess() public {
-    IAutomationRegistryMaster registry = IAutomationRegistryMaster(
-      address(deployRegistry2_2(AutomationRegistryBase2_2.Mode(0)))
-    );
-    (uint32 configCount, , ) = registry.latestConfigDetails();
+    (uint32 configCount, , ) = registryMaster.latestConfigDetails();
     assertEq(configCount, 0);
+    ChainModuleBase module = new ChainModuleBase();
 
     AutomationRegistryBase2_2.OnchainConfig memory cfg = AutomationRegistryBase2_2.OnchainConfig({
       paymentPremiumPPB: 10_000,
@@ -127,6 +120,7 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
       registrars: s_registrars,
       upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      chainModule: module,
       reorgProtectionEnabled: true
     });
     bytes memory onchainConfigBytes = abi.encode(cfg);
@@ -136,7 +130,7 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
     bytes memory offchainConfigBytes = abi.encode(a, b);
     bytes32 configDigest = _configDigestFromConfigData(
       block.chainid,
-      address(registry),
+      address(registryMaster),
       ++configCount,
       s_valid_signers,
       s_valid_transmitters,
@@ -159,7 +153,7 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
       offchainConfigBytes
     );
 
-    registry.setConfig(
+    registryMaster.setConfig(
       s_valid_signers,
       s_valid_transmitters,
       F,
@@ -168,7 +162,7 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
       offchainConfigBytes
     );
 
-    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registryMaster.getState();
 
     assertEq(signers, s_valid_signers);
     assertEq(transmitters, s_valid_transmitters);
