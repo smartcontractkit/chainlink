@@ -62,24 +62,24 @@ before_hook() {
   local -r wasmvm_lib_path_darwin_amd64=$(_get_wasmvm_lib_path "darwin" "amd64")
   local -r wasmvm_lib_path_darwin_arm64=$(_get_wasmvm_lib_path "darwin" "arm64")
 
-  _install_plugins
+  # _install_plugins
 
   mkdir -p "$lib_path/linux_amd64/libs"
   cp -f "$wasmvm_lib_path_linux_amd64" "$lib_path/linux_amd64/libs"
-  cp -f "$go_path/bin/chainlink-feeds" "$lib_path/linux_amd64/chainlink-feeds"
-  cp -f "$go_path/bin/chainlink-solana" "$lib_path/linux_amd64/chainlink-solana"
+  # cp -f "$go_path/bin/chainlink-feeds" "$lib_path/linux_amd64/chainlink-feeds"
+  # cp -f "$go_path/bin/chainlink-solana" "$lib_path/linux_amd64/chainlink-solana"
   mkdir -p "$lib_path/linux_arm64/libs"
   cp -f "$wasmvm_lib_path_linux_arm64" "$lib_path/linux_arm64/libs"
-  cp -f "$go_path/bin/chainlink-feeds" "$lib_path/linux_arm64/chainlink-feeds"
-  cp -f "$go_path/bin/chainlink-solana" "$lib_path/linux_arm64/chainlink-solana"
+  # cp -f "$go_path/bin/chainlink-feeds" "$lib_path/linux_arm64/chainlink-feeds"
+  # cp -f "$go_path/bin/chainlink-solana" "$lib_path/linux_arm64/chainlink-solana"
   mkdir -p "$lib_path/darwin_amd64/libs"
   cp -f "$wasmvm_lib_path_darwin_amd64" "$lib_path/darwin_amd64/libs"
-  cp -f "$go_path/bin/chainlink-feeds" "$lib_path/darwin_amd64/chainlink-feeds"
-  cp -f "$go_path/bin/chainlink-solana" "$lib_path/darwin_amd64/chainlink-solana"
+  # cp -f "$go_path/bin/chainlink-feeds" "$lib_path/darwin_amd64/chainlink-feeds"
+  # cp -f "$go_path/bin/chainlink-solana" "$lib_path/darwin_amd64/chainlink-solana"
   mkdir -p "$lib_path/darwin_arm64/libs"
   cp -f "$wasmvm_lib_path_darwin_arm64" "$lib_path/darwin_arm64/libs"
-  cp -f "$go_path/bin/chainlink-feeds" "$lib_path/darwin_arm64/chainlink-feeds"
-  cp -f "$go_path/bin/chainlink-solana" "$lib_path/darwin_arm64/chainlink-solana"
+  # cp -f "$go_path/bin/chainlink-feeds" "$lib_path/darwin_arm64/chainlink-feeds"
+  # cp -f "$go_path/bin/chainlink-solana" "$lib_path/darwin_arm64/chainlink-solana"
 }
 
 # binary build post hook
@@ -93,8 +93,8 @@ build_post_hook() {
   local -r wasmvm_lib_path=$(_get_wasmvm_lib_path "$platform" "$arch")
   mkdir -p "$lib_path"
   cp "$wasmvm_lib_path" "$lib_path"
-  cp "tmp/${platform}_${arch}/chainlink-feeds" "$dist_path"
-  cp "tmp/${platform}_${arch}/chainlink-solana" "$dist_path"
+  # cp "tmp/${platform}_${arch}/chainlink-feeds" "$dist_path"
+  # cp "tmp/${platform}_${arch}/chainlink-solana" "$dist_path"
 }
 
 "$@"

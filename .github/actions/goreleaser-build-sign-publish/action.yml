@@ -11,8 +11,7 @@ inputs:
     required: false
   cosign-version:
     description: The cosign version
-    default: v1.13.1
-    # TODO update to v2.2.2
+    default: v2.2.2
     required: false
   macos-sdk-dir:
     description: The macos sdk directory

@@ -10,6 +10,7 @@ env:
 
 before:
   hooks:
+    - go mod tidy
     - ./tools/bin/goreleaser_utils before_hook
 
 # See https://goreleaser.com/customization/build/
@@ -30,6 +31,7 @@ builds:
       - -trimpath
       - -buildmode=pie
     ldflags:
+      - -s -w -r=$ORIGIN/libs
       - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
       - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
@@ -49,6 +51,7 @@ builds:
       - -trimpath
       - -buildmode=pie
     ldflags:
+      - -s -w -r=$ORIGIN/libs
       - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
       - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
