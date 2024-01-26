@@ -178,7 +178,7 @@ func SetCoordinatorConfig(
 }
 
 func RegisterCoordinatorProvingKey(e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, oracleAddress string, gasLaneMaxGas uint64) {
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
 	pk, err := crypto.UnmarshalPubkey(pubBytes)

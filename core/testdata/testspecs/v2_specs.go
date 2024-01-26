@@ -830,7 +830,8 @@ storeBlockhashesBatchSize = %d
 }
 
 type StreamSpecParams struct {
-	Name string
+	Name     string
+	StreamID uint64
 }
 
 type StreamSpec struct {
@@ -848,6 +849,7 @@ func GenerateStreamSpec(params StreamSpecParams) StreamSpec {
 type = "stream"
 schemaVersion = 1
 name = "%s"
+streamID = %d
 observationSource = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];
@@ -856,6 +858,6 @@ ds -> ds_parse -> ds_multiply;
 """
 `
 
-	toml := fmt.Sprintf(template, params.Name)
+	toml := fmt.Sprintf(template, params.Name, params.StreamID)
 	return StreamSpec{StreamSpecParams: params, toml: toml}
 }

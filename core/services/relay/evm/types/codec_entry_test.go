@@ -36,8 +36,10 @@ func TestCodecEntry(t *testing.T) {
 		require.NoError(t, entry.Init())
 		checked := reflect.New(entry.CheckedType())
 		iChecked := reflect.Indirect(checked)
-		iChecked.FieldByName("Field1").Set(reflect.ValueOf(uint16(2)))
-		iChecked.FieldByName("Field2").Set(reflect.ValueOf("any string"))
+		f1 := uint16(2)
+		iChecked.FieldByName("Field1").Set(reflect.ValueOf(&f1))
+		f2 := "any string"
+		iChecked.FieldByName("Field2").Set(reflect.ValueOf(&f2))
 
 		f3 := big.NewInt( /*2^24 - 1*/ 16777215)
 		setAndVerifyLimit(t, (*uint24)(f3), f3, iChecked.FieldByName("Field3"))
@@ -72,8 +74,11 @@ func TestCodecEntry(t *testing.T) {
 
 		checked := reflect.New(entry.CheckedType())
 		iChecked := reflect.Indirect(checked)
-		iChecked.FieldByName("Field1").Set(reflect.ValueOf(uint16(2)))
+		f1 := uint16(2)
+		iChecked.FieldByName("Field1").Set(reflect.ValueOf(&f1))
 		f2 := iChecked.FieldByName("Field2")
+		f2.Set(reflect.New(f2.Type().Elem()))
+		f2 = reflect.Indirect(f2)
 		f3 := big.NewInt( /*2^24 - 1*/ 16777215)
 		setAndVerifyLimit(t, (*uint24)(f3), f3, f2.FieldByName("Field3"))
 		f4 := big.NewInt( /*2^23 - 1*/ 8388607)
@@ -83,7 +88,7 @@ func TestCodecEntry(t *testing.T) {
 		require.NoError(t, err)
 		iNative := reflect.Indirect(native)
 		require.Equal(t, iNative.Field(0).Interface(), iChecked.Field(0).Interface())
-		nF2 := iNative.Field(1)
+		nF2 := reflect.Indirect(iNative.Field(1))
 		assert.Equal(t, nF2.Field(0).Interface(), f3)
 		assert.Equal(t, nF2.Field(1).Interface(), f4)
 		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
@@ -100,11 +105,11 @@ func TestCodecEntry(t *testing.T) {
 		checked := reflect.New(entry.CheckedType())
 		iChecked := reflect.Indirect(checked)
 		anyValue := int16(2)
-		iChecked.FieldByName("Field1").Set(reflect.ValueOf(anyValue))
+		iChecked.FieldByName("Field1").Set(reflect.ValueOf(&anyValue))
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
 		iNative := reflect.Indirect(native)
-		assert.Equal(t, anyValue, iNative.FieldByName("Field1").Interface())
+		assert.Equal(t, &anyValue, iNative.FieldByName("Field1").Interface())
 		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
 	})
 
@@ -116,7 +121,7 @@ func TestCodecEntry(t *testing.T) {
 		require.NoError(t, entry.Init())
 		checked := reflect.New(entry.CheckedType())
 		iChecked := reflect.Indirect(checked)
-		anySliceValue := []int16{2, 3}
+		anySliceValue := &[]int16{2, 3}
 		iChecked.FieldByName("Field1").Set(reflect.ValueOf(anySliceValue))
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
@@ -132,7 +137,7 @@ func TestCodecEntry(t *testing.T) {
 		require.NoError(t, entry.Init())
 		checked := reflect.New(entry.CheckedType())
 		iChecked := reflect.Indirect(checked)
-		anySliceValue := [3]int16{2, 3, 30}
+		anySliceValue := &[3]int16{2, 3, 30}
 		iChecked.FieldByName("Field1").Set(reflect.ValueOf(anySliceValue))
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
@@ -157,7 +162,7 @@ func TestCodecEntry(t *testing.T) {
 
 		checked := reflect.New(entry.CheckedType())
 		iChecked := reflect.Indirect(checked)
-		anyAddr := common.Address{1, 2, 3}
+		anyAddr := &common.Address{1, 2, 3}
 		iChecked.FieldByName("Foo").Set(reflect.ValueOf(anyAddr))
 
 		native, err := entry.ToNative(checked)
@@ -188,7 +193,7 @@ func TestCodecEntry(t *testing.T) {
 		require.NoError(t, entry.Init())
 		checkedField, ok := entry.CheckedType().FieldByName("Name")
 		require.True(t, ok)
-		assert.Equal(t, reflect.TypeOf(int16(0)), checkedField.Type)
+		assert.Equal(t, reflect.TypeOf((*int16)(nil)), checkedField.Type)
 		native, err := entry.ToNative(reflect.New(entry.CheckedType()))
 		require.NoError(t, err)
 		iNative := reflect.Indirect(native)
@@ -202,7 +207,7 @@ func TestCodecEntry(t *testing.T) {
 		require.NoError(t, entry.Init())
 		nativeField, ok := entry.CheckedType().FieldByName("Name")
 		require.True(t, ok)
-		assert.Equal(t, reflect.TypeOf(common.Hash{}), nativeField.Type)
+		assert.Equal(t, reflect.TypeOf(&common.Hash{}), nativeField.Type)
 		native, err := entry.ToNative(reflect.New(entry.CheckedType()))
 		require.NoError(t, err)
 		assertHaveSameStructureAndNames(t, native.Type().Elem(), entry.CheckedType())
