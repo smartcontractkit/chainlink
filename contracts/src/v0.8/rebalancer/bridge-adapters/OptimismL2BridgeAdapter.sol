@@ -24,24 +24,38 @@ contract OptimismL2BridgeAdapter is IBridgeAdapter {
     i_wrappedNative = wrappedNative;
   }
 
-  function sendERC20(address, address l2Token, address recipient, uint256 amount) external payable {
+  /// @inheritdoc IBridgeAdapter
+  function sendERC20(
+    address localToken,
+    address /* remoteToken */,
+    address recipient,
+    uint256 amount
+  ) external payable override returns (bytes memory) {
     if (msg.value != 0) {
       revert MsgShouldNotContainValue(msg.value);
     }
 
-    IERC20(l2Token).safeTransferFrom(msg.sender, address(this), amount);
+    IERC20(localToken).safeTransferFrom(msg.sender, address(this), amount);
 
     // If the token is the wrapped native, we unwrap it and deposit native
-    if (l2Token == address(i_wrappedNative)) {
+    if (localToken == address(i_wrappedNative)) {
       i_wrappedNative.withdraw(amount);
       _depositNativeToL1(recipient, amount);
-      return;
+      return "";
     }
 
     // Token is normal ERC20
-    IERC20(l2Token).approve(address(i_L2Bridge), amount);
-    i_L2Bridge.withdrawTo(l2Token, recipient, amount, 0, abi.encode(s_nonce++));
+    IERC20(localToken).approve(address(i_L2Bridge), amount);
+    i_L2Bridge.withdrawTo(localToken, recipient, amount, 0, abi.encode(s_nonce++));
+    return "";
   }
+
+  /// @notice No-op since L1 -> L2 transfers do not need finalization.
+  function finalizeWithdrawERC20(
+    address /* remoteSender */,
+    address /* localReceiver */,
+    bytes calldata /* bridgeSpecificPayload */
+  ) external override {}
 
   /// @notice There are no fees to bridge back to L1
   function getBridgeFeeInNative() external pure returns (uint256) {

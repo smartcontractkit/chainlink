@@ -35,16 +35,30 @@ contract ArbitrumL2BridgeAdapter is IBridgeAdapter {
     i_l2GatewayRouter = l2GatewayRouter;
   }
 
-  function sendERC20(address l1Token, address l2Token, address recipient, uint256 amount) external payable {
+  /// @inheritdoc IBridgeAdapter
+  function sendERC20(
+    address localToken,
+    address remoteToken,
+    address recipient,
+    uint256 amount
+  ) external payable override returns (bytes memory) {
     if (msg.value != 0) {
       revert MsgShouldNotContainValue(msg.value);
     }
 
-    IERC20(l2Token).safeTransferFrom(msg.sender, address(this), amount);
+    IERC20(localToken).safeTransferFrom(msg.sender, address(this), amount);
 
     // No approval needed, the bridge will burn the tokens from this contract.
-    i_l2GatewayRouter.outboundTransfer(l1Token, recipient, amount, bytes(""));
+    // TODO: return data bombs?
+    return i_l2GatewayRouter.outboundTransfer(remoteToken, recipient, amount, bytes(""));
   }
+
+  /// @notice No-op since L1 -> L2 transfers do not need finalization.
+  function finalizeWithdrawERC20(
+    address /* remoteSender */,
+    address /* localReceiver */,
+    bytes calldata /* bridgeSpecificPayload */
+  ) external {}
 
   /// @notice There are no fees to bridge back to L1
   function getBridgeFeeInNative() external pure returns (uint256) {

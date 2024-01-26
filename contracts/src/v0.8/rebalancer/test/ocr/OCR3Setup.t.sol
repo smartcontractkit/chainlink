@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {RebalancerBaseTest} from "../RebalancerBaseTest.sol";
+import {RebalancerBaseTest} from "../RebalancerBaseTest.t.sol";
 
 contract OCR3Setup is RebalancerBaseTest {
   // Signer private keys used for these test
