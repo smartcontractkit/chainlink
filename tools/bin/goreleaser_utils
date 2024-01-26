@@ -50,7 +50,6 @@ before_hook() {
   local -r wasmvm_lib_path_linux_arm64=$(_get_wasmvm_lib_path "linux" "arm64")
   local -r wasmvm_lib_path_darwin_amd64=$(_get_wasmvm_lib_path "darwin" "amd64")
   local -r wasmvm_lib_path_darwin_arm64=$(_get_wasmvm_lib_path "darwin" "arm64")
-
   mkdir -p "$lib_path/linux_amd64/libs"
   cp -f "$wasmvm_lib_path_linux_amd64" "$lib_path/linux_amd64/libs"
   mkdir -p "$lib_path/linux_arm64/libs"
