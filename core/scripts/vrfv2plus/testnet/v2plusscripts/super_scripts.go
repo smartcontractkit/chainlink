@@ -519,7 +519,6 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	nodesMap := make(map[string]model.Node)
 
-	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 	nodesMap[model.VRFPrimaryNodeName] = model.Node{
 		SendingKeys:             util.MapToSendingKeyArr(vrfPrimaryNodeSendingKeys),
 		SendingKeyFundingAmount: fundingAmount,
