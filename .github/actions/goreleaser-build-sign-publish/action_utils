@@ -71,8 +71,13 @@ goreleaser_release() {
     rm -rf cosign.key
   fi
 
+  delimiter="$(openssl rand -hex 8)"
+  echo "metadata<<${delimiter}" >> "$GITHUB_OUTPUT"
   echo "metadata=$(cat dist/metadata.json)" >> "$GITHUB_OUTPUT"
+  echo "${delimiter}" >> "$GITHUB_OUTPUT"
+  echo "artifacts<<${delimiter}" >> "$GITHUB_OUTPUT"
   echo "artifacts=$(cat dist/artifacts.json)" >> "$GITHUB_OUTPUT"
+  echo "${delimiter}" >> "$GITHUB_OUTPUT"
 }
 
 "$@"
