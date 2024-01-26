@@ -33,7 +33,7 @@ type TxmClient[
 		ctx context.Context,
 		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	) (txReceipt []R, txErr []error, err error)
-	BatchGetReceiptsWithFinalizedBlock(ctx context.Context,
+	BatchGetReceiptsWithFinalizedHeight(ctx context.Context,
 		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		useFinalityTag bool, finalityDepth uint32) (
 		finalizedBlock *big.Int, txReceipt []R, txErr []error, funcErr error)

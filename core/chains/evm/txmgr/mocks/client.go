@@ -19,7 +19,7 @@ func NewEvmTxmClient(t testing.TB) *EvmTxmClient {
 }
 
 func NewEvmTxmClientWithDefaultChain(t testing.TB) *EvmTxmClient {
-	c := txmgrtypesmocks.NewTxmClient[*big.Int, gethCommon.Address, gethCommon.Hash, gethCommon.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee](t)
+	c := NewEvmTxmClient(t)
 	c.On("ConfiguredChainID").Return(testutils.FixtureChainID).Maybe()
 	c.On("IsL2").Return(false).Maybe()
 	return c

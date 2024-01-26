@@ -67,12 +67,12 @@ func (_m *TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) BatchGetR
 	return r0, r1, r2
 }
 
-// BatchGetReceiptsWithFinalizedBlock provides a mock function with given fields: ctx, attempts, useFinalityTag, finalityDepth
-func (_m *TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) BatchGetReceiptsWithFinalizedBlock(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], useFinalityTag bool, finalityDepth uint32) (*big.Int, []R, []error, error) {
+// BatchGetReceiptsWithFinalizedHeight provides a mock function with given fields: ctx, attempts, useFinalityTag, finalityDepth
+func (_m *TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) BatchGetReceiptsWithFinalizedHeight(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], useFinalityTag bool, finalityDepth uint32) (*big.Int, []R, []error, error) {
 	ret := _m.Called(ctx, attempts, useFinalityTag, finalityDepth)
 
 	if len(ret) == 0 {
-		panic("no return value specified for BatchGetReceiptsWithFinalizedBlock")
+		panic("no return value specified for BatchGetReceiptsWithFinalizedHeight")
 	}
 
 	var r0 *big.Int

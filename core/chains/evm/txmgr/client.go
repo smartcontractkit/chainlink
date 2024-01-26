@@ -150,6 +150,8 @@ func newGetBatchReceiptsReq(attempts []TxAttempt) (reqs []rpc.BatchElem, txRecei
 	return reqs, txReceipts, txErrs
 }
 
+// FinalizedBlockHash - returns hash and block number of latest finalized block.
+// Must not be called on chains that do not support finality tag.
 func (c *evmTxmClient) FinalizedBlockHash(ctx context.Context) (common.Hash, *big.Int, error) {
 	head, err := c.client.FinalizedBlock(ctx)
 	if err != nil || head == nil {
@@ -159,12 +161,14 @@ func (c *evmTxmClient) FinalizedBlockHash(ctx context.Context) (common.Hash, *bi
 	return head.Hash, big.NewInt(head.BlockNumber()), nil
 }
 
-// TODO: test me
-func (c *evmTxmClient) BatchGetReceiptsWithFinalizedBlock(ctx context.Context, attempts []TxAttempt, useFinalityTag bool, finalityDepth uint32) (
-	finalizedBlock *big.Int, txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
+// BatchGetReceiptsWithFinalizedHeight - returns most recently finalized block and receipts for the attempts.
+// If finality tag is enabled - uses corresponding RPC request to get finalizaed block.
+// Otherwise calculates it based on finalityDepth and latest block number.
+func (c *evmTxmClient) BatchGetReceiptsWithFinalizedHeight(ctx context.Context, attempts []TxAttempt, useFinalityTag bool, finalityDepth uint32) (
+	finalizedBlock *big.Int, receipts []*evmtypes.Receipt, receiptErrs []error, funcErr error) {
 
 	var reqs []rpc.BatchElem
-	reqs, txReceipt, txErr = newGetBatchReceiptsReq(attempts)
+	reqs, receipts, receiptErrs = newGetBatchReceiptsReq(attempts)
 
 	blockNumber := rpc.LatestBlockNumber
 	if useFinalityTag {
@@ -180,22 +184,22 @@ func (c *evmTxmClient) BatchGetReceiptsWithFinalizedBlock(ctx context.Context, a
 	reqs = append(reqs, blockRequest)
 
 	if err := c.client.BatchCallContext(ctx, reqs); err != nil {
-		return nil, nil, nil, fmt.Errorf("BatchGetReceiptsWithFinalizedBlock error fetching receipts with BatchCallContext: %w", err)
+		return nil, nil, nil, fmt.Errorf("BatchGetReceiptsWithFinalizedHeight error fetching receipts with BatchCallContext: %w", err)
 	}
 
 	if blockRequest.Error != nil {
 		return nil, nil, nil, fmt.Errorf("failed to fetch finalized block with BatchCallContext: %w", blockRequest.Error)
 	}
 
-	for i := range txErr {
-		txErr[i] = reqs[i].Error
+	for i := range receiptErrs {
+		receiptErrs[i] = reqs[i].Error
 	}
 
 	finalizedBlock = big.NewInt(head.BlockNumber() - int64(finalityDepth))
 	if useFinalityTag {
 		finalizedBlock = big.NewInt(head.BlockNumber())
 	}
-	return finalizedBlock, txReceipt, txErr, nil
+	return finalizedBlock, receipts, receiptErrs, nil
 }
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address

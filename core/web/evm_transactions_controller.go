@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -22,8 +23,16 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 	txs, count, err := tc.App.TxmStorageService().TransactionsWithAttempts(offset, size)
 	ptxs := make([]presenters.EthTxResource, len(txs))
 	for i, tx := range txs {
-		tx.TxAttempts[0].Tx = tx
-		ptxs[i] = presenters.NewEthTxResourceFromAttempt(tx.TxAttempts[0])
+		attempt := tx.TxAttempts[0]
+		// prefer finalized attempt to any other
+		for _, at := range tx.TxAttempts {
+			if at.State == txmgrtypes.TxAttemptFinalized {
+				attempt = at
+				break
+			}
+		}
+		attempt.Tx = tx
+		ptxs[i] = presenters.NewEthTxResourceFromAttempt(attempt)
 	}
 	paginatedResponse(c, "transactions", size, page, ptxs, count, err)
 }

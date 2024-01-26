@@ -961,27 +961,29 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 		ec.nConsecutiveBlocksChainTooShort = 0
 	}
 
-	missingTxs, err := ec.markFinalizedUsingLocalChain(ctx, head, ec.chainConfig.RPCDefaultBatchSize())
+	// fetch all confirmed transactions.
+	confirmedTxs, err := ec.txStore.FindConfirmedTransactions(ctx, ec.chainID)
+	if err != nil {
+		return fmt.Errorf("FindConfirmedTransactions failed: %w", err)
+	}
+
+	// find transactions that are not present in the local chain
+	missingTxs, err := ec.markFinalizedWithLocalChain(ctx, head, confirmedTxs, ec.chainConfig.RPCDefaultBatchSize())
 	if err != nil {
 		return fmt.Errorf("failed to find tx missing from the local chain: %w", err)
 	}
 
-	// Tx might be missing from the chain because it was included into block that is deeper than HistoryDepth.
-	// Mark finalized txes and returns IDs of transactions whose ID's we failed to find
-	missingTxIDs, err := ec.fetchAndSaveFinalizedReceipts(ctx, missingTxs)
+	// find transactions that were re-orged out of the chain and we no longer can find their receipts
+	missingTxs, err = ec.markFinalizedWithRPCReceipts(ctx, missingTxs)
 	if err != nil {
 		return err
 	}
 
+	// mark all missing tx for rebroadcast
 	for _, tx := range missingTxs {
-		if _, ok := missingTxIDs[tx.ID]; !ok {
-			continue
-		}
-
 		if err := ec.markForRebroadcast(*tx, head); err != nil {
 			return fmt.Errorf("markForRebroadcast failed for tx %v: %w", tx.ID, err)
 		}
-
 	}
 
 	// It is safe to process separate keys concurrently
@@ -1007,25 +1009,28 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	return multierr.Combine(errs...)
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markFinalizedUsingLocalChain(ctx context.Context,
-	head types.Head[BLOCK_HASH], batchSize uint32) (
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markFinalizedWithLocalChain(ctx context.Context,
+	head types.Head[BLOCK_HASH], confirmedTxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], batchSize uint32) (
 	[]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	// fetch all confirmed transactions.
-	confirmedTxs, err := ec.txStore.FindConfirmedTransactions(ctx, ec.chainID)
-	if err != nil {
-		return nil, fmt.Errorf("FindConfirmedTransactions failed: %w", err)
+	if len(confirmedTxs) == 0 {
+		return nil, nil
 	}
 
-	finalizedBHead, err := ec.findFinalizedHeadInChain(ctx, head)
+	finalizedHead, err := ec.findFinalizedHeadInChain(ctx, head)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find finalized block in chain: %w", err)
+	}
+
+	if finalizedHead != nil {
+		ec.lggr.With("block_num", finalizedHead.BlockNumber(), "hash", finalizedHead.BlockHash()).
+			Debug("found finalized block in headTracker's chain - using it to find finalized txs")
 	}
 
 	txsMissingInChain := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], 0, len(confirmedTxs))
 	finalizedAttempts := make([]int64, 0, batchSize)
 	for _, tx := range confirmedTxs {
 		// transaction is finalized
-		if finalizedAttempt := findAttemptWithReceiptInChain(*tx, finalizedBHead); finalizedAttempt != nil {
+		if finalizedAttempt := findAttemptWithReceiptInChain(*tx, finalizedHead); finalizedAttempt != nil {
 			finalizedAttempts = append(finalizedAttempts, finalizedAttempt.ID)
 
 			if uint32(len(finalizedAttempts)) >= batchSize {
@@ -1061,22 +1066,22 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 	return txsMissingInChain, nil
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchAndSaveFinalizedReceipts(
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markFinalizedWithRPCReceipts(
 	ctx context.Context,
 	txs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-) (map[int64]struct{}, error) {
+) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 
-	missingTxs := make(map[int64]struct{}, len(txs))
+	missingTxIDs := make(map[int64]struct{}, len(txs))
 
 	attemptsBatch := make([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		0, ec.chainConfig.RPCDefaultBatchSize())
 	for _, tx := range txs {
-		missingTxs[tx.ID] = struct{}{}
+		missingTxIDs[tx.ID] = struct{}{}
 		for _, attempt := range tx.TxAttempts {
 			attemptsBatch = append(attemptsBatch, attempt)
 			// save one for block fetching
 			if uint32(len(attemptsBatch)+1) >= ec.chainConfig.RPCDefaultBatchSize() {
-				err := ec.fetchAndSaveFinalizedReceiptsBatch(ctx, attemptsBatch, missingTxs)
+				err := ec.markFinalizedWithRPCReceiptsBatch(ctx, attemptsBatch, missingTxIDs)
 				if err != nil {
 					return nil, fmt.Errorf("failed to mark txs finalized: %w", err)
 				}
@@ -1086,22 +1091,29 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fet
 	}
 
 	if len(attemptsBatch) > 0 {
-		err := ec.fetchAndSaveFinalizedReceiptsBatch(ctx, attemptsBatch, missingTxs)
+		err := ec.markFinalizedWithRPCReceiptsBatch(ctx, attemptsBatch, missingTxIDs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to mark txs finalized: %w", err)
+		}
+	}
+
+	missingTxs := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], 0, len(missingTxIDs))
+	for _, tx := range txs {
+		if _, ok := missingTxIDs[tx.ID]; ok {
+			missingTxs = append(missingTxs, tx)
 		}
 	}
 
 	return missingTxs, nil
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchAndSaveFinalizedReceiptsBatch(
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markFinalizedWithRPCReceiptsBatch(
 	ctx context.Context,
 	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	missingTxs map[int64]struct{},
 ) error {
 
-	rpcFinalizedBlock, receipts, txErrs, err := ec.client.BatchGetReceiptsWithFinalizedBlock(ctx, attempts,
+	rpcFinalizedHeight, receipts, txErrs, err := ec.client.BatchGetReceiptsWithFinalizedHeight(ctx, attempts,
 		ec.chainConfig.FinalityTagEnabled(), ec.chainConfig.FinalityDepth())
 	if err != nil {
 		return err
@@ -1127,13 +1139,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fet
 		}
 
 		delete(missingTxs, attempt.TxID)
-		if receipt.GetBlockNumber().Cmp(rpcFinalizedBlock) >= 0 {
-			l.With("rpc_finalized_block", rpcFinalizedBlock).Debug("attempt is not finalized")
+		if receipt.GetBlockNumber().Cmp(rpcFinalizedHeight) > 0 {
+			l.With("rpc_finalized_height", rpcFinalizedHeight).Debug("attempt is not finalized")
 			continue
 		}
 
 		finalizedReceipts = append(finalizedReceipts, receipts[i])
-		missingTxs[attempts[i].TxID] = struct{}{}
 	}
 
 	err = ec.txStore.SaveFinalizedReceipts(ctx, finalizedReceipts, ec.chainID)

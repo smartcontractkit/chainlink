@@ -2625,15 +2625,17 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	generalCfg := configtest.NewGeneralConfig(t, func(config *chainlink.Config, _ *chainlink.Secrets) {
+		config.EVM[0].FinalityDepth = ptr(uint32(2))
+	})
+	txStore := cltest.NewTestTxStore(t, db, generalCfg.Database())
 
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, generalCfg.Database()).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	config := newTestChainScopedConfig(t)
-	ec := newEthConfirmer(t, txStore, evmtest.NewEthClientMockWithDefaultChain(t), config, ethKeyStore, nil)
+	evmCfg := evmtest.NewChainScopedConfig(t, generalCfg)
+	ec := newEthConfirmer(t, txStore, evmtest.NewEthClientMockWithDefaultChain(t), evmCfg, ethKeyStore, nil)
 
 	ethClient := txmgrmocks.NewEvmTxmClientWithDefaultChain(t)
 	ec.XXXTestSetClient(ethClient)
@@ -2692,6 +2694,39 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 	})
+	t.Run("does nothing to confirmed transactions with receipts older than head height of the chain that are present in RPC response", func(t *testing.T) {
+		// clean up before running the test
+		require.NoError(t, txStore.DeleteAll(testutils.Context(t)))
+
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
+		// Add receipt that is older than the lowest block of the chain
+		receipt := mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, utils.NewHash(), etx.TxAttempts[0].Hash)
+
+		ethClient.On("BatchGetReceiptsWithFinalizedHeight", mock.Anything, mock.Anything,
+			evmCfg.EVM().FinalityTagEnabled(), evmCfg.EVM().FinalityDepth(),
+		).Return(big.NewInt(0), []*evmtypes.Receipt{&receipt.Receipt}, []error{nil}, nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+
+		etx, err := txStore.FindTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxConfirmed, etx.State)
+	})
+	t.Run("marks finalized confirmed transactions with receipts within head height of the chain and included in the finalized block", func(t *testing.T) {
+		// clean up before running the test
+		require.NoError(t, txStore.DeleteAll(testutils.Context(t)))
+
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
+		_ = mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number, head.Parent.Parent.Hash, etx.TxAttempts[0].Hash)
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+
+		etx, err := txStore.FindTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxFinalized, etx.State)
+	})
 
 	assertRebroadcastedTx := func(t *testing.T, etx txmgr.Tx) {
 		etx, err := txStore.FindTxWithAttempts(etx.ID)
@@ -2710,8 +2745,8 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Add receipt that is older than the lowest block of the chain
 		mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, utils.NewHash(), etx.TxAttempts[0].Hash)
 
-		ethClient.On("BatchGetReceiptsWithFinalizedBlock", mock.Anything, mock.Anything,
-			config.EVM().FinalityTagEnabled(), config.EVM().FinalityDepth(),
+		ethClient.On("BatchGetReceiptsWithFinalizedHeight", mock.Anything, mock.Anything,
+			evmCfg.EVM().FinalityTagEnabled(), evmCfg.EVM().FinalityDepth(),
 		).Return(big.NewInt(0), []*evmtypes.Receipt{nil}, []error{nil}, nil).Once()
 
 		attempt := etx.TxAttempts[0]
@@ -2728,7 +2763,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		assertRebroadcastedTx(t, etx)
 	})
 
-	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of the local chain but not included in the chain", func(t *testing.T) {
+	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of the local chain but not included in the HeadTracker's chain or have RPC receipts", func(t *testing.T) {
 		// clean up before running the test
 		require.NoError(t, txStore.DeleteAll(testutils.Context(t)))
 
@@ -2737,8 +2772,8 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Include one within head height but a different block hash
 		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt.Hash)
 
-		ethClient.On("BatchGetReceiptsWithFinalizedBlock", mock.Anything, mock.Anything,
-			config.EVM().FinalityTagEnabled(), config.EVM().FinalityDepth(),
+		ethClient.On("BatchGetReceiptsWithFinalizedHeight", mock.Anything, mock.Anything,
+			evmCfg.EVM().FinalityTagEnabled(), evmCfg.EVM().FinalityDepth(),
 		).Return(big.NewInt(0), []*evmtypes.Receipt{nil}, []error{nil}, nil).Once()
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -2767,8 +2802,8 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attemptHash)
 
 		// none of the receipts are found
-		ethClient.On("BatchGetReceiptsWithFinalizedBlock", mock.Anything, mock.Anything,
-			config.EVM().FinalityTagEnabled(), config.EVM().FinalityDepth(),
+		ethClient.On("BatchGetReceiptsWithFinalizedHeight", mock.Anything, mock.Anything,
+			evmCfg.EVM().FinalityTagEnabled(), evmCfg.EVM().FinalityDepth(),
 		).Return(big.NewInt(0), []*evmtypes.Receipt{nil}, []error{nil}, nil).Once()
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -2806,8 +2841,8 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt3.Hash)
 
 		// none of the receipts are found
-		ethClient.On("BatchGetReceiptsWithFinalizedBlock", mock.Anything, mock.Anything,
-			config.EVM().FinalityTagEnabled(), config.EVM().FinalityDepth(),
+		ethClient.On("BatchGetReceiptsWithFinalizedHeight", mock.Anything, mock.Anything,
+			evmCfg.EVM().FinalityTagEnabled(), evmCfg.EVM().FinalityDepth(),
 		).Return(big.NewInt(0), []*evmtypes.Receipt{nil, nil, nil}, []error{nil, nil, nil}, nil).Once()
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -2850,6 +2885,26 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		attempt = etx.TxAttempts[0]
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		assert.Len(t, attempt.Receipts, 1)
+	})
+	t.Run("mark finalized confirmed transactions with receipts older than head height of the chain but present in finalized block received from the RPC", func(t *testing.T) {
+		// clean up before running the test
+		require.NoError(t, txStore.DeleteAll(testutils.Context(t)))
+
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
+		// Add receipt that is older than the lowest block of the chain
+		finalizedBlock := head.Parent.Parent.Number - 3
+		receipt := mustInsertEthReceipt(t, txStore, finalizedBlock, utils.NewHash(), etx.TxAttempts[0].Hash)
+
+		ethClient.On("BatchGetReceiptsWithFinalizedHeight", mock.Anything, mock.Anything,
+			evmCfg.EVM().FinalityTagEnabled(), evmCfg.EVM().FinalityDepth(),
+		).Return(big.NewInt(finalizedBlock), []*evmtypes.Receipt{&receipt.Receipt}, []error{nil}, nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(testutils.Context(t), &head))
+
+		etx, err := txStore.FindTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxFinalized, etx.State)
 	})
 }
 
