@@ -87,6 +87,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+var defaultMaxGasPrice = uint64(1e12)
+
 type coordinatorV2UniverseCommon struct {
 	// Golang wrappers of solidity contracts
 	consumerContracts                []vrftesthelpers.VRFConsumerContract
@@ -128,6 +130,8 @@ type coordinatorV2Universe struct {
 	coordinatorV2UniverseCommon
 	vrfOwner                           *vrf_owner.VRFOwner
 	vrfOwnerAddress                    common.Address
+	vrfOwnerNew                        *vrf_owner.VRFOwner
+	vrfOwnerAddressNew                 common.Address
 	oldRootContract                    v22.CoordinatorV2_X
 	oldRootContractAddress             common.Address
 	oldBatchCoordinatorContract        *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
@@ -237,6 +241,12 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		neil, backend, oldRootContractAddress,
 	)
 	require.NoError(t, err, "failed to deploy VRFOwner contract to simulated ethereum blockchain")
+	backend.Commit()
+
+	vrfOwnerAddressNew, _, vrfOwnerNew, err := vrf_owner.DeployVRFOwner(
+		neil, backend, coordinatorAddress,
+	)
+	require.NoError(t, err, "failed to deploy VRFOwner contract for vrfOwnerNew to simulated ethereum blockchain")
 	backend.Commit()
 
 	// Deploy batch VRF V2 coordinator
@@ -408,6 +418,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		},
 		vrfOwner:                           vrfOwner,
 		vrfOwnerAddress:                    vrfOwnerAddress,
+		vrfOwnerNew:                        vrfOwnerNew,
+		vrfOwnerAddressNew:                 vrfOwnerAddressNew,
 		oldRootContractAddress:             oldRootContractAddress,
 		oldRootContract:                    v22.NewCoordinatorV2(oldRootContract),
 		oldBatchCoordinatorContract:        oldBatchCoordinatorContract,
@@ -564,7 +576,7 @@ func createVRFJobs(
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
 		err = app.JobSpawner().CreateJob(&jb)
 		require.NoError(t, err)
-		registerProvingKeyHelper(t, uni, coordinator, vrfkey)
+		registerProvingKeyHelper(t, uni, coordinator, vrfkey, ptr(gasLanePrices[i].ToInt().Uint64()))
 		jobs = append(jobs, jb)
 	}
 	// Wait until all jobs are active and listening for logs
@@ -827,6 +839,22 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *bac
 		}
 		t.Log("requestIDMap:", requestIDMap)
 		return foundAll
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+}
+
+func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFulfilledCount int64, uni coordinatorV2Universe, db *sqlx.DB) bool {
+	return gomega.NewWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		var txs []txmgr.DbEthTx
+		err := db.Select(&txs, `
+		SELECT * FROM evm.txes
+		WHERE evm.txes.state = 'confirmed'
+			AND evm.txes.meta->>'RequestID' = $1
+			AND CAST(evm.txes.meta->>'SubId' AS NUMERIC) = $2 ORDER BY created_at DESC
+		`, common.BytesToHash(requestID.Bytes()).String(), subID)
+		require.NoError(t, err)
+		t.Log("num txs", len(txs))
+		return len(txs) == int(forceFulfilledCount)
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
@@ -1481,16 +1509,22 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 	}
 }
 
-func registerProvingKeyHelper(t *testing.T, uni coordinatorV2UniverseCommon, coordinator v22.CoordinatorV2_X, vrfkey vrfkey.KeyV2) {
+func registerProvingKeyHelper(t *testing.T, uni coordinatorV2UniverseCommon, coordinator v22.CoordinatorV2_X, vrfkey vrfkey.KeyV2, gasLaneMaxGas *uint64) {
 	// Register a proving key associated with the VRF job.
 	p, err := vrfkey.PublicKey.Point()
 	require.NoError(t, err)
 	if uni.rootContract.Version() == vrfcommon.V2Plus {
+		if gasLaneMaxGas == nil {
+			t.Error("gasLaneMaxGas must be non-nil for V2+")
+		}
 		_, err = coordinator.RegisterProvingKey(
-			uni.neil, nil, pair(secp256k1.Coordinates(p)))
+			uni.neil, nil, pair(secp256k1.Coordinates(p)), gasLaneMaxGas)
 	} else {
+		if gasLaneMaxGas != nil {
+			t.Log("gasLaneMaxGas is ignored for V2")
+		}
 		_, err = coordinator.RegisterProvingKey(
-			uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)))
+			uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)), nil)
 	}
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -1811,7 +1845,7 @@ func TestRequestCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, nil)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
@@ -1916,7 +1950,7 @@ func TestFulfillmentCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, nil)
 
 	var (
 		nonProxiedConsumerGasEstimate uint64
@@ -1943,7 +1977,7 @@ func TestFulfillmentCost(t *testing.T) {
 			uni.backend.Commit()
 		}
 
-		requestLog := FindLatestRandomnessRequestedLog(tt, uni.rootContract, vrfkey.PublicKey.MustHash())
+		requestLog := FindLatestRandomnessRequestedLog(tt, uni.rootContract, vrfkey.PublicKey.MustHash(), nil)
 		s, err := proof.BigToSeed(requestLog.PreSeed())
 		require.NoError(t, err)
 		proof, rc, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
@@ -1984,7 +2018,7 @@ func TestFulfillmentCost(t *testing.T) {
 			uni.backend.Commit()
 		}
 
-		requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash())
+		requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash(), nil)
 		require.Equal(tt, subId, requestLog.SubID())
 		s, err := proof.BigToSeed(requestLog.PreSeed())
 		require.NoError(t, err)
@@ -2199,13 +2233,16 @@ func TestStartingCountsV1(t *testing.T) {
 
 func FindLatestRandomnessRequestedLog(t *testing.T,
 	coordContract v22.CoordinatorV2_X,
-	keyHash [32]byte) v22.RandomWordsRequested {
+	keyHash [32]byte,
+	requestID *big.Int) v22.RandomWordsRequested {
 	var rf []v22.RandomWordsRequested
 	gomega.NewWithT(t).Eventually(func() bool {
 		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, nil, []common.Address{})
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {
-			rf = append(rf, rfIterator.Event())
+			if requestID == nil || requestID.Cmp(rfIterator.Event().RequestID()) == 0 {
+				rf = append(rf, rfIterator.Event())
+			}
 		}
 		return len(rf) >= 1
 	}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())

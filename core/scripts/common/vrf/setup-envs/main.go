@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -68,7 +67,7 @@ func main() {
 	bhfCredsFile := flag.String("bhf-creds-file", "", "Creds to authenticate to the node")
 
 	numEthKeys := flag.Int("num-eth-keys", 5, "Number of eth keys to create")
-	maxGasPriceGwei := flag.Int("max-gas-price-gwei", -1, "Max gas price gwei of the eth keys")
+	maxGasPriceGwei := flag.Int("max-gas-price-gwei", 1e12, "Max gas price gwei of the eth keys")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
 	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 	batchFulfillmentGasMultiplier := flag.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
@@ -231,17 +230,16 @@ func main() {
 				*useTestCoordinator,
 			)
 		case "v2plus":
-			feeConfigV2Plus := vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
-				FulfillmentFlatFeeLinkPPM:   uint32(constants.FlatFeeLinkPPM),
-				FulfillmentFlatFeeNativePPM: uint32(constants.FlatFeeNativePPM),
-			}
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
-				MinConfs:               *minConfs,
-				MaxGasLimit:            constants.MaxGasLimit,
-				StalenessSeconds:       constants.StalenessSeconds,
-				GasAfterPayment:        constants.GasAfterPayment,
-				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
-				FeeConfig:              feeConfigV2Plus,
+				MinConfs:                          *minConfs,
+				MaxGasLimit:                       constants.MaxGasLimit,
+				StalenessSeconds:                  constants.StalenessSeconds,
+				GasAfterPayment:                   constants.GasAfterPayment,
+				FallbackWeiPerUnitLink:            constants.FallbackWeiPerUnitLink,
+				FulfillmentFlatFeeNativePPM:       constants.FlatFeeNativePPM,
+				FulfillmentFlatFeeLinkDiscountPPM: constants.FlatFeeLinkDiscountPPM,
+				NativePremiumPercentage:           constants.NativePremiumPercentage,
+				LinkPremiumPercentage:             constants.LinkPremiumPercentage,
 			}
 
 			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
@@ -260,6 +258,7 @@ func main() {
 				contractAddresses,
 				coordinatorConfigV2Plus,
 				nodesMap,
+				uint64(*maxGasPriceGwei),
 				coordinatorJobSpecConfig,
 			)
 		}

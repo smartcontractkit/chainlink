@@ -40,7 +40,7 @@ type CoordinatorV2_X interface {
 	WithdrawNative(opts *bind.TransactOpts, recipient common.Address) (*types.Transaction, error)
 	LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic
 	Version() vrfcommon.Version
-	RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
+	RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int, maxGasPrice *uint64) (*types.Transaction, error)
 	FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error)
 	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error)
 	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error)
@@ -154,7 +154,11 @@ func (c *coordinatorV2) Version() vrfcommon.Version {
 	return c.vrfVersion
 }
 
-func (c *coordinatorV2) RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
+func (c *coordinatorV2) RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int, maxGasPrice *uint64) (*types.Transaction, error) {
+	if maxGasPrice != nil {
+		return nil, fmt.Errorf("max gas price not supported for registering proving key in v2")
+
+	}
 	return c.coordinator.RegisterProvingKey(opts, *oracle, publicProvingKey)
 }
 
@@ -316,11 +320,14 @@ func (c *coordinatorV2_5) Version() vrfcommon.Version {
 	return c.vrfVersion
 }
 
-func (c *coordinatorV2_5) RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
+func (c *coordinatorV2_5) RegisterProvingKey(opts *bind.TransactOpts, oracle *common.Address, publicProvingKey [2]*big.Int, maxGasPrice *uint64) (*types.Transaction, error) {
 	if oracle != nil {
 		return nil, errors.New("oracle address not supported for registering proving key in v2.5")
 	}
-	return c.coordinator.RegisterProvingKey(opts, publicProvingKey)
+	if maxGasPrice == nil {
+		return nil, errors.New("max gas price is required for registering proving key in v2.5")
+	}
+	return c.coordinator.RegisterProvingKey(opts, publicProvingKey, *maxGasPrice)
 }
 
 func (c *coordinatorV2_5) FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error) {
