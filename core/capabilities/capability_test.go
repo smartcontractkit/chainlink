@@ -50,8 +50,7 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 }
 
 type mockCapabilityWithExecute struct {
-	Executable
-	Validatable
+	CallbackExecutable
 	CapabilityInfo
 	ExecuteFn func(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
 }

@@ -12,16 +12,7 @@ import (
 )
 
 type cmockCapability struct {
-	Validatable
 	CapabilityInfo
-}
-
-func (m *cmockCapability) Start(ctx context.Context, config values.Map) (values.Value, error) {
-	return nil, nil
-}
-
-func (m *cmockCapability) Stop(ctx context.Context) error {
-	return nil
 }
 
 func (m *cmockCapability) Execute(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error {
@@ -89,12 +80,12 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 	tcs := []struct {
 		name          string
-		newCapability func() Capability
+		newCapability func() BaseCapability
 		errContains   string
 	}{
 		{
 			name: "action, sync",
-			newCapability: func() Capability {
+			newCapability: func() BaseCapability {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
@@ -109,7 +100,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		},
 		{
 			name: "target, sync",
-			newCapability: func() Capability {
+			newCapability: func() BaseCapability {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
@@ -124,7 +115,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		},
 		{
 			name: "trigger, async",
-			newCapability: func() Capability {
+			newCapability: func() BaseCapability {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,
@@ -139,7 +130,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		},
 		{
 			name: "reports, async",
-			newCapability: func() Capability {
+			newCapability: func() BaseCapability {
 				id := uuid.New().String()
 				ci, err := NewCapabilityInfo(
 					id,

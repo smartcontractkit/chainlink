@@ -9,12 +9,12 @@ import (
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
-	m  map[string]Capability
+	m  map[string]BaseCapability
 	mu sync.RWMutex
 }
 
 // Get gets a capability from the registry.
-func (r *Registry) Get(_ context.Context, id string) (Capability, error) {
+func (r *Registry) Get(_ context.Context, id string) (BaseCapability, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -27,10 +27,10 @@ func (r *Registry) Get(_ context.Context, id string) (Capability, error) {
 }
 
 // List lists all the capabilities in the registry.
-func (r *Registry) List(_ context.Context) []Capability {
+func (r *Registry) List(_ context.Context) []BaseCapability {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	cl := []Capability{}
+	cl := []BaseCapability{}
 	for _, v := range r.m {
 		cl = append(cl, v)
 	}
@@ -39,7 +39,7 @@ func (r *Registry) List(_ context.Context) []Capability {
 }
 
 // Add adds a capability to the registry.
-func (r *Registry) Add(_ context.Context, c Capability) error {
+func (r *Registry) Add(_ context.Context, c BaseCapability) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -58,6 +58,6 @@ func (r *Registry) Add(_ context.Context, c Capability) error {
 // NewRegistry returns a new Registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		m: map[string]Capability{},
+		m: map[string]BaseCapability{},
 	}
 }

@@ -53,23 +53,14 @@ func (c CapabilityType) IsValid() error {
 	return fmt.Errorf("invalid capability type: %s", c)
 }
 
-// Validatable is an interface for validating the config and inputs of a capability.
-type Validatable interface {
-	ExampleOutput(inputs values.Map) values.Value
-	ValidateInput(inputs values.Map) error
-}
-
 // CapabilityResponse is a struct for the Execute response of a capability.
 type CapabilityResponse struct {
 	value values.Value
 	err   error
 }
 
-// Executable is an interface for executing a capability.
-type Executable interface {
-	// Start will be called when the capability is loaded by the application.
-	// Start will be called before the capability is added to the registry.
-	Start(ctx context.Context, config values.Map) (values.Value, error)
+// CallbackExecutable is an interface for executing a capability.
+type CallbackExecutable interface {
 	// Capability must respect context.Done and cleanup any request specific resources
 	// when the context is cancelled. When a request has been completed the capability
 	// is also expected to close the callback channel.
@@ -77,16 +68,36 @@ type Executable interface {
 	// A successful response must always return a value. An error is assumed otherwise.
 	// The intent is to make the API explicit.
 	Execute(ctx context.Context, callback chan CapabilityResponse, inputs values.Map) error
-	// Stop will be called before the application exits.
-	// Stop will be called after the capability is removed from the registry.
-	Stop(ctx context.Context) error
 }
 
-// Capability is an interface for a capability.
-type Capability interface {
-	Executable
-	Validatable
+// BaseCapability interface needs to be implemented by all capability types.
+// Capability interfaces are intentionally duplicated to allow for an easy change
+// or extension in the future.
+type BaseCapability interface {
 	Info() CapabilityInfo
+}
+
+// TriggerCapability interface needs to be implemented by all trigger capabilities.
+type TriggerCapability interface {
+	BaseCapability
+}
+
+// ActionCapability interface needs to be implemented by all action capabilities.
+type ActionCapability interface {
+	BaseCapability
+	CallbackExecutable
+}
+
+// ConsensusCapability interface needs to be implemented by all consensus capabilities.
+type ConsensusCapability interface {
+	BaseCapability
+	CallbackExecutable
+}
+
+// TargetsCapability interface needs to be implemented by all target capabilities.
+type TargetsCapability interface {
+	BaseCapability
+	CallbackExecutable
 }
 
 // CapabilityInfo is a struct for the info of a capability.
@@ -144,7 +155,7 @@ var defaultExecuteTimeout = 10 * time.Second
 // We are not handling a case where a capability panics and crashes.
 // There is default timeout of 10 seconds. If a capability takes longer than
 // that then it should be executed asynchronously.
-func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.Value, error) {
+func ExecuteSync(ctx context.Context, c CallbackExecutable, inputs values.Map) (values.Value, error) {
 	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
 	defer cancel()
 
@@ -152,7 +163,7 @@ func ExecuteSync(ctx context.Context, c Capability, inputs values.Map) (values.V
 	vs := make([]values.Value, 0)
 
 	var setupErr error
-	go func(innerCtx context.Context, innerC Capability, innerInputs values.Map, innerCallback chan CapabilityResponse) {
+	go func(innerCtx context.Context, innerC CallbackExecutable, innerInputs values.Map, innerCallback chan CapabilityResponse) {
 		setupErr = innerC.Execute(innerCtx, innerCallback, innerInputs)
 	}(ctxWithT, c, inputs, callback)
 
