@@ -8,17 +8,19 @@ import (
 	"sync/atomic"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/random"
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var (
-	// maxLogsPerUpkeepInBlock is the maximum number of logs allowed per upkeep in a block.
-	maxLogsPerUpkeepInBlock = 32
-	// maxLogsPerBlock is the maximum number of blocks in the buffer.
-	maxLogsPerBlock = 1024
+	// defaultFastExecLogsHigh is the default upper bound / maximum number of logs that Automation is committed to process for each upkeep,
+	// based on available capacity, i.e. if there are no logs from other upkeeps.
+	// Used by Log buffer to limit the number of logs we are saving in memory for each upkeep in a block
+	defaultFastExecLogsHigh = 32
+	// defaultNumOfLogUpkeeps is the default number of log upkeeps supported by the registry.
+	defaultNumOfLogUpkeeps = 50
 )
 
 // fetchedLog holds the log and the ID of the upkeep
@@ -143,20 +145,20 @@ type logEventBuffer struct {
 	// size is the number of blocks supported by the buffer
 	size int32
 
-	maxBlockLogs, maxUpkeepLogsPerBlock int
+	numOfLogUpkeeps, fastExecLogsHigh uint32
 	// blocks is the circular buffer of fetched blocks
 	blocks []fetchedBlock
 	// latestBlock is the latest block number seen
 	latestBlock int64
 }
 
-func newLogEventBuffer(lggr logger.Logger, size, maxBlockLogs, maxUpkeepLogsPerBlock int) *logEventBuffer {
+func newLogEventBuffer(lggr logger.Logger, size, numOfLogUpkeeps, fastExecLogsHigh int) *logEventBuffer {
 	return &logEventBuffer{
-		lggr:                  lggr.Named("KeepersRegistry.LogEventBuffer"),
-		size:                  int32(size),
-		blocks:                make([]fetchedBlock, size),
-		maxBlockLogs:          maxBlockLogs,
-		maxUpkeepLogsPerBlock: maxUpkeepLogsPerBlock,
+		lggr:             lggr.Named("KeepersRegistry.LogEventBuffer"),
+		size:             int32(size),
+		blocks:           make([]fetchedBlock, size),
+		numOfLogUpkeeps:  uint32(numOfLogUpkeeps),
+		fastExecLogsHigh: uint32(fastExecLogsHigh),
 	}
 }
 
@@ -168,6 +170,11 @@ func (b *logEventBuffer) bufferSize() int {
 	return int(atomic.LoadInt32(&b.size))
 }
 
+func (b *logEventBuffer) SetLimits(numOfLogUpkeeps, fastExecLogsHigh int) {
+	atomic.StoreUint32(&b.numOfLogUpkeeps, uint32(numOfLogUpkeeps))
+	atomic.StoreUint32(&b.fastExecLogsHigh, uint32(fastExecLogsHigh))
+}
+
 // enqueue adds logs (if not exist) to the buffer, returning the number of logs added
 // minus the number of logs dropped.
 func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
@@ -176,8 +183,8 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 
 	lggr := b.lggr.With("id", id.String())
 
-	maxBlockLogs := b.maxBlockLogs
-	maxUpkeepLogs := b.maxUpkeepLogsPerBlock
+	maxBlockLogs := int(atomic.LoadUint32(&b.fastExecLogsHigh) * atomic.LoadUint32(&b.numOfLogUpkeeps))
+	maxUpkeepLogs := int(atomic.LoadUint32(&b.fastExecLogsHigh))
 
 	latestBlock := b.latestBlockSeen()
 	added, dropped := 0, 0

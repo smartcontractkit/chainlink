@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cmd: ["go_core_tests", "go_core_race_tests"]
+        cmd: ["go_core_tests", "go_core_race_tests", "go_core_fuzz"]
     name: Core Tests (${{ matrix.cmd }})
     runs-on: ubuntu20.04-64cores-256GB
     env:
@@ -72,6 +72,17 @@ jobs:
         run: go build -o chainlink.test .
       - name: Setup DB
         run: ./chainlink.test local db preparetest
+      - name: Install LOOP Plugins
+        run: |
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
+          go install ./cmd/chainlink-feeds
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
+          go install ./pkg/solana/cmd/chainlink-solana
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
+          go install ./pkg/chainlink/cmd/chainlink-starknet
+          popd
       - name: Increase Race Timeout
         if: github.event.schedule != ''
         run: |

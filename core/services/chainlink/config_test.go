@@ -294,8 +294,6 @@ func TestConfig_Marshal(t *testing.T) {
 		SendInterval: commonconfig.MustNewDuration(time.Minute),
 		SendTimeout:  commonconfig.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
-		URL:          ptr(commonconfig.URL{}),
-		ServerPubKey: ptr(""),
 		Endpoints: []toml.TelemetryIngressEndpoint{{
 			Network:      ptr("EVM"),
 			ChainID:      ptr("1"),
@@ -746,8 +744,6 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
@@ -1143,17 +1139,6 @@ func TestConfig_full(t *testing.T) {
 		}
 	}
 
-	// Except for TelemetryIngress.ServerPubKey as this will be removed in the future
-	// and its only use is to signal to NOPs that these fields are no longer allowed
-	if got.TelemetryIngress.ServerPubKey == nil {
-		got.TelemetryIngress.ServerPubKey = ptr("")
-	}
-	// Except for TelemetryIngress.URL as this will be removed in the future
-	// and its only use is to signal to NOPs that these fields are no longer allowed
-	if got.TelemetryIngress.URL == nil {
-		got.TelemetryIngress.URL = new(commonconfig.URL)
-	}
-
 	cfgtest.AssertFieldsNotNil(t, got)
 }
 
@@ -1198,7 +1183,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 6 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, metis, xdai, optimismBedrock, celo, kroma, wemix, zksync or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, metis, xdai, optimismBedrock, celo, kroma, wemix, zksync, scroll or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
@@ -1207,7 +1192,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock, celo, kroma, wemix, zksync or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock, celo, kroma, wemix, zksync, scroll or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:

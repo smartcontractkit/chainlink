@@ -107,39 +107,45 @@ func (p *CCIPTestConfig) AddPairToNetworkList(networkA, networkB blockchain.EVMN
 
 func (p *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 	var allError error
-
+	var err error
+	p.SelectedNetworks, err = p.EnvInput.EVMNetworks()
+	if err != nil {
+		allError = multierr.Append(allError, fmt.Errorf("failed to get networks: %w", err))
+		return allError
+	}
+	networkByChainID := make(map[string]blockchain.EVMNetwork)
+	for _, net := range p.SelectedNetworks {
+		networkByChainID[net.Name] = net
+	}
 	// if network pairs are provided, then use them
 	if p.TestGroupInput.NetworkPairs != nil {
 		networkPairs := p.TestGroupInput.NetworkPairs
-		networkByChainID := make(map[int64]blockchain.EVMNetwork)
+
 		for _, pair := range networkPairs {
 			networkNames := strings.Split(pair, ",")
 			if len(networkNames) != 2 {
 				allError = multierr.Append(allError, fmt.Errorf("invalid network pair"))
 			}
-			nets := networks.SetNetworks(networkNames)
-			if _, ok := networkByChainID[nets[0].ChainID]; !ok {
-				networkByChainID[nets[0].ChainID] = nets[0]
+			network1, ok := networkByChainID[networkNames[0]]
+			if !ok {
+				allError = multierr.Append(allError, fmt.Errorf("network %s not found in network config", networkNames[0]))
 			}
-			if _, ok := networkByChainID[nets[1].ChainID]; !ok {
-				networkByChainID[nets[1].ChainID] = nets[1]
+			network2, ok := networkByChainID[networkNames[1]]
+			if !ok {
+				allError = multierr.Append(allError, fmt.Errorf("network %s not found in network config", networkNames[1]))
 			}
-			p.AddPairToNetworkList(nets[0], nets[1])
+			p.AddPairToNetworkList(network1, network2)
 		}
-
-		for _, net := range networkByChainID {
-			p.SelectedNetworks = append(p.SelectedNetworks, net)
-		}
+		lggr.Info().Int("Pairs", len(p.NetworkPairs)).Msg("No Of Lanes")
 		return allError
 	}
 
-	p.SelectedNetworks = p.EnvInput.EVMNetworks()
 	if p.TestGroupInput.NoOfNetworks == 0 {
 		p.TestGroupInput.NoOfNetworks = len(p.SelectedNetworks)
 	}
 	// TODO remove this when CTF network timeout is fixed
 	for i := range p.SelectedNetworks {
-		p.SelectedNetworks[i].Timeout = blockchain.JSONStrDuration{
+		p.SelectedNetworks[i].Timeout = blockchain.StrDuration{
 			Duration: 3 * time.Minute,
 		}
 	}
@@ -748,7 +754,7 @@ func CCIPDefaultTestSetUp(
 			}
 			lggr.Info().Msg("Tearing down the environment")
 			err = integrationactions.TeardownSuite(t, ccipEnv.K8Env, ccipEnv.CLNodes, setUpArgs.Reporter,
-				zapcore.ErrorLevel, chains...)
+				zapcore.ErrorLevel, setUpArgs.Cfg.EnvInput, chains...)
 			require.NoError(t, err, "Environment teardown shouldn't fail")
 		} else {
 			//just print

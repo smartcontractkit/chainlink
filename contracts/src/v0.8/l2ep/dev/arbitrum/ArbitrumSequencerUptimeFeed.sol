@@ -51,7 +51,7 @@ contract ArbitrumSequencerUptimeFeed is
 
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
   address public constant FLAG_L2_SEQ_OFFLINE =
-    address(bytes20(bytes32(uint256(keccak256("chainlink.flags.l2-seq-offline")) - 1)));
+    address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
 
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint8 public constant override decimals = 0;

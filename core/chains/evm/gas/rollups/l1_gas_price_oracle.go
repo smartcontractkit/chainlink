@@ -65,11 +65,18 @@ const (
 	// `function l1BaseFee() external view returns (uint256);`
 	KromaGasOracle_l1BaseFee = "519b4bd3"
 
+	// GasOracleAddress is the address of the precompiled contract that exists on scroll chain.
+	// This is the case for Scroll.
+	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
+	// GasOracle_l1BaseFee is the a hex encoded call to:
+	// `function l1BaseFee() external view returns (uint256);`
+	ScrollGasOracle_l1BaseFee = "519b4bd3"
+
 	// Interval at which to poll for L1BaseFee. A good starting point is the L1 block time.
 	PollPeriod = 12 * time.Second
 )
 
-var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma}
+var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma, config.ChainScroll}
 
 func IsRollupWithL1Support(chainType config.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
@@ -87,6 +94,9 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType conf
 	case config.ChainKroma:
 		address = KromaGasOracleAddress
 		callArgs = KromaGasOracle_l1BaseFee
+	case config.ChainScroll:
+		address = ScrollGasOracleAddress
+		callArgs = ScrollGasOracle_l1BaseFee
 	default:
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
 	}

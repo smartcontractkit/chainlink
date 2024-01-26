@@ -1,4 +1,4 @@
-GETH_VERSION: 1.12.2
+GETH_VERSION: 1.13.8
 arbitrum_l1_bridge_adapter: ../../../contracts/solc/v0.8.19/ArbitrumL1BridgeAdapter/ArbitrumL1BridgeAdapter.abi ../../../contracts/solc/v0.8.19/ArbitrumL1BridgeAdapter/ArbitrumL1BridgeAdapter.bin e9bb45c4dcf326361c896eda07a7ea85e1c36915b71ea6185d15db917221d9c3
 arbitrum_l2_bridge_adapter: ../../../contracts/solc/v0.8.19/ArbitrumL2BridgeAdapter/ArbitrumL2BridgeAdapter.abi ../../../contracts/solc/v0.8.19/ArbitrumL2BridgeAdapter/ArbitrumL2BridgeAdapter.bin c84764c7ba0b3db99dd12df2e3f5dfe668f921d9f27e7d10a95334618b2128b1
 mock_l2_bridge_adapter: ../../../contracts/solc/v0.8.19/MockBridgeAdapter/MockL2BridgeAdapter.abi ../../../contracts/solc/v0.8.19/MockBridgeAdapter/MockL2BridgeAdapter.bin a2e93e04c96f1f893decc90b283dbb5a14f1dcce2dc1c4ff07f1e8ba564f7b43

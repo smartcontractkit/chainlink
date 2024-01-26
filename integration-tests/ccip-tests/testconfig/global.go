@@ -5,17 +5,21 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/AlekSi/pointer"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 )
 
 const (
@@ -28,7 +32,7 @@ const (
 )
 
 var (
-	//go:embed tomls/default.toml
+	//go:embed tomls/ccip-default.toml
 	DefaultConfig []byte
 )
 
@@ -122,15 +126,14 @@ func NewConfig() (*Config, error) {
 // Common is the generic config struct which can be used with product specific configs.
 // It contains generic DON and networks config which can be applied to all product based tests.
 type Common struct {
-	EnvUser   string           `toml:",omitempty"`
-	TTL       *config.Duration `toml:",omitempty"`
-	Chainlink *Chainlink       `toml:",omitempty"`
-	Networks  []string         `toml:",omitempty"`
+	EnvUser   string                   `toml:",omitempty"`
+	TTL       *config.Duration         `toml:",omitempty"`
+	Chainlink *Chainlink               `toml:",omitempty"`
+	Network   *ctfconfig.NetworkConfig `toml:",omitempty"`
+	Logging   *ctfconfig.LoggingConfig `toml:"Logging"`
 }
 
 func (p *Common) ReadSecrets() error {
-	// read secrets for all products and test types
-	// TODO: as of now we read network secrets through networks.SetNetworks, change this to generic secret reading mechanism
 	return p.Chainlink.ReadSecrets()
 }
 
@@ -144,8 +147,8 @@ func (p *Common) ApplyOverrides(from *Common) error {
 	if from.TTL != nil {
 		p.TTL = from.TTL
 	}
-	if from.Networks != nil {
-		p.Networks = from.Networks
+	if from.Network != nil {
+		p.Network = from.Network
 	}
 	if from.Chainlink != nil {
 		if p.Chainlink == nil {
@@ -157,14 +160,68 @@ func (p *Common) ApplyOverrides(from *Common) error {
 }
 
 func (p *Common) Validate() error {
-	if p.Networks == nil {
+	if err := p.Logging.Validate(); err != nil {
+		return fmt.Errorf("error validating logging config %w", err)
+	}
+	if p.Network == nil {
 		return errors.New("no networks specified")
+	}
+	if err := p.Network.Validate(); err != nil {
+		return fmt.Errorf("error validating networks config %w", err)
 	}
 	return p.Chainlink.Validate()
 }
 
-func (p *Common) EVMNetworks() []blockchain.EVMNetwork {
-	return networks.SetNetworks(p.Networks)
+func (p *Common) EVMNetworks() ([]blockchain.EVMNetwork, error) {
+	p.Network.UpperCaseNetworkNames()
+	err := p.Network.Default()
+	if err != nil {
+		return nil, fmt.Errorf("error reading default network config %w", err)
+	}
+	return networks.MustSetNetworks(*p.Network), nil
+}
+
+func (p *Common) GetLoggingConfig() *ctfconfig.LoggingConfig {
+	return p.Logging
+}
+
+func (p *Common) GetChainlinkImageConfig() *ctfconfig.ChainlinkImageConfig {
+	return p.Chainlink.Common.ChainlinkImage
+}
+
+func (p *Common) GetPyroscopeConfig() *ctfconfig.PyroscopeConfig {
+	return nil
+}
+
+func (p *Common) GetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork {
+	return nil
+}
+
+func (p *Common) GetNetworkConfig() *ctfconfig.NetworkConfig {
+	return p.Network
+}
+
+// Returns Grafana URL from Logging config
+func (p *Common) GetGrafanaBaseURL() (string, error) {
+	if p.Logging.Grafana == nil || p.Logging.Grafana.BaseUrl == nil {
+		return "", errors.New("grafana base url not set")
+	}
+
+	return strings.TrimSuffix(*p.Logging.Grafana.BaseUrl, "/"), nil
+}
+
+// Returns Grafana Dashboard URL from Logging config
+func (p *Common) GetGrafanaDashboardURL() (string, error) {
+	if p.Logging.Grafana == nil || p.Logging.Grafana.DashboardUrl == nil {
+		return "", errors.New("grafana dashboard url not set")
+	}
+
+	url := *p.Logging.Grafana.DashboardUrl
+	if !strings.HasPrefix(url, "/") {
+		url = "/" + url
+	}
+
+	return url, nil
 }
 
 type Chainlink struct {
@@ -223,47 +280,46 @@ func (c *Chainlink) ApplyOverrides(from *Chainlink) {
 	}
 }
 
+// TODO change this later to directly reading from toml instead of reading from env vars
 func (c *Chainlink) ReadSecrets() error {
 	image, _ := osutil.GetEnv("CHAINLINK_IMAGE")
-	if image != "" {
-		c.Common.Image = image
-	}
 	tag, _ := osutil.GetEnv("CHAINLINK_VERSION")
-	if tag != "" {
-		c.Common.Tag = tag
-	}
-	upgradeImage, _ := osutil.GetEnv("UPGRADE_IMAGE")
-	if upgradeImage != "" {
-		c.Common.UpgradeImage = upgradeImage
-	}
-	upgradeTag, _ := osutil.GetEnv("UPGRADE_VERSION")
-	if upgradeTag != "" {
-		c.Common.UpgradeTag = upgradeTag
-	}
-	for i, node := range c.Nodes {
-		image, _ := osutil.GetEnv(fmt.Sprintf("CHAINLINK_IMAGE-%d", i+1))
-		if image != "" {
-			node.Image = image
-		} else {
-			node.Image = c.Common.Image
+	if image != "" && tag != "" {
+		c.Common.ChainlinkImage = &ctfconfig.ChainlinkImageConfig{
+			Image:   &image,
+			Version: &tag,
 		}
+	}
+
+	upgradeImage, _ := osutil.GetEnv("UPGRADE_IMAGE")
+	upgradeTag, _ := osutil.GetEnv("UPGRADE_VERSION")
+	if upgradeImage != "" && upgradeTag != "" {
+		c.Common.ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
+			Image:   &upgradeImage,
+			Version: &upgradeTag,
+		}
+	}
+
+	for i := range c.Nodes {
+		image, _ := osutil.GetEnv(fmt.Sprintf("CHAINLINK_IMAGE-%d", i+1))
 		tag, _ := osutil.GetEnv(fmt.Sprintf("CHAINLINK_VERSION-%d", i+1))
-		if tag != "" {
-			node.Tag = tag
+		if image != "" && tag != "" {
+			c.Nodes[i].ChainlinkImage = &ctfconfig.ChainlinkImageConfig{
+				Image:   &image,
+				Version: &tag,
+			}
 		} else {
-			node.Tag = c.Common.Tag
+			c.Nodes[i].ChainlinkImage = c.Common.ChainlinkImage
 		}
 		upgradeImage, _ := osutil.GetEnv(fmt.Sprintf("UPGRADE_IMAGE-%d", i+1))
-		if upgradeImage != "" {
-			node.UpgradeImage = upgradeImage
-		} else {
-			node.UpgradeImage = c.Common.UpgradeImage
-		}
 		upgradeTag, _ := osutil.GetEnv(fmt.Sprintf("UPGRADE_VERSION-%d", i+1))
-		if upgradeTag != "" {
-			node.UpgradeTag = upgradeTag
+		if upgradeImage != "" && upgradeTag != "" {
+			c.Nodes[i].ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
+				Image:   &upgradeImage,
+				Version: &upgradeTag,
+			}
 		} else {
-			node.UpgradeTag = c.Common.UpgradeTag
+			c.Nodes[i].ChainlinkUpgradeImage = c.Common.ChainlinkUpgradeImage
 		}
 	}
 	return nil
@@ -273,8 +329,8 @@ func (c *Chainlink) Validate() error {
 	if c.Common == nil {
 		return errors.New("common config can't be empty")
 	}
-	if c.Common.Image == "" || c.Common.Tag == "" {
-		return errors.New("must provide chainlink image and tag")
+	if err := c.Common.ChainlinkImage.Validate(); err != nil {
+		return err
 	}
 	if c.Common.DBImage == "" || c.Common.DBTag == "" {
 		return errors.New("must provide db image and tag")
@@ -292,16 +348,14 @@ func (c *Chainlink) Validate() error {
 }
 
 type Node struct {
-	Name                   string            `toml:",omitempty"`
-	Image                  string            `toml:",omitempty"`
-	Tag                    string            `toml:",omitempty"`
-	UpgradeImage           string            `toml:",omitempty"`
-	UpgradeTag             string            `toml:",omitempty"`
-	BaseConfigTOML         string            `toml:",omitempty"`
-	CommonChainConfigTOML  string            `toml:",omitempty"`
-	ChainConfigTOMLByChain map[string]string `toml:",omitempty"` // key is chainID
-	DBImage                string            `toml:",omitempty"`
-	DBTag                  string            `toml:",omitempty"`
+	Name                   string                          `toml:",omitempty"`
+	ChainlinkImage         *ctfconfig.ChainlinkImageConfig `toml:"ChainlinkImage"`
+	ChainlinkUpgradeImage  *ctfconfig.ChainlinkImageConfig `toml:"ChainlinkUpgradeImage"`
+	BaseConfigTOML         string                          `toml:",omitempty"`
+	CommonChainConfigTOML  string                          `toml:",omitempty"`
+	ChainConfigTOMLByChain map[string]string               `toml:",omitempty"` // key is chainID
+	DBImage                string                          `toml:",omitempty"`
+	DBTag                  string                          `toml:",omitempty"`
 }
 
 func (n *Node) Merge(from *Node) {
@@ -311,18 +365,38 @@ func (n *Node) Merge(from *Node) {
 	if n.Name == "" {
 		n.Name = from.Name
 	}
-	if n.Image == "" {
-		n.Image = from.Image
+	if n.ChainlinkImage == nil {
+		if from.ChainlinkImage != nil {
+			n.ChainlinkImage = &ctfconfig.ChainlinkImageConfig{
+				Image:   from.ChainlinkImage.Image,
+				Version: from.ChainlinkImage.Version,
+			}
+		}
+	} else {
+		if n.ChainlinkImage.Image == nil && from.ChainlinkImage != nil {
+			n.ChainlinkImage.Image = from.ChainlinkImage.Image
+		}
+		if n.ChainlinkImage.Version == nil && from.ChainlinkImage != nil {
+			n.ChainlinkImage.Version = from.ChainlinkImage.Version
+		}
 	}
-	if n.Tag == "" {
-		n.Tag = from.Tag
+
+	if n.ChainlinkUpgradeImage == nil {
+		if from.ChainlinkUpgradeImage != nil {
+			n.ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
+				Image:   from.ChainlinkUpgradeImage.Image,
+				Version: from.ChainlinkUpgradeImage.Version,
+			}
+		}
+	} else {
+		if n.ChainlinkUpgradeImage.Image == nil && from.ChainlinkUpgradeImage != nil {
+			n.ChainlinkUpgradeImage.Image = from.ChainlinkUpgradeImage.Image
+		}
+		if n.ChainlinkUpgradeImage.Version == nil && from.ChainlinkUpgradeImage != nil {
+			n.ChainlinkUpgradeImage.Version = from.ChainlinkUpgradeImage.Version
+		}
 	}
-	if n.UpgradeImage == "" {
-		n.UpgradeImage = from.UpgradeImage
-	}
-	if n.UpgradeTag == "" {
-		n.UpgradeTag = from.UpgradeTag
-	}
+
 	if n.DBImage == "" {
 		n.DBImage = from.DBImage
 	}
@@ -356,17 +430,29 @@ func (n *Node) ApplyOverrides(from *Node) {
 	if from.Name != "" {
 		n.Name = from.Name
 	}
-	if from.Image != "" {
-		n.Image = from.Image
+	if from.ChainlinkImage != nil {
+		if n.ChainlinkImage == nil {
+			n.ChainlinkImage = from.ChainlinkImage
+		} else {
+			if from.ChainlinkImage.Image != nil {
+				n.ChainlinkImage.Image = from.ChainlinkImage.Image
+			}
+			if from.ChainlinkImage.Version != nil {
+				n.ChainlinkImage.Version = from.ChainlinkImage.Version
+			}
+		}
 	}
-	if from.Tag != "" {
-		n.Tag = from.Tag
-	}
-	if from.UpgradeImage != "" {
-		n.UpgradeImage = from.UpgradeImage
-	}
-	if from.UpgradeTag != "" {
-		n.UpgradeTag = from.UpgradeTag
+	if from.ChainlinkUpgradeImage != nil {
+		if n.ChainlinkUpgradeImage == nil {
+			n.ChainlinkUpgradeImage = from.ChainlinkUpgradeImage
+		} else {
+			if from.ChainlinkUpgradeImage.Image != nil {
+				n.ChainlinkUpgradeImage.Image = from.ChainlinkUpgradeImage.Image
+			}
+			if from.ChainlinkUpgradeImage.Version != nil {
+				n.ChainlinkUpgradeImage.Version = from.ChainlinkUpgradeImage.Version
+			}
+		}
 	}
 	if from.DBImage != "" {
 		n.DBImage = from.DBImage

@@ -1,8 +1,8 @@
-{{- range $cfg := .Values.chainlink.nodes }}
+{{- range $index, $cfg := .Values.chainlink.nodes }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Release.Name }}-{{ $cfg.name }}
+  name: {{ if eq $index 0 }}{{ $.Release.Name }}-{{ $cfg.name }}-bootstrap{{ else }}{{ $.Release.Name }}-{{ $cfg.name }}{{ end }}
 spec:
   strategy:
     # Need to recreate the pod to deal with lease lock held by old pod.
@@ -10,12 +10,29 @@ spec:
   selector:
     matchLabels:
       app: {{ $.Release.Name }}
+      # Used for testing.
+      # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+      {{ if eq $index 0 }}{{ else }}
+      havoc-component-group: node
+      {{ end }}
+      {{ if eq $index 0 }}{{ else }}
+      havoc-network-group: {{ if gt $index 2 }}"1"{{ else }}"2"{{ end }}
+      {{ end }}
       instance: {{ $cfg.name }}
       release: {{ $.Release.Name }}
   template:
     metadata:
       labels:
         app: {{ $.Release.Name }}
+        # Used for testing.
+        # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+        {{ if eq $index 0 }}{{ else }}
+        havoc-component-group: node
+        {{ end }}
+        {{ if eq $index 0 }}{{ else }}
+        havoc-network-group: {{ if gt $index 2 }}"1"{{ else }}"2"{{ end }}
+        {{ end }}
+
         instance: {{ $cfg.name }}
         release: {{ $.Release.Name }}
         {{- range $key, $value := $.Values.labels }}
@@ -39,7 +56,7 @@ spec:
             {{- toYaml $.Values.chainlink.securityContext | nindent 12 }}
           image: {{ default "public.ecr.aws/chainlink/chainlink" $cfg.image }}
           imagePullPolicy: Always
-          command: ["bash", "-c", "while ! pg_isready -U postgres --host {{ $.Release.Name }}-db-{{ $cfg.name }} --port 5432; do echo \"waiting for database to start\"; sleep 1; done && chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials"]
+          command: [ "bash", "-c", "while ! pg_isready -U postgres --host {{ $.Release.Name }}-db-{{ $cfg.name }} --port 5432; do echo \"waiting for database to start\"; sleep 1; done && chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials" ]
           ports:
             - name: access
               containerPort: {{ $.Values.chainlink.web_port }}

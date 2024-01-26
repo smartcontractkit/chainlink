@@ -52,12 +52,8 @@ type ClNode struct {
 	UserEmail             string                  `json:"userEmail"`
 	UserPassword          string                  `json:"userPassword"`
 	AlwaysPullImage       bool                    `json:"-"`
-	PostStartsHooks       []tc.ContainerHook      `json:"-"`
-	PostStopsHooks        []tc.ContainerHook      `json:"-"`
-	PreTerminatesHooks    []tc.ContainerHook      `json:"-"`
 	t                     *testing.T
 	l                     zerolog.Logger
-	ls                    *logstream.LogStream
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -97,7 +93,7 @@ func WithDbContainerName(name string) ClNodeOption {
 
 func WithLogStream(ls *logstream.LogStream) ClNodeOption {
 	return func(c *ClNode) {
-		c.ls = ls
+		c.LogStream = ls
 	}
 }
 
@@ -150,25 +146,6 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 	return n, nil
 }
 
-func (n *ClNode) SetDefaultHooks() {
-	n.PostStartsHooks = []tc.ContainerHook{
-		func(ctx context.Context, c tc.Container) error {
-			if n.ls != nil {
-				return n.ls.ConnectContainer(ctx, c, "cl-node")
-			}
-			return nil
-		},
-	}
-	n.PostStopsHooks = []tc.ContainerHook{
-		func(ctx context.Context, c tc.Container) error {
-			if n.ls != nil {
-				return n.ls.DisconnectContainer(c)
-			}
-			return nil
-		},
-	}
-}
-
 func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
@@ -186,16 +163,10 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 
 // UpgradeVersion restarts the cl node with new image and version
 func (n *ClNode) UpgradeVersion(newImage, newVersion string) error {
-	if newVersion == "" {
-		return fmt.Errorf("new version is empty")
-	}
-	if newImage == "" {
-		newImage = os.Getenv("CHAINLINK_IMAGE")
-	}
 	n.l.Info().
 		Str("Name", n.ContainerName).
-		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
-		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
+		Str("Old Image", newImage).
+		Str("Old Version", newVersion).
 		Str("New Image", newImage).
 		Str("New Version", newVersion).
 		Msg("Upgrading Chainlink Node")
@@ -463,6 +434,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 		AlwaysPullImage: n.AlwaysPullImage,
 		Image:           fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
 		ExposedPorts:    []string{"6688/tcp"},
+		Env:             n.ContainerEnvs,
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
 			"-s", secretsPath,

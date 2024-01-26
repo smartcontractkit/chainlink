@@ -22,6 +22,9 @@ jobs:
     env:
       ECR_IMAGE_NAME: crib-chainlink-untrusted
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
       - name: Git Short SHA
         shell: bash
         env:
@@ -37,10 +40,6 @@ jobs:
           tag: sha-${{ env.GIT_SHORT_SHA }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
-
-      - name: Checkout repository
-        if: steps.check-image.outputs.exists == 'false'
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Build and publish chainlink image
         if: steps.check-image.outputs.exists == 'false'

@@ -127,6 +127,10 @@ type rebalancerProvider struct {
 	lmFactory           liquiditymanager.Factory
 }
 
+func (r *rebalancerProvider) Codec() commontypes.Codec {
+	return nil
+}
+
 // ChainReader implements RebalancerProvider.
 func (*rebalancerProvider) ChainReader() commontypes.ChainReader {
 	return nil
