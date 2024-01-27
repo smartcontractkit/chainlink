@@ -11,7 +11,7 @@ env:
 before:
   hooks:
     - go mod tidy
-    - ./tools/bin/goreleaser_utils before_hook
+    # - ./tools/bin/goreleaser_utils before_hook
 
 # See https://goreleaser.com/customization/build/
 builds:
@@ -25,8 +25,8 @@ builds:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target aarch64-linux-gnu -shared -o libwasmvm.aarch64.so
-      - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu -shared -o libwasmvm.aarch64.so
+      - CC=$ZIG_EXEC cc -target aarch64-linux-gnu -shared wasmvm.o -o libwasmvm.aarch64.so
+      - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu -shared wasmvm.o -o libwasmvm.aarch64.so
     flags:
       - -trimpath
       - -buildmode=pie
@@ -44,8 +44,8 @@ builds:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu -shared -o libwasmvm.x86_64.so
-      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu -shared -o libwasmvm.x86_64.so
+      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu -shared wasmvm.o -o libwasmvm.x86_64.so
+      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu -shared wasmvm.o -o libwasmvm.x86_64.so
     flags:
       - -trimpath
       - -buildmode=pie
