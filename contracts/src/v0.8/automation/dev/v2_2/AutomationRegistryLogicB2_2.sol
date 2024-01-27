@@ -232,7 +232,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    * @notice pauses the entire registry
    */
   function pause() external onlyOwner {
-    s_hotVars.paused = true;
+    s_hotVars.boolFlags = s_hotVars.boolFlags | (1 << 0);
     emit Paused(msg.sender);
   }
 
@@ -240,7 +240,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    * @notice unpauses the entire registry
    */
   function unpause() external onlyOwner {
-    s_hotVars.paused = false;
+    uint8 mask = 1 << 0;
+    s_hotVars.boolFlags = s_hotVars.boolFlags & ~mask;
     emit Unpaused(msg.sender);
   }
 
@@ -429,7 +430,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       latestConfigDigest: s_latestConfigDigest,
       latestEpoch: s_hotVars.latestEpoch,
-      paused: s_hotVars.paused
+      paused: _isRegistryPaused()
     });
 
     config = OnchainConfigLegacy({
@@ -447,7 +448,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
-      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
+      reorgProtectionEnabled: _isReorgProtectionEnabled()
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);

@@ -356,9 +356,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     uint24 stalenessSeconds; //      │ Staleness tolerance for feeds
     uint16 gasCeilingMultiplier; //  │ multiplier on top of fast gas feed for upper bound
     uint8 f; //                      │ maximum number of faulty oracles
-    bool paused; //                  │ pause switch for all upkeeps in the registry
-    bool reentrancyGuard; // ────────╯ guard against reentrancy
-    bool reorgProtectionEnabled; //    if this registry should enable re-org protection mechanism
+    uint8 boolFlags; //    ──────────╯ bitmap for booleans: paused (position 0: pause switch for all upkeeps in the registry), reentrancyGuard (position 1: guard against reentrancy), reorgProtectionEnabled (position 2: if this registry should enable re-org protection mechanism)
     IChainModule chainModule; //       the interface of chain specific module
   }
 
@@ -526,7 +524,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     bytes memory triggerConfig,
     bytes memory offchainConfig
   ) internal {
-    if (s_hotVars.paused) revert RegistryPaused();
+    if (_isRegistryPaused()) revert RegistryPaused();
     if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
@@ -786,7 +784,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       return false;
     }
     if (
-      (hotVars.reorgProtectionEnabled &&
+      (_isReorgProtectionEnabled() &&
         (trigger.blockHash != bytes32("") && hotVars.chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= blocknumber
     ) {
@@ -811,7 +809,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (
-      (hotVars.reorgProtectionEnabled &&
+      (_isReorgProtectionEnabled() &&
         (trigger.blockHash != bytes32("") && hotVars.chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
       trigger.blockNum >= blocknumber
     ) {
@@ -936,13 +934,36 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   }
 
   /**
+   * @notice Returns true if the registry is paused, false otherwise
+   */
+  function _isRegistryPaused() internal view returns (bool) {
+    return (s_hotVars.boolFlags & (1 << 0)) != 0;
+  }
+
+  /**
+   * @notice Returns true if the registry is reentrancy guarded, false otherwise
+   */
+  function _isReentrancyGuarded() internal view returns (bool) {
+    return (s_hotVars.boolFlags & (1 << 1)) != 0;
+  }
+
+  /**
+   * @notice Returns true if the registry enabled reorg protection, false otherwise
+   */
+  function _isReorgProtectionEnabled() internal view returns (bool) {
+    return (s_hotVars.boolFlags & (1 << 2)) != 0;
+  }
+
+  /**
    * @dev replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
    */
   modifier nonReentrant() {
-    if (s_hotVars.reentrancyGuard) revert ReentrantCall();
-    s_hotVars.reentrancyGuard = true;
+    if (_isReentrancyGuarded()) revert ReentrantCall();
+    s_hotVars.boolFlags = s_hotVars.boolFlags | (1 << 1);
     _;
-    s_hotVars.reentrancyGuard = false;
+
+    uint8 mask = 1 << 1;
+    s_hotVars.boolFlags = s_hotVars.boolFlags & ~mask;
   }
 
   /**
