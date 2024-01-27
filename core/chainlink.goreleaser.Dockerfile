@@ -6,6 +6,7 @@ FROM ubuntu:20.04
 ARG CHAINLINK_USER=root
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND noninteractive
+ENV LD_LIBRARY_PATH /usr/local/bin/libs:$LD_LIBRARY_PATH
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
 # Install Postgres for CLI tools, needed specifically for DB backups
