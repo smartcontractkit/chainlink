@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -x
+set -euo pipefail
 
 ENABLE_COSIGN=${ENABLE_COSIGN:-false}
 ENABLE_GORELEASER_SNAPSHOT=${ENABLE_GORELEASER_SNAPSHOT:-false}
