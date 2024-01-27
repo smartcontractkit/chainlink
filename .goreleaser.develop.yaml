@@ -25,7 +25,7 @@ builds:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
+      - CC=$ZIG_EXEC cc -target aarch64-linux-gnu -shared -o libwasmvm.so wasmvm.so
       - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu -shared -o libwasmvm.so wasmvm.so
     flags:
       - -trimpath
@@ -44,7 +44,7 @@ builds:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
+      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu -shared -o libwasmvm.so wasmvm.so
       - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu -shared -o libwasmvm.so wasmvm.so
     flags:
       - -trimpath
