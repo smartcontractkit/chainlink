@@ -15,7 +15,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && apt-get clean all \
   && rm -rf /var/lib/apt/lists/*
 
-COPY . /usr/local/bin/
+COPY ./chainlink /usr/local/bin/
 # Copy native libs if cgo is enabled
 COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
 
