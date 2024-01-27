@@ -21,8 +21,6 @@ builds:
       - linux
     goarch:
       - arm64
-    hooks:
-      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
@@ -40,8 +38,6 @@ builds:
       - linux
     goarch:
       - amd64
-    hooks:
-      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
       - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
