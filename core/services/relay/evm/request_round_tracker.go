@@ -35,7 +35,7 @@ type RequestRoundTracker struct {
 	jobID            int32
 	lggr             logger.SugaredLogger
 	odb              RequestRoundDB
-	q                pg.Q
+	q                pg.Q //TODO remove
 	blockTranslator  ocrcommon.BlockTranslator
 
 	// Start/Stop lifecycle

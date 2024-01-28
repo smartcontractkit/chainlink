@@ -14,7 +14,7 @@ import (
 
 type orm struct {
 	chainID *ubig.Big
-	q       pg.Q
+	q       pg.Q //TODO remove
 }
 
 type persistedStateRecord struct {

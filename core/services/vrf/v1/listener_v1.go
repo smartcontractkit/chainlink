@@ -56,7 +56,7 @@ type Listener struct {
 	Coordinator    *solidity_vrf_coordinator_interface.VRFCoordinator
 	PipelineRunner pipeline.Runner
 	Job            job.Job
-	Q              pg.Q
+	Q              pg.Q //TODO make orm
 	GethKs         vrfcommon.GethKeyStore
 	MailMon        *mailbox.Monitor
 	ReqLogs        *mailbox.Mailbox[log.Broadcast]

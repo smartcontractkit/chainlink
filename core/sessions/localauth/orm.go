@@ -20,7 +20,7 @@ import (
 )
 
 type orm struct {
-	q               pg.Q
+	q               pg.Q //TODO remove
 	sessionDuration time.Duration
 	lggr            logger.Logger
 	auditLogger     audit.AuditLogger

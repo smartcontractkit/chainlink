@@ -32,7 +32,7 @@ type ORM interface {
 }
 
 type orm struct {
-	q               pg.Q
+	q               pg.Q //TODO remove
 	contractAddress common.Address
 }
 

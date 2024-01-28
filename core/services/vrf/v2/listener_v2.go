@@ -120,7 +120,7 @@ type listenerV2 struct {
 
 	pipelineRunner pipeline.Runner
 	job            job.Job
-	q              pg.Q
+	q              pg.Q //TODO make orm
 	gethks         keystore.Eth
 	chStop         services.StopChan
 

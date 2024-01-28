@@ -19,7 +19,7 @@ const (
 )
 
 type orm struct {
-	q         pg.Q
+	q         pg.Q //TODO remove
 	tableName string
 	namespace string
 }

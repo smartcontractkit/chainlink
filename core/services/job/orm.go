@@ -83,7 +83,7 @@ type ORMConfig interface {
 }
 
 type orm struct {
-	q           pg.Q
+	q           pg.Q //TODO remove
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
 	lggr        logger.SugaredLogger

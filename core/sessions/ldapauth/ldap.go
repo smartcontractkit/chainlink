@@ -53,7 +53,7 @@ var ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
 var ErrUserNoLDAPGroups = errors.New("user present in directory, but matching no role groups assigned")
 
 type ldapAuthenticator struct {
-	q           pg.Q
+	q           pg.Q //TODO make an orm
 	ldapClient  LDAPClient
 	config      config.LDAP
 	lggr        logger.Logger

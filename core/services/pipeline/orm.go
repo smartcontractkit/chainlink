@@ -96,7 +96,7 @@ type ORM interface {
 
 type orm struct {
 	services.StateMachine
-	q                 pg.Q
+	q                 pg.Q //TODO remove
 	lggr              logger.Logger
 	maxSuccessfulRuns uint64
 	// jobID => count

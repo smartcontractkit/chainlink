@@ -18,6 +18,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -104,7 +105,7 @@ type service struct {
 
 	orm          ORM
 	jobORM       job.ORM
-	q            pg.Q
+	q            pg.Q //TODO make orm
 	csaKeyStore  keystore.CSA
 	p2pKeyStore  keystore.P2P
 	ocr1KeyStore keystore.OCR
@@ -860,19 +861,30 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 	}
 
 	q := s.q.WithOpts(pctx)
-	err = q.Transaction(func(tx pg.Queryer) error {
+	type txORMs struct {
+		orm        ORM
+		jobORM     job.ORM
+		jobSpawner job.Spawner
+	}
+	err = sqlutil.Transact(ctx, func(q sqlutil.Queryer) txORMs {
+		//TODO new q backed versions
+		return txORMs{
+			orm:        nil,
+			jobORM:     nil,
+			jobSpawner: nil,
+		}
+	}, s.q, nil, func(tx txORMs) error {
 		var (
-			txerr  error
-			pgOpts = pg.WithQueryer(tx)
+			txerr error
 		)
 
-		if txerr = s.orm.CancelSpec(id, pgOpts); txerr != nil {
+		if txerr = tx.orm.CancelSpec(id); txerr != nil {
 			return txerr
 		}
 
 		// Delete the job
 		if jp.ExternalJobID.Valid {
-			j, txerr := s.jobORM.FindJobByExternalJobID(jp.ExternalJobID.UUID, pgOpts)
+			j, txerr := s.jobORM.FindJobByExternalJobID(jp.ExternalJobID.UUID)
 			if txerr != nil {
 				// Return an error if the repository errors. If there is a not found error we want
 				// to continue with cancelling the spec but we won't have to cancel any jobs.
@@ -882,7 +894,7 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 			}
 
 			if txerr == nil {
-				if serr := s.jobSpawner.DeleteJob(j.ID, pgOpts); serr != nil {
+				if serr := s.jobSpawner.DeleteJob(j.ID); serr != nil {
 					return errors.Wrap(serr, "DeleteJob failed")
 				}
 			}

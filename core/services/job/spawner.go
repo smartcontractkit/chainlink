@@ -54,7 +54,7 @@ type (
 		jobTypeDelegates map[Type]Delegate
 		activeJobs       map[int32]activeJob
 		activeJobsMu     sync.RWMutex
-		q                pg.Q
+		q                pg.Q //TODO make orm
 		lggr             logger.Logger
 
 		chStop              services.StopChan

@@ -56,7 +56,7 @@ type ORM interface {
 
 type DbORM struct {
 	chainID *big.Int
-	q       pg.Q
+	q       pg.Q //TODO remove
 	lggr    logger.Logger
 }
 

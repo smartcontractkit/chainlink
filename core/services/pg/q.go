@@ -56,7 +56,7 @@ var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
 //	orm.GetFoo(1, pg.WithParentCtx(ctx)) // will wrap the supplied parent context with the default query context
 //	orm.GetFoo(1, pg.WithQueryer(tx)) // allows to pass in a running transaction or anything else that implements Queryer
 //	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
-type QOpt func(*Q)
+type QOpt func(*Q) // Deprecated - use pure context and sqlutil.Transact
 
 // WithQueryer sets the queryer
 func WithQueryer(queryer Queryer) QOpt {
@@ -75,7 +75,8 @@ func WithParentCtx(ctx context.Context) QOpt {
 	}
 }
 
-// If the parent has a timeout, just use that instead of DefaultTimeout
+// TODO refactor as ctx option? pg.WithoutDefaultTimeout
+// TODO or a helper (like sqlutil.Transact) for an alternatve Q...?
 func WithParentCtxInheritTimeout(ctx context.Context) QOpt {
 	return func(q *Q) {
 		q.ParentCtx = ctx
@@ -114,6 +115,7 @@ type QConfig interface {
 //
 // This is not the prettiest construct but without macros its about the best we
 // can do.
+// TODO convert this in to a pure sqlutil.Queryer wrapper for logging/metrics, with context required
 type Q struct {
 	Queryer
 	ParentCtx    context.Context
@@ -340,6 +342,7 @@ func (q *queryLogger) withLogError(err error) error {
 
 // postSqlLog logs about context cancellation and timing after a query returns.
 // Queries which use their full timeout log critical level. More than 50% log error, and 10% warn.
+// TODO how to reproduce this? sqlx hook? wrap whole interface?
 func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 	elapsed := time.Since(begin)
 	if ctx.Err() != nil {

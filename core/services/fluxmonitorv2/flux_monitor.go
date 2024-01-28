@@ -64,7 +64,7 @@ type FluxMonitor struct {
 	jobSpec           job.Job
 	spec              pipeline.Spec
 	runner            pipeline.Runner
-	q                 pg.Q
+	q                 pg.Q //TODO make orm
 	orm               ORM
 	jobORM            job.ORM
 	pipelineORM       pipeline.ORM

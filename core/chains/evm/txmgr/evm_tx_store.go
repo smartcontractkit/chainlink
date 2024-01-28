@@ -79,7 +79,7 @@ type TestEvmTxStore interface {
 }
 
 type evmTxStore struct {
-	q         pg.Q
+	q         pg.Q //TODO make orm
 	logger    logger.SugaredLogger
 	ctx       context.Context
 	ctxCancel context.CancelFunc

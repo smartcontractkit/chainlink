@@ -21,7 +21,7 @@ import (
 )
 
 type db struct {
-	q            pg.Q
+	q            pg.Q //TODO remove
 	oracleSpecID int32
 	lggr         logger.SugaredLogger
 }

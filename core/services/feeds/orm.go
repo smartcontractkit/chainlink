@@ -61,7 +61,7 @@ type ORM interface {
 var _ ORM = &orm{}
 
 type orm struct {
-	q pg.Q
+	q pg.Q //TODO remove
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {

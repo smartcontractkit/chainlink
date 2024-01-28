@@ -23,7 +23,7 @@ type ORM interface {
 }
 
 type orm struct {
-	q pg.Q
+	q pg.Q //TODO remove
 }
 
 var _ ORM = (*orm)(nil)

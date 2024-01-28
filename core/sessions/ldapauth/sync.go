@@ -17,7 +17,7 @@ import (
 )
 
 type LDAPServerStateSyncer struct {
-	q            pg.Q
+	q            pg.Q //TODO make an orm
 	ldapClient   LDAPClient
 	config       config.LDAP
 	lggr         logger.Logger

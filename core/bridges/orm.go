@@ -1,6 +1,7 @@
 package bridges
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sync"
@@ -9,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -35,9 +37,9 @@ type ORM interface {
 }
 
 type orm struct {
-	q pg.Q
+	q sqlutil.Queryer
 
-	bridgeTypesCache sync.Map
+	bridgeTypesCache sync.Map //TODO share with newORM copies
 }
 
 var _ ORM = (*orm)(nil)
@@ -45,6 +47,10 @@ var _ ORM = (*orm)(nil)
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("BridgeORM")
 	return &orm{q: pg.NewQ(db, namedLogger, cfg)}
+}
+
+func (o *orm) Transact(ctx context.Context, opts *sqlutil.TxOptions, fn func(*orm) error) error {
+	return sqlutil.Transact(ctx, func(q sqlutil.Queryer) *orm { return &orm{q: q} }, o.q, opts, fn)
 }
 
 // FindBridge looks up a Bridge by its Name.
@@ -55,7 +61,7 @@ func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
 	}
 
 	stmt := "SELECT * FROM bridge_types WHERE name = $1"
-	err = o.q.Get(&bt, stmt, name.String())
+	err = o.q.GetContext(ctx, &bt, stmt, name.String())
 	if err == nil {
 		o.bridgeTypesCache.Store(bt.Name, bt)
 	}
@@ -90,7 +96,7 @@ func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
 	if err != nil {
 		return nil, err
 	}
-	err = o.q.Select(&bts, o.q.Rebind(query), args...)
+	err = o.q.SelectContext(ctx, &bts, o.q.Rebind(query), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +113,7 @@ func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
 // DeleteBridgeType removes the bridge type
 func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 	query := "DELETE FROM bridge_types WHERE name = $1"
-	result, err := o.q.Exec(query, bt.Name)
+	result, err := o.q.ExecContext(ctx, query, bt.Name)
 	if err != nil {
 		return err
 	}
@@ -125,18 +131,33 @@ func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the
 // passed params.
+// TODO add ctx
 func (o *orm) BridgeTypes(offset int, limit int) (bridges []BridgeType, count int, err error) {
-	err = o.q.Transaction(func(tx pg.Queryer) error {
-		if err = tx.Get(&count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
+	var txOpts sqlutil.TxOptions
+	txOpts.ReadOnly = true
+	err = o.Transact(ctx, &txOpts, func(tx *orm) error {
+		count, err = tx.countBridgeTypes(ctx)
+		if err != nil {
 			return errors.Wrap(err, "BridgeTypes failed to get count")
 		}
-		sql := `SELECT * FROM bridge_types ORDER BY name asc LIMIT $1 OFFSET $2;`
-		if err = tx.Select(&bridges, sql, limit, offset); err != nil {
+		bridges, err = tx.selectBridgeTypes(ctx, offset, limit)
+		if err != nil {
 			return errors.Wrap(err, "BridgeTypes failed to load bridge_types")
 		}
 		return nil
-	}, pg.OptReadOnlyTx())
+	})
 
+	return
+}
+
+func (o *orm) countBridgeTypes(ctx context.Context) (count int, err error) {
+	err = o.q.GetContext(ctx, &count, "SELECT COUNT(*) FROM bridge_types")
+	return
+}
+
+func (o *orm) selectBridgeTypes(ctx context.Context, offset, limit int) (bridges []BridgeType, err error) {
+	sql := `SELECT * FROM bridge_types ORDER BY name asc LIMIT $1 OFFSET $2;`
+	err = o.q.SelectContext(ctx, &bridges, sql, limit, offset)
 	return
 }
 

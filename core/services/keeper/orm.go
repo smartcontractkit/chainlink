@@ -15,7 +15,7 @@ import (
 
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
-	q      pg.Q
+	q      pg.Q //TODO remove
 	logger logger.Logger
 }
 

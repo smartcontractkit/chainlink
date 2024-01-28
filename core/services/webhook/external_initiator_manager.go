@@ -36,7 +36,7 @@ type HTTPClient interface {
 }
 
 type externalInitiatorManager struct {
-	q          pg.Q
+	q          pg.Q //TODO make an orm
 	httpclient HTTPClient
 }
 

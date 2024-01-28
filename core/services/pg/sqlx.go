@@ -15,14 +15,16 @@ import (
 type Queryer interface {
 	sqlx.Ext
 	sqlx.ExtContext
-	sqlx.Preparer
+	sqlx.Preparer // Deprecated
 	sqlx.PreparerContext
-	sqlx.Queryer
+	sqlx.Queryer // Deprecated
+	// Deprecated
 	Select(dest interface{}, query string, args ...interface{}) error
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	PrepareNamed(query string) (*sqlx.NamedStmt, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	// Deprecated
 	Get(dest interface{}, query string, args ...interface{}) error
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	NamedExec(query string, arg interface{}) (sql.Result, error)

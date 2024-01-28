@@ -54,7 +54,7 @@ type Eth interface {
 type eth struct {
 	*keyManager
 	keystateORM
-	q             pg.Q
+	q             pg.Q //TODO use orm
 	subscribers   [](chan struct{})
 	subscribersMu *sync.RWMutex
 }

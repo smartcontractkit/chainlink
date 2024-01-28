@@ -53,7 +53,7 @@ var (
 )
 
 type shareDB struct {
-	q         pg.Q
+	q         pg.Q //TODO ORM
 	lggr      logger.Logger
 	chainID   *big.Int
 	chainType string

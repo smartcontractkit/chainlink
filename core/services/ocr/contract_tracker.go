@@ -64,7 +64,7 @@ type (
 		jobID            int32
 		logger           logger.Logger
 		ocrDB            OCRContractTrackerDB
-		q                pg.Q
+		q                pg.Q //TODO make orm
 		blockTranslator  ocrcommon.BlockTranslator
 		cfg              ocrcommon.Config
 		mailMon          *mailbox.Monitor

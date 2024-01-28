@@ -20,7 +20,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ksORM {
 }
 
 type ksORM struct {
-	q    pg.Q
+	q    pg.Q //TODO remove
 	lggr logger.Logger
 }
 
