@@ -52,13 +52,13 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 112_100; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 30_250; // Used in actual payment. Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_350; // Used in actual payment. overhead per signer
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_500; // Used in actual payment. overhead per upkeep performed
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_640; // Used in actual payment. Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_150; // Used in actual payment. overhead per signer
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_800; // Used in actual payment. overhead per upkeep performed
 
   OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
   ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);

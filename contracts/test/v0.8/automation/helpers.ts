@@ -7,6 +7,8 @@ import { AutomationRegistryLogicB2_2__factory as AutomationRegistryLogicBFactory
 import { IAutomationRegistryMaster as IAutomationRegistry } from '../../../typechain/IAutomationRegistryMaster'
 import { IAutomationRegistryMaster__factory as IAutomationRegistryMasterFactory } from '../../../typechain/factories/IAutomationRegistryMaster__factory'
 
+const ZERO = 0
+
 export const deployRegistry21 = async (
   from: Signer,
   mode: Parameters<KeeperRegistryLogicBFactory['deploy']>[0],
@@ -35,13 +37,12 @@ export const deployRegistry21 = async (
 
 export const deployRegistry22 = async (
   from: Signer,
-  mode: Parameters<AutomationRegistryLogicBFactory['deploy']>[0],
-  link: Parameters<AutomationRegistryLogicBFactory['deploy']>[1],
-  linkNative: Parameters<AutomationRegistryLogicBFactory['deploy']>[2],
-  fastgas: Parameters<AutomationRegistryLogicBFactory['deploy']>[3],
+  link: Parameters<AutomationRegistryLogicBFactory['deploy']>[0],
+  linkNative: Parameters<AutomationRegistryLogicBFactory['deploy']>[1],
+  fastgas: Parameters<AutomationRegistryLogicBFactory['deploy']>[2],
   allowedReadOnlyAddress: Parameters<
     AutomationRegistryLogicBFactory['deploy']
-  >[4],
+  >[3],
 ): Promise<IAutomationRegistry> => {
   const logicBFactory = await ethers.getContractFactory(
     'AutomationRegistryLogicB2_2',
