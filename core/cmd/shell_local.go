@@ -268,6 +268,7 @@ func (s *Shell) RunNode(c *cli.Context) error {
 }
 
 func (s *Shell) runNode(c *cli.Context) error {
+	ctx := context.Background()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
@@ -378,7 +379,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
-				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+				err2 := app.GetKeyStore().Eth().EnsureKeys(ctx, ch.ID())
 				if err2 != nil {
 					return errors.Wrap(err2, "failed to ensure keystore keys")
 				}

@@ -84,6 +84,7 @@ func (ekc *ETHKeysController) formatETHKeyResponse() gin.HandlerFunc {
 //	"<application>/keys/eth"
 func (ekc *ETHKeysController) Index(c *gin.Context) {
 	deepPrint(c)
+	//c.Request.Context().Value()
 	ethKeyStore := ekc.app.GetKeyStore().Eth()
 	var keys []ethkey.KeyV2
 	var err error
@@ -153,7 +154,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	key, err := ethKeyStore.Create(chain.ID())
+	key, err := ethKeyStore.Create(c.Request.Context(), chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -234,7 +235,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	key, err := ethKeyStore.Import(bytes, oldPassword, chain.ID())
+	key, err := ethKeyStore.Import(c.Request.Context(), bytes, oldPassword, chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

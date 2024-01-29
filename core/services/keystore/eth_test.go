@@ -1,6 +1,7 @@
 package keystore_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sort"
@@ -407,10 +408,11 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
+		ctx := context.Background()
 		defer reset()
 		newKey, err := ethkey.NewV2()
 		require.NoError(t, err)
-		ks.XXXTestingOnlyAdd(newKey)
+		ks.XXXTestingOnlyAdd(ctx, newKey)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		assert.Equal(t, 1, len(keys))
@@ -448,13 +450,14 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		defer reset()
 
 		t.Run("returns states for keys", func(t *testing.T) {
+			ctx := context.Background()
 			k1, err := ethkey.NewV2()
 			require.NoError(t, err)
 			k2, err := ethkey.NewV2()
 			require.NoError(t, err)
-			ks.XXXTestingOnlyAdd(k1)
-			ks.XXXTestingOnlyAdd(k2)
-			require.NoError(t, ks.Add(k1.Address, testutils.FixtureChainID))
+			ks.XXXTestingOnlyAdd(ctx, k1)
+			ks.XXXTestingOnlyAdd(ctx, k2)
+			require.NoError(t, ks.Add(ctx, k1.Address, testutils.FixtureChainID))
 			require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
 
 			states, err := ks.GetStatesForKeys([]ethkey.KeyV2{k1, k2})

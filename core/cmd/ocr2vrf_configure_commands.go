@@ -299,9 +299,10 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 }
 
 func (s *Shell) appendForwarders(chainID int64, ks keystore.Eth, sendingKeys []string, sendingKeysAddresses []common.Address) ([]string, []common.Address, error) {
+	ctx := context.Background()
 	for i := 0; i < forwarderAdditionalEOACount; i++ {
 		// Create the sending key in the keystore.
-		k, err := ks.Create()
+		k, err := ks.Create(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -352,6 +353,7 @@ func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, lggr logger.Logg
 }
 
 func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
+	ctx := context.Background()
 	if err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password()); err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
@@ -362,7 +364,7 @@ func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Mast
 			return fmt.Errorf("failed to get legacy evm chains")
 		}
 		for _, ch := range chains {
-			if err = keyStore.Eth().EnsureKeys(ch.ID()); err != nil {
+			if err = keyStore.Eth().EnsureKeys(ctx, ch.ID()); err != nil {
 				return errors.Wrap(err, "failed to ensure keystore keys")
 			}
 		}

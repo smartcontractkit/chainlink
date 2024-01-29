@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -258,12 +259,13 @@ type RandomKey struct {
 }
 
 func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
+	ctx := context.Background()
 	if r.chainIDs == nil {
 		r.chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
 	}
 
 	key := MustGenerateRandomKey(t)
-	keystore.XXXTestingOnlyAdd(key)
+	keystore.XXXTestingOnlyAdd(ctx, key)
 
 	for _, cid := range r.chainIDs {
 		require.NoError(t, keystore.Add(key.Address, cid.ToInt()))
