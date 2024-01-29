@@ -18,7 +18,7 @@ runs:
   using: composite
   steps:
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
       with:
         go-version-file: ${{ inputs.go-version-file }}
         cache: false

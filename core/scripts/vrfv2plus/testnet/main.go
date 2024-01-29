@@ -271,7 +271,7 @@ func main() {
 		dbURL := cmd.String("db-url", "", "postgres database url")
 		keystorePassword := cmd.String("keystore-pw", "", "password to the keystore")
 		nativePayment := cmd.Bool("native-payment", false, "whether to use native payment or not")
-
+		onlyPremium := cmd.Bool("only-premium", false, "whether to bill only premium amount")
 		preSeed := cmd.String("preseed", "", "request preSeed")
 		blockHash := cmd.String("blockhash", "", "request blockhash")
 		blockNum := cmd.Uint64("blocknum", 0, "request blocknumber")
@@ -328,7 +328,7 @@ func main() {
 
 		fmt.Printf("Proof: %+v, commitment: %+v\nSending fulfillment!", onChainProof, rc)
 
-		tx, err := coordinator.FulfillRandomWords(e.Owner, onChainProof, rc)
+		tx, err := coordinator.FulfillRandomWords(e.Owner, onChainProof, rc, *onlyPremium)
 		helpers.PanicErr(err)
 
 		fmt.Println("waiting for it to mine:", helpers.ExplorerLink(e.ChainID, tx.Hash()))
@@ -540,8 +540,10 @@ func main() {
 		stalenessSeconds := cmd.Int64("staleness-seconds", 86400, "staleness in seconds")
 		gasAfterPayment := cmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
 		fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "fallback wei per unit link")
-		flatFeeLinkPPM := cmd.Int64("flat-fee-link-ppm", 500, "fulfillment flat fee LINK ppm")
 		flatFeeEthPPM := cmd.Int64("flat-fee-eth-ppm", 500, "fulfillment flat fee ETH ppm")
+		flatFeeLinkDiscountPPM := cmd.Int64("flat-fee-link-discount-ppm", 100, "fulfillment flat fee discount for LINK payment denominated in native ppm")
+		nativePremiumPercentage := cmd.Int64("native-premium-percentage", 1, "premium percentage for native payment")
+		linkPremiumPercentage := cmd.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
 
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "fallback-wei-per-unit-link")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*setConfigAddress), e.Ec)
@@ -555,17 +557,18 @@ func main() {
 			uint32(*stalenessSeconds),
 			uint32(*gasAfterPayment),
 			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
-			vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
-				FulfillmentFlatFeeLinkPPM:   uint32(*flatFeeLinkPPM),
-				FulfillmentFlatFeeNativePPM: uint32(*flatFeeEthPPM),
-			},
+			uint32(*flatFeeEthPPM),
+			uint32(*flatFeeLinkDiscountPPM),
+			uint8(*nativePremiumPercentage),
+			uint8(*linkPremiumPercentage),
 		)
 	case "coordinator-register-key":
 		coordinatorRegisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
 		registerKeyUncompressedPubKey := coordinatorRegisterKey.String("pubkey", "", "uncompressed pubkey")
-		registerKeyOracleAddress := coordinatorRegisterKey.String("oracle-address", "", "oracle address")
+		gasLaneMaxGas := coordinatorRegisterKey.Uint64("gas-lane-max-gas", 1e12, "gas lane max gas price")
 		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey", "oracle-address")
+
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*registerKeyAddress), e.Ec)
 		helpers.PanicErr(err)
 
@@ -574,7 +577,7 @@ func main() {
 			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 		}
 
-		v2plusscripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
+		v2plusscripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *gasLaneMaxGas)
 	case "coordinator-deregister-key":
 		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
 		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
@@ -1072,6 +1075,7 @@ func main() {
 		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")
 		uncompressedPubKey := coordinatorReregisterKey.String("pubkey", "", "uncompressed pubkey")
 		skipDeregister := coordinatorReregisterKey.Bool("skip-deregister", false, "if true, key will not be deregistered")
+		gasLaneMaxGas := coordinatorReregisterKey.Uint64("gas-lane-max-gas", 1e12, "gas lane max gas")
 		helpers.ParseArgs(coordinatorReregisterKey, os.Args[2:], "coordinator-address", "pubkey", "new-oracle-address")
 
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
@@ -1096,7 +1100,7 @@ func main() {
 		// Use a higher gas price for the register call
 		e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
 		registerTx, err := coordinator.RegisterProvingKey(e.Owner,
-			[2]*big.Int{pk.X, pk.Y})
+			[2]*big.Int{pk.X, pk.Y}, *gasLaneMaxGas)
 		helpers.PanicErr(err)
 		fmt.Println("Register transaction", helpers.ExplorerLink(e.ChainID, registerTx.Hash()))
 

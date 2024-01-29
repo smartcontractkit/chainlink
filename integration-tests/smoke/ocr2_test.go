@@ -11,12 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
@@ -24,8 +24,8 @@ import (
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
 
-	noMedianPlugin := map[string]string{string(env.MedianPluginCmd): ""}
-	medianPlugin := map[string]string{string(env.MedianPluginCmd): "chainlink-feeds"}
+	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
+	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
 	for _, test := range []struct {
 		name                string
 		env                 map[string]string
@@ -42,11 +42,17 @@ func TestOCRv2Basic(t *testing.T) {
 
 			l := logging.GetTestLogger(t)
 
-			network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+			config, err := tc.GetConfig("Smoke", tc.OCR2)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 			require.NoError(t, err, "Error building ethereum network config")
 
 			env, err := test_env.NewCLTestEnvBuilder().
 				WithTestInstance(t).
+				WithTestConfig(&config).
 				WithPrivateEthereumNetwork(network).
 				WithMockAdapter().
 				WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -96,7 +102,7 @@ func TestOCRv2Basic(t *testing.T) {
 			require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
 			err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
-			require.NoError(t, err, "Error starting new OCR2 round")
+			require.NoError(t, err, "Error watching for new OCR2 round")
 			roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
 			require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 			require.Equal(t, int64(5), roundData.Answer.Int64(),
@@ -124,11 +130,17 @@ func TestOCRv2Request(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	network, err := actions.EthereumNetworkConfigFromEnvOrDefault(l)
+	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -177,7 +189,7 @@ func TestOCRv2Request(t *testing.T) {
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
 	err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
-	require.NoError(t, err, "Error starting new OCR2 round")
+	require.NoError(t, err, "Error watching for new OCR2 round")
 	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), roundData.Answer.Int64(),
@@ -200,10 +212,17 @@ func TestOCRv2Request(t *testing.T) {
 }
 
 func TestOCRv2JobReplacement(t *testing.T) {
+	t.Parallel()
 	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -252,7 +271,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
 	err = actions.WatchNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
-	require.NoError(t, err, "Error starting new OCR2 round")
+	require.NoError(t, err, "Error watching for new OCR2 round")
 	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), roundData.Answer.Int64(),
@@ -282,7 +301,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	err = actions.WatchNewOCR2Round(3, aggregatorContracts, env.EVMClient, time.Minute*3, l)
-	require.NoError(t, err, "Error starting new OCR2 round")
+	require.NoError(t, err, "Error watching for new OCR2 round")
 	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(3))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(15), roundData.Answer.Int64(),

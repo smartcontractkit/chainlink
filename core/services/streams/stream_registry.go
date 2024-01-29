@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-type StreamID = string
+type StreamID = uint64
 
 type Registry interface {
 	Get(streamID StreamID) (strm Stream, exists bool)
@@ -47,7 +47,7 @@ func (s *streamRegistry) Register(streamID StreamID, spec pipeline.Spec, rrs Res
 	s.Lock()
 	defer s.Unlock()
 	if _, exists := s.streams[streamID]; exists {
-		return fmt.Errorf("stream already registered for id: %q", streamID)
+		return fmt.Errorf("stream already registered for id: %d", streamID)
 	}
 	s.streams[streamID] = NewStream(s.lggr, streamID, spec, s.runner, rrs)
 	return nil

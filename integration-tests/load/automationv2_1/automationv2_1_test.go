@@ -2,11 +2,9 @@ package automationv2_1
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -26,18 +24,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
@@ -117,85 +118,27 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 )
 
-var (
-	numberofNodes, _ = strconv.Atoi(getEnv("NUMBEROFNODES", "6"))           // Number of nodes in the DON
-	duration, _      = strconv.Atoi(getEnv("DURATION", "900"))              // Test duration in seconds
-	blockTime, _     = strconv.Atoi(getEnv("BLOCKTIME", "1"))               // Block time in seconds for geth simulated dev network
-	nodeFunding, _   = strconv.ParseFloat(getEnv("NODEFUNDING", "100"), 64) // Amount of native to fund each node with
-
-	specType       = getEnv("SPECTYPE", "minimum")                    // minimum, recommended, local specs for the test
-	logLevel       = getEnv("LOGLEVEL", "info")                       // log level for the chainlink nodes
-	pyroscope, _   = strconv.ParseBool(getEnv("PYROSCOPE", "false"))  // enable pyroscope for the chainlink nodes
-	prometheus, _  = strconv.ParseBool(getEnv("PROMETHEUS", "false")) // enable prometheus for the chainlink nodes
-	configOverride = os.Getenv("CONFIG_OVERRIDE")                     // config overrides for the load config
-)
-
-type Load struct {
-	NumberOfEvents                int64    `toml:",omitempty"`
-	NumberOfSpamMatchingEvents    int64    `toml:",omitempty"`
-	NumberOfSpamNonMatchingEvents int64    `toml:",omitempty"`
-	CheckBurnAmount               *big.Int `toml:",omitempty"`
-	PerformBurnAmount             *big.Int `toml:",omitempty"`
-	UpkeepGasLimit                uint32   `toml:",omitempty"`
-	NumberOfUpkeeps               int      `toml:",omitempty"`
-	SharedTrigger                 bool     `toml:",omitempty"`
-}
-
-type LoadConfig struct {
-	Load []Load `toml:",omitempty"`
-}
-
-var defaultLoadConfig = LoadConfig{
-	Load: []Load{
-		{
-			NumberOfEvents:                1,
-			NumberOfSpamMatchingEvents:    1,
-			NumberOfSpamNonMatchingEvents: 0,
-			CheckBurnAmount:               big.NewInt(0),
-			PerformBurnAmount:             big.NewInt(0),
-			UpkeepGasLimit:                1_000_000,
-			NumberOfUpkeeps:               5,
-			SharedTrigger:                 false,
-		},
-		{
-			NumberOfEvents:                1,
-			NumberOfSpamMatchingEvents:    0,
-			NumberOfSpamNonMatchingEvents: 1,
-			CheckBurnAmount:               big.NewInt(0),
-			PerformBurnAmount:             big.NewInt(0),
-			UpkeepGasLimit:                1_000_000,
-			NumberOfUpkeeps:               5,
-			SharedTrigger:                 true,
-		}},
-}
-
 func TestLogTrigger(t *testing.T) {
 	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
 
-	loadConfig := &LoadConfig{}
-	if configOverride != "" {
-		d, err := base64.StdEncoding.DecodeString(configOverride)
-		require.NoError(t, err, "Error decoding config override")
-		l.Info().Str("CONFIG_OVERRIDE", configOverride).Bytes("Decoded value", d).Msg("Decoding config override")
-		err = toml.Unmarshal(d, &loadConfig)
-		require.NoError(t, err, "Error unmarshalling config override")
-	} else {
-		loadConfig = &defaultLoadConfig
+	loadedTestConfig, err := tc.GetConfig("Load", tc.Automation)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	loadConfigBytes, err := toml.Marshal(loadConfig)
-	require.NoError(t, err, "Error marshalling load config")
+	version := *loadedTestConfig.ChainlinkImage.Version
+	image := *loadedTestConfig.ChainlinkImage.Image
 
 	l.Info().Msg("Starting automation v2.1 log trigger load test")
-	l.Info().Str("TEST_INPUTS", os.Getenv("TEST_INPUTS")).Int("Number of Nodes", numberofNodes).
-		Int("Duration", duration).
-		Int("Block Time", blockTime).
-		Str("Spec Type", specType).
-		Str("Log Level", logLevel).
-		Str("Image", os.Getenv(config.EnvVarCLImage)).
-		Str("Tag", os.Getenv(config.EnvVarCLTag)).
-		Bytes("Load Config", loadConfigBytes).
+	l.Info().
+		Int("Number of Nodes", *loadedTestConfig.Automation.General.NumberOfNodes).
+		Int("Duration", *loadedTestConfig.Automation.General.Duration).
+		Int("Block Time", *loadedTestConfig.Automation.General.BlockTime).
+		Str("Spec Type", *loadedTestConfig.Automation.General.SpecType).
+		Str("Log Level", *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel).
+		Str("Image", image).
+		Str("Tag", version).
 		Msg("Test Config")
 
 	testConfigFormat := `Number of Nodes: %d
@@ -205,17 +148,20 @@ Spec Type: %s
 Log Level: %s
 Image: %s
 Tag: %s
-
+		
 Load Config:
 %s`
 
-	testConfig := fmt.Sprintf(testConfigFormat, numberofNodes, duration,
-		blockTime, specType, logLevel, os.Getenv(config.EnvVarCLImage), os.Getenv(config.EnvVarCLTag), string(loadConfigBytes))
+	prettyLoadConfig, err := toml.Marshal(loadedTestConfig.Automation.Load)
+	require.NoError(t, err, "Error marshalling load config")
+
+	testConfig := fmt.Sprintf(testConfigFormat, *loadedTestConfig.Automation.General.NumberOfNodes, *loadedTestConfig.Automation.General.Duration,
+		*loadedTestConfig.Automation.General.BlockTime, *loadedTestConfig.Automation.General.SpecType, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel, image, version, string(prettyLoadConfig))
 	l.Info().Str("testConfig", testConfig).Msg("Test Config")
 
-	testNetwork := networks.MustGetSelectedNetworksFromEnv()[0]
+	testNetwork := networks.MustGetSelectedNetworkConfig(loadedTestConfig.Network)[0]
 	testType := "load"
-	loadDuration := time.Duration(duration) * time.Second
+	loadDuration := time.Duration(*loadedTestConfig.Automation.General.Duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
 
 	registrySettings := &contracts.KeeperRegistrySettings{
@@ -235,7 +181,7 @@ Load Config:
 	}
 
 	testEnvironment := environment.New(&environment.Config{
-		TTL: time.Hour * 24, // 1 day,
+		TTL: loadDuration + time.Hour*6,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s",
 			testType,
@@ -245,28 +191,6 @@ Load Config:
 		PreventPodEviction: true,
 	})
 
-	if testEnvironment.WillUseRemoteRunner() {
-		key := "TEST_INPUTS"
-		err := os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		require.NoError(t, err, "failed to set the environment variable TEST_INPUTS for remote runner")
-
-		key = config.EnvVarPyroscopeServer
-		err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		require.NoError(t, err, "failed to set the environment variable PYROSCOPE_SERVER for remote runner")
-
-		key = config.EnvVarPyroscopeKey
-		err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		require.NoError(t, err, "failed to set the environment variable PYROSCOPE_KEY for remote runner")
-
-		key = "GRAFANA_DASHBOARD_URL"
-		err = os.Setenv(fmt.Sprintf("TEST_%s", key), getEnv(key, ""))
-		require.NoError(t, err, "failed to set the environment variable GRAFANA_DASHBOARD_URL for remote runner")
-
-		key = "CONFIG_OVERRIDE"
-		err = os.Setenv(fmt.Sprintf("TEST_%s", key), os.Getenv(key))
-		require.NoError(t, err, "failed to set the environment variable CONFIG_OVERRIDE for remote runner")
-	}
-
 	testEnvironment.
 		AddHelm(ethereum.New(&ethereum.Props{
 			NetworkName: testNetwork.Name,
@@ -275,7 +199,7 @@ Load Config:
 			Values: map[string]interface{}{
 				"resources": gethNodeSpec,
 				"geth": map[string]interface{}{
-					"blocktime": blockTime,
+					"blocktime": *loadedTestConfig.Automation.General.BlockTime,
 					"capacity":  "20Gi",
 				},
 			},
@@ -293,7 +217,7 @@ Load Config:
 		dbSpec   = minimumDbSpec
 	)
 
-	switch specType {
+	switch *loadedTestConfig.Automation.General.SpecType {
 	case "recommended":
 		nodeSpec = recNodeSpec
 		dbSpec = recDbSpec
@@ -305,28 +229,34 @@ Load Config:
 
 	}
 
-	if !pyroscope {
-		err = os.Setenv(config.EnvVarPyroscopeServer, "")
-		require.NoError(t, err, "Error setting pyroscope server env var")
+	if *loadedTestConfig.Pyroscope.Enabled {
+		loadedTestConfig.Pyroscope.Environment = &testEnvironment.Cfg.Namespace
 	}
 
-	err = os.Setenv(config.EnvVarPyroscopeEnvironment, testEnvironment.Cfg.Namespace)
-	require.NoError(t, err, "Error setting pyroscope environment env var")
+	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
 
-	for i := 0; i < numberofNodes+1; i++ { // +1 for the OCR boot node
+	for i := 0; i < numberOfUpkeeps+1; i++ { // +1 for the OCR boot node
 		var nodeTOML string
 		if i == 1 || i == 3 {
-			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, logLevel)
+			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel)
 		} else {
 			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
 		}
-		nodeTOML = networks.AddNetworksConfig(nodeTOML, testNetwork)
-		testEnvironment.AddHelm(chainlink.New(i, map[string]any{
+		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
+
+		var overrideFn = func(_ interface{}, target interface{}) {
+			ctfconfig.MustConfigOverrideChainlinkVersion(loadedTestConfig.ChainlinkImage, target)
+			ctfconfig.MightConfigOverridePyroscopeKey(loadedTestConfig.Pyroscope, target)
+		}
+
+		cd := chainlink.NewWithOverride(i, map[string]any{
 			"toml":       nodeTOML,
 			"chainlink":  nodeSpec,
 			"db":         dbSpec,
-			"prometheus": prometheus,
-		}))
+			"prometheus": *loadedTestConfig.Automation.General.UsePrometheus,
+		}, loadedTestConfig.ChainlinkImage, overrideFn)
+
+		testEnvironment.AddHelm(cd)
 	}
 
 	err = testEnvironment.Run()
@@ -383,7 +313,7 @@ Load Config:
 
 	a.SetupAutomationDeployment(t)
 
-	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(nodeFunding), 0)
+	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding), 0)
 	require.NoError(t, err, "Error funding chainlink nodes")
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
@@ -406,21 +336,22 @@ Load Config:
 	}
 
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
-	loadConfigs := make([]Load, 0)
+	loadConfigs := make([]aconfig.Load, 0)
 	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
 	require.NoError(t, err, "Error building concurrent chain client")
 
-	for _, u := range loadConfig.Load {
-		for i := 0; i < u.NumberOfUpkeeps; i++ {
+	for _, u := range loadedTestConfig.Automation.Load {
+		for i := 0; i < *u.NumberOfUpkeeps; i++ {
 			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
 			require.NoError(t, err, "Error deploying automation consumer contract")
 			consumerContracts = append(consumerContracts, consumerContract)
 			l.Debug().
 				Str("Contract Address", consumerContract.Address()).
 				Int("Number", i+1).
-				Int("Out Of", u.NumberOfUpkeeps).
+				Int("Out Of", *u.NumberOfUpkeeps).
 				Msg("Deployed Automation Log Trigger Consumer Contract")
-			loadCfg := Load{
+
+			loadCfg := aconfig.Load{
 				NumberOfEvents:                u.NumberOfEvents,
 				NumberOfSpamMatchingEvents:    u.NumberOfSpamMatchingEvents,
 				NumberOfSpamNonMatchingEvents: u.NumberOfSpamNonMatchingEvents,
@@ -429,9 +360,10 @@ Load Config:
 				UpkeepGasLimit:                u.UpkeepGasLimit,
 				SharedTrigger:                 u.SharedTrigger,
 			}
+
 			loadConfigs = append(loadConfigs, loadCfg)
 
-			if u.SharedTrigger && i > 0 {
+			if *u.SharedTrigger && i > 0 {
 				triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
 				continue
 			}
@@ -442,7 +374,7 @@ Load Config:
 			l.Debug().
 				Str("Contract Address", triggerContract.Address().Hex()).
 				Int("Number", i+1).
-				Int("Out Of", u.NumberOfUpkeeps).
+				Int("Out Of", *u.NumberOfUpkeeps).
 				Msg("Deployed Automation Log Trigger Emitter Contract")
 		}
 		err = chainClient.WaitForEvents()
@@ -476,7 +408,7 @@ Load Config:
 			UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", i),
 			EncryptedEmail: []byte("test@mail.com"),
 			UpkeepContract: common.HexToAddress(consumerContract.Address()),
-			GasLimit:       loadConfigs[i].UpkeepGasLimit,
+			GasLimit:       *loadConfigs[i].UpkeepGasLimit,
 			AdminAddress:   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
 			TriggerType:    uint8(1),
 			CheckData:      encodedCheckDataStruct,
@@ -514,11 +446,11 @@ Load Config:
 	for i, triggerContract := range triggerContracts {
 		c := LogTriggerConfig{
 			Address:                       triggerContract.Address().String(),
-			NumberOfEvents:                loadConfigs[i].NumberOfEvents,
-			NumberOfSpamMatchingEvents:    loadConfigs[i].NumberOfSpamMatchingEvents,
-			NumberOfSpamNonMatchingEvents: loadConfigs[i].NumberOfSpamNonMatchingEvents,
+			NumberOfEvents:                int64(*loadConfigs[i].NumberOfEvents),
+			NumberOfSpamMatchingEvents:    int64(*loadConfigs[i].NumberOfSpamMatchingEvents),
+			NumberOfSpamNonMatchingEvents: int64(*loadConfigs[i].NumberOfSpamNonMatchingEvents),
 		}
-		numberOfEventsEmittedPerSec = numberOfEventsEmittedPerSec + loadConfigs[i].NumberOfEvents
+		numberOfEventsEmittedPerSec = numberOfEventsEmittedPerSec + int64(*loadConfigs[i].NumberOfEvents)
 		configs = append(configs, c)
 	}
 
@@ -529,7 +461,7 @@ Load Config:
 		Str("Duration", testSetupDuration.String()).
 		Msg("Test setup ended")
 
-	ts, err := sendSlackNotification("Started", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+	ts, err := sendSlackNotification("Started", l, &loadedTestConfig, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
 		strconv.FormatInt(startTimeTestSetup.UnixMilli(), 10), "now",
 		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
 	if err != nil {
@@ -770,7 +702,7 @@ Test Duration: %s`
 		avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR, len(allUpkeepDelays), len(allUpkeepDelaysFast),
 		len(allUpkeepDelaysRecovery), numberOfEventsEmitted, eventsMissed, percentMissed, testExDuration.String())
 
-	_, err = sendSlackNotification("Finished", l, testEnvironment.Cfg.Namespace, strconv.Itoa(numberofNodes),
+	_, err = sendSlackNotification("Finished", l, &loadedTestConfig, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
 		strconv.FormatInt(startTimeTestSetup.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
 		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")}, slack.MsgOptionTS(ts))
 	if err != nil {
@@ -778,7 +710,7 @@ Test Duration: %s`
 	}
 
 	t.Cleanup(func() {
-		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, chainClient); err != nil {
+		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig, chainClient); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
