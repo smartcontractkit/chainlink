@@ -68,14 +68,16 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 	chainID := chainIDBig.Int64()
 
-	var triggerCallOpts *bind.CallOpts             // use latest block for conditionals, but use block from tx for log triggers
-	latestCallOpts := &bind.CallOpts{Context: ctx} // always use latest block
+	// Log triggers: always use block from tx
+	// Conditional: use latest block if no block number is provided, otherwise use block from user input
+	var triggerCallOpts *bind.CallOpts             // use a certain block
+	latestCallOpts := &bind.CallOpts{Context: ctx} // use the latest block
 
 	// connect to registry contract
 	registryAddress := gethcommon.HexToAddress(k.cfg.RegistryAddress)
 	keeperRegistry21, err := iregistry21.NewIKeeperRegistryMaster(registryAddress, k.client)
 	if err != nil {
-		failUnknown("failed to connect to registry contract", err)
+		failUnknown("failed to connect to the registry contract", err)
 	}
 
 	// verify contract is correct
@@ -139,8 +141,21 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	// check upkeep
 	if triggerType == ConditionTrigger {
 		message("upkeep identified as conditional trigger")
+
+		if len(args) > 1 {
+			// if a block number is provided, use that block for both checkUpkeep and simulatePerformUpkeep
+			blockNum, err = strconv.ParseUint(args[1], 10, 64)
+			if err != nil {
+				failCheckArgs("unable to parse block number", err)
+			}
+			triggerCallOpts = &bind.CallOpts{Context: ctx, BlockNumber: new(big.Int).SetUint64(blockNum)}
+		} else {
+			// if no block number is provided, use latest block for both checkUpkeep and simulatePerformUpkeep
+			triggerCallOpts = latestCallOpts
+		}
+
 		var tmpCheckResult iregistry21.CheckUpkeep0
-		tmpCheckResult, err = keeperRegistry21.CheckUpkeep0(latestCallOpts, upkeepID)
+		tmpCheckResult, err = keeperRegistry21.CheckUpkeep0(triggerCallOpts, upkeepID)
 		if err != nil {
 			failUnknown("failed to check upkeep: ", err)
 		}
@@ -251,13 +266,14 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
 	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
-	// handle streams lookup
+
 	if checkResult.UpkeepFailureReason != 0 {
 		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
 	}
 
+	// handle data streams lookup
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
-		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.MercuryLegacyURL, URL: k.cfg.MercuryURL, Username: k.cfg.MercuryID, Password: k.cfg.MercuryKey}
+		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.DataStreamsLegacyURL, URL: k.cfg.DataStreamsURL, Username: k.cfg.DataStreamsID, Password: k.cfg.DataStreamsKey}
 		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)
 		lggr, _ := logger.NewLogger()
 		blockSub := &blockSubscriber{k.client}
@@ -282,25 +298,25 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			}
 
 			if streamsLookup.IsMercuryV02() {
-				message("using mercury lookup v0.2")
+				message("using data streams lookup v0.2")
 				// check if upkeep is allowed to use mercury v0.2
 				var allowed bool
 				_, _, _, allowed, err = streams.AllowedToUseMercury(triggerCallOpts, upkeepID)
 				if err != nil {
-					failUnknown("failed to check if upkeep is allowed to use mercury", err)
+					failUnknown("failed to check if upkeep is allowed to use data streams", err)
 				}
 				if !allowed {
 					resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
 				}
 			} else if streamsLookup.IsMercuryV03() {
 				// handle v0.3
-				message("using mercury lookup v0.3")
+				message("using data streams lookup v0.3")
 			} else {
 				resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
 			}
 
-			if k.cfg.MercuryLegacyURL == "" || k.cfg.MercuryURL == "" || k.cfg.MercuryID == "" || k.cfg.MercuryKey == "" {
-				failCheckConfig("Mercury configs not set properly, check your MERCURY_LEGACY_URL, MERCURY_URL, MERCURY_ID and MERCURY_KEY", nil)
+			if k.cfg.DataStreamsLegacyURL == "" || k.cfg.DataStreamsURL == "" || k.cfg.DataStreamsID == "" || k.cfg.DataStreamsKey == "" {
+				failCheckConfig("Data streams configs not set properly, check your DATA_STREAMS_LEGACY_URL, DATA_STREAMS_URL, DATA_STREAMS_ID and DATA_STREAMS_KEY", nil)
 			}
 
 			// do mercury request
@@ -314,16 +330,16 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
 			if checkResults[0].PipelineExecutionState == uint8(encoding.InvalidMercuryRequest) {
-				resolveIneligible("the mercury request data is invalid")
+				resolveIneligible("the data streams request data is invalid")
 			}
 			if err != nil {
-				failCheckConfig("failed to do mercury request ", err)
+				failCheckConfig("failed to do data streams request ", err)
 			}
 
 			// do checkCallback
 			err = streams.CheckCallback(ctx, values, streamsLookup, checkResults, 0)
 			if err != nil {
-				failUnknown("failed to execute mercury callback ", err)
+				failUnknown("failed to execute data streams callback ", err)
 			}
 			if checkResults[0].IneligibilityReason != 0 {
 				message(fmt.Sprintf("checkCallback failed with UpkeepFailureReason %d", checkResults[0].IneligibilityReason))

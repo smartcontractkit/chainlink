@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_consumer_example"
@@ -44,6 +45,22 @@ func DeployCoordinator(
 	linkEthAddress string,
 ) (coordinatorAddress common.Address) {
 	_, tx, _, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
+		e.Owner,
+		e.Ec,
+		common.HexToAddress(linkAddress),
+		common.HexToAddress(bhsAddress),
+		common.HexToAddress(linkEthAddress))
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func DeployTestCoordinator(
+	e helpers.Environment,
+	linkAddress string,
+	bhsAddress string,
+	linkEthAddress string,
+) (coordinatorAddress common.Address) {
+	_, tx, _, err := vrf_coordinator_test_v2.DeployVRFCoordinatorTestV2(
 		e.Owner,
 		e.Ec,
 		common.HexToAddress(linkAddress),

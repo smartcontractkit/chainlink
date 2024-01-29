@@ -9,20 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+...
+
+## 2.9.0 - UNRELEASED
+
 ### Added
 
 - `chainlink health` CLI command and HTML `/health` endpoint, to provide human-readable views of the underlying JSON health data.
 - New job type `stream` to represent streamspecs. This job type is not yet used anywhere but will be required for Data Streams V1.
+- Environment variables `CL_MEDIAN_ENV`, `CL_SOLANA_ENV`, and `CL_STARKNET_ENV` for setting environment variables in LOOP Plugins with an `.env` file.
+  ```
+  echo "Foo=Bar" >> median.env
+  echo "Baz=Val" >> median.env  
+  CL_MEDIAN_ENV="median.env"
+  ```
+- Gas bumping logic to the `SuggestedPriceEstimator`
 
 ### Fixed
 
 - Fixed the encoding used for transactions when resending in batches
 
-## 2.8.0 - UNRELEASED
+### Removed
+
+- `P2P.V1` is no longer supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
+- Removed `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` from TOML configuration, these fields are replaced by `[[TelemetryIngress.Endpoints]]`:
+```toml
+  [[TelemetryIngress.Endpoints]]
+  Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+  ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+  URL = '...'
+  ServerPubKey = '...'
+```
+
+<!-- unreleasedstop -->
+
+## 2.8.0 - 2024-01-24
 
 ### Added
 
-- Added a tracker component to the txmgr for tracking and gracefully handling abandoned transactions. Abandoned transactions occur when a fromAddress is removed from the keystore by a node operator. The tracker gives abandoned transactions a chance to be finalized on chain, or marks them as fatal_error if they are not finalized within a specified time to live (default 6hrs).
 - Added distributed tracing in the OpenTelemetry trace format to the node, currently focused at the LOOPP Plugin development effort. This includes a new set of `Tracing` TOML configurations. The default for collecting traces is off - you must explicitly enable traces and setup a valid OpenTelemetry collector. Refer to `.github/tracing/README.md` for more details.
 - Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
 - New prom metrics for mercury transmit queue:
@@ -72,6 +96,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.
 - `L2Suggested` mode is now called `SuggestedPrice`
 - Console logs will now escape (non-whitespace) control characters
+- Following EVM Pool metrics were renamed:
+  - `evm_pool_rpc_node_states` &rarr; `multi_node_states`
+  - `evm_pool_rpc_node_num_transitions_to_alive` &rarr; `pool_rpc_node_num_transitions_to_alive`
+  - `evm_pool_rpc_node_num_transitions_to_in_sync` &rarr; `pool_rpc_node_num_transitions_to_in_sync`
+  - `evm_pool_rpc_node_num_transitions_to_out_of_sync` &rarr; `pool_rpc_node_num_transitions_to_out_of_sync`
+  - `evm_pool_rpc_node_num_transitions_to_unreachable` &rarr; `pool_rpc_node_num_transitions_to_unreachable`
+  - `evm_pool_rpc_node_num_transitions_to_invalid_chain_id` &rarr; `pool_rpc_node_num_transitions_to_invalid_chain_id`
+  - `evm_pool_rpc_node_num_transitions_to_unusable` &rarr; `pool_rpc_node_num_transitions_to_unusable`
+  - `evm_pool_rpc_node_highest_seen_block` &rarr; `pool_rpc_node_highest_seen_block`
+  - `evm_pool_rpc_node_num_seen_blocks` &rarr; `pool_rpc_node_num_seen_blocks`
+  - `evm_pool_rpc_node_polls_total` &rarr; `pool_rpc_node_polls_total`
+  - `evm_pool_rpc_node_polls_failed` &rarr; `pool_rpc_node_polls_failed`
+  - `evm_pool_rpc_node_polls_success` &rarr; `pool_rpc_node_polls_success`
 
 ### Removed
 
@@ -87,9 +124,11 @@ Starting in `v2.9.0`:
 - `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
 - `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
 
-...
+## 2.7.2 - 2023-12-14
 
-<!-- unreleasedstop -->
+### Fixed
+
+- Fixed a bug that caused nodes without OCR or OCR2 enabled to fail config validation if `P2P.V2` was not explicitly disabled. With this fix, NOPs will not have to make changes to their config. 
 
 ## 2.7.1 - 2023-11-21
 
