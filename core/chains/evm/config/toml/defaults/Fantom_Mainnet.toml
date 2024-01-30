@@ -1,4 +1,5 @@
 ChainID = '250'
+FinalityDepth = 1
 LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 3
@@ -9,12 +10,9 @@ RPCBlockQueryDelay = 2
 Enabled = true
 
 [GasEstimator]
+EIP1559DynamicFees = true
 # Fantom network has been slow to include txs at times when using the BlockHistory estimator, and the recommendation is to use SuggestedPrice mode.
-Mode = 'SuggestedPrice'
-# We don't want to place any limits on the minimum gas price with the SuggestedPrice estimator
-PriceMin = '0'
-# Never bump gas
-BumpThreshold = 0
+Mode = 'BlockHistory'
 
 [OCR2.Automation]
 GasLimit = 3800000
