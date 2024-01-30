@@ -14,7 +14,7 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
-import "../interfaces/v2_2/IChainModule.sol";
+import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -47,22 +47,15 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    */
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
   uint8 internal constant UPKEEP_VERSION_BASE = 3;
-  // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
-  bytes internal constant L1_FEE_DATA_PADDING =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 112_100; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 111_500; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
   uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_640; // Used in actual payment. Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_150; // Used in actual payment. overhead per signer
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_800; // Used in actual payment. overhead per upkeep performed
-
-  OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
-  ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
-  ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
+  uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_500; // Used in actual payment. overhead per upkeep performed
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
@@ -624,7 +617,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
 
     uint256 l1CostWei = 0;
     if (isExecution) {
-      l1CostWei = hotVars.chainModule.getL1Fee(msg.data);
+      l1CostWei = hotVars.chainModule.getCurrentL1Fee();
     } else {
       // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
       l1CostWei = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize);

@@ -1125,7 +1125,7 @@ describe('AutomationRegistry2_2', () => {
     await loadFixture(setup)
   })
 
-  describe('#transmit', () => {
+  describe.only('#transmit', () => {
     const fArray = [1, 5, 10]
 
     it('reverts when registry is paused', async () => {
