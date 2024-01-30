@@ -16,7 +16,7 @@ contract ArbitrumModule is ChainModuleBase {
   address private constant ARB_GAS_ADDR = 0x000000000000000000000000000000000000006C;
   ArbGasInfo private constant ARB_GAS = ArbGasInfo(ARB_GAS_ADDR);
 
-  function blockHash(uint256 n) external override view returns (bytes32) {
+  function blockHash(uint256 n) external view override returns (bytes32) {
     uint256 blockNum = ARB_SYS.arbBlockNumber();
     if (n >= blockNum || blockNum - n > 256) {
       return "";
@@ -24,15 +24,15 @@ contract ArbitrumModule is ChainModuleBase {
     return ARB_SYS.arbBlockHash(n);
   }
 
-  function blockNumber() external override view returns (uint256) {
+  function blockNumber() external view override returns (uint256) {
     return ARB_SYS.arbBlockNumber();
   }
 
-  function getCurrentL1Fee() external override view returns (uint256) {
+  function getCurrentL1Fee() external view override returns (uint256) {
     return ARB_GAS.getCurrentTxL1GasFees();
   }
 
-  function getMaxL1Fee(uint256 dataSize) external override view returns (uint256) {
+  function getMaxL1Fee(uint256 dataSize) external view override returns (uint256) {
     (, uint256 perL1CalldataUnit, , , , ) = ARB_GAS.getPricesInWei();
     return perL1CalldataUnit * dataSize * 16;
   }

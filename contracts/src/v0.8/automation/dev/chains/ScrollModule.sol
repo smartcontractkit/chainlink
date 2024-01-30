@@ -15,11 +15,11 @@ contract ScrollModule is ChainModuleBase {
   address private constant SCROLL_ORACLE_ADDR = 0x5300000000000000000000000000000000000002;
   IScrollL1GasPriceOracle private constant SCROLL_ORACLE = IScrollL1GasPriceOracle(SCROLL_ORACLE_ADDR);
 
-  function getCurrentL1Fee() external override view returns (uint256) {
+  function getCurrentL1Fee() external view override returns (uint256) {
     return SCROLL_ORACLE.getL1Fee(bytes.concat(msg.data, SCROLL_L1_FEE_DATA_PADDING));
   }
 
-  function getMaxL1Fee(uint256 dataSize) external override view returns (uint256) {
+  function getMaxL1Fee(uint256 dataSize) external view override returns (uint256) {
     // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have all non zero-bytes.
     // Instead of setting bytes to non-zero, we initialize 'new bytes' of length 4*dataSize to cover for zero bytes.
     // this is the same as OP.
