@@ -49,13 +49,13 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   uint8 internal constant UPKEEP_VERSION_BASE = 3;
 
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 111_500; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_100; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_640; // Used in actual payment. Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_100; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_500; // Used in actual payment. overhead per upkeep performed
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_000; // Used in actual payment. overhead per upkeep performed
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
@@ -896,36 +896,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   ) internal nonReentrant returns (bool success, uint256 gasUsed) {
     performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
     return forwarder.forward(performGas, performData);
-  }
-
-  /**
-   * @dev does postPerform payment processing for an upkeep. Deducts upkeep's balance and increases
-   * amount spent.
-   */
-  function _postPerformPayment1(
-    HotVars memory hotVars,
-    uint256 i,
-    Report memory report,
-    UpkeepTransmitInfo memory upkeepTransmitInfo,
-    //uint256 fastGasWei,
-    //uint256 linkNative,
-    uint16 numBatchedUpkeeps
-  ) internal returns (uint96 gasReimbursement, uint96 premium) {
-    (gasReimbursement, premium) = _calculatePaymentAmount(
-      hotVars,
-      upkeepTransmitInfo.gasUsed,
-      upkeepTransmitInfo.gasOverhead,
-      report.fastGasWei,
-      report.linkNative,
-      numBatchedUpkeeps,
-      true
-    );
-
-    uint96 payment = gasReimbursement + premium;
-
-    s_upkeep[report.upkeepIds[i]].balance -= payment;
-    s_upkeep[report.upkeepIds[i]].amountSpent += payment;
-    return (gasReimbursement, premium);
   }
 
   /**
