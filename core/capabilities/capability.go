@@ -118,6 +118,9 @@ func (c CapabilityInfo) Info() CapabilityInfo {
 var idRegex = regexp.MustCompile(`[a-z0-9_\-:]`)
 
 const (
+	// TODO: this length was largely picked arbitrarily.
+	// Consider what a realistic/desirable value should be.
+	// See: https://smartcontract-it.atlassian.net/jira/software/c/projects/KS/boards/182
 	idMaxLength = 128
 )
 
@@ -151,6 +154,9 @@ func NewCapabilityInfo(
 	}, nil
 }
 
+// TODO: this timeout was largely picked arbitrarily.
+// Consider what a realistic/desirable value should be.
+// See: https://smartcontract-it.atlassian.net/jira/software/c/projects/KS/boards/182
 var defaultExecuteTimeout = 10 * time.Second
 
 // ExecuteSync executes a capability synchronously.
