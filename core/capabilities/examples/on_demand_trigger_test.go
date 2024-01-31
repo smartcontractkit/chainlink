@@ -12,14 +12,24 @@ import (
 )
 
 func TestOnDemandTrigger(t *testing.T) {
+	r := capabilities.NewRegistry()
 	tr := NewOnDemandTrigger()
 	ctx := context.Background()
 
-	callback := make(chan capabilities.CapabilityResponse, 10)
-	m, err := values.NewMap(map[string]any{"weid": "hello"})
+	err := r.Add(ctx, tr)
 	require.NoError(t, err)
 
-	err = tr.RegisterTrigger(ctx, callback, m)
+	trigger, err := r.GetTrigger(ctx, tr.Info().ID)
+	require.NoError(t, err)
+
+	callback := make(chan capabilities.CapabilityResponse, 10)
+
+	req := capabilities.CapabilityRequest{
+		Metadata: capabilities.Metadata{
+			WorkflowID: "hello",
+		},
+	}
+	err = trigger.RegisterTrigger(ctx, callback, req)
 	require.NoError(t, err)
 
 	er := capabilities.CapabilityResponse{
