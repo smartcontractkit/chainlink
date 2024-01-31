@@ -127,6 +127,8 @@ type mercuryTransmitter struct {
 	transmitQueueDeleteErrorCount prometheus.Counter
 	transmitQueueInsertErrorCount prometheus.Counter
 	transmitQueuePushErrorCount   prometheus.Counter
+
+	nt *natsTransmitter
 }
 
 var PayloadTypes = getPayloadTypes()
@@ -171,6 +173,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		transmitQueueDeleteErrorCount.WithLabelValues(feedIDHex),
 		transmitQueueInsertErrorCount.WithLabelValues(feedIDHex),
 		transmitQueuePushErrorCount.WithLabelValues(feedIDHex),
+		newNATSTransmitter(feedID, "nats://0.0.0.0:53474"),
 	}
 }
 
@@ -196,7 +199,7 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 		go mt.runDeleteQueueLoop()
 		mt.wg.Add(1)
 		go mt.runQueueLoop()
-		return nil
+		return mt.nt.Start(ctx)
 	})
 }
 
@@ -210,6 +213,7 @@ func (mt *mercuryTransmitter) Close() error {
 		}
 		close(mt.stopCh)
 		mt.wg.Wait()
+		mt.nt.Close()
 		return mt.rpcClient.Close()
 	})
 }
@@ -351,6 +355,12 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 	payload, err := PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
 		return pkgerrors.Wrap(err, "abi.Pack failed")
+	}
+
+	// HACK: insert NATS transmission
+	p := []byte(fmt.Sprintf("report: 0x%x", payload))
+	if err := mt.nt.conn.Publish(mt.feedID.Hex(), p); err != nil {
+		panic(err)
 	}
 
 	req := &pb.TransmitRequest{
