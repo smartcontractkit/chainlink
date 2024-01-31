@@ -105,6 +105,11 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	}
 	count := len(chains)
 
+	if count == 0 {
+		//No chains are configured, return an empty ChainsPayload, so we don't break the UI
+		return NewChainsPayload(nil, 0), nil
+	}
+
 	// bound the chain results
 	if offset >= len(chains) {
 		return nil, fmt.Errorf("offset %d out of range", offset)

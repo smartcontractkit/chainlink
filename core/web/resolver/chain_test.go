@@ -108,6 +108,25 @@ ResendAfterThreshold = '1h0m0s'
 				}
 			}`, configTOMLEscaped),
 		},
+		unauthorizedTestCase(GQLTestCase{query: query}, "chains"),
+		{
+			name:          "no chains",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
+
+			},
+			query: query,
+			result: `
+			{
+				"chains": {
+					"results": [],
+					"metadata": {
+						"total": 0
+					}
+				}
+			}`,
+		},
 	}
 
 	RunGQLTests(t, testCases)
