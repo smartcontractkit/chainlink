@@ -20,18 +20,6 @@ func (m *cmockCapability) Execute(ctx context.Context, callback chan capabilitie
 	return nil
 }
 
-type tmockCapability struct {
-	capabilities.CapabilityInfo
-}
-
-func (m *tmockCapability) RegisterTrigger(ctx context.Context, callback chan capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
-	return nil
-}
-
-func (m *tmockCapability) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {
-	return nil
-}
-
 func TestRegistry(t *testing.T) {
 	ctx := context.Background()
 
