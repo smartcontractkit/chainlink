@@ -63,6 +63,7 @@ type Metadata struct {
 	WorkflowID string
 }
 
+// CapabilityRequest is a struct for the Execute request of a capability.
 type CapabilityRequest struct {
 	Metadata Metadata
 	Config   *values.Map
@@ -74,7 +75,7 @@ type CallbackExecutable interface {
 	// Capability must respect context.Done and cleanup any request specific resources
 	// when the context is cancelled. When a request has been completed the capability
 	// is also expected to close the callback channel.
-	// Request specific configuration is passed in via the inputs parameter.
+	// Request specific configuration is passed in via the request parameter.
 	// A successful response must always return a value. An error is assumed otherwise.
 	// The intent is to make the API explicit.
 	Execute(ctx context.Context, callback chan CapabilityResponse, request CapabilityRequest) error
