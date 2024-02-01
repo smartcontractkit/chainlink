@@ -25,8 +25,8 @@ func TestOnDemandTrigger(t *testing.T) {
 	callback := make(chan capabilities.CapabilityResponse, 10)
 
 	req := capabilities.CapabilityRequest{
-		Metadata: capabilities.Metadata{
-			WorkflowID: "hello",
+		Metadata: capabilities.RequestMetadata{
+			WorkflowExecutionID: "hello",
 		},
 	}
 	err = trigger.RegisterTrigger(ctx, callback, req)
