@@ -3,6 +3,7 @@ package capabilities
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,6 +48,14 @@ func Test_CapabilityInfo_Invalid(t *testing.T) {
 		"hello",
 	)
 	assert.ErrorContains(t, err, "invalid version")
+
+	_, err = NewCapabilityInfo(
+		strings.Repeat("n", 256),
+		CapabilityTypeAction,
+		"This is a mock capability that doesn't do anything.",
+		"hello",
+	)
+	assert.ErrorContains(t, err, "exceeds max length 128")
 }
 
 type mockCapabilityWithExecute struct {

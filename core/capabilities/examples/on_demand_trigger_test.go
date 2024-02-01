@@ -53,3 +53,27 @@ func TestOnDemandTrigger_ChannelDoesntExist(t *testing.T) {
 	err := tr.SendEvent(ctx, "hello", er)
 	assert.ErrorContains(t, err, "no registration")
 }
+
+func TestOnDemandTrigger_(t *testing.T) {
+	tr := NewOnDemandTrigger()
+	ctx := context.Background()
+
+	req := capabilities.CapabilityRequest{
+		Metadata: capabilities.Metadata{
+			WorkflowID: "hello",
+		},
+	}
+	callback := make(chan capabilities.CapabilityResponse, 10)
+
+	err := tr.RegisterTrigger(ctx, callback, req)
+	require.NoError(t, err)
+
+	er := capabilities.CapabilityResponse{
+		Value: &values.String{"hello"},
+	}
+	err = tr.SendEvent(ctx, "hello", er)
+	require.NoError(t, err)
+
+	assert.Len(t, callback, 1)
+	assert.Equal(t, er, <-callback)
+}
