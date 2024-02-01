@@ -59,19 +59,36 @@ type CapabilityResponse struct {
 	Err   error
 }
 
-type Metadata struct {
+type RequestMetadata struct {
+	WorkflowID          string
+	WorkflowExecutionID string
+}
+
+type RegistrationMetadata struct {
 	WorkflowID string
 }
 
 // CapabilityRequest is a struct for the Execute request of a capability.
 type CapabilityRequest struct {
-	Metadata Metadata
+	Metadata RequestMetadata
 	Config   *values.Map
 	Inputs   *values.Map
 }
 
+type RegisterToWorkflowRequest struct {
+	Metadata RegistrationMetadata
+	Config   *values.Map
+}
+
+type UnregisterFromWorkflowRequest struct {
+	Metadata RegistrationMetadata
+	Config   *values.Map
+}
+
 // CallbackExecutable is an interface for executing a capability.
 type CallbackExecutable interface {
+	RegisterToWorkflow(ctx context.Context, request RegisterToWorkflowRequest) error
+	UnregisterFromWorkflow(ctx context.Context, request UnregisterFromWorkflowRequest) error
 	// Capability must respect context.Done and cleanup any request specific resources
 	// when the context is cancelled. When a request has been completed the capability
 	// is also expected to close the callback channel.

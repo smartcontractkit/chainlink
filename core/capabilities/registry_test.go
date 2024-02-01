@@ -20,6 +20,14 @@ func (m *cmockCapability) Execute(ctx context.Context, callback chan capabilitie
 	return nil
 }
 
+func (m *cmockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (m *cmockCapability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
 func TestRegistry(t *testing.T) {
 	ctx := context.Background()
 
