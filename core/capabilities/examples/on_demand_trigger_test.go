@@ -58,10 +58,10 @@ func TestOnDemandTrigger_ChannelDoesntExist(t *testing.T) {
 
 func TestOnDemandTrigger_(t *testing.T) {
 	tr := NewOnDemandTrigger()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	req := capabilities.CapabilityRequest{
-		Metadata: capabilities.Metadata{
+		Metadata: capabilities.RequestMetadata{
 			WorkflowID: "hello",
 		},
 	}
@@ -71,7 +71,7 @@ func TestOnDemandTrigger_(t *testing.T) {
 	require.NoError(t, err)
 
 	er := capabilities.CapabilityResponse{
-		Value: &values.String{"hello"},
+		Value: &values.String{Underlying: testID},
 	}
 	err = tr.SendEvent(ctx, "hello", er)
 	require.NoError(t, err)

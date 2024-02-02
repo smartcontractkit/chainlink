@@ -15,14 +15,12 @@ var info = capabilities.MustNewCapabilityInfo(
 	"v1.0.0",
 )
 
-// OnDemandTrigger is an example on-demand trigger.
 type OnDemandTrigger struct {
 	capabilities.CapabilityInfo
 	chans map[string]chan capabilities.CapabilityResponse
 	mu    sync.Mutex
 }
 
-// NewOnDemandTrigger returns a new OnDemandTrigger.
 func NewOnDemandTrigger() *OnDemandTrigger {
 	return &OnDemandTrigger{
 		CapabilityInfo: info,

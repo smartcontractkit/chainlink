@@ -243,6 +243,7 @@ outerLoop:
 	}
 
 	setupErr := <-setupCh
+
 	// Something went wrong when setting up a capability.
 	if setupErr != nil {
 		return nil, setupErr
