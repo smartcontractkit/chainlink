@@ -1,0 +1,14 @@
+ChainID = '10200'
+# Gnoisis Finality is approx 8 minutes @ 12 blocks per minute, so 96 blocks
+FinalityDepth = 100
+ChainType = 'xdai'
+LinkContractAddress = '0x57Cb1581A672Dfd9D34f12086B0495aD210FB98f'
+LogPollInterval = '5s'
+
+[GasEstimator]
+PriceDefault = '1 gwei'
+PriceMax = '500 gwei'
+# 1 Gwei is the minimum accepted by the validators (unless whitelisted)
+PriceMin = '1 gwei'
+# 15s delay since feeds update every minute in volatile situations
+BumpThreshold = 3
