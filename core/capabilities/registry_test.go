@@ -12,19 +12,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/examples"
 )
 
-type cmockCapability struct {
+type mockCapability struct {
 	capabilities.CapabilityInfo
 }
 
-func (m *cmockCapability) Execute(ctx context.Context, callback chan capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
+func (m *mockCapability) Execute(ctx context.Context, callback chan capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
 	return nil
 }
 
-func (m *cmockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
 	return nil
 }
 
-func (m *cmockCapability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	return nil
 }
 
@@ -42,7 +42,7 @@ func TestRegistry(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	c := &cmockCapability{CapabilityInfo: ci}
+	c := &mockCapability{CapabilityInfo: ci}
 	err = r.Add(ctx, c)
 	require.NoError(t, err)
 
@@ -69,7 +69,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	c := &cmockCapability{CapabilityInfo: ci}
+	c := &mockCapability{CapabilityInfo: ci}
 	err = r.Add(ctx, c)
 	require.NoError(t, err)
 
@@ -80,7 +80,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 		"v1.0.0",
 	)
 	require.NoError(t, err)
-	c2 := &cmockCapability{CapabilityInfo: ci}
+	c2 := &mockCapability{CapabilityInfo: ci}
 
 	err = r.Add(ctx, c2)
 	assert.ErrorContains(t, err, "capability with id: capability-1 already exists")
@@ -105,7 +105,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				c := &cmockCapability{CapabilityInfo: ci}
+				c := &mockCapability{CapabilityInfo: ci}
 				return id, reg.Add(ctx, c)
 			},
 			getCapability: func(ctx context.Context, reg *capabilities.Registry, id string) error {
@@ -125,7 +125,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				c := &cmockCapability{CapabilityInfo: ci}
+				c := &mockCapability{CapabilityInfo: ci}
 				return id, reg.Add(ctx, c)
 			},
 			getCapability: func(ctx context.Context, reg *capabilities.Registry, id string) error {
@@ -157,7 +157,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				)
 				require.NoError(t, err)
 
-				c := &cmockCapability{CapabilityInfo: ci}
+				c := &mockCapability{CapabilityInfo: ci}
 				return id, reg.Add(ctx, c)
 			},
 			getCapability: func(ctx context.Context, reg *capabilities.Registry, id string) error {
