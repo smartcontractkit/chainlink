@@ -75,7 +75,7 @@ func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
 	val, err := ExecuteSync(testutils.Context(t), mcwe, req)
 
 	assert.NoError(t, err, val)
-	assert.Equal(t, "hello", val.(*values.String).Underlying)
+	assert.Equal(t, "hello", val.Underlying[0].(*values.String).Underlying)
 }
 
 func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
@@ -96,7 +96,7 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 	val, err := ExecuteSync(testutils.Context(t), mcwe, req)
 
 	assert.NoError(t, err, val)
-	assert.ElementsMatch(t, expectedList, val.(*values.List).Underlying)
+	assert.ElementsMatch(t, expectedList, val.Underlying)
 }
 
 func Test_ExecuteSyncCapabilitySetupErrors(t *testing.T) {
