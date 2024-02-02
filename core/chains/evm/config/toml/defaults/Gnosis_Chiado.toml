@@ -6,6 +6,7 @@ LinkContractAddress = '0x57Cb1581A672Dfd9D34f12086B0495aD210FB98f'
 LogPollInterval = '5s'
 
 [GasEstimator]
+EIP1559DynamicFees = true
 PriceDefault = '1 gwei'
 PriceMax = '500 gwei'
 # 1 Gwei is the minimum accepted by the validators (unless whitelisted)
