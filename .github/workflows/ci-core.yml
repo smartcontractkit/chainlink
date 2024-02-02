@@ -71,6 +71,17 @@ jobs:
         run: go build -o chainlink.test .
       - name: Setup DB
         run: ./chainlink.test local db preparetest
+      - name: Install LOOP Plugins
+        run: |
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
+          go install ./cmd/chainlink-feeds
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
+          go install ./pkg/solana/cmd/chainlink-solana
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
+          go install ./pkg/chainlink/cmd/chainlink-starknet
+          popd
       - name: Increase Race Timeout
         if: github.event.schedule != ''
         run: |
@@ -97,7 +108,7 @@ jobs:
         working-directory: ./.github/actions/setup-postgres
       - name: Store logs artifacts
         if: always()
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: ${{ matrix.cmd }}_logs
           path: |
@@ -117,10 +128,11 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Core Tests (${{ matrix.cmd }})
           test-results-file: '{"testType":"go","filePath":"./output.txt"}'
         continue-on-error: true
@@ -180,7 +192,7 @@ jobs:
             `ls -R ./artifacts/go_core_tests*/output.txt`
       - name: Store logs artifacts
         if: always()
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: flakey_test_runner_logs
           path: |
@@ -197,7 +209,7 @@ jobs:
         with:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
       - name: Set SonarQube Report Paths
         id: sonarqube_report_paths
         shell: bash
@@ -217,10 +229,11 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: SonarQube Scan
         continue-on-error: true
 
@@ -255,9 +268,10 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Clean Go Tidy & Generate
         continue-on-error: true

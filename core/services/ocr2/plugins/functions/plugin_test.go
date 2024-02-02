@@ -12,7 +12,8 @@ import (
 	sfmocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	gfmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/mocks"
+	gfaMocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
+	gfsMocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
@@ -32,8 +33,8 @@ func TestNewConnector_Success(t *testing.T) {
 	chainID := big.NewInt(80001)
 	ethKeystore := ksmocks.NewEth(t)
 	s4Storage := s4mocks.NewStorage(t)
-	allowlist := gfmocks.NewOnchainAllowlist(t)
-	subscriptions := gfmocks.NewOnchainSubscriptions(t)
+	allowlist := gfaMocks.NewOnchainAllowlist(t)
+	subscriptions := gfsMocks.NewOnchainSubscriptions(t)
 	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	listener := sfmocks.NewFunctionsListener(t)
@@ -60,8 +61,8 @@ func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	chainID := big.NewInt(80001)
 	ethKeystore := ksmocks.NewEth(t)
 	s4Storage := s4mocks.NewStorage(t)
-	allowlist := gfmocks.NewOnchainAllowlist(t)
-	subscriptions := gfmocks.NewOnchainSubscriptions(t)
+	allowlist := gfaMocks.NewOnchainAllowlist(t)
+	subscriptions := gfsMocks.NewOnchainSubscriptions(t)
 	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	listener := sfmocks.NewFunctionsListener(t)

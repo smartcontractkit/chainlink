@@ -2,53 +2,20 @@ name: Automation Benchmark Test
 on:
   workflow_dispatch:
     inputs:
-      chainlinkVersion:
-        description: Chainlink image version to use
+      testType:
+        description: Type of test to run (benchmark, soak)
         required: true
+        default: benchmark
         type: string
-        default: 2.6.0
-      chainlinkImage:
-        description: Chainlink image repo to use
+      base64Config:
+        description: base64-ed config
         required: true
-        type: string
-        default: public.ecr.aws/chainlink/chainlink
-      network:
-        description: Network to run tests on
-        required: true
-        type: choice
-        options:
-          - SIMULATED
-          - SIMULATED_NONDEV
-          - GOERLI
-          - ARBITRUM_GOERLI
-          - OPTIMISM_GOERLI
-          - MUMBAI
-          - SEPOLIA
-          - BASE_GOERLI
-          - ARBITRUM_SEPOLIA
-          - LINEA_GOERLI
-      TestInputs:
-        description: TestInputs
-        required: false
-        type: string
-      wsURL:
-        description: WS URL for the network (Skip for Simulated)
-        required: false
-        type: string
-      httpURL:
-        description: HTTP URL for the network (Skip for Simulated)
-        required: false
         type: string
       slackMemberID:
         description: Notifies test results (Not your @)
         required: true
         default: U02Q14G80TY
         type: string
-      fundingPrivateKey:
-        description: Private funding key (Skip for Simulated)
-        required: false
-        type: string
-
 jobs:
   automation_benchmark:
     environment: integration
@@ -57,52 +24,40 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: ${{ inputs.network }} Automation Benchmark Test
+    name: Automation Benchmark Test
     runs-on: ubuntu20.04-16cores-64GB
     env:
-      SELECTED_NETWORKS: ${{ inputs.network }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: C03KJ5S7KEK
-      TEST_INPUTS: ${{ inputs.TestInputs }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       REF_NAME: ${{ github.head_ref || github.ref_name }}
     steps:
-      - name: Setup Push Tag
-        shell: bash
-        run: |
-          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ inputs.chainlinkVersion }}\`" >>$GITHUB_STEP_SUMMARY
-          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
-
-      - name: Add mask
-        run: |
-          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
-          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
-          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
-          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
-          echo ::add-mask::$EVM_URLS
-          echo ::add-mask::$EVM_HTTP_URLS
-          echo ::add-mask::$EVM_KEYS
-          echo ::add-mask::$SLACK_USER
-          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
-          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
-          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
-          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
-          while IFS=',' read -ra EVM_URLS_2; do
-          for i in "${EVM_URLS_2[@]}"; do
-              echo ::add-mask::$i
-            done
-          done <<< "$EVM_URLS"
-          while IFS=',' read -ra EVM_HTTP_URLS_2; do
-            for i in "${EVM_HTTP_URLS_2[@]}"; do
-              echo ::add-mask::$i
-            done
-          done <<< "$EVM_HTTP_URLS"
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ env.REF_NAME }}
+      - name: Get Slack config and mask base64 config
+        run: |
+          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$SLACK_USER
+          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
+
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Parse base64 config
+        uses: ./.github/actions/setup-parse-base64-config
+        with:
+          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}                 
+      - name: Send details to Step Summary
+        shell: bash
+        run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.CHAINLINK_IMAGE }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
       - name: Build Test Image
         uses: ./.github/actions/build-test-image
         with:
@@ -118,11 +73,13 @@ jobs:
           TEST_ARGS: -test.timeout 720h
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+          TEST_TYPE: ${{ github.event.inputs.testType }}
+          TEST_TEST_TYPE: ${{ github.event.inputs.testType }}
         with:
           test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
-          cl_repo: ${{ inputs.chainlinkImage }}
-          cl_image_tag: ${{ inputs.chainlinkVersion }}
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
           should_cleanup: false
           go_mod_path: ./integration-tests/go.mod
@@ -132,10 +89,10 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ${{ inputs.network }} Automation Benchmark Test
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Automation Benchmark Test
         continue-on-error: true

@@ -52,8 +52,14 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	nodeSendingKeyFundingAmount := deployCmd.String("sending-key-funding-amount", constants.NodeSendingKeyFundingAmount, "CL node sending key funding amount")
 
 	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
+	batchFulfillmentGasMultiplier := deployCmd.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
+	estimateGasMultiplier := deployCmd.Float64("estimate-gas-multiplier", 1.1, "")
+	pollPeriod := deployCmd.String("poll-period", "300ms", "")
+	requestTimeout := deployCmd.String("request-timeout", "30m0s", "")
+	revertsPipelineEnabled := deployCmd.Bool("reverts-pipeline-enabled", true, "")
 
-	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", false, "whether to deploy VRF owner contracts")
+	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", true, "whether to deploy VRF owner contracts")
+	useTestCoordinator := deployCmd.Bool("use-test-coordinator", true, "whether to use test coordinator")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLink.String(), "fallback wei/link ratio")
@@ -137,15 +143,25 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
 	}
 
+	coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
+		BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
+		EstimateGasMultiplier:         *estimateGasMultiplier,
+		PollPeriod:                    *pollPeriod,
+		RequestTimeout:                *requestTimeout,
+		RevertsPipelineEnabled:        *revertsPipelineEnabled,
+	}
+
 	VRFV2DeployUniverse(
 		e,
 		subscriptionBalanceJuels,
 		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
-		*batchFulfillmentEnabled,
 		nodesMap,
 		*deployVRFOwner,
+		coordinatorJobSpecConfig,
+		*useTestCoordinator,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -161,9 +177,10 @@ func VRFV2DeployUniverse(
 	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2,
-	batchFulfillmentEnabled bool,
 	nodesMap map[string]model.Node,
 	deployVRFOwner bool,
+	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
+	useTestCoordinator bool,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -212,9 +229,16 @@ func VRFV2DeployUniverse(
 		contractAddresses.BatchBHSAddress = DeployBatchBHS(e, contractAddresses.BhsContractAddress)
 	}
 
-	if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
-		fmt.Println("\nDeploying Coordinator...")
-		contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+	if useTestCoordinator {
+		if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+			fmt.Println("\nDeploying Test Coordinator...")
+			contractAddresses.CoordinatorAddress = DeployTestCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+		}
+	} else {
+		if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+			fmt.Println("\nDeploying Coordinator...")
+			contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+		}
 	}
 
 	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(contractAddresses.CoordinatorAddress, e.Ec)
@@ -310,14 +334,19 @@ func VRFV2DeployUniverse(
 
 	formattedVrfPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFV2JobFormatted,
-		contractAddresses.CoordinatorAddress,      //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
-		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
-		compressedPkHex,                           //publicKey
-		coordinatorConfig.MinConfs,                //minIncomingConfirmations
-		e.ChainID,                                 //evmChainID
+		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
+		coordinatorJobSpecConfig.RevertsPipelineEnabled,        //revertsPipelineEnabled
+		compressedPkHex,            //publicKey
+		coordinatorConfig.MinConfs, //minIncomingConfirmations
+		e.ChainID,                  //evmChainID
 		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
+		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
@@ -336,14 +365,19 @@ func VRFV2DeployUniverse(
 
 	formattedVrfBackupJobSpec := fmt.Sprintf(
 		jobs.VRFV2JobFormatted,
-		contractAddresses.CoordinatorAddress,      //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
-		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
-		compressedPkHex,                           //publicKey
-		100,                                       //minIncomingConfirmations
-		e.ChainID,                                 //evmChainID
+		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
+		coordinatorJobSpecConfig.RevertsPipelineEnabled,        //revertsPipelineEnabled
+		compressedPkHex, //publicKey
+		100,             //minIncomingConfirmations
+		e.ChainID,       //evmChainID
 		strings.Join(util.MapToAddressArr(nodesMap[model.VRFBackupNodeName].SendingKeys), "\",\""), //fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
+		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address

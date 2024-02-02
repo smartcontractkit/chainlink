@@ -123,11 +123,6 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	block := big.NewInt(int64(checkResult.Trigger.BlockNumber))
 	upkeepId := checkResult.UpkeepID
 
-	if s.mercuryConfig.Credentials() == nil {
-		lookupLggr.Errorf("at block %d upkeep %s tries to access mercury server but mercury credential is not configured", block, upkeepId)
-		return
-	}
-
 	// Try to decode the revert error into streams lookup format. User upkeeps can revert with any reason, see if they
 	// tried to call mercury
 	lookupLggr.Infof("at block %d upkeep %s trying to DecodeStreamsLookupRequest performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
@@ -138,6 +133,10 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 		return
 	}
 	streamsLookupResponse := &mercury.StreamsLookup{StreamsLookupError: streamsLookupErr}
+	if s.mercuryConfig.Credentials() == nil {
+		lookupLggr.Errorf("at block %d upkeep %s tries to access mercury server but mercury credential is not configured", block, upkeepId)
+		return
+	}
 
 	if len(streamsLookupResponse.Feeds) == 0 {
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)

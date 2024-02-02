@@ -17,14 +17,22 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestForwarderOCR2Basic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
