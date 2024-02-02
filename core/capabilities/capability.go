@@ -207,7 +207,7 @@ var defaultExecuteTimeout = 10 * time.Second
 // We are not handling a case where a capability panics and crashes.
 // There is default timeout of 10 seconds. If a capability takes longer than
 // that then it should be executed asynchronously.
-func ExecuteSync(ctx context.Context, c CallbackExecutable, request CapabilityRequest) (values.Value, error) {
+func ExecuteSync(ctx context.Context, c CallbackExecutable, request CapabilityRequest) (*values.List, error) {
 	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
 	defer cancel()
 
@@ -252,12 +252,6 @@ outerLoop:
 	// The intent is for the API to be explicit.
 	if len(vs) == 0 {
 		return nil, errors.New("capability did not return any values")
-	}
-
-	// If the capability returned only one value,
-	// let's unwrap it to improve usability.
-	if len(vs) == 1 {
-		return vs[0], nil
 	}
 
 	return &values.List{Underlying: vs}, nil
