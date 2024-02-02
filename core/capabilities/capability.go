@@ -15,6 +15,11 @@ import (
 // CapabilityType is an enum for the type of capability.
 type CapabilityType int
 
+const (
+	ConfigName = "config"
+	ParamsName = "params"
+)
+
 // CapabilityType enum values.
 const (
 	CapabilityTypeTrigger CapabilityType = iota
@@ -67,7 +72,7 @@ type CallbackExecutable interface {
 	// Request specific configuration is passed in via the inputs parameter.
 	// A successful response must always return a value. An error is assumed otherwise.
 	// The intent is to make the API explicit.
-	Execute(ctx context.Context, callback chan CapabilityResponse, inputs *values.Map) error
+	Execute(ctx context.Context, workflowId string, callback chan CapabilityResponse, inputs *values.Map) error
 }
 
 // BaseCapability interface needs to be implemented by all capability types.
@@ -88,6 +93,8 @@ type TriggerCapability interface {
 type ActionCapability interface {
 	BaseCapability
 	CallbackExecutable
+	RegisterWorkflow(ctx context.Context, workflowId string, inputs *values.Map) error
+	UnregisterWorkflow(ctx context.Context, workflowId string, inputs *values.Map) error
 }
 
 // ConsensusCapability interface needs to be implemented by all consensus capabilities.
@@ -157,17 +164,17 @@ var defaultExecuteTimeout = 10 * time.Second
 // We are not handling a case where a capability panics and crashes.
 // There is default timeout of 10 seconds. If a capability takes longer than
 // that then it should be executed asynchronously.
-func ExecuteSync(ctx context.Context, c CallbackExecutable, inputs *values.Map) (values.Value, error) {
+func ExecuteSync(ctx context.Context, workflowId string, c CallbackExecutable, inputs *values.Map) (values.Value, error) {
 	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
 	defer cancel()
 
 	callback := make(chan CapabilityResponse)
 	sec := make(chan error)
 
-	go func(innerCtx context.Context, innerC CallbackExecutable, innerInputs *values.Map, innerCallback chan CapabilityResponse, errCh chan error) {
-		setupErr := innerC.Execute(innerCtx, innerCallback, innerInputs)
+	go func(innerCtx context.Context, workflowId string, innerC CallbackExecutable, innerInputs *values.Map, innerCallback chan CapabilityResponse, errCh chan error) {
+		setupErr := innerC.Execute(innerCtx, workflowId, innerCallback, innerInputs)
 		sec <- setupErr
-	}(ctxWithT, c, inputs, callback, sec)
+	}(ctxWithT, workflowId, c, inputs, callback, sec)
 
 	vs := make([]values.Value, 0)
 outerLoop:
