@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/examples"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 type mockCapability struct {
@@ -29,7 +30,7 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 }
 
 func TestRegistry(t *testing.T) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	r := capabilities.NewRegistry()
 
@@ -57,7 +58,7 @@ func TestRegistry(t *testing.T) {
 }
 
 func TestRegistry_NoDuplicateIDs(t *testing.T) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	r := capabilities.NewRegistry()
 
 	id := "capability-1"
@@ -167,7 +168,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	reg := capabilities.NewRegistry()
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
