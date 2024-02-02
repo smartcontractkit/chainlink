@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/examples"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -137,7 +137,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "trigger",
 			newCapability: func(ctx context.Context, reg *capabilities.Registry) (string, error) {
-				odt := examples.NewOnDemandTrigger()
+				odt := triggers.NewOnDemand()
 				info := odt.Info()
 				return info.ID, reg.Add(ctx, odt)
 			},

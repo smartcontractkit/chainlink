@@ -1,4 +1,4 @@
-package examples
+package triggers
 
 import (
 	"context"
@@ -15,20 +15,20 @@ var info = capabilities.MustNewCapabilityInfo(
 	"v1.0.0",
 )
 
-type OnDemandTrigger struct {
+type OnDemand struct {
 	capabilities.CapabilityInfo
 	chans map[string]chan capabilities.CapabilityResponse
 	mu    sync.Mutex
 }
 
-func NewOnDemandTrigger() *OnDemandTrigger {
-	return &OnDemandTrigger{
+func NewOnDemand() *OnDemand {
+	return &OnDemand{
 		CapabilityInfo: info,
 		chans:          map[string]chan capabilities.CapabilityResponse{},
 	}
 }
 
-func (o *OnDemandTrigger) FanOutEvent(ctx context.Context, event capabilities.CapabilityResponse) error {
+func (o *OnDemand) FanOutEvent(ctx context.Context, event capabilities.CapabilityResponse) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	for _, ch := range o.chans {
@@ -38,7 +38,7 @@ func (o *OnDemandTrigger) FanOutEvent(ctx context.Context, event capabilities.Ca
 }
 
 // Execute executes the on-demand trigger.
-func (o *OnDemandTrigger) SendEvent(ctx context.Context, wid string, event capabilities.CapabilityResponse) error {
+func (o *OnDemand) SendEvent(ctx context.Context, wid string, event capabilities.CapabilityResponse) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	ch, ok := o.chans[wid]
@@ -50,7 +50,7 @@ func (o *OnDemandTrigger) SendEvent(ctx context.Context, wid string, event capab
 	return nil
 }
 
-func (o *OnDemandTrigger) RegisterTrigger(ctx context.Context, callback chan capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
+func (o *OnDemand) RegisterTrigger(ctx context.Context, callback chan capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
 	weid := req.Metadata.WorkflowID
 
 	o.mu.Lock()
@@ -60,7 +60,7 @@ func (o *OnDemandTrigger) RegisterTrigger(ctx context.Context, callback chan cap
 	return nil
 }
 
-func (o *OnDemandTrigger) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {
+func (o *OnDemand) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {
 	weid := req.Metadata.WorkflowID
 
 	o.mu.Lock()

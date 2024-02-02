@@ -1,4 +1,4 @@
-package examples
+package triggers
 
 import (
 	"testing"
@@ -13,9 +13,9 @@ import (
 
 const testID = "test-id-1"
 
-func TestOnDemandTrigger(t *testing.T) {
+func TestOnDemand(t *testing.T) {
 	r := capabilities.NewRegistry()
-	tr := NewOnDemandTrigger()
+	tr := NewOnDemand()
 	ctx := testutils.Context(t)
 
 	err := r.Add(ctx, tr)
@@ -45,8 +45,8 @@ func TestOnDemandTrigger(t *testing.T) {
 	assert.Equal(t, er, <-callback)
 }
 
-func TestOnDemandTrigger_ChannelDoesntExist(t *testing.T) {
-	tr := NewOnDemandTrigger()
+func TestOnDemand_ChannelDoesntExist(t *testing.T) {
+	tr := NewOnDemand()
 	ctx := testutils.Context(t)
 
 	er := capabilities.CapabilityResponse{
@@ -56,8 +56,8 @@ func TestOnDemandTrigger_ChannelDoesntExist(t *testing.T) {
 	assert.ErrorContains(t, err, "no registration")
 }
 
-func TestOnDemandTrigger_(t *testing.T) {
-	tr := NewOnDemandTrigger()
+func TestOnDemand_(t *testing.T) {
+	tr := NewOnDemand()
 	ctx := testutils.Context(t)
 
 	req := capabilities.CapabilityRequest{
