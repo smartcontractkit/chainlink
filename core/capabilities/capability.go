@@ -211,19 +211,19 @@ func ExecuteSync(ctx context.Context, c CallbackExecutable, request CapabilityRe
 	ctxWithT, cancel := context.WithTimeout(ctx, defaultExecuteTimeout)
 	defer cancel()
 
-	callback := make(chan CapabilityResponse)
-	sec := make(chan error)
+	responseCh := make(chan CapabilityResponse)
+	setupCh := make(chan error)
 
 	go func(innerCtx context.Context, innerC CallbackExecutable, innerReq CapabilityRequest, innerCallback chan CapabilityResponse, errCh chan error) {
 		setupErr := innerC.Execute(innerCtx, innerCallback, innerReq)
-		sec <- setupErr
-	}(ctxWithT, c, request, callback, sec)
+		setupCh <- setupErr
+	}(ctxWithT, c, request, responseCh, setupCh)
 
 	vs := make([]values.Value, 0)
 outerLoop:
 	for {
 		select {
-		case response, isOpen := <-callback:
+		case response, isOpen := <-responseCh:
 			if !isOpen {
 				break outerLoop
 			}
@@ -242,7 +242,7 @@ outerLoop:
 		}
 	}
 
-	setupErr := <-sec
+	setupErr := <-setupCh
 	// Something went wrong when setting up a capability.
 	if setupErr != nil {
 		return nil, setupErr
