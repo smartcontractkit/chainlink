@@ -182,9 +182,9 @@ func NewCapabilityInfo(
 	}, nil
 }
 
-// MustCapabilityInfo returns a new CapabilityInfo,
+// MustNewCapabilityInfo returns a new CapabilityInfo,
 // panicking if we could not instantiate a CapabilityInfo.
-func MustCapabilityInfo(
+func MustNewCapabilityInfo(
 	id string,
 	capabilityType CapabilityType,
 	description string,
