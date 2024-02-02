@@ -163,9 +163,9 @@ func Test_ExecuteSyncDoesNotReturnValues(t *testing.T) {
 	assert.Nil(t, val)
 }
 
-func Test_MustCapabilityInfo(t *testing.T) {
+func Test_MustNewCapabilityInfo(t *testing.T) {
 	assert.Panics(t, func() {
-		MustCapabilityInfo(
+		MustNewCapabilityInfo(
 			"capability-id",
 			CapabilityTypeAction,
 			"This is a mock capability that doesn't do anything.",

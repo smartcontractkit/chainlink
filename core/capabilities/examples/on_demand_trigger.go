@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 )
 
-var info = capabilities.MustCapabilityInfo(
+var info = capabilities.MustNewCapabilityInfo(
 	"on-demand-trigger",
 	capabilities.CapabilityTypeTrigger,
 	"An example on-demand trigger.",
