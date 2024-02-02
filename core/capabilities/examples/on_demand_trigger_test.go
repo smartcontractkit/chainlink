@@ -1,7 +1,6 @@
 package examples
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 const testID = "test-id-1"
@@ -16,7 +16,7 @@ const testID = "test-id-1"
 func TestOnDemandTrigger(t *testing.T) {
 	r := capabilities.NewRegistry()
 	tr := NewOnDemandTrigger()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	err := r.Add(ctx, tr)
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func TestOnDemandTrigger(t *testing.T) {
 
 func TestOnDemandTrigger_ChannelDoesntExist(t *testing.T) {
 	tr := NewOnDemandTrigger()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	er := capabilities.CapabilityResponse{
 		Value: &values.String{Underlying: testID},

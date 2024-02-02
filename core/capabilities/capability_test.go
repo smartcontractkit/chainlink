@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func Test_CapabilityInfo(t *testing.T) {
@@ -80,7 +81,7 @@ func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
 		},
 	}
 	req := CapabilityRequest{}
-	val, err := ExecuteSync(context.Background(), mcwe, req)
+	val, err := ExecuteSync(testutils.Context(t), mcwe, req)
 
 	assert.NoError(t, err, val)
 	assert.Equal(t, "hello", val.(*values.String).Underlying)
@@ -101,7 +102,7 @@ func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
 		},
 	}
 	req := CapabilityRequest{}
-	val, err := ExecuteSync(context.Background(), mcwe, req)
+	val, err := ExecuteSync(testutils.Context(t), mcwe, req)
 
 	assert.NoError(t, err, val)
 	assert.ElementsMatch(t, expectedList, val.(*values.List).Underlying)
@@ -116,14 +117,14 @@ func Test_ExecuteSyncCapabilitySetupErrors(t *testing.T) {
 		},
 	}
 	req := CapabilityRequest{}
-	val, err := ExecuteSync(context.Background(), mcwe, req)
+	val, err := ExecuteSync(testutils.Context(t), mcwe, req)
 
 	assert.ErrorContains(t, err, expectedErr.Error())
 	assert.Nil(t, val)
 }
 
 func Test_ExecuteSyncTimeout(t *testing.T) {
-	ctxWithTimeout := context.Background()
+	ctxWithTimeout := testutils.Context(t)
 	ctxWithTimeout, cancel := context.WithCancel(ctxWithTimeout)
 	cancel()
 
@@ -151,7 +152,7 @@ func Test_ExecuteSyncCapabilityErrors(t *testing.T) {
 		},
 	}
 	req := CapabilityRequest{}
-	val, err := ExecuteSync(context.Background(), mcwe, req)
+	val, err := ExecuteSync(testutils.Context(t), mcwe, req)
 
 	assert.ErrorContains(t, err, expectedErr.Error())
 	assert.Nil(t, val)
@@ -165,7 +166,7 @@ func Test_ExecuteSyncDoesNotReturnValues(t *testing.T) {
 		},
 	}
 	req := CapabilityRequest{}
-	val, err := ExecuteSync(context.Background(), mcwe, req)
+	val, err := ExecuteSync(testutils.Context(t), mcwe, req)
 
 	assert.ErrorContains(t, err, "capability did not return any values")
 	assert.Nil(t, val)
