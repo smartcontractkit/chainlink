@@ -11,6 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 )
 
+const testID = "test-id-1"
+
 func TestOnDemandTrigger(t *testing.T) {
 	r := capabilities.NewRegistry()
 	tr := NewOnDemandTrigger()
@@ -26,14 +28,14 @@ func TestOnDemandTrigger(t *testing.T) {
 
 	req := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowExecutionID: "hello",
+			WorkflowExecutionID: testID,
 		},
 	}
 	err = trigger.RegisterTrigger(ctx, callback, req)
 	require.NoError(t, err)
 
 	er := capabilities.CapabilityResponse{
-		Value: &values.String{"hello"},
+		Value: &values.String{Underlying: testID},
 	}
 
 	err = tr.FanOutEvent(ctx, er)
@@ -48,9 +50,9 @@ func TestOnDemandTrigger_ChannelDoesntExist(t *testing.T) {
 	ctx := context.Background()
 
 	er := capabilities.CapabilityResponse{
-		Value: &values.String{"hello"},
+		Value: &values.String{Underlying: testID},
 	}
-	err := tr.SendEvent(ctx, "hello", er)
+	err := tr.SendEvent(ctx, testID, er)
 	assert.ErrorContains(t, err, "no registration")
 }
 
