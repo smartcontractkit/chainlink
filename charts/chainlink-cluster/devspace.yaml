@@ -14,6 +14,7 @@ pipelines:
       start_dev app                # 3. Start dev mode "app" (see "dev" section)
   deploy:
     run: |-
+      set -o pipefail
       echo "Removing .devspace cache!"
       rm -rf .devspace/ || true
       run_dependencies --all                           
@@ -30,16 +31,22 @@ pipelines:
         tag=$(git rev-parse --short HEAD)
         image=${DEVSPACE_IMAGE}:$tag
       fi
+      
       echo "Checking tag: $tag"
-      # Check if the desired tag is present in the image list using jq
-      aws ecr list-images --region us-west-2 --repository-name chainlink-devspace | jq -e '.imageIds[] | select(.imageTag == "$tag")' || true
-      exit_code=$?
-      if [ $exit_code -eq 0 ]; then
+      repository_name="chainlink-devspace"
+      desired_tag=$tag
+      
+      # Check if the desired tag is present in the repository
+      image_list=$(aws ecr list-images --repository-name "$repository_name")
+      tag_exists=$(echo "$image_list" | jq -e '.imageIds[] | select(.imageTag == "'"${desired_tag}"'")' >/dev/null && echo true || echo false)
+      
+      # Check the value of the tag_exists variable
+      if [ "$tag_exists" = "true" ]; then
         echo "Image tag '$tag' found."
       else
         echo "Image tag '$tag' not found. Please build the image using 'devspace deploy'"
         exit 1
-      fi
+      fi 
       create_deployments app \
       --set=helm.values.chainlink.nodes[0].image=$image \
       --set=helm.values.chainlink.nodes[1].image=$image \
