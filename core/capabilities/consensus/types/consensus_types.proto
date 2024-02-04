@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option go_package = "core/capabilities/consensus/types";
+
+package consensus_types;
+
+// per-workflow aggregation outcome
+message AggregationOutcome {
+  bytes encodableOutcome = 1;
+  bytes metadata = 2;
+  bool shouldReport = 3;
+}
