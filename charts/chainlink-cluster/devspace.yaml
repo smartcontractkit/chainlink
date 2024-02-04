@@ -23,10 +23,22 @@ pipelines:
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
       if [ -n "$1" ]; then
         echo "Deploying tag $1"
-        image=${DEVSPACE_IMAGE}:$1
+        tag=$1
+        image=${DEVSPACE_IMAGE}:$tag
       else
         echo "Deploying current commit tag: $(git rev-parse --short HEAD)"
-        image=${DEVSPACE_IMAGE}:$(git rev-parse --short HEAD)
+        tag=$(git rev-parse --short HEAD)
+        image=${DEVSPACE_IMAGE}:$tag
+      fi
+      echo "Checking tag: $tag"
+      # Check if the desired tag is present in the image list using jq
+      aws ecr list-images --region us-west-2 --repository-name chainlink-devspace | jq -e '.imageIds[] | select(.imageTag == "$tag")' || true
+      exit_code=$?
+      if [ $exit_code -eq 0 ]; then
+        echo "Image tag '$tag' found."
+      else
+        echo "Image tag '$tag' not found. Please build the image using 'devspace deploy'"
+        exit 1
       fi
       create_deployments app \
       --set=helm.values.chainlink.nodes[0].image=$image \
