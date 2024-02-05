@@ -10,21 +10,17 @@
 /core/chains/ @smartcontractkit/integrations
 
 # Services
-/core/services/cron @samsondav
 /core/services/directrequest @smartcontractkit/keepers
 /core/services/feeds @smartcontractkit/mercury-team
 
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @connorwstein
-/core/services/health @smartcontractkit/foundations
 /core/services/job @smartcontractkit/ccip
 /core/services/keystore @smartcontractkit/keepers
 /core/services/ocr* @connorwstein @samsondav
-/core/services/ocr2 @smartcontractkit/foundations
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pg @smartcontractkit/foundations @samsondav
 /core/services/pipeline @smartcontractkit/foundations @smartcontractkit/integrations
-/core/services/synchronization @smartcontractkit/foundations
 /core/services/telemetry @smartcontractkit/realtime
 /core/services/relay/evm/mercury @smartcontractkit/mercury-team
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/integrations
@@ -62,7 +58,6 @@ core/scripts/gateway @smartcontractkit/functions
 # This could give some false positives, so afterwards we match on the project directories
 # to ensure the entire directory is always owned by the correct team.
 
-/contracts/**/*shared* @RensR
 /contracts/**/*keeper* @smartcontractkit/keepers
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
@@ -70,7 +65,6 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*llo-feeds* @smartcontrackit/mercury-team
 /contracts/**/*vrf* @smartcontractkit/vrf-team
 /contracts/**/*l2ep* @simsonraj
-/contracts/**/*operatorforwarder* @RensR
 
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
@@ -119,5 +113,5 @@ flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
 
 # Config
-./docs/CONFIG.md @smartcontractkit/foundations @dwightjl
-./internal/config/docs.toml @smartcontractkit/foundations @dwightjl
+./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/devrel
+./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/devrel
