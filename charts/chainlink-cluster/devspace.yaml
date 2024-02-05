@@ -77,7 +77,8 @@ pipelines:
       echo "############################################"
       echo "Ingress Domains"
       echo "############################################"
-      for ingress in "node1 node2 node3 node4 node5 node6 geth-http geth-ws"; do
+      ingress_names="node1 node2 node3 node4 node5 node6 geth-http geth-ws"
+      for ingress in ${ingress_names}; do
         echo "https://${DEVSPACE_NAMESPACE}-${ingress}.${DEVSPACE_INGRESS_BASE_DOMAIN}"
       done
 
