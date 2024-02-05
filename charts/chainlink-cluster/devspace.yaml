@@ -3,7 +3,9 @@ name: chainlink
 
 vars:
   NS_TTL: 72h
-  DEVSPACE_IMAGE: 323150190480.dkr.ecr.us-west-2.amazonaws.com/chainlink-devspace
+  DEVSPACE_IMAGE:
+    noCache: true
+    source: env
 
 # This is a list of `pipelines` that DevSpace can execute (you can define your own)
 pipelines:
@@ -17,6 +19,12 @@ pipelines:
       set -o pipefail
       echo "Removing .devspace cache!"
       rm -rf .devspace/ || true
+      registry_id=$(echo "$DEVSPACE_IMAGE" | cut -d'.' -f1)
+      
+      # Login into registry
+      echo "Authorizing into ECR registry"
+      aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${registry_id}.dkr.ecr.us-west-2.amazonaws.com
+      
       run_dependencies --all                           
       ensure_pull_secrets --all                         
       build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
