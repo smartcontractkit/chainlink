@@ -183,50 +183,88 @@ runner:
 opentelemetry-collector:
   enabled: true
   mode: deployment
-  receivers:
-    otlp:
-      protocols:
-        grpc:
-          endpoint: "0.0.0.0:4317"
-        http:
-          endpoint: "0.0.0.0:3100"
-  exporters:
-    file:
-      path: /tracing/trace-data.json
-    otlp:
-      endpoint: tempo:4317
-      tls:
-        insecure: true
-  service:
-    telemetry:
-      logs:
-        level: "debug"
-    pipelines:
-      traces:
-        receivers: [otlp]
-        exporters: [file,otlp]
-tempo:
-  enabled: true
-  server:
-    http_listen_port: 3200
-  distributor:
+  image:
+    repository: otel/opentelemetry-collector
+    tag: 0.61.0
+  command:
+    name: otelcol
+  extraVolumes:
+    - name: trace-data
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: trace-data
+      mountPath: /tracing
+  config:
     receivers:
       otlp:
         protocols:
-          http:
           grpc:
-  ingester:
-    max_block_duration: 5m      # cut the headblock when this much time passes. this is being set for demo purposes and should probably be left alone normally
-  compactor:
-    compaction:
-      block_retention: 1h       # overall Tempo trace retention. set for demo purposes
-  storage:
-    trace:
-      backend: local            # backend configuration to use
-      wal:
-        path: /tmp/tempo/wal    # where to store the the wal locally
-      local:
-        path: /tmp/tempo/blocks
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:3100"
+    exporters:
+      file:
+        path: /tracing/trace-data.json
+      otlp:
+        endpoint: tempo:4317
+        tls:
+          insecure: true
+    service:
+      telemetry:
+        logs:
+          level: "debug"
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [file,otlp]
+
+tempo:
+  enabled: true
+  image:
+    tag: "1.7.1"
+  server:
+    http_listen_port: 3200
+  # default storage path: /var/tempo/
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 3200
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  livenessProbe:
+    httpGet:
+      path: /ready
+      port: 3200
+    initialDelaySeconds: 20
+    periodSeconds: 10
+
+grafana:
+  enabled: true
+  image:
+    tag: 7.3.0
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Tempo
+        type: tempo
+        access: proxy
+        orgId: 1
+        url: http://tempo:3200
+        basicAuth: false
+        isDefault: true
+        version: 1
+        editable: false
+        uid: tempo
+        jsonData:
+          httpMethod: GET
+          serviceMap:
+            datasourceUid: prometheus
+  env:
+    GF_AUTH_ANONYMOUS_ENABLED: "true"
+    GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+    GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor"
 
 ingress:
   enabled: false
