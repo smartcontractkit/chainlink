@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.16;
+pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
@@ -159,7 +159,7 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
   }
 
   modifier blockNativeBilling() {
-    if(msg.value > 0) revert NativeBillingDisallowed();
+    if(msg.value != 0) revert NativeBillingDisallowed();
     _;
   }
 
