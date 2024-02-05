@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -35,15 +36,12 @@ type Config interface {
 
 type FwdMgr struct {
 	services.StateMachine
-	ORM       ORM
-	evmClient evmclient.Client
-	cfg       Config
-	logger    logger.SugaredLogger
-	logpoller evmlogpoller.LogPoller
-
-	// TODO(samhassan): sendersCache should be an LRU capped cache
-	// https://app.shortcut.com/chainlinklabs/story/37884/forwarder-manager-uses-lru-for-caching-dest-addresses
-	sendersCache map[common.Address][]common.Address
+	ORM          ORM
+	evmClient    evmclient.Client
+	cfg          Config
+	logger       logger.SugaredLogger
+	logpoller    evmlogpoller.LogPoller
+	sendersCache *lru.Cache
 	latestBlock  int64
 
 	authRcvr    authorized_receiver.AuthorizedReceiverInterface
@@ -52,19 +50,22 @@ type FwdMgr struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	cacheMu sync.RWMutex
-	wg      sync.WaitGroup
+	wg sync.WaitGroup
 }
 
 func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config, dbConfig pg.QConfig) *FwdMgr {
 	lggr := logger.Sugared(logger.Named(l, "EVMForwarderManager"))
+	lruCache, err := lru.New(20)
+	if err != nil {
+		panic("failed to create forward manager cache")
+	}
 	fwdMgr := FwdMgr{
 		logger:       lggr,
 		cfg:          cfg,
 		evmClient:    client,
 		ORM:          NewORM(db, lggr, dbConfig),
 		logpoller:    logpoller,
-		sendersCache: make(map[common.Address][]common.Address),
+		sendersCache: lruCache,
 	}
 	fwdMgr.ctx, fwdMgr.cancel = context.WithCancel(context.Background())
 	return &fwdMgr
@@ -220,16 +221,16 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 }
 
 func (f *FwdMgr) setCachedSenders(addr common.Address, senders []common.Address) {
-	f.cacheMu.Lock()
-	defer f.cacheMu.Unlock()
-	f.sendersCache[addr] = senders
+	f.sendersCache.Add(addr, senders)
 }
 
 func (f *FwdMgr) getCachedSenders(addr common.Address) ([]common.Address, bool) {
-	f.cacheMu.RLock()
-	defer f.cacheMu.RUnlock()
-	addrs, ok := f.sendersCache[addr]
-	return addrs, ok
+	if addrsInterface, ok := f.sendersCache.Get(addr); ok {
+		if addrs, ok := addrsInterface.([]common.Address); ok {
+			return addrs, ok
+		}
+	}
+	return nil, false
 }
 
 func (f *FwdMgr) runLoop() {
@@ -305,10 +306,13 @@ func (f *FwdMgr) handleAuthChange(log evmlogpoller.Log) error {
 }
 
 func (f *FwdMgr) collectAddresses() (addrs []common.Address) {
-	f.cacheMu.RLock()
-	defer f.cacheMu.RUnlock()
-	for addr := range f.sendersCache {
-		addrs = append(addrs, addr)
+	keys := f.sendersCache.Keys()
+	for key := range keys {
+		if addrsInterface, ok := f.sendersCache.Get(key); ok {
+			if addr, ok := addrsInterface.(common.Address); ok {
+				addrs = append(addrs, addr)
+			}
+		}
 	}
 	return
 }
