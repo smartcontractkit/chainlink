@@ -310,59 +310,86 @@ deployments:
           annotation_group_name: ${DEVSPACE_NAMESPACE}
           hosts:
             - host: ${DEVSPACE_NAMESPACE}-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: app-node-1
-                    servicePort: 6688
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-1
+                        port:
+                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: app-node-2
-                    servicePort: 6688
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-2
+                        port:
+                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: app-node-3
-                    servicePort: 6688
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-3
+                        port:
+                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: app-node-4
-                    servicePort: 6688
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-4
+                        port:
+                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node5.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: app-node-5
-                    servicePort: 6688
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-5
+                        port:
+                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node6.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: app-node-6
-                    servicePort: 6688
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-6
+                        port:
+                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-geth-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: geth
-                    servicePort: 8544
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: geth
+                        port:
+                          number: 6688
             - host: ${DEVSPACE_NAMESPACE}-geth-ws.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: geth
-                    servicePort: 8546
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: geth
+                        port:
+                          number: 8546
             - host: ${DEVSPACE_NAMESPACE}-mockserver.${DEVSPACE_INGRESS_BASE_DOMAIN}
-              paths:
-                - path: /
-                  backend:
-                    serviceName: mockserver
-                    servicePort: 1080
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: mockserver
+                        port:
+                          number: 1080
 
         # deployment placement, standard helm stuff
         podAnnotations:
