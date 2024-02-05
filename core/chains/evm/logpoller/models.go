@@ -56,3 +56,12 @@ func (l *Log) ToGethLog() types.Log {
 		Index:       uint(l.LogIndex),
 	}
 }
+
+func NewLogPollerBlock(blockHash common.Hash, blockNumber int64, timestamp time.Time, finalizedBlockNumber int64) LogPollerBlock {
+	return LogPollerBlock{
+		BlockHash:            blockHash,
+		BlockNumber:          blockNumber,
+		BlockTimestamp:       timestamp,
+		FinalizedBlockNumber: finalizedBlockNumber,
+	}
+}

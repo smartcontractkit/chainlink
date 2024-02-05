@@ -50,7 +50,7 @@ func DeployVRFMaliciousConsumerV2(auth *bind.TransactOpts, backend bind.Contract
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFMaliciousConsumerV2{VRFMaliciousConsumerV2Caller: VRFMaliciousConsumerV2Caller{contract: contract}, VRFMaliciousConsumerV2Transactor: VRFMaliciousConsumerV2Transactor{contract: contract}, VRFMaliciousConsumerV2Filterer: VRFMaliciousConsumerV2Filterer{contract: contract}}, nil
+	return address, tx, &VRFMaliciousConsumerV2{address: address, abi: *parsed, VRFMaliciousConsumerV2Caller: VRFMaliciousConsumerV2Caller{contract: contract}, VRFMaliciousConsumerV2Transactor: VRFMaliciousConsumerV2Transactor{contract: contract}, VRFMaliciousConsumerV2Filterer: VRFMaliciousConsumerV2Filterer{contract: contract}}, nil
 }
 
 type VRFMaliciousConsumerV2 struct {

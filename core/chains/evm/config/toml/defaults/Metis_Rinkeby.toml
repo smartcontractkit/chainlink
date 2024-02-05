@@ -9,7 +9,7 @@ OCR.ContractConfirmations = 1
 Enabled = true
 
 [GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceMin = '0'
 BumpThreshold = 0
 

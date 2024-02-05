@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -19,13 +20,15 @@ import (
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -44,7 +47,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 		contractAddress = cltest.NewEIP55Address()
 	)
 
-	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
+	peerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
 	require.NoError(t, err)
 	randomBytes := testutils.Random32Byte()
 
@@ -658,7 +661,8 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 		c.P2P.V1.Enabled = ptr(true)
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
-	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
+	ec := setupEthClientForControllerTests(t)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(nil)
@@ -666,6 +670,14 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	_, err := vrfKeyStore.Create()
 	require.NoError(t, err)
 	return app, client
+}
+
+func setupEthClientForControllerTests(t *testing.T) *evmclimocks.Client {
+	ec := cltest.NewEthMocksWithStartupAssertions(t)
+	ec.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(100), nil).Maybe()
+	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Once().Return(big.NewInt(0), nil).Maybe()
+	return ec
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {

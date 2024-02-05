@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import "./KeeperCompatibleInterface.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
 
 contract PerformDataChecker is KeeperCompatibleInterface {
   uint256 public counter;

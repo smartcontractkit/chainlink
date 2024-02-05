@@ -26,16 +26,25 @@ data:
     AllowOrigins = '*'
     SecureCookies = false
     SessionTimeout = '999h0m0s'
+    [Feature]
+    FeedsManager = true
+    LogPoller = true
+    UICSAKeys = true
     [OCR]
     Enabled = true
+    DefaultTransactionQueueDepth = 0
     [P2P]
-    [P2P.V1]
+    [P2P.V2]
     Enabled = true
-    ListenIP = '0.0.0.0'
-    ListenPort = 6690
+    ListenAddresses = ['0.0.0.0:6690']
+    AnnounceAddresses = ['0.0.0.0:6690']
+    DeltaDial = '500ms'
+    DeltaReconcile = '5s'
     [[EVM]]
     ChainID = '1337'
     MinContractPayment = '0'
+    AutoCreateKey = true
+    FinalityDepth = 1
     [[EVM.Nodes]]
     Name = 'node-0'
     WSURL = 'ws://geth:8546'

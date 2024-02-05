@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -53,6 +54,7 @@ type Core struct {
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
+	Mercury          Mercury          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -81,6 +83,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
 	c.Keeper.setFrom(&f.Keeper)
+	c.Mercury.setFrom(&f.Mercury)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -101,6 +104,7 @@ func (c *Core) ValidateConfig() (err error) {
 type Secrets struct {
 	Database   DatabaseSecrets          `toml:",omitempty"`
 	Password   Passwords                `toml:",omitempty"`
+	WebServer  WebServerSecrets         `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets         `toml:",omitempty"`
 	Prometheus PrometheusSecrets        `toml:",omitempty"`
 	Mercury    MercurySecrets           `toml:",omitempty"`
@@ -592,6 +596,7 @@ func (l *LogFile) setFrom(f *LogFile) {
 }
 
 type WebServer struct {
+	AuthenticationMethod    *string
 	AllowOrigins            *string
 	BridgeResponseURL       *models.URL
 	BridgeCacheTTL          *models.Duration
@@ -604,12 +609,16 @@ type WebServer struct {
 	StartTimeout            *models.Duration
 	ListenIP                *net.IP
 
+	LDAP      WebServerLDAP      `toml:",omitempty"`
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
 	TLS       WebServerTLS       `toml:",omitempty"`
 }
 
 func (w *WebServer) setFrom(f *WebServer) {
+	if v := f.AuthenticationMethod; v != nil {
+		w.AuthenticationMethod = v
+	}
 	if v := f.AllowOrigins; v != nil {
 		w.AllowOrigins = v
 	}
@@ -644,9 +653,44 @@ func (w *WebServer) setFrom(f *WebServer) {
 		w.HTTPMaxSize = v
 	}
 
+	w.LDAP.setFrom(&f.LDAP)
 	w.MFA.setFrom(&f.MFA)
 	w.RateLimit.setFrom(&f.RateLimit)
 	w.TLS.setFrom(&f.TLS)
+}
+
+func (w *WebServer) ValidateConfig() (err error) {
+	// Validate LDAP fields when authentication method is LDAPAuth
+	if *w.AuthenticationMethod != string(sessions.LDAPAuth) {
+		return
+	}
+
+	// Assert LDAP fields when AuthMethod set to LDAP
+	if *w.LDAP.BaseDN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
+	}
+	if *w.LDAP.BaseUserAttr == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
+	}
+	if *w.LDAP.UsersDN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
+	}
+	if *w.LDAP.GroupsDN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
+	}
+	if *w.LDAP.AdminUserGroupCN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
+	}
+	if *w.LDAP.EditUserGroupCN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+	}
+	if *w.LDAP.RunUserGroupCN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
+	}
+	if *w.LDAP.ReadUserGroupCN == "" {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+	}
+	return err
 }
 
 type WebServerMFA struct {
@@ -713,6 +757,110 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 	if v := f.ListenIP; v != nil {
 		w.ListenIP = v
 	}
+}
+
+type WebServerLDAP struct {
+	ServerTLS                   *bool
+	SessionTimeout              *models.Duration
+	QueryTimeout                *models.Duration
+	BaseUserAttr                *string
+	BaseDN                      *string
+	UsersDN                     *string
+	GroupsDN                    *string
+	ActiveAttribute             *string
+	ActiveAttributeAllowedValue *string
+	AdminUserGroupCN            *string
+	EditUserGroupCN             *string
+	RunUserGroupCN              *string
+	ReadUserGroupCN             *string
+	UserApiTokenEnabled         *bool
+	UserAPITokenDuration        *models.Duration
+	UpstreamSyncInterval        *models.Duration
+	UpstreamSyncRateLimit       *models.Duration
+}
+
+func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
+	if v := f.ServerTLS; v != nil {
+		w.ServerTLS = v
+	}
+	if v := f.SessionTimeout; v != nil {
+		w.SessionTimeout = v
+	}
+	if v := f.SessionTimeout; v != nil {
+		w.SessionTimeout = v
+	}
+	if v := f.QueryTimeout; v != nil {
+		w.QueryTimeout = v
+	}
+	if v := f.BaseUserAttr; v != nil {
+		w.BaseUserAttr = v
+	}
+	if v := f.BaseDN; v != nil {
+		w.BaseDN = v
+	}
+	if v := f.UsersDN; v != nil {
+		w.UsersDN = v
+	}
+	if v := f.GroupsDN; v != nil {
+		w.GroupsDN = v
+	}
+	if v := f.ActiveAttribute; v != nil {
+		w.ActiveAttribute = v
+	}
+	if v := f.ActiveAttributeAllowedValue; v != nil {
+		w.ActiveAttributeAllowedValue = v
+	}
+	if v := f.AdminUserGroupCN; v != nil {
+		w.AdminUserGroupCN = v
+	}
+	if v := f.EditUserGroupCN; v != nil {
+		w.EditUserGroupCN = v
+	}
+	if v := f.RunUserGroupCN; v != nil {
+		w.RunUserGroupCN = v
+	}
+	if v := f.ReadUserGroupCN; v != nil {
+		w.ReadUserGroupCN = v
+	}
+	if v := f.UserApiTokenEnabled; v != nil {
+		w.UserApiTokenEnabled = v
+	}
+	if v := f.UserAPITokenDuration; v != nil {
+		w.UserAPITokenDuration = v
+	}
+	if v := f.UpstreamSyncInterval; v != nil {
+		w.UpstreamSyncInterval = v
+	}
+	if v := f.UpstreamSyncRateLimit; v != nil {
+		w.UpstreamSyncRateLimit = v
+	}
+}
+
+type WebServerLDAPSecrets struct {
+	ServerAddress     *models.SecretURL
+	ReadOnlyUserLogin *models.Secret
+	ReadOnlyUserPass  *models.Secret
+}
+
+func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
+	if v := f.ServerAddress; v != nil {
+		w.ServerAddress = v
+	}
+	if v := f.ReadOnlyUserLogin; v != nil {
+		w.ReadOnlyUserLogin = v
+	}
+	if v := f.ReadOnlyUserPass; v != nil {
+		w.ReadOnlyUserPass = v
+	}
+}
+
+type WebServerSecrets struct {
+	LDAP WebServerLDAPSecrets `toml:",omitempty"`
+}
+
+func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
+	w.LDAP.setFrom(&f.LDAP)
+	return nil
 }
 
 type JobPipeline struct {
@@ -1212,6 +1360,32 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	}
 }
 
+type MercuryCache struct {
+	LatestReportTTL      *models.Duration
+	MaxStaleAge          *models.Duration
+	LatestReportDeadline *models.Duration
+}
+
+func (mc *MercuryCache) setFrom(f *MercuryCache) {
+	if v := f.LatestReportTTL; v != nil {
+		mc.LatestReportTTL = v
+	}
+	if v := f.MaxStaleAge; v != nil {
+		mc.MaxStaleAge = v
+	}
+	if v := f.LatestReportDeadline; v != nil {
+		mc.LatestReportDeadline = v
+	}
+}
+
+type Mercury struct {
+	Cache MercuryCache `toml:",omitempty"`
+}
+
+func (m *Mercury) setFrom(f *Mercury) {
+	m.Cache.setFrom(&f.Cache)
+}
+
 type MercuryCredentials struct {
 	// LegacyURL is the legacy base URL for mercury v0.2 API
 	LegacyURL *models.SecretURL
@@ -1309,6 +1483,8 @@ type Tracing struct {
 	CollectorTarget *string
 	NodeID          *string
 	SamplingRatio   *float64
+	Mode            *string
+	TLSCertPath     *string
 	Attributes      map[string]string `toml:",omitempty"`
 }
 
@@ -1328,6 +1504,12 @@ func (t *Tracing) setFrom(f *Tracing) {
 	if v := f.SamplingRatio; v != nil {
 		t.SamplingRatio = f.SamplingRatio
 	}
+	if v := f.Mode; v != nil {
+		t.Mode = f.Mode
+	}
+	if v := f.TLSCertPath; v != nil {
+		t.TLSCertPath = f.TLSCertPath
+	}
 }
 
 func (t *Tracing) ValidateConfig() (err error) {
@@ -1341,10 +1523,39 @@ func (t *Tracing) ValidateConfig() (err error) {
 		}
 	}
 
-	if t.CollectorTarget != nil {
-		ok := isValidURI(*t.CollectorTarget)
-		if !ok {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+	if t.Mode != nil {
+		switch *t.Mode {
+		case "tls":
+			// TLSCertPath must be set
+			if t.TLSCertPath == nil {
+				err = multierr.Append(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is tls"})
+			} else {
+				ok := isValidFilePath(*t.TLSCertPath)
+				if !ok {
+					err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
+				}
+			}
+		case "unencrypted":
+			// no-op
+		default:
+			// Mode must be either "tls" or "unencrypted"
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'tls' or 'unencrypted'"})
+		}
+	}
+
+	if t.CollectorTarget != nil && t.Mode != nil {
+		switch *t.Mode {
+		case "tls":
+			if !isValidURI(*t.CollectorTarget) {
+				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+			}
+		case "unencrypted":
+			// Unencrypted traces can not be sent to external networks
+			if !isValidLocalURI(*t.CollectorTarget) {
+				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid local URI"})
+			}
+		default:
+			// no-op
 		}
 	}
 
@@ -1353,15 +1564,19 @@ func (t *Tracing) ValidateConfig() (err error) {
 
 var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)
 
+// Validates uri is valid external or local URI
 func isValidURI(uri string) bool {
 	if strings.Contains(uri, "://") {
-		// Standard URI check
-		_, _ = url.ParseRequestURI(uri)
-		// TODO: BCF-2703. Handle error. All external addresses currently fail validation until we have secure transport to external networks.
-		return false
+		_, err := url.ParseRequestURI(uri)
+		return err == nil
 	}
 
-	// For URIs like "otel-collector:4317"
+	return isValidLocalURI(uri)
+}
+
+// isValidLocalURI returns true if uri is a valid local URI
+// External URIs (e.g. http://) are not valid local URIs, and will return false.
+func isValidLocalURI(uri string) bool {
 	parts := strings.Split(uri, ":")
 	if len(parts) == 2 {
 		host, port := parts[0], parts[1]
@@ -1383,4 +1598,8 @@ func isValidURI(uri string) bool {
 
 func isValidHostname(hostname string) bool {
 	return hostnameRegex.MatchString(hostname)
+}
+
+func isValidFilePath(path string) bool {
+	return len(path) > 0 && len(path) < 4096
 }

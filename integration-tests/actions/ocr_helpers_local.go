@@ -9,11 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -146,7 +146,7 @@ func CreateOCRJobsLocal(
 	workerNodes []*client.ChainlinkClient,
 	mockValue int,
 	mockAdapter *test_env.Killgrave,
-	evmChainID string,
+	evmChainID *big.Int,
 ) error {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -157,7 +157,7 @@ func CreateOCRJobsLocal(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
-			EVMChainID:      evmChainID,
+			EVMChainID:      evmChainID.String(),
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -202,7 +202,7 @@ func CreateOCRJobsLocal(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
-				EVMChainID:         evmChainID,
+				EVMChainID:         evmChainID.String(),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
@@ -211,7 +211,7 @@ func CreateOCRJobsLocal(
 			}
 			_, err = node.MustCreateJob(ocrSpec)
 			if err != nil {
-				return fmt.Errorf("creating OCR task job on OCR node have failed: %w", err)
+				return fmt.Errorf("creating OCR job on OCR node failed: %w", err)
 			}
 		}
 	}
@@ -280,7 +280,7 @@ func TrackForwarderLocal(
 	chainID := chainClient.GetChainID()
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	if err != nil {
-		return errors.Wrap(err, "failed to track forwarder")
+		return fmt.Errorf("failed to track forwarder, err: %w", err)
 	}
 	logger.Info().Str("NodeURL", node.Config.URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
@@ -305,7 +305,7 @@ func DeployOCRContractsForwarderFlowLocal(
 			contracts.DefaultOffChainAggregatorOptions(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to deploy offchain aggregator")
+			return nil, fmt.Errorf("failed to deploy offchain aggregator, err: %w", err)
 		}
 		ocrInstances = append(ocrInstances, ocrInstance)
 		err = client.WaitForEvents()
@@ -329,7 +329,7 @@ func DeployOCRContractsForwarderFlowLocal(
 	for _, ocrInstance := range ocrInstances {
 		err := ocrInstance.SetPayees(transmitters, payees)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to set OCR payees")
+			return nil, fmt.Errorf("failed to set OCR payees, err: %w", err)
 		}
 		if err := client.WaitForEvents(); err != nil {
 			return nil, err
@@ -348,7 +348,7 @@ func DeployOCRContractsForwarderFlowLocal(
 			forwarderAddresses,
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to set on-chain config")
+			return nil, fmt.Errorf("failed to set on-chain config, err: %w", err)
 		}
 		if err = client.WaitForEvents(); err != nil {
 			return nil, err

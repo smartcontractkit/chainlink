@@ -445,7 +445,7 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 
 	// Mock log poller.
 	lp.On("LatestBlock", mock.Anything).
-		Return(latest, nil)
+		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
 		fromBlock,
@@ -543,7 +543,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 
 	// Mock log poller.
 	lp.On("LatestBlock", mock.Anything).
-		Return(latest, nil)
+		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
 		fromBlock,
@@ -641,7 +641,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 
 	// Mock log poller.
 	lp.On("LatestBlock", mock.Anything).
-		Return(latest, nil)
+		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
 		fromBlock,

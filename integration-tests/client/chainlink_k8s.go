@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 )
 
 type ChainlinkK8sClient struct {
@@ -63,7 +63,7 @@ func (c *ChainlinkK8sClient) UpgradeVersion(testEnvironment *environment.Environ
 			},
 		},
 	}
-	testEnvironment, err := testEnvironment.UpdateHelm(c.ChartName, upgradeVals)
+	_, err := testEnvironment.UpdateHelm(c.ChartName, upgradeVals)
 	return err
 }
 

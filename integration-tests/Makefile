@@ -56,6 +56,12 @@ install_gotestfmt:
 	go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
 	set -euo pipefail
 
+lint:
+	golangci-lint --color=always run ./... --fix -v
+
+build:
+	@go build ./... && SELECTED_NETWORKS=SIMULATED go test -run=^# ./...
+
 # Builds the test image
 # tag: the tag for the test image being built, example: tag=tate
 # base_tag: the tag for the base-test-image to use, example: base_tag=latest
@@ -118,7 +124,7 @@ test_chaos_verbose: ## Run all smoke tests with verbose logging
 
 # Performance
 .PHONY: test_perf
-test_perf: test_need_operator_assets ## Run core node performance tests.
+test_perf: ## Run core node performance tests.
 	TEST_LOG_LEVEL="disabled" \
 	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
 	go test -timeout 1h -count=1 -json $(args) ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt

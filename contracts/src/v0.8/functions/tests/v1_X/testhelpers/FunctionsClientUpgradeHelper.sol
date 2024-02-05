@@ -82,7 +82,7 @@ contract FunctionsClientUpgradeHelper is FunctionsClient, ConfirmedOwner {
     uint32 callbackGasLimit,
     bytes32 donId
   ) internal returns (bytes32) {
-    bytes32 requestId = i_router.sendRequestToProposed(
+    bytes32 requestId = i_functionsRouter.sendRequestToProposed(
       subscriptionId,
       data,
       FunctionsRequest.REQUEST_DATA_VERSION,

@@ -57,7 +57,7 @@ func DeployVerifier(auth *bind.TransactOpts, backend bind.ContractBackend, verif
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Verifier{VerifierCaller: VerifierCaller{contract: contract}, VerifierTransactor: VerifierTransactor{contract: contract}, VerifierFilterer: VerifierFilterer{contract: contract}}, nil
+	return address, tx, &Verifier{address: address, abi: *parsed, VerifierCaller: VerifierCaller{contract: contract}, VerifierTransactor: VerifierTransactor{contract: contract}, VerifierFilterer: VerifierFilterer{contract: contract}}, nil
 }
 
 type Verifier struct {

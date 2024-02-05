@@ -400,3 +400,13 @@ type WERC20Mock interface {
 	Transfer(to string, amount *big.Int) error
 	Mint(account common.Address, amount *big.Int) (*types.Transaction, error)
 }
+
+type LogEmitter interface {
+	Address() common.Address
+	EmitLogInts(ints []int) (*types.Transaction, error)
+	EmitLogIntsIndexed(ints []int) (*types.Transaction, error)
+	EmitLogStrings(strings []string) (*types.Transaction, error)
+	EmitLogInt(payload int) (*types.Transaction, error)
+	EmitLogIntIndexed(payload int) (*types.Transaction, error)
+	EmitLogString(strings string) (*types.Transaction, error)
+}

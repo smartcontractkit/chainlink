@@ -14,17 +14,19 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -52,7 +54,7 @@ type (
 	// OCRContractTracker complies with ContractConfigTracker interface and
 	// handles log events related to the contract more generally
 	OCRContractTracker struct {
-		utils.StartStopOnce
+		services.StateMachine
 
 		ethClient        evmclient.Client
 		contract         *offchain_aggregator_wrapper.OffchainAggregator
@@ -72,7 +74,7 @@ type (
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
-		chStop          utils.StopChan
+		chStop          services.StopChan
 		wg              sync.WaitGroup
 		unsubscribeLogs func()
 
@@ -132,7 +134,7 @@ func NewOCRContractTracker(
 		cfg:                  cfg,
 		mailMon:              mailMon,
 		headBroadcaster:      headBroadcaster,
-		chStop:               make(chan struct{}),
+		chStop:               make(services.StopChan),
 		latestRoundRequested: offchainaggregator.OffchainAggregatorRoundRequested{},
 		configsMB:            utils.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
 		chConfigs:            make(chan ocrtypes.ContractConfig),
@@ -400,7 +402,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", config.ChainArbitrum, config.ChainCelo, config.ChainOptimismBedrock, config.ChainXDai:
+	case "", config.ChainArbitrum, config.ChainCelo, config.ChainOptimismBedrock, config.ChainXDai, config.ChainKroma, config.ChainWeMix, config.ChainZkSync:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

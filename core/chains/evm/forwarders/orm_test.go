@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 )
 
 type TestORM struct {
@@ -28,7 +28,7 @@ func setupORM(t *testing.T) *TestORM {
 
 	var (
 		db   = pgtest.NewSqlxDB(t)
-		lggr = logger.TestLogger(t)
+		lggr = logger.Test(t)
 		orm  = NewORM(db, lggr, pgtest.NewQConfig(true))
 	)
 

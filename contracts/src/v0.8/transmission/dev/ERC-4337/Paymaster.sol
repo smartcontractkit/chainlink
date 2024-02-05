@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import {IPaymaster} from "../../../vendor/entrypoint/interfaces/IPaymaster.sol";
 import {SCALibrary} from "./SCALibrary.sol";
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {UserOperation} from "../../../vendor/entrypoint/interfaces/UserOperation.sol";
 import {_packValidationData} from "../../../vendor/entrypoint/core/Helpers.sol";

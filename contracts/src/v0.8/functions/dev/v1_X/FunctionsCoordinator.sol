@@ -44,7 +44,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address router,
     Config memory config,
     address linkToNativeFeed
-  ) OCR2Base(true) FunctionsBilling(router, config, linkToNativeFeed) {}
+  ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed) {}
 
   /// @inheritdoc IFunctionsCoordinator
   function getThresholdPublicKey() external view override returns (bytes memory) {
@@ -133,30 +133,36 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address[MAX_NUM_ORACLES] memory /*signers*/,
     bytes calldata report
   ) internal override {
-    bytes32[] memory requestIds;
-    bytes[] memory results;
-    bytes[] memory errors;
-    bytes[] memory onchainMetadata;
-    bytes[] memory offchainMetadata;
-    (requestIds, results, errors, onchainMetadata, offchainMetadata) = abi.decode(
-      report,
-      (bytes32[], bytes[], bytes[], bytes[], bytes[])
-    );
+    (
+      bytes32[] memory requestIds,
+      bytes[] memory results,
+      bytes[] memory errors,
+      bytes[] memory onchainMetadata,
+      bytes[] memory offchainMetadata
+    ) = abi.decode(report, (bytes32[], bytes[], bytes[], bytes[], bytes[]));
+    uint256 numberOfFulfillments = uint8(requestIds.length);
 
     if (
-      requestIds.length == 0 ||
-      requestIds.length != results.length ||
-      requestIds.length != errors.length ||
-      requestIds.length != onchainMetadata.length ||
-      requestIds.length != offchainMetadata.length
+      numberOfFulfillments == 0 ||
+      numberOfFulfillments != results.length ||
+      numberOfFulfillments != errors.length ||
+      numberOfFulfillments != onchainMetadata.length ||
+      numberOfFulfillments != offchainMetadata.length
     ) {
-      revert ReportInvalid();
+      revert ReportInvalid("Fields must be equal length");
     }
 
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
-    for (uint256 i = 0; i < requestIds.length; ++i) {
+    for (uint256 i = 0; i < numberOfFulfillments; ++i) {
       FunctionsResponse.FulfillResult result = FunctionsResponse.FulfillResult(
-        _fulfillAndBill(requestIds[i], results[i], errors[i], onchainMetadata[i], offchainMetadata[i])
+        _fulfillAndBill(
+          requestIds[i],
+          results[i],
+          errors[i],
+          onchainMetadata[i],
+          offchainMetadata[i],
+          uint8(numberOfFulfillments) // will not exceed "MaxRequestBatchSize" on the Job's ReportingPluginConfig
+        )
       );
 
       // Emit on successfully processing the fulfillment

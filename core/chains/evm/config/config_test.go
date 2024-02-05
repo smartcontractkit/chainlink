@@ -11,11 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -402,7 +403,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("arbitrum-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &toml.Chain{
-				ChainType: ptr(string(config.ChainArbitrum)),
+				ChainType: ptr(string(commonconfig.ChainArbitrum)),
 				GasEstimator: toml.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},
@@ -423,7 +424,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("testnet", func(t *testing.T) {
 			cfg := configWithChains(t, 421611, &toml.Chain{
 				GasEstimator: toml.GasEstimator{
-					Mode: ptr("L2Suggested"),
+					Mode: ptr("SuggestedPrice"),
 				},
 			})
 			assert.NoError(t, cfg.Validate())
@@ -433,7 +434,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	t.Run("optimism-estimator", func(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			cfg := configWithChains(t, 0, &toml.Chain{
-				ChainType: ptr(string(config.ChainOptimismBedrock)),
+				ChainType: ptr(string(commonconfig.ChainOptimismBedrock)),
 				GasEstimator: toml.GasEstimator{
 					Mode: ptr("BlockHistory"),
 				},

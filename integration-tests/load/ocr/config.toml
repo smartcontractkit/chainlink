@@ -1,0 +1,20 @@
+[Load]
+test_duration = "3m"
+rate_limit_unit_duration = "1m"
+rate = 3
+verification_interval = "5s"
+verification_timeout = "3m"
+ea_change_interval = "5s"
+
+[Volume]
+test_duration = "3m"
+rate_limit_unit_duration = "1m"
+vu_requests_per_unit = 10
+rate = 1
+verification_interval = "5s"
+verification_timeout = "3m"
+
+ea_change_interval = "5s"
+
+[Common]
+eth_funds = 3

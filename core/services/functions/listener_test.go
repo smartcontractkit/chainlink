@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
@@ -21,7 +22,7 @@ import (
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -46,7 +47,7 @@ import (
 )
 
 type FunctionsListenerUniverse struct {
-	service          *functions_service.FunctionsListener
+	service          functions_service.FunctionsListener
 	bridgeAccessor   *functions_mocks.BridgeAccessor
 	eaClient         *functions_mocks.ExternalAdapterClient
 	pluginORM        *functions_mocks.ORM
@@ -125,7 +126,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 
 	ingressClient := sync_mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monEndpoint := ingressAgent.GenMonitoringEndpoint(contractAddress, synchronization.FunctionsRequests, "test-network", "test-chainID")
+	monEndpoint := ingressAgent.GenMonitoringEndpoint("test-network", "test-chainID", contractAddress, synchronization.FunctionsRequests)
 
 	s4Storage := s4_mocks.NewStorage(t)
 	client := chain.Client()
@@ -177,6 +178,72 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 	require.NoError(t, uni.service.Start(testutils.Context(t)))
 	<-doneCh
 	uni.service.Close()
+}
+
+func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
+	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Return(nil)
+
+	request := &functions_service.OffchainRequest{
+		RequestId:         RequestID[:],
+		RequestInitiator:  SubscriptionOwner.Bytes(),
+		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionOwner: SubscriptionOwner.Bytes(),
+		Timestamp:         uint64(time.Now().Unix()),
+		Data:              functions_service.RequestData{},
+	}
+	require.NoError(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+}
+
+func TestFunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
+
+	request := &functions_service.OffchainRequest{
+		RequestId:         RequestID[:],
+		RequestInitiator:  []byte("invalid_address"),
+		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionOwner: SubscriptionOwner.Bytes(),
+		Timestamp:         uint64(time.Now().Unix()),
+		Data:              functions_service.RequestData{},
+	}
+	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+
+	request.RequestInitiator = SubscriptionOwner.Bytes()
+	request.SubscriptionOwner = []byte("invalid_address")
+	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+
+	request.SubscriptionOwner = SubscriptionOwner.Bytes()
+	request.Timestamp = 1
+	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+}
+
+func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil, nil, errors.New("error"))
+	uni.pluginORM.On("SetError", RequestID, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	request := &functions_service.OffchainRequest{
+		RequestId:         RequestID[:],
+		RequestInitiator:  SubscriptionOwner.Bytes(),
+		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionOwner: SubscriptionOwner.Bytes(),
+		Timestamp:         uint64(time.Now().Unix()),
+		Data:              functions_service.RequestData{},
+	}
+	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) {

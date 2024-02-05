@@ -7,7 +7,7 @@ import "../../vendor/@eth-optimism/contracts/v0.8.6/contracts/L2/predeploys/OVM_
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "../ExecutionPrevention.sol";
 import "../../shared/access/ConfirmedOwner.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
+import "../../shared/interfaces/AggregatorV3Interface.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";

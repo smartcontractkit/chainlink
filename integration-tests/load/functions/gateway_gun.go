@@ -3,14 +3,15 @@ package loadfunctions
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/go-resty/resty/v2"
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-	"github.com/smartcontractkit/wasp"
 	"math/rand"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/go-resty/resty/v2"
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+	"github.com/smartcontractkit/wasp"
 )
 
 /* SingleFunctionCallGun is a gun that constantly requests randomness for one feed  */

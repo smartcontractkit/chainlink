@@ -164,32 +164,32 @@ func (_m *LogPoller) IndexedLogsByBlockRange(start int64, end int64, eventSig co
 	return r0, r1
 }
 
-// IndexedLogsByTxHash provides a mock function with given fields: eventSig, txHash, qopts
-func (_m *LogPoller) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+// IndexedLogsByTxHash provides a mock function with given fields: eventSig, address, txHash, qopts
+func (_m *LogPoller) IndexedLogsByTxHash(eventSig common.Hash, address common.Address, txHash common.Hash, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, eventSig, txHash)
+	_ca = append(_ca, eventSig, address, txHash)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 []logpoller.Log
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Hash, common.Hash, ...pg.QOpt) ([]logpoller.Log, error)); ok {
-		return rf(eventSig, txHash, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Address, common.Hash, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(eventSig, address, txHash, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(common.Hash, common.Hash, ...pg.QOpt) []logpoller.Log); ok {
-		r0 = rf(eventSig, txHash, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Address, common.Hash, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(eventSig, address, txHash, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]logpoller.Log)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Hash, common.Hash, ...pg.QOpt) error); ok {
-		r1 = rf(eventSig, txHash, qopts...)
+	if rf, ok := ret.Get(1).(func(common.Hash, common.Address, common.Hash, ...pg.QOpt) error); ok {
+		r1 = rf(eventSig, address, txHash, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -330,7 +330,7 @@ func (_m *LogPoller) IndexedLogsWithSigsExcluding(address common.Address, eventS
 }
 
 // LatestBlock provides a mock function with given fields: qopts
-func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
+func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (logpoller.LogPollerBlock, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -339,15 +339,15 @@ func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 int64
+	var r0 logpoller.LogPollerBlock
 	var r1 error
-	if rf, ok := ret.Get(0).(func(...pg.QOpt) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(...pg.QOpt) (logpoller.LogPollerBlock, error)); ok {
 		return rf(qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(...pg.QOpt) int64); ok {
+	if rf, ok := ret.Get(0).(func(...pg.QOpt) logpoller.LogPollerBlock); ok {
 		r0 = rf(qopts...)
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Get(0).(logpoller.LogPollerBlock)
 	}
 
 	if rf, ok := ret.Get(1).(func(...pg.QOpt) error); ok {
@@ -515,6 +515,39 @@ func (_m *LogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Addre
 
 	if rf, ok := ret.Get(1).(func(common.Hash, common.Address, time.Time, logpoller.Confirmations, ...pg.QOpt) error); ok {
 		r1 = rf(eventSig, address, _a2, confs, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// LogsDataWordBetween provides a mock function with given fields: eventSig, address, wordIndexMin, wordIndexMax, wordValue, confs, qopts
+func (_m *LogPoller) LogsDataWordBetween(eventSig common.Hash, address common.Address, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, eventSig, address, wordIndexMin, wordIndexMax, wordValue, confs)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []logpoller.Log
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Address, int, int, common.Hash, logpoller.Confirmations, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(eventSig, address, wordIndexMin, wordIndexMax, wordValue, confs, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Address, int, int, common.Hash, logpoller.Confirmations, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(eventSig, address, wordIndexMin, wordIndexMax, wordValue, confs, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]logpoller.Log)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Hash, common.Address, int, int, common.Hash, logpoller.Confirmations, ...pg.QOpt) error); ok {
+		r1 = rf(eventSig, address, wordIndexMin, wordIndexMax, wordValue, confs, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

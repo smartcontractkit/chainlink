@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
+	assets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 

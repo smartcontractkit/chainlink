@@ -247,23 +247,23 @@ func (_m *ORM) FindJobIDsWithBridge(name string) ([]int32, error) {
 	return r0, r1
 }
 
-// FindJobTx provides a mock function with given fields: id
-func (_m *ORM) FindJobTx(id int32) (job.Job, error) {
-	ret := _m.Called(id)
+// FindJobTx provides a mock function with given fields: ctx, id
+func (_m *ORM) FindJobTx(ctx context.Context, id int32) (job.Job, error) {
+	ret := _m.Called(ctx, id)
 
 	var r0 job.Job
 	var r1 error
-	if rf, ok := ret.Get(0).(func(int32) (job.Job, error)); ok {
-		return rf(id)
+	if rf, ok := ret.Get(0).(func(context.Context, int32) (job.Job, error)); ok {
+		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(int32) job.Job); ok {
-		r0 = rf(id)
+	if rf, ok := ret.Get(0).(func(context.Context, int32) job.Job); ok {
+		r0 = rf(ctx, id)
 	} else {
 		r0 = ret.Get(0).(job.Job)
 	}
 
-	if rf, ok := ret.Get(1).(func(int32) error); ok {
-		r1 = rf(id)
+	if rf, ok := ret.Get(1).(func(context.Context, int32) error); ok {
+		r1 = rf(ctx, id)
 	} else {
 		r1 = ret.Error(1)
 	}

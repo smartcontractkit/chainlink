@@ -219,6 +219,11 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	case 8453:
 		prefix = "https://basescan.org"
 
+	case 280: // zkSync Goerli testnet
+		prefix = "https://goerli.explorer.zksync.io"
+	case 324: // zkSync mainnet
+		prefix = "https://explorer.zksync.io"
+
 	default: // Unknown chain, return prefix as-is
 		prefix = ""
 	}

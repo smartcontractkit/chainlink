@@ -128,7 +128,7 @@ func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 
 	logs, err := v.lp.LogsWithSigs(
 		int64(fromBlock),
-		int64(toBlock),
+		toBlock.BlockNumber,
 		[]common.Hash{
 			v1.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 		},
@@ -219,7 +219,7 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 
 	logs, err := v.lp.LogsWithSigs(
 		int64(fromBlock),
-		int64(toBlock),
+		toBlock.BlockNumber,
 		[]common.Hash{
 			v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
 		},
@@ -310,7 +310,7 @@ func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) 
 
 	logs, err := v.lp.LogsWithSigs(
 		int64(fromBlock),
-		int64(toBlock),
+		toBlock.BlockNumber,
 		[]common.Hash{
 			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
 		},

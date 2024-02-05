@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -21,11 +21,12 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2vrf/dkg"
-	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
-	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-vrf/dkg"
+	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
+	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -1032,7 +1033,7 @@ func TestCoordinator_ReportBlocks(t *testing.T) {
 		requestedBlocks := []uint64{195, 196}
 		lp := lp_mocks.NewLogPoller(t)
 		lp.On("LatestBlock", mock.Anything).
-			Return(int64(latestHeadNumber), nil)
+			Return(logpoller.LogPollerBlock{BlockNumber: int64(latestHeadNumber)}, nil)
 
 		lp.On("GetBlocksRange", mock.Anything, append(requestedBlocks, uint64(latestHeadNumber-lookbackBlocks+1), uint64(latestHeadNumber)), mock.Anything).
 			Return(nil, errors.New("GetBlocks error"))
@@ -1469,7 +1470,7 @@ func newRandomnessRequestedLog(
 		SubID:                  big.NewInt(1),
 		CostJuels:              big.NewInt(50_000),
 		NewSubBalance:          big.NewInt(100_000),
-		Raw: types.Log{
+		Raw: gethtypes.Log{
 			BlockNumber: requestBlock,
 		},
 	}
@@ -1544,7 +1545,7 @@ func newRandomnessFulfillmentRequestedLog(
 		Requester:              common.HexToAddress("0x1234567890"),
 		CostJuels:              big.NewInt(50_000),
 		NewSubBalance:          big.NewInt(100_000),
-		Raw: types.Log{
+		Raw: gethtypes.Log{
 			BlockNumber: requestBlock,
 		},
 	}
@@ -1720,7 +1721,7 @@ func getLogPoller(
 	lp := lp_mocks.NewLogPoller(t)
 	if needsLatestBlock {
 		lp.On("LatestBlock", mock.Anything).
-			Return(int64(latestHeadNumber), nil)
+			Return(logpoller.LogPollerBlock{BlockNumber: int64(latestHeadNumber)}, nil)
 	}
 	var logPollerBlocks []logpoller.LogPollerBlock
 
@@ -1763,7 +1764,7 @@ func TestFilterNamesFromSpec(t *testing.T) {
 
 	spec := &job.OCR2OracleSpec{
 		ContractID: beaconAddress.String(),
-		PluginType: relaytypes.OCR2VRF,
+		PluginType: types.OCR2VRF,
 		PluginConfig: job.JSONConfig{
 			"VRFCoordinatorAddress": coordinatorAddress.String(),
 			"DKGContractAddress":    dkgAddress.String(),
@@ -1777,7 +1778,7 @@ func TestFilterNamesFromSpec(t *testing.T) {
 	assert.Equal(t, logpoller.FilterName("VRF Coordinator", beaconAddress, coordinatorAddress, dkgAddress), names[0])
 
 	spec = &job.OCR2OracleSpec{
-		PluginType:   relaytypes.OCR2VRF,
+		PluginType:   types.OCR2VRF,
 		ContractID:   beaconAddress.String(),
 		PluginConfig: nil, // missing coordinator & dkg addresses
 	}

@@ -9,10 +9,11 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/spf13/cobra"
 	"github.com/testcontainers/testcontainers-go"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
 func main() {
@@ -31,7 +32,7 @@ func main() {
 		Use:   "cl-cluster",
 		Short: "Basic CL cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			utils.SetupCoreDockerEnvLogger()
+			log.Logger = logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL")
 			log.Info().Msg("Starting CL cluster test environment..")
 
 			_, err := test_env.NewCLTestEnvBuilder().
@@ -50,6 +51,7 @@ func main() {
 			return nil
 		},
 	}
+
 	startEnvCmd.AddCommand(startFullEnvCmd)
 
 	// Set default log level for non-testcontainer code

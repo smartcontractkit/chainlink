@@ -9,8 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -91,13 +93,12 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					Type: job.DirectRequest,
 					DirectRequestSpec: &job.DirectRequestSpec{
-						ContractAddress:             contractAddress,
-						CreatedAt:                   f.Timestamp(),
-						EVMChainID:                  utils.NewBigI(42),
-						MinIncomingConfirmations:    clnull.NewUint32(1, true),
-						MinIncomingConfirmationsEnv: true,
-						MinContractPayment:          assets.NewLinkFromJuels(1000),
-						Requesters:                  models.AddressCollection{requesterAddress},
+						ContractAddress:          contractAddress,
+						CreatedAt:                f.Timestamp(),
+						EVMChainID:               utils.NewBigI(42),
+						MinIncomingConfirmations: clnull.NewUint32(1, true),
+						MinContractPayment:       commonassets.NewLinkFromJuels(1000),
+						Requesters:               models.AddressCollection{requesterAddress},
 					},
 				}, nil)
 			},
@@ -112,7 +113,6 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 									createdAt
 									evmChainID
 									minIncomingConfirmations
-									minIncomingConfirmationsEnv
 									minContractPaymentLinkJuels
 									requesters
 								}
@@ -130,7 +130,6 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
 							"minIncomingConfirmations": 1,
-							"minIncomingConfirmationsEnv": true,
 							"minContractPaymentLinkJuels": "1000",
 							"requesters": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"]
 						}
@@ -165,7 +164,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 						DrumbeatEnabled:   false,
 						IdleTimerDisabled: false,
 						IdleTimerPeriod:   time.Duration(1 * time.Hour),
-						MinPayment:        assets.NewLinkFromJuels(1000),
+						MinPayment:        commonassets.NewLinkFromJuels(1000),
 						PollTimerDisabled: false,
 						PollTimerPeriod:   time.Duration(1 * time.Minute),
 					},
@@ -234,7 +233,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 						DrumbeatSchedule:    "CRON_TZ=UTC 0 0 1 1 *",
 						IdleTimerDisabled:   true,
 						IdleTimerPeriod:     time.Duration(1 * time.Hour),
-						MinPayment:          assets.NewLinkFromJuels(1000),
+						MinPayment:          commonassets.NewLinkFromJuels(1000),
 						PollTimerDisabled:   true,
 						PollTimerPeriod:     time.Duration(1 * time.Minute),
 					},
@@ -373,30 +372,22 @@ func TestResolver_OCRSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					Type: job.OffchainReporting,
 					OCROracleSpec: &job.OCROracleSpec{
-						BlockchainTimeout:                         models.Interval(1 * time.Minute),
-						BlockchainTimeoutEnv:                      false,
-						ContractAddress:                           contractAddress,
-						ContractConfigConfirmations:               1,
-						ContractConfigConfirmationsEnv:            true,
-						ContractConfigTrackerPollInterval:         models.Interval(1 * time.Minute),
-						ContractConfigTrackerPollIntervalEnv:      false,
-						ContractConfigTrackerSubscribeInterval:    models.Interval(2 * time.Minute),
-						ContractConfigTrackerSubscribeIntervalEnv: true,
-						DatabaseTimeout:                           models.NewInterval(3 * time.Second),
-						DatabaseTimeoutEnv:                        true,
-						ObservationGracePeriod:                    models.NewInterval(4 * time.Second),
-						ObservationGracePeriodEnv:                 true,
-						ContractTransmitterTransmitTimeout:        models.NewInterval(555 * time.Millisecond),
-						ContractTransmitterTransmitTimeoutEnv:     true,
-						CreatedAt:                                 f.Timestamp(),
-						EVMChainID:                                utils.NewBigI(42),
-						IsBootstrapPeer:                           false,
-						EncryptedOCRKeyBundleID:                   &keyBundleID,
-						ObservationTimeout:                        models.Interval(2 * time.Minute),
-						ObservationTimeoutEnv:                     false,
-						P2PBootstrapPeers:                         pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
-						P2PV2Bootstrappers:                        pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						TransmitterAddress:                        &transmitterAddress,
+						BlockchainTimeout:                      models.Interval(1 * time.Minute),
+						ContractAddress:                        contractAddress,
+						ContractConfigConfirmations:            1,
+						ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+						ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
+						DatabaseTimeout:                        models.NewInterval(3 * time.Second),
+						ObservationGracePeriod:                 models.NewInterval(4 * time.Second),
+						ContractTransmitterTransmitTimeout:     models.NewInterval(555 * time.Millisecond),
+						CreatedAt:                              f.Timestamp(),
+						EVMChainID:                             utils.NewBigI(42),
+						IsBootstrapPeer:                        false,
+						EncryptedOCRKeyBundleID:                &keyBundleID,
+						ObservationTimeout:                     models.Interval(2 * time.Minute),
+						P2PBootstrapPeers:                      pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
+						P2PV2Bootstrappers:                     pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
+						TransmitterAddress:                     &transmitterAddress,
 					},
 				}, nil)
 			},
@@ -408,26 +399,18 @@ func TestResolver_OCRSpec(t *testing.T) {
 								__typename
 								... on OCRSpec {
 									blockchainTimeout
-									blockchainTimeoutEnv
 									contractAddress
 									contractConfigConfirmations
-									contractConfigConfirmationsEnv
 									contractConfigTrackerPollInterval
-									contractConfigTrackerPollIntervalEnv
 									contractConfigTrackerSubscribeInterval
-									contractConfigTrackerSubscribeIntervalEnv
 									databaseTimeout
-									databaseTimeoutEnv
 									observationGracePeriod
-									observationGracePeriodEnv
 									contractTransmitterTransmitTimeout
-									contractTransmitterTransmitTimeoutEnv
 									createdAt
 									evmChainID
 									isBootstrapPeer
 									keyBundleID
 									observationTimeout
-									observationTimeoutEnv
 									p2pBootstrapPeers
 									p2pv2Bootstrappers
 									transmitterAddress
@@ -443,26 +426,18 @@ func TestResolver_OCRSpec(t *testing.T) {
 						"spec": {
 							"__typename": "OCRSpec",
 							"blockchainTimeout": "1m0s",
-							"blockchainTimeoutEnv": false,
 							"contractAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"contractConfigConfirmations": 1,
-							"contractConfigConfirmationsEnv": true,
 							"contractConfigTrackerPollInterval": "1m0s",
-							"contractConfigTrackerPollIntervalEnv": false,
 							"contractConfigTrackerSubscribeInterval": "2m0s",
-							"contractConfigTrackerSubscribeIntervalEnv": true,
 							"databaseTimeout": "3s",
-							"databaseTimeoutEnv": true,
 							"observationGracePeriod": "4s",
-							"observationGracePeriodEnv": true,
 							"contractTransmitterTransmitTimeout": "555ms",
-							"contractTransmitterTransmitTimeoutEnv": true,
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
 							"isBootstrapPeer": false,
 							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"observationTimeout": "2m0s",
-							"observationTimeoutEnv": false,
 							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"p2pv2Bootstrappers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/big"
 	"sort"
@@ -57,7 +58,7 @@ type upkeepStats struct {
 	SortedAllDelays []float64
 }
 
-func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
+func (k *Keeper) GetVerifiableLoadStats(ctx context.Context, csv bool) {
 	var v verifiableLoad
 	var err error
 	addr := common.HexToAddress(k.cfg.VerifiableLoadContractAddress)
@@ -84,6 +85,10 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 		log.Fatalf("failed to get active upkeep IDs from %s: %v", k.cfg.VerifiableLoadContractAddress, err)
 	}
 
+	if csv {
+		fmt.Println("upkeep ID,total performs,p50,p90,p95,p99,max delay,total delay blocks,average perform delay")
+	}
+
 	us := &upkeepStats{BlockNumber: blockNum}
 
 	resultsChan := make(chan *upkeepInfo, maxUpkeepNum)
@@ -94,7 +99,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 	// create a number of workers to process the upkeep ids in batch
 	for i := 0; i < workerNum; i++ {
 		wg.Add(1)
-		go k.getUpkeepInfo(idChan, resultsChan, v, opts, &wg)
+		go k.getUpkeepInfo(idChan, resultsChan, v, opts, &wg, csv)
 	}
 
 	for _, id := range upkeepIds {
@@ -120,12 +125,16 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 	p90, _ := stats.Percentile(us.SortedAllDelays, 90)
 	p95, _ := stats.Percentile(us.SortedAllDelays, 95)
 	p99, _ := stats.Percentile(us.SortedAllDelays, 99)
-	maxDelay := us.SortedAllDelays[len(us.SortedAllDelays)-1]
+
+	maxDelay := float64(0)
+	if len(us.SortedAllDelays) > 0 {
+		maxDelay = us.SortedAllDelays[len(us.SortedAllDelays)-1]
+	}
 	log.Printf("For total %d upkeeps: total performs: %d, p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %f, average perform delay: %f\n", len(upkeepIds), us.TotalPerforms, p50, p90, p95, p99, maxDelay, us.TotalDelayBlock, us.TotalDelayBlock/float64(us.TotalPerforms))
 	log.Printf("All STATS ABOVE ARE CALCULATED AT BLOCK %d", blockNum)
 }
 
-func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *upkeepInfo, v verifiableLoad, opts *bind.CallOpts, wg *sync.WaitGroup) {
+func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *upkeepInfo, v verifiableLoad, opts *bind.CallOpts, wg *sync.WaitGroup, csv bool) {
 	defer wg.Done()
 
 	for id := range idChan {
@@ -171,9 +180,18 @@ func (k *Keeper) getUpkeepInfo(idChan chan *big.Int, resultsChan chan *upkeepInf
 		p90, _ := stats.Percentile(info.SortedAllDelays, 90)
 		p95, _ := stats.Percentile(info.SortedAllDelays, 95)
 		p99, _ := stats.Percentile(info.SortedAllDelays, 99)
-		maxDelay := info.SortedAllDelays[len(info.SortedAllDelays)-1]
 
-		log.Printf("upkeep ID %s has %d performs in total. p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %d, average perform delay: %f\n", id, info.TotalPerforms, p50, p90, p95, p99, maxDelay, uint64(info.TotalDelayBlock), info.TotalDelayBlock/float64(info.TotalPerforms))
+		maxDelay := float64(0)
+
+		if len(info.SortedAllDelays) > 0 {
+			maxDelay = info.SortedAllDelays[len(info.SortedAllDelays)-1]
+		}
+
+		if csv {
+			fmt.Printf("%s,%d,%f,%f,%f,%f,%f,%d,%f\n", id, info.TotalPerforms, p50, p90, p95, p99, maxDelay, uint64(info.TotalDelayBlock), info.TotalDelayBlock/float64(info.TotalPerforms))
+		} else {
+			log.Printf("upkeep ID %s has %d performs in total. p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %d, average perform delay: %f\n", id, info.TotalPerforms, p50, p90, p95, p99, maxDelay, uint64(info.TotalDelayBlock), info.TotalDelayBlock/float64(info.TotalPerforms))
+		}
 		resultsChan <- info
 	}
 }

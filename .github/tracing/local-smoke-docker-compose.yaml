@@ -6,9 +6,11 @@ services:
     image: otel/opentelemetry-collector:0.61.0
     command: [ "--config=/etc/otel-collector.yaml" ]
     volumes:
-      - ./otel-collector.yaml:/etc/otel-collector.yaml
+      - ./otel-collector-dev.yaml:/etc/otel-collector.yaml
+      - ../../integration-tests/smoke/traces/trace-data.json:/etc/trace-data.json # local trace data stored consistent with smoke/logs
     ports:
       - "4317:4317" # otlp grpc
+      - "3100:3100"
     depends_on:
       - tempo
     networks:

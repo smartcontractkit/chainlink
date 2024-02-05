@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -42,7 +43,7 @@ type HandlerFactory interface {
 }
 
 type gateway struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	codec      api.Codec
 	httpServer gw_net.HttpServer

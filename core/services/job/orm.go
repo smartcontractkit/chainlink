@@ -16,13 +16,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -51,7 +49,7 @@ type ORM interface {
 	InsertJob(job *Job, qopts ...pg.QOpt) error
 	CreateJob(jb *Job, qopts ...pg.QOpt) error
 	FindJobs(offset, limit int) ([]Job, int, error)
-	FindJobTx(id int32) (Job, error)
+	FindJobTx(ctx context.Context, id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
 	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *utils.Big, qopts ...pg.QOpt) (int32, error)
@@ -85,35 +83,25 @@ type ORMConfig interface {
 }
 
 type orm struct {
-	q            pg.Q
-	legacyChains evm.LegacyChainContainer
-	keyStore     keystore.Master
-	pipelineORM  pipeline.ORM
-	lggr         logger.SugaredLogger
-	cfg          pg.QConfig
-	bridgeORM    bridges.ORM
+	q           pg.Q
+	keyStore    keystore.Master
+	pipelineORM pipeline.ORM
+	lggr        logger.SugaredLogger
+	cfg         pg.QConfig
+	bridgeORM   bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(
-	db *sqlx.DB,
-	legacyChains evm.LegacyChainContainer,
-	pipelineORM pipeline.ORM,
-	bridgeORM bridges.ORM,
-	keyStore keystore.Master, // needed to validation key properties on new job creation
-	lggr logger.Logger,
-	cfg pg.QConfig,
-) *orm {
+func NewORM(db *sqlx.DB, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, lggr logger.Logger, cfg pg.QConfig) *orm {
 	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
-		q:            pg.NewQ(db, namedLogger, cfg),
-		legacyChains: legacyChains,
-		keyStore:     keyStore,
-		pipelineORM:  pipelineORM,
-		bridgeORM:    bridgeORM,
-		lggr:         namedLogger,
-		cfg:          cfg,
+		q:           pg.NewQ(db, namedLogger, cfg),
+		keyStore:    keyStore,
+		pipelineORM: pipelineORM,
+		bridgeORM:   bridgeORM,
+		lggr:        namedLogger,
+		cfg:         cfg,
 	}
 }
 func (o *orm) Close() error {
@@ -704,62 +692,25 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 		if err != nil {
 			return err
 		}
-		for i := range jobs {
-			err = multierr.Combine(err, o.LoadEnvConfigVars(&jobs[i]))
-		}
+
 		return nil
 	})
 	return jobs, int(count), err
 }
 
-func (o *orm) LoadEnvConfigVars(jb *Job) error {
-	if jb.OCROracleSpec != nil {
-		ch, err := o.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
-		if err != nil {
-			return err
-		}
-		newSpec, err := LoadEnvConfigVarsOCR(ch.Config().EVM().OCR(), ch.Config().OCR(), *jb.OCROracleSpec)
-		if err != nil {
-			return err
-		}
-		jb.OCROracleSpec = newSpec
-	} else if jb.VRFSpec != nil {
-		ch, err := o.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
-		if err != nil {
-			return err
-		}
-		jb.VRFSpec = LoadEnvConfigVarsVRF(ch.Config().EVM(), *jb.VRFSpec)
-	} else if jb.DirectRequestSpec != nil {
-		ch, err := o.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
-		if err != nil {
-			return err
-		}
-		jb.DirectRequestSpec = LoadEnvConfigVarsDR(ch.Config().EVM(), *jb.DirectRequestSpec)
-	}
-	return nil
-}
-
-type DRSpecConfig interface {
-	MinIncomingConfirmations() uint32
-}
-
-func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
+func LoadDefaultVRFPollPeriod(vrfs VRFSpec) *VRFSpec {
 	if vrfs.PollPeriod == 0 {
-		vrfs.PollPeriodEnv = true
 		vrfs.PollPeriod = 5 * time.Second
 	}
 
 	return &vrfs
 }
 
-func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequestSpec {
-	// Take the largest of the global vs specific.
-	minIncomingConfirmations := cfg.MinIncomingConfirmations()
-	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < minIncomingConfirmations {
-		drs.MinIncomingConfirmationsEnv = true
-		drs.MinIncomingConfirmations = null.Uint32From(minIncomingConfirmations)
+// SetDRMinIncomingConfirmations takes the largest of the global vs specific.
+func SetDRMinIncomingConfirmations(defaultMinIncomingConfirmations uint32, drs DirectRequestSpec) *DirectRequestSpec {
+	if !drs.MinIncomingConfirmations.Valid || drs.MinIncomingConfirmations.Uint32 < defaultMinIncomingConfirmations {
+		drs.MinIncomingConfirmations = null.Uint32From(defaultMinIncomingConfirmations)
 	}
-
 	return &drs
 }
 
@@ -773,38 +724,30 @@ type OCRConfig interface {
 	TransmitterAddress() (ethkey.EIP55Address, error)
 }
 
-// LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
+// LoadConfigVarsLocalOCR loads local OCR vars into the OCROracleSpec.
+func LoadConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
-		os.ObservationTimeoutEnv = true
 		os.ObservationTimeout = models.Interval(ocrCfg.ObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
-		os.BlockchainTimeoutEnv = true
 		os.BlockchainTimeout = models.Interval(ocrCfg.BlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
-		os.ContractConfigTrackerSubscribeIntervalEnv = true
 		os.ContractConfigTrackerSubscribeInterval = models.Interval(ocrCfg.ContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
-		os.ContractConfigTrackerPollIntervalEnv = true
 		os.ContractConfigTrackerPollInterval = models.Interval(ocrCfg.ContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
-		os.ContractConfigConfirmationsEnv = true
 		os.ContractConfigConfirmations = evmOcrCfg.ContractConfirmations()
 	}
 	if os.DatabaseTimeout == nil {
-		os.DatabaseTimeoutEnv = true
 		os.DatabaseTimeout = models.NewInterval(evmOcrCfg.DatabaseTimeout())
 	}
 	if os.ObservationGracePeriod == nil {
-		os.ObservationGracePeriodEnv = true
 		os.ObservationGracePeriod = models.NewInterval(evmOcrCfg.ObservationGracePeriod())
 	}
 	if os.ContractTransmitterTransmitTimeout == nil {
-		os.ContractTransmitterTransmitTimeoutEnv = true
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
 	}
 	os.CaptureEATelemetry = ocrCfg.CaptureEATelemetry()
@@ -812,15 +755,14 @@ func LoadEnvConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg
 	return &os
 }
 
-// LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSpec) (*OCROracleSpec, error) {
+// LoadConfigVarsOCR loads OCR config vars into the OCROracleSpec.
+func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := ocrCfg.TransmitterAddress()
 		if !errors.Is(errors.Cause(err), config.ErrEnvUnset) {
 			if err != nil {
 				return nil, err
 			}
-			os.TransmitterAddressEnv = true
 			os.TransmitterAddress = &ta
 		}
 	}
@@ -834,15 +776,14 @@ func LoadEnvConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracl
 		if err != nil {
 			return nil, err
 		}
-		os.EncryptedOCRKeyBundleIDEnv = true
 		os.EncryptedOCRKeyBundleID = &encryptedOCRKeyBundleID
 	}
 
-	return LoadEnvConfigVarsLocalOCR(evmOcrCfg, os, ocrCfg), nil
+	return LoadConfigVarsLocalOCR(evmOcrCfg, os, ocrCfg), nil
 }
 
-func (o *orm) FindJobTx(id int32) (Job, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), o.cfg.DefaultQueryTimeout())
+func (o *orm) FindJobTx(ctx context.Context, id int32) (Job, error) {
+	ctx, cancel := context.WithTimeout(ctx, o.cfg.DefaultQueryTimeout())
 	defer cancel()
 	return o.FindJob(ctx, id)
 }
@@ -872,7 +813,7 @@ func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 		return jb, errors.Wrap(err, "FindJobWithoutSpecErrors failed")
 	}
 
-	return jb, o.LoadEnvConfigVars(&jb)
+	return jb, nil
 }
 
 // FindSpecErrorsByJobIDs returns all jobs spec errors by jobs IDs
@@ -961,7 +902,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 	if err != nil {
 		return errors.Wrap(err, "findJob failed")
 	}
-	return o.LoadEnvConfigVars(jb)
+	return nil
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
@@ -1051,11 +992,13 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 	//  range minID <-> maxID.
 
 	for n := int64(1000); maxID > 0 && len(ids) < limit; n *= 2 {
+		var batch []int64
 		minID := maxID - n
-		if err = tx.Select(&ids, stmt, offset, limit-len(ids), minID, maxID); err != nil {
+		if err = tx.Select(&batch, stmt, offset, limit-len(ids), minID, maxID); err != nil {
 			err = errors.Wrap(err, "error loading runs")
 			return
 		}
+		ids = append(ids, batch...)
 		if offset > 0 {
 			if len(ids) > 0 {
 				// If we're already receiving rows back, then we no longer need an offset
@@ -1203,13 +1146,6 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 		err := LoadAllJobsTypes(tx, jbs)
 		if err != nil {
 			return err
-		}
-		for i := range jbs {
-			err = o.LoadEnvConfigVars(&jbs[i])
-			//We must return the jobs even if the chainID is disabled
-			if err != nil && !errors.Is(err, chains.ErrNoSuchChainID) {
-				return err
-			}
 		}
 
 		return nil

@@ -2,16 +2,22 @@ package loadvrfv2plus
 
 import (
 	"encoding/base64"
+	"fmt"
+	"os"
+
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"os"
 )
 
 const (
 	DefaultConfigFilename = "config.toml"
+	SoakTestType          = "Soak"
+	LoadTestType          = "Load"
+	StressTestType        = "Stress"
+	SpikeTestType         = "Spike"
 
 	ErrReadPerfConfig                    = "failed to read TOML config for performance tests"
 	ErrUnmarshalPerfConfig               = "failed to unmarshal TOML config for performance tests"
@@ -32,23 +38,32 @@ type PerformanceConfig struct {
 type ExistingEnvConfig struct {
 	CoordinatorAddress string `toml:"coordinator_address"`
 	ConsumerAddress    string `toml:"consumer_address"`
+	LinkAddress        string `toml:"link_address"`
 	SubID              string `toml:"sub_id"`
 	KeyHash            string `toml:"key_hash"`
+	Funding
+	CreateFundSubsAndAddConsumers bool     `toml:"create_fund_subs_and_add_consumers"`
+	NodeSendingKeys               []string `toml:"node_sending_keys"`
 }
 
 type NewEnvConfig struct {
 	Funding
-	NumberOfSubToCreate int `toml:"number_of_sub_to_create"`
 }
 
 type Common struct {
-	MinimumConfirmations uint16 `toml:"minimum_confirmations"`
+	MinimumConfirmations   uint16 `toml:"minimum_confirmations"`
+	CancelSubsAfterTestRun bool   `toml:"cancel_subs_after_test_run"`
 }
 
 type Funding struct {
-	NodeFunds      float64 `toml:"node_funds"`
-	SubFundsLink   int64   `toml:"sub_funds_link"`
-	SubFundsNative int64   `toml:"sub_funds_native"`
+	SubFunding
+	NodeSendingKeyFunding    float64 `toml:"node_sending_key_funding"`
+	NodeSendingKeyFundingMin float64 `toml:"node_sending_key_funding_min"`
+}
+
+type SubFunding struct {
+	SubFundsLink   float64 `toml:"sub_funds_link"`
+	SubFundsNative float64 `toml:"sub_funds_native"`
 }
 
 type Soak struct {
@@ -68,6 +83,8 @@ type Spike struct {
 }
 
 type PerformanceTestConfig struct {
+	NumberOfSubToCreate int `toml:"number_of_sub_to_create"`
+
 	RPS int64 `toml:"rps"`
 	//Duration *models.Duration `toml:"duration"`
 	RateLimitUnitDuration                     *models.Duration `toml:"rate_limit_unit_duration"`
@@ -83,42 +100,49 @@ func ReadConfig() (*PerformanceConfig, error) {
 	if rawConfig == "" {
 		d, err = os.ReadFile(DefaultConfigFilename)
 		if err != nil {
-			return nil, errors.Wrap(err, ErrReadPerfConfig)
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
 		}
 	} else {
 		d, err = base64.StdEncoding.DecodeString(rawConfig)
+		if err != nil {
+			return nil, fmt.Errorf("%s, err: %w", ErrReadPerfConfig, err)
+		}
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+		return nil, fmt.Errorf("%s, err: %w", ErrUnmarshalPerfConfig, err)
 	}
 
 	if cfg.Soak.RandomnessRequestCountPerRequest <= cfg.Soak.RandomnessRequestCountPerRequestDeviation {
-		return nil, errors.Wrap(err, ErrDeviationShouldBeLessThanOriginal)
+		return nil, fmt.Errorf("%s, err: %w", ErrDeviationShouldBeLessThanOriginal, err)
 	}
 
 	log.Debug().Interface("Config", cfg).Msg("Parsed config")
 	return cfg, nil
 }
 
-func SetPerformanceTestConfig(vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig, cfg *PerformanceConfig) {
-	switch os.Getenv("TEST_TYPE") {
-	case "Soak":
+func SetPerformanceTestConfig(testType string, vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig, cfg *PerformanceConfig) {
+	switch testType {
+	case SoakTestType:
+		vrfv2PlusConfig.NumberOfSubToCreate = cfg.Soak.NumberOfSubToCreate
 		vrfv2PlusConfig.RPS = cfg.Soak.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Soak.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Soak.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Soak.RandomnessRequestCountPerRequestDeviation
-	case "Load":
+	case LoadTestType:
+		vrfv2PlusConfig.NumberOfSubToCreate = cfg.Load.NumberOfSubToCreate
 		vrfv2PlusConfig.RPS = cfg.Load.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Load.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Load.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Load.RandomnessRequestCountPerRequestDeviation
-	case "Stress":
+	case StressTestType:
+		vrfv2PlusConfig.NumberOfSubToCreate = cfg.Stress.NumberOfSubToCreate
 		vrfv2PlusConfig.RPS = cfg.Stress.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Stress.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Stress.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Stress.RandomnessRequestCountPerRequestDeviation
-	case "Spike":
+	case SpikeTestType:
+		vrfv2PlusConfig.NumberOfSubToCreate = cfg.Spike.NumberOfSubToCreate
 		vrfv2PlusConfig.RPS = cfg.Spike.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Spike.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Spike.RandomnessRequestCountPerRequest

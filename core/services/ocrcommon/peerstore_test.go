@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -21,7 +21,7 @@ import (
 func Test_Peerstore_Start(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
-	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
+	peerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
 	require.NoError(t, err)
 
 	nonExistentP2PPeerID, err := p2ppeer.Decode("12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9")
@@ -72,7 +72,7 @@ func Test_Peerstore_Start(t *testing.T) {
 func Test_Peerstore_WriteToDB(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
-	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
+	peerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
 	require.NoError(t, err)
 
 	cfg := configtest.NewTestGeneralConfig(t)

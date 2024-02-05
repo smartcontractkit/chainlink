@@ -52,7 +52,7 @@ func DeployVRFV2PlusWrapper(auth *bind.TransactOpts, backend bind.ContractBacken
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2PlusWrapper{VRFV2PlusWrapperCaller: VRFV2PlusWrapperCaller{contract: contract}, VRFV2PlusWrapperTransactor: VRFV2PlusWrapperTransactor{contract: contract}, VRFV2PlusWrapperFilterer: VRFV2PlusWrapperFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2PlusWrapper{address: address, abi: *parsed, VRFV2PlusWrapperCaller: VRFV2PlusWrapperCaller{contract: contract}, VRFV2PlusWrapperTransactor: VRFV2PlusWrapperTransactor{contract: contract}, VRFV2PlusWrapperFilterer: VRFV2PlusWrapperFilterer{contract: contract}}, nil
 }
 
 type VRFV2PlusWrapper struct {

@@ -14,7 +14,7 @@ import (
 func TestIngressAgent(t *testing.T) {
 	telemetryClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(telemetryClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.OCR, "test-network", "test-chainID")
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("test-network", "test-chainID", "0xa", synchronization.OCR)
 
 	// Handle the Send call and store the telem
 	var telemPayload synchronization.TelemPayload

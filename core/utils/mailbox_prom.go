@@ -9,6 +9,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 var mailboxLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -21,7 +23,7 @@ var mailboxLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
 const mailboxPromInterval = 5 * time.Second
 
 type MailboxMonitor struct {
-	StartStopOnce
+	services.StateMachine
 	appID string
 
 	mailboxes sync.Map

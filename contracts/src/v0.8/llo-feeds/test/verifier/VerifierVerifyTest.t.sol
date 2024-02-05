@@ -5,7 +5,7 @@ import {BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.
 import {Verifier} from "../../Verifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
 import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
-import {Common} from "../../../libraries/Common.sol";
+import {Common} from "../../libraries/Common.sol";
 
 contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes32[3] internal s_reportContext;

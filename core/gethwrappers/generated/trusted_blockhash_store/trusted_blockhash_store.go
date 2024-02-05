@@ -52,7 +52,7 @@ func DeployTrustedBlockhashStore(auth *bind.TransactOpts, backend bind.ContractB
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &TrustedBlockhashStore{TrustedBlockhashStoreCaller: TrustedBlockhashStoreCaller{contract: contract}, TrustedBlockhashStoreTransactor: TrustedBlockhashStoreTransactor{contract: contract}, TrustedBlockhashStoreFilterer: TrustedBlockhashStoreFilterer{contract: contract}}, nil
+	return address, tx, &TrustedBlockhashStore{address: address, abi: *parsed, TrustedBlockhashStoreCaller: TrustedBlockhashStoreCaller{contract: contract}, TrustedBlockhashStoreTransactor: TrustedBlockhashStoreTransactor{contract: contract}, TrustedBlockhashStoreFilterer: TrustedBlockhashStoreFilterer{contract: contract}}, nil
 }
 
 type TrustedBlockhashStore struct {

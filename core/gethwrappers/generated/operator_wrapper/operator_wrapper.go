@@ -52,7 +52,7 @@ func DeployOperator(auth *bind.TransactOpts, backend bind.ContractBackend, link 
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Operator{OperatorCaller: OperatorCaller{contract: contract}, OperatorTransactor: OperatorTransactor{contract: contract}, OperatorFilterer: OperatorFilterer{contract: contract}}, nil
+	return address, tx, &Operator{address: address, abi: *parsed, OperatorCaller: OperatorCaller{contract: contract}, OperatorTransactor: OperatorTransactor{contract: contract}, OperatorFilterer: OperatorFilterer{contract: contract}}, nil
 }
 
 type Operator struct {

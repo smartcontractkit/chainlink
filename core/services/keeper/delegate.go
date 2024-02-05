@@ -3,9 +3,9 @@ package keeper
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -21,7 +21,7 @@ type Delegate struct {
 	db           *sqlx.DB
 	jrm          job.ORM
 	pr           pipeline.Runner
-	legacyChains evm.LegacyChainContainer
+	legacyChains legacyevm.LegacyChainContainer
 	mailMon      *utils.MailboxMonitor
 }
 
@@ -31,7 +31,7 @@ func NewDelegate(
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger logger.Logger,
-	legacyChains evm.LegacyChainContainer,
+	legacyChains legacyevm.LegacyChainContainer,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{

@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	config "github.com/smartcontractkit/chainlink/v2/core/config"
+	config "github.com/smartcontractkit/chainlink/v2/common/config"
 	mock "github.com/stretchr/testify/mock"
 )
 

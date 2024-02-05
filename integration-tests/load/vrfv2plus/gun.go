@@ -1,12 +1,14 @@
 package loadvrfv2plus
 
 import (
-	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
-	"github.com/smartcontractkit/wasp"
 	"math/big"
 	"math/rand"
+
+	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/wasp"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 )
 
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
@@ -15,7 +17,7 @@ type SingleHashGun struct {
 	contracts       *vrfv2plus.VRFV2_5Contracts
 	keyHash         [32]byte
 	subIDs          []*big.Int
-	vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
 	logger          zerolog.Logger
 }
 
@@ -23,7 +25,7 @@ func NewSingleHashGun(
 	contracts *vrfv2plus.VRFV2_5Contracts,
 	keyHash [32]byte,
 	subIDs []*big.Int,
-	vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 	logger zerolog.Logger,
 ) *SingleHashGun {
 	return &SingleHashGun{
@@ -36,7 +38,7 @@ func NewSingleHashGun(
 }
 
 // Call implements example gun call, assertions on response bodies should be done here
-func (m *SingleHashGun) Call(l *wasp.Generator) *wasp.CallResult {
+func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 
 	//randomly increase/decrease randomness request count per TX
@@ -52,6 +54,7 @@ func (m *SingleHashGun) Call(l *wasp.Generator) *wasp.CallResult {
 		randBool(),
 		randomnessRequestCountPerRequest,
 		m.vrfv2PlusConfig,
+		m.vrfv2PlusConfig.RandomWordsFulfilledEventTimeout,
 		m.logger,
 	)
 	if err != nil {

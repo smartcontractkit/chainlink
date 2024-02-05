@@ -9,7 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -17,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -30,7 +33,7 @@ type Config interface {
 }
 
 type FwdMgr struct {
-	utils.StartStopOnce
+	services.StateMachine
 	ORM       ORM
 	evmClient evmclient.Client
 	cfg       Config
@@ -53,7 +56,7 @@ type FwdMgr struct {
 }
 
 func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config, dbConfig pg.QConfig) *FwdMgr {
-	lggr := logger.Sugared(l.Named("EVMForwarderManager"))
+	lggr := logger.Sugared(logger.Named(l, "EVMForwarderManager"))
 	fwdMgr := FwdMgr{
 		logger:       lggr,
 		cfg:          cfg,
@@ -61,9 +64,6 @@ func NewFwdMgr(db *sqlx.DB, client evmclient.Client, logpoller evmlogpoller.LogP
 		ORM:          NewORM(db, lggr, dbConfig),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
-		cacheMu:      sync.RWMutex{},
-		wg:           sync.WaitGroup{},
-		latestBlock:  0,
 	}
 	fwdMgr.ctx, fwdMgr.cancel = context.WithCancel(context.Background())
 	return &fwdMgr

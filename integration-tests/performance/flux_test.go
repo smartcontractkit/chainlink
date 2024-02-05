@@ -1,7 +1,6 @@
 package performance
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,15 +11,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -83,7 +83,7 @@ func TestFluxPerformance(t *testing.T) {
 	require.NoError(t, err, "Setting oracle options in the Flux Aggregator contract shouldn't fail")
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-	oracles, err := fluxInstance.GetOracles(context.Background())
+	oracles, err := fluxInstance.GetOracles(testcontext.Get(t))
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
@@ -120,7 +120,7 @@ func TestFluxPerformance(t *testing.T) {
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-		data, err := fluxInstance.GetContractData(context.Background())
+		data, err := fluxInstance.GetContractData(testcontext.Get(t))
 		require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
 		l.Info().Interface("Data", data).Msg("Round data")
 		require.Equal(t, int64(1e5), data.LatestRoundData.Answer.Int64(),
@@ -140,7 +140,7 @@ func TestFluxPerformance(t *testing.T) {
 		require.NoError(t, err, "Setting value path in mock server shouldn't fail")
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
-		data, err = fluxInstance.GetContractData(context.Background())
+		data, err = fluxInstance.GetContractData(testcontext.Get(t))
 		require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
 		require.Equal(t, int64(1e10), data.LatestRoundData.Answer.Int64(),
 			"Expected latest round answer to be %d, but found %d", int64(1e10), data.LatestRoundData.Answer.Int64())
@@ -153,7 +153,7 @@ func TestFluxPerformance(t *testing.T) {
 		l.Info().Interface("data", data).Msg("Round data")
 
 		for _, oracleAddr := range nodeAddresses {
-			payment, _ := fluxInstance.WithdrawablePayment(context.Background(), oracleAddr)
+			payment, _ := fluxInstance.WithdrawablePayment(testcontext.Get(t), oracleAddr)
 			require.Equal(t, int64(2), payment.Int64(),
 				"Expected flux aggregator contract's withdrawable payment to be %d, but found %d", int64(2), payment.Int64())
 		}
@@ -173,7 +173,7 @@ func TestFluxPerformance(t *testing.T) {
 }
 
 func setupFluxTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
+	testNetwork = networks.MustGetSelectedNetworksFromEnv()[0]
 	evmConf := ethereum.New(nil)
 	if !testNetwork.Simulated {
 		evmConf = ethereum.New(&ethereum.Props{
@@ -189,7 +189,7 @@ HTTPWriteTimout = '300s'
 Enabled = true`
 	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 3,
-		"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
+		"toml":     networks.AddNetworksConfig(baseTOML, testNetwork),
 	})
 
 	testEnvironment = environment.New(&environment.Config{

@@ -6,7 +6,7 @@ import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";
 import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 import {FunctionsRouterSetup, FunctionsOwnerAcceptTermsOfServiceSetup, FunctionsClientSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsFulfillmentSetup} from "./Setup.t.sol";
 
@@ -309,11 +309,22 @@ contract FunctionsSubscriptions_OwnerWithdraw is FunctionsFulfillmentSetup {
 }
 
 /// @notice #onTokenTransfer
-contract FunctionsSubscriptions_OnTokenTransfer is FunctionsSubscriptionSetup {
+contract FunctionsSubscriptions_OnTokenTransfer is FunctionsClientSetup {
+  uint64 s_subscriptionId;
+
+  function setUp() public virtual override {
+    FunctionsClientSetup.setUp();
+
+    // Create subscription, but do not fund it
+    s_subscriptionId = s_functionsRouter.createSubscription();
+    s_functionsRouter.addConsumer(s_subscriptionId, address(s_functionsClient));
+  }
+
   function test_OnTokenTransfer_RevertIfPaused(uint96 fundingAmount) public {
     // Funding amount must be less than LINK total supply
-    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
-    vm.assume(fundingAmount > 0);
+    uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
+    vm.assume(fundingAmount <= totalSupplyJuels);
+    vm.assume(fundingAmount >= 0);
 
     s_functionsRouter.pause();
     vm.expectRevert("Pausable: paused");
@@ -322,8 +333,9 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsSubscriptionSetup {
 
   function test_OnTokenTransfer_RevertIfCallerIsNotLink(uint96 fundingAmount) public {
     // Funding amount must be less than LINK total supply
-    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
-    vm.assume(fundingAmount > 0);
+    uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
+    vm.assume(fundingAmount <= totalSupplyJuels);
+    vm.assume(fundingAmount >= 0);
 
     vm.expectRevert(FunctionsSubscriptions.OnlyCallableFromLink.selector);
     s_functionsRouter.onTokenTransfer(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
@@ -331,8 +343,9 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsSubscriptionSetup {
 
   function test_OnTokenTransfer_RevertIfCallerIsNoCalldata(uint96 fundingAmount) public {
     // Funding amount must be less than LINK total supply
-    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
-    vm.assume(fundingAmount > 0);
+    uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
+    vm.assume(fundingAmount <= totalSupplyJuels);
+    vm.assume(fundingAmount >= 0);
 
     vm.expectRevert(FunctionsSubscriptions.InvalidCalldata.selector);
     s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, new bytes(0));
@@ -340,8 +353,9 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsSubscriptionSetup {
 
   function test_OnTokenTransfer_RevertIfCallerIsNoSubscription(uint96 fundingAmount) public {
     // Funding amount must be less than LINK total supply
-    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
-    vm.assume(fundingAmount > 0);
+    uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
+    vm.assume(fundingAmount <= totalSupplyJuels);
+    vm.assume(fundingAmount >= 0);
 
     vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
     uint64 invalidSubscriptionId = 123456789;
@@ -349,17 +363,15 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsSubscriptionSetup {
   }
 
   function test_OnTokenTransfer_Success(uint96 fundingAmount) public {
-    uint96 subscriptionBalanceBefore = s_functionsRouter.getSubscription(s_subscriptionId).balance;
-
     // Funding amount must be less than LINK total supply
-    uint96 TOTAL_LINK = 1_000_000_000 * 1e18;
+    uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
     // Some of the total supply is already in the subscription account
-    vm.assume(fundingAmount < TOTAL_LINK - subscriptionBalanceBefore);
-    vm.assume(fundingAmount > 0);
+    vm.assume(fundingAmount <= totalSupplyJuels);
+    vm.assume(fundingAmount >= 0);
 
     s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
     uint96 subscriptionBalanceAfter = s_functionsRouter.getSubscription(s_subscriptionId).balance;
-    assertEq(subscriptionBalanceBefore + fundingAmount, subscriptionBalanceAfter);
+    assertEq(fundingAmount, subscriptionBalanceAfter);
   }
 }
 
@@ -1122,62 +1134,14 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
     uint256 balanceAfterWithdraw = s_linkToken.balanceOf(STRANGER_ADDRESS);
     assertEq(balanceBeforeWithdraw + expectedDepositWithheld, balanceAfterWithdraw);
   }
+}
+
+/// @notice #cancelSubscription
+contract FunctionsSubscriptions_CancelSubscription_ReceiveDeposit is FunctionsFulfillmentSetup {
+  event SubscriptionCanceled(uint64 indexed subscriptionId, address fundsRecipient, uint256 fundsAmount);
 
   function test_CancelSubscription_SuccessRecieveDeposit() public {
-    // Complete 1 request = subscriptionDepositMinimumRequests
-    vm.recordLogs();
-    bytes32 requestId = s_functionsClient.sendRequest(
-      s_donId,
-      "return 'hello world';",
-      new bytes(0),
-      new string[](0),
-      new bytes[](0),
-      s_subscriptionId,
-      5500
-    );
-
-    // Get commitment data from OracleRequest event log
-    Vm.Log[] memory entries = vm.getRecordedLogs();
-    (, , , , , , , FunctionsResponse.Commitment memory commitment) = abi.decode(
-      entries[0].data,
-      (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
-    );
-
-    // Send as transmitter 1
-    vm.stopPrank();
-    vm.startPrank(NOP_TRANSMITTER_ADDRESS_1);
-
-    // Build report
-    bytes32[] memory requestIds = new bytes32[](1);
-    requestIds[0] = requestId;
-    bytes[] memory results = new bytes[](1);
-    results[0] = bytes("hello world!");
-    bytes[] memory errors = new bytes[](1);
-    // No error
-    bytes[] memory onchainMetadata = new bytes[](1);
-    onchainMetadata[0] = abi.encode(commitment);
-    bytes[] memory offchainMetadata = new bytes[](1);
-    // No offchain metadata
-    bytes memory report = abi.encode(requestIds, results, errors, onchainMetadata, offchainMetadata);
-
-    // Build signers
-    address[31] memory signers;
-    signers[0] = NOP_SIGNER_ADDRESS_1;
-
-    // Send report
-    vm.recordLogs();
-    s_functionsCoordinator.callReportWithSigners(report, signers);
-
-    // Get actual cost from RequestProcessed event log
-    Vm.Log[] memory entries2 = vm.getRecordedLogs();
-    (uint96 totalCostJuels, , , , , ) = abi.decode(
-      entries2[2].data,
-      (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
-    );
-
-    // Return to sending as owner
-    vm.stopPrank();
-    vm.startPrank(OWNER_ADDRESS);
+    uint96 totalCostJuels = s_fulfillmentRouterOwnerBalance + s_fulfillmentCoordinatorBalance;
 
     uint256 subscriptionOwnerBalanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
 

@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -12,10 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"crypto/sha256"
-
-	"encoding/json"
 
 	"github.com/avast/retry-go"
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"

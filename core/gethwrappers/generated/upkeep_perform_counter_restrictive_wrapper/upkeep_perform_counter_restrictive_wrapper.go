@@ -52,7 +52,7 @@ func DeployUpkeepPerformCounterRestrictive(auth *bind.TransactOpts, backend bind
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &UpkeepPerformCounterRestrictive{UpkeepPerformCounterRestrictiveCaller: UpkeepPerformCounterRestrictiveCaller{contract: contract}, UpkeepPerformCounterRestrictiveTransactor: UpkeepPerformCounterRestrictiveTransactor{contract: contract}, UpkeepPerformCounterRestrictiveFilterer: UpkeepPerformCounterRestrictiveFilterer{contract: contract}}, nil
+	return address, tx, &UpkeepPerformCounterRestrictive{address: address, abi: *parsed, UpkeepPerformCounterRestrictiveCaller: UpkeepPerformCounterRestrictiveCaller{contract: contract}, UpkeepPerformCounterRestrictiveTransactor: UpkeepPerformCounterRestrictiveTransactor{contract: contract}, UpkeepPerformCounterRestrictiveFilterer: UpkeepPerformCounterRestrictiveFilterer{contract: contract}}, nil
 }
 
 type UpkeepPerformCounterRestrictive struct {

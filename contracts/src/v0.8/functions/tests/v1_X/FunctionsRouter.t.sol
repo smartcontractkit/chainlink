@@ -938,7 +938,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
 
     uint32 callbackGasLimit = s_requests[requestToFulfill].requestData.callbackGasLimit;
     // Coordinator sends enough gas that would get through callback and payment, but fail after
-    uint256 gasToUse = getCoordinatorConfig().gasOverheadBeforeCallback + callbackGasLimit + 100000;
+    uint256 gasToUse = getCoordinatorConfig().gasOverheadBeforeCallback + callbackGasLimit + 10_000;
 
     // topic0 (function signature, always checked), topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
     bool checkTopic1RequestId = true;
@@ -1221,7 +1221,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     emit RequestProcessed({
       requestId: s_requests[requestToFulfill].requestId,
       subscriptionId: s_subscriptionId,
-      totalCostJuels: _getExpectedCost(5393), // gasUsed is manually taken
+      totalCostJuels: _getExpectedCost(5416), // gasUsed is manually taken
       transmitter: NOP_TRANSMITTER_ADDRESS_1,
       resultCode: FunctionsResponse.FulfillResult.FULFILLED,
       response: bytes(response),

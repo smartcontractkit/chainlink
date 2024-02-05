@@ -15,6 +15,7 @@ import (
 	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -27,7 +28,7 @@ import (
 	pipelineMocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-	sessionsMocks "github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
+	authProviderMocks "github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
@@ -37,7 +38,7 @@ type mocks struct {
 	bridgeORM            *bridgeORMMocks.ORM
 	evmORM               *evmtest.TestConfigs
 	jobORM               *jobORMMocks.ORM
-	sessionsORM          *sessionsMocks.ORM
+	authProvider         *authProviderMocks.AuthenticationProvider
 	pipelineORM          *pipelineMocks.ORM
 	feedsSvc             *feedsMocks.Service
 	cfg                  *chainlinkMocks.GeneralConfig
@@ -50,9 +51,9 @@ type mocks struct {
 	p2p                  *keystoreMocks.P2P
 	vrf                  *keystoreMocks.VRF
 	solana               *keystoreMocks.Solana
-	chain                *evmORMMocks.Chain
-	legacyEVMChains      *evmORMMocks.LegacyChainContainer
-	relayerChainInterops *chainlinkMocks.RelayerChainInteroperators
+	chain                *legacyEvmORMMocks.Chain
+	legacyEVMChains      *legacyEvmORMMocks.LegacyChainContainer
+	relayerChainInterops *chainlinkMocks.FakeRelayerChainInteroperators
 	ethClient            *evmClientMocks.Client
 	eIMgr                *webhookmocks.ExternalInitiatorManager
 	balM                 *evmORMMocks.BalanceMonitor
@@ -97,7 +98,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		evmORM:               evmtest.NewTestConfigs(),
 		jobORM:               jobORMMocks.NewORM(t),
 		feedsSvc:             feedsMocks.NewService(t),
-		sessionsORM:          sessionsMocks.NewORM(t),
+		authProvider:         authProviderMocks.NewAuthenticationProvider(t),
 		pipelineORM:          pipelineMocks.NewORM(t),
 		cfg:                  chainlinkMocks.NewGeneralConfig(t),
 		scfg:                 evmConfigMocks.NewChainScopedConfig(t),
@@ -109,9 +110,9 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		p2p:                  keystoreMocks.NewP2P(t),
 		vrf:                  keystoreMocks.NewVRF(t),
 		solana:               keystoreMocks.NewSolana(t),
-		chain:                evmORMMocks.NewChain(t),
-		legacyEVMChains:      evmORMMocks.NewLegacyChainContainer(t),
-		relayerChainInterops: chainlinkMocks.NewRelayerChainInteroperators(t),
+		chain:                legacyEvmORMMocks.NewChain(t),
+		legacyEVMChains:      legacyEvmORMMocks.NewLegacyChainContainer(t),
+		relayerChainInterops: &chainlinkMocks.FakeRelayerChainInteroperators{},
 		ethClient:            evmClientMocks.NewClient(t),
 		eIMgr:                webhookmocks.NewExternalInitiatorManager(t),
 		balM:                 evmORMMocks.NewBalanceMonitor(t),

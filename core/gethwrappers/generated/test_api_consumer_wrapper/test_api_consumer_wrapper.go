@@ -52,7 +52,7 @@ func DeployTestAPIConsumer(auth *bind.TransactOpts, backend bind.ContractBackend
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &TestAPIConsumer{TestAPIConsumerCaller: TestAPIConsumerCaller{contract: contract}, TestAPIConsumerTransactor: TestAPIConsumerTransactor{contract: contract}, TestAPIConsumerFilterer: TestAPIConsumerFilterer{contract: contract}}, nil
+	return address, tx, &TestAPIConsumer{address: address, abi: *parsed, TestAPIConsumerCaller: TestAPIConsumerCaller{contract: contract}, TestAPIConsumerTransactor: TestAPIConsumerTransactor{contract: contract}, TestAPIConsumerFilterer: TestAPIConsumerFilterer{contract: contract}}, nil
 }
 
 type TestAPIConsumer struct {

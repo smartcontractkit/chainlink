@@ -50,7 +50,7 @@ func DeployVRFV2RevertingExample(auth *bind.TransactOpts, backend bind.ContractB
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2RevertingExample{VRFV2RevertingExampleCaller: VRFV2RevertingExampleCaller{contract: contract}, VRFV2RevertingExampleTransactor: VRFV2RevertingExampleTransactor{contract: contract}, VRFV2RevertingExampleFilterer: VRFV2RevertingExampleFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2RevertingExample{address: address, abi: *parsed, VRFV2RevertingExampleCaller: VRFV2RevertingExampleCaller{contract: contract}, VRFV2RevertingExampleTransactor: VRFV2RevertingExampleTransactor{contract: contract}, VRFV2RevertingExampleFilterer: VRFV2RevertingExampleFilterer{contract: contract}}, nil
 }
 
 type VRFV2RevertingExample struct {
