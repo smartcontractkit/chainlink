@@ -54,6 +54,13 @@ func (r *RelayerService) NewPluginProvider(ctx context.Context, rargs types.Rela
 	return r.Service.NewPluginProvider(ctx, rargs, pargs)
 }
 
+func (r *RelayerService) NewLLOProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.LLOProvider, error) {
+	if err := r.WaitCtx(ctx); err != nil {
+		return nil, err
+	}
+	return r.Service.NewLLOProvider(ctx, rargs, pargs)
+}
+
 func (r *RelayerService) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	if err := r.WaitCtx(ctx); err != nil {
 		return types.ChainStatus{}, err

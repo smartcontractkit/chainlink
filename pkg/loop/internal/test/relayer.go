@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -95,6 +96,10 @@ func (s staticRelayer) NewPluginProvider(ctx context.Context, r types.RelayArgs,
 		return nil, fmt.Errorf("expected plugin args %v but got %v", PluginArgs, p)
 	}
 	return StaticPluginProvider{}, nil
+}
+
+func (s staticRelayer) NewLLOProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.LLOProvider, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (s staticRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {

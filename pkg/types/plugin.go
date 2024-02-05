@@ -12,6 +12,7 @@ const (
 	OCR2Keeper    OCR2PluginType = "ocr2automation"
 	Functions     OCR2PluginType = "functions"
 	Mercury       OCR2PluginType = "mercury"
+	LLO           OCR2PluginType = "llo"
 	GenericPlugin OCR2PluginType = "plugin"
 
 	CCIPCommit    OCR2PluginType = "ccip-commit"
