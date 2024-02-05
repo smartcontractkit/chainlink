@@ -42,12 +42,15 @@ godoc: ## Install and run godoc
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
+.PHONY: chainlink
 chainlink: ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
+.PHONY: chainlink-dev
 chainlink-dev: ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
+.PHONY: chainlink-test
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 

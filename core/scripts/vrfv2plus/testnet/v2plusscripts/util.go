@@ -145,11 +145,7 @@ func PrintCoordinatorConfig(coordinator *vrf_coordinator_v2_5.VRFCoordinatorV25)
 	cfg, err := coordinator.SConfig(nil)
 	helpers.PanicErr(err)
 
-	feeConfig, err := coordinator.SFeeConfig(nil)
-	helpers.PanicErr(err)
-
 	fmt.Printf("Coordinator config: %+v\n", cfg)
-	fmt.Printf("Coordinator fee config: %+v\n", feeConfig)
 }
 
 func SetCoordinatorConfig(
@@ -160,7 +156,10 @@ func SetCoordinatorConfig(
 	stalenessSeconds uint32,
 	gasAfterPayment uint32,
 	fallbackWeiPerUnitLink *big.Int,
-	feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig,
+	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
+	nativePremiumPercentage uint8,
+	linkPremiumPercentage uint8,
 ) {
 	tx, err := coordinator.SetConfig(
 		e.Owner,
@@ -169,20 +168,23 @@ func SetCoordinatorConfig(
 		stalenessSeconds,       // stalenessSeconds
 		gasAfterPayment,        // gasAfterPaymentCalculation
 		fallbackWeiPerUnitLink, // 0.01 eth per link fallbackLinkPrice
-		feeConfig,
+		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
+		nativePremiumPercentage,
+		linkPremiumPercentage,
 	)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func RegisterCoordinatorProvingKey(e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string) {
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
 	pk, err := crypto.UnmarshalPubkey(pubBytes)
 	helpers.PanicErr(err)
 	tx, err := coordinator.RegisterProvingKey(e.Owner,
-		[2]*big.Int{pk.X, pk.Y})
+		[2]*big.Int{pk.X, pk.Y}, gasLaneMaxGas)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(
 		context.Background(),
@@ -190,6 +192,7 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 		tx,
 		e.ChainID,
 		fmt.Sprintf("Uncompressed public key: %s,", uncompressed),
+		fmt.Sprintf("Gas Lane Max Gas: %d,", gasLaneMaxGas),
 	)
 }
 
