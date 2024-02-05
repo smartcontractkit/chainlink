@@ -371,7 +371,7 @@ deployments:
                       service:
                         name: geth
                         port:
-                          number: 6688
+                          number: 8544
             - host: ${DEVSPACE_NAMESPACE}-geth-ws.${DEVSPACE_INGRESS_BASE_DOMAIN}
               http:
                 paths:
