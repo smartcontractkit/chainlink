@@ -7,7 +7,6 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "./libraries/Common.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
-import {IWERC20} from "../shared/interfaces/IWERC20.sol";
 import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
 import {Math} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/Math.sol";
 import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -19,7 +18,7 @@ import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
  * @author Austin Born
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
-contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
+contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   using SafeERC20 for IERC20;
 
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
@@ -61,9 +60,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice the error thrown if the address is invalid
   error InvalidAddress();
 
-  /// @notice thrown if msg.value is supplied with a bad quote
-  error InvalidDeposit();
-
   /// @notice thrown if a report has expired
   error ExpiredReport();
 
@@ -78,6 +74,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice thrown when trying to pay an address that cannot except funds
   error InvalidReceivingAddress();
+
+  /// @notice thrown when trying to pay nativeFee with native, which is disallowed when we force wETH billing for nativeFee
+  error NativeBillingDisallowed();
 
   /// @notice Emitted whenever a subscriber's discount is updated
   /// @param subscriber address of the subscriber to update discounts for
@@ -158,6 +157,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     _;
   }
 
+  modifier blockNativeBilling() {
+    if (msg.value != 0) revert NativeBillingDisallowed();
+    _;
+  }
+
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
     return "FeeManager 2.0.0";
@@ -173,17 +177,12 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     bytes calldata payload,
     bytes calldata parameterPayload,
     address subscriber
-  ) external payable override onlyProxy {
+  ) external payable override onlyProxy blockNativeBilling {
     (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
       payload,
       parameterPayload,
       subscriber
     );
-
-    if (fee.amount == 0) {
-      _tryReturnChange(subscriber, msg.value);
-      return;
-    }
 
     IFeeManager.FeeAndReward[] memory feeAndReward = new IFeeManager.FeeAndReward[](1);
     feeAndReward[0] = IFeeManager.FeeAndReward(bytes32(payload), fee, reward, appliedDiscount);
@@ -236,8 +235,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
     if (numberOfLinkFees != 0 || numberOfNativeFees != 0) {
       _handleFeesAndRewards(subscriber, feesAndRewards, numberOfLinkFees, numberOfNativeFees);
-    } else {
-      _tryReturnChange(subscriber, msg.value);
     }
   }
 
@@ -435,25 +432,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       }
     }
 
-    //keep track of change in case of any over payment
-    uint256 change;
-
-    if (msg.value != 0) {
-      //there must be enough to cover the fee
-      if (totalNativeFee > msg.value) revert InvalidDeposit();
-
-      //wrap the amount required to pay the fee & approve as the subscriber paid in wrapped native
-      IWERC20(i_nativeAddress).deposit{value: totalNativeFee}();
-
-      unchecked {
-        //msg.value is always >= to fee.amount
-        change = msg.value - totalNativeFee;
-      }
-    } else {
-      if (totalNativeFee != 0) {
-        //subscriber has paid in wrapped native, so transfer the native to this contract
-        IERC20(i_nativeAddress).safeTransferFrom(subscriber, address(this), totalNativeFee);
-      }
+    if (totalNativeFee != 0) {
+      //subscriber has paid in wrapped native, so transfer the native to this contract
+      IERC20(i_nativeAddress).safeTransferFrom(subscriber, address(this), totalNativeFee);
     }
 
     if (linkRewards.length != 0) {
@@ -476,15 +457,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         //distribute the fees
         i_rewardManager.onFeePaid(nativeFeeLinkRewards, address(this));
       }
-    }
-
-    // a refund may be needed if the payee has paid in excess of the fee
-    _tryReturnChange(subscriber, change);
-  }
-
-  function _tryReturnChange(address subscriber, uint256 quantity) internal {
-    if (quantity != 0) {
-      payable(subscriber).transfer(quantity);
     }
   }
 
