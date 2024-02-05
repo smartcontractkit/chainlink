@@ -72,7 +72,7 @@ def discover_fuzzers():
     return fuzzers
 
 def run_fuzzer(fuzzfn, dir, duration_seconds):
-    subprocess.check_call(["go", "test", "-run=^$", f"-fuzz=^{fuzzfn}$", f"-fuzztime={duration_seconds}s", f"github.com/smartcontractkit/chainlink/core/{dir}"], cwd=LIBROOT)
+    subprocess.check_call(["go", "test", "-run=^$", f"-fuzz=^{fuzzfn}$", f"-fuzztime={duration_seconds}s", f"github.com/smartcontractkit/chainlink/{dir}"], cwd=LIBROOT)
 
 if __name__ == "__main__":
     main()
