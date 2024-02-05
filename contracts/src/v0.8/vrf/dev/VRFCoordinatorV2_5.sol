@@ -10,6 +10,7 @@ import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
 import {IVRFCoordinatorV2PlusMigration} from "./interfaces/IVRFCoordinatorV2PlusMigration.sol";
 // solhint-disable-next-line no-unused-import
 import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "./interfaces/IVRFCoordinatorV2Plus.sol";
+import {console} from "forge-std/console.sol";
 
 // solhint-disable-next-line contract-name-camelcase
 contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
@@ -39,8 +40,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error InvalidExtraArgsTag();
   error GasPriceExceeded(uint256 gasPrice, uint256 maxGas);
   struct RequestCommitment {
-    uint64 blockNum;
     uint256 subId;
+    uint64 blockNum;
     uint32 callbackGasLimit;
     uint32 numWords;
     address sender;
@@ -468,21 +469,25 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // Include payment in the event for tracking costs.
     emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, success, onlyPremium);
 
+    console.log("fulfillRandomWords gas");
+    console.log(startGas - gasleft());
     return payment;
   }
 
   function _chargePayment(uint96 payment, bool nativePayment, uint256 subId) internal {
     if (nativePayment) {
+      uint96 prevBal = s_subscriptions[subId].nativeBalance;
       if (s_subscriptions[subId].nativeBalance < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].nativeBalance -= payment;
+      s_subscriptions[subId].nativeBalance = prevBal - payment;
       s_withdrawableNative += payment;
     } else {
-      if (s_subscriptions[subId].balance < payment) {
+      uint96 prevBal = s_subscriptions[subId].balance;
+      if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].balance -= payment;
+      s_subscriptions[subId].balance = prevBal - payment;
       s_withdrawableTokens += payment;
     }
   }

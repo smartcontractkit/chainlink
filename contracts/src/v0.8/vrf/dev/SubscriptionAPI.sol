@@ -13,13 +13,25 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
 
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
+  // s_totalBalance tracks the total link sent to/from
+  // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
+  // A discrepancy with this contract's link balance indicates someone
+  // sent tokens using transfer and so we may need to use recoverFunds.
+  uint96 public s_totalBalance;
+
   /// @dev may not be provided upon construction on some chains due to lack of availability
   AggregatorV3Interface public LINK_NATIVE_FEED;
+  // s_totalNativeBalance tracks the total native sent to/from
+  // this contract through fundSubscription, cancelSubscription and oracleWithdrawNative.
+  // A discrepancy with this contract's native balance indicates someone
+  // sent native using transfer and so we may need to use recoverNativeFunds.
+  uint96 public s_totalNativeBalance;
 
-  // We need to maintain a list of consuming addresses.
-  // This bound ensures we are able to loop over them as needed.
-  // Should a user require more consumers, they can use multiple subscriptions.
-  uint16 public constant MAX_CONSUMERS = 100;
+  uint96 internal s_withdrawableTokens;
+  uint96 internal s_withdrawableNative;
+  // subscription nonce used to construct subId. Rises monotonically
+  uint64 public s_currentSubNonce;
+
   error TooManyConsumers();
   error InsufficientBalance();
   error InvalidConsumer(uint256 subId, address consumer);
@@ -64,8 +76,6 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   mapping(address => mapping(uint256 => uint64)) /* consumer */ /* subId */ /* nonce */ internal s_consumers;
   mapping(uint256 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ internal s_subscriptionConfigs;
   mapping(uint256 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
-  // subscription nonce used to construct subId. Rises monotonically
-  uint64 public s_currentSubNonce;
   // track all subscription id's that were created by this contract
   // note: access should be through the getActiveSubscriptionIds() view function
   // which takes a starting index and a max number to fetch in order to allow
@@ -73,18 +83,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   // subscription id's are stored in this set, they cannot be retrieved in a
   // single RPC call without violating various size limits.
   EnumerableSet.UintSet internal s_subIds;
-  // s_totalBalance tracks the total link sent to/from
-  // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
-  // A discrepancy with this contract's link balance indicates someone
-  // sent tokens using transfer and so we may need to use recoverFunds.
-  uint96 public s_totalBalance;
-  // s_totalNativeBalance tracks the total native sent to/from
-  // this contract through fundSubscription, cancelSubscription and oracleWithdrawNative.
-  // A discrepancy with this contract's native balance indicates someone
-  // sent native using transfer and so we may need to use recoverNativeFunds.
-  uint96 public s_totalNativeBalance;
-  uint96 internal s_withdrawableTokens;
-  uint96 internal s_withdrawableNative;
+  
+  // We need to maintain a list of consuming addresses.
+  // This bound ensures we are able to loop over them as needed.
+  // Should a user require more consumers, they can use multiple subscriptions.
+  uint16 public constant MAX_CONSUMERS = 100;
 
   event SubscriptionCreated(uint256 indexed subId, address owner);
   event SubscriptionFunded(uint256 indexed subId, uint256 oldBalance, uint256 newBalance);
