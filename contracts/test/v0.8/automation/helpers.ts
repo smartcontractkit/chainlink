@@ -7,17 +7,12 @@ import { AutomationRegistryLogicB2_2__factory as AutomationRegistryLogicBFactory
 import { IAutomationRegistryMaster as IAutomationRegistry } from '../../../typechain/IAutomationRegistryMaster'
 import { IAutomationRegistryMaster__factory as IAutomationRegistryMasterFactory } from '../../../typechain/factories/IAutomationRegistryMaster__factory'
 
-const ZERO = 0
-const ONE = 1
-const TWO = 2
-const THREE = 3
-
 export const deployRegistry21 = async (
   from: Signer,
-  mode: Parameters<KeeperRegistryLogicBFactory['deploy']>[ZERO],
-  link: Parameters<KeeperRegistryLogicBFactory['deploy']>[ONE],
-  linkNative: Parameters<KeeperRegistryLogicBFactory['deploy']>[TWO],
-  fastgas: Parameters<KeeperRegistryLogicBFactory['deploy']>[THREE],
+  mode: Parameters<KeeperRegistryLogicBFactory['deploy']>[0],
+  link: Parameters<KeeperRegistryLogicBFactory['deploy']>[1],
+  linkNative: Parameters<KeeperRegistryLogicBFactory['deploy']>[2],
+  fastgas: Parameters<KeeperRegistryLogicBFactory['deploy']>[3],
 ): Promise<IKeeperRegistry> => {
   const logicBFactory = await ethers.getContractFactory(
     'KeeperRegistryLogicB2_1',

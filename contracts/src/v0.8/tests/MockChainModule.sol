@@ -16,7 +16,7 @@ contract MockChainModule is IChainModule {
     return keccak256(abi.encode(blocknumber));
   }
 
-  function getL1Fee(bytes calldata txCallData) external view returns (uint256) {
+  function getCurrentL1Fee() external view returns (uint256) {
     return 0;
   }
 
