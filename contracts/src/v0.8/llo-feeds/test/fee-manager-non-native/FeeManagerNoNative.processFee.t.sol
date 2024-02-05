@@ -170,13 +170,12 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
   }
 
   function test_processFeeWithWrappedNative() public {
-
     // Mint and approve LINK for feeManager transfer to rewardManager following successful verification
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, address(feeManager));
 
     // Mint and approve ERC20 representing native for the verification fee. USER given native ERC20 in setup
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER );
+    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
@@ -430,7 +429,6 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1));
     //record the current address and switch to the recipient
     changePrank(USER);
-
 
     //Expect revert since no native allowed
     vm.expectRevert(NATIVE_BILLING_DISALLOWED);

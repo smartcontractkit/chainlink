@@ -9,6 +9,7 @@ import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
 import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 import {FeeManagerProxy} from "../mocks/FeeManagerProxy.sol";
+
 /**
  * @title BaseFeeManagerTest
  * @author Michael Fletcher
@@ -97,7 +98,12 @@ contract BaseFeeManagerNoNativeTest is Test {
 
     feeManagerProxy = new FeeManagerProxy();
     rewardManager = new RewardManager(address(link));
-    feeManager = new FeeManagerNoNative(address(link), address(native), address(feeManagerProxy), address(rewardManager));
+    feeManager = new FeeManagerNoNative(
+      address(link),
+      address(native),
+      address(feeManagerProxy),
+      address(rewardManager)
+    );
 
     //link the feeManager to the proxy
     feeManagerProxy.setFeeManager(feeManager);
@@ -315,11 +321,7 @@ contract BaseFeeManagerNoNativeTest is Test {
     changePrank(originalAddr);
   }
 
-  function processFee(
-    bytes[] memory payloads,
-    address subscriber,
-    address feeAddress
-  ) public {
+  function processFee(bytes[] memory payloads, address subscriber, address feeAddress) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(subscriber);
