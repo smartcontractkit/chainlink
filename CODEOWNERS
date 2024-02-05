@@ -24,6 +24,7 @@
 /core/services/telemetry @smartcontractkit/realtime
 /core/services/relay/evm/mercury @smartcontractkit/mercury-team
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/integrations
+/core/services/llo @smartcontractkit/mercury-team
 
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team
@@ -64,7 +65,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*functions* @smartcontractkit/functions
 /contracts/**/*llo-feeds* @smartcontrackit/mercury-team
 /contracts/**/*vrf* @smartcontractkit/vrf-team
-/contracts/**/*l2ep* @simsonraj
+/contracts/**/*l2ep* @smartcontractkit/integrations
 
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
