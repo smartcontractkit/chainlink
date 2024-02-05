@@ -158,7 +158,7 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
   }
 
   modifier blockNativeBilling() {
-    if(msg.value != 0) revert NativeBillingDisallowed();
+    if (msg.value != 0) revert NativeBillingDisallowed();
     _;
   }
 
@@ -235,7 +235,7 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
 
     if (numberOfLinkFees != 0 || numberOfNativeFees != 0) {
       _handleFeesAndRewards(subscriber, feesAndRewards, numberOfLinkFees, numberOfNativeFees);
-    } 
+    }
   }
 
   /// @inheritdoc IFeeManager
@@ -396,7 +396,6 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
     uint256 numberOfLinkFees,
     uint256 numberOfNativeFees
   ) internal {
-
     IRewardManager.FeePayment[] memory linkRewards = new IRewardManager.FeePayment[](numberOfLinkFees);
     IRewardManager.FeePayment[] memory nativeFeeLinkRewards = new IRewardManager.FeePayment[](numberOfNativeFees);
 
@@ -433,10 +432,10 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
       }
     }
 
-      if (totalNativeFee != 0) {
-        //subscriber has paid in wrapped native, so transfer the native to this contract
-        IERC20(i_nativeAddress).safeTransferFrom(subscriber, address(this), totalNativeFee);
-      }
+    if (totalNativeFee != 0) {
+      //subscriber has paid in wrapped native, so transfer the native to this contract
+      IERC20(i_nativeAddress).safeTransferFrom(subscriber, address(this), totalNativeFee);
+    }
 
     if (linkRewards.length != 0) {
       i_rewardManager.onFeePaid(linkRewards, subscriber);
@@ -459,7 +458,6 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
         i_rewardManager.onFeePaid(nativeFeeLinkRewards, address(this));
       }
     }
-
   }
 
   /// @inheritdoc IFeeManager
