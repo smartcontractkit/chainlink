@@ -75,6 +75,22 @@ contract AutomationRegistry2_2_LatestConfigDetails is AutomationRegistry2_2_SetU
   }
 }
 
+contract AutomationRegistry2_2_CheckUpkeep is AutomationRegistry2_2_SetUp {
+  function testPreventExecutionOnCheckUpkeep() public {
+    IAutomationRegistryMaster registry = IAutomationRegistryMaster(
+      address(deployRegistry2_2(AutomationRegistryBase2_2.Mode(0)))
+    );
+
+    uint256 id = 1;
+    bytes memory triggerData = abi.encodePacked("trigger_data");
+
+    // The tx.origin is the DEFAULT_SENDER (0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) of foundry
+    // Expecting a revert since the tx.origin is not address(0)
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster.OnlySimulatedBackend.selector));
+    registry.checkUpkeep(id, triggerData);
+  }
+}
+
 contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
   event ConfigSet(
     uint32 previousConfigBlockNumber,
@@ -87,22 +103,6 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
     uint64 offchainConfigVersion,
     bytes offchainConfig
   );
-
-  function testPreventExecutionOnCheckUpkeep() public {
-    IAutomationRegistryMaster registry = IAutomationRegistryMaster(
-      address(deployRegistry2_2(AutomationRegistryBase2_2.Mode(0)))
-    );
-
-    uint256 id = 1;
-    bytes memory triggerData = abi.encodePacked("trigger_data");
-
-    (bool success, ) = address(registry).staticcall(
-      abi.encodeWithSelector(AutomationCompatibleInterface.checkUpkeep.selector, id, triggerData)
-    );
-
-    // Expect the call to revert with "OnlySimulatedBackend" error
-    require(!success, "Expected eth_call to revert for not allowed address");
-  }
 
   function testSetConfigSuccess() public {
     IAutomationRegistryMaster registry = IAutomationRegistryMaster(
