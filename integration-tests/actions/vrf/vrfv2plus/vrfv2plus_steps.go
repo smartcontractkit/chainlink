@@ -164,6 +164,7 @@ func CreateVRFV2PlusJob(
 func VRFV2_5RegisterProvingKey(
 	vrfKey *client.VRFKey,
 	coordinator contracts.VRFCoordinatorV2_5,
+	gasLaneMaxGas uint64,
 ) (VRFV2PlusEncodedProvingKey, error) {
 	provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
 	if err != nil {
@@ -171,6 +172,7 @@ func VRFV2_5RegisterProvingKey(
 	}
 	err = coordinator.RegisterProvingKey(
 		provingKey,
+		gasLaneMaxGas,
 	)
 	if err != nil {
 		return VRFV2PlusEncodedProvingKey{}, fmt.Errorf("%s, err %w", ErrRegisterProvingKey, err)
@@ -239,10 +241,10 @@ func SetupVRFV2_5Environment(
 		*vrfv2PlusConfig.StalenessSeconds,
 		*vrfv2PlusConfig.GasAfterPaymentCalculation,
 		big.NewInt(*vrfv2PlusConfig.FallbackWeiPerUnitLink),
-		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
-			FulfillmentFlatFeeLinkPPM:   *vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
-			FulfillmentFlatFeeNativePPM: *vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
-		},
+		*vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
+		*vrfv2PlusConfig.FulfillmentFlatFeeLinkDiscountPPM,
+		*vrfv2PlusConfig.NativePremiumPercentage,
+		*vrfv2PlusConfig.LinkPremiumPercentage,
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrSetVRFCoordinatorConfig, err)
@@ -280,7 +282,7 @@ func SetupVRFV2_5Environment(
 	pubKeyCompressed := vrfKey.Data.ID
 
 	l.Info().Str("Coordinator", vrfv2_5Contracts.Coordinator.Address()).Msg("Registering Proving Key")
-	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, vrfv2_5Contracts.Coordinator)
+	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, vrfv2_5Contracts.Coordinator, uint64(*vrfv2PlusConfig.CLNodeMaxGasPriceGWei)*1e9)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err %w", ErrRegisteringProvingKey, err)
 	}

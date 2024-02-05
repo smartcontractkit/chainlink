@@ -24,6 +24,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv
 
 contract VRFV2Plus is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
+  uint64 internal constant GAS_LANE_MAX_GAS = 5000 gwei;
 
   // Bytecode for a VRFV2PlusConsumerExample contract.
   // to calculate: console.logBytes(type(VRFV2PlusConsumerExample).creationCode);
@@ -36,9 +37,6 @@ contract VRFV2Plus is BaseTest {
   VRFV2PlusConsumerExample s_testConsumer;
   MockLinkToken s_linkToken;
   MockV3Aggregator s_linkNativeFeed;
-
-  VRFCoordinatorV2_5.FeeConfig basicFeeConfig =
-    VRFCoordinatorV2_5.FeeConfig({fulfillmentFlatFeeLinkPPM: 0, fulfillmentFlatFeeNativePPM: 0});
 
   // VRF KeyV2 generated from a node; not sensitive information.
   // The secret key used to generate this key is: 10.
@@ -54,6 +52,8 @@ contract VRFV2Plus is BaseTest {
     vm.roll(1);
     vm.deal(LINK_WHALE, 10_000 ether);
     changePrank(LINK_WHALE);
+
+    vm.txGasPrice(100 gwei);
 
     // Instantiate BHS.
     s_bhs = new BlockhashStore();
@@ -88,48 +88,126 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.setLINKAndLINKNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
   }
 
-  function setConfig(VRFCoordinatorV2_5.FeeConfig memory feeConfig) internal {
+  function setConfig() internal {
     s_testCoordinator.setConfig(
       0, // minRequestConfirmations
       2_500_000, // maxGasLimit
       1, // stalenessSeconds
       50_000, // gasAfterPaymentCalculation
       50000000000000000, // fallbackWeiPerUnitLink
-      feeConfig
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
     );
   }
 
   function testSetConfig() public {
     // Should setConfig successfully.
-    setConfig(basicFeeConfig);
-    (uint16 minConfs, uint32 gasLimit, ) = s_testCoordinator.getRequestConfig();
-    assertEq(minConfs, 0);
-    assertEq(gasLimit, 2_500_000);
+    setConfig();
 
     // Test that setting requestConfirmations above MAX_REQUEST_CONFIRMATIONS reverts.
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidRequestConfirmations.selector, 500, 500, 200));
-    s_testCoordinator.setConfig(500, 2_500_000, 1, 50_000, 50000000000000000, basicFeeConfig);
+    s_testCoordinator.setConfig(
+      500,
+      2_500_000,
+      1,
+      50_000,
+      50000000000000000,
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
+    );
 
     // Test that setting fallbackWeiPerUnitLink to zero reverts.
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidLinkWeiPrice.selector, 0));
-    s_testCoordinator.setConfig(0, 2_500_000, 1, 50_000, 0, basicFeeConfig);
+
+    s_testCoordinator.setConfig(
+      0,
+      2_500_000,
+      1,
+      50_000,
+      0,
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
+    );
+
+    // Test that setting link discount flat fee higher than native flat fee reverts
+    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.LinkDiscountTooHigh.selector, uint32(1000), uint32(500)));
+
+    s_testCoordinator.setConfig(
+      0,
+      2_500_000,
+      1,
+      50_000,
+      500,
+      500, // fulfillmentFlatFeeNativePPM
+      1000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
+    );
   }
 
   function testRegisterProvingKey() public {
     // Should set the proving key successfully.
     registerProvingKey();
-    (, , bytes32[] memory keyHashes) = s_testCoordinator.getRequestConfig();
-    assertEq(keyHashes[0], vrfKeyHash);
 
     // Should revert when already registered.
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(vrfUncompressedPublicKey);
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.ProvingKeyAlreadyRegistered.selector, vrfKeyHash));
-    s_testCoordinator.registerProvingKey(uncompressedKeyParts);
+    s_testCoordinator.registerProvingKey(uncompressedKeyParts, GAS_LANE_MAX_GAS);
   }
+
+  event ProvingKeyRegistered(bytes32 keyHash, uint64 maxGas);
+  event ProvingKeyDeregistered(bytes32 keyHash, uint64 maxGas);
 
   function registerProvingKey() public {
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(vrfUncompressedPublicKey);
-    s_testCoordinator.registerProvingKey(uncompressedKeyParts);
+    bytes32 keyHash = keccak256(abi.encode(uncompressedKeyParts));
+    vm.expectEmit(
+      false, // no indexed args to check for
+      false, // no indexed args to check for
+      false, // no indexed args to check for
+      true
+    ); // check data fields: keyHash and maxGas
+    emit ProvingKeyRegistered(keyHash, GAS_LANE_MAX_GAS);
+    s_testCoordinator.registerProvingKey(uncompressedKeyParts, GAS_LANE_MAX_GAS);
+    (bool exists, uint64 maxGas) = s_testCoordinator.s_provingKeys(keyHash);
+    assertTrue(exists);
+    assertEq(GAS_LANE_MAX_GAS, maxGas);
+    assertEq(s_testCoordinator.s_provingKeyHashes(0), keyHash);
+  }
+
+  function testDeregisterProvingKey() public {
+    // Should set the proving key successfully.
+    registerProvingKey();
+
+    bytes
+      memory unregisteredPubKey = hex"6d919e4ed6add6c34b2af77eb6b2d2f5d27db11ba004e70734b23bd4321ea234ff8577a063314bead6d88c1b01849289a5542767a5138924f38fed551a7773db";
+
+    // Should revert when given pubkey is not registered
+    uint256[2] memory unregisteredKeyParts = this.getProvingKeyParts(unregisteredPubKey);
+    bytes32 unregisterdKeyHash = keccak256(abi.encode(unregisteredKeyParts));
+    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.NoSuchProvingKey.selector, unregisterdKeyHash));
+    s_testCoordinator.deregisterProvingKey(unregisteredKeyParts);
+
+    // correctly deregister pubkey
+    uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(vrfUncompressedPublicKey);
+    bytes32 keyHash = keccak256(abi.encode(uncompressedKeyParts));
+    vm.expectEmit(
+      false, // no indexed args to check for
+      false, // no indexed args to check for
+      false, // no indexed args to check for
+      true
+    ); // check data fields: keyHash and maxGas
+    emit ProvingKeyDeregistered(keyHash, GAS_LANE_MAX_GAS);
+    s_testCoordinator.deregisterProvingKey(uncompressedKeyParts);
+    (bool exists, uint64 maxGas) = s_testCoordinator.s_provingKeys(keyHash);
+    assertFalse(exists);
+    assertEq(0, maxGas);
   }
 
   // note: Call this function via this.getProvingKeyParts to be able to pass memory as calldata and
@@ -240,6 +318,186 @@ contract VRFV2Plus is BaseTest {
   );
 
   function testRequestAndFulfillRandomWordsNative() public {
+    (
+      VRF.Proof memory proof,
+      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      uint256 subId,
+      uint256 requestId
+    ) = setupSubAndRequestRandomnessNativePayment();
+    (, uint96 nativeBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
+
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
+    vm.recordLogs();
+    uint96 payment = s_testCoordinator.fulfillRandomWords(proof, rc, false);
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
+    assertEq(entries[0].topics[2], bytes32(uint256(subId)));
+    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
+    assertEq(loggedOutputSeed, outputSeed);
+    assertEq(loggedSuccess, true);
+
+    (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
+    assertEq(fulfilled, true);
+
+    // The cost of fulfillRandomWords is approximately 70_000 gas.
+    // gasAfterPaymentCalculation is 50_000.
+    //
+    // The cost of the VRF fulfillment charged to the user is:
+    // baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())
+    // baseFeeWei = 1e11 * (50_000 + 70_000)
+    // baseFeeWei = 1.2e16
+    // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM)
+    // flatFeeWei = 1e12 * 500_000 = 5e17
+    // ...
+    // billed_fee = baseFeeWei * (100 + linkPremiumPercentage / 100) + 5e17
+    // billed_fee = 1.2e16 * 1.15 + 5e17
+    // billed_fee = 5.138e+17
+    (, uint96 nativeBalanceAfter, , , ) = s_testCoordinator.getSubscription(subId);
+    // 1e15 is less than 1 percent discrepancy
+    assertApproxEqAbs(payment, 5.138 * 1e17, 1e15);
+    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5.138 * 1e17, 1e15);
+  }
+
+  function testRequestAndFulfillRandomWordsLINK() public {
+    (
+      VRF.Proof memory proof,
+      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      uint256 subId,
+      uint256 requestId
+    ) = setupSubAndRequestRandomnessLINKPayment();
+    (uint96 linkBalanceBefore, , , , ) = s_testCoordinator.getSubscription(subId);
+
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
+    vm.recordLogs();
+    uint96 payment = s_testCoordinator.fulfillRandomWords(proof, rc, false);
+
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
+    assertEq(entries[0].topics[2], bytes32(uint256(subId)));
+    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
+    assertEq(loggedOutputSeed, outputSeed);
+    assertEq(loggedSuccess, true);
+
+    (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
+    assertEq(fulfilled, true);
+
+    // The cost of fulfillRandomWords is approximately 97_000 gas.
+    // gasAfterPaymentCalculation is 50_000.
+    //
+    // The cost of the VRF fulfillment charged to the user is:
+    // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
+    // paymentNoFee = (1e11 * (50_000 + 97_000 + 0)) / .5
+    // paymentNoFee = 2.94e16
+    // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM - fulfillmentFlatFeeLinkDiscountPPM)
+    // flatFeeWei = 1e12 * (500_000 - 100_000)
+    // flatFeeJuels = 1e18 * flatFeeWei / link_native_ratio
+    // flatFeeJuels = 4e17 / 0.5 = 8e17
+    // billed_fee = paymentNoFee * ((100 + 10) / 100) + 8e17
+    // billed_fee = 2.94e16 * 1.1 + 8e17
+    // billed_fee = 3.234e16 + 8e17 = 8.3234e17
+    // note: delta is doubled from the native test to account for more variance due to the link/native ratio
+    (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
+    // 1e15 is less than 1 percent discrepancy
+    assertApproxEqAbs(payment, 8.3234 * 1e17, 1e15);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 8.3234 * 1e17, 1e15);
+  }
+
+  function setupSubAndRequestRandomnessLINKPayment()
+    internal
+    returns (VRF.Proof memory proof, VRFCoordinatorV2_5.RequestCommitment memory rc, uint256 subId, uint256 requestId)
+  {
+    uint32 requestBlock = 20;
+    vm.roll(requestBlock);
+    s_linkToken.transfer(address(s_testConsumer), 10 ether);
+    s_testConsumer.createSubscriptionAndFund(10 ether);
+    uint256 subId = s_testConsumer.s_subId();
+
+    // Apply basic configs to contract.
+    setConfig();
+    registerProvingKey();
+
+    // Request random words.
+    vm.expectEmit(true, true, false, true);
+    (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
+      vrfKeyHash,
+      address(s_testConsumer),
+      subId,
+      2
+    );
+    emit RandomWordsRequested(
+      vrfKeyHash,
+      requestId,
+      preSeed,
+      subId,
+      0, // minConfirmations
+      1_000_000, // callbackGasLimit
+      1, // numWords
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
+      address(s_testConsumer) // requester
+    );
+    s_testConsumer.requestRandomWords(1_000_000, 0, 1, vrfKeyHash, false);
+    (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
+    assertEq(fulfilled, false);
+
+    // Uncomment these console logs to see info about the request:
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
+
+    // Move on to the next block.
+    // Store the previous block's blockhash, and assert that it is as expected.
+    vm.roll(requestBlock + 1);
+    s_bhs.store(requestBlock);
+    assertEq(hex"0000000000000000000000000000000000000000000000000000000000000014", s_bhs.getBlockhash(requestBlock));
+
+    // Fulfill the request.
+    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    /*
+        go run . generate-proof-v2-plus \
+        -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
+        -pre-seed 108233140904510496268355288815996296196427471042093167619305836589216327096601 \
+        -block-hash 0x0000000000000000000000000000000000000000000000000000000000000014 \
+        -block-num 20 \
+        -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2
+    */
+    VRF.Proof memory proof = VRF.Proof({
+      pk: [
+        72488970228380509287422715226575535698893157273063074627791787432852706183111,
+        62070622898698443831883535403436258712770888294397026493185421712108624767191
+      ],
+      gamma: [
+        49785247270467418393187938018746488660500261614113251546613288843777654841004,
+        8320717868018488740308781441198484312662094766876176838868269181386589318272
+      ],
+      c: 41596204381278553342984662603150353549780558761307588910860350083645227536604,
+      s: 81592778991188138734863787790226463602813498664606420860910885269124681994753,
+      seed: 108233140904510496268355288815996296196427471042093167619305836589216327096601,
+      uWitness: 0x56920892EE71E624d369dCc8dc63B6878C85Ca70,
+      cGammaWitness: [
+        28250667431035633903490940933503696927659499415200427260709034207157951953043,
+        105660182690338773283351292037478192732977803900032569393220726139772041021018
+      ],
+      sHashWitness: [
+        18420263847278540234821121001488166570853056146131705862117248292063859054211,
+        15740432967529684573970722302302642068194042971767150190061244675457227502736
+      ],
+      zInv: 100579074451139970455673776933943662313989441807178260211316504761358492254052
+    });
+    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
+      blockNum: requestBlock,
+      subId: subId,
+      callbackGasLimit: 1000000,
+      numWords: 1,
+      sender: address(s_testConsumer),
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
+    });
+    return (proof, rc, subId, requestId);
+  }
+
+  function setupSubAndRequestRandomnessNativePayment()
+    internal
+    returns (VRF.Proof memory proof, VRFCoordinatorV2_5.RequestCommitment memory rc, uint256 subId, uint256 requestId)
+  {
     uint32 requestBlock = 10;
     vm.roll(requestBlock);
     s_testConsumer.createSubscriptionAndFund(0);
@@ -247,7 +505,7 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.fundSubscriptionWithNative{value: 10 ether}(subId);
 
     // Apply basic configs to contract.
-    setConfig(basicFeeConfig);
+    setConfig();
     registerProvingKey();
 
     // Request random words.
@@ -326,11 +584,43 @@ contract VRFV2Plus is BaseTest {
       sender: address(s_testConsumer),
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
+
+    return (proof, rc, subId, requestId);
+  }
+
+  function testRequestAndFulfillRandomWords_NetworkGasPriceExceedsGasLane() public {
+    (
+      VRF.Proof memory proof,
+      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      ,
+
+    ) = setupSubAndRequestRandomnessNativePayment();
+
+    // network gas is higher than gas lane max gas
+    uint256 networkGasPrice = GAS_LANE_MAX_GAS + 1;
+    vm.txGasPrice(networkGasPrice);
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.GasPriceExceeded.selector, networkGasPrice, GAS_LANE_MAX_GAS)
+    );
+    s_testCoordinator.fulfillRandomWords(proof, rc, false);
+  }
+
+  function testRequestAndFulfillRandomWords_OnlyPremium_NativePayment() public {
+    (
+      VRF.Proof memory proof,
+      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      uint256 subId,
+      uint256 requestId
+    ) = setupSubAndRequestRandomnessNativePayment();
     (, uint96 nativeBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
+
+    // network gas is twice the gas lane max gas
+    uint256 networkGasPrice = GAS_LANE_MAX_GAS * 2;
+    vm.txGasPrice(networkGasPrice);
 
     uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
     vm.recordLogs();
-    s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
+    uint96 payment = s_testCoordinator.fulfillRandomWords(proof, rc, true /* onlyPremium */);
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
@@ -338,115 +628,45 @@ contract VRFV2Plus is BaseTest {
     assertEq(loggedOutputSeed, outputSeed);
     assertEq(loggedSuccess, true);
 
-    (fulfilled, , ) = s_testConsumer.s_requests(requestId);
+    (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 100_000 gas.
+    // The cost of fulfillRandomWords is approximately 70_000 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())
-    // baseFeeWei = 1 * (50_000 + 100_000)
-    // baseFeeWei = 150_000
+    // network gas price is capped at gas lane max gas (5000 gwei)
+    // baseFeeWei = 5e12 * (50_000 + 70_000)
+    // baseFeeWei = 6e17
+    // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM)
+    // flatFeeWei = 1e12 * 500_000 = 5e17
     // ...
-    // billed_fee = baseFeeWei + flatFeeWei + l1CostWei
-    // billed_fee = baseFeeWei + 0 + 0
-    // billed_fee = 150_000
+    // billed_fee = baseFeeWei * (linkPremiumPercentage / 100) + 5e17
+    // billed_fee = 6e17 * 0.15 + 5e17
+    // billed_fee = 5.9e+17
     (, uint96 nativeBalanceAfter, , , ) = s_testCoordinator.getSubscription(subId);
-    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 120_000, 10_000);
+    // 1e15 is less than 1 percent discrepancy
+    assertApproxEqAbs(payment, 5.9 * 1e17, 1e15);
+    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5.9 * 1e17, 1e15);
   }
 
-  function testRequestAndFulfillRandomWordsLINK() public {
-    uint32 requestBlock = 20;
-    vm.roll(requestBlock);
-    s_linkToken.transfer(address(s_testConsumer), 10 ether);
-    s_testConsumer.createSubscriptionAndFund(10 ether);
-    uint256 subId = s_testConsumer.s_subId();
-
-    // Apply basic configs to contract.
-    setConfig(basicFeeConfig);
-    registerProvingKey();
-
-    // Request random words.
-    vm.expectEmit(true, true, false, true);
-    (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
-      vrfKeyHash,
-      address(s_testConsumer),
-      subId,
-      2
-    );
-    emit RandomWordsRequested(
-      vrfKeyHash,
-      requestId,
-      preSeed,
-      subId,
-      0, // minConfirmations
-      1_000_000, // callbackGasLimit
-      1, // numWords
-      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
-      address(s_testConsumer) // requester
-    );
-    s_testConsumer.requestRandomWords(1_000_000, 0, 1, vrfKeyHash, false);
-    (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
-    assertEq(fulfilled, false);
-
-    // Uncomment these console logs to see info about the request:
-    // console.log("requestId: ", requestId);
-    // console.log("preSeed: ", preSeed);
-    // console.log("sender: ", address(s_testConsumer));
-
-    // Move on to the next block.
-    // Store the previous block's blockhash, and assert that it is as expected.
-    vm.roll(requestBlock + 1);
-    s_bhs.store(requestBlock);
-    assertEq(hex"0000000000000000000000000000000000000000000000000000000000000014", s_bhs.getBlockhash(requestBlock));
-
-    // Fulfill the request.
-    // Proof generated via the generate-proof-v2-plus script command. Example usage:
-    /*
-        go run . generate-proof-v2-plus \
-        -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-        -pre-seed 108233140904510496268355288815996296196427471042093167619305836589216327096601 \
-        -block-hash 0x0000000000000000000000000000000000000000000000000000000000000014 \
-        -block-num 20 \
-        -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2
-    */
-    VRF.Proof memory proof = VRF.Proof({
-      pk: [
-        72488970228380509287422715226575535698893157273063074627791787432852706183111,
-        62070622898698443831883535403436258712770888294397026493185421712108624767191
-      ],
-      gamma: [
-        49785247270467418393187938018746488660500261614113251546613288843777654841004,
-        8320717868018488740308781441198484312662094766876176838868269181386589318272
-      ],
-      c: 41596204381278553342984662603150353549780558761307588910860350083645227536604,
-      s: 81592778991188138734863787790226463602813498664606420860910885269124681994753,
-      seed: 108233140904510496268355288815996296196427471042093167619305836589216327096601,
-      uWitness: 0x56920892EE71E624d369dCc8dc63B6878C85Ca70,
-      cGammaWitness: [
-        28250667431035633903490940933503696927659499415200427260709034207157951953043,
-        105660182690338773283351292037478192732977803900032569393220726139772041021018
-      ],
-      sHashWitness: [
-        18420263847278540234821121001488166570853056146131705862117248292063859054211,
-        15740432967529684573970722302302642068194042971767150190061244675457227502736
-      ],
-      zInv: 100579074451139970455673776933943662313989441807178260211316504761358492254052
-    });
-    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
-      blockNum: requestBlock,
-      subId: subId,
-      callbackGasLimit: 1000000,
-      numWords: 1,
-      sender: address(s_testConsumer),
-      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
-    });
+  function testRequestAndFulfillRandomWords_OnlyPremium_LinkPayment() public {
+    (
+      VRF.Proof memory proof,
+      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      uint256 subId,
+      uint256 requestId
+    ) = setupSubAndRequestRandomnessLINKPayment();
     (uint96 linkBalanceBefore, , , , ) = s_testCoordinator.getSubscription(subId);
+
+    // network gas is twice the gas lane max gas
+    uint256 networkGasPrice = GAS_LANE_MAX_GAS * 5;
+    vm.txGasPrice(networkGasPrice);
 
     uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
     vm.recordLogs();
-    s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
+    uint96 payment = s_testCoordinator.fulfillRandomWords(proof, rc, true /* onlyPremium */);
 
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
@@ -455,22 +675,28 @@ contract VRFV2Plus is BaseTest {
     assertEq(loggedOutputSeed, outputSeed);
     assertEq(loggedSuccess, true);
 
-    (fulfilled, , ) = s_testConsumer.s_requests(requestId);
+    (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 90_000 gas.
+    // The cost of fulfillRandomWords is approximately 97_000 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
-    // paymentNoFee = (1 * (50_000 + 90_000 + 0)) / .5
-    // paymentNoFee = 280_000
-    // ...
-    // billed_fee = paymentNoFee + fulfillmentFlatFeeLinkPPM
-    // billed_fee = baseFeeWei + 0
-    // billed_fee = 280_000
+    // network gas price is capped at gas lane max gas (5000 gwei)
+    // paymentNoFee = (5e12 * (50_000 + 97_000 + 0)) / .5
+    // paymentNoFee = 1.47e+18
+    // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM - fulfillmentFlatFeeLinkDiscountPPM)
+    // flatFeeWei = 1e12 * (500_000 - 100_000)
+    // flatFeeJuels = 1e18 * flatFeeWei / link_native_ratio
+    // flatFeeJuels = 4e17 / 0.5 = 8e17
+    // billed_fee = paymentNoFee * (10 / 100) + 8e17
+    // billed_fee = 1.47e+18 * 0.1 + 8e17
+    // billed_fee = 9.47e+17
     // note: delta is doubled from the native test to account for more variance due to the link/native ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
-    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 280_000, 20_000);
+    // 1e15 is less than 1 percent discrepancy
+    assertApproxEqAbs(payment, 9.47 * 1e17, 1e15);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.47 * 1e17, 1e15);
   }
 }

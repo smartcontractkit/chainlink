@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.16;
+pragma solidity 0.8.19;
 
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {BaseTest} from "./BaseTest.t.sol";
