@@ -7,7 +7,6 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "./libraries/Common.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
-import {IWERC20} from "../shared/interfaces/IWERC20.sol";
 import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
 import {Math} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/Math.sol";
 import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
