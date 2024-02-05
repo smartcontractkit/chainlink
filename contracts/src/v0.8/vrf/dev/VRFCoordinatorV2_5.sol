@@ -10,7 +10,8 @@ import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
 import {IVRFCoordinatorV2PlusMigration} from "./interfaces/IVRFCoordinatorV2PlusMigration.sol";
 // solhint-disable-next-line no-unused-import
 import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "./interfaces/IVRFCoordinatorV2Plus.sol";
-import {console} from "forge-std/console.sol";
+
+// import {console} from "forge-std/console.sol";
 
 // solhint-disable-next-line contract-name-camelcase
 contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
@@ -469,8 +470,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // Include payment in the event for tracking costs.
     emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, success, onlyPremium);
 
-    console.log("fulfillRandomWords gas");
-    console.log(startGas - gasleft());
+    // console.log("fulfillRandomWords gas");
+    // console.log(startGas - gasleft());
     return payment;
   }
 
