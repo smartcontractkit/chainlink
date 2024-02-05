@@ -96,7 +96,7 @@ core/scripts/gateway @smartcontractkit/functions
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
 # CI/CD
-/.github/** @smartcontractkit/test-tooling-team
+/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
