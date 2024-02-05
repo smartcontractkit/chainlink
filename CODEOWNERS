@@ -18,7 +18,7 @@
 /core/services/job @smartcontractkit/ccip
 /core/services/keystore @smartcontractkit/keepers
 /core/services/ocr* @smartcontractkit/foundations
-/core/services/periodicbackup @PiotrTrzpil @samsondav
+/core/services/periodicbackup @smartcontractkit/foundations
 /core/services/pg @smartcontractkit/foundations @samsondav
 /core/services/pipeline @smartcontractkit/foundations @smartcontractkit/integrations
 /core/services/telemetry @smartcontractkit/realtime
