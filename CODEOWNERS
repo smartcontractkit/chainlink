@@ -11,7 +11,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/keepers
-/core/services/feeds @smartcontractkit/mercury-team
+/core/services/feeds @smartcontractkit/FMS
 
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @connorwstein
