@@ -17,6 +17,6 @@ dependencies:
     repository: "https://grafana.github.io/helm-charts"
     condition: tempo.enabled
   - name: grafana
-    version: "7.0.0"
+    version: "7.3.0"
     repository: "https://grafana.github.io/helm-charts"
     condition: grafana.enabled
