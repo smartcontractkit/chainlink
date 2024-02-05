@@ -6,6 +6,15 @@ vars:
   DEVSPACE_IMAGE:
     noCache: true
     source: env
+  # This is the base domain in AWS Route 53 that our ingress subdomains will use.
+  DEVSPACE_INGRESS_BASE_DOMAIN:
+    source: env
+  # This is the ARN of the AWS ACM certificate that will be used for the ingress.
+  DEVSPACE_INGRESS_CERT_ARN:
+    source: env
+  # This is a comma separated list of CIDR blocks that will be allowed to access the ingress.
+  DEVSPACE_INGRESS_CIDRS:
+    source: env
 
 # This is a list of `pipelines` that DevSpace can execute (you can define your own)
 pipelines:
@@ -20,11 +29,11 @@ pipelines:
       echo "Removing .devspace cache!"
       rm -rf .devspace/ || true
       registry_id=$(echo "$DEVSPACE_IMAGE" | cut -d'.' -f1)
-      
+
       # Login into registry
       echo "Authorizing into ECR registry"
       aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${registry_id}.dkr.ecr.us-west-2.amazonaws.com
-      
+
       run_dependencies --all                           
       ensure_pull_secrets --all                         
       build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
@@ -39,15 +48,15 @@ pipelines:
         tag=$(git rev-parse --short HEAD)
         image=${DEVSPACE_IMAGE}:$tag
       fi
-      
+
       echo "Checking tag: $tag"
       repository_name="chainlink-devspace"
       desired_tag=$tag
-      
+
       # Check if the desired tag is present in the repository
       image_list=$(aws ecr list-images --repository-name "$repository_name")
       tag_exists=$(echo "$image_list" | jq -e '.imageIds[] | select(.imageTag == "'"${desired_tag}"'")' >/dev/null && echo true || echo false)
-      
+
       # Check the value of the tag_exists variable
       if [ "$tag_exists" = "true" ]; then
         echo "Image tag '$tag' found."
@@ -63,6 +72,15 @@ pipelines:
       --set=helm.values.chainlink.nodes[4].image=$image \
       --set=helm.values.chainlink.nodes[5].image=$image
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
+
+      echo
+      echo "############################################"
+      echo "Ingress Domains"
+      echo "############################################"
+      for ingress in "node1 node2 node3 node4 node5 node6 geth-http geth-ws"; do
+        echo "https://${DEVSPACE_NAMESPACE}-${ingress}.${DEVSPACE_INGRESS_BASE_DOMAIN}"
+      done
+
   purge:
     run: |-
       kubectl delete ns ${DEVSPACE_NAMESPACE}
@@ -88,7 +106,7 @@ hooks:
       labelSelector:
         # vars don't work here, = releaseName
         release: "app"
-    events: [ "after:deploy:app" ]
+    events: ["after:deploy:app"]
     name: "wait-for-pod-hook"
 
 # This is a list of `deployments` that DevSpace can create for this project
@@ -102,7 +120,7 @@ deployments:
         path: .
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
-      # devspace merging this "values" and "values.yml" before deploy
+      # devspace merges these "values" with the "values.yaml" before deploy
       values:
         podSecurityContext:
           fsGroup: 999
@@ -263,22 +281,88 @@ deployments:
             limits:
               cpu: 1
               memory: 512Mi
-          affinity: { }
-          tolerations: [ ]
-          nodeSelector: { }
+          affinity: {}
+          tolerations: []
+          nodeSelector: {}
           ingress:
             enabled: false
             className: ""
-            hosts: [ ]
-            tls: [ ]
-            annotations: { }
+            hosts: []
+            tls: []
+            annotations: {}
           service:
             type: NodePort
             port: 8080
 
-
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
+
+        networkPolicy:
+          ingress:
+            # Should be a comma separated list of CIDR blocks. To include
+            # AWS ALB private CIDRs and optionally other custom CIDRs.
+            # Example format: 10.0.0.0/16,192.168.0.1/24
+            allowCustomCidrs: ${DEVSPACE_INGRESS_CIDRS}
+        # These ingresses create AWS ALB resources and Route 53 Records.
+        ingress:
+          enabled: true
+          annotation_certificate_arn: ${DEVSPACE_INGRESS_CERT_ARN}
+          annotation_group_name: ${DEVSPACE_NAMESPACE}
+          hosts:
+            - host: ${DEVSPACE_NAMESPACE}-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: app-node-1
+                    servicePort: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: app-node-2
+                    servicePort: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: app-node-3
+                    servicePort: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: app-node-4
+                    servicePort: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node5.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: app-node-5
+                    servicePort: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node6.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: app-node-6
+                    servicePort: 6688
+            - host: ${DEVSPACE_NAMESPACE}-geth-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: geth
+                    servicePort: 8544
+            - host: ${DEVSPACE_NAMESPACE}-geth-ws.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: geth
+                    servicePort: 8546
+            - host: ${DEVSPACE_NAMESPACE}-mockserver.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              paths:
+                - path: /
+                  backend:
+                    serviceName: mockserver
+                    servicePort: 1080
 
         # deployment placement, standard helm stuff
         podAnnotations:
