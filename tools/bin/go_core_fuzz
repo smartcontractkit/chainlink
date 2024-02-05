@@ -16,7 +16,7 @@ use_tee() {
     cat > "$@"
   fi
 }
-go test -json -ldflags "$GO_LDFLAGS" github.com/smartcontractkit/chainlink/v2/core/services/relay/evm -fuzz . -fuzztime 12s | use_tee $OUTPUT_FILE
+cd ../../fuzz && ./fuzz_all_native.py -ci | use_tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output
