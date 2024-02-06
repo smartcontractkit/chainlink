@@ -106,6 +106,11 @@ func Example() {
 
 	ctx := context.Background()
 	b, err := c.Encode(ctx, input, anyUnmodifiedTypeName)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	fmt.Println("Encoded: " + string(b))
 
 	output := &OnChainStruct{}
@@ -138,12 +143,12 @@ func Example() {
 		return
 	}
 
-	fmt.Printf("Decoded wih modifications: %+v\n", output2)
+	fmt.Printf("Decoded with modifications: %+v\n", output2)
 	// Output:
 	// Encoded: {"Aa":10,"Bb":"20","Cc":true,"Dd":"great example","Ee":631515600,"Ff":"dog"}
 	// Decoded: &{Aa:10 Bb:20 Cc:true Dd:great example Ee:631515600 Ff:dog}
 	// Encoded with modifications: {"Aa":10,"Bb":"","Cc":true,"Dd":"great example","Ee":631515600,"Ff":"dog"}
-	// Decoded wih modifications: &{Bb:10 Cc:true Dd:[great example] Ee:1990-01-05 05:00:00 +0000 UTC Zz:foo}
+	// Decoded with modifications: &{Bb:10 Cc:true Dd:[great example] Ee:1990-01-05 05:00:00 +0000 UTC Zz:foo}
 }
 
 func createModsFromConfig() (codec.Modifier, error) {

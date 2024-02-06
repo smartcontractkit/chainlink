@@ -26,7 +26,7 @@ func TestTimeToUnix(t *testing.T) {
 	tsst := reflect.TypeOf(&testSliceStruct{})
 
 	type testArrayStruct struct{ T [2]int64 }
-	tast := reflect.TypeOf(&testArrayStruct{})
+	tArrSt := reflect.TypeOf(&testArrayStruct{})
 
 	type otherIntegerType struct {
 		A string
@@ -108,14 +108,14 @@ func TestTimeToUnix(t *testing.T) {
 
 	t.Run("RetypeToOffChain converts arrays", func(t *testing.T) {
 		converter := codec.NewEpochToTimeModifier([]string{"T"})
-		convertedType, err := converter.RetypeToOffChain(tast, "")
+		convertedType, err := converter.RetypeToOffChain(tArrSt, "")
 
 		require.NoError(t, err)
 		assert.Equal(t, reflect.Pointer, convertedType.Kind())
 		convertedType = convertedType.Elem()
 
 		require.Equal(t, 1, convertedType.NumField())
-		assert.Equal(t, tast.Elem().Field(0).Name, convertedType.Field(0).Name)
+		assert.Equal(t, tArrSt.Elem().Field(0).Name, convertedType.Field(0).Name)
 		assert.Equal(t, reflect.TypeOf([]*time.Time{}), convertedType.Field(0).Type)
 	})
 
@@ -152,7 +152,7 @@ func TestTimeToUnix(t *testing.T) {
 
 	t.Run("TransformToOnChain converts times to integer array", func(t *testing.T) {
 		converter := codec.NewEpochToTimeModifier([]string{"T"})
-		convertedType, err := converter.RetypeToOffChain(tast, "")
+		convertedType, err := converter.RetypeToOffChain(tArrSt, "")
 		require.NoError(t, err)
 
 		rOffchain := reflect.New(convertedType.Elem())
@@ -214,7 +214,7 @@ func TestTimeToUnix(t *testing.T) {
 
 	t.Run("TransformToOffChain converts times to integer array", func(t *testing.T) {
 		converter := codec.NewEpochToTimeModifier([]string{"T"})
-		convertedType, err := converter.RetypeToOffChain(tast, "")
+		convertedType, err := converter.RetypeToOffChain(tArrSt, "")
 		require.NoError(t, err)
 
 		actual, err := converter.TransformToOffChain(&testArrayStruct{T: [2]int64{anyTimeEpoch, anyTimeEpoch2}}, "")

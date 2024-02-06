@@ -157,7 +157,7 @@ func testCritical(t *testing.T, lggr Logger, observed *observer.ObservedLogs, ms
 	Critical(lggr, "foo", "bar")
 	_, filename, lineNum, ok := runtime.Caller(0)
 	require.True(t, ok)
-	lineNum -= 1
+	lineNum--
 
 	all := observed.TakeAll()
 	require.Len(t, all, 1)
@@ -186,7 +186,7 @@ func testCriticalw(t *testing.T, lggr Logger, observed *observer.ObservedLogs, m
 	Criticalw(lggr, "msg", "foo", "bar")
 	_, filename, lineNum, ok := runtime.Caller(0)
 	require.True(t, ok)
-	lineNum -= 1
+	lineNum--
 
 	all := observed.TakeAll()
 	require.Len(t, all, 1)
@@ -216,7 +216,7 @@ func testCriticalf(t *testing.T, lggr Logger, observed *observer.ObservedLogs, m
 	Criticalf(lggr, "foo: %s", "bar")
 	_, filename, lineNum, ok := runtime.Caller(0)
 	require.True(t, ok)
-	lineNum -= 1
+	lineNum--
 
 	all := observed.TakeAll()
 	require.Len(t, all, 1)

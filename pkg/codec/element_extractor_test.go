@@ -500,7 +500,7 @@ func TestElementExtractor(t *testing.T) {
 		{location: codec.ElementExtractorLocationLast},
 	} {
 		t.Run("Json encoding works", func(t *testing.T) {
-			b, err := json.Marshal(&test.location)
+			b, err := json.Marshal(test.location)
 			require.NoError(t, err)
 			var actual codec.ElementExtractorLocation
 			require.NoError(t, json.Unmarshal(b, &actual))

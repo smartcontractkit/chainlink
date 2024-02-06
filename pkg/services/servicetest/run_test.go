@@ -32,7 +32,6 @@ func TestRunHealthy(t *testing.T) {
 			assert.Equal(t, test.expFail, failed)
 		})
 	}
-
 }
 
 func runFake(fn func(t TestingT)) ([]string, bool) {
@@ -72,7 +71,7 @@ func (f *fakeTest) Errorf(format string, args ...interface{}) {
 }
 
 func (f *fakeTest) FailNow() {
-	if f.failed == true {
+	if f.failed {
 		return // only panic the first time
 	}
 	f.failed = true

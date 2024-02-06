@@ -21,8 +21,8 @@ const (
 	ElementExtractorLocationDefault = ElementExtractorLocationMiddle
 )
 
-func (e *ElementExtractorLocation) MarshalJSON() ([]byte, error) {
-	switch *e {
+func (e ElementExtractorLocation) MarshalJSON() ([]byte, error) {
+	switch e {
 	case ElementExtractorLocationFirst:
 		return json.Marshal("first")
 	case ElementExtractorLocationMiddle:
@@ -30,7 +30,7 @@ func (e *ElementExtractorLocation) MarshalJSON() ([]byte, error) {
 	case ElementExtractorLocationLast:
 		return json.Marshal("last")
 	default:
-		return nil, fmt.Errorf("%w: %d", types.ErrInvalidType, *e)
+		return nil, fmt.Errorf("%w: %d", types.ErrInvalidType, e)
 	}
 }
 

@@ -21,7 +21,7 @@ func TestRegisterStandAloneProvider(t *testing.T) {
 	require.ErrorContains(t, err, "expected median provider got")
 
 	stopCh := newStopCh(t)
-	pr := newPluginRelayerExec(t, stopCh)
+	pr := newPluginRelayerExec(t, false, stopCh)
 	mp := newMedianProvider(t, pr)
 	err = loop.RegisterStandAloneProvider(s, mp, "median")
 	require.NoError(t, err)

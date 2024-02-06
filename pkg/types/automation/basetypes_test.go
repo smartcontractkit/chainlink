@@ -566,9 +566,9 @@ func assertJSONContainsAllStructFields(t *testing.T, jsonString string, anyStruc
 	var jsonMap map[string]interface{}
 	var structMap map[string]interface{}
 	require.NoError(t, json.Unmarshal([]byte(jsonString), &jsonMap), "jsonString is invalid json")
-	structJson, err := json.Marshal(anyStruct)
+	structJSON, err := json.Marshal(anyStruct)
 	require.NoError(t, err)
-	require.NoError(t, json.Unmarshal(structJson, &structMap))
+	require.NoError(t, json.Unmarshal(structJSON, &structMap))
 	assertCongruentKeyStructure(t, structMap, jsonMap)
 }
 

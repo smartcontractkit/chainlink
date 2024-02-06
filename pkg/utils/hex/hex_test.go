@@ -3,8 +3,9 @@ package hex_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 )
 
 func TestParseBig(t *testing.T) {

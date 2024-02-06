@@ -23,6 +23,9 @@ func main() {
 	limitI := 0
 	flag.IntVar(&limitI, "limit", 0, "the number of services to run")
 
+	var staticChecks bool
+	flag.BoolVar(&staticChecks, "static-checks", false, "run static var checks on static relayer")
+
 	flag.Parse()
 	defer os.Exit(0)
 
@@ -58,7 +61,7 @@ func main() {
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
 			Plugins: map[string]plugin.Plugin{
-				loop.PluginRelayerName: &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: lggr, StopCh: stopCh}},
+				loop.PluginRelayerName: &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{StaticChecks: staticChecks}, BrokerConfig: loop.BrokerConfig{Logger: lggr, StopCh: stopCh}},
 			},
 			GRPCServer: grpcServer,
 		})

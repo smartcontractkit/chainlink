@@ -10,8 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -34,80 +37,86 @@ func (s StaticKeystore) Sign(ctx context.Context, id string, data []byte) ([]byt
 	return signed, nil
 }
 
-type StaticPluginRelayer struct{}
+type StaticPluginRelayer struct {
+	StaticChecks bool
+}
 
 func (s StaticPluginRelayer) NewRelayer(ctx context.Context, config string, keystore types.Keystore) (internal.Relayer, error) {
-	if config != ConfigTOML {
+	if s.StaticChecks && config != ConfigTOML {
 		return nil, fmt.Errorf("expected config %q but got %q", ConfigTOML, config)
 	}
 	keys, err := keystore.Accounts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual([]string{string(account)}, keys) {
+	if s.StaticChecks && !reflect.DeepEqual([]string{string(account)}, keys) {
 		return nil, fmt.Errorf("expected keys %v but got %v", []string{string(account)}, keys)
 	}
 	gotSigned, err := keystore.Sign(ctx, string(account), encoded)
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(signed, gotSigned) {
+	if s.StaticChecks && !bytes.Equal(signed, gotSigned) {
 		return nil, fmt.Errorf("expected signed bytes %x but got %x", signed, gotSigned)
 	}
-	return staticRelayer{}, nil
+	return s, nil
 }
 
-type staticRelayer struct{}
+func (s StaticPluginRelayer) Start(ctx context.Context) error { return nil }
 
-func (s staticRelayer) Start(ctx context.Context) error { return nil }
+func (s StaticPluginRelayer) Close() error { return nil }
 
-func (s staticRelayer) Close() error { return nil }
+func (s StaticPluginRelayer) Ready() error { panic("unimplemented") }
 
-func (s staticRelayer) Ready() error { panic("unimplemented") }
+func (s StaticPluginRelayer) Name() string { panic("unimplemented") }
 
-func (s staticRelayer) Name() string { panic("unimplemented") }
+func (s StaticPluginRelayer) HealthReport() map[string]error { panic("unimplemented") }
 
-func (s staticRelayer) HealthReport() map[string]error { panic("unimplemented") }
-
-func (s staticRelayer) NewConfigProvider(ctx context.Context, r types.RelayArgs) (types.ConfigProvider, error) {
-	if !equalRelayArgs(r, RelayArgs) {
+func (s StaticPluginRelayer) NewConfigProvider(ctx context.Context, r types.RelayArgs) (types.ConfigProvider, error) {
+	if s.StaticChecks && !equalRelayArgs(r, RelayArgs) {
 		return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", RelayArgs, r)
 	}
 	return staticConfigProvider{}, nil
 }
 
-func (s staticRelayer) NewMedianProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.MedianProvider, error) {
-	ra := newRelayArgsWithProviderType(types.Median)
-	if !equalRelayArgs(r, ra) {
-		return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", RelayArgs, r)
+func (s StaticPluginRelayer) NewMedianProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.MedianProvider, error) {
+	if s.StaticChecks {
+		ra := newRelayArgsWithProviderType(types.Median)
+		if !equalRelayArgs(r, ra) {
+			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", RelayArgs, r)
+		}
+		if !reflect.DeepEqual(PluginArgs, p) {
+			return nil, fmt.Errorf("expected plugin args %v but got %v", PluginArgs, p)
+		}
 	}
-	if !reflect.DeepEqual(PluginArgs, p) {
-		return nil, fmt.Errorf("expected plugin args %v but got %v", PluginArgs, p)
-	}
+
 	return StaticMedianProvider{}, nil
 }
 
-func (s staticRelayer) NewPluginProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.PluginProvider, error) {
-	ra := newRelayArgsWithProviderType(types.Median)
-	if !equalRelayArgs(r, ra) {
-		return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", RelayArgs, r)
+func (s StaticPluginRelayer) NewPluginProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.PluginProvider, error) {
+	if s.StaticChecks {
+		ra := newRelayArgsWithProviderType(types.Median)
+		if !equalRelayArgs(r, ra) {
+			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", RelayArgs, r)
+		}
+		if !reflect.DeepEqual(PluginArgs, p) {
+			return nil, fmt.Errorf("expected plugin args %v but got %v", PluginArgs, p)
+		}
 	}
-	if !reflect.DeepEqual(PluginArgs, p) {
-		return nil, fmt.Errorf("expected plugin args %v but got %v", PluginArgs, p)
-	}
+
 	return StaticPluginProvider{}, nil
 }
 
-func (s staticRelayer) NewLLOProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.LLOProvider, error) {
+func (s StaticPluginRelayer) NewLLOProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.LLOProvider, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s staticRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
+func (s StaticPluginRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	return chain, nil
 }
 
-func (s staticRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) ([]types.NodeStatus, string, int, error) {
-	if limit != pageSize {
+func (s StaticPluginRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) ([]types.NodeStatus, string, int, error) {
+	if s.StaticChecks && limit != pageSize {
 		return nil, "", -1, fmt.Errorf("expected page_size %d but got %d", limit, pageSize)
 	}
 	if pageToken != "" {
@@ -116,19 +125,22 @@ func (s staticRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pag
 	return nodes, "", total, nil
 }
 
-func (s staticRelayer) Transact(ctx context.Context, f, t string, a *big.Int, b bool) error {
-	if f != from {
-		return fmt.Errorf("expected from %s but got %s", from, f)
+func (s StaticPluginRelayer) Transact(ctx context.Context, f, t string, a *big.Int, b bool) error {
+	if s.StaticChecks {
+		if f != from {
+			return fmt.Errorf("expected from %s but got %s", from, f)
+		}
+		if t != to {
+			return fmt.Errorf("expected to %s but got %s", to, t)
+		}
+		if amount.Cmp(a) != 0 {
+			return fmt.Errorf("expected amount %s but got %s", amount, a)
+		}
+		if b != balanceCheck { //nolint:gosimple
+			return fmt.Errorf("expected balance check %t but got %t", balanceCheck, b)
+		}
 	}
-	if t != to {
-		return fmt.Errorf("expected to %s but got %s", to, t)
-	}
-	if amount.Cmp(a) != 0 {
-		return fmt.Errorf("expected amount %s but got %s", amount, a)
-	}
-	if b != balanceCheck { //nolint:gosimple
-		return fmt.Errorf("expected balance check %t but got %t", balanceCheck, b)
-	}
+
 	return nil
 }
 
@@ -362,4 +374,171 @@ func RunRelayer(t *testing.T, relayer internal.Relayer) {
 		err := relayer.Transact(ctx, from, to, amount, balanceCheck)
 		require.NoError(t, err)
 	})
+}
+
+func RunFuzzPluginRelayer(f *testing.F, relayerFunc func(*testing.T) internal.PluginRelayer) {
+	f.Add("ABC\xa8\x8c\xb3G\xfc", "", true, []byte{}, true, true, "")
+	f.Add(ConfigTOML, string(account), false, signed, false, false, "")
+
+	f.Fuzz(func(
+		t *testing.T, fConfig string, fAccts string, fAcctErr bool,
+		fSigned []byte, fSignErr bool, fValsWErr bool, fErr string,
+	) {
+		keystore := fuzzerKeystore{
+			accounts:      []string{fAccts}, // fuzzer does not support []string type
+			acctErr:       fAcctErr,
+			signed:        fSigned,
+			signErr:       fSignErr,
+			valuesWithErr: fValsWErr,
+			errStr:        fErr,
+		}
+
+		ctx := tests.Context(t)
+		_, err := relayerFunc(t).NewRelayer(ctx, fConfig, keystore)
+
+		grpcUnavailableErr(t, err)
+	})
+}
+
+func RunFuzzRelayer(f *testing.F, relayerFunc func(*testing.T) internal.Relayer) {
+	validRaw := [16]byte(RelayArgs.ExternalJobID)
+	validRawBytes := make([]byte, 16)
+
+	copy(validRawBytes, validRaw[:])
+
+	f.Add([]byte{}, int32(-1), "ABC\xa8\x8c\xb3G\xfc", false, []byte{}, "", "", []byte{})
+	f.Add(validRawBytes, int32(123), "testcontract", true, []byte(ConfigTOML), string(types.Median), "testtransmitter", []byte{100: 88})
+
+	f.Fuzz(func(
+		t *testing.T, fExtJobID []byte, fJobID int32, fContractID string, fNew bool,
+		fConfig []byte, fType string, fTransmID string, fPlugConf []byte,
+	) {
+		var rawBytes [16]byte
+
+		copy(rawBytes[:], fExtJobID)
+
+		relayer := relayerFunc(t)
+		ctx := tests.Context(t)
+		fRelayArgs := types.RelayArgs{
+			ExternalJobID: uuid.UUID(rawBytes),
+			JobID:         fJobID,
+			ContractID:    fContractID,
+			New:           fNew,
+			RelayConfig:   fConfig,
+			ProviderType:  fType,
+		}
+
+		_, err := relayer.NewConfigProvider(ctx, fRelayArgs)
+
+		grpcUnavailableErr(t, err)
+
+		pArgs := types.PluginArgs{
+			TransmitterID: fTransmID,
+			PluginConfig:  fPlugConf,
+		}
+
+		provider, err := relayer.NewPluginProvider(ctx, fRelayArgs, pArgs)
+		// require.NoError(t, provider.Start(ctx))
+		t.Log("provider created")
+		t.Cleanup(func() {
+			t.Log("cleanup called")
+			if provider != nil {
+				assert.NoError(t, provider.Close())
+			}
+		})
+
+		grpcUnavailableErr(t, err)
+		t.Logf("error tested: %s", err)
+	})
+}
+
+type FuzzableProvider[K any] func(context.Context, types.RelayArgs, types.PluginArgs) (K, error)
+
+func RunFuzzProvider[K any](f *testing.F, providerFunc func(*testing.T) FuzzableProvider[K]) {
+	validRaw := [16]byte(RelayArgs.ExternalJobID)
+	validRawBytes := make([]byte, 16)
+
+	copy(validRawBytes, validRaw[:])
+
+	f.Add([]byte{}, int32(-1), "ABC\xa8\x8c\xb3G\xfc", false, []byte{}, "", "", []byte{})                                                    // bad inputs
+	f.Add(validRawBytes, int32(123), "testcontract", true, []byte(ConfigTOML), string(types.Median), "testtransmitter", []byte{100: 88})     // valid for MedianProvider
+	f.Add(validRawBytes, int32(123), "testcontract", true, []byte(ConfigTOML), string(types.Mercury), "testtransmitter", []byte{100: 88})    // valid for MercuryProvider
+	f.Add(validRawBytes, int32(123), "testcontract", true, []byte(ConfigTOML), string(types.Functions), "testtransmitter", []byte{100: 88})  // valid for FunctionsProvider
+	f.Add(validRawBytes, int32(123), "testcontract", true, []byte(ConfigTOML), string(types.OCR2Keeper), "testtransmitter", []byte{100: 88}) // valid for AutomationProvider
+
+	f.Fuzz(func(
+		t *testing.T, fExtJobID []byte, fJobID int32, fContractID string, fNew bool,
+		fConfig []byte, fType string, fTransmID string, fPlugConf []byte,
+	) {
+		var rawBytes [16]byte
+
+		copy(rawBytes[:], fExtJobID)
+
+		provider := providerFunc(t)
+		ctx := tests.Context(t)
+		fRelayArgs := types.RelayArgs{
+			ExternalJobID: uuid.UUID(rawBytes),
+			JobID:         fJobID,
+			ContractID:    fContractID,
+			New:           fNew,
+			RelayConfig:   fConfig,
+			ProviderType:  fType,
+		}
+
+		pArgs := types.PluginArgs{
+			TransmitterID: fTransmID,
+			PluginConfig:  fPlugConf,
+		}
+
+		_, err := provider(ctx, fRelayArgs, pArgs)
+
+		grpcUnavailableErr(t, err)
+	})
+}
+
+func grpcUnavailableErr(t *testing.T, err error) {
+	t.Helper()
+
+	if code := status.Code(err); code == codes.Unavailable {
+		t.FailNow()
+	}
+}
+
+type fuzzerKeystore struct {
+	accounts      []string
+	acctErr       bool
+	signed        []byte
+	signErr       bool
+	valuesWithErr bool
+	errStr        string
+}
+
+func (k fuzzerKeystore) Accounts(ctx context.Context) ([]string, error) {
+	if k.acctErr {
+		err := fmt.Errorf(k.errStr)
+
+		if k.valuesWithErr {
+			return k.accounts, err
+		}
+
+		return nil, err
+	}
+
+	return k.accounts, nil
+}
+
+// Sign returns data signed by account.
+// nil data can be used as a no-op to check for account existence.
+func (k fuzzerKeystore) Sign(ctx context.Context, account string, data []byte) ([]byte, error) {
+	if k.signErr {
+		err := fmt.Errorf(k.errStr)
+
+		if k.valuesWithErr {
+			return k.signed, err
+		}
+
+		return nil, err
+	}
+
+	return k.signed, nil
 }
