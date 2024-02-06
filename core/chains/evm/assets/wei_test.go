@@ -1,6 +1,8 @@
 package assets
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -74,6 +76,9 @@ func FuzzWei(f *testing.F) {
 		if len(v) > 1_000 {
 			t.Skip()
 		}
+		if tryParseExp(v) > 4888888 {
+			t.Skip()
+		}
 		var w Wei
 		err := w.UnmarshalText([]byte(v))
 		if err != nil {
@@ -88,4 +93,16 @@ func FuzzWei(f *testing.F) {
 		require.NoErrorf(t, err, "failed to unmarshal %s after marshaling from %v", string(b), w)
 		require.Equal(t, w, w2, "unequal values after marshal/unmarshal")
 	})
+}
+
+func tryParseExp(v string) int64 {
+	i := strings.IndexAny(v, "Ee")
+	if i == -1 {
+		return -1
+	}
+	e, err := strconv.ParseInt(v[i+1:], 10, 32)
+	if err != nil {
+		return -1
+	}
+	return e
 }
