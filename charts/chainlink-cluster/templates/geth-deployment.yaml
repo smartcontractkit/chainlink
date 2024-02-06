@@ -95,7 +95,7 @@ spec:
           - '--http.corsdomain'
           - '*'
           - '--vmdebug'
-          - '--networkid={{ .Values.geth.networkid }}'
+          - '--networkid={{ .Values.geth.networkId }}'
           - '--rpc.txfeecap'
           - '0'
           - '--dev.period'
