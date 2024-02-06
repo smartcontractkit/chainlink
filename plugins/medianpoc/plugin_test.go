@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -72,6 +73,10 @@ func (p provider) OnchainConfigCodec() median.OnchainConfigCodec {
 }
 
 func (p provider) ChainReader() types.ChainReader {
+	return nil
+}
+
+func (p provider) Codec() types.Codec {
 	return nil
 }
 

@@ -126,6 +126,7 @@ var (
 type Job struct {
 	ID                            int32     `toml:"-"`
 	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
+	StreamID                      *uint64   `toml:"streamID"`
 	OCROracleSpecID               *int32
 	OCROracleSpec                 *OCROracleSpec
 	OCR2OracleSpecID              *int32
@@ -277,7 +278,8 @@ func (s *OCROracleSpec) SetID(value string) error {
 	return nil
 }
 
-// JSONConfig is a Go mapping for JSON based database properties.
+// JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
+// sql.Scanner and driver.Valuer.
 type JSONConfig map[string]interface{}
 
 // Bytes returns the raw bytes

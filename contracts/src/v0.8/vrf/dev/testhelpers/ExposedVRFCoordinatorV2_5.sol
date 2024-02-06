@@ -65,4 +65,13 @@ contract ExposedVRFCoordinatorV2_5 is VRFCoordinatorV2_5 {
   function getWithdrawableNativeTestingOnlyXXX() external view returns (uint96) {
     return s_withdrawableNative;
   }
+
+  function calculatePaymentAmount(
+    uint256 startGas,
+    uint256 weiPerUnitGas,
+    bool nativePayment,
+    bool onlyPremium
+  ) external returns (uint96) {
+    return _calculatePaymentAmount(startGas, weiPerUnitGas, nativePayment, onlyPremium);
+  }
 }

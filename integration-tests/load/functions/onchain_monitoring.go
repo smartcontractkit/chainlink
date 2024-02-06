@@ -6,6 +6,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 /* Monitors on-chain stats of LoadConsumer and pushes them to Loki every second */
@@ -23,7 +25,7 @@ type LoadStats struct {
 	Empty     uint32
 }
 
-func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string) {
+func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string, config tc.GlobalTestConfig) {
 	go func() {
 		updatedLabels := make(map[string]string)
 		for k, v := range labels {
@@ -32,7 +34,9 @@ func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string)
 		updatedLabels["type"] = LokiTypeLabel
 		updatedLabels["go_test_name"] = t.Name()
 		updatedLabels["gen_name"] = "performance"
-		lc, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
+		cfgl := config.GetLoggingConfig().Loki
+		lokiConfig := wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken)
+		lc, err := wasp.NewLokiClient(lokiConfig)
 		if err != nil {
 			log.Error().Err(err).Msg(ErrLokiClient)
 			return
@@ -46,16 +50,20 @@ func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string)
 			if err != nil {
 				log.Error().Err(err).Msg(ErrMetrics)
 			}
-			log.Info().
-				Hex("LastReqID", []byte(stats.LastRequestID)).
-				Str("LastResponse", stats.LastResponse).
-				Str("LastError", stats.LastError).
-				Uint32("Total", stats.Total).
-				Uint32("Succeeded", stats.Succeeded).
-				Uint32("Errored", stats.Errored).
-				Uint32("Empty", stats.Empty).Msg("On-chain stats for load test client")
-			if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), stats); err != nil {
-				log.Error().Err(err).Msg(ErrLokiPush)
+			if stats != nil {
+				log.Info().
+					Hex("LastReqID", []byte(stats.LastRequestID)).
+					Str("LastResponse", stats.LastResponse).
+					Str("LastError", stats.LastError).
+					Uint32("Total", stats.Total).
+					Uint32("Succeeded", stats.Succeeded).
+					Uint32("Errored", stats.Errored).
+					Uint32("Empty", stats.Empty).Msg("On-chain stats for load test client")
+				if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), stats); err != nil {
+					log.Error().Err(err).Msg(ErrLokiPush)
+				}
+			} else {
+				log.Warn().Msg("No stats to push to Loki")
 			}
 		}
 	}()
