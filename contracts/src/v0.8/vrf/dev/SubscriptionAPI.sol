@@ -412,20 +412,24 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   function _deleteSubscription(uint256 subId) internal returns (uint96 balance, uint96 nativeBalance) {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
-    Subscription memory sub = s_subscriptions[subId];
-    balance = sub.balance;
-    nativeBalance = sub.nativeBalance;
+    address[] storage consumers = s_subscriptionConfigs[subId].consumers;
+    balance = s_subscriptions[subId].balance;
+    nativeBalance = s_subscriptions[subId].nativeBalance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
-    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      delete s_consumers[subConfig.consumers[i]][subId];
+    uint256 consumersLength = consumers.length;
+    for (uint256 i = 0; i < consumersLength; i++) {
+      delete s_consumers[consumers[i]][subId];
     }
     delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];
     s_subIds.remove(subId);
-    s_totalBalance -= balance;
-    s_totalNativeBalance -= nativeBalance;
+    if (balance != 0) {
+      s_totalBalance -= balance;
+    }
+    if (nativeBalance != 0) {
+      s_totalNativeBalance -= nativeBalance;
+    }
     return (balance, nativeBalance);
   }
 
