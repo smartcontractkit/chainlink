@@ -96,7 +96,7 @@ func NewServices(
 	saver := ocrcommon.NewResultRunSaver(pipelineRunner, lggr, cfg.MaxSuccessfulRuns(), cfg.ResultWriteQueueDepth())
 	srvs = append(srvs, saver)
 
-	loopEnabled, loopCmd := env.MercuryPlugin.Cmd.Get() != "", env.MercuryPlugin.Env.Get()
+	loopEnabled, loopCmd := env.MercuryPlugin.Cmd.Get() != "", env.MercuryPlugin.Cmd.Get()
 
 	// this is the factory that will be used to create the mercury plugin
 	var factory ocr3types.MercuryPluginFactory
@@ -203,6 +203,7 @@ func NewServices(
 }
 
 func initLoop(cmd string, cfg Config, feedID utils.FeedID, lggr logger.Logger) (func() *exec.Cmd, loop.GRPCOpts, logger.Logger, error) {
+	lggr.Debug("Initializing loop for Mercury with command", cmd)
 	mercuryLggr := lggr.Named(fmt.Sprintf("MercuryV%d", feedID.Version())).Named(feedID.String())
 	envVars, err := plugins.ParseEnvFile(env.MercuryPlugin.Env.Get())
 	if err != nil {
