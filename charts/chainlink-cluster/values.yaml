@@ -284,6 +284,9 @@ nodeSelector:
 tolerations:
 affinity:
 
+networkPolicies:
+  enabled: true
+
 # Configure the default network policy.
 networkPolicyDefault:
   ingress:

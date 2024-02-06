@@ -30,7 +30,7 @@ type TxStrategy interface {
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
 	// unstarted txs and deletion options
-	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (n int64, err error)
+	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (ids []int64, err error)
 }
 
 type TxAttemptState int8
@@ -145,6 +145,10 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
+
+	// Used for VRF to know if the txn is a ForceFulfilment txn
+	ForceFulfilled          *bool   `json:"ForceFulfilled,omitempty"`
+	ForceFulfillmentAttempt *uint64 `json:"ForceFulfillmentAttempt,omitempty"`
 
 	// Used only for forwarded txs, tracks the original destination address.
 	// When this is set, it indicates tx is forwarded through To address.

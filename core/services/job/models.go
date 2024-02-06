@@ -126,6 +126,7 @@ var (
 type Job struct {
 	ID                            int32     `toml:"-"`
 	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
+	StreamID                      *uint64   `toml:"streamID"`
 	OCROracleSpecID               *int32
 	OCROracleSpec                 *OCROracleSpec
 	OCR2OracleSpecID              *int32
