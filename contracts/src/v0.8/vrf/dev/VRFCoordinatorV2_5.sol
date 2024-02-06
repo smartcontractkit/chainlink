@@ -688,7 +688,6 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     for (uint256 i = 0; i < nTargets; i++) {
       if (s_migrationTargets[i] == target) {
         s_migrationTargets[i] = s_migrationTargets[nTargets - 1];
-        s_migrationTargets[nTargets - 1] = target;
         s_migrationTargets.pop();
         emit CoordinatorDeregistered(target);
         return;
