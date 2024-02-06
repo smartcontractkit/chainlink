@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 const (
@@ -63,6 +64,13 @@ type BroadcasterConfig interface {
 
 type KeyStore interface {
 	EnabledAddressesForChain(*big.Int) ([]common.Address, error)
+}
+
+type SequenceSyncer interface {
+	LoadNextSequenceMap(context.Context, []common.Address)
+	GetNextSequence(context.Context, common.Address) (evmtypes.Nonce, error)
+	IncrementNextSequence(common.Address)
+	SyncSequence(context.Context, common.Address, services.StopChan)
 }
 
 type Broadcaster struct {

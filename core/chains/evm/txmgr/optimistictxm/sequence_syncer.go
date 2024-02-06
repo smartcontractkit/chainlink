@@ -21,14 +21,7 @@ type SequenceSyncerTxStore interface {
 
 type SequenceSyncerClient interface {
 	ConfiguredChainID() *big.Int
-	PendingSequenceAt(context.Context, common.Address) (evmtypes.Nonce, error)
-}
-
-type SequenceSyncer interface {
-	LoadNextSequenceMap(context.Context, []common.Address)
-	GetNextSequence(context.Context, common.Address) (evmtypes.Nonce, error)
-	IncrementNextSequence(common.Address)
-	SyncSequence(context.Context, common.Address, services.StopChan)
+	PendingNonceAt(context.Context, common.Address) (uint64, error)
 }
 
 type sequenceSyncer struct {
@@ -42,9 +35,9 @@ type sequenceSyncer struct {
 	sequenceLock sync.RWMutex
 }
 
-func NewSequenceSyncer(lggr logger.SugaredLogger, txStore SequenceSyncerTxStore, client SequenceSyncerClient) SequenceSyncer {
+func NewSequenceSyncer(lggr logger.Logger, txStore SequenceSyncerTxStore, client SequenceSyncerClient) *sequenceSyncer {
 	return &sequenceSyncer{
-		lggr:    lggr,
+		lggr:    logger.Sugared(lggr),
 		txStore: txStore,
 		chainID: client.ConfiguredChainID(),
 		client:  client,
@@ -76,9 +69,9 @@ func (s *sequenceSyncer) getSequenceForAddr(ctx context.Context, address common.
 	}
 	// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
 	// Returns the nonce that should be used for the next transaction so no need to increment
-	seq, err = s.client.PendingSequenceAt(ctx, address)
+	nonce, err := s.client.PendingNonceAt(ctx, address)
 	if err == nil {
-		return seq, nil
+		return evmtypes.Nonce(nonce), nil
 	}
 	s.lggr.Criticalw("failed to retrieve next sequence from on-chain for address: ", "address", address.String())
 	return seq, err
@@ -117,29 +110,31 @@ func (s *sequenceSyncer) SyncSequence(ctx context.Context, addr common.Address, 
 				}
 				continue
 			}
+			return
 		}
 	}
 }
 
 func (s *sequenceSyncer) syncOnChain(ctx context.Context, addr common.Address, localSequence evmtypes.Nonce) (err error) {
-	chainSequence, err := s.client.PendingSequenceAt(ctx, addr)
+	chainSequence, err := s.client.PendingNonceAt(ctx, addr)
 	if err != nil {
 		return err
 	}
-	if chainSequence > localSequence {
+	nonce := evmtypes.Nonce(chainSequence)
+	if nonce > localSequence {
 		s.lggr.Warnw(fmt.Sprintf("address %s has been used before, either by an external wallet or a different Chainlink node. "+
 			"Local nonce is %v but the on-chain nonce for this account was %v. "+
 			"It's possible that this node was restored from a backup. If so, transactions sent by the previous node will NOT be re-org protected and in rare cases may need to be manually bumped/resubmitted. "+
 			"Please note that using the chainlink keys with an external wallet is NOT SUPPORTED and can lead to missed or stuck transactions. ",
-			addr, localSequence, chainSequence),
-			"address", addr.String(), "localNonce", localSequence, "chainNonce", chainSequence)
+			addr, localSequence, nonce),
+			"address", addr.String(), "localNonce", localSequence, "chainNonce", nonce)
 
-		s.lggr.Infow("Fast-forward sequence", "address", addr, "newNextSequence", chainSequence, "oldNextSequence", localSequence)
+		s.lggr.Infow("Fast-forward sequence", "address", addr, "newNextSequence", nonce, "oldNextSequence", localSequence)
 	}
 
 	s.sequenceLock.Lock()
 	defer s.sequenceLock.Unlock()
-	s.nextSequenceMap[addr] = max(localSequence, chainSequence)
+	s.nextSequenceMap[addr] = max(localSequence, nonce)
 	return nil
 }
 
@@ -171,7 +166,6 @@ func (s *sequenceSyncer) GetNextSequence(ctx context.Context, address common.Add
 	return foundSeq, nil
 }
 
-// Used to increment the sequence in the mapping to have the next usable one available for the next transaction
 func (s *sequenceSyncer) IncrementNextSequence(address common.Address) {
 	s.sequenceLock.Lock()
 	defer s.sequenceLock.Unlock()
