@@ -23,8 +23,8 @@ builds:
       - arm64
     env:
       - CGO_ENABLED=1
-      - CC=zig cc -target aarch64-linux-gnu
-      - CCX=zig c++ -target aarch64-linux-gnu
+      - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
+      - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu
     flags:
       - -trimpath
       - -buildmode=pie
@@ -40,8 +40,8 @@ builds:
       - amd64
     env:
       - CGO_ENABLED=1
-      - CC=zig cc -target x86_64-linux-gnu
-      - CCX=zig c++ -target x86_64-linux-gnu
+      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
+      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu
     flags:
       - -trimpath
       - -buildmode=pie
