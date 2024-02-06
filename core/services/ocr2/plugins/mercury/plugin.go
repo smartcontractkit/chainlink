@@ -3,6 +3,7 @@ package mercury
 import (
 	"encoding/json"
 	"fmt"
+	"os/exec"
 
 	"github.com/pkg/errors"
 
@@ -96,6 +97,7 @@ func NewServices(
 	srvs = append(srvs, saver)
 
 	loopEnabled, loopCmd := env.MercuryPlugin.Cmd.Get() != "", env.MercuryPlugin.Env.Get()
+
 	// this is the factory that will be used to create the mercury plugin
 	var factory ocr3types.MercuryPluginFactory
 	switch feedID.Version() {
@@ -115,23 +117,13 @@ func NewServices(
 		)
 
 		if loopEnabled {
-			mercuryLggr := lggr.Named("MercuryV1").Named(feedID.String())
-			envVars, err2 := plugins.ParseEnvFile(env.MercuryPlugin.Env.Get())
+			cmdFn, opts, mercuryLggr, err2 := initLoop(loopCmd, cfg, feedID, lggr)
 			if err2 != nil {
 				abort()
-				return nil, fmt.Errorf("failed to parse mercury env file: %w", err2)
-			}
-			cmdFn, opts, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
-				ID:  mercuryLggr.Name(),
-				Cmd: loopCmd,
-				Env: envVars,
-			})
-			if err2 != nil {
-				abort()
-				return nil, fmt.Errorf("failed to register loop: %w", err2)
+				return nil, fmt.Errorf("failed to init loop for feed %s: %w", feedID, err2)
 			}
 			// in loopp mode, the factory is grpc server, and we need to handle the server lifecycle
-			factoryServer := loop.NewMercuryV1Service(lggr, opts, cmdFn, ocr2Provider, ds)
+			factoryServer := loop.NewMercuryV1Service(mercuryLggr, opts, cmdFn, ocr2Provider, ds)
 			srvs = append(srvs, factoryServer)
 			// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
 			factory = factoryServer
@@ -154,23 +146,13 @@ func NewServices(
 		)
 
 		if loopEnabled {
-			mercuryLggr := lggr.Named("MercuryV2").Named(feedID.String())
-			envVars, err2 := plugins.ParseEnvFile(env.MercuryPlugin.Env.Get())
+			cmdFn, opts, mercuryLggr, err2 := initLoop(loopCmd, cfg, feedID, lggr)
 			if err2 != nil {
 				abort()
-				return nil, fmt.Errorf("failed to parse mercury env file: %w", err2)
-			}
-			cmdFn, opts, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
-				ID:  mercuryLggr.Name(),
-				Cmd: loopCmd,
-				Env: envVars,
-			})
-			if err2 != nil {
-				abort()
-				return nil, fmt.Errorf("failed to register loop: %w", err2)
+				return nil, fmt.Errorf("failed to init loop for feed %s: %w", feedID, err2)
 			}
 			// in loopp mode, the factory is grpc server, and we need to handle the server lifecycle
-			factoryServer := loop.NewMercuryV2Service(lggr, opts, cmdFn, ocr2Provider, ds)
+			factoryServer := loop.NewMercuryV2Service(mercuryLggr, opts, cmdFn, ocr2Provider, ds)
 			srvs = append(srvs, factoryServer)
 			// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
 			factory = factoryServer
@@ -193,23 +175,13 @@ func NewServices(
 		)
 
 		if loopEnabled {
-			mercuryLggr := lggr.Named("MercuryV3").Named(feedID.String())
-			envVars, err2 := plugins.ParseEnvFile(env.MercuryPlugin.Env.Get())
+			cmdFn, opts, mercuryLggr, err2 := initLoop(loopCmd, cfg, feedID, lggr)
 			if err2 != nil {
 				abort()
-				return nil, fmt.Errorf("failed to parse mercury env file: %w", err2)
-			}
-			cmdFn, opts, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
-				ID:  mercuryLggr.Name(),
-				Cmd: loopCmd,
-				Env: envVars,
-			})
-			if err2 != nil {
-				abort()
-				return nil, fmt.Errorf("failed to register loop: %w", err2)
+				return nil, fmt.Errorf("failed to init loop for feed %s: %w", feedID, err2)
 			}
 			// in loopp mode, the factory is grpc server, and we need to handle the server lifecycle
-			factoryServer := loop.NewMercuryV3Service(lggr, opts, cmdFn, ocr2Provider, ds)
+			factoryServer := loop.NewMercuryV3Service(mercuryLggr, opts, cmdFn, ocr2Provider, ds)
 			srvs = append(srvs, factoryServer)
 			// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
 			factory = factoryServer
@@ -228,4 +200,21 @@ func NewServices(
 	}
 	srvs = append(srvs, job.NewServiceAdapter(oracle))
 	return srvs, nil
+}
+
+func initLoop(cmd string, cfg Config, feedID utils.FeedID, lggr logger.Logger) (func() *exec.Cmd, loop.GRPCOpts, logger.Logger, error) {
+	mercuryLggr := lggr.Named(fmt.Sprintf("MercuryV%d", feedID.Version())).Named(feedID.String())
+	envVars, err := plugins.ParseEnvFile(env.MercuryPlugin.Env.Get())
+	if err != nil {
+		return nil, loop.GRPCOpts{}, nil, fmt.Errorf("failed to parse mercury env file: %w", err)
+	}
+	cmdFn, opts, err := cfg.RegisterLOOP(plugins.CmdConfig{
+		ID:  mercuryLggr.Name(),
+		Cmd: cmd,
+		Env: envVars,
+	})
+	if err != nil {
+		return nil, loop.GRPCOpts{}, nil, fmt.Errorf("failed to register loop: %w", err)
+	}
+	return cmdFn, opts, mercuryLggr, nil
 }
