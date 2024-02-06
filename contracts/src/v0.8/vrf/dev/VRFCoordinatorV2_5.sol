@@ -438,54 +438,63 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     Proof memory proof,
     RequestCommitment memory rc,
     bool onlyPremium
-  ) external nonReentrant returns (uint96) {
+  ) external nonReentrant returns (uint96 payment) {
     uint256 startGas = gasleft();
     Output memory output = _getRandomnessFromProof(proof, rc);
     uint256 gasPrice = _getValidatedGasPrice(onlyPremium, output.provingKey.maxGas);
 
-    uint256[] memory randomWords = new uint256[](rc.numWords);
-    for (uint256 i = 0; i < rc.numWords; i++) {
-      randomWords[i] = uint256(keccak256(abi.encode(output.randomness, i)));
-    }
-
-    delete s_requestCommitments[output.requestId];
-    bool success = _deliverRandomness(output.requestId, rc, randomWords);
-
-    // Increment the req count for the subscription.
+    uint256[] memory randomWords;
+    uint256 randomness = output.randomness;
     // stack too deep error
     {
-      s_subscriptions[rc.subId].reqCount = s_subscriptions[rc.subId].reqCount + 1;
+      uint256 numWords = rc.numWords;
+      randomWords = new uint256[](numWords);
+      for (uint256 i = 0; i < numWords; i++) {
+        randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
+      }
     }
 
-    bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
+    uint256 requestId = output.requestId;
+    delete s_requestCommitments[requestId];
+    bool success = _deliverRandomness(requestId, rc, randomWords);
 
-    // We want to charge users exactly for how much gas they use in their callback.
-    // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-    // decrement the subscription balance and increment the oracles withdrawable balance.
-    uint96 payment = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+    // Increment the req count for the subscription.
+    uint256 subId = rc.subId;
+    ++s_subscriptions[subId].reqCount;
 
-    _chargePayment(payment, nativePayment, rc.subId);
+    // stack too deep error
+    {
+      bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
+
+      // We want to charge users exactly for how much gas they use in their callback.
+      // The gasAfterPaymentCalculation is meant to cover these additional operations where we
+      // decrement the subscription balance and increment the oracles withdrawable balance.
+      payment = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+
+      _chargePayment(payment, nativePayment, subId);
+    }
 
     // Include payment in the event for tracking costs.
-    emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, success, onlyPremium);
+    emit RandomWordsFulfilled(requestId, randomness, subId, payment, success, onlyPremium);
 
     return payment;
   }
 
   function _chargePayment(uint96 payment, bool nativePayment, uint256 subId) internal {
+    Subscription storage subcription = s_subscriptions[subId];
     if (nativePayment) {
-      uint96 prevBal = s_subscriptions[subId].nativeBalance;
+      uint96 prevBal = subcription.nativeBalance;
       if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].nativeBalance = prevBal - payment;
+      subcription.nativeBalance = prevBal - payment;
       s_withdrawableNative += payment;
     } else {
-      uint96 prevBal = s_subscriptions[subId].balance;
+      uint96 prevBal = subcription.balance;
       if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].balance = prevBal - payment;
+      subcription.balance = prevBal - payment;
       s_withdrawableTokens += payment;
     }
   }
