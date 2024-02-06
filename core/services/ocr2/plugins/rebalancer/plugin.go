@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
@@ -238,19 +239,21 @@ func (p *Plugin) Close() error {
 	ctx, cf := context.WithTimeout(context.Background(), p.closePluginTimeout)
 	defer cf()
 
+	var errs []error
 	for networkID, lmAddr := range p.liquidityManagers.GetAll() {
-		// todo: lmCloser := liquidityManagerFactory.NewLiquidityManagerCloser(); lmCloser.Close()
-		lm, err := p.liquidityManagerFactory.NewRebalancer(networkID, lmAddr)
+		rb, err := p.liquidityManagerFactory.GetRebalancer(networkID, lmAddr)
 		if err != nil {
-			return err
+			errs = append(errs, fmt.Errorf("get rebalancer (%d, %v): %w", networkID, lmAddr, err))
+			continue
 		}
 
-		if err := lm.Close(ctx); err != nil {
-			return err
+		if err := rb.Close(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("close rebalancer (%d, %v): %w", networkID, lmAddr, err))
+			continue
 		}
 	}
 
-	return nil
+	return multierr.Combine(errs...)
 }
 
 // todo: consider placing the graph exploration logic under graph package to keep the plugin logic cleaner
