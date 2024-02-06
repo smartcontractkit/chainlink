@@ -729,6 +729,27 @@ LIMIT $4
 	return attempts, pkgerrors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load evm.tx_attempts")
 }
 
+func (o *evmTxStore) MarkTxsConfirmed(ctx context.Context, chainID *big.Int, addr common.Address, minedNonce evmtypes.Nonce) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	_, err := qq.Exec(`
+	UPDATE evm.txes
+	SET evm.txes.state = 'confirmed'
+	WHERE evm.txes.evm_chain_id = $1 AND evm.txes.from_address = $2 AND evm.txes.nonce < $3`, chainID, addr, minedNonce)
+	return pkgerrors.Wrap(err, "MarkConfirmed failed to update evm.txes")
+}
+
+func (o *evmTxStore) UpdateBroadcastAtsForUnconfirmed(ctx context.Context, now time.Time, etxIDs []int64) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	_, err := qq.Exec(`UPDATE evm.txes SET broadcast_at = $1, state = 'unconfirmed' WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
+	return pkgerrors.Wrap(err, "updateBroadcastAts failed to update evm.txes")
+}
+
 func (o *evmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etxIDs []int64) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
@@ -1356,6 +1377,28 @@ func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err erro
 	return txe, nil
 }
 
+func (o *evmTxStore) FindTxsRequiringBumping(ctx context.Context, olderThan time.Time, maxInFlight uint32, chainID *big.Int, address common.Address, nonce evmtypes.Nonce) (etxs []Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var limit null.Uint32
+	if maxInFlight > 0 {
+		limit = null.Uint32From(maxInFlight)
+	}
+	var dbEtxs []DbEthTx
+	err = qq.Select(&dbEtxs, `
+SELECT DISTINCT ON (evm.txes.nonce) evm.tx_attempts.*
+FROM evm.txes
+WHERE evm.txes.state IN ('unconfirmed', 'confirmed') AND evm.txes.from_address = $1 AND evm.txes.evm_chain_id = $2 AND evm.txes.broadcast_at <= $3 LIMIT $4
+`, address, chainID.String(), olderThan, limit)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "FindEthTxsRequiringGasBump failed to load evm.txes")
+	}
+
+	return dbEthTxsToEvmEthTxs(dbEtxs), nil
+}
+
 // FindTxsRequiringGasBump returns transactions that have all
 // attempts which are unconfirmed for at least gasBumpThreshold blocks,
 // limited by limit pending transactions
@@ -1583,6 +1626,31 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 	})
 }
 
+func (o *evmTxStore) UpdateTxInProgressToUnconfirmed(ctx context.Context, etx *Tx) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	if etx.BroadcastAt == nil {
+		return errors.New("unconfirmed transaction must have broadcast_at time")
+	}
+	if etx.InitialBroadcastAt == nil {
+		return errors.New("unconfirmed transaction must have initial_broadcast_at time")
+	}
+	if etx.State != txmgr.TxInProgress {
+		return pkgerrors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
+	}
+	etx.State = txmgr.TxUnconfirmed
+	return qq.Transaction(func(tx pg.Queryer) error {
+		var dbEtx DbEthTx
+		dbEtx.FromTx(etx)
+		if err := tx.Get(&dbEtx, `UPDATE evm.txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, dbEtx.State, dbEtx.Error, dbEtx.BroadcastAt, dbEtx.InitialBroadcastAt, dbEtx.ID); err != nil {
+			return pkgerrors.Wrap(err, "SaveEthTxAttempt failed to save eth_tx")
+		}
+		return nil
+	})
+}
+
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState) error {
 	var cancel context.CancelFunc
@@ -1619,6 +1687,27 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, e
 			return pkgerrors.Wrap(err, "SaveEthTxAttempt failed to save eth_tx_attempt")
 		}
 		return nil
+	})
+}
+
+// Updates eth tx from unstarted to in_progress
+func (o *evmTxStore) BroadcasterUpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	if etx.Sequence == nil {
+		return errors.New("in_progress transaction must have nonce")
+	}
+	if etx.State != txmgr.TxUnstarted {
+		return pkgerrors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
+	}
+	etx.State = txmgr.TxInProgress
+	return qq.Transaction(func(tx pg.Queryer) error {
+		var dbEtx DbEthTx
+		dbEtx.FromTx(etx)
+		err := tx.Get(&dbEtx, `UPDATE evm.txes SET nonce=$1, state=$2 WHERE id=$5 RETURNING *`, etx.Sequence, etx.State, etx.ID)
+		return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to update eth_tx")
 	})
 }
 
@@ -1690,6 +1779,31 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 		dbEtx.ToTx(etx)
 		return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to update eth_tx")
 	})
+}
+
+func (o *evmTxStore) BroadcasterGetTxInProgress(ctx context.Context, fromAddress common.Address) (etx *Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	etx = new(Tx)
+	if err != nil {
+		return etx, pkgerrors.Wrap(err, "getInProgressEthTx failed")
+	}
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		var dbEtx DbEthTx
+		err = tx.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress)
+		if errors.Is(err, sql.ErrNoRows) {
+			etx = nil
+			return nil
+		} else if err != nil {
+			return pkgerrors.Wrap(err, "GetTxInProgress failed while loading eth tx")
+		}
+		dbEtx.ToTx(etx)
+		return nil
+	})
+
+	return etx, pkgerrors.Wrap(err, "getInProgressEthTx failed")
 }
 
 // GetTxInProgress returns either 0 or 1 transaction that was left in
@@ -1881,6 +1995,16 @@ id < (
 		return err
 	})
 	return
+}
+
+func (o *evmTxStore) ReapTxs(ctx context.Context, timeThreshold time.Time, chainID *big.Int) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	_, err := qq.Exec(`DELETE FROM evm.txes WHERE created_at < $1 AND state = 'unconfirmed' AND evm_chain_id = $2`, timeThreshold, chainID.String())
+	return pkgerrors.Wrap(err, "ReapTxs failed to delete old txs")
 }
 
 func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {

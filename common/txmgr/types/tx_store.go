@@ -103,6 +103,13 @@ type TransactionStore[
 	// Update tx to mark that its callback has been signaled
 	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error
 	UpdateTxsUnconfirmed(ctx context.Context, ids []int64) error
+	BroadcasterGetTxInProgress(context.Context, ADDR) (*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
+	UpdateTxInProgressToUnconfirmed(context.Context, *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
+	BroadcasterUpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
+	ReapTxs(context.Context, time.Time, CHAIN_ID) error
+	MarkTxsConfirmed(context.Context, *big.Int, ADDR, SEQ) error
+	UpdateBroadcastAtsForUnconfirmed(context.Context, time.Time, []int64) error
+	FindTxsRequiringBumping(context.Context, time.Time, uint32, *big.Int, ADDR, SEQ) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
 	UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxFatalError(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxForRebroadcast(ctx context.Context, etx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error

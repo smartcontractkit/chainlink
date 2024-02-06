@@ -182,6 +182,11 @@ func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() stri
 	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d", a.ID, a.TxID, a.TxFee, a.TxType)
 }
 
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) PrettyPrint() string {
+	return fmt.Sprintf("TxAttempt: { ID:%v, TxID:%v, TxFee:%v, FeeLimit: %v, TxHash: %v, CreatedAt: %v, BroadcastBefore: %v, TxType:%d }",
+		a.ID, a.TxID, a.TxFee, a.ChainSpecificFeeLimit, a.Hash, a.CreatedAt, a.BroadcastBeforeBlockNum, a.TxType)
+}
+
 type Tx[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
@@ -233,6 +238,11 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetError() error {
 		return errors.New(e.Error.String)
 	}
 	return nil
+}
+
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) PrettyPrint() string {
+	return fmt.Sprintf("TX: { ID:%v, Sequence: %v, FromAddress: %v, ToAddress: %v, Value: %v, FeeLimit: %v, Error: %v, BroadcastAt: %v, InitialBroadcastAt: %v, CreatedAt: %v, State: %v }",
+		e.ID, e.Sequence, e.FromAddress, e.ToAddress, e.Value, e.FeeLimit, e.Error, e.BroadcastAt, e.InitialBroadcastAt, e.CreatedAt, e.State)
 }
 
 // GetID allows Tx to be used as jsonapi.MarshalIdentifier
