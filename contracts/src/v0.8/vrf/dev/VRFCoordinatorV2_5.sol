@@ -667,7 +667,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   function _isTargetRegistered(address target) internal view returns (bool) {
-    for (uint256 i = 0; i < s_migrationTargets.length; i++) {
+    uint256 migrationTargetsLength = s_migrationTargets.length;
+    for (uint256 i = 0; i < migrationTargetsLength; i++) {
       if (s_migrationTargets[i] == target) {
         return true;
       }
