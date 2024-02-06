@@ -7,13 +7,13 @@ import re
 import subprocess
 import sys
 
-LIBROOT = "../pkg"
+LIBROOT = "../"
 
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="\n".join([
-            "Fuzz helper to run all native go fuzzers in chainlink-common",
+            "Fuzz helper to run all native go fuzzers in chainlink",
             "",
         ]),
     )
