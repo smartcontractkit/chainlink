@@ -122,12 +122,13 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert NoSuchProvingKey(kh);
     }
     delete s_provingKeys[kh];
-    for (uint256 i = 0; i < s_provingKeyHashes.length; i++) {
+    uint256 s_provingKeyHashesLength = s_provingKeyHashes.length;
+    for (uint256 i = 0; i < s_provingKeyHashesLength; i++) {
       if (s_provingKeyHashes[i] == kh) {
-        bytes32 last = s_provingKeyHashes[s_provingKeyHashes.length - 1];
         // Copy last element and overwrite kh to be deleted with it
-        s_provingKeyHashes[i] = last;
+        s_provingKeyHashes[i] = s_provingKeyHashes[s_provingKeyHashesLength - 1];
         s_provingKeyHashes.pop();
+        break;
       }
     }
     emit ProvingKeyDeregistered(kh, key.maxGas);
