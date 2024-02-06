@@ -1,7 +1,7 @@
 GETH_VERSION: 1.13.8
 aggregator_v2v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin 95e8814b408bb05bf21742ef580d98698b7db6a9bac6a35c3de12b23aec4ee28
 aggregator_v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV3Interface.bin 351b55d3b0f04af67db6dfb5c92f1c64479400ca1fec77afc20bc0ce65cb49ab
-arbitrum_module: ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin 9048e5ccf9a6274cbf131cb5d7ef24b783e2fc9595153e0abacddfd2b6668469
+arbitrum_module: ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin 9615cb0e524e6ca87e86e1714420c08d4de6f6407bfb5546da04ac7dea7f9107
 authorized_forwarder: ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.abi ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.bin 8ea76c883d460f8353a45a493f2aebeb5a2d9a7b4619d1bc4fff5fb590bb3e10
 authorized_receiver: ../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.abi ../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.bin 18e8969ba3234b027e1b16c11a783aca58d0ea5c2361010ec597f134b7bf1c4f
 automation_consumer_benchmark: ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark/AutomationConsumerBenchmark.abi ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark/AutomationConsumerBenchmark.bin f52c76f1aaed4be541d82d97189d70f5aa027fc9838037dd7a7d21910c8c488e
@@ -17,7 +17,7 @@ batch_blockhash_store: ../../contracts/solc/v0.8.6/BatchBlockhashStore/BatchBloc
 batch_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2/BatchVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2/BatchVRFCoordinatorV2.bin d0a54963260d8c1f1bbd984b758285e6027cfb5a7e42701bcb562ab123219332
 batch_vrf_coordinator_v2plus: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2Plus/BatchVRFCoordinatorV2Plus.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2Plus/BatchVRFCoordinatorV2Plus.bin 73cb626b5cb2c3464655b61b8ac42fe7a1963fe25e6a5eea40b8e4d5bff3de36
 blockhash_store: ../../contracts/solc/v0.8.6/BlockhashStore/BlockhashStore.abi ../../contracts/solc/v0.8.6/BlockhashStore/BlockhashStore.bin 12b0662f1636a341c8863bdec7a20f2ddd97c3a4fd1a7ae353fe316609face4e
-chain_module_base: ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.abi ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.bin 41331cdf20464ea860ab57324642ff4797feb20e376908921726ce7e5cb2cf34
+chain_module_base: ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.abi ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.bin 39dfce79330e921e5c169051b11c6e5ea15cd4db5a7b09c06aabbe9658148915
 chain_reader_example: ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.abi ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.bin de88c7e68de36b96aa2bec844bdc96fcd7c9017b38e25062b3b9f9cec42c814f
 chain_specific_util_helper: ../../contracts/solc/v0.8.6/ChainSpecificUtilHelper/ChainSpecificUtilHelper.abi ../../contracts/solc/v0.8.6/ChainSpecificUtilHelper/ChainSpecificUtilHelper.bin 5f10664e31abc768f4a37901cae7a3bef90146180f97303e5a1bde5a08d84595
 consumer_wrapper: ../../contracts/solc/v0.7/Consumer/Consumer.abi ../../contracts/solc/v0.7/Consumer/Consumer.bin 894d1cbd920dccbd36d92918c1037c6ded34f66f417ccb18ec3f33c64ef83ec5
@@ -58,10 +58,10 @@ multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer/MultiWord
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5c8d6562e94166d4790f1ee6e4321d359d9f7262e6c5452a712b1f1c896f45cf
 operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin 357203fabe3df436eb015e2d5094374c6967a9fc922ac8edc265b27aac4d67cf
 operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin c5e1db81070d940a82ef100b0bce38e055593cbeebbc73abf9d45c30d6020cd2
-optimism_module: ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.abi ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.bin 7df8460e07edd0cc849f7e7b111a4135d9e4740ad8fb25003d6a21dc2b6ffe25
+optimism_module: ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.abi ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.bin a1f8ee97e12b1b2311db03b94dc52b91f3c2e9a2f8d554031a9c7b41e4432280
 oracle_wrapper: ../../contracts/solc/v0.6/Oracle/Oracle.abi ../../contracts/solc/v0.6/Oracle/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
 perform_data_checker_wrapper: ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.abi ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.bin 48d8309c2117c29a24e1155917ab0b780956b2cd6a8a39ef06ae66a7f6d94f73
-scroll_module: ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin c7283da6f6bd4874f8c5b2d6fb93fd1d9dfbab30d0f39adf5c9d448d88acdb88
+scroll_module: ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin 8de157cb7e5bc78146548212803d60926c8483aca7e912d802b7c66dc5d2ab11
 simple_log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.abi ../../contracts/solc/v0.8.6/SimpleLogUpkeepCounter/SimpleLogUpkeepCounter.bin a2532ca73e227f846be39b52fa63cfa9d088116c3cfc311d972fe8db886fa915
 solidity_vrf_consumer_interface: ../../contracts/solc/v0.6/VRFConsumer/VRFConsumer.abi ../../contracts/solc/v0.6/VRFConsumer/VRFConsumer.bin ecc99378aa798014de9db42b2eb81320778b0663dbe208008dad75ccdc1d4366
 solidity_vrf_consumer_interface_v08: ../../contracts/solc/v0.8.6/VRFConsumer/VRFConsumer.abi ../../contracts/solc/v0.8.6/VRFConsumer/VRFConsumer.bin b14f9136b15e3dc9d6154d5700f3ed4cf88ddc4f70f20c3bb57fc46050904c8f
