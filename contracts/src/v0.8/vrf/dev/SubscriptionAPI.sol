@@ -324,13 +324,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   function getActiveSubscriptionIds(
     uint256 startIndex,
     uint256 maxCount
-  ) external view override returns (uint256[] memory) {
+  ) external view override returns (uint256[] memory ids) {
     uint256 numSubs = s_subIds.length();
     if (startIndex >= numSubs) revert IndexOutOfRange();
     uint256 endIndex = startIndex + maxCount;
     endIndex = endIndex > numSubs || maxCount == 0 ? numSubs : endIndex;
-    uint256[] memory ids = new uint256[](endIndex - startIndex);
-    for (uint256 idx = 0; idx < ids.length; idx++) {
+    uint256 idsLength = endIndex - startIndex;
+    ids = new uint256[](idsLength);
+    for (uint256 idx = 0; idx < idsLength; idx++) {
       ids[idx] = s_subIds.at(idx + startIndex);
     }
     return ids;
