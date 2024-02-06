@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,6 +26,7 @@ type Plugin struct {
 	closePluginTimeout      time.Duration
 	liquidityManagers       *liquiditymanager.Registry
 	liquidityManagerFactory liquiditymanager.Factory
+	mu                      sync.RWMutex
 	liquidityGraph          liquiditygraph.LiquidityGraph
 	liquidityRebalancer     liquidityrebalancer.Rebalancer
 	pendingTransfers        *PendingTransfersCache
@@ -56,6 +58,7 @@ func NewPlugin(
 		liquidityRebalancer:     liquidityRebalancer,
 		pendingTransfers:        NewPendingTransfersCache(),
 		lggr:                    lggr,
+		mu:                      sync.RWMutex{},
 	}
 }
 
@@ -129,6 +132,9 @@ func (p *Plugin) Outcome(outctx ocr3types.OutcomeContext, query ocrtypes.Query, 
 }
 
 func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[models.ReportMetadata], error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	lggr := p.lggr.With("seqNr", seqNr)
 	lggr.Infow("in reports", "seqNr", seqNr)
 
@@ -141,6 +147,10 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 		"pendingTransfers", obs.PendingTransfers,
 		"liquidityGraph", p.liquidityGraph,
 		"liquidityPerChain", obs.LiquidityPerChain)
+
+	if p.liquidityGraph.IsEmpty() {
+		return nil, fmt.Errorf("liquidity graph is empty, can't generate reports")
+	}
 
 	transfersToReachBalance, err := p.liquidityRebalancer.ComputeTransfersToBalance(
 		p.liquidityGraph, obs.PendingTransfers, obs.LiquidityPerChain)
@@ -245,34 +255,49 @@ func (p *Plugin) Close() error {
 
 // todo: consider placing the graph exploration logic under graph package to keep the plugin logic cleaner
 func (p *Plugin) syncGraphEdges(ctx context.Context) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	// todo: if there wasn't any change to the graph stop earlier
 	p.lggr.Infow("syncing graph edges")
 
+	p.lggr.Infow("getting root LM", "rootNetwork", p.rootNetwork)
 	rootLM, exists := p.liquidityManagers.Get(p.rootNetwork)
 	if !exists {
+		p.lggr.Infow("failed to get root LM")
 		return fmt.Errorf("root lm %v not found", p.rootNetwork)
 	}
 
+	p.lggr.Infow("init root LM", "rootLMAddress", rootLM)
 	lm, err := p.liquidityManagerFactory.NewRebalancer(p.rootNetwork, rootLM)
 	if err != nil {
+		p.lggr.Infow("failed to init root LM", "rootLMAddress", rootLM)
 		return fmt.Errorf("init liquidity manager: %w", err)
 	}
 
+	p.lggr.Infow("discovering LMs")
 	lms, g, err := lm.Discover(ctx, p.liquidityManagerFactory)
 	if err != nil {
+		p.lggr.Infow("Failed to discover LMs")
 		return fmt.Errorf("discover lms: %w", err)
 	}
 
-	p.liquidityGraph = g      // todo: thread safe
-	p.liquidityManagers = lms // todo: thread safe
+	p.liquidityGraph = g
+	p.liquidityManagers = lms
+
+	p.lggr.Infow("finished syncing graph edges", "graph", g.String(), "lms", lms.String())
 
 	return nil
 }
 
 func (p *Plugin) syncGraphBalances(ctx context.Context) ([]models.NetworkLiquidity, error) {
-	networks := p.liquidityGraph.GetNetworks()
-	networkLiquidities := make([]models.NetworkLiquidity, 0, len(networks))
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
+	networks := p.liquidityGraph.GetNetworks()
+	p.lggr.Infow("syncing graph balances", "networks", networks)
+
+	networkLiquidities := make([]models.NetworkLiquidity, 0, len(networks))
 	for _, networkID := range networks {
 		lmAddr, exists := p.liquidityManagers.Get(networkID)
 		if !exists {

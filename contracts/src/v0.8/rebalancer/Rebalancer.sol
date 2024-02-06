@@ -77,6 +77,8 @@ contract Rebalancer is IRebalancer, OCR3Base {
     s_localLiquidityContainer = localLiquidityContainer;
   }
 
+  receive() external payable {}
+
   // ================================================================
   // │                    Liquidity management                      │
   // ================================================================

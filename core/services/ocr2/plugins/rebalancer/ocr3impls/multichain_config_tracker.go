@@ -113,6 +113,7 @@ func NewMultichainConfigTracker(
 	}
 
 	// Discover all the liquidity managers
+	lggr.Infow("Discovering all liquidity managers", "masterLM", masterContract.Hex())
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	lms, _, err := masterLM.Discover(ctx, lmFactory)
@@ -120,6 +121,7 @@ func NewMultichainConfigTracker(
 		return nil, fmt.Errorf("failed to discover liquidity managers: %w", err)
 	}
 	all := lms.GetAll()
+	lggr.Infow("Finished discovering all liquidity managers", "numLiquidityManagers", len(all), "lms", lms)
 
 	// sanity check, there should be only one liquidity manager per-chain per-asset
 	if len(all) != len(logPollers) {

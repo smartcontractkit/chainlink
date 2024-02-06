@@ -44,7 +44,7 @@ func (r *randomRebalancer) ComputeTransfersToBalance(
 		randSourceChain := pickRandom(rng, g.GetNetworks())
 		neighbors, exist := g.GetNeighbors(randSourceChain)
 		if !exist {
-			return nil, fmt.Errorf("%d not found", randSourceChain)
+			return nil, fmt.Errorf("chain selector %d not found in graph %+v", randSourceChain, g)
 		}
 		randDestChain := pickRandom(rng, neighbors)
 		r.lggr.Infow("RandomRebalancer: generated random transfer source and dest", "sourceChain", randSourceChain, "destChain", randDestChain)

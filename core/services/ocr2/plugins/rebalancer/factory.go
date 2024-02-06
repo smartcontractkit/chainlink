@@ -45,6 +45,8 @@ func (p PluginFactory) buildRebalancer() (liquidityrebalancer.Rebalancer, error)
 			p.config.RebalancerConfig.RandomRebalancerConfig.MaxNumTransfers,
 			p.config.RebalancerConfig.RandomRebalancerConfig.CheckSourceDestEqual,
 			p.lggr), nil
+	case models.RebalancerTypePingPong:
+		return liquidityrebalancer.NewPingPong(), nil
 	default:
 		return nil, fmt.Errorf("invalid rebalancer type %s", p.config.RebalancerConfig.Type)
 	}

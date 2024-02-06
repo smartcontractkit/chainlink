@@ -50,8 +50,9 @@ func validateRandomRebalancerConfig(cfg RandomRebalancerConfig) error {
 }
 
 const (
-	RebalancerTypeRandom = "random"
-	RebalancerTypeDummy  = "dummy"
+	RebalancerTypeRandom   = "random"
+	RebalancerTypeDummy    = "dummy"
+	RebalancerTypePingPong = "ping-pong"
 )
 
 var (
