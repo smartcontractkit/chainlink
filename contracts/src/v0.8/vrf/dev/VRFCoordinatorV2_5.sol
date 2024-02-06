@@ -579,15 +579,19 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @inheritdoc IVRFSubscriptionV2Plus
    */
   function pendingRequestExists(uint256 subId) public view override returns (bool) {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
-    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
-        (uint256 reqId, ) = _computeRequestId(
-          s_provingKeyHashes[j],
-          subConfig.consumers[i],
-          subId,
-          s_consumers[subConfig.consumers[i]][subId]
-        );
+    address[] storage consumers = s_subscriptionConfigs[subId].consumers;
+    uint256 consumersLength = consumers.length;
+    if (consumersLength == 0) {
+      return false;
+    }
+    uint256 provingKeyHashesLength = s_provingKeyHashes.length;
+    if (provingKeyHashesLength == 0) {
+      return false;
+    }
+    for (uint256 i = 0; i < consumersLength; i++) {
+      address consumer = consumers[i];
+      for (uint256 j = 0; j < provingKeyHashesLength; j++) {
+        (uint256 reqId, ) = _computeRequestId(s_provingKeyHashes[j], consumer, subId, s_consumers[consumer][subId]);
         if (s_requestCommitments[reqId] != 0) {
           return true;
         }
