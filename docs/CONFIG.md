@@ -6407,6 +6407,26 @@ GasLimit = 5400000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
+## EVM.ChainWriter
+```toml
+[EVM.ChainWriter]
+FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+```
+
+
+### FromAddress
+```toml
+FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+```
+FromAddress is Address of the transmitter key to use for workflow writes.
+
+### ForwarderAddress
+```toml
+ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+```
+ForwarderAddress is the keystone forwarder contract address on chain.
+
 ## Cosmos
 ```toml
 [[Cosmos]]
