@@ -6316,13 +6316,13 @@ Order of the node in the pool, will takes effect if `SelectionMode` is `Priority
 ## EVM.OCR2.Automation
 ```toml
 [EVM.OCR2.Automation]
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
 ```
 
 
 ### GasLimit
 ```toml
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
