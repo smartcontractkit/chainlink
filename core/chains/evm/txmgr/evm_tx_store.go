@@ -734,10 +734,7 @@ func (o *evmTxStore) MarkTxsConfirmed(ctx context.Context, chainID *big.Int, add
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	_, err := qq.Exec(`
-	UPDATE evm.txes
-	SET evm.txes.state = 'confirmed'
-	WHERE evm.txes.evm_chain_id = $1 AND evm.txes.from_address = $2 AND evm.txes.nonce < $3`, chainID, addr, minedNonce)
+	_, err := qq.Exec(`UPDATE evm.txes SET state = 'confirmed' WHERE evm_chain_id = $1 AND from_address = $2 AND nonce < $3`, chainID.String(), addr, minedNonce)
 	return pkgerrors.Wrap(err, "MarkConfirmed failed to update evm.txes")
 }
 
@@ -1388,9 +1385,8 @@ func (o *evmTxStore) FindTxsRequiringBumping(ctx context.Context, olderThan time
 	}
 	var dbEtxs []DbEthTx
 	err = qq.Select(&dbEtxs, `
-SELECT DISTINCT ON (evm.txes.nonce) evm.tx_attempts.*
-FROM evm.txes
-WHERE evm.txes.state IN ('unconfirmed', 'confirmed') AND evm.txes.from_address = $1 AND evm.txes.evm_chain_id = $2 AND evm.txes.broadcast_at <= $3 LIMIT $4
+	SELECT DISTINCT ON (evm.txes.nonce) evm.txes.* FROM evm.txes
+	WHERE state IN ('unconfirmed', 'confirmed') AND from_address = $1 AND evm_chain_id = $2 AND broadcast_at <= $3 LIMIT $4
 `, address, chainID.String(), olderThan, limit)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "FindEthTxsRequiringGasBump failed to load evm.txes")

@@ -24,9 +24,10 @@ const (
 )
 
 type ResenderTxAttemptBuilder interface {
-	NewTxAttempt(context.Context, txmgr.Tx, logger.Logger) (txmgr.TxAttempt, error)
+	NewAttempt(context.Context, txmgr.Tx, logger.Logger) (txmgr.TxAttempt, error)
 	NewBumpTxAttempt(context.Context, txmgr.Tx, txmgr.TxAttempt, []txmgr.TxAttempt, logger.Logger) (txmgr.TxAttempt, gas.EvmFee, uint32, bool, error)
 }
+
 type ResenderTxStore interface {
 	FindTxsRequiringBumping(context.Context, time.Time, uint32, *big.Int, common.Address, evmtypes.Nonce) ([]txmgr.Tx, error)
 	MarkTxsConfirmed(context.Context, *big.Int, common.Address, evmtypes.Nonce) error
@@ -39,11 +40,12 @@ type ResenderClient interface {
 	SequenceAt(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)
 }
 
-type ResenderConfig interface {
-	BumpAfterThreshold() time.Duration // 3 * block time
-	MaxBumpCycles() int                // max cycles to apply bump - 5 for twice the market price
-	MaxInFlight() uint32
-	RPCDefaultBatchSize() uint32
+type ResenderConfig struct {
+	BumpAfterThreshold time.Duration // 3 * block time
+	MaxBumpCycles int                // max cycles to apply bump - 5 for twice the market price
+	MaxInFlight uint32
+	ResendInterval time.Duration     // block time or higher for fast chains
+	RPCDefaultBatchSize uint32
 }
 
 type Resender struct {
@@ -53,7 +55,6 @@ type Resender struct {
 	client           ResenderClient
 	ks               KeyStore
 	chainID          *big.Int
-	pollInterval     time.Duration
 	config           ResenderConfig
 
 	ctx    context.Context
@@ -67,7 +68,6 @@ func NewResender(
 	txStore ResenderTxStore,
 	client ResenderClient,
 	ks KeyStore,
-	pollInterval time.Duration,
 	config ResenderConfig,
 ) *Resender {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -78,7 +78,6 @@ func NewResender(
 		client:           client,
 		ks:               ks,
 		chainID:          client.ConfiguredChainID(),
-		pollInterval:     pollInterval,
 		config:           config,
 		ctx:              ctx,
 		cancel:           cancel,
@@ -87,7 +86,7 @@ func NewResender(
 }
 
 func (r *Resender) Start() {
-	r.lggr.Debugf("Enabled with poll interval of %s and age threshold of %s", r.pollInterval, r.config.BumpAfterThreshold())
+	r.lggr.Debugf("Enabled with poll interval of %s and age threshold of %s", r.config.ResendInterval, r.config.BumpAfterThreshold)
 	go r.runLoop()
 }
 
@@ -99,7 +98,7 @@ func (r *Resender) Stop() {
 func (r *Resender) runLoop() {
 	defer close(r.chDone)
 
-	ticker := time.NewTicker(utils.WithJitter(r.pollInterval))
+	ticker := time.NewTicker(utils.WithJitter(r.config.ResendInterval))
 	defer ticker.Stop()
 	for {
 		select {
@@ -121,8 +120,8 @@ func (r *Resender) resendUnconfirmed() error {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", r.chainID.String(), err)
 	}
 
-	ageThreshold := r.config.BumpAfterThreshold()
-	maxInFlightTransactions := r.config.MaxInFlight()
+	ageThreshold := r.config.BumpAfterThreshold
+	maxInFlightTransactions := r.config.MaxInFlight
 	olderThan := time.Now().Add(-ageThreshold)
 	var allAttempts []txmgr.TxAttempt
 
@@ -133,9 +132,10 @@ func (r *Resender) resendUnconfirmed() error {
 			continue
 		}
 
+		// The only reason to mark transactions as confirmed is in order to count the in flight transactions. 
 		err = r.txStore.MarkTxsConfirmed(r.ctx, r.chainID, address, sequenceAt)
 		if err != nil {
-			return fmt.Errorf("failed to MarkeTxsConfirmed: %w", err)
+			return fmt.Errorf("failed to MarkTxsConfirmed: %w", err)
 		}
 
 		txs, err := r.txStore.FindTxsRequiringBumping(r.ctx, olderThan, maxInFlightTransactions, r.chainID, address, sequenceAt)
@@ -144,7 +144,7 @@ func (r *Resender) resendUnconfirmed() error {
 		}
 
 		for _, tx := range txs {
-			marketAttempt, err := r.txAttemptBuilder.NewTxAttempt(r.ctx, tx, r.lggr)
+			marketAttempt, err := r.txAttemptBuilder.NewAttempt(r.ctx, tx, r.lggr)
 			if err != nil {
 				return fmt.Errorf("failed on NewTxAttempt: %w", err)
 			}
@@ -159,7 +159,7 @@ func (r *Resender) resendUnconfirmed() error {
 		}
 	}
 
-	batchSize := int(r.config.RPCDefaultBatchSize())
+	batchSize := int(r.config.RPCDefaultBatchSize)
 	ctx, cancel := context.WithTimeout(r.ctx, batchSendTransactionTimeout)
 	defer cancel()
 	broadcastTime, successfulBroadcastIDs, err := batchSendTransactions(ctx, r.lggr, r.client, allAttempts, batchSize)
@@ -183,8 +183,8 @@ func (r *Resender) bumpAttempt(ctx context.Context, tx txmgr.Tx, marketAttempt t
 	var err error
 	bumpedAttempt := marketAttempt
 
-	bumpingCycles := int(time.Since(*tx.BroadcastAt) / r.config.BumpAfterThreshold() / time.Nanosecond)
-	bumpingCycles = min(bumpingCycles, r.config.MaxBumpCycles()) // Don't bump more than MaxBumpCycles
+	bumpingCycles := int(time.Since(*tx.BroadcastAt) / r.config.BumpAfterThreshold / time.Nanosecond)
+	bumpingCycles = min(bumpingCycles, r.config.MaxBumpCycles) // Don't bump more than MaxBumpCycles
 
 	for i := 0; i < bumpingCycles; i++ {
 		preBumpedAttempt := bumpedAttempt
@@ -262,7 +262,7 @@ func batchSendTransactions(
 		}
 		// TODO: check order
 		for i, req := range reqs {
-			if req.Result.(common.Hash).String() == attempts[i].Hash.String() {
+			if req.Result.(*common.Hash).String() == attempts[i].Hash.String() {
 				lggr.Debug("Sent txAttempt.", "attempt", attempts[i], "hash", req.Result, "err", req.Error)
 			}
 		}
