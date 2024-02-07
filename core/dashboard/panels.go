@@ -655,7 +655,7 @@ func (m *Dashboard) addLogsPanels() {
 		dashboard.Row("Logs Metrics",
 			row.Collapse(),
 			row.WithTimeSeries(
-				"Log Counters",
+				"Logs Counters",
 				timeseries.Span(12),
 				timeseries.Height("200px"),
 				timeseries.DataSource(m.PrometheusDataSourceName),
@@ -678,6 +678,32 @@ func (m *Dashboard) addLogsPanels() {
 				timeseries.WithPrometheusTarget(
 					`log_error_count{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - error"),
+				),
+			),
+			row.WithTimeSeries(
+				"Logs Rate",
+				timeseries.Span(12),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`sum(rate(log_panic_count{instance=~"$instance"}[$__rate_interval]))`,
+					prometheus.Legend("panic"),
+				),
+				timeseries.WithPrometheusTarget(
+					`sum(rate(log_fatal_count{instance=~"$instance"}[$__rate_interval]))`,
+					prometheus.Legend("fatal"),
+				),
+				timeseries.WithPrometheusTarget(
+					`sum(rate(log_critical_count{instance=~"$instance"}[$__rate_interval]))`,
+					prometheus.Legend("critical"),
+				),
+				timeseries.WithPrometheusTarget(
+					`sum(rate(log_warn_count{instance=~"$instance"}[$__rate_interval]))`,
+					prometheus.Legend("warn"),
+				),
+				timeseries.WithPrometheusTarget(
+					`sum(rate(log_error_count{instance=~"$instance"}[$__rate_interval]))`,
+					prometheus.Legend("error"),
 				),
 			),
 		),
