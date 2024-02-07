@@ -6,9 +6,8 @@ SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 USE_TEE="${USE_TEE:-true}"
 
-echo "Failed tests and panics: ---------------------"
+echo "Failed fuzz tests and panics: ---------------------"
 echo ""
-GO_LDFLAGS=$(bash tools/bin/ldflags)
 use_tee() {
   if [ "$USE_TEE" = "true" ]; then
     tee "$@"
@@ -29,8 +28,9 @@ fi
 
 echo "Exit code: $EXITCODE"
 if [[ $EXITCODE != 0 ]]; then
-  echo "Encountered test failures."
+  echo "Encountered fuzz test failures. Logging all failing fuzz inputs:"
+  find . -type f|fgrep '/testdata/fuzz/'|while read f; do echo $f; cat $f; done
 else
-  echo "All tests passed!"
+  echo "All fuzz tests passed!"
 fi
 exit $EXITCODE
