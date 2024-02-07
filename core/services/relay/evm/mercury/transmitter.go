@@ -308,7 +308,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 		b.Reset()
 		if res.Error == "" {
 			mt.transmitSuccessCount.Inc()
-			mt.lggr.Tracew("Transmit report success", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
+			mt.lggr.Debugw("Transmit report success", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
 		} else {
 			// We don't need to retry here because the mercury server
 			// has confirmed it received the report. We only need to retry
@@ -317,7 +317,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 			case DuplicateReport:
 				mt.transmitSuccessCount.Inc()
 				mt.transmitDuplicateCount.Inc()
-				mt.lggr.Tracew("Transmit report succeeded; duplicate report", "code", res.Code)
+				mt.lggr.Debugw("Transmit report success; duplicate report", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
 			default:
 				transmitServerErrorCount.WithLabelValues(mt.feedID.String(), fmt.Sprintf("%d", res.Code)).Inc()
 				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
