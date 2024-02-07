@@ -42,3 +42,9 @@ type OcrTestConfig interface {
 	tc.CommonTestConfig
 	tc.OcrTestConfig
 }
+
+type Ocr2TestConfig interface {
+	tc.GlobalTestConfig
+	tc.CommonTestConfig
+	tc.Ocr2TestConfig
+}
