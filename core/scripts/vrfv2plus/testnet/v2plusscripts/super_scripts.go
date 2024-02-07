@@ -715,10 +715,11 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 	formattedVrfV2PlusPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFV2PlusJobFormatted,
-		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
-		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
-		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
+		contractAddresses.CoordinatorAddress,                                                        //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,                                                   //batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,                                            //batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier,                                      //batchFulfillmentGasMultiplier
+		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
 		compressedPkHex,            //publicKey
 		coordinatorConfig.MinConfs, //minIncomingConfirmations
 		e.ChainID,                  //evmChainID
