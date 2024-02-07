@@ -10,5 +10,5 @@ import (
 
 func Test_ocr2Config(t *testing.T) {
 	evmOcrCfg := cltest.NewTestChainScopedConfig(t) //fallback.toml values
-	require.Equal(t, uint32(5300000), evmOcrCfg.EVM().OCR2().Automation().GasLimit())
+	require.Equal(t, uint32(5400000), evmOcrCfg.EVM().OCR2().Automation().GasLimit())
 }
