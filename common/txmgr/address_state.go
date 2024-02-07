@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -19,6 +20,7 @@ type AddressState[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	lggr        logger.SugaredLogger
 	chainID     CHAIN_ID
 	fromAddress ADDR
 
@@ -42,6 +44,7 @@ func NewAddressState[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
+	lggr logger.SugaredLogger,
 	chainID CHAIN_ID,
 	fromAddress ADDR,
 	maxUnstarted int,
@@ -61,6 +64,7 @@ func NewAddressState[
 	}
 
 	as := AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
+		lggr:        lggr,
 		chainID:     chainID,
 		fromAddress: fromAddress,
 
@@ -409,7 +413,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AddTxT
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnstartedToInProgress(
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	txAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
 	as.Lock()
 	defer as.Unlock()
@@ -418,18 +423,31 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 		return fmt.Errorf("move_unstarted_to_in_progress: address %s already has a transaction in progress", as.fromAddress)
 	}
 
-	if tx != nil {
-		// if tx is not nil then remove the tx from the unstarted queue
-		tx = as.unstarted.RemoveTxByID(tx.ID)
-	} else {
-		// if tx is nil then pop the next unstarted transaction
-		tx = as.unstarted.RemoveNextTx()
-	}
+	tx := as.unstarted.RemoveTxByID(etx.ID)
 	if tx == nil {
 		return fmt.Errorf("move_unstarted_to_in_progress: no unstarted transaction to move to in_progress")
 	}
 	tx.State = TxInProgress
 	as.inprogress = tx
+
+	newTxAttempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	affectedTxAttempts := 0
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		// Remove any previous attempts that are in a fatal error state which share the same hash
+		if tx.TxAttempts[i].Hash == txAttempt.Hash &&
+			tx.State == TxFatalError && tx.Error == null.NewString("abandoned", true) {
+			affectedTxAttempts++
+			continue
+		}
+		newTxAttempts = append(newTxAttempts, tx.TxAttempts[i])
+	}
+	if affectedTxAttempts > 0 {
+		as.lggr.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", txAttempt.Hash, txAttempt.TxID)
+	}
+	tx.TxAttempts = append(newTxAttempts, *txAttempt)
+	tx.Sequence = etx.Sequence
+	tx.BroadcastAt = etx.BroadcastAt
+	tx.InitialBroadcastAt = etx.InitialBroadcastAt
 
 	return nil
 }

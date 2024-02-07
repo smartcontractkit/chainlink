@@ -90,7 +90,7 @@ func NewInMemoryStore[
 		if err != nil {
 			return nil, fmt.Errorf("address_state: initialization: %w", err)
 		}
-		as, err := NewAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](chainID, fromAddr, maxUnstarted, txs)
+		as, err := NewAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](lggr, chainID, fromAddr, maxUnstarted, txs)
 		if err != nil {
 			return nil, fmt.Errorf("new_in_memory_store: %w", err)
 		}
@@ -127,6 +127,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 		return tx, fmt.Errorf("create_transaction: %w", err)
 	}
 
+	// Update in memory store
 	// Add the request to the Unstarted channel to be processed by the Broadcaster
 	if err := as.AddTxToUnstarted(&tx); err != nil {
 		return *ms.deepCopyTx(tx), fmt.Errorf("create_transaction: %w", err)
@@ -223,7 +224,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 }
 
 // UpdateTxUnstartedToInProgress updates a transaction from unstarted to in_progress.
-// TODO THIS HAS SOME INCONSISTENCIES WITH THE PERSISTENT STORE
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxUnstartedToInProgress(
 	ctx context.Context,
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
@@ -250,11 +250,9 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	if err := ms.txStore.UpdateTxUnstartedToInProgress(ctx, tx, attempt); err != nil {
 		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w", err)
 	}
-	tx.TxAttempts = append(tx.TxAttempts, *attempt)
-	// TODO: DOES THIS ATTEMPT HAVE AN ID? IF NOT, HOW DO WE GET IT?
 
 	// Update in address state in memory
-	if err := as.MoveUnstartedToInProgress(tx); err != nil {
+	if err := as.MoveUnstartedToInProgress(tx, attempt); err != nil {
 		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w", err)
 	}
 
