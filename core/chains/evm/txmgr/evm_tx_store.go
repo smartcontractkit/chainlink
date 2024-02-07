@@ -1703,12 +1703,10 @@ func (o *evmTxStore) BroadcasterUpdateTxUnstartedToInProgress(ctx context.Contex
 		return pkgerrors.Errorf("can only transition to in_progress from unstarted, transaction is currently %s", etx.State)
 	}
 	etx.State = txmgr.TxInProgress
-	return qq.Transaction(func(tx pg.Queryer) error {
-		var dbEtx DbEthTx
-		dbEtx.FromTx(etx)
-		err := tx.Get(&dbEtx, `UPDATE evm.txes SET nonce=$1, state=$2 WHERE id=$5 RETURNING *`, etx.Sequence, etx.State, etx.ID)
-		return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to update eth_tx")
-	})
+	var dbEtx DbEthTx
+	dbEtx.FromTx(etx)
+	err := qq.Get(&dbEtx, `UPDATE evm.txes SET nonce=$1, state=$2 WHERE id=$3 RETURNING *`, etx.Sequence, etx.State, etx.ID)
+	return pkgerrors.Wrap(err, "BroadcasterUpdateTxUnstartedToInProgress failed to update eth_tx")
 }
 
 // Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
@@ -1787,23 +1785,17 @@ func (o *evmTxStore) BroadcasterGetTxInProgress(ctx context.Context, fromAddress
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	etx = new(Tx)
-	if err != nil {
-		return etx, pkgerrors.Wrap(err, "getInProgressEthTx failed")
-	}
-	err = qq.Transaction(func(tx pg.Queryer) error {
-		var dbEtx DbEthTx
-		err = tx.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress)
-		if errors.Is(err, sql.ErrNoRows) {
-			etx = nil
-			return nil
-		} else if err != nil {
-			return pkgerrors.Wrap(err, "GetTxInProgress failed while loading eth tx")
-		}
-		dbEtx.ToTx(etx)
-		return nil
-	})
 
-	return etx, pkgerrors.Wrap(err, "getInProgressEthTx failed")
+	var dbEtx DbEthTx
+	err = qq.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, pkgerrors.Wrap(err, "BroadcasterGetTxInProgress failed while loading eth tx")
+	}
+	dbEtx.ToTx(etx)
+
+	return etx, pkgerrors.Wrap(err, "BroadcasterGetTxInProgress failed")
 }
 
 // GetTxInProgress returns either 0 or 1 transaction that was left in

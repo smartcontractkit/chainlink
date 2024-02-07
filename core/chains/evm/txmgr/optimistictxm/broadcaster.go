@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jpillora/backoff"
 	"go.uber.org/multierr"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	txmtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -29,16 +30,16 @@ const (
 	// transaction
 	InFlightTransactionRecheckInterval = 1 * time.Second
 
-	TxUnstarted   = types.TxState("unstarted")
-	TxInProgress  = types.TxState("in_progress")
-	TxUnconfirmed = types.TxState("unconfirmed")
-	TxConfirmed   = types.TxState("confirmed")
+	TxUnstarted   = txmtypes.TxState("unstarted")
+	TxInProgress  = txmtypes.TxState("in_progress")
+	TxUnconfirmed = txmtypes.TxState("unconfirmed")
+	TxConfirmed   = txmtypes.TxState("confirmed")
 )
 
 var ErrTxRemoved = errors.New("tx removed")
 
 type TxAttemptBuilder interface {
-	NewTxAttempt(context.Context, txmgr.Tx, logger.Logger) (txmgr.TxAttempt, error)
+	NewAttempt(context.Context, txmgr.Tx, logger.Logger) (txmgr.TxAttempt, error)
 }
 
 type BroadcasterTxStore interface {
@@ -52,14 +53,14 @@ type BroadcasterTxStore interface {
 
 type BroadcasterClient interface {
 	ConfiguredChainID() *big.Int
-	PendingSequenceAt(context.Context, common.Address) (uint64, error)
-	SendTransaction(context.Context, txmgr.Tx, txmgr.TxAttempt, logger.Logger) error
+	PendingNonceAt(context.Context, common.Address) (uint64, error)
+	SendTransaction(context.Context, *types.Transaction) error
 }
 
-type BroadcasterConfig interface {
-	FallbackPollInterval() time.Duration
-	MaxInFlight() uint32
-	NonceAutoSync() bool
+type BroadcasterConfig struct {
+	FallbackPollInterval time.Duration
+	MaxInFlight          uint32
+	NonceAutoSync        bool
 }
 
 type KeyStore interface {
@@ -185,7 +186,7 @@ func (b *Broadcaster) monitorTxs(addr common.Address, triggerCh chan struct{}) {
 	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
 
-	if b.config.NonceAutoSync() {
+	if b.config.NonceAutoSync {
 		b.lggr.Debugw("Auto-syncing sequence", "address", addr.String())
 		b.sequenceSyncer.SyncSequence(ctx, addr, b.chStop)
 		if ctx.Err() != nil {
@@ -199,7 +200,7 @@ func (b *Broadcaster) monitorTxs(addr common.Address, triggerCh chan struct{}) {
 	bf := b.newResendBackoff()
 
 	for {
-		pollDBTimer := time.NewTimer(utils.WithJitter(b.config.FallbackPollInterval()))
+		pollDBTimer := time.NewTimer(utils.WithJitter(b.config.FallbackPollInterval))
 
 		start := time.Now()
 		err := b.ProcessUnstartedTxs(ctx, addr)
@@ -208,7 +209,7 @@ func (b *Broadcaster) monitorTxs(addr common.Address, triggerCh chan struct{}) {
 			// On errors we implement exponential backoff retries. This
 			// handles intermittent connectivity, remote RPC races, timing issues etc
 			b.lggr.Errorw("Error occurred while handling tx queue in ProcessUnstartedTxs", "err", err)
-			pollDBTimer.Reset(utils.WithJitter(b.config.FallbackPollInterval()))
+			pollDBTimer.Reset(utils.WithJitter(b.config.FallbackPollInterval))
 			errorRetryCh = time.After(bf.Duration())
 		} else {
 			bf = b.newResendBackoff()
@@ -244,7 +245,7 @@ func (b *Broadcaster) ProcessUnstartedTxs(ctx context.Context, fromAddress commo
 		return fmt.Errorf("ProcessUnstartedTxs failed on handleAnyInProgressTx: %w", err)
 	}
 	for {
-		maxInFlightTransactions := b.config.MaxInFlight()
+		maxInFlightTransactions := b.config.MaxInFlight
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := b.txStore.CountUnconfirmedTransactions(ctx, fromAddress, b.chainID)
 			if err != nil {
@@ -303,7 +304,7 @@ func (b *Broadcaster) nextUnstartedTransactionWithSequence(fromAddress common.Ad
 		b.lggr.Debugw("tx removed", "txID", tx.ID, "subject", tx.Subject)
 		return nil, err
 	} else if err != nil {
-		return nil, fmt.Errorf("failed on UpdateTxUnstartedToInProgress: %w", err)
+		return nil, fmt.Errorf("failed on BroadcasterUpdateTxUnstartedToInProgress: %w", err)
 	}
 	return tx, nil
 }
@@ -325,17 +326,22 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx txmgr.Tx) error
 		return fmt.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", tx.ID, tx.State)
 	}
 
-	attempt, err := b.txAttemptBuilder.NewTxAttempt(ctx, tx, b.lggr)
+	attempt, err := b.txAttemptBuilder.NewAttempt(ctx, tx, b.lggr)
 	if err != nil {
 		return fmt.Errorf("failed on NewAttempt: %w", err)
 	}
 
 	lgr := tx.GetLogger(logger.With(b.lggr))
-	err = b.client.SendTransaction(ctx, tx, attempt, lgr)
+	signedTx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
+	if err != nil {
+		b.lggr.Criticalw("Fatal error signing transaction", "err", err, "tx", tx)
+		return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
+	}
+	err = b.client.SendTransaction(ctx, signedTx)
 	lgr.Infow("Sent transaction", "tx", tx.PrettyPrint(), "attempt", attempt.PrettyPrint(), "error", err)
 
 	if err != nil {
-		nextSequence, e := b.client.PendingSequenceAt(ctx, tx.FromAddress)
+		nextSequence, e := b.client.PendingNonceAt(ctx, tx.FromAddress)
 		if e != nil {
 			err = multierr.Combine(e, err)
 			return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)

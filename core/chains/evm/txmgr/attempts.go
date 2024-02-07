@@ -43,6 +43,15 @@ func NewEvmTxAttemptBuilder(chainID big.Int, feeConfig evmTxAttemptBuilderFeeCon
 	return &evmTxAttemptBuilder{chainID, feeConfig, keystore, estimator}
 }
 
+func (c *evmTxAttemptBuilder) NewAttempt(ctx context.Context, etx Tx, lggr logger.Logger) (attempt TxAttempt, err error) {
+	txType := 0x0
+	if c.feeConfig.EIP1559DynamicFees() {
+		txType = 0x2
+	}
+	attempt, _, _, _, err = c.NewTxAttemptWithType(ctx, etx, lggr, txType)
+	return attempt, err
+}
+
 // NewTxAttempt builds an new attempt using the configured fee estimator + using the EIP1559 config to determine tx type
 // used for when a brand new transaction is being created in the txm
 func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx Tx, lggr logger.Logger, opts ...feetypes.Opt) (attempt TxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
