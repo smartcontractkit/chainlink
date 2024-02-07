@@ -35,10 +35,10 @@ contract ArbitrumValidator is Validator {
 
   /// Config for L1 -> L2 Arbitrum retryable ticket message
   struct GasConfig {
-    uint256 maxGas; //
     uint256 gasPriceBid; //
     uint256 baseFee; // Will use block.baseFee if set to 0
-    address gasPriceL1FeedAddr; //
+    address gasPriceL1FeedAddr; // ─╮
+    uint96 maxGas; // ──────────────╯
   }
 
   /// Helper Variable(s)
@@ -77,7 +77,7 @@ contract ArbitrumValidator is Validator {
     address l1CrossDomainMessengerAddress,
     address l2UptimeFeedAddr,
     address configACAddr,
-    uint256 maxGas,
+    uint96 maxGas,
     uint256 gasPriceBid,
     uint256 baseFee,
     address gasPriceL1FeedAddr,
@@ -145,11 +145,11 @@ contract ArbitrumValidator is Validator {
     id = IArbitrumDelayedInbox(L1_CROSS_DOMAIN_MESSENGER_ADDRESS).createRetryableTicketNoRefundAliasRewrite{
       value: l1PaymentValue
     }(
-      ARBSYS_ADDR, /// target
-      amount, /// L2 call value (requested)
+      ARBSYS_ADDR, // target
+      amount, // L2 call value (requested)
       maxSubmissionCost,
-      refundAddr, /// excessFeeRefundAddress
-      refundAddr, /// callValueRefundAddress
+      refundAddr, // excessFeeRefundAddress
+      refundAddr, // callValueRefundAddress
       maxGas,
       gasPriceBid,
       message
@@ -175,7 +175,7 @@ contract ArbitrumValidator is Validator {
   /// @param gasPriceBid maximum L2 gas price to pay
   /// @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
   function setGasConfig(
-    uint256 maxGas,
+    uint96 maxGas,
     uint256 gasPriceBid,
     uint256 baseFee,
     address gasPriceL1FeedAddr
@@ -249,14 +249,14 @@ contract ArbitrumValidator is Validator {
   }
 
   /// @notice internal method that stores the gas configuration
-  function _setGasConfig(uint256 maxGas, uint256 gasPriceBid, uint256 baseFee, address gasPriceL1FeedAddr) internal {
+  function _setGasConfig(uint96 maxGas, uint256 gasPriceBid, uint256 baseFee, address gasPriceL1FeedAddr) internal {
     // solhint-disable-next-line custom-errors
     require(maxGas > 0, "Max gas is zero");
     // solhint-disable-next-line custom-errors
     require(gasPriceBid > 0, "Gas price bid is zero");
     // solhint-disable-next-line custom-errors
     require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
-    s_gasConfig = GasConfig(maxGas, gasPriceBid, baseFee, gasPriceL1FeedAddr);
+    s_gasConfig = GasConfig(gasPriceBid, baseFee, gasPriceL1FeedAddr, maxGas);
     emit GasConfigSet(maxGas, gasPriceBid, gasPriceL1FeedAddr);
   }
 
