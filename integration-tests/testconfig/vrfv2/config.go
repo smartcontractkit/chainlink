@@ -198,7 +198,7 @@ func (c *SubFunding) Validate() error {
 }
 
 type General struct {
-	CLNodeMaxGasPriceGWei          *int64   `toml:"max_gas_price_gwei"`               // Max gas price in GWei for the chainlink node
+	CLNodeMaxGasPriceGWei          *int64   `toml:"cl_node_max_gas_price_gwei"`       // Max gas price in GWei for the chainlink node
 	LinkNativeFeedResponse         *int64   `toml:"link_native_feed_response"`        // Response of the LINK/ETH feed
 	MinimumConfirmations           *uint16  `toml:"minimum_confirmations" `           // Minimum number of confirmations for the VRF Coordinator
 	SubscriptionFundingAmountLink  *float64 `toml:"subscription_funding_amount_link"` // Amount of LINK to fund the subscription with
@@ -232,6 +232,20 @@ type General struct {
 	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`
 	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
 	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`
+
+	//VRF Job Config
+	VRFJobForwardingAllowed             *bool                   `toml:"vrf_job_forwarding_allowed"`
+	VRFJobEstimateGasMultiplier         *float64                `toml:"vrf_job_estimate_gas_multiplier"`
+	VRFJobBatchFulfillmentEnabled       *bool                   `toml:"vrf_job_batch_fulfillment_enabled"`
+	VRFJobBatchFulfillmentGasMultiplier *float64                `toml:"vrf_job_batch_fulfillment_gas_multiplier"`
+	VRFJobPollPeriod                    *blockchain.StrDuration `toml:"vrf_job_poll_period"`
+	VRFJobRequestTimeout                *blockchain.StrDuration `toml:"vrf_job_request_timeout"`
+
+	//BHS Job Config
+	BHSJobWaitBlocks     *int                    `toml:"bhs_job_wait_blocks"`
+	BHSJobLookBackBlocks *int                    `toml:"bhs_job_lookback_blocks"`
+	BHSJobPollPeriod     *blockchain.StrDuration `toml:"bhs_job_poll_period"`
+	BHSJobRunTimeout     *blockchain.StrDuration `toml:"bhs_job_run_timeout"`
 }
 
 func (c *General) Validate() error {
@@ -324,6 +338,44 @@ func (c *General) Validate() error {
 	}
 	if *c.RandomnessRequestCountPerRequest <= *c.RandomnessRequestCountPerRequestDeviation {
 		return errors.New(ErrDeviationShouldBeLessThanOriginal)
+	}
+
+	if c.VRFJobForwardingAllowed == nil {
+		return errors.New("vrf_job_forwarding_allowed must be set")
+	}
+
+	if c.VRFJobBatchFulfillmentEnabled == nil {
+		return errors.New("vrf_job_batch_fulfillment_enabled must be set")
+	}
+	if c.VRFJobEstimateGasMultiplier == nil || *c.VRFJobEstimateGasMultiplier < 0 {
+		return errors.New("vrf_job_estimate_gas_multiplier must be set to a non-negative value")
+	}
+	if c.VRFJobBatchFulfillmentGasMultiplier == nil || *c.VRFJobBatchFulfillmentGasMultiplier < 0 {
+		return errors.New("vrf_job_batch_fulfillment_gas_multiplier must be set to a non-negative value")
+	}
+
+	if c.VRFJobPollPeriod == nil || c.VRFJobPollPeriod.Duration == 0 {
+		return errors.New("vrf_job_poll_period must be set to a non-negative value")
+	}
+
+	if c.VRFJobRequestTimeout == nil || c.VRFJobRequestTimeout.Duration == 0 {
+		return errors.New("vrf_job_request_timeout must be set to a non-negative value")
+	}
+
+	if c.BHSJobLookBackBlocks == nil || *c.BHSJobLookBackBlocks < 0 {
+		return errors.New("bhs_job_lookback_blocks must be set to a non-negative value")
+	}
+
+	if c.BHSJobPollPeriod == nil || c.BHSJobPollPeriod.Duration == 0 {
+		return errors.New("bhs_job_poll_period must be set to a non-negative value")
+	}
+
+	if c.BHSJobRunTimeout == nil || c.BHSJobRunTimeout.Duration == 0 {
+		return errors.New("bhs_job_run_timeout must be set to a non-negative value")
+	}
+
+	if c.BHSJobWaitBlocks == nil || *c.BHSJobWaitBlocks < 0 {
+		return errors.New("bhs_job_wait_blocks must be set to a non-negative value")
 	}
 
 	return nil
