@@ -454,11 +454,11 @@ jobs:
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
-            nodes: 3
+            nodes: 4
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
-            nodes: 3
+            nodes: 4
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
