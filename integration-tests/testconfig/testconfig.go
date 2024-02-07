@@ -91,6 +91,7 @@ type TestConfig struct {
 	Keeper     *keeper_config.Config    `toml:"Keeper"`
 	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
+	OCR2       *ocr2_config.Config      `toml:"OCR2"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
