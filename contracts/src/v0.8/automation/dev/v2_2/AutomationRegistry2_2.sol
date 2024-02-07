@@ -101,7 +101,8 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
         report.triggers[i],
-        upkeepTransmitInfo[i]
+        upkeepTransmitInfo[i],
+        hotVars
       );
 
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
@@ -308,7 +309,8 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       paused: s_hotVars.paused,
       reentrancyGuard: s_hotVars.reentrancyGuard,
       totalPremium: totalPremium,
-      latestEpoch: 0 // DON restarts epoch
+      latestEpoch: 0, // DON restarts epoch
+      reorgProtectionEnabled: onchainConfig.reorgProtectionEnabled
     });
 
     s_storage = Storage({

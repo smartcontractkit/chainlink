@@ -628,6 +628,7 @@ describe('AutomationRegistry2_2', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
+          reorgProtectionEnabled: true,
         }),
         offchainVersion,
         offchainBytes,
@@ -880,6 +881,7 @@ describe('AutomationRegistry2_2', () => {
       transcoder: transcoder.address,
       registrars: [],
       upkeepPrivilegeManager: upkeepManager,
+      reorgProtectionEnabled: true,
     }
 
     baseConfig = [
@@ -3544,6 +3546,7 @@ describe('AutomationRegistry2_2', () => {
       transcoder: newTranscoder,
       registrars: newRegistrars,
       upkeepPrivilegeManager: upkeepManager,
+      reorgProtectionEnabled: true,
     }
 
     it('reverts when called by anyone but the proposed owner', async () => {
@@ -4565,6 +4568,7 @@ describe('AutomationRegistry2_2', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
+          reorgProtectionEnabled: true,
         },
         offchainVersion,
         offchainBytes,
@@ -5209,6 +5213,7 @@ describe('AutomationRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              reorgProtectionEnabled: true,
             },
             offchainVersion,
             offchainBytes,
@@ -5262,6 +5267,7 @@ describe('AutomationRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              reorgProtectionEnabled: true,
             },
             offchainVersion,
             offchainBytes,
@@ -5310,6 +5316,7 @@ describe('AutomationRegistry2_2', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
+              reorgProtectionEnabled: true,
             },
             offchainVersion,
             offchainBytes,
