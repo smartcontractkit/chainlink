@@ -134,6 +134,18 @@ func (v *EthereumBlockhashStore) Address() string {
 	return v.address.Hex()
 }
 
+func (v *EthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	blockHash, err := v.blockHashStore.GetBlockhash(opts, blockNumber)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return blockHash, nil
+}
+
 func (v *EthereumVRFCoordinator) Address() string {
 	return v.address.Hex()
 }

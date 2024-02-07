@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/wasp"
 
+	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
@@ -16,7 +17,7 @@ import (
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
 
 type SingleHashGun struct {
-	contracts  *vrfv2plus.VRFV2_5Contracts
+	contracts  *vrfcommon.VRFContracts
 	keyHash    [32]byte
 	subIDs     []*big.Int
 	testConfig types.VRFv2PlusTestConfig
@@ -24,7 +25,7 @@ type SingleHashGun struct {
 }
 
 func NewSingleHashGun(
-	contracts *vrfv2plus.VRFV2_5Contracts,
+	contracts *vrfcommon.VRFContracts,
 	keyHash [32]byte,
 	subIDs []*big.Int,
 	testConfig types.VRFv2PlusTestConfig,
@@ -52,9 +53,9 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	randomnessRequestCountPerRequest := deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation)
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
-		m.contracts.LoadTestConsumers[0],
-		m.contracts.Coordinator,
-		&vrfv2plus.VRFV2PlusData{VRFV2PlusKeyData: vrfv2plus.VRFV2PlusKeyData{KeyHash: m.keyHash}},
+		m.contracts.VRFV2PlusConsumer[0],
+		m.contracts.CoordinatorV2Plus,
+		&vrfcommon.VRFKeyData{KeyHash: m.keyHash},
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type

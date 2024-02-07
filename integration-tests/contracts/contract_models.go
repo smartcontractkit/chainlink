@@ -210,6 +210,7 @@ type MockGasFeed interface {
 
 type BlockHashStore interface {
 	Address() string
+	GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error)
 }
 
 type Staking interface {
