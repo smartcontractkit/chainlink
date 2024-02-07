@@ -6,6 +6,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/wasp"
 
+	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
@@ -13,7 +14,7 @@ import (
 /* SingleHashGun is a gun that constantly requests randomness for one feed  */
 
 type SingleHashGun struct {
-	contracts  *vrfv2.VRFV2Contracts
+	contracts  *vrfcommon.VRFContracts
 	keyHash    [32]byte
 	subIDs     []uint64
 	testConfig types.VRFv2TestConfig
@@ -21,7 +22,7 @@ type SingleHashGun struct {
 }
 
 func NewSingleHashGun(
-	contracts *vrfv2.VRFV2Contracts,
+	contracts *vrfcommon.VRFContracts,
 	keyHash [32]byte,
 	subIDs []uint64,
 	testConfig types.VRFv2TestConfig,
@@ -46,11 +47,11 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	_, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
 		m.logger,
 		//the same consumer is used for all requests and in all subs
-		m.contracts.LoadTestConsumers[0],
-		m.contracts.Coordinator,
+		m.contracts.VRFV2Consumer[0],
+		m.contracts.CoordinatorV2,
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
-		&vrfv2.VRFV2Data{VRFV2KeyData: vrfv2.VRFV2KeyData{KeyHash: m.keyHash}},
+		&vrfcommon.VRFKeyData{KeyHash: m.keyHash},
 		*vrfv2Config.MinimumConfirmations,
 		*vrfv2Config.CallbackGasLimit,
 		*vrfv2Config.NumberOfWords,
