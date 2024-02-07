@@ -17,8 +17,16 @@ Data = """
             "on_ramp": "0x77b60F85b25fD501E3ddED6C1fe7bF565C08A22A",
             "deployed_at": 11111111
           },
+          "BSC Mainnet": {
+            "on_ramp": "0x79f3ABeCe5A3AFFf32D47F4CFe45e7b65c9a2D91",
+            "deployed_at": 11111111
+          },
           "Ethereum Mainnet": {
             "on_ramp": "0xCe11020D56e5FDbfE46D9FC3021641FfbBB5AdEE",
+            "deployed_at": 11111111
+          },
+          "Optimism Mainnet": {
+            "on_ramp": "0xC09b72E8128620C40D89649019d995Cc79f030C3",
             "deployed_at": 11111111
           }
         },
@@ -28,10 +36,20 @@ Data = """
             "commit_store": "0x6e37f4c82d9A31cc42B445874dd3c3De97AB553f",
             "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
           },
+          "BSC Mainnet": {
+            "off_ramp": "0xB1b705c2315fced1B38baE463BE7DDef531e47fA",
+            "commit_store": "0x310cECbFf14Ad0307EfF762F461a487C1abb90bf",
+            "receiver_dapp": "0x1A2A69e3eB1382FE34Bc579AdD5Bae39e31d4A2c"
+          },
           "Ethereum Mainnet": {
             "off_ramp": "0x542ba1902044069330e8c5b36A84EC503863722f",
             "commit_store": "0x060331fEdA35691e54876D957B4F9e3b8Cb47d20",
             "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+          },
+          "Optimism Mainnet": {
+            "off_ramp": "0xeeed4D86F3E0e6d32A6Ad29d8De6A0Dc91963A5f",
+            "commit_store": "0xbbB563c4d98020b9c0f3Cc34c2C0Ef9676806E35",
+            "receiver_dapp": "0x1A2A69e3eB1382FE34Bc579AdD5Bae39e31d4A2c"
           }
         }
       },
@@ -140,6 +158,10 @@ Data = """
             "on_ramp": "0x6aa72a998859eF93356c6521B72155D355D0Cfd2",
             "deployed_at": 11111111
           },
+          "Arbitrum Mainnet": {
+            "on_ramp": "0x2788b46BAcFF49BD89562e6bA5c5FBbbE5Fa92F7",
+            "deployed_at": 11111111
+          },
           "Base Mainnet": {
             "on_ramp": "0x70bC7f7a6D936b289bBF5c0E19ECE35B437E2e36",
             "deployed_at": 11111111
@@ -158,6 +180,11 @@ Data = """
             "off_ramp": "0x37a6fa55fe61061Ae97bF7314Ae270eCF71c5ED3",
             "commit_store": "0x1f558F6dcf0224Ef1F78A24814FED548B9602c80",
             "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+          },
+          "Arbitrum Mainnet": {
+            "off_ramp": "0x3DA330fd8Ef10d93cFB7D4f8ecE7BC1F10811feC",
+            "commit_store": "0x86D55Ff492cfBBAf0c0D42D4EE615144E78b3D02",
+            "receiver_dapp": "0x1A2A69e3eB1382FE34Bc579AdD5Bae39e31d4A2c"
           },
           "Base Mainnet": {
             "off_ramp": "0x574c697deab06B805D8780898B3F136a1F4892Dc",
@@ -255,7 +282,7 @@ Data = """
       },
       "Kroma Mainnet": {
         "is_native_fee_token": true,
-        "fee_token": "0xC1F6f7622ad37C3f46cDF6F8AA0344ADE80BF450",
+        "fee_token": "",
         "bridge_tokens": [],
         "bridge_tokens_pools": [],
         "arm" : "0xB59779d3364BC6d71168245f9ebb96469E5a5a98",
@@ -290,6 +317,10 @@ Data = """
             "on_ramp": "0x0b1760A8112183303c5526C6b24569fd3A274f3B",
             "deployed_at": 11111111
           },
+          "Arbitrum Mainnet": {
+            "on_ramp": "0x0C9BE7Cfd12c735E5aaE047C1dCB845d54E518C3",
+            "deployed_at": 11111111
+          },
           "Ethereum Mainnet":{
             "on_ramp": "0x55183Db1d2aE0b63e4c92A64bEF2CBfc2032B127",
             "deployed_at": 11111111
@@ -304,6 +335,11 @@ Data = """
             "off_ramp": "0xBAE6560eCa9B77Cb047158C783e36F7735C86037",
             "commit_store": "0x6168aDF58e1Ad446BaD45c6275Bef60Ef4FFBAb8",
             "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+          },
+          "Arbitrum Mainnet": {
+            "off_ramp": "0x0C9BE7Cfd12c735E5aaE047C1dCB845d54E518C3",
+            "commit_store": "0x55028780918330FD00a34a61D9a7Efd3f43ca845",
+            "receiver_dapp": "0x1A2A69e3eB1382FE34Bc579AdD5Bae39e31d4A2c"
           },
           "Ethereum Mainnet": {
             "off_ramp": "0xd2D98Be6a1C241e86C807e51cED6ABb51d044203",
@@ -406,27 +442,29 @@ Data = """
 
 [CCIP.Groups.load]
 NetworkPairs = [
-    'ETHEREUM_MAINNET,BASE_MAINNET',
-    'ETHEREUM_MAINNET,ARBITRUM_MAINNET',
-    'ETHEREUM_MAINNET,WEMIX_MAINNET',
-    'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
-    'ETHEREUM_MAINNET,POLYGON_MAINNET',
-    'ETHEREUM_MAINNET,AVALANCHE_MAINNET',
-    'ETHEREUM_MAINNET,BSC_MAINNET',
-    'BASE_MAINNET,ARBITRUM_MAINNET',
-    'WEMIX_MAINNET,KROMA_MAINNET',
-    'OPTIMISM_MAINNET,POLYGON_MAINNET',
-    'AVALANCHE_MAINNET,POLYGON_MAINNET',
-    'BSC_MAINNET,POLYGON_MAINNET',
-    'BASE_MAINNET,OPTIMISM_MAINNET',
-    'AVALANCHE_MAINNET,BSC_MAINNET',
-    'BASE_MAINNET,BSC_MAINNET',
+  'ETHEREUM_MAINNET,BASE_MAINNET',
+  'ETHEREUM_MAINNET,ARBITRUM_MAINNET',
+  'ETHEREUM_MAINNET,WEMIX_MAINNET',
+  'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
+  'ETHEREUM_MAINNET,POLYGON_MAINNET',
+  'ETHEREUM_MAINNET,AVALANCHE_MAINNET',
+  'ETHEREUM_MAINNET,BSC_MAINNET',
+  'ARBITRUM_MAINNET,BSC_MAINNET',
+  'ARBITRUM_MAINNET,OPTIMISM_MAINNET',
+  'BASE_MAINNET,ARBITRUM_MAINNET',
+  'WEMIX_MAINNET,KROMA_MAINNET',
+  'OPTIMISM_MAINNET,POLYGON_MAINNET',
+  'AVALANCHE_MAINNET,POLYGON_MAINNET',
+  'BSC_MAINNET,POLYGON_MAINNET',
+  'BASE_MAINNET,OPTIMISM_MAINNET',
+  'AVALANCHE_MAINNET,BSC_MAINNET',
+  'BASE_MAINNET,BSC_MAINNET',
 ]
 MsgType = 'WithoutToken'
 DestGasLimit = 0
 BiDirectionalLane = true
 PhaseTimeout = '50m'
-TestDuration = '168h'
+TestDuration = '48h'
 ExistingDeployment = true
 RequestPerUnitTime = [1]
 TimeUnit = '1h'
@@ -438,21 +476,23 @@ ExistingEnv = 'mainnet-2.7-ccip1.2'
 [CCIP.Groups.smoke]
 MsgType = 'WithoutToken'
 NetworkPairs = [
-    'ETHEREUM_MAINNET,BASE_MAINNET',
-    'ETHEREUM_MAINNET,ARBITRUM_MAINNET',
-    'ETHEREUM_MAINNET,WEMIX_MAINNET',
-    'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
-    'ETHEREUM_MAINNET,POLYGON_MAINNET',
-    'ETHEREUM_MAINNET,AVALANCHE_MAINNET',
-    'ETHEREUM_MAINNET,BSC_MAINNET',
-    'BASE_MAINNET,ARBITRUM_MAINNET',
-    'WEMIX_MAINNET,KROMA_MAINNET',
-    'OPTIMISM_MAINNET,POLYGON_MAINNET',
-    'AVALANCHE_MAINNET,POLYGON_MAINNET',
-    'BSC_MAINNET,POLYGON_MAINNET',
-    'BASE_MAINNET,OPTIMISM_MAINNET',
-    'AVALANCHE_MAINNET,BSC_MAINNET',
-    'BASE_MAINNET,BSC_MAINNET',
+  'ETHEREUM_MAINNET,BASE_MAINNET',
+  'ETHEREUM_MAINNET,ARBITRUM_MAINNET',
+  'ETHEREUM_MAINNET,WEMIX_MAINNET',
+  'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
+  'ETHEREUM_MAINNET,POLYGON_MAINNET',
+  'ETHEREUM_MAINNET,AVALANCHE_MAINNET',
+  'ETHEREUM_MAINNET,BSC_MAINNET',
+  'ARBITRUM_MAINNET,BSC_MAINNET',
+  'ARBITRUM_MAINNET,OPTIMISM_MAINNET',
+  'BASE_MAINNET,ARBITRUM_MAINNET',
+  'WEMIX_MAINNET,KROMA_MAINNET',
+  'OPTIMISM_MAINNET,POLYGON_MAINNET',
+  'AVALANCHE_MAINNET,POLYGON_MAINNET',
+  'BSC_MAINNET,POLYGON_MAINNET',
+  'BASE_MAINNET,OPTIMISM_MAINNET',
+  'AVALANCHE_MAINNET,BSC_MAINNET',
+  'BASE_MAINNET,BSC_MAINNET',
 ]
 BiDirectionalLane = true
 DestGasLimit = 0
