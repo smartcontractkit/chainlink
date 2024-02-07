@@ -517,10 +517,10 @@ func TestORM_MarkFinalized(t *testing.T) {
 	newAttempt.TxFee.Legacy = newAttempt.TxFee.Legacy.Add(assets.NewWei(big.NewInt(10)))
 	require.NoError(t, txStore.InsertTxAttempt(&newAttempt))
 
-	etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 1, blockNum)
-
 	err := txStore.MarkFinalized(testutils.Context(t), []int64{etx0.TxAttempts[0].ID})
 	require.NoError(t, err)
+
+	etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 1, blockNum)
 
 	etx0, err = txStore.FindTxWithAttempts(etx0.ID)
 	require.NoError(t, err)
@@ -1844,6 +1844,36 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 		}
 		AssertCountPerSubject(t, txStore, int64(2), subject2)
 	})
+}
+
+func TestORM_ReapTxHistory(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := txmgr.NewTxStore(db, logger.Test(t), cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	evmtest.NewEthClientMockWithDefaultChain(t)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	finalized := mustInsertFinalizedEthTxWithReceipt(t, txStore, fromAddress, 1, 100)
+	finalizedOld := mustInsertFinalizedEthTxWithReceipt(t, txStore, fromAddress, 2, 1)
+	confirmed := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, 1)
+	fatal := mustInsertFatalErrorEthTx(t, txStore, fromAddress)
+
+	err := txStore.ReapTxHistory(testutils.Context(t), 99, time.Now().Add(time.Hour), &cltest.FixtureChainID)
+	require.NoError(t, err)
+
+	txs, err := txStore.GetAllTxes(testutils.Context(t))
+	require.NoError(t, err)
+	ids := make([]int64, len(txs))
+	for i, tx := range txs {
+		ids[i] = tx.ID
+	}
+	assert.Contains(t, ids, finalized.ID, "expected reaper to keep recently finalized tx")
+	assert.NotContains(t, ids, finalizedOld.ID, "expected reaper to delete old finalized tx")
+	assert.NotContains(t, ids, fatal.ID, "expected reaper to delete old fatal tx")
+	assert.Contains(t, ids, confirmed.ID, "expected reaper to keep old confirmed tx")
 }
 
 func AssertCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected int64, subject uuid.UUID) {

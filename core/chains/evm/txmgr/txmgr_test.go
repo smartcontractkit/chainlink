@@ -628,6 +628,14 @@ func mustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxSt
 	return etx
 }
 
+func mustInsertFinalizedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.Tx) {
+	etx = mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, nonce, blockNum)
+
+	err := txStore.MarkFinalized(testutils.Context(t), []int64{etx.TxAttempts[0].ID})
+	require.NoError(t, err)
+	return etx
+}
+
 func mustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.Tx) {
 	etx = cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
 	receipt := evmtypes.Receipt{

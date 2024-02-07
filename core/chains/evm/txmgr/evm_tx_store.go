@@ -1910,7 +1910,7 @@ USING old_enough_receipts, evm.tx_attempts
 WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
 AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
 AND evm.txes.created_at < $3
-AND evm.txes.state = 'confirmed'
+AND evm.txes.state = 'finalized'
 AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.String())
 		if err != nil {
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
