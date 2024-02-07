@@ -14,7 +14,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
+	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
