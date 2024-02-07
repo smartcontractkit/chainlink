@@ -70,7 +70,7 @@ type OcrTestConfig interface {
 }
 
 type Ocr2TestConfig interface {
-	GetOCRConfig() *ocr2_config.Config
+	GetOCR2Config() *ocr2_config.Config
 }
 
 type NamedConfiguration interface {
