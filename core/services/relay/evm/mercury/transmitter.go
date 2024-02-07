@@ -241,7 +241,7 @@ func (mt *mercuryTransmitter) runDeleteQueueLoop() {
 		case req := <-mt.deleteQueue:
 			for {
 				if err := mt.persistenceManager.Delete(runloopCtx, req); err != nil {
-					mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "req", req)
+					mt.lggr.Errorw("Failed to delete transmit request record", "err", err, "req", req)
 					mt.transmitQueueDeleteErrorCount.Inc()
 					select {
 					case <-time.After(b.Duration()):
