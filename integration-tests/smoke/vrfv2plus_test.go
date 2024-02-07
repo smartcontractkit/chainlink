@@ -1011,7 +1011,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	require.NoError(t, err, "error getting subscription information")
 
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
-
+	var isNativeBilling = false
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
 		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
@@ -1021,7 +1021,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			subID,
 			*configCopy.VRFv2Plus.General.MinimumConfirmations,
 			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			false,
+			isNativeBilling,
 			*configCopy.VRFv2Plus.General.NumberOfWords,
 			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
 		)
@@ -1034,7 +1034,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			time.Minute*1,
 		)
 		require.NoError(t, err, "error waiting for randomness requested event")
-		vrfv2plus.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsRequestedEvent, false)
+		vrfv2plus.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsRequestedEvent, isNativeBilling)
 		blockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -1058,7 +1058,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			time.Second*30,
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
-		vrfv2plus.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, false)
+		vrfv2plus.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling)
 		status, err := vrfContracts.VRFV2PlusConsumer[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
@@ -1073,7 +1073,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			subID,
 			*configCopy.VRFv2Plus.General.MinimumConfirmations,
 			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			false,
+			isNativeBilling,
 			*configCopy.VRFv2Plus.General.NumberOfWords,
 			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
 		)
@@ -1086,7 +1086,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			time.Minute*1,
 		)
 		require.NoError(t, err, "error waiting for randomness requested event")
-		vrfv2plus.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsRequestedEvent, false)
+		vrfv2plus.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsRequestedEvent, isNativeBilling)
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
 		require.Error(t, err, "error not occurred when getting blockhash for a blocknumber which was not stored in BHS contract")
