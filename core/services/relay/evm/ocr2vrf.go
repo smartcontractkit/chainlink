@@ -3,14 +3,10 @@ package evm
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -67,7 +63,7 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{})
+	contractTransmitter, err := newOnChainContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +86,7 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs c
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{})
+	contractTransmitter, err := newOnChainContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -146,10 +142,6 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs c
 	}
 
 	contractAddress := common.HexToAddress(rargs.ContractID)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
-	}
 	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", rargs.ContractID),
 		chain.Client(),
@@ -157,6 +149,7 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs c
 		contractAddress,
 		// TODO: Does ocr2vrf need to support config contract? DF-19182
 		nil,
+		OCR2AggregatorLogDecoder,
 	)
 	if err != nil {
 		return nil, err
@@ -170,7 +163,6 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs c
 	return newConfigWatcher(
 		lggr,
 		contractAddress,
-		contractABI,
 		offchainConfigDigester,
 		configPoller,
 		chain,

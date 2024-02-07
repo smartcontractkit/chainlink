@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -34,60 +33,9 @@ var (
 	)
 )
 
-var (
-	// ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
-	ConfigSet common.Hash
-
-	defaultABI abi.ABI
-)
-
-const configSetEventName = "ConfigSet"
-
-func init() {
-	var err error
-	abiPointer, err := ocr2aggregator.OCR2AggregatorMetaData.GetAbi()
-	if err != nil {
-		panic(err)
-	}
-	defaultABI = *abiPointer
-	ConfigSet = defaultABI.Events[configSetEventName].ID
-}
-
-func unpackLogData(d []byte) (*ocr2aggregator.OCR2AggregatorConfigSet, error) {
-	unpacked := new(ocr2aggregator.OCR2AggregatorConfigSet)
-	err := defaultABI.UnpackIntoInterface(unpacked, configSetEventName, d)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unpack log data")
-	}
-	return unpacked, nil
-}
-
-func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
-	unpacked, err := unpackLogData(logData)
-	if err != nil {
-		return ocrtypes.ContractConfig{}, err
-	}
-
-	var transmitAccounts []ocrtypes.Account
-	for _, addr := range unpacked.Transmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.Hex()))
-	}
-	var signers []ocrtypes.OnchainPublicKey
-	for _, addr := range unpacked.Signers {
-		addr := addr
-		signers = append(signers, addr[:])
-	}
-
-	return ocrtypes.ContractConfig{
-		ConfigDigest:          unpacked.ConfigDigest,
-		ConfigCount:           unpacked.ConfigCount,
-		Signers:               signers,
-		Transmitters:          transmitAccounts,
-		F:                     unpacked.F,
-		OnchainConfig:         unpacked.OnchainConfig,
-		OffchainConfigVersion: unpacked.OffchainConfigVersion,
-		OffchainConfig:        unpacked.OffchainConfig,
-	}, nil
+type LogDecoder interface {
+	EventSig() common.Hash
+	Decode(rawLog []byte) (ocrtypes.ContractConfig, error)
 }
 
 type configPoller struct {
@@ -105,18 +53,22 @@ type configPoller struct {
 	// contract allows us work around such restrictions.
 	configStoreContractAddr *common.Address
 	configStoreContract     *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple
+
+	// Depending on the exact contract used, the raw config log may be shaped
+	// in different ways
+	ld LogDecoder
 }
 
 func configPollerFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
 }
 
-func NewConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address) (evmRelayTypes.ConfigPoller, error) {
-	return newConfigPoller(lggr, client, destChainPoller, aggregatorContractAddr, configStoreAddr)
+func NewConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (evmRelayTypes.ConfigPoller, error) {
+	return newConfigPoller(lggr, client, destChainPoller, aggregatorContractAddr, configStoreAddr, ld)
 }
 
-func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address) (*configPoller, error) {
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(aggregatorContractAddr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{aggregatorContractAddr}})
+func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (*configPoller, error) {
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(aggregatorContractAddr), EventSigs: []common.Hash{ld.EventSig()}, Addresses: []common.Address{aggregatorContractAddr}})
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +85,7 @@ func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller l
 		aggregatorContractAddr: aggregatorContractAddr,
 		client:                 client,
 		aggregatorContract:     aggregatorContract,
+		ld:                     ld,
 	}
 
 	if configStoreAddr != nil {
@@ -164,7 +117,7 @@ func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, cp.aggregatorContractAddr, 1, pg.WithParentCtx(ctx))
+	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(cp.ld.EventSig(), cp.aggregatorContractAddr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			if cp.isConfigStoreAvailable() {
@@ -176,7 +129,7 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
-	latestConfigSet, err := configFromLog(latest.Data)
+	latestConfigSet, err := cp.ld.Decode(latest.Data)
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
@@ -185,7 +138,7 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 
 // LatestConfig returns the latest config from the logs on a certain block
 func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, cp.aggregatorContractAddr, pg.WithParentCtx(ctx))
+	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), cp.ld.EventSig(), cp.aggregatorContractAddr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
@@ -196,7 +149,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 		}
 		return ocrtypes.ContractConfig{}, fmt.Errorf("no logs found for config on contract %s (chain %s) at block %d", cp.aggregatorContractAddr.Hex(), cp.client.ConfiguredChainID().String(), changedInBlock)
 	}
-	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data)
+	latestConfigSet, err := cp.ld.Decode(lgs[len(lgs)-1].Data)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}

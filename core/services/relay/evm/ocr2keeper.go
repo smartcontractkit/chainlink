@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -17,12 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -96,7 +93,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	}
 
 	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit})
+	contractTransmitter, err := newOnChainContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -221,10 +218,6 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 	}
 
 	contractAddress := common.HexToAddress(rargs.ContractID)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
-	}
 
 	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", rargs.ContractID),
@@ -233,6 +226,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 		contractAddress,
 		// TODO: Does ocr2keeper need to support config contract? DF-19182
 		nil,
+		OCR2AggregatorLogDecoder,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create config poller")
@@ -246,7 +240,6 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 	return newConfigWatcher(
 		lggr,
 		contractAddress,
-		contractABI,
 		offchainConfigDigester,
 		configPoller,
 		chain,
