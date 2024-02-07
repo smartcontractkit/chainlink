@@ -34,8 +34,8 @@ pipelines:
       echo "Authorizing into ECR registry"
       aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${registry_id}.dkr.ecr.us-west-2.amazonaws.com
 
-      run_dependencies --all                           
-      ensure_pull_secrets --all                         
+      run_dependencies --all
+      ensure_pull_secrets --all
       build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
       kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL} || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
@@ -63,7 +63,7 @@ pipelines:
       else
         echo "Image tag '$tag' not found. Please build the image using 'devspace deploy'"
         exit 1
-      fi 
+      fi
       create_deployments app \
       --set=helm.values.chainlink.nodes[0].image=$image \
       --set=helm.values.chainlink.nodes[1].image=$image \
