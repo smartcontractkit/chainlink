@@ -471,6 +471,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveCo
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToUnconfirmed(
+	etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
 	as.Lock()
@@ -481,10 +482,19 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveIn
 		return fmt.Errorf("move_in_progress_to_unconfirmed: no transaction in progress")
 	}
 
-	txAttempt.TxID = tx.ID
-	txAttempt.State = txmgrtypes.TxAttemptBroadcast
 	tx.State = TxUnconfirmed
-	tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{txAttempt}
+	tx.Error = etx.Error
+	tx.BroadcastAt = etx.BroadcastAt
+	tx.InitialBroadcastAt = etx.InitialBroadcastAt
+	txAttempt.State = txmgrtypes.TxAttemptBroadcast
+	txAttempt.TxID = tx.ID
+
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		if tx.TxAttempts[i].ID == txAttempt.ID {
+			tx.TxAttempts[i] = txAttempt
+			break
+		}
+	}
 
 	as.unconfirmed[tx.ID] = tx
 	as.inprogress = nil

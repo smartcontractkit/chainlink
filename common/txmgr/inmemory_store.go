@@ -19,11 +19,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-// BIG TODO LIST
-// TODO: figure out if multiple tx attempts are actually stored in the db for each tx
-// TODO: need a way to get id for a tx attempt. since there are some methods where the persistent store creates a tx attempt and doesnt returns it
-// TODO: should txAttempt state transitions be handled by the address state manager?
-
 var (
 	// ErrInvalidChainID is returned when the chain ID is invalid
 	ErrInvalidChainID = errors.New("invalid chain ID")
@@ -316,9 +311,9 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	if err := ms.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
 	}
-	attempt.State = newAttemptState
 
-	if err := as.MoveInProgressToUnconfirmed(attempt); err != nil {
+	// Update in memory store
+	if err := as.MoveInProgressToUnconfirmed(*tx, attempt); err != nil {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
 	}
 
@@ -1207,7 +1202,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 		return null.Time{}, fmt.Errorf("find_earliest_unconfirmed_broadcast_time: %w", ErrInvalidChainID)
 	}
 
-	// TODO(jtw): this is super niave and might be slow
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		return tx.InitialBroadcastAt != nil
 	}
@@ -1244,7 +1238,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 		return null.Int{}, fmt.Errorf("find_earliest_unconfirmed_broadcast_time: %w", ErrInvalidChainID)
 	}
 
-	// TODO(jtw): this is super niave and might be slow
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
 			return false
