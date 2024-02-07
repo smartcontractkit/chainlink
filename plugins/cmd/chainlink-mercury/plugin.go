@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -13,7 +15,6 @@ import (
 	ds_v1 "github.com/smartcontractkit/chainlink-data-streams/mercury/v1"
 	ds_v2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 	ds_v3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 )
 
 type Plugin struct {

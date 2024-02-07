@@ -8,6 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
@@ -17,9 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/stretchr/testify/assert"
 
 	mercuryocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
+
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	libocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -27,8 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	libocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var (
