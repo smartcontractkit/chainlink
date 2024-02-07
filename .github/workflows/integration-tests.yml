@@ -1021,6 +1021,19 @@ jobs:
 
           # Remove the created container
           docker rm "$CONTAINER_ID"
+      - name: Generate config overrides
+        run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
+          cat << EOF > config.toml
+          [ChainlinkImage]
+          image="${{ env.CHAINLINK_IMAGE }}"
+          version="${{ github.sha }}"
+          EOF
+          # shellcheck disable=SC2002
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          # shellcheck disable=SC2086
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          # shellcheck disable=SC2086
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
