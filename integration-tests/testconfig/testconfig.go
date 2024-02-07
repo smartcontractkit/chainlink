@@ -27,6 +27,7 @@ import (
 	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
+	ocr2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr2"
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
@@ -66,6 +67,10 @@ type KeeperTestConfig interface {
 
 type OcrTestConfig interface {
 	GetOCRConfig() *ocr_config.Config
+}
+
+type Ocr2TestConfig interface {
+	GetOCRConfig() *ocr2_config.Config
 }
 
 type NamedConfiguration interface {
