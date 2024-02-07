@@ -111,7 +111,7 @@ type TransactionStore[
 }
 
 type TxHistoryReaper[CHAIN_ID types.ID] interface {
-	ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error
+	ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID CHAIN_ID) error
 }
 
 type UnstartedTxQueuePruner interface {

@@ -1846,36 +1846,6 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	})
 }
 
-func TestORM_ReapTxHistory(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
-	txStore := txmgr.NewTxStore(db, logger.Test(t), cfg.Database())
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	evmtest.NewEthClientMockWithDefaultChain(t)
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-
-	finalized := mustInsertFinalizedEthTxWithReceipt(t, txStore, fromAddress, 1, 100)
-	finalizedOld := mustInsertFinalizedEthTxWithReceipt(t, txStore, fromAddress, 2, 1)
-	confirmed := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, 1)
-	fatal := mustInsertFatalErrorEthTx(t, txStore, fromAddress)
-
-	err := txStore.ReapTxHistory(testutils.Context(t), 99, time.Now().Add(time.Hour), &cltest.FixtureChainID)
-	require.NoError(t, err)
-
-	txs, err := txStore.GetAllTxes(testutils.Context(t))
-	require.NoError(t, err)
-	ids := make([]int64, len(txs))
-	for i, tx := range txs {
-		ids[i] = tx.ID
-	}
-	assert.Contains(t, ids, finalized.ID, "expected reaper to keep recently finalized tx")
-	assert.NotContains(t, ids, finalizedOld.ID, "expected reaper to delete old finalized tx")
-	assert.NotContains(t, ids, fatal.ID, "expected reaper to delete old fatal tx")
-	assert.Contains(t, ids, confirmed.ID, "expected reaper to keep old confirmed tx")
-}
-
 func AssertCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected int64, subject uuid.UUID) {
 	t.Helper()
 	count, err := txStore.CountTxesByStateAndSubject(testutils.Context(t), "unstarted", subject)

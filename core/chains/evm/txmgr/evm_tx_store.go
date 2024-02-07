@@ -1889,7 +1889,7 @@ id < (
 	return
 }
 
-func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
+func (o *evmTxStore) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1899,19 +1899,18 @@ func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int
 	// the evm.tx_attempts and evm.receipts linked to every eth_tx
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		res, err := qq.Exec(`
-WITH old_enough_receipts AS (
-	SELECT tx_hash FROM evm.receipts
-	WHERE block_number < $1
-	ORDER BY block_number ASC, id ASC
-	LIMIT $2
+WITH old_enough_finalized_txs AS (
+	SELECT evm.txes.id FROM evm.txes
+	WHERE evm.txes.state = 'finalized'
+	AND evm_chain_id = $1
+	AND evm.txes.created_at < $2
+	ORDER BY evm.txes.id ASC
+	LIMIT $3
 )
 DELETE FROM evm.txes
-USING old_enough_receipts, evm.tx_attempts
-WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
-AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
-AND evm.txes.created_at < $3
-AND evm.txes.state = 'finalized'
-AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.String())
+USING old_enough_finalized_txs
+WHERE evm.txes.id = old_enough_finalized_txs.id
+`, chainID.String(), timeThreshold, limit)
 		if err != nil {
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
 		}

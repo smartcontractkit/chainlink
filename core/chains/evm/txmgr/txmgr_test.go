@@ -630,7 +630,6 @@ func mustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxSt
 
 func mustInsertFinalizedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.Tx) {
 	etx = mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, nonce, blockNum)
-
 	err := txStore.MarkFinalized(testutils.Context(t), []int64{etx.TxAttempts[0].ID})
 	require.NoError(t, err)
 	return etx
