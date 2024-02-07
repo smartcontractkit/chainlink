@@ -361,7 +361,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'fake'
