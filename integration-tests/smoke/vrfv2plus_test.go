@@ -1128,14 +1128,15 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
-		randRequestBlockHash, err := vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
-		require.NoError(t, err, "error getting blockhash for a blocknumber which was stored in BHS contract")
-
+		var randRequestBlockHash [32]byte
+		gom.Eventually(func(g gomega.Gomega) {
+			randRequestBlockHash, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting blockhash for a blocknumber which was stored in BHS contract")
+		}, "2m", "1s").Should(gomega.Succeed())
 		l.Info().
-			Str("Randomness Request's Blockhash", fmt.Sprintf("0x%x", randRequestBlockHash)).
-			Str("Block Hash stored by BHS contract", randomWordsRequestedEvent.Raw.BlockHash.String()).
+			Str("Randomness Request's Blockhash", randomWordsRequestedEvent.Raw.BlockHash.String()).
+			Str("Block Hash stored by BHS contract", fmt.Sprintf("0x%x", randRequestBlockHash)).
 			Msg("BHS Contract's stored Blockhash for Randomness Request")
-
 		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
 	})
 }
