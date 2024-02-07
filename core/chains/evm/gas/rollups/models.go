@@ -2,6 +2,9 @@ package rollups
 
 import (
 	"context"
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -15,4 +18,5 @@ type L1Oracle interface {
 	services.ServiceCtx
 
 	GasPrice(ctx context.Context) (*assets.Wei, error)
+	GetGasCost(ctx context.Context, tx *types.Transaction, blockNum *big.Int) (*assets.Wei, error)
 }

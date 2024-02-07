@@ -35,15 +35,15 @@ jobs:
 
               _Use these subdomains to access the CRIB environment. They are prefixes to the internal base domain._
 
-              - crib-chain-${prNumber}-node1.
-              - crib-chain-${prNumber}-node2.
-              - crib-chain-${prNumber}-node3.
-              - crib-chain-${prNumber}-node4.
-              - crib-chain-${prNumber}-node5.
-              - crib-chain-${prNumber}-node6.
-              - crib-chain-${prNumber}-geth-http.
-              - crib-chain-${prNumber}-geth-ws.
-              - crib-chain-${prNumber}-mockserver.
+              - crib-chainlink-${prNumber}-node1.
+              - crib-chainlink-${prNumber}-node2.
+              - crib-chainlink-${prNumber}-node3.
+              - crib-chainlink-${prNumber}-node4.
+              - crib-chainlink-${prNumber}-node5.
+              - crib-chainlink-${prNumber}-node6.
+              - crib-chainlink-${prNumber}-geth-http.
+              - crib-chainlink-${prNumber}-geth-ws.
+              - crib-chainlink-${prNumber}-mockserver.
               `;
 
               await github.rest.issues.createComment({
