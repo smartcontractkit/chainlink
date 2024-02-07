@@ -306,7 +306,7 @@ func SetupVRFV2_5Environment(
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("errgroup tasks ended up with an error: %v\n", err)
+		return nil, nil, nil, nil, fmt.Errorf("VRF node setup ended up with an error: %v", err)
 	}
 
 	vrfKeyData := vrfcommon.VRFKeyData{

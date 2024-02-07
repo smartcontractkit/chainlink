@@ -490,7 +490,7 @@ func GetTxFromAddress(tx *types.Transaction) (string, error) {
 }
 
 // todo - move to CTF
-func GetTxByHash(client blockchain.EVMClient, ctx context.Context, hash common.Hash) (*types.Transaction, bool, error) {
+func GetTxByHash(ctx context.Context, client blockchain.EVMClient, hash common.Hash) (*types.Transaction, bool, error) {
 	return client.(*blockchain.EthereumMultinodeClient).
 		DefaultClient.(*blockchain.EthereumClient).
 		Client.
@@ -506,6 +506,9 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 	methodSigData := data[:4]
 	inputsSigData := data[4:]
 	method, err := jsonABI.MethodById(methodSigData)
+	if err != nil {
+		return nil, err
+	}
 	inputsMap := make(map[string]interface{})
 	if err := method.Inputs.UnpackIntoMap(inputsMap, inputsSigData); err != nil {
 		return nil, err

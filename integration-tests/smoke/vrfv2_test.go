@@ -770,11 +770,11 @@ func TestVRFV2WithBHS(t *testing.T) {
 		)
 		require.NoError(t, err, "error waiting for randomness requested event")
 		vrfv2.LogRandomnessRequestedEvent(l, vrfv2Contracts.CoordinatorV2, randomWordsRequestedEvent)
-		blockNumber := randomWordsRequestedEvent.Raw.BlockNumber
+		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//Wait at least 256 blocks
-		blockNumber, err = actions.WaitForBlockNumberToBe(blockNumber+uint64(257), env.EVMClient, &wg, time.Second*260, t)
+		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), env.EVMClient, &wg, time.Second*260, t)
 		wg.Wait()
 		require.NoError(t, err)
 		err = vrfv2.FundSubscriptions(env, big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), linkToken, vrfv2Contracts.CoordinatorV2, subIDs)
@@ -842,7 +842,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 		require.Equal(t, strings.ToLower(vrfv2Contracts.BHS.Address()), strings.ToLower(clNodeTxs.Data[0].Attributes.To))
 
-		bhsStoreTx, _, err := actions.GetTxByHash(env.EVMClient, testcontext.Get(t), common.HexToHash(txHash))
+		bhsStoreTx, _, err := actions.GetTxByHash(testcontext.Get(t), env.EVMClient, common.HexToHash(txHash))
 		require.NoError(t, err, "error getting tx from hash")
 
 		bhsStoreTxInputData, err := actions.DecodeTxInputData(blockhash_store.BlockhashStoreABI, bhsStoreTx.Data())
