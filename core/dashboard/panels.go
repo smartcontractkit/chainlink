@@ -60,7 +60,7 @@ func (m *Dashboard) addMainPanels() {
 				stat.Span(2),
 				stat.Height("100px"),
 				stat.WithPrometheusTarget(
-					`version{instance="${instance}"}`,
+					`version{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - {{version}}"),
 				),
 			),
@@ -74,7 +74,7 @@ func (m *Dashboard) addMainPanels() {
 				stat.Span(2),
 				stat.Height("100px"),
 				stat.WithPrometheusTarget(
-					`go_info{instance="${instance}"}`,
+					`go_info{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - {{version}}"),
 				),
 			),
@@ -88,7 +88,7 @@ func (m *Dashboard) addMainPanels() {
 				stat.Span(2),
 				stat.Height("100px"),
 				stat.WithPrometheusTarget(
-					`uptime_seconds{instance="${instance}"}`,
+					`uptime_seconds{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}}"),
 				),
 			),
@@ -102,7 +102,7 @@ func (m *Dashboard) addMainPanels() {
 				stat.Span(6),
 				stat.Height("100px"),
 				stat.WithPrometheusTarget(
-					`eth_balance{instance="${instance}"}`,
+					`eth_balance{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - {{account}}"),
 				),
 			),
@@ -112,7 +112,7 @@ func (m *Dashboard) addMainPanels() {
 				timeseries.Height("200px"),
 				timeseries.DataSource(m.PrometheusDataSourceName),
 				timeseries.WithPrometheusTarget(
-					`health{instance="${instance}"}`,
+					`health{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - {{service_id}}"),
 				),
 			),
@@ -122,7 +122,7 @@ func (m *Dashboard) addMainPanels() {
 				timeseries.Height("200px"),
 				timeseries.DataSource(m.PrometheusDataSourceName),
 				timeseries.WithPrometheusTarget(
-					`eth_balance{instance="${instance}"}`,
+					`eth_balance{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - {{account}}"),
 				),
 			),
@@ -137,23 +137,107 @@ func (m *Dashboard) addLogPollerPanels() {
 		dashboard.Row("LogPoller",
 			row.Collapse(),
 			row.WithTimeSeries(
-				"LogPoller Query Dataset Size",
-				timeseries.Span(12),
+				"LogPoller RPS",
+				timeseries.Span(4),
 				timeseries.Height("200px"),
 				timeseries.DataSource(m.PrometheusDataSourceName),
 				timeseries.WithPrometheusTarget(
-					`log_poller_query_dataset_size{instance="${instance}"}`,
-					prometheus.Legend("{{instance}}"),
+					`avg(sum(rate(log_poller_query_duration_count{instance=~"$instance", evmChainID=~"$evmChainID"}[$__rate_interval])) by (query, instance)) by (query)`,
+					prometheus.Legend("{{query}}"),
+				),
+				timeseries.WithPrometheusTarget(
+					`avg(sum(rate(log_poller_query_duration_count{instance=~"$instance", evmChainID=~"$evmChainID"}[$__rate_interval]))) by (instance)`,
+					prometheus.Legend("Total"),
+				),
+			),
+			row.WithTimeSeries(
+				"LogPoller Logs Number Returned",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`log_poller_query_dataset_size{instance=~"$instance", evmChainID=~"$evmChainID"}`,
+					prometheus.Legend("{{query}} : {{type}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"LogPoller Average Logs Number Returned",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`avg(log_poller_query_dataset_size{instance=~"$instance", evmChainID=~"$evmChainID"}) by (query)`,
+					prometheus.Legend("{{query}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"LogPoller Max Logs Number Returned",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`max(log_poller_query_dataset_size{instance=~"$instance", evmChainID=~"$evmChainID"}) by (query)`,
+					prometheus.Legend("{{query}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"LogPoller Logs Number Returned by Chain",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`max(log_poller_query_dataset_size{instance=~"$instance"}) by (evmChainID)`,
+					prometheus.Legend("{{evmChainID}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"LogPoller Queries Duration Avg",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`(sum(rate(log_poller_query_duration_sum{instance=~"$instance", evmChainID=~"$evmChainID"}[$__rate_interval])) by (query) / sum(rate(log_poller_query_duration_count{instance=~"$instance"}[$__rate_interval])) by (query)) / 1e6`,
+					prometheus.Legend("{{query}}"),
 				),
 			),
 			row.WithTimeSeries(
 				"LogPoller Queries Duration p99",
-				timeseries.Span(12),
+				timeseries.Span(4),
 				timeseries.Height("200px"),
 				timeseries.DataSource(m.PrometheusDataSourceName),
 				timeseries.WithPrometheusTarget(
 					`histogram_quantile(0.99, sum(rate(log_poller_query_duration_bucket{instance=~"$instance", evmChainID=~"$evmChainID"}[$__rate_interval])) by (le, query)) / 1e6`,
-					prometheus.Legend("Auto"),
+					prometheus.Legend("{{query}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"LogPoller Queries Duration p95",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`histogram_quantile(0.95, sum(rate(log_poller_query_duration_bucket{instance=~"$instance", evmChainID=~"$evmChainID"}[$__rate_interval])) by (le, query)) / 1e6`,
+					prometheus.Legend("{{query}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"LogPoller Queries Duration p90",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`histogram_quantile(0.95, sum(rate(log_poller_query_duration_bucket{instance=~"$instance", evmChainID=~"$evmChainID"}[$__rate_interval])) by (le, query)) / 1e6`,
+					prometheus.Legend("{{query}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"LogPoller Queries Duration Median",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`histogram_quantile(0.5, sum(rate(log_poller_query_duration_bucket{instance=~"$instance", evmChainID=~"$evmChainID"}[$__rate_interval])) by (le, query)) / 1e6`,
+					prometheus.Legend("{{query}}"),
 				),
 			),
 		),
@@ -175,7 +259,7 @@ func (m *Dashboard) addFeedsJobsPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`feeds_job_proposal_requests{instance="${instance}"}`,
+					`feeds_job_proposal_requests{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -188,7 +272,7 @@ func (m *Dashboard) addFeedsJobsPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`feeds_job_proposal_count{instance="${instance}"}`,
+					`feeds_job_proposal_count{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -211,7 +295,7 @@ func (m *Dashboard) addMailboxPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`mailbox_load_percent{instance="${instance}"}`,
+					`mailbox_load_percent{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - {{ name }}"),
 				),
 			),
@@ -234,7 +318,7 @@ func (m *Dashboard) addPromReporterPanels() {
 					axis.Unit("Tx"),
 				),
 				timeseries.WithPrometheusTarget(
-					`unconfirmed_transactions{instance="${instance}"}`,
+					`unconfirmed_transactions{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -247,7 +331,7 @@ func (m *Dashboard) addPromReporterPanels() {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`max_unconfirmed_tx_age{instance="${instance}"}`,
+					`max_unconfirmed_tx_age{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -260,7 +344,7 @@ func (m *Dashboard) addPromReporterPanels() {
 					axis.Unit("Blocks"),
 				),
 				timeseries.WithPrometheusTarget(
-					`max_unconfirmed_blocks{instance="${instance}"}`,
+					`max_unconfirmed_blocks{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -283,7 +367,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_time_until_tx_broadcast{instance="${instance}"}`,
+					`tx_manager_time_until_tx_broadcast{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -296,7 +380,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_num_gas_bumps{instance="${instance}"}`,
+					`tx_manager_num_gas_bumps{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -309,7 +393,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_gas_bump_exceeds_limit{instance="${instance}"}`,
+					`tx_manager_gas_bump_exceeds_limit{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -322,7 +406,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_num_confirmed_transactions{instance="${instance}"}`,
+					`tx_manager_num_confirmed_transactions{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -335,7 +419,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_num_successful_transactions{instance="${instance}"}`,
+					`tx_manager_num_successful_transactions{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -348,7 +432,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_num_tx_reverted{instance="${instance}"}`,
+					`tx_manager_num_tx_reverted{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -361,7 +445,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_fwd_tx_count{instance="${instance}"}`,
+					`tx_manager_fwd_tx_count{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -374,7 +458,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_tx_attempt_count{instance="${instance}"}`,
+					`tx_manager_tx_attempt_count{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -387,7 +471,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_time_until_tx_confirmed{instance="${instance}"}`,
+					`tx_manager_time_until_tx_confirmed{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -400,7 +484,7 @@ func (m *Dashboard) addTxManagerPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`tx_manager_blocks_until_tx_confirmed{instance="${instance}"}`,
+					`tx_manager_blocks_until_tx_confirmed{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -423,7 +507,7 @@ func (m *Dashboard) addHeadTrackerPanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`head_tracker_current_head{instance="${instance}"}`,
+					`head_tracker_current_head{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -436,7 +520,7 @@ func (m *Dashboard) addHeadTrackerPanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`head_tracker_very_old_head{instance="${instance}"}`,
+					`head_tracker_very_old_head{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -449,7 +533,7 @@ func (m *Dashboard) addHeadTrackerPanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`head_tracker_heads_received{instance="${instance}"}`,
+					`head_tracker_heads_received{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -462,7 +546,7 @@ func (m *Dashboard) addHeadTrackerPanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`head_tracker_connection_errors{instance="${instance}"}`,
+					`head_tracker_connection_errors{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -486,19 +570,19 @@ func (m *Dashboard) addDatabasePanels() {
 					axis.Unit("Conn"),
 				),
 				timeseries.WithPrometheusTarget(
-					`db_conns_max{instance="${instance}"}`,
+					`db_conns_max{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - Max}"),
 				),
 				timeseries.WithPrometheusTarget(
-					`db_conns_open{instance="${instance}"}`,
+					`db_conns_open{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - Open"),
 				),
 				timeseries.WithPrometheusTarget(
-					`db_conns_used{instance="${instance}"}`,
+					`db_conns_used{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - Used"),
 				),
 				timeseries.WithPrometheusTarget(
-					`db_conns_wait{instance="${instance}"}`,
+					`db_conns_wait{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - Wait"),
 				),
 			),
@@ -511,7 +595,7 @@ func (m *Dashboard) addDatabasePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`db_wait_count{instance="${instance}"}`,
+					`db_wait_count{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -524,7 +608,7 @@ func (m *Dashboard) addDatabasePanels() {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`db_wait_time_seconds{instance="${instance}"}`,
+					`db_wait_time_seconds{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -548,15 +632,15 @@ func (m *Dashboard) addSQLQueryPanels() {
 					axis.Unit("percent"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.9, sum(rate(sql_query_timeout_percent_bucket{instance="${instance}"}[$__rate_interval])) by (le))`,
+					`histogram_quantile(0.9, sum(rate(sql_query_timeout_percent_bucket{instance=~"$instance"}[$__rate_interval])) by (le))`,
 					prometheus.Legend("p90"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.95, sum(rate(sql_query_timeout_percent_bucket{instance="${instance}"}[$__rate_interval])) by (le))`,
+					`histogram_quantile(0.95, sum(rate(sql_query_timeout_percent_bucket{instance=~"$instance"}[$__rate_interval])) by (le))`,
 					prometheus.Legend("p95"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.99, sum(rate(sql_query_timeout_percent_bucket{instance="${instance}"}[$__rate_interval])) by (le))`,
+					`histogram_quantile(0.99, sum(rate(sql_query_timeout_percent_bucket{instance=~"$instance"}[$__rate_interval])) by (le))`,
 					prometheus.Legend("p99"),
 				),
 			),
@@ -576,23 +660,23 @@ func (m *Dashboard) addLogsPanels() {
 				timeseries.Height("200px"),
 				timeseries.DataSource(m.PrometheusDataSourceName),
 				timeseries.WithPrometheusTarget(
-					`log_panic_count{instance="${instance}"}`,
+					`log_panic_count{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - panic"),
 				),
 				timeseries.WithPrometheusTarget(
-					`log_fatal_count{instance="${instance}"}`,
+					`log_fatal_count{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - fatal"),
 				),
 				timeseries.WithPrometheusTarget(
-					`log_critical_count{instance="${instance}"}`,
+					`log_critical_count{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - critical"),
 				),
 				timeseries.WithPrometheusTarget(
-					`log_warn_count{instance="${instance}"}`,
+					`log_warn_count{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - warn"),
 				),
 				timeseries.WithPrometheusTarget(
-					`log_error_count{instance="${instance}"}`,
+					`log_error_count{instance=~"$instance"}`,
 					prometheus.Legend("{{instance}} - error"),
 				),
 			),
@@ -616,7 +700,7 @@ func (m *Dashboard) addEVMPoolLifecyclePanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_highest_seen_block{instance="${instance}", evmChainID="${evmChainID}"}`,
+					`evm_pool_rpc_node_highest_seen_block{instance=~"$instance", evmChainID="${evmChainID}"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -629,7 +713,7 @@ func (m *Dashboard) addEVMPoolLifecyclePanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_num_seen_blocks{instance="${instance}"}`,
+					`evm_pool_rpc_node_num_seen_blocks{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -642,7 +726,7 @@ func (m *Dashboard) addEVMPoolLifecyclePanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_polls_total{instance="${instance}"}`,
+					`evm_pool_rpc_node_polls_total{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -655,7 +739,7 @@ func (m *Dashboard) addEVMPoolLifecyclePanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_polls_failed{instance="${instance}"}`,
+					`evm_pool_rpc_node_polls_failed{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -668,7 +752,7 @@ func (m *Dashboard) addEVMPoolLifecyclePanels() {
 					axis.Unit("Block"),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_polls_success{instance="${instance}"}`,
+					`evm_pool_rpc_node_polls_success{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -692,7 +776,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_calls_success{instance="${instance}"}`,
+					`evm_pool_rpc_node_calls_success{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -705,7 +789,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_calls_total{instance="${instance}"}`,
+					`evm_pool_rpc_node_calls_total{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -718,7 +802,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_dials_success{instance="${instance}"}`,
+					`evm_pool_rpc_node_dials_success{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -731,7 +815,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_dials_failed{instance="${instance}"}`,
+					`evm_pool_rpc_node_dials_failed{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -744,7 +828,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_dials_total{instance="${instance}"}`,
+					`evm_pool_rpc_node_dials_total{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -757,7 +841,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_dials_failed{instance="${instance}"}`,
+					`evm_pool_rpc_node_dials_failed{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -770,7 +854,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_num_transitions_to_alive{instance="${instance}"}`,
+					`evm_pool_rpc_node_num_transitions_to_alive{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -783,7 +867,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_num_transitions_to_in_sync{instance="${instance}"}`,
+					`evm_pool_rpc_node_num_transitions_to_in_sync{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -796,7 +880,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_num_transitions_to_out_of_sync{instance="${instance}"}`,
+					`evm_pool_rpc_node_num_transitions_to_out_of_sync{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -809,7 +893,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_num_transitions_to_unreachable{instance="${instance}"}`,
+					`evm_pool_rpc_node_num_transitions_to_unreachable{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -822,7 +906,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_num_transitions_to_invalid_chain_id{instance="${instance}"}`,
+					`evm_pool_rpc_node_num_transitions_to_invalid_chain_id{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -835,7 +919,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_num_transitions_to_unusable{instance="${instance}"}`,
+					`evm_pool_rpc_node_num_transitions_to_unusable{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -848,7 +932,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_polls_success{instance="${instance}"}`,
+					`evm_pool_rpc_node_polls_success{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -861,7 +945,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_polls_total{instance="${instance}"}`,
+					`evm_pool_rpc_node_polls_total{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -874,7 +958,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_states{instance="${instance}"}`,
+					`evm_pool_rpc_node_states{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - {{evmChainID}} - {{state}}"),
 				),
 			),
@@ -887,7 +971,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_verifies{instance="${instance}"}`,
+					`evm_pool_rpc_node_verifies{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - {{evmChainID}}"),
 				),
 			),
@@ -900,7 +984,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_verifies_success{instance="${instance}"}`,
+					`evm_pool_rpc_node_verifies_success{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - {{evmChainID}}"),
 				),
 			),
@@ -913,7 +997,7 @@ func (m *Dashboard) addEVMPoolRPCNodePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`evm_pool_rpc_node_verifies_failed{instance="${instance}"}`,
+					`evm_pool_rpc_node_verifies_failed{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - {{evmChainID}}"),
 				),
 			),
@@ -937,7 +1021,7 @@ func (m *Dashboard) addEVMRPCNodeLatenciesPanels() {
 					axis.Unit("ms"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.95, sum(rate(evm_pool_rpc_node_rpc_call_time_bucket{instance="${instance}"}[$__rate_interval])) by (le, rpcCallName)) / 1e6`,
+					`histogram_quantile(0.95, sum(rate(evm_pool_rpc_node_rpc_call_time_bucket{instance=~"$instance"}[$__rate_interval])) by (le, rpcCallName)) / 1e6`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -960,7 +1044,7 @@ func (m *Dashboard) addBlockHistoryEstimatorPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`gas_updater_all_gas_price_percentiles{instance="${instance}"}`,
+					`gas_updater_all_gas_price_percentiles{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - {{ percentile }}"),
 				),
 			),
@@ -973,7 +1057,7 @@ func (m *Dashboard) addBlockHistoryEstimatorPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`gas_updater_all_tip_cap_percentiles{instance="${instance}"}`,
+					`gas_updater_all_tip_cap_percentiles{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} - {{ percentile }}"),
 				),
 			),
@@ -986,7 +1070,7 @@ func (m *Dashboard) addBlockHistoryEstimatorPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`gas_updater_set_gas_price{instance="${instance}"}`,
+					`gas_updater_set_gas_price{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -999,7 +1083,7 @@ func (m *Dashboard) addBlockHistoryEstimatorPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`gas_updater_set_tip_cap{instance="${instance}"}`,
+					`gas_updater_set_tip_cap{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1012,7 +1096,7 @@ func (m *Dashboard) addBlockHistoryEstimatorPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`gas_updater_current_base_fee{instance="${instance}"}`,
+					`gas_updater_current_base_fee{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1025,7 +1109,7 @@ func (m *Dashboard) addBlockHistoryEstimatorPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`block_history_estimator_connectivity_failure_count{instance="${instance}"}`,
+					`block_history_estimator_connectivity_failure_count{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1048,7 +1132,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_task_execution_time{instance="${instance}"} / 1e6`,
+					`pipeline_task_execution_time{instance=~"$instance"} / 1e6`,
 					prometheus.Legend("{{ instance }} JobID: {{ job_id }}"),
 				),
 			),
@@ -1061,7 +1145,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_run_errors{instance="${instance}"}`,
+					`pipeline_run_errors{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} JobID: {{ job_id }}"),
 				),
 			),
@@ -1074,7 +1158,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_run_total_time_to_completion{instance="${instance}"} / 1e6`,
+					`pipeline_run_total_time_to_completion{instance=~"$instance"} / 1e6`,
 					prometheus.Legend("{{ instance }} JobID: {{ job_id }}"),
 				),
 			),
@@ -1087,7 +1171,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_tasks_total_finished{instance="${instance}"}`,
+					`pipeline_tasks_total_finished{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }} JobID: {{ job_id }}"),
 				),
 			),
@@ -1104,7 +1188,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_task_eth_call_execution_time{instance="${instance}"}`,
+					`pipeline_task_eth_call_execution_time{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1121,7 +1205,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_task_http_fetch_time{instance="${instance}"} / 1e6`,
+					`pipeline_task_http_fetch_time{instance=~"$instance"} / 1e6`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1134,7 +1218,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit("Bytes"),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_task_http_response_body_size{instance="${instance}"}`,
+					`pipeline_task_http_response_body_size{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1151,7 +1235,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`bridge_latency_seconds{instance="${instance}"}`,
+					`bridge_latency_seconds{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1164,7 +1248,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`bridge_errors_total{instance="${instance}"}`,
+					`bridge_errors_total{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1177,7 +1261,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`bridge_cache_hits_total{instance="${instance}"}`,
+					`bridge_cache_hits_total{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1190,7 +1274,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`bridge_cache_errors_total{instance="${instance}"}`,
+					`bridge_cache_errors_total{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1207,7 +1291,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_runs_queued{instance="${instance}"}`,
+					`pipeline_runs_queued{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1220,7 +1304,7 @@ func (m *Dashboard) addPipelinePanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`pipeline_task_runs_queued{instance="${instance}"}`,
+					`pipeline_task_runs_queued{instance=~"$instance"}`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
@@ -1245,7 +1329,7 @@ func (m *Dashboard) addHTTPAPIPanels() {
 					axis.Unit("Sec"),
 				),
 				timeseries.WithPrometheusTarget(
-					`histogram_quantile(0.95, sum(rate(service_gonic_request_duration_bucket{instance="${instance}"}[$__rate_interval])) by (le, path, method))`,
+					`histogram_quantile(0.95, sum(rate(service_gonic_request_duration_bucket{instance=~"$instance"}[$__rate_interval])) by (le, path, method))`,
 					prometheus.Legend("{{ method }} {{ path }}"),
 				),
 			),
@@ -1258,7 +1342,7 @@ func (m *Dashboard) addHTTPAPIPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`sum(rate(service_gonic_requests_total{instance="${instance}"}[$__rate_interval])) by (path, method, code)`,
+					`sum(rate(service_gonic_requests_total{instance=~"$instance"}[$__rate_interval])) by (path, method, code)`,
 					prometheus.Legend("{{ method }} {{ path }} {{ code }}"),
 				),
 			),
@@ -1271,7 +1355,7 @@ func (m *Dashboard) addHTTPAPIPanels() {
 					axis.Unit("Bytes"),
 				),
 				timeseries.WithPrometheusTarget(
-					`avg(rate(service_gonic_request_size_bytes_sum{instance="${instance}"}[$__rate_interval]))/avg(rate(service_gonic_request_size_bytes_count{instance="${instance}"}[$__rate_interval]))`,
+					`avg(rate(service_gonic_request_size_bytes_sum{instance=~"$instance"}[$__rate_interval]))/avg(rate(service_gonic_request_size_bytes_count{instance=~"$instance"}[$__rate_interval]))`,
 					prometheus.Legend("Average"),
 				),
 			),
@@ -1284,7 +1368,7 @@ func (m *Dashboard) addHTTPAPIPanels() {
 					axis.Unit("Bytes"),
 				),
 				timeseries.WithPrometheusTarget(
-					`avg(rate(service_gonic_response_size_bytes_sum{instance="${instance}"}[$__rate_interval]))/avg(rate(service_gonic_response_size_bytes_count{instance="${instance}"}[$__rate_interval]))`,
+					`avg(rate(service_gonic_response_size_bytes_sum{instance=~"$instance"}[$__rate_interval]))/avg(rate(service_gonic_response_size_bytes_count{instance=~"$instance"}[$__rate_interval]))`,
 					prometheus.Legend("Average"),
 				),
 			),
@@ -1317,7 +1401,7 @@ func (m *Dashboard) addPromHTTPPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`sum(rate(promhttp_metric_handler_requests_total{instance="${instance}"}[$__rate_interval])) by (code)`,
+					`sum(rate(promhttp_metric_handler_requests_total{instance=~"$instance"}[$__rate_interval])) by (code)`,
 					prometheus.Legend("{{ code }}"),
 				),
 			),
@@ -1338,7 +1422,7 @@ func (m *Dashboard) addGoMetricsPanels() {
 				timeseries.Height("200px"),
 				timeseries.DataSource(m.PrometheusDataSourceName),
 				timeseries.WithPrometheusTarget(
-					`sum(go_memstats_heap_alloc_bytes{instance="${instance}"}) by (instance)`,
+					`sum(go_memstats_heap_alloc_bytes{instance=~"$instance"}) by (instance)`,
 					prometheus.Legend("{{ instance }}"),
 				),
 				timeseries.Axis(
@@ -1357,7 +1441,7 @@ func (m *Dashboard) addGoMetricsPanels() {
 					}),
 					alert.WithPrometheusQuery(
 						"A",
-						`sum(go_memstats_heap_alloc_bytes{instance="${instance}"}) by (instance)`,
+						`sum(go_memstats_heap_alloc_bytes{instance=~"$instance"}) by (instance)`,
 					),
 					alert.If(alert.Avg, "A", alert.IsAbove(1.342e+8)), // 128Mib
 				),
@@ -1391,7 +1475,7 @@ func (m *Dashboard) addGoMetricsPanels() {
 				table.Height("200px"),
 				table.DataSource(m.PrometheusDataSourceName),
 				table.WithPrometheusTarget(
-					`sum(go_threads{instance="${instance}"}) by (instance)`,
+					`sum(go_threads{instance=~"$instance"}) by (instance)`,
 					prometheus.Legend("{{ instance }}")),
 				table.HideColumn("Time"),
 				table.AsTimeSeriesAggregations([]table.Aggregation{
@@ -1408,7 +1492,7 @@ func (m *Dashboard) addGoMetricsPanels() {
 					axis.Unit(""),
 				),
 				timeseries.WithPrometheusTarget(
-					`sum(go_threads{instance="${instance}"}) by (instance)`,
+					`sum(go_threads{instance=~"$instance"}) by (instance)`,
 					prometheus.Legend("{{ instance }}"),
 				),
 			),
