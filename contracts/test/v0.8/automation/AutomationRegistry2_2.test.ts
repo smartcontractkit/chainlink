@@ -899,6 +899,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
+      zeroAddress,
     )
 
     arbRegistry = await deployRegistry22(
@@ -907,6 +908,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
+      zeroAddress,
     )
 
     opRegistry = await deployRegistry22(
@@ -915,6 +917,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
+      zeroAddress,
     )
 
     mgRegistry = await deployRegistry22(
@@ -923,6 +926,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
+      zeroAddress,
     )
 
     blankRegistry = await deployRegistry22(
@@ -931,6 +935,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
+      zeroAddress,
     )
 
     registryConditionalOverhead = await registry.getConditionalGasOverhead()
