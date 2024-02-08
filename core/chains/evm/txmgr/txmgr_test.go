@@ -121,7 +121,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
 		evmConfig.MaxQueued = uint64(1)
 		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
@@ -406,7 +406,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
 
 		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    evmFromAddress,
@@ -430,7 +430,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
 
 		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    evmFromAddress,
@@ -451,7 +451,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
 
 		evmConfig.MaxQueued = uint64(1)
 		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
@@ -799,6 +799,10 @@ func mustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress c
 func mustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.TxRequest, chainID *big.Int) (tx txmgr.Tx) {
 	tx, err := txStore.CreateTransaction(testutils.Context(t), txRequest, chainID)
 	require.NoError(t, err)
+
+	_, err = txRequest.Strategy.PruneQueue(testutils.Context(t), txStore)
+	require.NoError(t, err)
+
 	return tx
 }
 

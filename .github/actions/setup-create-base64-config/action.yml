@@ -8,7 +8,7 @@ inputs:
     description: Whether to always collect logs, even for passing tests
     default: "false"
   selectedNetworks:
-    description: The networks to run tests against 
+    description: The networks to run tests against
   chainlinkImage:
     description: The chainlink image to use
     default: "public.ecr.aws/chainlink/chainlink"
@@ -16,7 +16,7 @@ inputs:
     description: The git commit sha to use for the image tag
   pyroscopeServer:
     description: URL of Pyroscope server
-  pyroscopeEnvironment: 
+  pyroscopeEnvironment:
     description: Name of Pyroscope environment
   pyroscopeKey:
     description: Pyroscope server key
@@ -43,9 +43,9 @@ runs:
         RUN_ID: ${{ inputs.runId }}
         TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}
         SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
-        PYROSCOPE_SERVER: ${{ inputs.pyroscopeServer }} 
-        PYROSCOPE_ENVIRONMENT: ${{ inputs.pyroscopeEnvironment }} 
-        PYROSCOPE_KEY: ${{ inputs.pyroscopeKey }} 
+        PYROSCOPE_SERVER: ${{ inputs.pyroscopeServer }}
+        PYROSCOPE_ENVIRONMENT: ${{ inputs.pyroscopeEnvironment }}
+        PYROSCOPE_KEY: ${{ inputs.pyroscopeKey }}
         CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
         CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
         LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
@@ -55,7 +55,7 @@ runs:
         GRAFANA_URL: ${{ inputs.grafanaUrl }}
         GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
       run: |
-        echo ::add-mask::$CHAINLINK_IMAGE        
+        echo ::add-mask::$CHAINLINK_IMAGE
         function convert_to_toml_array() {
           local IFS=','
           local input_array=($1)
@@ -68,10 +68,10 @@ runs:
           toml_array_format="${toml_array_format%,}]"
           echo "$toml_array_format"
         }
-        
-        selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")      
+
+        selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")
         log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
-        
+
         if [ -n "$PYROSCOPE_SERVER" ]; then
           pyroscope_enabled=true
         else
@@ -82,16 +82,16 @@ runs:
           test_log_collect=true
         else
           test_log_collect=false
-        fi              
+        fi
 
         cat << EOF > config.toml
         [Network]
         selected_networks=$selected_networks
-        
+
         [ChainlinkImage]
         image="$CHAINLINK_IMAGE"
         version="$CHAINLINK_VERSION"
-        
+
         [Pyroscope]
         enabled=$pyroscope_enabled
         server_url="$PYROSCOPE_SERVER"
@@ -109,14 +109,12 @@ runs:
         tenant_id="$LOKI_TENANT_ID"
         endpoint="$LOKI_ENDPOINT"
         basic_auth="$LOKI_BASIC_AUTH"
-        # legacy, you only need this to access the cloud version
-        # bearer_token="bearer_token"
 
         [Logging.Grafana]
         base_url="$GRAFANA_URL"
-        dasboard_url="$GRAFANA_DASHBOARD_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
         EOF
-        
+
         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
