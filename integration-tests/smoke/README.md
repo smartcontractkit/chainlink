@@ -1,16 +1,15 @@
-## Smoke tests (local environments)
+# Smoke Tests
 
-These products are using local `testcontainers-go` environments:
-- RunLog (Direct request)
-- Cron
-- Flux
-- VRFv1
-- VRFv2
+Here you can run Chainlink E2E smoke tests. These tests are designed to be lightweight enough to run from a laptop, but also simulate an E2E Chainlink product workflow.
 
-### Usage
-```
+## Run
+
+Each product gets its own go test file, and is named accordingly so. While the tests are lightweight enough to run on a local machine, they still require a lot of Docker containers, so we recommend only running one test at a time, lest you peg your processor.
+
+```sh
 go test -v -run ${TestName}
 ```
+
 ### Re-using environments
 Configuration is still WIP, but you can make your environment re-usable by providing JSON config.
 
@@ -20,6 +19,7 @@ export TEST_ENV_CONFIG_PATH=test_env.json
 ```
 
 Here is an example for 3 nodes cluster
+
 ```
 {
   "networks": [
@@ -52,7 +52,9 @@ Here is an example for 3 nodes cluster
 ```
 
 ### Running against Live Testnets
+
 1. Prepare your `overrides.toml` file with selected network and CL image name and version and save anywhere inside `integration-tests` folder.
+
 ```toml
 [ChainlinkImage]
 image="your-image"
@@ -70,14 +72,15 @@ polygon_mumbai=["wss://ws.endpoint.com"]
 [Network.WalletKeys]
 polygon_mumbai=["my_so_private_key"]
 ```
+
 Then execute:
+
 ```bash
 go test -v -run ${TestName}
 ```
 
-
-
 ### Debugging CL client API calls
+
 ```bash
 export CL_CLIENT_DEBUG=true
 ```
