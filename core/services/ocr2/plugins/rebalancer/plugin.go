@@ -149,12 +149,16 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 		"liquidityGraph", p.liquidityGraph,
 		"liquidityPerChain", obs.LiquidityPerChain)
 
-	if p.liquidityGraph.IsEmpty() {
+	// compute a new graph with the median liquidities.
+	g, err := p.computeMedianGraph(obs.LiquidityPerChain)
+	if err != nil {
+		return nil, fmt.Errorf("compute median graph: %w", err)
+	}
+	if g.IsEmpty() {
 		return nil, fmt.Errorf("liquidity graph is empty, can't generate reports")
 	}
 
-	transfersToReachBalance, err := p.liquidityRebalancer.ComputeTransfersToBalance(
-		p.liquidityGraph, obs.PendingTransfers, obs.LiquidityPerChain)
+	transfersToReachBalance, err := p.liquidityRebalancer.ComputeTransfersToBalance(g, obs.PendingTransfers)
 	if err != nil {
 		return nil, fmt.Errorf("compute transfers to reach balance: %w", err)
 	}
@@ -398,6 +402,48 @@ func (p *Plugin) computePendingTransfersConsensus(observations []models.Observat
 	}
 
 	return quorumEvents, nil
+}
+
+// computeMedianGraph computes a graph with the provided median liquidities per chain.
+// The nodes in the resulting graph are copied from the plugin node. Meaning that different
+// plugin instances might have different graph.
+func (p *Plugin) computeMedianGraph(medianLiquidities []models.NetworkLiquidity) (liquiditygraph.LiquidityGraph, error) {
+	g := liquiditygraph.NewGraph()
+
+	for _, medianLiq := range medianLiquidities {
+		sourceNetwork := medianLiq.Network
+
+		neighbors, exists := p.liquidityGraph.GetNeighbors(sourceNetwork)
+		if !exists {
+			p.lggr.Warnw("neighbors not found for network", "network", sourceNetwork)
+			continue
+		}
+
+		switch g.HasNetwork(sourceNetwork) {
+		case true: // was already added to the graph, as a neighbor of another network that was processed first.
+			if !g.SetLiquidity(sourceNetwork, medianLiq.Liquidity) {
+				return nil, fmt.Errorf("graph set liquidity %s network %d", medianLiq.Liquidity, sourceNetwork)
+			}
+		case false: // seen for first time
+			if !g.AddNetwork(sourceNetwork, medianLiq.Liquidity) {
+				return nil, fmt.Errorf("graph add network liquidity %s network %d", medianLiq.Liquidity, sourceNetwork)
+			}
+		}
+
+		for _, destNetwork := range neighbors {
+			if !g.HasNetwork(destNetwork) {
+				if !g.AddNetwork(destNetwork, big.NewInt(0)) {
+					return nil, fmt.Errorf("graph add dest network %d unexpectedly returned false", destNetwork)
+				}
+			}
+
+			if err := g.AddConnection(sourceNetwork, destNetwork); err != nil {
+				return nil, fmt.Errorf("graph add connection %d->%d: %w", sourceNetwork, destNetwork, err)
+			}
+		}
+	}
+
+	return g, nil
 }
 
 // bigIntSortedMiddle returns the middle number after sorting the provided numbers. nil is returned if the provided slice is empty.

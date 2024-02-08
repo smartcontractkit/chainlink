@@ -133,7 +133,7 @@ func TestPingPong(t *testing.T) {
 			pp := NewPingPong()
 			g := genGraph(t, tc.balances, tc.lanes)
 
-			transfers, err := pp.ComputeTransfersToBalance(g, tc.inflight, nil)
+			transfers, err := pp.ComputeTransfersToBalance(g, tc.inflight)
 			if tc.expErr {
 				assert.Error(t, err)
 				return
@@ -203,7 +203,7 @@ func runPingPongInfinitySimulation(t *testing.T, rounds, maxNets, maxLanes int) 
 		}
 		inflightTransfers = filteredInflights
 
-		transfersToBalance, err := pp.ComputeTransfersToBalance(g, inflightTransfers, nil)
+		transfersToBalance, err := pp.ComputeTransfersToBalance(g, inflightTransfers)
 		assert.NoError(t, err)
 
 		if len(inflightTransfers) == 0 {

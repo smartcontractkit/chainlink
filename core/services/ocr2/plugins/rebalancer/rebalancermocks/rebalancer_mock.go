@@ -15,9 +15,9 @@ type Rebalancer struct {
 	mock.Mock
 }
 
-// ComputeTransfersToBalance provides a mock function with given fields: g, inflightTransfers, medianLiquidityPerChain
-func (_m *Rebalancer) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, inflightTransfers []models.PendingTransfer, medianLiquidityPerChain []models.NetworkLiquidity) ([]models.Transfer, error) {
-	ret := _m.Called(g, inflightTransfers, medianLiquidityPerChain)
+// ComputeTransfersToBalance provides a mock function with given fields: g, inflightsTransfers
+func (_m *Rebalancer) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, inflightsTransfers []models.PendingTransfer) ([]models.Transfer, error) {
+	ret := _m.Called(g, inflightsTransfers)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ComputeTransfersToBalance")
@@ -25,19 +25,19 @@ func (_m *Rebalancer) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph,
 
 	var r0 []models.Transfer
 	var r1 error
-	if rf, ok := ret.Get(0).(func(liquiditygraph.LiquidityGraph, []models.PendingTransfer, []models.NetworkLiquidity) ([]models.Transfer, error)); ok {
-		return rf(g, inflightTransfers, medianLiquidityPerChain)
+	if rf, ok := ret.Get(0).(func(liquiditygraph.LiquidityGraph, []models.PendingTransfer) ([]models.Transfer, error)); ok {
+		return rf(g, inflightsTransfers)
 	}
-	if rf, ok := ret.Get(0).(func(liquiditygraph.LiquidityGraph, []models.PendingTransfer, []models.NetworkLiquidity) []models.Transfer); ok {
-		r0 = rf(g, inflightTransfers, medianLiquidityPerChain)
+	if rf, ok := ret.Get(0).(func(liquiditygraph.LiquidityGraph, []models.PendingTransfer) []models.Transfer); ok {
+		r0 = rf(g, inflightsTransfers)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.Transfer)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(liquiditygraph.LiquidityGraph, []models.PendingTransfer, []models.NetworkLiquidity) error); ok {
-		r1 = rf(g, inflightTransfers, medianLiquidityPerChain)
+	if rf, ok := ret.Get(1).(func(liquiditygraph.LiquidityGraph, []models.PendingTransfer) error); ok {
+		r1 = rf(g, inflightsTransfers)
 	} else {
 		r1 = ret.Error(1)
 	}

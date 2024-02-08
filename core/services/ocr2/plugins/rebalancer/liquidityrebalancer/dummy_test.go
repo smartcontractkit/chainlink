@@ -17,7 +17,7 @@ func TestDummyRebalancerComputeTransfersToBalance(t *testing.T) {
 	g.AddNetwork(40, big.NewInt(300))
 
 	r := NewDummyRebalancer()
-	transfers, err := r.ComputeTransfersToBalance(g, nil, nil)
+	transfers, err := r.ComputeTransfersToBalance(g, nil)
 	assert.NoError(t, err)
 	assert.Len(t, transfers, 3)
 }

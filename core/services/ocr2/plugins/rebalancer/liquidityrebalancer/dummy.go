@@ -17,7 +17,7 @@ func NewDummyRebalancer() *DummyRebalancer {
 	return &DummyRebalancer{}
 }
 
-func (r *DummyRebalancer) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, inflightTransfers []models.PendingTransfer, _ []models.NetworkLiquidity) ([]models.Transfer, error) {
+func (r *DummyRebalancer) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, inflightTransfers []models.PendingTransfer) ([]models.Transfer, error) {
 	if g.IsEmpty() {
 		return nil, fmt.Errorf("empty graph")
 	}

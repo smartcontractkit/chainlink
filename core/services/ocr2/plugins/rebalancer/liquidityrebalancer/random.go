@@ -30,13 +30,25 @@ func NewRandomRebalancer(maxNumTransfers int, checkSourceDestEqual bool, lggr lo
 func (r *randomRebalancer) ComputeTransfersToBalance(
 	g liquiditygraph.LiquidityGraph,
 	inflightTransfers []models.PendingTransfer,
-	medianLiquidities []models.NetworkLiquidity,
 ) ([]models.Transfer, error) {
+	liquidities := make([]models.NetworkLiquidity, 0)
+	for _, net := range g.GetNetworks() {
+		liq, err := g.GetLiquidity(net)
+		if err != nil {
+			return nil, fmt.Errorf("internal graph err: %w", err)
+		}
+		liquidities = append(liquidities, models.NewNetworkLiquidity(net, liq))
+	}
+
+	if len(liquidities) == 0 {
+		return nil, nil
+	}
+
 	// seed the randomness source so that all rebalancers produce the same output
 	// for the same input
-	r.lggr.Infow("RandomRebalancer: using median liquidity as seed", "medianLiquidity1", medianLiquidities[0].Liquidity.String())
-	source := mathrand.NewSource(medianLiquidities[0].Liquidity.Int64()) //nolint:gosec
-	rng := mathrand.New(source)                                          //nolint:gosec
+	r.lggr.Infow("RandomRebalancer: using median liquidity as seed", "medianLiquidity1", liquidities[0].Liquidity.String())
+	source := mathrand.NewSource(liquidities[0].Liquidity.Int64()) //nolint:gosec
+	rng := mathrand.New(source)                                    //nolint:gosec
 	numTransfers := rng.Int63n(int64(r.maxNumTransfers))
 	r.lggr.Infow("RandomRebalancer: generated random number of transfers", "numTransfers", numTransfers)
 	var transfers []models.Transfer
@@ -53,7 +65,7 @@ func (r *randomRebalancer) ComputeTransfersToBalance(
 		}
 		// use median liquidity to generate random amount
 		var liqSource *big.Int
-		for _, medianLiq := range medianLiquidities {
+		for _, medianLiq := range liquidities {
 			if medianLiq.Network == randSourceChain {
 				liqSource = medianLiq.Liquidity
 				break
