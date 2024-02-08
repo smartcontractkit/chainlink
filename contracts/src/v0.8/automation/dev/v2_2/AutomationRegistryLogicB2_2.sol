@@ -404,13 +404,14 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
 
   /**
    * @notice read the current state of the registry
+   * @dev this function is deprecated
    */
   function getState()
     external
     view
     returns (
       State memory state,
-      OnchainConfig memory config,
+      OnchainConfigLegacy memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f
@@ -429,7 +430,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       paused: s_hotVars.paused
     });
 
-    config = OnchainConfig({
+    config = OnchainConfigLegacy({
       paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
       flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
       checkGasLimit: s_storage.checkGasLimit,
@@ -444,11 +445,17 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
-      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
-      reorgProtectionEnabled: s_hotVars.reorgProtectionEnabled
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
+  }
+
+  /**
+   * @notice if this registry has reorg protection enabled
+   */
+  function getReorgProtectionEnabled() external view returns (bool reorgProtectionEnabled) {
+    return s_hotVars.reorgProtectionEnabled;
   }
 
   /**
