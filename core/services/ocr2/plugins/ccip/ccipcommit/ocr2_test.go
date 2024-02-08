@@ -727,8 +727,8 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 		{
 			name: "gas price update skipped because the latest is similar and was updated recently",
 			commitObservations: []ccip.CommitObservation{
-				{SourceGasPriceUSD: val1e18(10)},
 				{SourceGasPriceUSD: val1e18(11)},
+				{SourceGasPriceUSD: val1e18(12)},
 			},
 			gasPriceHeartBeat:        *config.MustNewDuration(time.Hour),
 			daGasPriceDeviationPPB:   20e7,
@@ -737,7 +737,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 			tokenPriceDeviationPPB:   20e7,
 			latestGasPrice: update{
 				timestamp: time.Now().Add(-30 * time.Minute), // recent
-				value:     val1e18(9),                        // latest value close to the update
+				value:     val1e18(10),                       // latest value close to the update
 			},
 			f:             1,
 			expGasUpdates: nil,
@@ -809,8 +809,8 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 		{
 			name: "token price update skipped because it is close to the latest",
 			commitObservations: []ccip.CommitObservation{
-				{TokenPricesUSD: map[common.Address]*big.Int{feeToken1: val1e18(10)}, SourceGasPriceUSD: val1e18(0)},
 				{TokenPricesUSD: map[common.Address]*big.Int{feeToken1: val1e18(11)}, SourceGasPriceUSD: val1e18(0)},
+				{TokenPricesUSD: map[common.Address]*big.Int{feeToken1: val1e18(12)}, SourceGasPriceUSD: val1e18(0)},
 			},
 			f:                        1,
 			gasPriceHeartBeat:        *config.MustNewDuration(time.Hour),
@@ -821,7 +821,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 			latestTokenPrices: map[common.Address]update{
 				feeToken1: {
 					timestamp: time.Now().Add(-30 * time.Minute),
-					value:     val1e18(9),
+					value:     val1e18(10),
 				},
 			},
 			// We expect a gas update because no latest
