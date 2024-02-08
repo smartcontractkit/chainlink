@@ -52,7 +52,8 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       logicA.getLinkAddress(),
       logicA.getLinkNativeFeedAddress(),
       logicA.getFastGasFeedAddress(),
-      logicA.getAutomationForwarderLogic()
+      logicA.getAutomationForwarderLogic(),
+      logicA.getAllowedReadOnlyAddress()
     )
     Chainable(address(logicA))
   {}
@@ -195,7 +196,9 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
   function simulatePerformUpkeep(
     uint256 id,
     bytes calldata performData
-  ) external cannotExecute returns (bool success, uint256 gasUsed) {
+  ) external returns (bool success, uint256 gasUsed) {
+    _preventExecution();
+
     if (s_hotVars.paused) revert RegistryPaused();
     Upkeep memory upkeep = s_upkeep[id];
     (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);

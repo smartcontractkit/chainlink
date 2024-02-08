@@ -362,4 +362,4 @@ Order = 100 # Default
 
 [EVM.OCR2.Automation]
 # GasLimit controls the gas limit for transmit transactions from ocr2automation job.
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
