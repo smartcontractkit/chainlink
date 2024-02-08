@@ -19,14 +19,16 @@ type workflowID string
 
 type OnDemand struct {
 	capabilities.CapabilityInfo
-	chans map[workflowID]chan capabilities.CapabilityResponse
+	chans map[workflowID]chan<- capabilities.CapabilityResponse
 	mu    sync.Mutex
 }
+
+var _ capabilities.TriggerCapability = (*OnDemand)(nil)
 
 func NewOnDemand() *OnDemand {
 	return &OnDemand{
 		CapabilityInfo: info,
-		chans:          map[workflowID]chan capabilities.CapabilityResponse{},
+		chans:          map[workflowID]chan<- capabilities.CapabilityResponse{},
 	}
 }
 
@@ -52,7 +54,7 @@ func (o *OnDemand) SendEvent(ctx context.Context, wid string, event capabilities
 	return nil
 }
 
-func (o *OnDemand) RegisterTrigger(ctx context.Context, callback chan capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
+func (o *OnDemand) RegisterTrigger(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
 	wid := req.Metadata.WorkflowID
 
 	o.mu.Lock()
