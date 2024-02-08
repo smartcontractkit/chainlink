@@ -227,3 +227,19 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	err = donMgr.SendToNode(testutils.Context(t), "some_other_node", message)
 	require.Error(t, err)
 }
+
+func TestConnectionManager_CleanStartClose(t *testing.T) {
+	t.Parallel()
+
+	config, _ := newTestConfig(t, 2)
+	config.ConnectionManagerConfig.HeartbeatIntervalSec = 1
+	clock := utils.NewFixedClock(time.Now())
+	mgr, err := gateway.NewConnectionManager(config, clock, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	err = mgr.Start(testutils.Context(t))
+	require.NoError(t, err)
+
+	err = mgr.Close()
+	require.NoError(t, err)
+}

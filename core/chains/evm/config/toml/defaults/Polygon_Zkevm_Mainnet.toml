@@ -4,6 +4,7 @@ NoNewHeadsThreshold = '6m'
 MinIncomingConfirmations = 1
 LogPollInterval = '30s'
 RPCBlockQueryDelay = 15
+RPCDefaultBatchSize = 100
 
 [OCR]
 ContractConfirmations = 1

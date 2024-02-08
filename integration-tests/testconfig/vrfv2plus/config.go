@@ -68,10 +68,13 @@ func (c *Common) Validate() error {
 
 type General struct {
 	*vrfv2.General
-	SubscriptionBillingType         *string  `toml:"subscription_billing_type"`          // Billing type for the subscription
-	SubscriptionFundingAmountNative *float64 `toml:"subscription_funding_amount_native"` // Amount of LINK to fund the subscription with
-	FulfillmentFlatFeeLinkPPM       *uint32  `toml:"fulfillment_flat_fee_link_ppm"`      // Flat fee in ppm for LINK for the VRF Coordinator config
-	FulfillmentFlatFeeNativePPM     *uint32  `toml:"fulfillment_flat_fee_native_ppm"`    // Flat fee in ppm for native currency for the VRF Coordinator config
+	SubscriptionBillingType           *string  `toml:"subscription_billing_type"`              // Billing type for the subscription
+	SubscriptionFundingAmountNative   *float64 `toml:"subscription_funding_amount_native"`     // Amount of LINK to fund the subscription with
+	FulfillmentFlatFeeNativePPM       *uint32  `toml:"fulfillment_flat_fee_native_ppm"`        // Flat fee in ppm for native currency for the VRF Coordinator config
+	FulfillmentFlatFeeLinkPPM         *uint32  `toml:"fulfillment_flat_fee_link_ppm"`          // Flat fee in ppm for LINK for the VRF Coordinator config
+	FulfillmentFlatFeeLinkDiscountPPM *uint32  `toml:"fulfillment_flat_fee_link_discount_ppm"` // Flat fee discount in ppm for LINK for the VRF Coordinator config
+	NativePremiumPercentage           *uint8   `toml:"native_premium_percentage"`              // Native Premium Percentage
+	LinkPremiumPercentage             *uint8   `toml:"link_premium_percentage"`                // LINK Premium Percentage
 }
 
 func (c *General) Validate() error {
@@ -84,11 +87,20 @@ func (c *General) Validate() error {
 	if c.SubscriptionFundingAmountNative == nil || *c.SubscriptionFundingAmountNative <= 0 {
 		return errors.New("subscription_funding_amount_native must be greater than 0")
 	}
-	if c.FulfillmentFlatFeeLinkPPM == nil || *c.FulfillmentFlatFeeLinkPPM <= 0 {
-		return errors.New("fulfillment_flat_fee_link_ppm must be greater than 0")
+	if c.FulfillmentFlatFeeNativePPM == nil {
+		return errors.New("fulfillment_flat_fee_native_ppm must not be nil")
 	}
-	if c.FulfillmentFlatFeeNativePPM == nil || *c.FulfillmentFlatFeeNativePPM <= 0 {
-		return errors.New("fulfillment_flat_fee_native_ppm must be greater than 0")
+	if c.FulfillmentFlatFeeLinkPPM == nil {
+		return errors.New("fulfillment_flat_fee_link_ppm must not be nil")
+	}
+	if c.FulfillmentFlatFeeLinkDiscountPPM == nil {
+		return errors.New("fulfillment_flat_fee_link_discount_ppm must not be nil")
+	}
+	if c.NativePremiumPercentage == nil {
+		return errors.New("native_premium_percentage must not be nil")
+	}
+	if c.LinkPremiumPercentage == nil {
+		return errors.New("link_premium_percentage must not be nil")
 	}
 
 	return nil
