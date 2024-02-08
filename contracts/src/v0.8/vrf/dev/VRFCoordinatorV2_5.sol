@@ -41,8 +41,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error InvalidExtraArgsTag();
   error GasPriceExceeded(uint256 gasPrice, uint256 maxGas);
   struct RequestCommitment {
-    uint256 subId;
     uint64 blockNum;
+    uint256 subId;
     uint32 callbackGasLimit;
     uint32 numWords;
     address sender;
@@ -478,7 +478,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   function _chargePayment(uint96 payment, bool nativePayment, uint256 subId) internal {
     if (nativePayment) {
       uint96 prevBal = s_subscriptions[subId].nativeBalance;
-      if (s_subscriptions[subId].nativeBalance < payment) {
+      if (prevBal < payment) {
         revert InsufficientBalance();
       }
       s_subscriptions[subId].nativeBalance = prevBal - payment;
