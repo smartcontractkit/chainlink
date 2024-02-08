@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -164,6 +165,7 @@ type CCIPJobSpecParams struct {
 	DestChainName          string
 	DestEvmChainId         uint64
 	TokenPricesUSDPipeline string
+	PriceGetterConfig      string
 	SourceStartBlock       uint64
 	DestStartBlock         uint64
 	USDCAttestationAPI     string
@@ -186,6 +188,14 @@ func (params CCIPJobSpecParams) ValidateCommitJobSpec() error {
 	if params.OffRamp == common.HexToAddress("0x0") {
 		return fmt.Errorf("OffRamp cannot be empty for execution job")
 	}
+	// Validate token prices config
+	// NB: only validate the dynamic price getter config if present since we could also be using the pipeline instead.
+	// NB: make this test mandatory once we switch to dynamic price getter only.
+	if params.PriceGetterConfig != "" {
+		if _, err := pricegetter.NewDynamicPriceGetterConfig(params.PriceGetterConfig); err != nil {
+			return fmt.Errorf("invalid price getter config: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -205,8 +215,23 @@ func (params CCIPJobSpecParams) ValidateExecJobSpec() error {
 func (params CCIPJobSpecParams) CommitJobSpec() (*OCR2TaskJobSpec, error) {
 	err := params.ValidateCommitJobSpec()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid job spec params: %w", err)
 	}
+
+	pluginConfig := map[string]interface{}{
+		"offRamp": fmt.Sprintf(`"%s"`, params.OffRamp.Hex()),
+	}
+	if params.TokenPricesUSDPipeline != "" {
+		pluginConfig["tokenPricesUSDPipeline"] = fmt.Sprintf(`"""
+%s
+"""`, params.TokenPricesUSDPipeline)
+	}
+	if params.PriceGetterConfig != "" {
+		pluginConfig["priceGetterConfig"] = fmt.Sprintf(`"""
+%s
+"""`, params.PriceGetterConfig)
+	}
+
 	ocrSpec := job.OCR2OracleSpec{
 		Relay:                             relay.EVM,
 		PluginType:                        types.CCIPCommit,
@@ -214,12 +239,7 @@ func (params CCIPJobSpecParams) CommitJobSpec() (*OCR2TaskJobSpec, error) {
 		ContractConfigConfirmations:       1,
 		ContractConfigTrackerPollInterval: models.Interval(20 * time.Second),
 		P2PV2Bootstrappers:                params.P2PV2Bootstrappers,
-		PluginConfig: map[string]interface{}{
-			"offRamp": fmt.Sprintf(`"%s"`, params.OffRamp.Hex()),
-			"tokenPricesUSDPipeline": fmt.Sprintf(`"""
-%s
-"""`, params.TokenPricesUSDPipeline),
-		},
+		PluginConfig:                      pluginConfig,
 		RelayConfig: map[string]interface{}{
 			"chainID": params.DestEvmChainId,
 		},
@@ -299,7 +319,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec
 	}
 }
 
-func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline string, configBlock int64, usdcAttestationAPI string) CCIPJobSpecParams {
+func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline string, priceGetterConfig string, configBlock int64, usdcAttestationAPI string) CCIPJobSpecParams {
 	return CCIPJobSpecParams{
 		CommitStore:            c.Dest.CommitStore.Address(),
 		OffRamp:                c.Dest.OffRamp.Address(),
@@ -307,6 +327,7 @@ func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline
 		SourceChainName:        "SimulatedSource",
 		DestChainName:          "SimulatedDest",
 		TokenPricesUSDPipeline: tokenPricesUSDPipeline,
+		PriceGetterConfig:      priceGetterConfig,
 		DestStartBlock:         uint64(configBlock),
 		USDCAttestationAPI:     usdcAttestationAPI,
 	}

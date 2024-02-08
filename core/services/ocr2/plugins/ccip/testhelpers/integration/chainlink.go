@@ -101,7 +101,7 @@ const (
 	    SourceTokenAddress = "%s"
 		AttestationAPITimeoutSeconds = 10
 	`
-	commitSpecTemplate = `
+	commitSpecTemplatePipeline = `
 		type = "offchainreporting2"
 		schemaVersion = 1
 		name = "ccip-commit-1"
@@ -123,6 +123,31 @@ const (
 		destStartBlock = 50
 		offRamp = "%s"
 		tokenPricesUSDPipeline = """
+		%s
+		"""
+	`
+	commitSpecTemplateDynamicPriceGetter = `
+		type = "offchainreporting2"
+		schemaVersion = 1
+		name = "ccip-commit-1"
+		externalJobID = "13c997cf-1a14-4ab7-9068-07ee6d2afa55"
+		forwardingAllowed = false
+		maxTaskDuration = "0s"
+		contractID = "%s"
+		contractConfigConfirmations = 1
+		contractConfigTrackerPollInterval = "20s"
+		ocrKeyBundleID = "%s"
+		relay = "evm"
+		pluginType = "ccip-commit"
+		transmitterID = "%s"
+
+		[relayConfig]
+		chainID = 1_337
+
+		[pluginConfig]
+		destStartBlock = 50
+		offRamp = "%s"
+		priceGetterConfig = """
 		%s
 		"""
 	`
@@ -514,9 +539,8 @@ type CCIPIntegrationTestHarness struct {
 }
 
 func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, sourceChainSelector, destChainId, destChainSelector uint64) CCIPIntegrationTestHarness {
-	c := testhelpers.SetupCCIPContracts(t, sourceChainID, sourceChainSelector, destChainId, destChainSelector)
 	return CCIPIntegrationTestHarness{
-		CCIPContracts: c,
+		CCIPContracts: testhelpers.SetupCCIPContracts(t, sourceChainID, sourceChainSelector, destChainId, destChainSelector),
 	}
 }
 
@@ -607,7 +631,7 @@ func (c *CCIPIntegrationTestHarness) SetupFeedsManager(t *testing.T) {
 	}
 }
 
-func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCIPJobSpecParams, pipeline string) {
+func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCIPJobSpecParams) {
 	ctx := testutils.Context(t)
 
 	for _, node := range c.Nodes {
@@ -633,17 +657,32 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams CCI
 		err = f.ApproveSpec(ctx, execId, true)
 		require.NoError(t, err)
 
-		commitSpec := c.jobSpecProposal(
-			t,
-			commitSpecTemplate,
-			jobParams.CommitJobSpec,
-			managers[0].ID,
-			2,
-			node.KeyBundle.ID(),
-			node.Transmitter.Hex(),
-			jobParams.OffRamp.String(),
-			pipeline,
-		)
+		var commitSpec feeds2.ProposeJobArgs
+		if jobParams.TokenPricesUSDPipeline != "" {
+			commitSpec = c.jobSpecProposal(
+				t,
+				commitSpecTemplatePipeline,
+				jobParams.CommitJobSpec,
+				managers[0].ID,
+				2,
+				node.KeyBundle.ID(),
+				node.Transmitter.Hex(),
+				jobParams.OffRamp.String(),
+				jobParams.TokenPricesUSDPipeline,
+			)
+		} else {
+			commitSpec = c.jobSpecProposal(
+				t,
+				commitSpecTemplateDynamicPriceGetter,
+				jobParams.CommitJobSpec,
+				managers[0].ID,
+				2,
+				node.KeyBundle.ID(),
+				node.Transmitter.Hex(),
+				jobParams.OffRamp.String(),
+				jobParams.PriceGetterConfig,
+			)
+		}
 
 		commitId, err := f.ProposeJob(ctx, &commitSpec)
 		require.NoError(t, err)
@@ -888,13 +927,13 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	return bootstrapNode, nodes, configBlock
 }
 
-func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, usdcAttestationAPI string) CCIPJobSpecParams {
+func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, priceGetterConfig string, usdcAttestationAPI string) CCIPJobSpecParams {
 	// setup Jobs
 	ctx := context.Background()
 	// Starts nodes and configures them in the OCR contracts.
 	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, int64(freeport.GetOne(t)))
 
-	jobParams := c.NewCCIPJobSpecParams(pricePipeline, configBlock, usdcAttestationAPI)
+	jobParams := c.NewCCIPJobSpecParams(pricePipeline, priceGetterConfig, configBlock, usdcAttestationAPI)
 
 	// Add the bootstrap job
 	c.Bootstrap.AddBootstrapJob(t, jobParams.BootstrapJob(c.Dest.CommitStore.Address().Hex()))
