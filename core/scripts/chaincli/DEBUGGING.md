@@ -2,14 +2,15 @@
 
 ### Context
 
-The debugging script is a tool within ChainCLI designed to facilitate the debugging of upkeeps in Automation v21, covering both conditional and log-based scenarios.
+Use this script to debug and diagnose possible issues with registered upkeeps in Automation v2 registries. The script will debug both custom logic and log-trigger upkeeps as well as upkeeps using StreamsLookup.
 
 ### Setup
 
 Before starting, you will need:
-1. Git clone this chainlink [repo](https://github.com/smartcontractkit/chainlink)
-2. A working [Go](https://go.dev/doc/install) installation
-2. Change directory to `core/scripts/chaincli` and create a `.env` file based on the example `.env.debugging.example`
+1. A registered [upkeep](https://docs.chain.link/chainlink-automation/overview/getting-started)
+1. Git clone the chainlink [repo](https://github.com/smartcontractkit/chainlink)
+1. A working [Go](https://go.dev/doc/install) installation
+1. Change directory to `core/scripts/chaincli` and create a `.env` file based on the example `.env.debugging.example`
 
 ### Configuration in `.env` File
 
@@ -17,12 +18,15 @@ Before starting, you will need:
 
 Ensure the following fields are provided in your `.env` file:
 
-- `NODE_URL`: Archival node URL
-- `KEEPER_REGISTRY_ADDRESS`: Address of the Keeper Registry contract. Refer to the [Supported Networks](https://docs.chain.link/chainlink-automation/overview/supported-networks#configurations) doc for addresses.
+- `NODE_URL`: Archival node URL for the network to "simulate" the upkeep. User your own node or get an endpoint from Alchemy or Infura
+- `KEEPER_REGISTRY_ADDRESS`: Address of the Registry where your upkeep is registered. Refer to the [Supported Networks](https://docs.chain.link/chainlink-automation/overview/supported-networks#configurations) doc for addresses.
+ 
+ For example
+ ![Example_ENV_file](/images/env_file_example.png "Example .ENV file")
 
-#### Optional Fields (Streams Lookup)
+#### Optional Fields (StreamsLookup)
 
-If your targeted upkeep involves streams lookup, please provide the following details. If you are using Data Streams v0.3 (which is likely), only provide the DATA_STREAMS_URL. The DATA_STREAMS_LEGACY_URL is specifically for Data Streams v0.2.
+If your targeted upkeep involves StreamsLookup, please provide the following details. If you are using Data Streams v0.3 (which is likely), only provide the DATA_STREAMS_URL. Ignore DATA_STREAMS_LEGACY_URL.
 
 - `DATA_STREAMS_ID`
 - `DATA_STREAMS_KEY`
@@ -41,7 +45,7 @@ For detailed transaction simulation logs, set up Tenderly credentials. Refer to 
 
 Execute the following command based on your upkeep type:
 
-- For conditional upkeep, if a block number is given we use that block, otherwise we use the latest block:
+- For custom logic, if a block number is given we use that block, otherwise we use the latest block:
 
     ```bash
     go run main.go keeper debug UPKEEP_ID [OPTIONAL BLOCK_NUMBER]
@@ -59,7 +63,7 @@ Execute the following command based on your upkeep type:
     - Verify upkeep status: active, paused, or canceled
     - Check upkeep balance
 
-2. **For Conditional Upkeep:**
+2. **For Custom Logic Upkeep:**
     - Check conditional upkeep
     - Simulate `performUpkeep`
 
@@ -92,4 +96,23 @@ Execute the following command based on your upkeep type:
     ```bash
     go run main.go keeper debug 5591498142036749453487419299781783197030971023186134955311257372668222176389 0xc0686ae85d2a7a976ef46df6c613517b9fd46f23340ac583be4e44f5c8b7a186 1
     ```
+### Common issues with Upkeeps and how to resolve them
+- Upkeep is underfunded
+  - Underfunded upkeeps will not perform. Fund your upkeep in the Automation [app](https://automation.chain.link/)
+- Upkeep is paused
+  - Unpause your upkeep in the Automation [app](https://automation.chain.link/)
+- Insufficient check gas
+  - There is a limit of 10_000_000 (as per Automation v2) on the amount of gas that can be used to "simulate" your checkUpkeep function.
+  - To diagnose if your upkeep is running out of check gas you will need to enable the Tenderly options above and then open the simulation link once you run the script
+  - ![Insufficient Check Gas](/images/insufficient_check_gas.png "Open the Tenderly simulation and switch to debug mode")
+  - ![Out of Gas](/images/tenderly_out_of_check_gas.png "Tenderly shows checkUpkeeps has consumed all available gas and is now out of gas")   
+  - You will need to adjust your checkUpkeep to consume less gas than the limit
+- Insufficient perform gas
+  - Your upkeep's perform transaction uses more gas than you specified
+  - ![Insufficient Perform Gas](/images/insufficient_perform_gas.png "Insufficient perform gas")
+  - Use the Automation [app](https://automation.chain.link/) and increase the gas limit of your upkeep
+  - The maximum supported perform gas is 5_000_000
+
+
+
 ---
