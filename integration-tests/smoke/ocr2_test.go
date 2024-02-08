@@ -78,7 +78,7 @@ func TestOCRv2Basic(t *testing.T) {
 			if err != nil {
 				t.Log(err)
 			}
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second)
 		}
 	}()
 
