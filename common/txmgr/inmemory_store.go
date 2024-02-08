@@ -111,7 +111,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
-	as, ok := ms.addressStates[tx.FromAddress]
+	as, ok := ms.addressStates[txRequest.FromAddress]
 	if !ok {
 		return tx, fmt.Errorf("create_transaction: %w", ErrAddressNotFound)
 	}
