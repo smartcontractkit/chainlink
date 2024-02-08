@@ -1386,8 +1386,8 @@ func (o *evmTxStore) FindTxsRequiringBumping(ctx context.Context, olderThan time
 	var dbEtxs []DbEthTx
 	err = qq.Select(&dbEtxs, `
 	SELECT DISTINCT ON (evm.txes.nonce) evm.txes.* FROM evm.txes
-	WHERE state IN ('unconfirmed', 'confirmed') AND from_address = $1 AND evm_chain_id = $2 AND broadcast_at <= $3 LIMIT $4
-`, address, chainID.String(), olderThan, limit)
+	WHERE state IN ('unconfirmed', 'confirmed') AND from_address = $1 AND evm_chain_id = $2 AND broadcast_at <= $3 AND nonce >= $4 LIMIT $5
+`, address, chainID.String(), olderThan, nonce.Int64(), limit)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "FindEthTxsRequiringGasBump failed to load evm.txes")
 	}
