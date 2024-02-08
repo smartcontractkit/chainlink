@@ -441,12 +441,12 @@ jobs:
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 6
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-16cores-64GB
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 6
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu20.04-16cores-64GB
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           - name: vrf
