@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -566,7 +567,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	txErr := n.RPC().SendTransaction(ctx, tx)
 	c.lggr.Debugw("Node sent transaction", "name", n.String(), "tx", tx, "err", txErr)
 	resultCode := c.classifySendTxError(tx, txErr)
-	if resultCode != Successful && resultCode != TransactionAlreadyKnown {
+	if !slices.Contains(sendTxSuccessfulCodes, resultCode) {
 		c.lggr.Warnw("RPC returned error", "name", n.String(), "tx", tx, "err", txErr)
 	}
 
@@ -591,7 +592,7 @@ loop:
 		case result := <-txResults:
 			errorsByCode[result.ResultCode] = append(errorsByCode[result.ResultCode], result.Err)
 			resultsCount++
-			if result.ResultCode == Successful || resultsCount >= requiredResults {
+			if slices.Contains(sendTxSuccessfulCodes, result.ResultCode) || resultsCount >= requiredResults {
 				break loop
 			}
 		case <-softTimeoutChan:
