@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.16;
+pragma solidity 0.8.19;
 
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import {ExecutionPrevention} from "../../ExecutionPrevention.sol";
 import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {StreamsLookupCompatibleInterface} from "../../interfaces/StreamsLookupCompatibleInterface.sol";
 import {ILogAutomation, Log} from "../../interfaces/ILogAutomation.sol";
@@ -21,7 +20,7 @@ import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
  * AutomationRegistry and AutomationRegistryLogic
  * @dev all errors, events, and internal functions should live here
  */
-abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPrevention {
+abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -69,6 +68,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
   address internal immutable i_automationForwarderLogic;
+  address internal immutable i_allowedReadOnlyAddress;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -138,6 +138,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
   error OnlyPausedUpkeep();
+  error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
   error PaymentGreaterThanAllLINK();
@@ -186,7 +187,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   }
 
   /**
-   * @notice OnchainConfig of the registry
+   * @notice OnchainConfigLegacy of the registry
    * @dev only used in params and return values
    * @member paymentPremiumPPB payment premium rate oracles receive on top of
    * being reimbursed for gas, measured in parts per billion
@@ -208,7 +209,49 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    * @member transcoder address of the transcoder contract
    * @member registrars addresses of the registrar contracts
    * @member upkeepPrivilegeManager address which can set privilege for upkeeps
-   * @member reorgProtectionEnabled if this registry will enable re-org protection checks
+   */
+  struct OnchainConfigLegacy {
+    uint32 paymentPremiumPPB;
+    uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
+    uint32 checkGasLimit;
+    uint24 stalenessSeconds;
+    uint16 gasCeilingMultiplier;
+    uint96 minUpkeepSpend;
+    uint32 maxPerformGas;
+    uint32 maxCheckDataSize;
+    uint32 maxPerformDataSize;
+    uint32 maxRevertDataSize;
+    uint256 fallbackGasPrice;
+    uint256 fallbackLinkPrice;
+    address transcoder;
+    address[] registrars;
+    address upkeepPrivilegeManager;
+  }
+
+  /**
+   * @notice OnchainConfig of the registry
+   * @dev used only in setConfig()
+   * @member paymentPremiumPPB payment premium rate oracles receive on top of
+   * being reimbursed for gas, measured in parts per billion
+   * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
+   * priced in MicroLink; can be used in conjunction with or independently of
+   * paymentPremiumPPB
+   * @member checkGasLimit gas limit when checking for upkeep
+   * @member stalenessSeconds number of seconds that is allowed for feed data to
+   * be stale before switching to the fallback pricing
+   * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
+   * when calculating the payment ceiling for keepers
+   * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
+   * @member maxPerformGas max performGas allowed for an upkeep on this registry
+   * @member maxCheckDataSize max length of checkData bytes
+   * @member maxPerformDataSize max length of performData bytes
+   * @member maxRevertDataSize max length of revertData bytes
+   * @member fallbackGasPrice gas price used if the gas price feed is stale
+   * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
+   * @member transcoder address of the transcoder contract
+   * @member registrars addresses of the registrar contracts
+   * @member upkeepPrivilegeManager address which can set privilege for upkeeps
+   * @member reorgProtectionEnabled if this registry enables re-org protection checks
    */
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
@@ -449,19 +492,23 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
+   * @param automationForwarderLogic the address of automation forwarder logic
+   * @param allowedReadOnlyAddress the address of the allowed read only address
    */
   constructor(
     Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
-    address automationForwarderLogic
+    address automationForwarderLogic,
+    address allowedReadOnlyAddress
   ) ConfirmedOwner(msg.sender) {
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
+    i_allowedReadOnlyAddress = allowedReadOnlyAddress;
   }
 
   // ================================================================
@@ -961,5 +1008,14 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     s_hotVars.reentrancyGuard = true;
     _;
     s_hotVars.reentrancyGuard = false;
+  }
+
+  /**
+   * @notice only allows a pre-configured address to initiate offchain read
+   */
+  function _preventExecution() internal view {
+    if (tx.origin != i_allowedReadOnlyAddress) {
+      revert OnlySimulatedBackend();
+    }
   }
 }

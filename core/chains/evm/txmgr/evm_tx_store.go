@@ -1841,14 +1841,6 @@ RETURNING "txes".*
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}
-		var pruned int64
-		pruned, err = txRequest.Strategy.PruneQueue(ctx, o)
-		if err != nil {
-			return pkgerrors.Wrap(err, "CreateEthTransaction failed to prune evm.txes")
-		}
-		if pruned > 0 {
-			o.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", txRequest.FromAddress, "toAddress", txRequest.ToAddress, "meta", txRequest.Meta, "subject", txRequest.Strategy.Subject(), "replacementID", dbEtx.ID)
-		}
 		return nil
 	})
 	var etx Tx
@@ -1856,13 +1848,13 @@ RETURNING "txes".*
 	return etx, err
 }
 
-func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (n int64, err error) {
+func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (ids []int64, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		res, err := qq.Exec(`
+		err := qq.Select(&ids, `
 DELETE FROM evm.txes
 WHERE state = 'unstarted' AND subject = $1 AND
 id < (
@@ -1873,11 +1865,13 @@ id < (
 		ORDER BY id DESC
 		LIMIT $3
 	) numbers
-)`, subject, subject, queueSize)
+) RETURNING id`, subject, subject, queueSize)
 		if err != nil {
-			return pkgerrors.Wrap(err, "DeleteUnstartedEthTx failed")
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return fmt.Errorf("PruneUnstartedTxQueue failed: %w", err)
 		}
-		n, err = res.RowsAffected()
 		return err
 	})
 	return

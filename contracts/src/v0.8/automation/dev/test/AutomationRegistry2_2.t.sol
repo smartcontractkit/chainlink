@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.16;
+pragma solidity 0.8.19;
 
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {BaseTest} from "./BaseTest.t.sol";
@@ -8,11 +8,13 @@ import {AutomationRegistryBase2_2} from "../v2_2/AutomationRegistryBase2_2.sol";
 import {AutomationRegistryLogicA2_2} from "../v2_2/AutomationRegistryLogicA2_2.sol";
 import {AutomationRegistryLogicB2_2} from "../v2_2/AutomationRegistryLogicB2_2.sol";
 import {IAutomationRegistryMaster} from "../interfaces/v2_2/IAutomationRegistryMaster.sol";
+import {AutomationCompatibleInterface} from "../../interfaces/AutomationCompatibleInterface.sol";
 
 contract AutomationRegistry2_2_SetUp is BaseTest {
   address internal constant LINK_ETH_FEED = 0x1111111111111111111111111111111111111110;
   address internal constant FAST_GAS_FEED = 0x1111111111111111111111111111111111111112;
   address internal constant LINK_TOKEN = 0x1111111111111111111111111111111111111113;
+  address internal constant ZERO_ADDRESS = address(0);
 
   // Signer private keys used for these test
   uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -50,7 +52,8 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
       LINK_TOKEN,
       LINK_ETH_FEED,
       FAST_GAS_FEED,
-      address(forwarderLogic)
+      address(forwarderLogic),
+      ZERO_ADDRESS
     );
     AutomationRegistryLogicA2_2 logicA2_2 = new AutomationRegistryLogicA2_2(logicB2_2);
     IAutomationRegistryMaster registry2_2 = IAutomationRegistryMaster(
@@ -69,6 +72,22 @@ contract AutomationRegistry2_2_LatestConfigDetails is AutomationRegistry2_2_SetU
     assertEq(configCount, 0);
     assertEq(blockNumber, 0);
     assertEq(configDigest, "");
+  }
+}
+
+contract AutomationRegistry2_2_CheckUpkeep is AutomationRegistry2_2_SetUp {
+  function testPreventExecutionOnCheckUpkeep() public {
+    IAutomationRegistryMaster registry = IAutomationRegistryMaster(
+      address(deployRegistry2_2(AutomationRegistryBase2_2.Mode(0)))
+    );
+
+    uint256 id = 1;
+    bytes memory triggerData = abi.encodePacked("trigger_data");
+
+    // The tx.origin is the DEFAULT_SENDER (0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) of foundry
+    // Expecting a revert since the tx.origin is not address(0)
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster.OnlySimulatedBackend.selector));
+    registry.checkUpkeep(id, triggerData);
   }
 }
 

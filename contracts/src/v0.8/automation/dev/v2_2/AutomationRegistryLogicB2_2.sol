@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.16;
+pragma solidity 0.8.19;
 
 import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
@@ -20,8 +20,11 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     address link,
     address linkNativeFeed,
     address fastGasFeed,
-    address automationForwarderLogic
-  ) AutomationRegistryBase2_2(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic) {}
+    address automationForwarderLogic,
+    address allowedReadOnlyAddress
+  )
+    AutomationRegistryBase2_2(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress)
+  {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -300,6 +303,10 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     return i_automationForwarderLogic;
   }
 
+  function getAllowedReadOnlyAddress() external view returns (address) {
+    return i_allowedReadOnlyAddress;
+  }
+
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
     return UPKEEP_TRANSCODER_VERSION_BASE;
   }
@@ -397,13 +404,14 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
 
   /**
    * @notice read the current state of the registry
+   * @dev this function is deprecated
    */
   function getState()
     external
     view
     returns (
       State memory state,
-      OnchainConfig memory config,
+      OnchainConfigLegacy memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f
@@ -422,7 +430,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       paused: s_hotVars.paused
     });
 
-    config = OnchainConfig({
+    config = OnchainConfigLegacy({
       paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
       flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
       checkGasLimit: s_storage.checkGasLimit,
@@ -437,11 +445,17 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
-      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
-      reorgProtectionEnabled: s_hotVars.reorgProtectionEnabled
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
+  }
+
+  /**
+   * @notice if this registry has reorg protection enabled
+   */
+  function getReorgProtectionEnabled() external view returns (bool reorgProtectionEnabled) {
+    return s_hotVars.reorgProtectionEnabled;
   }
 
   /**

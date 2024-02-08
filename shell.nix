@@ -30,6 +30,7 @@ mkShell {
     delve
     golangci-lint
     github-cli
+    jq
 
     # deployment
     devspace
