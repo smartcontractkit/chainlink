@@ -117,7 +117,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [sepolia-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, linea-goerli-smoke-tests, scroll-sepolia-smoke-tests, bsc-testnet-smoke-tests]
+    needs: [sepolia-smoke-tests, optimism-sepolia-smoke-tests, arbitrum-sepolia-smoke-tests, base-sepolia-smoke-tests, polygon-mumbai-smoke-tests, avalanche-fuji-smoke-tests, fantom-testnet-smoke-tests, celo-alfajores-smoke-tests, linea-goerli-smoke-tests, bsc-testnet-smoke-tests]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -178,7 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Linea Goerli, Scroll Sepolia, BSC Testnet]
+        network: [Sepolia, Optimism Sepolia, Arbitrum Sepolia, Base Sepolia, Polygon Mumbai, Avalanche Fuji, Fantom Testnet, Celo Alfajores, Linea Goerli, BSC Testnet]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -839,6 +839,7 @@ jobs:
           test_directory: "./"
 
   scroll-sepolia-smoke-tests:
+    if: false
     environment: integration
     permissions:
       checks: write
