@@ -6,6 +6,7 @@ LogPollInterval = '1s'
 MinIncomingConfirmations = 5
 NoNewHeadsThreshold = '30s'
 RPCBlockQueryDelay = 10
+RPCDefaultBatchSize = 100
 
 [Transactions]
 ResendAfterThreshold = '1m'
