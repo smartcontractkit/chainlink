@@ -1,32 +1,99 @@
 package ccip_test
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/test-go/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
-func Test_CLOSpecApprovalFlow(t *testing.T) {
+func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+
 	tokenPricesUSDPipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
 	defer linkUSD.Close()
 	defer ethUSD.Close()
 
-	// Create initial job specs
-	jobParams := ccipTH.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, "http://blah.com")
+	test_CLOSpecApprovalFlow(t, ccipTH, tokenPricesUSDPipeline, "")
+}
+
+func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
+	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+
+	//Set up the aggregators here to avoid modifying ccipTH.
+	srcLinkAddr := ccipTH.Source.LinkToken.Address()
+	dstLinkAddr := ccipTH.Dest.LinkToken.Address()
+	srcNativeAddr, err := ccipTH.Source.Router.GetWrappedNative(nil)
+	require.NoError(t, err)
+
+	aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(2e18))
+	require.NoError(t, err)
+	_, err = aggSrcNat.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(17000000), big.NewInt(1000), big.NewInt(1000))
+	require.NoError(t, err)
+	ccipTH.Source.Chain.Commit()
+
+	aggSrcLnkAddr, _, aggSrcLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(3e18))
+	require.NoError(t, err)
+	ccipTH.Dest.Chain.Commit()
+	_, err = aggSrcLnk.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
+	require.NoError(t, err)
+	ccipTH.Source.Chain.Commit()
+
+	aggDstLnkAddr, _, aggDstLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain, 18, big.NewInt(3e18))
+	require.NoError(t, err)
+	ccipTH.Dest.Chain.Commit()
+	_, err = aggDstLnk.UpdateRoundData(ccipTH.Dest.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
+	require.NoError(t, err)
+	ccipTH.Dest.Chain.Commit()
+
+	// Check content is ok on aggregator.
+	tmp, err := aggDstLnk.LatestRoundData(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(50), tmp.RoundId)
+	require.Equal(t, big.NewInt(8000000), tmp.Answer)
+
+	priceGetterConfig := config.DynamicPriceGetterConfig{
+		AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{
+			srcLinkAddr: {
+				ChainID:                   ccipTH.Source.ChainID,
+				AggregatorContractAddress: aggSrcLnkAddr,
+			},
+			srcNativeAddr: {
+				ChainID:                   ccipTH.Source.ChainID,
+				AggregatorContractAddress: aggSrcNatAddr,
+			},
+			dstLinkAddr: {
+				ChainID:                   ccipTH.Dest.ChainID,
+				AggregatorContractAddress: aggDstLnkAddr,
+			},
+		},
+		StaticPrices: map[common.Address]config.StaticPriceConfig{},
+	}
+	priceGetterConfigBytes, err := json.MarshalIndent(priceGetterConfig, "", " ")
+	require.NoError(t, err)
+	priceGetterConfigJson := string(priceGetterConfigBytes)
+
+	test_CLOSpecApprovalFlow(t, ccipTH, "", priceGetterConfigJson)
+}
+
+func test_CLOSpecApprovalFlow(t *testing.T, ccipTH integrationtesthelpers.CCIPIntegrationTestHarness, tokenPricesUSDPipeline string, priceGetterConfiguration string) {
+
+	jobParams := ccipTH.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, priceGetterConfiguration, "http://blah.com")
 	ccipTH.SetupFeedsManager(t)
 
 	// Propose and approve new specs
-	ccipTH.ApproveJobSpecs(t, jobParams, tokenPricesUSDPipeline)
-	// TODO generate one more run with propose & approve
-	// ccipTH.ApproveJobSpecs(t, jobParams)
+	ccipTH.ApproveJobSpecs(t, jobParams)
 
 	// Sanity check that CCIP works after CLO flow
 	currentSeqNum := 1

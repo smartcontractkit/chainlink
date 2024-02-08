@@ -16,6 +16,8 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.abi ../../../contracts/solc/v0.8.19/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.bin MockE2EUSDCTokenMessenger mock_usdc_token_messenger
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.abi ../../../contracts/solc/v0.8.19/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.bin MockE2EUSDCTransmitter mock_usdc_token_transmitter
 
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/MockV3Aggregator/MockV3Aggregator.abi ../../../contracts/solc/v0.8.19/MockV3Aggregator/MockV3Aggregator.bin MockV3Aggregator mock_v3_aggregator_contract
+
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp/EVM2EVMOnRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp/EVM2EVMOnRamp.bin EVM2EVMOnRamp evm_2_evm_onramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp/EVM2EVMOffRamp.bin EVM2EVMOffRamp evm_2_evm_offramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/Router/Router.abi ../../../contracts/solc/v0.8.19/Router/Router.bin Router router

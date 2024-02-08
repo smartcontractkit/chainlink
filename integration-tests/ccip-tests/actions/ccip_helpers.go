@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -23,6 +24,8 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	config2 "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -31,7 +34,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -121,7 +123,7 @@ type CCIPCommon struct {
 	Deployer           *contracts.CCIPContractsDeployer
 	FeeToken           *contracts.LinkToken
 	BridgeTokens       []*contracts.ERC20Token
-	TokenPrices        []*big.Int
+	PriceAggregators   map[string]*contracts.MockAggregator
 	BridgeTokenPools   []*contracts.TokenPool
 	RateLimiterConfig  contracts.RateLimiterConfig
 	ARMContract        *common.Address
@@ -183,11 +185,19 @@ func (ccipModule *CCIPCommon) Copy(logger zerolog.Logger, chainClient blockchain
 		}
 		tokens = append(tokens, token)
 	}
+	priceAggregators := make(map[string]*contracts.MockAggregator)
+	for k, v := range ccipModule.PriceAggregators {
+		aggregator, err := newCD.NewMockAggregator(v.ContractAddress)
+		if err != nil {
+			return nil, err
+		}
+		priceAggregators[k] = aggregator
+	}
 	newCommon := &CCIPCommon{
 		ChainClient:        chainClient,
 		Deployer:           newCD,
 		BridgeTokens:       tokens,
-		TokenPrices:        ccipModule.TokenPrices,
+		PriceAggregators:   priceAggregators,
 		BridgeTokenPools:   pools,
 		RateLimiterConfig:  ccipModule.RateLimiterConfig,
 		ARMContract:        ccipModule.ARMContract,
@@ -546,6 +556,11 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 
 		ccipModule.FeeToken = token
+		aggregator, err := cd.DeployMockAggregator(18, LinkToUSD)
+		if err != nil {
+			return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
+		}
+		ccipModule.PriceAggregators[ccipModule.FeeToken.Address()] = aggregator
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
 			return fmt.Errorf("error in waiting for feetoken deployment %w", err)
@@ -595,12 +610,22 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 						if err != nil {
 							return fmt.Errorf("getting new bridge token contract shouldn't fail %w", err)
 						}
+						aggregator, err := cd.DeployMockAggregator(18, LinkToUSD)
+						if err != nil {
+							return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
+						}
+						ccipModule.PriceAggregators[linkToken.Address()] = aggregator
 					}
 				} else {
 					token, err = cd.DeployERC20TokenContract(tokenDeployerFns[i])
 					if err != nil {
 						return fmt.Errorf("deploying bridge token contract shouldn't fail %w", err)
 					}
+					aggregator, err := cd.DeployMockAggregator(18, LinkToUSD)
+					if err != nil {
+						return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
+					}
+					ccipModule.PriceAggregators[token.Address()] = aggregator
 				}
 				ccipModule.BridgeTokens = append(ccipModule.BridgeTokens, token)
 			}
@@ -666,11 +691,6 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 		ccipModule.BridgeTokenPools = pools
 	}
-	// Set price of the bridge tokens to 1
-	ccipModule.TokenPrices = []*big.Int{}
-	for range ccipModule.BridgeTokens {
-		ccipModule.TokenPrices = append(ccipModule.TokenPrices, big.NewInt(6e18))
-	}
 
 	if ccipModule.WrappedNative == common.HexToAddress("0x0") {
 		if ccipModule.ExistingDeployment {
@@ -680,7 +700,11 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		if err != nil {
 			return fmt.Errorf("deploying wrapped native shouldn't fail %w", err)
 		}
-
+		aggregator, err := cd.DeployMockAggregator(18, WrappedNativeToUSD)
+		if err != nil {
+			return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
+		}
+		ccipModule.PriceAggregators[weth9addr.Hex()] = aggregator
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
 			return fmt.Errorf("waiting for deploying wrapped native shouldn't fail %w", err)
@@ -741,6 +765,79 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	return ccipModule.ApproveTokens()
 }
 
+// DynamicPriceGetterConfig specifies the configuration for the price getter in price pipeline.
+// This should match pricegetter.DynamicPriceGetterConfig in core/services/ocr2/plugins/ccip/internal/pricegetter
+type DynamicPriceGetterConfig struct {
+	AggregatorPrices map[common.Address]AggregatorPriceConfig `json:"aggregatorPrices"`
+	StaticPrices     map[common.Address]StaticPriceConfig     `json:"staticPrices"`
+}
+
+func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(tokenAddr string, aggregatorMap map[string]*contracts.MockAggregator, price *big.Int) error {
+	aggregatorContract, ok := aggregatorMap[tokenAddr]
+	if !ok || aggregatorContract == nil {
+		return fmt.Errorf("aggregator contract not found for token %s", tokenAddr)
+	}
+	// update round Data
+	err := aggregatorContract.UpdateRoundData(price)
+	if err != nil {
+		return fmt.Errorf("error in updating round data %w", err)
+	}
+
+	err = aggregatorContract.WaitForTxConfirmations()
+	if err != nil {
+		return fmt.Errorf("error in waiting for tx confirmations %w", err)
+	}
+	// check if latest round data is populated
+	latestRoundData, err := aggregatorContract.Instance.LatestRoundData(nil)
+	if err != nil {
+		return fmt.Errorf("error in getting latest round data %w", err)
+	}
+	log.Info().
+		Str("token", tokenAddr).
+		Interface("latestRoundData", latestRoundData).
+		Str("aggregator", aggregatorContract.ContractAddress.Hex()).
+		Msg("latest round data")
+	if latestRoundData.Answer == nil {
+		return fmt.Errorf("latest round data is not populated for token %s and aggregator %s", tokenAddr, aggregatorContract.ContractAddress.Hex())
+	}
+
+	d.AggregatorPrices[common.HexToAddress(tokenAddr)] = AggregatorPriceConfig{
+		ChainID:                   aggregatorContract.ChainID(),
+		AggregatorContractAddress: aggregatorContract.ContractAddress,
+	}
+	return nil
+}
+
+func (d *DynamicPriceGetterConfig) AddStaticPriceConfig(tokenAddr string, chainID uint64, price *big.Int) error {
+	d.StaticPrices[common.HexToAddress(tokenAddr)] = StaticPriceConfig{
+		ChainID: chainID,
+		Price:   price,
+	}
+	return nil
+}
+
+func (d *DynamicPriceGetterConfig) String() (string, error) {
+	tokenPricesConfigBytes, err := json.MarshalIndent(d, "", " ")
+	if err != nil {
+		return "", fmt.Errorf("error in marshalling token prices config %w", err)
+	}
+	return string(tokenPricesConfigBytes), nil
+}
+
+// AggregatorPriceConfig specifies a price retrieved from an aggregator contract.
+// This should match pricegetter.AggregatorPriceConfig in core/services/ocr2/plugins/ccip/internal/pricegetter
+type AggregatorPriceConfig struct {
+	ChainID                   uint64         `json:"chainID,string"`
+	AggregatorContractAddress common.Address `json:"contractAddress"`
+}
+
+// StaticPriceConfig specifies a price defined statically.
+// This should match pricegetter.StaticPriceConfig in core/services/ocr2/plugins/ccip/internal/pricegetter
+type StaticPriceConfig struct {
+	ChainID uint64   `json:"chainID,string"`
+	Price   *big.Int `json:"price"`
+}
+
 func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall, usdc bool) (*CCIPCommon, error) {
 	cd, err := contracts.NewCCIPContractsDeployer(logger, chainClient)
 	if err != nil {
@@ -759,6 +856,7 @@ func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, 
 		poolFunds:          testhelpers.Link(5),
 		gasUpdateWatcherMu: &sync.Mutex{},
 		gasUpdateWatcher:   make(map[uint64]*big.Int),
+		PriceAggregators:   make(map[string]*contracts.MockAggregator),
 	}, nil
 }
 
@@ -1735,6 +1833,29 @@ type CCIPLane struct {
 	Subscriptions           []event.Subscription
 }
 
+func (lane *CCIPLane) TokenPricesConfig() (string, error) {
+	d := DynamicPriceGetterConfig{
+		AggregatorPrices: make(map[common.Address]AggregatorPriceConfig),
+		StaticPrices:     make(map[common.Address]StaticPriceConfig),
+	}
+	for _, token := range lane.Dest.Common.BridgeTokens {
+		err := d.AddStaticPriceConfig(token.Address(), lane.DestChain.GetChainID().Uint64(), LinkToUSD)
+		if err != nil {
+			return "", fmt.Errorf("error in AddStaticPriceConfig for bridge token %s: %w", token.Address(), err)
+		}
+	}
+	if err := d.AddAggregatorPriceConfig(lane.Dest.Common.FeeToken.Address(), lane.Dest.Common.PriceAggregators, LinkToUSD); err != nil {
+		return "", fmt.Errorf("error in AddAggregatorPriceConfig for fee token %s: %w", lane.Dest.Common.FeeToken.Address(), err)
+	}
+	if err := d.AddAggregatorPriceConfig(lane.Dest.Common.WrappedNative.Hex(), lane.Dest.Common.PriceAggregators, WrappedNativeToUSD); err != nil {
+		return "", fmt.Errorf("error in AddAggregatorPriceConfig for wrapped native on dest %s: %w", lane.Dest.Common.WrappedNative.Hex(), err)
+	}
+	if err := d.AddAggregatorPriceConfig(lane.Source.Common.WrappedNative.Hex(), lane.Source.Common.PriceAggregators, WrappedNativeToUSD); err != nil {
+		return "", fmt.Errorf("error in AddAggregatorPriceConfig for wrapped native on source %s: %w", lane.Source.Common.WrappedNative.Hex(), err)
+	}
+	return d.String()
+}
+
 func (lane *CCIPLane) UpdateLaneConfig() {
 	var btAddresses, btpAddresses []string
 
@@ -2272,6 +2393,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	bootstrapAdded *atomic.Bool,
 	configureCLNodes bool,
 	jobErrGroup *errgroup.Group,
+	withPipeline bool,
 ) (*laneconfig.LaneConfig, *laneconfig.LaneConfig, error) {
 	var err error
 	env := lane.TestEnv
@@ -2384,18 +2506,30 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("getting current block should be successful in destination chain %w", err)
 	}
 
+	var killgrave *ctftestenv.Killgrave
+	if env.LocalCluster != nil {
+		killgrave = env.LocalCluster.MockAdapter
+	}
 	var tokenAddresses []string
-
 	for _, token := range lane.Dest.Common.BridgeTokens {
 		tokenAddresses = append(tokenAddresses, token.Address())
 	}
 	tokenAddresses = append(tokenAddresses, lane.Dest.Common.FeeToken.Address(), lane.Source.Common.WrappedNative.Hex(), lane.Dest.Common.WrappedNative.Hex())
 
-	var killgrave *ctftestenv.Killgrave
-	if env.LocalCluster != nil {
-		killgrave = env.LocalCluster.MockAdapter
+	// Only one off pipeline or price getter to be set.
+	tokenPricesUSDPipeline := ""
+	tokenPricesConfigJson := ""
+	if withPipeline {
+		tokensUSDUrl := TokenPricePipelineURLs(tokenAddresses, killgrave, env.MockServer)
+		tokenPricesUSDPipeline = TokenFeeForMultipleTokenAddr(tokensUSDUrl)
+	} else {
+		tokenPricesConfigJson, err = lane.TokenPricesConfig()
+		if err != nil {
+			return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("error getting token prices config %w", err)
+		}
+		lane.Logger.Info().Str("tokenPricesConfigJson", tokenPricesConfigJson).Msg("Price getter config")
 	}
-	tokensUSDUrl := TokenPricePipelineURLs(tokenAddresses, killgrave, env.MockServer)
+
 	jobParams := integrationtesthelpers.CCIPJobSpecParams{
 		OffRamp:                lane.Dest.OffRamp.EthAddress,
 		CommitStore:            lane.Dest.CommitStore.EthAddress,
@@ -2403,7 +2537,8 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		DestChainName:          destChainClient.GetNetworkName(),
 		DestEvmChainId:         destChainClient.GetChainID().Uint64(),
 		SourceStartBlock:       lane.Source.SrcStartBlock,
-		TokenPricesUSDPipeline: TokenFeeForMultipleTokenAddr(tokensUSDUrl),
+		TokenPricesUSDPipeline: tokenPricesUSDPipeline,
+		PriceGetterConfig:      tokenPricesConfigJson,
 		DestStartBlock:         currentBlockOnDest,
 	}
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.USDCDeployment {

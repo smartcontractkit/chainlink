@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,9 +17,9 @@ import (
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -119,9 +120,43 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 		return nil, nil, err
 	}
 	commitLggr := lggr.Named("CCIPCommit").With("sourceChain", sourceChainName, "destChain", destChainName)
-	pipelinePriceGetter, err := pricegetter.NewPipelineGetter(params.pluginConfig.TokenPricesUSDPipeline, pr, jb.ID, jb.ExternalJobID, jb.Name.ValueOrZero(), lggr)
-	if err != nil {
-		return nil, nil, err
+
+	var priceGetter pricegetter.PriceGetter
+	withPipeline := strings.Trim(params.pluginConfig.TokenPricesUSDPipeline, "\n\t ") != ""
+	if withPipeline {
+		priceGetter, err = pricegetter.NewPipelineGetter(params.pluginConfig.TokenPricesUSDPipeline, pr, jb.ID, jb.ExternalJobID, jb.Name.ValueOrZero(), lggr)
+		if err != nil {
+			return nil, nil, fmt.Errorf("creating pipeline price getter: %w", err)
+		}
+	} else {
+		// Use dynamic price getter.
+		if params.pluginConfig.PriceGetterConfig == nil {
+			return nil, nil, fmt.Errorf("priceGetterConfig is nil")
+		}
+
+		// Build price getter clients for all chains specified in the aggregator configurations.
+		// Some lanes (e.g. Wemix/Kroma) requires other clients than source and destination, since they use feeds from other chains.
+		priceGetterClients := map[uint64]pricegetter.DynamicPriceGetterClient{}
+		for _, aggCfg := range params.pluginConfig.PriceGetterConfig.AggregatorPrices {
+			chainID := aggCfg.ChainID
+			// Retrieve the chain.
+			chain, _, err2 := ccipconfig.GetChainByChainID(chainSet, chainID)
+			if err2 != nil {
+				return nil, nil, fmt.Errorf("retrieving chain for chainID %d: %w", chainID, err2)
+			}
+			caller := rpclib.NewDynamicLimitedBatchCaller(
+				lggr,
+				chain.Client(),
+				rpclib.DefaultRpcBatchSizeLimit,
+				rpclib.DefaultRpcBatchBackOffMultiplier,
+			)
+			priceGetterClients[chainID] = pricegetter.NewDynamicPriceGetterClient(caller, chain.LogPoller())
+		}
+
+		priceGetter, err = pricegetter.NewDynamicPriceGetter(*params.pluginConfig.PriceGetterConfig, priceGetterClients)
+		if err != nil {
+			return nil, nil, fmt.Errorf("creating dynamic price getter: %w", err)
+		}
 	}
 
 	// Load all the readers relevant for this plugin.
@@ -163,7 +198,7 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 			lggr:                  commitLggr,
 			onRampReader:          onRampReader,
 			offRamp:               offRampReader,
-			priceGetter:           pipelinePriceGetter,
+			priceGetter:           priceGetter,
 			sourceNative:          sourceNative,
 			sourceChainSelector:   params.commitStoreStaticCfg.SourceChainSelector,
 			destChainSelector:     params.commitStoreStaticCfg.ChainSelector,

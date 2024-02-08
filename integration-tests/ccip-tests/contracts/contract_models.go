@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
@@ -908,4 +910,34 @@ func (offRamp *OffRamp) SyncTokensAndPools(sourceTokens, pools []common.Address)
 		Str(Network, offRamp.client.GetNetworkConfig().Name).
 		Msg("tokenUpdates set in OffRamp")
 	return offRamp.client.ProcessTransaction(tx)
+}
+
+type MockAggregator struct {
+	client          blockchain.EVMClient
+	Instance        *mock_v3_aggregator_contract.MockV3Aggregator
+	ContractAddress common.Address
+}
+
+func (a *MockAggregator) ChainID() uint64 {
+	return a.client.GetChainID().Uint64()
+}
+
+func (a *MockAggregator) UpdateRoundData(answer *big.Int) error {
+	opts, err := a.client.TransactionOpts(a.client.GetDefaultWallet())
+	if err != nil {
+		return fmt.Errorf("unable to get transaction opts: %w", err)
+	}
+	log.Info().
+		Str("Contract Address", a.ContractAddress.Hex()).
+		Str("Network Name", a.client.GetNetworkConfig().Name).
+		Msg("Updating Round Data")
+	tx, err := a.Instance.UpdateRoundData(opts, big.NewInt(50), answer, big.NewInt(time.Now().UTC().UnixNano()), big.NewInt(time.Now().UTC().UnixNano()))
+	if err != nil {
+		return fmt.Errorf("unable to update round data: %w", err)
+	}
+	return a.client.ProcessTransaction(tx)
+}
+
+func (a *MockAggregator) WaitForTxConfirmations() error {
+	return a.client.WaitForEvents()
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
@@ -681,6 +682,41 @@ func (e *CCIPContractsDeployer) DeployWrappedNative() (*common.Address, error) {
 		return nil, err
 	}
 	return address, err
+}
+
+func (e *CCIPContractsDeployer) DeployMockAggregator(decimals uint8, initialAns *big.Int) (*MockAggregator, error) {
+	address, _, instance, err := e.evmClient.DeployContract("MockAggregator", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return mock_v3_aggregator_contract.DeployMockV3Aggregator(auth, backend, decimals, initialAns)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("deploying mock aggregator: %w", err)
+	}
+	log.Info().
+		Str("Contract Address", address.Hex()).
+		Str("Contract Name", "MockAggregator").
+		Str("From", e.evmClient.GetDefaultWallet().Address()).
+		Str("Network Name", e.evmClient.GetNetworkConfig().Name).
+		Msg("New contract")
+	return &MockAggregator{
+		client:          e.evmClient,
+		Instance:        instance.(*mock_v3_aggregator_contract.MockV3Aggregator),
+		ContractAddress: *address,
+	}, nil
+}
+
+func (e *CCIPContractsDeployer) NewMockAggregator(addr common.Address) (*MockAggregator, error) {
+	ins, err := mock_v3_aggregator_contract.NewMockV3Aggregator(addr, e.evmClient.Backend())
+	if err != nil {
+		return nil, fmt.Errorf("creating mock aggregator: %w", err)
+	}
+	return &MockAggregator{
+		client:          e.evmClient,
+		Instance:        ins,
+		ContractAddress: addr,
+	}, nil
 }
 
 var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
