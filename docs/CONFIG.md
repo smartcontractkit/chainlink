@@ -2743,7 +2743,7 @@ MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 
 [Transactions]
@@ -3471,7 +3471,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '6m0s'
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 15
 
 [Transactions]
@@ -3793,7 +3793,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '12m0s'
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
 
 [Transactions]
@@ -4763,7 +4763,7 @@ MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 
 [Transactions]
