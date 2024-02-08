@@ -38,33 +38,41 @@ func Wrap(v any) (Value, error) {
 		return NewInt64(tv)
 	case int:
 		return NewInt64(int64(tv))
+	case nil:
+		return NewNil()
 	}
 
 	return nil, fmt.Errorf("could not wrap into value: %+v", v)
 }
 
 func FromProto(val *pb.Value) (Value, error) {
+	if val == nil {
+		return nil, nil
+	}
+
 	switch val.Value.(type) {
+	case *pb.Value_NilValue:
+		return nil, nil
 	case *pb.Value_StringValue:
 		return NewString(val.GetStringValue())
 	case *pb.Value_BoolValue:
 		return NewBool(val.GetBoolValue())
 	case *pb.Value_DecimalValue:
-		return fromDecimalValueProto(val.GetDecimalValue())
+		return FromDecimalValueProto(val.GetDecimalValue())
 	case *pb.Value_Int64Value:
 		return NewInt64(val.GetInt64Value())
 	case *pb.Value_BytesValue:
-		return fromBytesValueProto(val.GetBytesValue())
+		return FromBytesValueProto(val.GetBytesValue())
 	case *pb.Value_ListValue:
-		return fromListValueProto(val.GetListValue())
+		return FromListValueProto(val.GetListValue())
 	case *pb.Value_MapValue:
-		return fromMapValueProto(val.GetMapValue())
+		return FromMapValueProto(val.GetMapValue())
 	}
 
 	return nil, fmt.Errorf("unsupported type %T: %+v", val, val)
 }
 
-func fromBytesValueProto(bv string) (Value, error) {
+func FromBytesValueProto(bv string) (*Bytes, error) {
 	p, err := base64.StdEncoding.DecodeString(bv)
 	if err != nil {
 		return nil, err
@@ -72,7 +80,7 @@ func fromBytesValueProto(bv string) (Value, error) {
 	return NewBytes(p)
 }
 
-func fromMapValueProto(mv *pb.Map) (Value, error) {
+func FromMapValueProto(mv *pb.Map) (*Map, error) {
 	nm := map[string]Value{}
 	for k, v := range mv.Fields {
 		val, err := FromProto(v)
@@ -85,7 +93,7 @@ func fromMapValueProto(mv *pb.Map) (Value, error) {
 	return &Map{Underlying: nm}, nil
 }
 
-func fromListValueProto(lv *pb.List) (Value, error) {
+func FromListValueProto(lv *pb.List) (*List, error) {
 	nl := []Value{}
 	for _, el := range lv.Fields {
 		elv, err := FromProto(el)
@@ -98,7 +106,7 @@ func fromListValueProto(lv *pb.List) (Value, error) {
 	return &List{Underlying: nl}, nil
 }
 
-func fromDecimalValueProto(decStr string) (Value, error) {
+func FromDecimalValueProto(decStr string) (*Decimal, error) {
 	dec := decimal.Decimal{}
 	err := json.Unmarshal([]byte(decStr), &dec)
 	if err != nil {

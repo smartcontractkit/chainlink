@@ -13,6 +13,7 @@ message Value {
     List list_value = 5;
     string decimal_value = 6;
     int64 int64_value = 7;
+    Nil nil_value = 8;
   }
 }
 
@@ -22,4 +23,7 @@ message Map {
 
 message List {
   repeated Value fields = 2;
+}
+
+message Nil {
 }
