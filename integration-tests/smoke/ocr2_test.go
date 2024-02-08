@@ -31,7 +31,9 @@ func TestOCRv2Basic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resourcesFile.Close()
+	t.Cleanup(func() {
+		resourcesFile.Close()
+	})
 
 	go func() {
 		_, err := resourcesFile.WriteString("Started Monitoring\n")

@@ -303,7 +303,7 @@ func (n *ClNode) StartContainer() error {
 		return err
 	}
 
-	cReq, err := n.getContainerRequest(nodeSecretsToml)
+	cReq, err := n.GetContainerRequest(nodeSecretsToml)
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func (n *ClNode) ExecGetVersion() (string, error) {
 	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 }
 
-func (n *ClNode) getContainerRequest(secrets string) (
+func (n *ClNode) GetContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
