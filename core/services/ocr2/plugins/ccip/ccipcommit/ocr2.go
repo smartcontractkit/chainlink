@@ -111,7 +111,7 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 
 	// Will return 0,0 if no messages are found. This is a valid case as the report could
 	// still contain fee updates.
-	minSeqNr, maxSeqNr, err := r.calculateMinMaxSequenceNumbers(ctx, lggr)
+	minSeqNr, maxSeqNr, messageIDs, err := r.calculateMinMaxSequenceNumbers(ctx, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,9 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		"maxSeqNr", maxSeqNr,
 		"sourceGasPriceUSD", sourceGasPriceUSD,
 		"tokenPricesUSD", tokenPricesUSD,
-		"epochAndRound", epochAndRound)
+		"epochAndRound", epochAndRound,
+		"messageIDs", messageIDs,
+	)
 	r.metricsCollector.NumberOfMessagesBasedOnInterval(ccip.Observation, minSeqNr, maxSeqNr)
 
 	// Even if all values are empty we still want to communicate our observation
@@ -147,23 +149,26 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 	}.Marshal()
 }
 
-func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Context, lggr logger.Logger) (uint64, uint64, error) {
+func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Context, lggr logger.Logger) (uint64, uint64, []common.Hash, error) {
 	nextInflightMin, _, err := r.nextMinSeqNum(ctx, lggr)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, []common.Hash{}, err
 	}
 
 	msgRequests, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, nextInflightMin, nextInflightMin+OnRampMessagesScanLimit, true)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, []common.Hash{}, err
 	}
 	if len(msgRequests) == 0 {
 		lggr.Infow("No new requests", "minSeqNr", nextInflightMin)
-		return 0, 0, nil
+		return 0, 0, []common.Hash{}, nil
 	}
+
+	messageIDs := make([]common.Hash, 0, len(msgRequests))
 	seqNrs := make([]uint64, 0, len(msgRequests))
 	for _, msgReq := range msgRequests {
 		seqNrs = append(seqNrs, msgReq.Data.SequenceNumber)
+		messageIDs = append(messageIDs, common.Hash(msgReq.Data.MessageId))
 	}
 
 	minSeqNr := seqNrs[0]
@@ -174,9 +179,9 @@ func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Conte
 		lggr.Warnf("Missing sequence number range [%d-%d]", nextInflightMin, minSeqNr)
 	}
 	if !ccipcalc.ContiguousReqs(lggr, minSeqNr, maxSeqNr, seqNrs) {
-		return 0, 0, errors.New("unexpected gap in seq nums")
+		return 0, 0, []common.Hash{}, errors.New("unexpected gap in seq nums")
 	}
-	return minSeqNr, maxSeqNr, nil
+	return minSeqNr, maxSeqNr, messageIDs, nil
 }
 
 func (r *CommitReportingPlugin) nextMinSeqNum(ctx context.Context, lggr logger.Logger) (inflightMin, onChainMin uint64, err error) {
