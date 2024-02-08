@@ -36,7 +36,7 @@ func TestOCRv2Basic(t *testing.T) {
 	go func() {
 		_, err := resourcesFile.WriteString("Started Monitoring\n")
 		if err != nil {
-			t.Fatal(err)
+			t.Log(err)
 		}
 		for {
 			var m runtime.MemStats
@@ -44,19 +44,19 @@ func TestOCRv2Basic(t *testing.T) {
 
 			_, err := resourcesFile.WriteString(fmt.Sprintf("%s | Alloc = %v MiB", time.Now().String(), m.Alloc/1024/1024))
 			if err != nil {
-				t.Fatal(err)
+				t.Log(err)
 			}
 			_, err = resourcesFile.WriteString(fmt.Sprintf("\tTotalAlloc = %v MiB", m.TotalAlloc/1024/1024))
 			if err != nil {
-				t.Fatal(err)
+				t.Log(err)
 			}
 			_, err = resourcesFile.WriteString(fmt.Sprintf("\tSys = %v MiB", m.Sys/1024/1024))
 			if err != nil {
-				t.Fatal(err)
+				t.Log(err)
 			}
 			_, err = resourcesFile.WriteString(fmt.Sprintf("\tNumGC = %v\n", m.NumGC))
 			if err != nil {
-				t.Fatal(err)
+				t.Log(err)
 			}
 			percentages, err := cpu.Percent(1*time.Second, false)
 			if err != nil {
@@ -65,7 +65,7 @@ func TestOCRv2Basic(t *testing.T) {
 			}
 			_, err = resourcesFile.WriteString(fmt.Sprintf("%s | CPU Usage: %.2f%%\n", time.Now().String(), percentages[0]))
 			if err != nil {
-				t.Fatal(err)
+				t.Log(err)
 			}
 			time.Sleep(time.Second * 5)
 		}
