@@ -36,7 +36,7 @@ func main() {
 		panic("GRAFANA_TOKEN must be provided")
 	}
 	// if you'll use this dashboard base in other projects, you can add your own opts here to extend it
-	db, err := dashboard.NewDashboard(name, ldsn, pdsn, nil)
+	db, err := dashboard.NewDashboard(name, ldsn, pdsn, "kubernetes", nil)
 	if err != nil {
 		panic(err)
 	}

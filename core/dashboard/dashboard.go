@@ -12,15 +12,18 @@ type Dashboard struct {
 	opts                     []dashboard.Option
 	extendedOpts             []dashboard.Option
 	Builder                  dashboard.Builder
+	Platform                 string
+	labelFilter              string
 }
 
 // NewDashboard returns a new dashboard for a Chainlink cluster, can be used as a base for more complex plugin based dashboards
-func NewDashboard(name string, ldsn string, pdsn string, opts []dashboard.Option) (*Dashboard, error) {
+func NewDashboard(name string, ldsn string, pdsn string, platform string, opts []dashboard.Option) (*Dashboard, error) {
 	db := &Dashboard{
 		Name:                     name,
 		LokiDataSourceName:       ldsn,
 		PrometheusDataSourceName: pdsn,
 		extendedOpts:             opts,
+		Platform:                 platform,
 	}
 	if err := db.generate(); err != nil {
 		return db, err
