@@ -14,6 +14,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -189,6 +190,15 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 			return err
 		}
 		lsn.respCount = respCount
+
+		if lsn.job.VRFSpec.CustomRevertsPipelineEnabled && lsn.vrfOwner != nil && lsn.job.VRFSpec.VRFOwnerAddress != nil {
+			// Start reverted txns handler in background
+			lsn.wg.Add(1)
+			go func() {
+				defer lsn.wg.Done()
+				lsn.runRevertedTxnsHandler(spec.PollPeriod)
+			}()
+		}
 
 		// Log listener gathers request logs and processes them
 		lsn.wg.Add(1)

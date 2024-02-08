@@ -12,20 +12,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestHead_NewHead(t *testing.T) {
@@ -95,13 +95,12 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	tx := gethTypes.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	chainID := big.NewInt(3)
 
 	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
 	require.NoError(t, err)
-	signedTx.Size() // Needed to write the size for equality checking
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
 
@@ -721,10 +720,10 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 				),
 			},
 			want: &evmtypes.Transaction{
-				GasPrice:             assets.NewWei(utils.HexToBig("978a846d2")),
+				GasPrice:             assets.NewWei(mustHexToBig(t, "978a846d2")),
 				GasLimit:             mustHextoUint32(t, "0xdbba0"),
-				MaxFeePerGas:         assets.NewWei(utils.HexToBig("d0892241d")),
-				MaxPriorityFeePerGas: assets.NewWei(utils.HexToBig("3b9aca01")),
+				MaxFeePerGas:         assets.NewWei(mustHexToBig(t, "d0892241d")),
+				MaxPriorityFeePerGas: assets.NewWei(mustHexToBig(t, "3b9aca01")),
 				Type:                 0x2,
 				Hash:                 common.HexToHash("0x754f49f0a2ca7680806d261dd36ee95ac88a81da59fef0b5d8d691478f075d46"),
 			},
@@ -756,7 +755,7 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
   }`,
 			)},
 			want: &evmtypes.Transaction{
-				GasPrice:             assets.NewWei(utils.HexToBig("4f7915f5")),
+				GasPrice:             assets.NewWei(mustHexToBig(t, "4f7915f5")),
 				GasLimit:             mustHextoUint32(t, "0x2dc6c0"),
 				MaxFeePerGas:         nil,
 				MaxPriorityFeePerGas: nil,
@@ -779,10 +778,10 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 func TestTransaction_JSONRoundtrip(t *testing.T) {
 	t.Parallel()
 	want := &evmtypes.Transaction{
-		GasPrice:             assets.NewWei(utils.HexToBig("978a846d2")),
+		GasPrice:             assets.NewWei(mustHexToBig(t, "978a846d2")),
 		GasLimit:             mustHextoUint32(t, "0xdbba0"),
-		MaxFeePerGas:         assets.NewWei(utils.HexToBig("d0892241d")),
-		MaxPriorityFeePerGas: assets.NewWei(utils.HexToBig("3b9aca01")),
+		MaxFeePerGas:         assets.NewWei(mustHexToBig(t, "d0892241d")),
+		MaxPriorityFeePerGas: assets.NewWei(mustHexToBig(t, "3b9aca01")),
 		Type:                 evmtypes.TxType(2),
 		Hash:                 common.HexToHash("0x754f49f0a2ca7680806d261dd36ee95ac88a81da59fef0b5d8d691478f075d46"),
 	}
@@ -855,4 +854,10 @@ func mustHextoUint32(t *testing.T, hx string) uint32 {
 	err := temp.UnmarshalText([]byte(hx))
 	require.NoError(t, err)
 	return uint32(*temp)
+}
+
+func mustHexToBig(t *testing.T, hx string) *big.Int {
+	n, err := hex.ParseBig(hx)
+	require.NoError(t, err)
+	return n
 }

@@ -7,11 +7,19 @@ spec:
   selector:
     matchLabels:
       app: geth
+      # Used for testing.
+      # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+      havoc-component-group: "blockchain"
+      havoc-network-group: "blockchain"
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app: geth
+        # Used for testing.
+        # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+        havoc-component-group: "blockchain"
+        havoc-network-group: "blockchain"
         release: {{ .Release.Name }}
       annotations:
         {{- range $key, $value := .Values.podAnnotations }}
@@ -65,6 +73,8 @@ spec:
           - '--miner.etherbase'
           - '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
           - '--ipcdisable'
+          - '--http.api'
+          - 'admin,debug,web3,eth,txpool,personal,miner,net'
           - '--http'
           - '--http.vhosts'
           - '*'

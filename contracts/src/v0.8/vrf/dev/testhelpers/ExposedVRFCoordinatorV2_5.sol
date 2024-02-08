@@ -50,19 +50,28 @@ contract ExposedVRFCoordinatorV2_5 is VRFCoordinatorV2_5 {
     s_totalNativeBalance = newBalance;
   }
 
-  function setWithdrawableTokensTestingOnlyXXX(address oracle, uint96 newBalance) external {
-    s_withdrawableTokens[oracle] = newBalance;
+  function setWithdrawableTokensTestingOnlyXXX(uint96 newBalance) external {
+    s_withdrawableTokens = newBalance;
   }
 
-  function getWithdrawableTokensTestingOnlyXXX(address oracle) external view returns (uint96) {
-    return s_withdrawableTokens[oracle];
+  function getWithdrawableTokensTestingOnlyXXX() external view returns (uint96) {
+    return s_withdrawableTokens;
   }
 
-  function setWithdrawableNativeTestingOnlyXXX(address oracle, uint96 newBalance) external {
-    s_withdrawableNative[oracle] = newBalance;
+  function setWithdrawableNativeTestingOnlyXXX(uint96 newBalance) external {
+    s_withdrawableNative = newBalance;
   }
 
-  function getWithdrawableNativeTestingOnlyXXX(address oracle) external view returns (uint96) {
-    return s_withdrawableNative[oracle];
+  function getWithdrawableNativeTestingOnlyXXX() external view returns (uint96) {
+    return s_withdrawableNative;
+  }
+
+  function calculatePaymentAmount(
+    uint256 startGas,
+    uint256 weiPerUnitGas,
+    bool nativePayment,
+    bool onlyPremium
+  ) external returns (uint96) {
+    return _calculatePaymentAmount(startGas, weiPerUnitGas, nativePayment, onlyPremium);
   }
 }

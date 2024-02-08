@@ -1,38 +1,36 @@
 package p2pkey
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
 	"testing"
 
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/peer"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestP2PKeys_Raw(t *testing.T) {
-	pk, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
-	require.NoError(t, err)
-	pkr, err := pk.Raw()
+	_, pk, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	r := Raw(pkr)
+	r := Raw(pk)
 
 	assert.Equal(t, r.String(), r.GoString())
 	assert.Equal(t, "<P2P Raw Private Key>", r.String())
 }
 
 func TestP2PKeys_KeyV2(t *testing.T) {
-	pk, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+	_, pk, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
 	k := Key{PrivKey: pk}
 	kv2 := k.ToV2()
-	pkv2, err := kv2.GetPublic().Raw()
-	require.NoError(t, err)
+
+	pkv2 := kv2.PrivKey.Public().(ed25519.PublicKey)
 
 	assert.Equal(t, kv2.String(), kv2.GoString())
-	assert.Equal(t, peer.ID(k.PeerID()).String(), kv2.ID())
+	assert.Equal(t, ragep2ptypes.PeerID(k.PeerID()).String(), kv2.ID())
 	assert.Equal(t, hex.EncodeToString(pkv2), kv2.PublicKeyHex())
 }

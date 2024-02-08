@@ -56,11 +56,11 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     bytes extraArgs;
   }
 
-  mapping(bytes32 => address) /* keyHash */ /* oracle */ internal s_provingKeys;
+  mapping(bytes32 => bool) /* keyHash */ /* exists */ internal s_provingKeys;
   bytes32[] public s_provingKeyHashes;
   mapping(uint256 => bytes32) /* requestID */ /* commitment */ public s_requestCommitments;
 
-  event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
+  event ProvingKeyRegistered(bytes32 keyHash);
   event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 requestId,
@@ -99,7 +99,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    FeeConfig feeConfig
+    uint8 nativePremiumPercentage,
+    uint8 linkPremiumPercentage
   );
 
   constructor(address blockhashStore) SubscriptionAPI() {
@@ -108,17 +109,16 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
 
   /**
    * @notice Registers a proving key to an oracle.
-   * @param oracle address of the oracle
    * @param publicProvingKey key that oracle can use to submit vrf fulfillments
    */
-  function registerProvingKey(address oracle, uint256[2] calldata publicProvingKey) external onlyOwner {
+  function registerProvingKey(uint256[2] calldata publicProvingKey) external onlyOwner {
     bytes32 kh = hashOfKey(publicProvingKey);
-    if (s_provingKeys[kh] != address(0)) {
+    if (s_provingKeys[kh]) {
       revert ProvingKeyAlreadyRegistered(kh);
     }
-    s_provingKeys[kh] = oracle;
+    s_provingKeys[kh] = true;
     s_provingKeyHashes.push(kh);
-    emit ProvingKeyRegistered(kh, oracle);
+    emit ProvingKeyRegistered(kh);
   }
 
   /**
@@ -136,7 +136,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @param stalenessSeconds if the native/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @param fallbackWeiPerUnitLink fallback native/link price in the case of a stale feed
-   * @param feeConfig fee configuration
+   * @param nativePremiumPercentage native premium percentage
+   * @param linkPremiumPercentage link premium percentage
    */
   function setConfig(
     uint16 minimumRequestConfirmations,
@@ -144,7 +145,10 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    FeeConfig memory feeConfig
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM,
+    uint8 nativePremiumPercentage,
+    uint8 linkPremiumPercentage
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
       revert InvalidRequestConfirmations(
@@ -161,9 +165,12 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      reentrancyLock: false
+      reentrancyLock: false,
+      fulfillmentFlatFeeNativePPM: fulfillmentFlatFeeNativePPM,
+      fulfillmentFlatFeeLinkDiscountPPM: fulfillmentFlatFeeLinkDiscountPPM,
+      nativePremiumPercentage: nativePremiumPercentage,
+      linkPremiumPercentage: linkPremiumPercentage
     });
-    s_feeConfig = feeConfig;
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
       minimumRequestConfirmations,
@@ -171,7 +178,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       stalenessSeconds,
       gasAfterPaymentCalculation,
       fallbackWeiPerUnitLink,
-      s_feeConfig
+      nativePremiumPercentage,
+      linkPremiumPercentage
     );
   }
 
@@ -346,8 +354,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
-    address oracle = s_provingKeys[keyHash];
-    if (oracle == address(0)) {
+    if (!s_provingKeys[keyHash]) {
       revert NoSuchProvingKey(keyHash);
     }
     uint256 requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
@@ -383,7 +390,11 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
+  function fulfillRandomWords(
+    Proof memory proof,
+    RequestCommitment memory rc,
+    bool
+  ) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     Output memory output = _getRandomnessFromProof(proof, rc);
 
@@ -426,13 +437,13 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
           revert InsufficientBalance();
         }
         s_subscriptions[rc.subId].nativeBalance -= payment;
-        s_withdrawableNative[s_provingKeys[output.keyHash]] += payment;
+        s_withdrawableNative += payment;
       } else {
         if (s_subscriptions[rc.subId].balance < payment) {
           revert InsufficientBalance();
         }
         s_subscriptions[rc.subId].balance -= payment;
-        s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
+        s_withdrawableTokens += payment;
       }
 
       // Include payment in the event for tracking costs.

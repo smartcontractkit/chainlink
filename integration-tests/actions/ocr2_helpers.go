@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -21,8 +22,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -104,12 +107,15 @@ func ConfigureOCRv2AggregatorContracts(
 }
 
 // BuildMedianOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard median aggregation job
-func BuildMedianOCR2Config(workerNodes []*client.ChainlinkK8sClient) (*contracts.OCRv2Config, error) {
+func BuildMedianOCR2Config(
+	workerNodes []*client.ChainlinkK8sClient,
+	ocrOffchainOptions contracts.OffchainOptions,
+) (*contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentities(workerNodes)
 	if err != nil {
 		return nil, err
 	}
-	signerKeys, transmitterAccounts, f_, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+	signerKeys, transmitterAccounts, f_, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		30*time.Second,   // deltaProgress time.Duration,
 		30*time.Second,   // deltaResend time.Duration,
 		10*time.Second,   // deltaRound time.Duration,
@@ -149,6 +155,8 @@ func BuildMedianOCR2Config(workerNodes []*client.ChainlinkK8sClient) (*contracts
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
 
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(ocrOffchainOptions.MinimumAnswer, ocrOffchainOptions.MaximumAnswer)
+
 	return &contracts.OCRv2Config{
 		Signers:               signerAddresses,
 		Transmitters:          transmitterAddresses,
@@ -156,7 +164,7 @@ func BuildMedianOCR2Config(workerNodes []*client.ChainlinkK8sClient) (*contracts
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        []byte(fmt.Sprintf("0x%s", offchainConfig)),
-	}, nil
+	}, err
 }
 
 // GetOracleIdentities retrieves all chainlink nodes' OCR2 config identities with defaul key index
@@ -257,7 +265,6 @@ func CreateOCRv2Jobs(
 	bootstrapNode *client.ChainlinkK8sClient,
 	workerChainlinkNodes []*client.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
-	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
 	mockServerValue int, // Value to get from the mock server when querying the path
 	chainId uint64, // EVM chain ID
 	forwardingAllowed bool,
@@ -268,20 +275,28 @@ func CreateOCRv2Jobs(
 		return err
 	}
 	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNode.InternalIP(), 6690)
-	// Set the value for the jobs to report on
-	err = mockserver.SetValuePath(mockServerPath, mockServerValue)
-	if err != nil {
-		return err
-	}
+	mockJuelsPath := "ocr2/juelsPerFeeCoinSource"
 	// Set the juelsPerFeeCoinSource config value
-	err = mockserver.SetValuePath(fmt.Sprintf("%s/juelsPerFeeCoinSource", mockServerPath), mockServerValue)
+	err = mockserver.SetValuePath(mockJuelsPath, mockServerValue)
 	if err != nil {
 		return err
 	}
 
+	// Create the juels bridge for each node only once
+	juelsBridge := &client.BridgeTypeAttributes{
+		Name: "juels",
+		URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockJuelsPath),
+	}
+	for _, chainlinkNode := range workerChainlinkNodes {
+		err = chainlinkNode.MustCreateBridge(juelsBridge)
+		if err != nil {
+			return fmt.Errorf("failed creating bridge %s on CL node : %w", juelsBridge.Name, err)
+		}
+	}
+
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &client.OCR2TaskJobSpec{
-			Name:    "ocr2 bootstrap node",
+			Name:    fmt.Sprintf("ocr2-bootstrap-%s", ocrInstance.Address()),
 			JobType: "bootstrap",
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
@@ -289,7 +304,7 @@ func CreateOCRv2Jobs(
 				RelayConfig: map[string]interface{}{
 					"chainID": chainId,
 				},
-				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath)),
+				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, "ocr2")),
 				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 			},
 		}
@@ -309,25 +324,22 @@ func CreateOCRv2Jobs(
 			}
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
+			nodeContractPairID, err := BuildOCR2NodeContractPairID(chainlinkNode, ocrInstance)
+			if err != nil {
+				return err
+			}
 			bta := &client.BridgeTypeAttributes{
-				Name: mockServerPath,
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath),
+				Name: nodeContractPairID,
+				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
-			juelsBridge := &client.BridgeTypeAttributes{
-				Name: "juels",
-				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockserver.Config.ClusterURL, mockServerPath),
-			}
+
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
-			}
-			err = chainlinkNode.MustCreateBridge(juelsBridge)
-			if err != nil {
-				return fmt.Errorf("creating bridge job have failed: %w", err)
+				return fmt.Errorf("failed creating bridge %s on CL node: %w", bta.Name, err)
 			}
 
 			ocrSpec := &client.OCR2TaskJobSpec{
-				Name:              "ocr2",
+				Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
@@ -365,6 +377,7 @@ func StartNewOCR2Round(
 	timeout time.Duration,
 	logger zerolog.Logger,
 ) error {
+	time.Sleep(5 * time.Second)
 	for i := 0; i < len(ocrInstances); i++ {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
@@ -372,10 +385,120 @@ func StartNewOCR2Round(
 		}
 		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout, logger)
 		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
-		err = client.WaitForEvents()
+		err = ocrRound.Wait() // wait for OCR Round to complete
+		if err != nil {
+			return fmt.Errorf("failed to wait for OCR Round %d to complete instance %d", roundNumber, i)
+		}
+		if !ocrRound.Complete() {
+			return fmt.Errorf("failed to complete OCR Round %d for ocr instance %d", roundNumber, i)
+		}
+	}
+	return nil
+}
+
+// WatchNewOCR2Round is the same as StartNewOCR2Round but does NOT explicitly request a new round
+// as that can cause odd behavior in tandem with changing adapter values in OCR2
+func WatchNewOCR2Round(
+	roundNumber int64,
+	ocrInstances []contracts.OffchainAggregatorV2,
+	client blockchain.EVMClient,
+	timeout time.Duration,
+	logger zerolog.Logger,
+) error {
+	for i := 0; i < len(ocrInstances); i++ {
+		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout, logger)
+		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
+		err := client.WaitForEvents()
 		if err != nil {
 			return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
 		}
 	}
 	return nil
+}
+
+// SetOCR2AdapterResponse sets a single adapter response that correlates with an ocr contract and a chainlink node
+// used for OCR2 tests
+func SetOCR2AdapterResponse(
+	response int,
+	ocrInstance contracts.OffchainAggregatorV2,
+	chainlinkNode *client.ChainlinkK8sClient,
+	mockserver *ctfClient.MockserverClient,
+) error {
+	nodeContractPairID, err := BuildOCR2NodeContractPairID(chainlinkNode, ocrInstance)
+	if err != nil {
+		return err
+	}
+	path := fmt.Sprintf("/%s", nodeContractPairID)
+	err = mockserver.SetValuePath(path, response)
+	if err != nil {
+		return fmt.Errorf("setting mockserver value path failed: %w", err)
+	}
+	return nil
+}
+
+// SetOCR2AllAdapterResponsesToTheSameValue sets the mock responses in mockserver that are read by chainlink nodes
+// to simulate different adapters. This sets all adapter responses for each node and contract to the same response
+// used for OCR2 tests
+func SetOCR2AllAdapterResponsesToTheSameValue(
+	response int,
+	ocrInstances []contracts.OffchainAggregatorV2,
+	chainlinkNodes []*client.ChainlinkK8sClient,
+	mockserver *ctfClient.MockserverClient,
+) error {
+	eg := &errgroup.Group{}
+	for _, o := range ocrInstances {
+		ocrInstance := o
+		for _, n := range chainlinkNodes {
+			node := n
+			eg.Go(func() error {
+				return SetOCR2AdapterResponse(response, ocrInstance, node, mockserver)
+			})
+		}
+	}
+	return eg.Wait()
+}
+
+// SetOCR2AllAdapterResponsesToDifferentValues sets the mock responses in mockserver that are read by chainlink nodes
+// to simulate different adapters. This sets all adapter responses for each node and contract to different responses
+// used for OCR2 tests
+func SetOCR2AllAdapterResponsesToDifferentValues(
+	responses []int,
+	ocrInstances []contracts.OffchainAggregatorV2,
+	chainlinkNodes []*client.ChainlinkK8sClient,
+	mockserver *ctfClient.MockserverClient,
+) error {
+	if len(responses) != len(ocrInstances)*len(chainlinkNodes) {
+		return fmt.Errorf(
+			"amount of responses %d should be equal to the amount of OCR instances %d times the amount of Chainlink nodes %d",
+			len(responses), len(ocrInstances), len(chainlinkNodes),
+		)
+	}
+	eg := &errgroup.Group{}
+	for _, o := range ocrInstances {
+		ocrInstance := o
+		for ni := 1; ni < len(chainlinkNodes); ni++ {
+			nodeIndex := ni
+			eg.Go(func() error {
+				return SetOCR2AdapterResponse(responses[nodeIndex-1], ocrInstance, chainlinkNodes[nodeIndex], mockserver)
+			})
+		}
+	}
+	return eg.Wait()
+}
+
+// BuildOCR2NodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCRv2 contract
+func BuildOCR2NodeContractPairID(node *client.ChainlinkK8sClient, ocrInstance contracts.OffchainAggregatorV2) (string, error) {
+	if node == nil {
+		return "", fmt.Errorf("chainlink node is nil")
+	}
+	if ocrInstance == nil {
+		return "", fmt.Errorf("OCR Instance is nil")
+	}
+	nodeAddress, err := node.PrimaryEthAddress()
+	if err != nil {
+		return "", fmt.Errorf("getting chainlink node's primary ETH address failed: %w", err)
+	}
+	shortNodeAddr := nodeAddress[2:12]
+	shortOCRAddr := ocrInstance.Address()[2:12]
+	return strings.ToLower(fmt.Sprintf("node_%s_contract_%s", shortNodeAddr, shortOCRAddr)), nil
 }

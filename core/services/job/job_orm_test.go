@@ -19,7 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -41,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const mercuryOracleTOML = `name = 'LINK / ETH | 0x0000000000000000000000000000000000000000000000000000000000000001 | verifier_proxy 0x0000000000000000000000000000000000000001'
@@ -454,6 +455,9 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var batchFulfillmentEnabled bool
 	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
 	require.False(t, batchFulfillmentEnabled)
+	var customRevertsPipelineEnabled bool
+	require.NoError(t, db.Get(&customRevertsPipelineEnabled, `SELECT custom_reverts_pipeline_enabled FROM vrf_specs LIMIT 1`))
+	require.False(t, customRevertsPipelineEnabled)
 	var batchFulfillmentGasMultiplier float64
 	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
 	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
@@ -514,13 +518,14 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
 	jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 		testspecs.VRFSpecParams{
-			VRFVersion:          vrfcommon.V2Plus,
-			RequestedConfsDelay: 10,
-			FromAddresses:       fromAddresses,
-			ChunkSize:           25,
-			BackoffInitialDelay: time.Minute,
-			BackoffMaxDelay:     time.Hour,
-			GasLanePrice:        assets.GWei(100),
+			VRFVersion:                   vrfcommon.V2Plus,
+			RequestedConfsDelay:          10,
+			FromAddresses:                fromAddresses,
+			ChunkSize:                    25,
+			BackoffInitialDelay:          time.Minute,
+			BackoffMaxDelay:              time.Hour,
+			GasLanePrice:                 assets.GWei(100),
+			CustomRevertsPipelineEnabled: true,
 		}).
 		Toml())
 	require.NoError(t, err)
@@ -534,6 +539,9 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	var batchFulfillmentEnabled bool
 	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
 	require.False(t, batchFulfillmentEnabled)
+	var customRevertsPipelineEnabled bool
+	require.NoError(t, db.Get(&customRevertsPipelineEnabled, `SELECT custom_reverts_pipeline_enabled FROM vrf_specs LIMIT 1`))
+	require.True(t, customRevertsPipelineEnabled)
 	var batchFulfillmentGasMultiplier float64
 	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
 	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
@@ -695,7 +703,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
-	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -764,7 +772,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
-	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -825,7 +833,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
-	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+	customChainID := big.New(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
@@ -1021,7 +1029,7 @@ func Test_FindJob(t *testing.T) {
 	// Create a config with multiple EVM chains. The test fixtures already load 1337
 	// Additional chains will need additional fixture statements to add a chain to evm_chains.
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		chainID := utils.NewBigI(1337)
+		chainID := big.NewI(1337)
 		enabled := true
 		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 			ChainID: chainID,
@@ -1154,7 +1162,7 @@ func Test_FindJob(t *testing.T) {
 
 		assert.Equal(t, job.ID, jbID)
 
-		_, err2 = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
+		_, err2 = orm.FindJobIDByAddress("not-existing", big.NewI(0))
 		require.Error(t, err2)
 		require.ErrorIs(t, err2, sql.ErrNoRows)
 	})
@@ -1222,7 +1230,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
 	require.NoError(t, err)
-	jb.DirectRequestSpec.EVMChainID = utils.NewBigI(0)
+	jb.DirectRequestSpec.EVMChainID = big.NewI(0)
 
 	err = orm.CreateJob(&jb)
 	require.NoError(t, err)
@@ -1379,7 +1387,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	var jb job.Job
 
 	config := configtest.NewTestGeneralConfig(t)
-	db := pgtest.NewSqlxDB(t)
+	_, db := heavyweight.FullTestDBV2(t, nil)
 
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))

@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -21,9 +22,12 @@ ForwardersEnabled = true`
 	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
 
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, true)
+	config, err := tc.GetConfig("Soak", tc.OCR)
+	require.NoError(t, err, "Error getting config")
+
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, true)
 	require.NoError(t, err, "Error creating soak test")
-	ocrSoakTest.DeployEnvironment(customNetworkTOML)
+	ocrSoakTest.DeployEnvironment(customNetworkTOML, &config)
 	if ocrSoakTest.Environment().WillUseRemoteRunner() {
 		return
 	}
@@ -32,6 +36,6 @@ ForwardersEnabled = true`
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
-	ocrSoakTest.Setup()
+	ocrSoakTest.Setup(&config)
 	ocrSoakTest.Run()
 }

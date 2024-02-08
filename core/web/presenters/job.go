@@ -8,7 +8,9 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -16,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // JobSpecType defines the the the spec type of the job
@@ -49,7 +50,7 @@ type DirectRequestSpec struct {
 	Initiator                string                   `json:"initiator"`
 	CreatedAt                time.Time                `json:"createdAt"`
 	UpdatedAt                time.Time                `json:"updatedAt"`
-	EVMChainID               *utils.Big               `json:"evmChainID"`
+	EVMChainID               *big.Big                 `json:"evmChainID"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
@@ -84,7 +85,7 @@ type FluxMonitorSpec struct {
 	MinPayment          *commonassets.Link  `json:"minPayment"`
 	CreatedAt           time.Time           `json:"createdAt"`
 	UpdatedAt           time.Time           `json:"updatedAt"`
-	EVMChainID          *utils.Big          `json:"evmChainID"`
+	EVMChainID          *big.Big            `json:"evmChainID"`
 }
 
 // NewFluxMonitorSpec initializes a new DirectFluxMonitorSpec from a
@@ -131,7 +132,7 @@ type OffChainReportingSpec struct {
 	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
 	CreatedAt                              time.Time            `json:"createdAt"`
 	UpdatedAt                              time.Time            `json:"updatedAt"`
-	EVMChainID                             *utils.Big           `json:"evmChainID"`
+	EVMChainID                             *big.Big             `json:"evmChainID"`
 	DatabaseTimeout                        *models.Interval     `json:"databaseTimeout"`
 	ObservationGracePeriod                 *models.Interval     `json:"observationGracePeriod"`
 	ContractTransmitterTransmitTimeout     *models.Interval     `json:"contractTransmitterTransmitTimeout"`
@@ -220,7 +221,7 @@ type KeeperSpec struct {
 	FromAddress     ethkey.EIP55Address `json:"fromAddress"`
 	CreatedAt       time.Time           `json:"createdAt"`
 	UpdatedAt       time.Time           `json:"updatedAt"`
-	EVMChainID      *utils.Big          `json:"evmChainID"`
+	EVMChainID      *big.Big            `json:"evmChainID"`
 }
 
 // NewKeeperSpec generates a new KeeperSpec from a job.KeeperSpec
@@ -267,40 +268,46 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 type VRFSpec struct {
 	BatchCoordinatorAddress       *ethkey.EIP55Address  `json:"batchCoordinatorAddress"`
 	BatchFulfillmentEnabled       bool                  `json:"batchFulfillmentEnabled"`
+	CustomRevertsPipelineEnabled  *bool                 `json:"customRevertsPipelineEnabled,omitempty"`
 	BatchFulfillmentGasMultiplier float64               `json:"batchFulfillmentGasMultiplier"`
 	CoordinatorAddress            ethkey.EIP55Address   `json:"coordinatorAddress"`
 	PublicKey                     secp256k1.PublicKey   `json:"publicKey"`
 	FromAddresses                 []ethkey.EIP55Address `json:"fromAddresses"`
-	PollPeriod                    models.Duration       `json:"pollPeriod"`
+	PollPeriod                    commonconfig.Duration `json:"pollPeriod"`
 	MinIncomingConfirmations      uint32                `json:"confirmations"`
 	CreatedAt                     time.Time             `json:"createdAt"`
 	UpdatedAt                     time.Time             `json:"updatedAt"`
-	EVMChainID                    *utils.Big            `json:"evmChainID"`
+	EVMChainID                    *big.Big              `json:"evmChainID"`
 	ChunkSize                     uint32                `json:"chunkSize"`
-	RequestTimeout                models.Duration       `json:"requestTimeout"`
-	BackoffInitialDelay           models.Duration       `json:"backoffInitialDelay"`
-	BackoffMaxDelay               models.Duration       `json:"backoffMaxDelay"`
+	RequestTimeout                commonconfig.Duration `json:"requestTimeout"`
+	BackoffInitialDelay           commonconfig.Duration `json:"backoffInitialDelay"`
+	BackoffMaxDelay               commonconfig.Duration `json:"backoffMaxDelay"`
 	GasLanePrice                  *assets.Wei           `json:"gasLanePrice"`
-	VRFOwnerAddress               *ethkey.EIP55Address  `json:"vrfOwnerAddress"`
+	RequestedConfsDelay           int64                 `json:"requestedConfsDelay"`
+	VRFOwnerAddress               *ethkey.EIP55Address  `json:"vrfOwnerAddress,omitempty"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 	return &VRFSpec{
-		BatchCoordinatorAddress:  spec.BatchCoordinatorAddress,
-		BatchFulfillmentEnabled:  spec.BatchFulfillmentEnabled,
-		CoordinatorAddress:       spec.CoordinatorAddress,
-		PublicKey:                spec.PublicKey,
-		FromAddresses:            spec.FromAddresses,
-		PollPeriod:               models.MustMakeDuration(spec.PollPeriod),
-		MinIncomingConfirmations: spec.MinIncomingConfirmations,
-		CreatedAt:                spec.CreatedAt,
-		UpdatedAt:                spec.UpdatedAt,
-		EVMChainID:               spec.EVMChainID,
-		ChunkSize:                spec.ChunkSize,
-		RequestTimeout:           models.MustMakeDuration(spec.RequestTimeout),
-		BackoffInitialDelay:      models.MustMakeDuration(spec.BackoffInitialDelay),
-		BackoffMaxDelay:          models.MustMakeDuration(spec.BackoffMaxDelay),
-		GasLanePrice:             spec.GasLanePrice,
+		BatchCoordinatorAddress:       spec.BatchCoordinatorAddress,
+		BatchFulfillmentEnabled:       spec.BatchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: float64(spec.BatchFulfillmentGasMultiplier),
+		CustomRevertsPipelineEnabled:  &spec.CustomRevertsPipelineEnabled,
+		CoordinatorAddress:            spec.CoordinatorAddress,
+		PublicKey:                     spec.PublicKey,
+		FromAddresses:                 spec.FromAddresses,
+		PollPeriod:                    *commonconfig.MustNewDuration(spec.PollPeriod),
+		MinIncomingConfirmations:      spec.MinIncomingConfirmations,
+		CreatedAt:                     spec.CreatedAt,
+		UpdatedAt:                     spec.UpdatedAt,
+		EVMChainID:                    spec.EVMChainID,
+		ChunkSize:                     spec.ChunkSize,
+		RequestTimeout:                *commonconfig.MustNewDuration(spec.RequestTimeout),
+		BackoffInitialDelay:           *commonconfig.MustNewDuration(spec.BackoffInitialDelay),
+		BackoffMaxDelay:               *commonconfig.MustNewDuration(spec.BackoffMaxDelay),
+		GasLanePrice:                  spec.GasLanePrice,
+		RequestedConfsDelay:           spec.RequestedConfsDelay,
+		VRFOwnerAddress:               spec.VRFOwnerAddress,
 	}
 }
 
@@ -317,7 +324,7 @@ type BlockhashStoreSpec struct {
 	TrustedBlockhashStoreBatchSize int32                 `json:"trustedBlockhashStoreBatchSize"`
 	PollPeriod                     time.Duration         `json:"pollPeriod"`
 	RunTimeout                     time.Duration         `json:"runTimeout"`
-	EVMChainID                     *utils.Big            `json:"evmChainID"`
+	EVMChainID                     *big.Big              `json:"evmChainID"`
 	FromAddresses                  []ethkey.EIP55Address `json:"fromAddresses"`
 	CreatedAt                      time.Time             `json:"createdAt"`
 	UpdatedAt                      time.Time             `json:"updatedAt"`
@@ -353,7 +360,7 @@ type BlockHeaderFeederSpec struct {
 	BatchBlockhashStoreAddress ethkey.EIP55Address   `json:"batchBlockhashStoreAddress"`
 	PollPeriod                 time.Duration         `json:"pollPeriod"`
 	RunTimeout                 time.Duration         `json:"runTimeout"`
-	EVMChainID                 *utils.Big            `json:"evmChainID"`
+	EVMChainID                 *big.Big              `json:"evmChainID"`
 	FromAddresses              []ethkey.EIP55Address `json:"fromAddresses"`
 	GetBlockhashesBatchSize    uint16                `json:"getBlockhashesBatchSize"`
 	StoreBlockhashesBatchSize  uint16                `json:"storeBlockhashesBatchSize"`
@@ -445,6 +452,7 @@ func NewJobError(e job.SpecError) JobError {
 type JobResource struct {
 	JAID
 	Name                   string                  `json:"name"`
+	StreamID               *uint64                 `json:"streamID,omitempty"`
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
 	GasLimit               clnull.Uint32           `json:"gasLimit"`
@@ -472,6 +480,7 @@ func NewJobResource(j job.Job) *JobResource {
 	resource := &JobResource{
 		JAID:              NewJAIDInt32(j.ID),
 		Name:              j.Name.ValueOrZero(),
+		StreamID:          j.StreamID,
 		Type:              JobSpecType(j.Type),
 		SchemaVersion:     j.SchemaVersion,
 		GasLimit:          j.GasLimit,
@@ -506,6 +515,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	case job.Gateway:
 		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
+	case job.Stream:
+		// no spec; nothing to do
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}

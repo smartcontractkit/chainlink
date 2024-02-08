@@ -83,8 +83,8 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   // A discrepancy with this contract's native balance indicates someone
   // sent native using transfer and so we may need to use recoverNativeFunds.
   uint96 public s_totalNativeBalance;
-  mapping(address => uint96) /* oracle */ /* LINK balance */ internal s_withdrawableTokens;
-  mapping(address => uint96) /* oracle */ /* native balance */ internal s_withdrawableNative;
+  uint96 internal s_withdrawableTokens;
+  uint96 internal s_withdrawableNative;
 
   event SubscriptionCreated(uint256 indexed subId, address owner);
   event SubscriptionFunded(uint256 indexed subId, uint256 oldBalance, uint256 newBalance);
@@ -114,15 +114,32 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
     // Total: 37,185 gas.
     uint32 gasAfterPaymentCalculation;
+    // Flat fee charged per fulfillment in millionths of native.
+    // So fee range is [0, 2^32/10^6].
+    uint32 fulfillmentFlatFeeNativePPM;
+    // Discount relative to fulfillmentFlatFeeNativePPM for link payment in millionths of native
+    // Should not exceed fulfillmentFlatFeeNativePPM
+    // So fee range is [0, 2^32/10^6].
+    uint32 fulfillmentFlatFeeLinkDiscountPPM;
+    // nativePremiumPercentage is the percentage of the total gas costs that is added to the final premium for native payment
+    // nativePremiumPercentage = 10 means 10% of the total gas costs is added. only integral percentage is allowed
+    uint8 nativePremiumPercentage;
+    // linkPremiumPercentage is the percentage of total gas costs that is added to the final premium for link payment
+    // linkPremiumPercentage = 10 means 10% of the total gas costs is added. only integral percentage is allowed
+    uint8 linkPremiumPercentage;
   }
   Config public s_config;
 
   error Reentrant();
   modifier nonReentrant() {
+    _nonReentrant();
+    _;
+  }
+
+  function _nonReentrant() internal view {
     if (s_config.reentrancyLock) {
       revert Reentrant();
     }
-    _;
   }
 
   constructor() ConfirmedOwner(msg.sender) {}
@@ -204,18 +221,19 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   /*
-   * @notice Oracle withdraw LINK earned through fulfilling requests
+   * @notice withdraw LINK earned through fulfilling requests
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
+  function withdraw(address recipient) external nonReentrant onlyOwner {
     if (address(LINK) == address(0)) {
       revert LinkNotSet();
     }
-    if (s_withdrawableTokens[msg.sender] < amount) {
+    if (s_withdrawableTokens == 0) {
       revert InsufficientBalance();
     }
-    s_withdrawableTokens[msg.sender] -= amount;
+    uint96 amount = s_withdrawableTokens;
+    s_withdrawableTokens -= amount;
     s_totalBalance -= amount;
     if (!LINK.transfer(recipient, amount)) {
       revert InsufficientBalance();
@@ -223,16 +241,17 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   /*
-   * @notice Oracle withdraw native earned through fulfilling requests
+   * @notice withdraw native earned through fulfilling requests
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function oracleWithdrawNative(address payable recipient, uint96 amount) external nonReentrant {
-    if (s_withdrawableNative[msg.sender] < amount) {
+  function withdrawNative(address payable recipient) external nonReentrant onlyOwner {
+    if (s_withdrawableNative == 0) {
       revert InsufficientBalance();
     }
     // Prevent re-entrancy by updating state before transfer.
-    s_withdrawableNative[msg.sender] -= amount;
+    uint96 amount = s_withdrawableNative;
+    s_withdrawableNative -= amount;
     s_totalNativeBalance -= amount;
     (bool sent, ) = recipient.call{value: amount}("");
     if (!sent) {
@@ -429,6 +448,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   modifier onlySubOwner(uint256 subId) {
+    _onlySubOwner(subId);
+    _;
+  }
+
+  function _onlySubOwner(uint256 subId) internal view {
     address owner = s_subscriptionConfigs[subId].owner;
     if (owner == address(0)) {
       revert InvalidSubscription();
@@ -436,6 +460,5 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (msg.sender != owner) {
       revert MustBeSubOwner(owner);
     }
-    _;
   }
 }

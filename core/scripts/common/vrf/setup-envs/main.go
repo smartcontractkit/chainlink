@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -50,7 +49,6 @@ func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
 var (
 	checkMarkEmoji = "✅"
 	xEmoji         = "❌"
-	infoEmoji      = "ℹ️"
 )
 
 func main() {
@@ -69,9 +67,14 @@ func main() {
 	bhfCredsFile := flag.String("bhf-creds-file", "", "Creds to authenticate to the node")
 
 	numEthKeys := flag.Int("num-eth-keys", 5, "Number of eth keys to create")
-	maxGasPriceGwei := flag.Int("max-gas-price-gwei", -1, "Max gas price gwei of the eth keys")
+	maxGasPriceGwei := flag.Int("max-gas-price-gwei", 1e12, "Max gas price gwei of the eth keys")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
-	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether to enable batch fulfillment on Cl node")
+	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
+	batchFulfillmentGasMultiplier := flag.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
+	estimateGasMultiplier := flag.Float64("estimate-gas-multiplier", 1.1, "")
+	pollPeriod := flag.String("poll-period", "300ms", "")
+	requestTimeout := flag.String("request-timeout", "30m0s", "")
+	revertsPipelineEnabled := flag.Bool("reverts-pipeline-enabled", true, "")
 
 	vrfVersion := flag.String("vrf-version", "v2", "VRF version to use")
 	deployContractsAndCreateJobs := flag.Bool("deploy-contracts-and-create-jobs", false, "whether to deploy contracts and create jobs")
@@ -89,6 +92,7 @@ func main() {
 	registerVRFKeyAgainstAddress := flag.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
 		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
 	deployVRFOwner := flag.Bool("deploy-vrfv2-owner", true, "whether to deploy VRF owner contracts")
+	useTestCoordinator := flag.Bool("use-test-coordinator", true, "whether to use test coordinator contract or use the normal one")
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
@@ -142,7 +146,7 @@ func main() {
 
 	output := &bytes.Buffer{}
 	for key, node := range nodesMap {
-
+		node := node
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
 		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL, maxGasPriceGwei)
 		if key == model.VRFPrimaryNodeName {
@@ -205,28 +209,45 @@ func main() {
 				FeeConfig:              feeConfigV2,
 			}
 
+			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
+				BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
+				BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
+				EstimateGasMultiplier:         *estimateGasMultiplier,
+				PollPeriod:                    *pollPeriod,
+				RequestTimeout:                *requestTimeout,
+				RevertsPipelineEnabled:        *revertsPipelineEnabled,
+			}
+
 			jobSpecs = v2scripts.VRFV2DeployUniverse(
 				e,
 				subscriptionBalanceJuels,
 				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2,
-				*batchFulfillmentEnabled,
 				nodesMap,
 				*deployVRFOwner,
+				coordinatorJobSpecConfig,
+				*useTestCoordinator,
 			)
 		case "v2plus":
-			feeConfigV2Plus := vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
-				FulfillmentFlatFeeLinkPPM:   uint32(constants.FlatFeeLinkPPM),
-				FulfillmentFlatFeeNativePPM: uint32(constants.FlatFeeNativePPM),
-			}
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
-				MinConfs:               *minConfs,
-				MaxGasLimit:            constants.MaxGasLimit,
-				StalenessSeconds:       constants.StalenessSeconds,
-				GasAfterPayment:        constants.GasAfterPayment,
-				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
-				FeeConfig:              feeConfigV2Plus,
+				MinConfs:                          *minConfs,
+				MaxGasLimit:                       constants.MaxGasLimit,
+				StalenessSeconds:                  constants.StalenessSeconds,
+				GasAfterPayment:                   constants.GasAfterPayment,
+				FallbackWeiPerUnitLink:            constants.FallbackWeiPerUnitLink,
+				FulfillmentFlatFeeNativePPM:       constants.FlatFeeNativePPM,
+				FulfillmentFlatFeeLinkDiscountPPM: constants.FlatFeeLinkDiscountPPM,
+				NativePremiumPercentage:           constants.NativePremiumPercentage,
+				LinkPremiumPercentage:             constants.LinkPremiumPercentage,
+			}
+
+			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
+				BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
+				BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
+				EstimateGasMultiplier:         *estimateGasMultiplier,
+				PollPeriod:                    *pollPeriod,
+				RequestTimeout:                *requestTimeout,
 			}
 
 			jobSpecs = v2plusscripts.VRFV2PlusDeployUniverse(
@@ -236,12 +257,14 @@ func main() {
 				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2Plus,
-				*batchFulfillmentEnabled,
 				nodesMap,
+				uint64(*maxGasPriceGwei),
+				coordinatorJobSpecConfig,
 			)
 		}
 
 		for key, node := range nodesMap {
+			node := node
 			client, app := connectToNode(&node.URL, output, node.CredsFile)
 
 			//GET ALL JOBS
@@ -318,7 +341,7 @@ func getVRFKeys(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) []prese
 }
 
 func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
-	if err := os.WriteFile("job-spec.toml", []byte(jobSpec), 0666); err != nil {
+	if err := os.WriteFile("job-spec.toml", []byte(jobSpec), 0666); err != nil { //nolint:gosec
 		helpers.PanicErr(err)
 	}
 	job := presenters.JobResource{}
@@ -332,7 +355,7 @@ func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.
 }
 
 func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyResource, output *bytes.Buffer) {
-	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil {
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil { //nolint:gosec
 		helpers.PanicErr(err)
 	}
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
@@ -346,7 +369,7 @@ func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyRes
 }
 
 func importVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
-	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil {
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil { //nolint:gosec
 		helpers.PanicErr(err)
 	}
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
@@ -465,12 +488,8 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 		}(), ", "))
 	}
 	fmt.Println()
-	for _, vrfKey := range vrfKeys {
-		allVRFKeys = append(allVRFKeys, vrfKey)
-	}
-	for _, nk := range newKeys {
-		allVRFKeys = append(allVRFKeys, nk)
-	}
+	allVRFKeys = append(allVRFKeys, vrfKeys...)
+	allVRFKeys = append(allVRFKeys, newKeys...)
 	return allVRFKeys
 }
 
@@ -526,11 +545,7 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 	}
 	output.Reset()
 	fmt.Println()
-	for _, ethKey := range ethKeys {
-		allETHKeysNode = append(allETHKeysNode, ethKey)
-	}
-	for _, nk := range newKeys {
-		allETHKeysNode = append(allETHKeysNode, nk)
-	}
+	allETHKeysNode = append(allETHKeysNode, ethKeys...)
+	allETHKeysNode = append(allETHKeysNode, newKeys...)
 	return allETHKeysNode
 }

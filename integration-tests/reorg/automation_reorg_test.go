@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
@@ -24,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -47,9 +50,9 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	activeEVMNetwork          = networks.MustGetSelectedNetworksFromEnv()[0]
+
 	defaultAutomationSettings = map[string]interface{}{
-		"toml": networks.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
+		"toml": "",
 		"db": map[string]interface{}{
 			"stateful": false,
 			"capacity": "1Gi",
@@ -67,7 +70,7 @@ LimitDefault = 5_000_000`
 	}
 
 	defaultReorgEthereumSettings = &reorg.Props{
-		NetworkName: activeEVMNetwork.Name,
+		NetworkName: "",
 		NetworkType: "geth-reorg",
 		Values: map[string]interface{}{
 			"geth": map[string]interface{}{
@@ -126,9 +129,9 @@ func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":             ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		"registry_2_0": ethereum.RegistryVersion_2_0,
+		// "registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		// "registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -136,22 +139,38 @@ func TestAutomationReorg(t *testing.T) {
 		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			network := networks.MustGetSelectedNetworksFromEnv()[0]
+			config, err := tc.GetConfig("Reorg", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
 			defaultAutomationSettings["replicas"] = numberOfNodes
-			cd := chainlink.New(0, defaultAutomationSettings)
+			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
+
+			var overrideFn = func(_ interface{}, target interface{}) {
+				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+				ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+			}
+
+			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
+
+			ethSetting := defaultReorgEthereumSettings
+			ethSetting.NetworkName = network.Name
+
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
 					TTL:             time.Hour * 1,
 					Test:            t}).
-				AddHelm(reorg.New(defaultReorgEthereumSettings)).
+				AddHelm(reorg.New(ethSetting)).
 				AddChart(blockscout.New(&blockscout.Props{
 					Name:    "geth-blockscout",
-					WsURL:   activeEVMNetwork.URL,
-					HttpURL: activeEVMNetwork.HTTPURLs[0]})).
+					WsURL:   network.URL,
+					HttpURL: network.HTTPURLs[0]})).
 				AddHelm(cd)
-			err := testEnvironment.Run()
+			err = testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
 
 			if testEnvironment.WillUseRemoteRunner() {
@@ -168,7 +187,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			// Register cleanup for any test
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

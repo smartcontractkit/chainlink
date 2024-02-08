@@ -521,7 +521,7 @@ func (r *OCR2SpecResolver) P2PV2Bootstrappers() *[]string {
 
 // Relay resolves the spec's relay
 func (r *OCR2SpecResolver) Relay() string {
-	return string(r.spec.Relay)
+	return r.spec.Relay
 }
 
 // RelayConfig resolves the spec's relay config
@@ -639,6 +639,11 @@ func (r *VRFSpecResolver) BatchFulfillmentEnabled() bool {
 // BatchFulfillmentGasMultiplier resolves the spec's batch fulfillment gas multiplier.
 func (r *VRFSpecResolver) BatchFulfillmentGasMultiplier() float64 {
 	return float64(r.spec.BatchFulfillmentGasMultiplier)
+}
+
+// CustomRevertsPipelineEnabled resolves the spec's custom reverts pipeline enabled flag.
+func (r *VRFSpecResolver) CustomRevertsPipelineEnabled() *bool {
+	return &r.spec.CustomRevertsPipelineEnabled
 }
 
 // ChunkSize resolves the spec's chunk size.
@@ -894,7 +899,7 @@ func (r *BootstrapSpecResolver) ContractID() string {
 
 // Relay resolves the spec's relay
 func (r *BootstrapSpecResolver) Relay() string {
-	return string(r.spec.Relay)
+	return r.spec.Relay
 }
 
 // RelayConfig resolves the spec's relay config

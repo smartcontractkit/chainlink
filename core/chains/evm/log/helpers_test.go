@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -29,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -41,8 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type broadcasterHelper struct {
@@ -90,7 +90,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	})
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 	lggr := logger.Test(t)
-	mailMon := servicetest.Run(t, utils.NewMailboxMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, lggr, config.Database(), cltest.FixtureChainID)
@@ -105,7 +105,12 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 		LogBroadcaster: &log.NullBroadcaster{},
 		MailMon:        mailMon,
 	})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
+
+	m := make(map[string]legacyevm.Chain)
+	for _, r := range cc.Slice() {
+		m[r.Chain().ID().String()] = r.Chain()
+	}
+	legacyChains := legacyevm.NewLegacyChains(m, cc.AppConfig().EVMConfigs())
 	pipelineHelper := cltest.NewJobPipelineV2(t, config.WebServer(), config.JobPipeline(), config.Database(), legacyChains, db, kst, nil, nil)
 
 	return &broadcasterHelper{
@@ -241,7 +246,7 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 
 type simpleLogListener struct {
 	name                string
-	lggr                logger.Logger
+	lggr                logger.SugaredLogger
 	cfg                 pg.QConfig
 	received            *received
 	t                   *testing.T
@@ -266,7 +271,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 	var rec received
 	return &simpleLogListener{
 		db:       db,
-		lggr:     logger.Test(t),
+		lggr:     logger.Sugared(logger.Test(t)),
 		cfg:      helper.config.Database(),
 		name:     name,
 		received: &rec,
@@ -282,7 +287,7 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 	listener.received.Lock()
 	defer listener.received.Unlock()
-	logger.Tracef(listener.lggr, "Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+	listener.lggr.Tracef("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)

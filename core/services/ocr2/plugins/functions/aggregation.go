@@ -104,7 +104,7 @@ func aggregateMode(items [][]byte) []byte {
 			mostFrequent = item
 		}
 	}
-	return []byte(mostFrequent)
+	return mostFrequent
 }
 
 func aggregateMedian(items [][]byte) []byte {

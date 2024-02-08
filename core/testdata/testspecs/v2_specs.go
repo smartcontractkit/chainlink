@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -234,6 +234,7 @@ type VRFSpecParams struct {
 	BatchCoordinatorAddress       string
 	VRFOwnerAddress               string
 	BatchFulfillmentEnabled       bool
+	CustomRevertsPipelineEnabled  bool
 	BatchFulfillmentGasMultiplier float64
 	MinIncomingConfirmations      int
 	FromAddresses                 []string
@@ -403,6 +404,7 @@ evmChainID         =  "%s"
 batchCoordinatorAddress = "%s"
 batchFulfillmentEnabled = %v
 batchFulfillmentGasMultiplier = %s
+customRevertsPipelineEnabled = %v
 minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
@@ -419,6 +421,7 @@ observationSource = """
 	toml := fmt.Sprintf(template,
 		jobID, name, coordinatorAddress, params.EVMChainID, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
+		params.CustomRevertsPipelineEnabled,
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(),
 		pollPeriod.String(), observationSource)
@@ -824,4 +827,37 @@ storeBlockhashesBatchSize = %d
 		params.StoreBlockhashesBatchSize)
 
 	return BlockHeaderFeederSpec{BlockHeaderFeederSpecParams: params, toml: toml}
+}
+
+type StreamSpecParams struct {
+	Name     string
+	StreamID uint64
+}
+
+type StreamSpec struct {
+	StreamSpecParams
+	toml string
+}
+
+// Toml returns the BlockhashStoreSpec in TOML string form.
+func (b StreamSpec) Toml() string {
+	return b.toml
+}
+
+func GenerateStreamSpec(params StreamSpecParams) StreamSpec {
+	template := `
+type = "stream"
+schemaVersion = 1
+name = "%s"
+streamID = %d
+observationSource = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+`
+
+	toml := fmt.Sprintf(template, params.Name, params.StreamID)
+	return StreamSpec{StreamSpecParams: params, toml: toml}
 }

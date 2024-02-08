@@ -12,6 +12,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -645,7 +645,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 
 				// Create a spec for the pending job proposal
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				// Defer the FK requirement of an existing job for a job proposal to be approved
 				require.NoError(t, utils.JustError(orm.db.Exec(
@@ -870,7 +870,7 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	assert.True(t, actual.PendingUpdate)
 
 	// Approve
-	specID := createJobSpec(t, orm, int64(jpID))
+	specID := createJobSpec(t, orm, jpID)
 
 	// Defer the FK requirement of an existing job for a job proposal.
 	require.NoError(t, utils.JustError(orm.db.Exec(
@@ -943,7 +943,7 @@ func Test_ORM_ApproveSpec(t *testing.T) {
 		PendingUpdate:  true,
 	})
 	require.NoError(t, err)
-	specID := createJobSpec(t, orm, int64(jpID))
+	specID := createJobSpec(t, orm, jpID)
 
 	// Defer the FK requirement of an existing job for a job proposal.
 	require.NoError(t, utils.JustError(orm.db.Exec(
@@ -982,7 +982,7 @@ func Test_ORM_CancelSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -994,7 +994,7 @@ func Test_ORM_CancelSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -1056,7 +1056,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 			before: func(orm *TestORM) int64 {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-				createJobSpec(t, orm, int64(jpID))
+				createJobSpec(t, orm, jpID)
 
 				return jpID
 			},
@@ -1068,7 +1068,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 			before: func(orm *TestORM) int64 {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
 
@@ -1090,7 +1090,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 			before: func(orm *TestORM) int64 {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
 
@@ -1131,7 +1131,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 			before: func(orm *TestORM) int64 {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusCancelled, fmID)
-				createJobSpec(t, orm, int64(jpID))
+				createJobSpec(t, orm, jpID)
 
 				return jpID
 			},
@@ -1143,7 +1143,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 			before: func(orm *TestORM) int64 {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusRejected, fmID)
-				createJobSpec(t, orm, int64(jpID))
+				createJobSpec(t, orm, jpID)
 
 				return jpID
 			},
@@ -1211,7 +1211,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -1224,7 +1224,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
 
@@ -1246,7 +1246,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusCancelled, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -1258,7 +1258,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusRejected, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -1270,7 +1270,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -1324,7 +1324,7 @@ func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
 		jpID = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 	)
 
-	createJobSpec(t, orm, int64(jpID))
+	createJobSpec(t, orm, jpID)
 
 	exists, err := orm.ExistsSpecByJobProposalIDAndVersion(jpID, 1)
 	require.NoError(t, err)
@@ -1342,7 +1342,7 @@ func Test_ORM_GetSpec(t *testing.T) {
 		orm    = setupORM(t)
 		fmID   = createFeedsManager(t, orm)
 		jpID   = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-		specID = createJobSpec(t, orm, int64(jpID))
+		specID = createJobSpec(t, orm, jpID)
 	)
 
 	actual, err := orm.GetSpec(specID)
@@ -1361,7 +1361,7 @@ func Test_ORM_GetApprovedSpec(t *testing.T) {
 		orm           = setupORM(t)
 		fmID          = createFeedsManager(t, orm)
 		jpID          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-		specID        = createJobSpec(t, orm, int64(jpID))
+		specID        = createJobSpec(t, orm, jpID)
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 	)
 
@@ -1398,7 +1398,7 @@ func Test_ORM_GetLatestSpec(t *testing.T) {
 		jpID = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 	)
 
-	_ = createJobSpec(t, orm, int64(jpID))
+	_ = createJobSpec(t, orm, jpID)
 	spec2ID, err := orm.CreateSpec(feeds.JobProposalSpec{
 		Definition:    "spec data",
 		Version:       2,
@@ -1429,8 +1429,8 @@ func Test_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
 	)
 
 	// Create the specs for the proposals
-	createJobSpec(t, orm, int64(jp1ID))
-	createJobSpec(t, orm, int64(jp2ID))
+	createJobSpec(t, orm, jp1ID)
+	createJobSpec(t, orm, jp2ID)
 
 	specs, err := orm.ListSpecsByJobProposalIDs([]int64{jp1ID, jp2ID})
 	require.NoError(t, err)
@@ -1466,7 +1466,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -1478,7 +1478,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
 
@@ -1500,7 +1500,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusCancelled, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -1512,7 +1512,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 			before: func(orm *TestORM) (int64, int64) {
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusDeleted, fmID)
-				specID := createJobSpec(t, orm, int64(jpID))
+				specID := createJobSpec(t, orm, jpID)
 
 				return jpID, specID
 			},
@@ -1566,7 +1566,7 @@ func Test_ORM_UpdateSpecDefinition(t *testing.T) {
 		orm    = setupORM(t)
 		fmID   = createFeedsManager(t, orm)
 		jpID   = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-		specID = createJobSpec(t, orm, int64(jpID))
+		specID = createJobSpec(t, orm, jpID)
 	)
 
 	prev, err := orm.GetSpec(specID)
@@ -1596,7 +1596,7 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 		orm           = setupORM(t)
 		fmID          = createFeedsManager(t, orm)
 		jpID          = createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
-		specID        = createJobSpec(t, orm, int64(jpID))
+		specID        = createJobSpec(t, orm, jpID)
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 	)
 

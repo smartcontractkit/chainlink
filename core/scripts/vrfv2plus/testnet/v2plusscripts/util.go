@@ -4,14 +4,16 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -20,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func DeployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
@@ -144,11 +145,7 @@ func PrintCoordinatorConfig(coordinator *vrf_coordinator_v2_5.VRFCoordinatorV25)
 	cfg, err := coordinator.SConfig(nil)
 	helpers.PanicErr(err)
 
-	feeConfig, err := coordinator.SFeeConfig(nil)
-	helpers.PanicErr(err)
-
 	fmt.Printf("Coordinator config: %+v\n", cfg)
-	fmt.Printf("Coordinator fee config: %+v\n", feeConfig)
 }
 
 func SetCoordinatorConfig(
@@ -159,7 +156,10 @@ func SetCoordinatorConfig(
 	stalenessSeconds uint32,
 	gasAfterPayment uint32,
 	fallbackWeiPerUnitLink *big.Int,
-	feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig,
+	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
+	nativePremiumPercentage uint8,
+	linkPremiumPercentage uint8,
 ) {
 	tx, err := coordinator.SetConfig(
 		e.Owner,
@@ -168,21 +168,23 @@ func SetCoordinatorConfig(
 		stalenessSeconds,       // stalenessSeconds
 		gasAfterPayment,        // gasAfterPaymentCalculation
 		fallbackWeiPerUnitLink, // 0.01 eth per link fallbackLinkPrice
-		feeConfig,
+		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
+		nativePremiumPercentage,
+		linkPremiumPercentage,
 	)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func RegisterCoordinatorProvingKey(e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, oracleAddress string) {
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
 	pk, err := crypto.UnmarshalPubkey(pubBytes)
 	helpers.PanicErr(err)
 	tx, err := coordinator.RegisterProvingKey(e.Owner,
-		common.HexToAddress(oracleAddress),
-		[2]*big.Int{pk.X, pk.Y})
+		[2]*big.Int{pk.X, pk.Y}, gasLaneMaxGas)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(
 		context.Background(),
@@ -190,7 +192,7 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 		tx,
 		e.ChainID,
 		fmt.Sprintf("Uncompressed public key: %s,", uncompressed),
-		fmt.Sprintf("Oracle address: %s,", oracleAddress),
+		fmt.Sprintf("Gas Lane Max Gas: %d,", gasLaneMaxGas),
 	)
 }
 

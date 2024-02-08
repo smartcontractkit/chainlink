@@ -14,14 +14,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
@@ -102,11 +104,11 @@ type (
 		registrations *registrations
 		logPool       *logPool
 
-		mailMon *utils.MailboxMonitor
+		mailMon *mailbox.Monitor
 		// Use the same channel for subs/unsubs so ordering is preserved
 		// (unsubscribe must happen after subscribe)
-		changeSubscriberStatus *utils.Mailbox[changeSubscriberStatus]
-		newHeads               *utils.Mailbox[*evmtypes.Head]
+		changeSubscriberStatus *mailbox.Mailbox[changeSubscriberStatus]
+		newHeads               *mailbox.Mailbox[*evmtypes.Head]
 
 		utils.DependentAwaiter
 
@@ -165,7 +167,7 @@ const (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *utils.MailboxMonitor) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *mailbox.Monitor) *broadcaster {
 	chStop := make(chan struct{})
 	lggr = logger.Named(lggr, "LogBroadcaster")
 	chainId := ethClient.ConfiguredChainID()
@@ -178,8 +180,8 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		registrations:          newRegistrations(lggr, *chainId),
 		logPool:                newLogPool(lggr),
 		mailMon:                mailMon,
-		changeSubscriberStatus: utils.NewHighCapacityMailbox[changeSubscriberStatus](),
-		newHeads:               utils.NewSingleMailbox[*evmtypes.Head](),
+		changeSubscriberStatus: mailbox.NewHighCapacity[changeSubscriberStatus](),
+		newHeads:               mailbox.NewSingle[*evmtypes.Head](),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,
@@ -393,7 +395,7 @@ func (b *broadcaster) reinitialize() (backfillStart *int64, abort bool) {
 	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
 
-	utils.RetryWithBackoff(ctx, func() bool {
+	evmutils.RetryWithBackoff(ctx, func() bool {
 		var err error
 		backfillStart, err = b.orm.Reinitialize(pg.WithParentCtx(ctx))
 		if err != nil {
@@ -562,7 +564,7 @@ func (b *broadcaster) onNewHeads() {
 
 		b.lastSeenHeadNumber.Store(latestHead.Number)
 
-		keptLogsDepth := uint32(b.config.FinalityDepth())
+		keptLogsDepth := b.config.FinalityDepth()
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
 			keptLogsDepth = b.registrations.highestNumConfirmations
 		}

@@ -237,7 +237,7 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 		// CACHE HIT
 		promCacheHitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
 		m.lggr.Tracew("LatestReport CACHE HIT (cold path)", "feedID", feedIDHex)
-		defer v.RUnlock()
+		defer v.Unlock()
 		return v.val, nil
 	} else if v.fetching {
 		// CACHE WAIT

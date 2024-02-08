@@ -15,9 +15,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 // TxStrategy controls how txes are queued and sent
@@ -29,7 +30,7 @@ type TxStrategy interface {
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
 	// unstarted txs and deletion options
-	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (n int64, err error)
+	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (ids []int64, err error)
 }
 
 type TxAttemptState int8
@@ -145,6 +146,10 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
 
+	// Used for VRF to know if the txn is a ForceFulfilment txn
+	ForceFulfilled          *bool   `json:"ForceFulfilled,omitempty"`
+	ForceFulfillmentAttempt *uint64 `json:"ForceFulfillmentAttempt,omitempty"`
+
 	// Used only for forwarded txs, tracks the original destination address.
 	// When this is set, it indicates tx is forwarded through To address.
 	FwdrDestAddress *ADDR `json:"ForwarderDestAddress,omitempty"`
@@ -253,7 +258,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetMeta() (*TxMeta[A
 }
 
 // GetLogger returns a new logger with metadata fields.
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger.Logger) logger.Logger {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger.Logger) logger.SugaredLogger {
 	lgr = logger.With(lgr,
 		"txID", e.ID,
 		"sequence", e.Sequence,
@@ -264,7 +269,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger
 	meta, err := e.GetMeta()
 	if err != nil {
 		lgr.Errorw("failed to get meta of the transaction", "err", err)
-		return lgr
+		return logger.Sugared(lgr)
 	}
 
 	if meta != nil {
@@ -314,7 +319,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger
 		}
 	}
 
-	return lgr
+	return logger.Sugared(lgr)
 }
 
 // GetChecker returns an Tx's transmit checker spec in struct form, unmarshalling it from JSON

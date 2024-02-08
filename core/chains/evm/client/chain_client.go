@@ -37,11 +37,11 @@ type chainClient struct {
 		*evmtypes.Head,
 		RPCCLient,
 	]
-	logger logger.Logger
+	logger logger.SugaredLogger
 }
 
 func NewChainClient(
-	logger logger.Logger,
+	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
@@ -64,7 +64,7 @@ func NewChainClient(
 		*evmtypes.Head,
 		RPCCLient,
 	](
-		logger,
+		lggr,
 		selectionMode,
 		leaseDuration,
 		noNewHeadsThreshold,
@@ -77,7 +77,7 @@ func NewChainClient(
 	)
 	return &chainClient{
 		multiNode: multiNode,
-		logger:    logger,
+		logger:    logger.Sugared(lggr),
 	}
 }
 
@@ -216,7 +216,8 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
-	return ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
+	returnCode := ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
+	return returnCode, err
 }
 
 func (c *chainClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {

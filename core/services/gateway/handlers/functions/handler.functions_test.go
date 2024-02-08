@@ -22,11 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
-	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/mocks"
+	allowlist_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
+	subscriptions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions/mocks"
 	handlers_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 )
 
-func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTimeout time.Duration, heartbeatSender string) (handlers.Handler, *handlers_mocks.DON, *functions_mocks.OnchainAllowlist, *functions_mocks.OnchainSubscriptions) {
+func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTimeout time.Duration, heartbeatSender string) (handlers.Handler, *handlers_mocks.DON, *allowlist_mocks.OnchainAllowlist, *subscriptions_mocks.OnchainSubscriptions) {
 	cfg := functions.FunctionsHandlerConfig{}
 	donConfig := &config.DONConfig{
 		Members: []config.NodeConfig{},
@@ -41,8 +42,8 @@ func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTi
 	}
 
 	don := handlers_mocks.NewDON(t)
-	allowlist := functions_mocks.NewOnchainAllowlist(t)
-	subscriptions := functions_mocks.NewOnchainSubscriptions(t)
+	allowlist := allowlist_mocks.NewOnchainAllowlist(t)
+	subscriptions := subscriptions_mocks.NewOnchainSubscriptions(t)
 	minBalance := assets.NewLinkFromJuels(100)
 	userRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
@@ -83,7 +84,7 @@ func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api
 func TestFunctionsHandler_Minimal(t *testing.T) {
 	t.Parallel()
 
-	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, logger.TestLogger(t))
+	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, nil, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	// empty message should always error out
@@ -95,7 +96,7 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
-	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, logger.TestLogger(t))
+	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, nil, nil, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	servicetest.Run(t, handler)

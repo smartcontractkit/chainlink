@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -85,6 +86,44 @@ func TestTxm_SignTx(t *testing.T) {
 		require.NotNil(t, rawBytes)
 		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.String())
 	})
+	t.Run("can properly encoded and decode raw transaction for LegacyTx", func(t *testing.T) {
+		chainID := big.NewInt(1)
+		kst := ksmocks.NewEth(t)
+		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+
+		_, rawBytes, err := cks.SignTx(addr, tx)
+		require.NoError(t, err)
+		require.NotNil(t, rawBytes)
+		require.Equal(t, "0xe42a82015681f294b921f7763960b296b9cbad586ff066a18d749724818e83010203808080", hexutil.Encode(rawBytes))
+
+		var decodedTx *gethtypes.Transaction
+		decodedTx, err = txmgr.GetGethSignedTx(rawBytes)
+		require.NoError(t, err)
+		require.Equal(t, tx.Hash(), decodedTx.Hash())
+	})
+	t.Run("can properly encoded and decode raw transaction for DynamicFeeTx", func(t *testing.T) {
+		chainID := big.NewInt(1)
+		kst := ksmocks.NewEth(t)
+		typedTx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
+			Nonce: 42,
+			To:    &to,
+			Value: big.NewInt(142),
+			Gas:   242,
+			Data:  []byte{1, 2, 3},
+		})
+		kst.On("SignTx", to, typedTx, chainID).Return(typedTx, nil).Once()
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		_, rawBytes, err := cks.SignTx(addr, typedTx)
+		require.NoError(t, err)
+		require.NotNil(t, rawBytes)
+		require.Equal(t, "0xa702e5802a808081f294b921f7763960b296b9cbad586ff066a18d749724818e83010203c0808080", hexutil.Encode(rawBytes))
+
+		var decodedTx *gethtypes.Transaction
+		decodedTx, err = txmgr.GetGethSignedTx(rawBytes)
+		require.NoError(t, err)
+		require.Equal(t, typedTx.Hash(), decodedTx.Hash())
+	})
 }
 
 func TestTxm_NewDynamicFeeTx(t *testing.T) {
@@ -125,13 +164,13 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			{"gas tip < fee cap", assets.GWei(4), assets.GWei(5), nil, ""},
 			{"gas tip > fee cap", assets.GWei(6), assets.GWei(5), nil, "gas fee cap must be greater than or equal to gas tip cap (fee cap: 5 gwei, tip cap: 6 gwei)"},
 			{"fee cap exceeds max allowed", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(4))
+				c.EVM[0].GasEstimator.PriceMax = assets.GWei(4)
 			}, "specified gas fee cap of 5 gwei would exceed max configured gas price of 4 gwei"},
 			{"ignores global min gas price", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.PriceMin = (*assets.Wei)(assets.GWei(6))
+				c.EVM[0].GasEstimator.PriceMin = assets.GWei(6)
 			}, ""},
 			{"tip cap below min allowed", assets.GWei(5), assets.GWei(5), func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.TipCapMin = (*assets.Wei)(assets.GWei(6))
+				c.EVM[0].GasEstimator.TipCapMin = assets.GWei(6)
 			}, "specified gas tip cap of 5 gwei is below min configured gas tip of 6 gwei"},
 		}
 

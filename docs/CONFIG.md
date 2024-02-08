@@ -244,8 +244,6 @@ LeaseRefreshInterval determines how often to refresh the lease lock. Also contro
 [TelemetryIngress]
 UniConn = true # Default
 Logging = false # Default
-ServerPubKey = 'test-pub-key' # Example
-URL = 'https://prom.test' # Example
 BufferSize = 100 # Default
 MaxBatchSize = 50 # Default
 SendInterval = '500ms' # Default
@@ -265,18 +263,6 @@ UniConn toggles which ws connection style is used.
 Logging = false # Default
 ```
 Logging toggles verbose logging of the raw telemetry messages being sent.
-
-### ServerPubKey
-```toml
-ServerPubKey = 'test-pub-key' # Example
-```
-ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
-
-### URL
-```toml
-URL = 'https://prom.test' # Example
-```
-URL is where to send telemetry. This field will be removed in a furture version
 
 ### BufferSize
 ```toml
@@ -1589,6 +1575,19 @@ LatestReportDeadline = "5s" # Default
 LatestReportDeadline controls how long to wait for a response from the
 mercury server before retrying. Setting this to zero will wait indefinitely.
 
+## Mercury.TLS
+```toml
+[Mercury.TLS]
+CertFile = "/path/to/client/certs.pem" # Example
+```
+Mercury.TLS controls client settings for when the node talks to traditional web servers or load balancers.
+
+### CertFile
+```toml
+CertFile = "/path/to/client/certs.pem" # Example
+```
+CertFile is the path to a PEM file of trusted root certificate authority certificates
+
 ## EVM
 EVM defaults depend on ChainID:
 
@@ -1669,7 +1668,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -1750,7 +1749,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -1831,7 +1830,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -1912,7 +1911,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2075,7 +2074,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2156,7 +2155,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2238,7 +2237,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2319,7 +2318,7 @@ ObservationGracePeriod = '500ms'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2399,7 +2398,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2479,7 +2478,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2560,7 +2559,7 @@ ObservationGracePeriod = '500ms'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2642,7 +2641,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2723,7 +2722,7 @@ ObservationGracePeriod = '500ms'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2744,7 +2743,7 @@ MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 
 [Transactions]
@@ -2804,7 +2803,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2966,7 +2965,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3047,7 +3046,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3128,7 +3127,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3291,7 +3290,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3371,7 +3370,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3452,7 +3451,87 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
+```
+
+</p></details>
+
+<details><summary>Polygon Zkevm Mainnet (1101)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 1
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '30s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '6m0s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 15
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '100 mwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '100 mwei'
+BumpPercent = 40
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 12
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 50
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3533,7 +3612,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3614,7 +3693,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3694,7 +3773,87 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
+```
+
+</p></details>
+
+<details><summary>Polygon Zkevm Goerli (1442)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 1
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '30s'
+LogKeepBlocksDepth = 100000
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '12m0s'
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '50 mwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '20 mwei'
+BumpPercent = 40
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 12
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 50
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3775,7 +3934,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3936,7 +4095,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4180,7 +4339,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4261,7 +4420,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4342,7 +4501,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4423,7 +4582,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4503,7 +4662,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4583,7 +4742,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4604,7 +4763,7 @@ MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 
 [Transactions]
@@ -4664,7 +4823,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4827,7 +4986,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5001,6 +5160,7 @@ GasLimit = 14500000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'scroll'
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5070,7 +5230,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5081,6 +5241,7 @@ GasLimit = 5300000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'scroll'
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5150,7 +5311,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5231,7 +5392,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5312,7 +5473,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5393,7 +5554,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5435,7 +5596,7 @@ BlockBackfillSkip enables skipping of very long backfills.
 ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync
+Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync, scroll
 
 ### FinalityDepth
 ```toml
@@ -5741,7 +5902,9 @@ BumpMin is the minimum fixed amount of wei by which gas is bumped on each transa
 ```toml
 BumpPercent = 20 # Default
 ```
-BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
+BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
+
+The `SuggestedPriceEstimator` adds the larger of `BumpPercent` and `BumpMin` on top of the price provided by the RPC when bumping a transaction's gas.
 
 ### BumpThreshold
 ```toml
@@ -5785,8 +5948,8 @@ If you are using BlockHistoryEstimator (default for most chains):
 
 Bumping works as follows:
 
-- Increase tipcap by `max(tipcap * (1 + GasBumpPercent), tipcap + GasBumpWei)`
-- Increase feecap by `max(feecap * (1 + GasBumpPercent), feecap + GasBumpWei)`
+- Increase tipcap by `max(tipcap * (1 + BumpPercent), tipcap + BumpMin)`
+- Increase feecap by `max(feecap * (1 + BumpPercent), feecap + BumpMin)`
 
 A quick note on terminology - Chainlink nodes use the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
 
@@ -6153,13 +6316,13 @@ Order of the node in the pool, will takes effect if `SelectionMode` is `Priority
 ## EVM.OCR2.Automation
 ```toml
 [EVM.OCR2.Automation]
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
 ```
 
 
 ### GasLimit
 ```toml
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 

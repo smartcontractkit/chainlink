@@ -46,6 +46,7 @@ flowchart LR
   click tdh2/go/tdh2 href "https://github.com/smartcontractkit/tdh2"
   chainlink/v2 --> wsrpc
   click wsrpc href "https://github.com/smartcontractkit/wsrpc"
+  chainlink-automation --> chainlink-common
   chainlink-automation --> libocr
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common

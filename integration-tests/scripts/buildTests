@@ -21,6 +21,6 @@ OIFS=$IFS
 IFS=' '
 for x in $tosplit
 do
-    go test -c ./"${x}"
+    go test -c -tags embed ./"${x}"
 done
 IFS=$OIFS

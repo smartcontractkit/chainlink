@@ -16,9 +16,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -44,14 +46,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type coordinatorV2PlusUniverse struct {
@@ -256,10 +255,10 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(v22.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(1e16),                       // 0.01 eth per link fallbackLinkPrice
-		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
-			FulfillmentFlatFeeLinkPPM:   uint32(1000), // 0.001 LINK premium
-			FulfillmentFlatFeeNativePPM: uint32(5),    // 0.000005 ETH premium
-		},
+		uint32(5),                              // 0.000005 ETH premium
+		uint32(1),                              // 0.000001 LINK premium discount denominated in ETH
+		uint8(10),                              // 10% native payment percentage
+		uint8(5),                               // 5% LINK payment percentage
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -728,10 +727,17 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			owner, backend, common.Address{}) //bhs not needed for this test
 	require.NoError(t, err)
-	_, err = coordinator.SetConfig(owner, uint16(1), uint32(10000), 1, 1, big.NewInt(10), vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
-		FulfillmentFlatFeeLinkPPM:   0,
-		FulfillmentFlatFeeNativePPM: 0,
-	})
+	_, err = coordinator.SetConfig(owner,
+		uint16(1),      // minimumRequestConfirmations
+		uint32(10000),  // maxGasLimit
+		1,              // stalenessSeconds
+		1,              // gasAfterPaymentCalculation
+		big.NewInt(10), // fallbackWeiPerUnitLink
+		0,              // fulfillmentFlatFeeNativePPM
+		0,              // fulfillmentFlatFeeLinkDiscountPPM
+		0,              // nativePremiumPercentage
+		0,              // linkPremiumPercentage
+	)
 	require.NoError(t, err)
 	backend.Commit()
 	_, err = coordinator.SetLINKAndLINKNativeFeed(owner, linkAddress, linkEthFeed)
@@ -850,12 +856,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
-	uni.backend.Commit()
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
@@ -976,7 +977,7 @@ func requestAndEstimateFulfillmentCost(
 		uni.backend.Commit()
 	}
 
-	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash())
+	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash(), nil)
 	s, err := proof.BigToSeed(requestLog.PreSeed())
 	require.NoError(t, err)
 	extraArgs, err := extraargs.ExtraArgsV1(nativePayment)
@@ -994,7 +995,7 @@ func requestAndEstimateFulfillmentCost(
 	require.NoError(t, err)
 	gasEstimate := estimateGas(t, uni.backend, common.Address{},
 		uni.rootContractAddress, uni.coordinatorABI,
-		"fulfillRandomWords", proof, rc)
+		"fulfillRandomWords", proof, rc, false)
 	t.Log("consumer fulfillment gas estimate:", gasEstimate)
 	assert.Greater(t, gasEstimate, lowerBound)
 	assert.Less(t, gasEstimate, upperBound)
@@ -1010,12 +1011,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.neil.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
-	uni.backend.Commit()
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
@@ -1158,7 +1154,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 

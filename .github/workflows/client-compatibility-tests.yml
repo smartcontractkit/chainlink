@@ -1,0 +1,333 @@
+name: Client Compatibility Tests
+on:
+  schedule:
+    - cron: "30 5 * * *" # Run every night at midnight + 30min EST
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+env:
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  MOD_CACHE_VERSION: 2
+
+jobs:
+  # Build Test Dependencies
+
+  build-chainlink:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          tag_suffix: ""
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ github.sha }}
+          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+  build-tests:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Tests Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Tests Binary
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@bce4caa154b1e0e652d042788e14c8870832acd2 # v2.3.0
+        with:
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          go_tags: embed
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          binary_name: tests
+
+  # End Build Test Dependencies
+
+  client-compatibility-matrix:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, build-tests]
+    env:
+      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ocr-geth
+            os: ubuntu-latest
+            test: TestOCRBasic
+            file: ocr
+            client: geth
+            timeout: 30m
+            pyroscope_env: ci-smoke-ocr-geth-simulated
+          - name: ocr-nethermind
+            test: TestOCRBasic
+            file: ocr
+            client: nethermind
+            timeout: 30m
+            pyroscope_env: ci-smoke-ocr-nethermind-simulated
+          - name: ocr-besu
+            test: TestOCRBasic
+            file: ocr
+            client: besu
+            timeout: 30m
+            pyroscope_env: ci-smoke-ocr-besu-simulated
+          - name: ocr-erigon
+            test: TestOCRBasic
+            file: ocr
+            client: erigon
+            timeout: 30m
+            pyroscope_env: ci-smoke-ocr-erigon-simulated
+          - name: ocr2-geth
+            test: "^TestOCRv2Basic/plugins$"
+            file: ocr2
+            client: geth
+            timeout: 30m
+            pyroscope_env: ci-smoke-ocr2-geth-simulated
+          - name: ocr2-nethermind
+            test: "^TestOCRv2Basic/plugins$"
+            file: ocr2
+            client: nethermind
+            timeout: 30m
+            pyroscope_env: ci-smoke-nethermind-evm-simulated
+          - name: ocr2-besu
+            test: "^TestOCRv2Basic/plugins$"
+            file: ocr2
+            client: besu
+            timeout: 30m
+            pyroscope_env: ci-smoke-ocr2-besu-simulated
+          - name: ocr2-erigon
+            test: "^TestOCRv2Basic/plugins$"
+            file: ocr2
+            client: erigon
+            timeout: 60m
+            pyroscope_env: ci-smoke-ocr2-erigon-simulated
+    runs-on: ubuntu-latest
+    name: Client Compatibility Test ${{ matrix.name }}
+    steps:
+      - name: Download Tests Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: tests
+      - name: Prepare Base64 TOML config
+        env:
+          SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          ETH2_EL_CLIENT: ${{matrix.client}}
+          CHAINLINK_VERSION: ${{ github.sha }}
+        run: |
+          convert_to_toml_array() {
+              local IFS=','
+              local input_array=($1)
+              local toml_array_format="["
+
+              for element in "${input_array[@]}"; do
+                  toml_array_format+="\"$element\","
+              done
+
+              toml_array_format="${toml_array_format%,}]"
+              echo "$toml_array_format"
+          }
+
+          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")
+
+          if [ -n "$ETH2_EL_CLIENT" ]; then
+            execution_layer="$ETH2_EL_CLIENT"
+          else
+            execution_layer="geth"
+          fi
+
+          if [ -n "$PYROSCOPE_SERVER" ]; then
+            pyroscope_enabled=true
+          else
+            pyroscope_enabled=false
+          fi
+
+          cat << EOF > config.toml
+          [Network]
+          selected_networks=$selected_networks
+
+          [ChainlinkImage]
+          image="$CHAINLINK_IMAGE"
+          version="$CHAINLINK_VERSION"
+
+          [Pyroscope]
+          enabled=$pyroscope_enabled
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+
+          [PrivateEthereumNetwork]
+          consensus_type="pos"
+          consensus_layer="prysm"
+          execution_layer="$execution_layer"
+          wait_for_finalization=false
+
+          [PrivateEthereumNetwork.EthereumChainConfig]
+          chain_id=1337
+          genesis_delay=15
+          seconds_per_slot=3
+          validator_count=8
+          slots_per_epoch=2
+          addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
+          EOF
+
+          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+          touch .root_dir
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        with:
+          test_command_to_run: ./tests -test.timeout ${{ matrix.timeout }} -test.run ${{ matrix.test }}
+          binary_name: tests
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          artifacts_location: ./logs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+  start-slack-thread:
+    name: Start Slack Thread
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    environment: integration
+    outputs:
+      thread_ts: ${{ steps.slack.outputs.thread_ts }}
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [client-compatibility-matrix]
+    steps:
+      - name: Debug Result
+        run: echo ${{ join(needs.*.result, ',') }}
+      - name: Main Slack Notification
+        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        id: slack
+        with:
+          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Client Compatability Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "emoji": true
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U060CGGPY8H>' || 'All Good!' }}"
+                      }
+                    },
+                    {
+                      "type": "divider"
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
+  post-test-results-to-slack:
+    name: Post Test Results for ${{matrix.product}}
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: start-slack-thread
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [ocr, ocr2]
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Post Test Results to Slack
+        uses: ./.github/actions/notify-slack-jobs-result
+        with:
+          github_token: ${{ github.token }}
+          github_repository: ${{ github.repository }}
+          workflow_run_id: ${{ github.run_id }}
+          github_job_name_regex: ^Client Compatibility Test ${{ matrix.product }}-(?<cap>.*?)$
+          message_title: ${{ matrix.product }}
+          slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
+          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
+          slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
