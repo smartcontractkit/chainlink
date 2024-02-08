@@ -68,7 +68,7 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY                
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 24h -run TestVRFV2PlusPerformance/vrfv2plus_performance_test ./load/vrfv2plus
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
