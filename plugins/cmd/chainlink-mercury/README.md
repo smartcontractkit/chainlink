@@ -1,4 +1,4 @@
-This directory house the Mercury LOOPP
+This directory houses the Mercury LOOPP
 
 # Running Integration Tests Locally
 
