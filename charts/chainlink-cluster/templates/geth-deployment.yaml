@@ -7,7 +7,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: {{ $.Release.Name }}
+      app: geth
       release: {{ $.Release.Name }}
       instance: geth-{{ $cfg.networkId }}
       # Used for testing.
@@ -17,7 +17,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ $.Release.Name }}
+        app: geth
         instance: geth-{{ $cfg.networkId }}
         release: {{ $.Release.Name }}
         # Used for testing.
