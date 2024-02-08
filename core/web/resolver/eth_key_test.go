@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
@@ -17,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -102,10 +105,18 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.relayerChainInterops.EVMChains = legacyEVMChains
+				f.Mocks.relayerChainInterops.Relayers = []loop.Relayer{
+					testutils.MockRelayer{
+						ChainStatus: types.ChainStatus{
+							ID:      "12",
+							Enabled: true,
+						},
+						NodeStatuses: nil,
+					},
+				}
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
 
 				f.Mocks.scfg.On("EVM").Return(&evmMockConfig)
@@ -152,9 +163,17 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
+				f.Mocks.relayerChainInterops.Relayers = []loop.Relayer{
+					testutils.MockRelayer{
+						ChainStatus: types.ChainStatus{
+							ID:      "12",
+							Enabled: true,
+						},
+						NodeStatuses: nil,
+					},
+				}
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
 			},
 			query: query,
@@ -304,6 +323,15 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(commonassets.NewLinkFromJuels(12), gError)
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, nil)
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
+				f.Mocks.relayerChainInterops.Relayers = []loop.Relayer{
+					testutils.MockRelayer{
+						ChainStatus: types.ChainStatus{
+							ID:      "12",
+							Enabled: true,
+						},
+						NodeStatuses: nil,
+					},
+				}
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.balM.On("GetEthBalance", address).Return(assets.NewEth(1))
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
@@ -311,7 +339,6 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.scfg.On("EVM").Return(&evmMockConfig)
 			},
 			query: query,
@@ -361,9 +388,17 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, nil)
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
+				f.Mocks.relayerChainInterops.Relayers = []loop.Relayer{
+					testutils.MockRelayer{
+						ChainStatus: types.ChainStatus{
+							ID:      "12",
+							Enabled: true,
+						},
+						NodeStatuses: nil,
+					},
+				}
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
 				f.Mocks.scfg.On("EVM").Return(&evmMockConfig)
 			},

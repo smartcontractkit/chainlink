@@ -81,7 +81,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 			retryable = retryable && m.Retryable
 			allSuccess = false
 			if m.State != encoding.NoPipelineError {
-				state = encoding.PipelineExecutionState(m.State)
+				state = m.State
 			}
 			continue
 		}

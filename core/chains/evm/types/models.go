@@ -316,7 +316,7 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 	if h.StateRoot != (common.Hash{}) {
 		jsonHead.StateRoot = &h.StateRoot
 	}
-	jsonHead.Number = (*hexutil.Big)(big.NewInt(int64(h.Number)))
+	jsonHead.Number = (*hexutil.Big)(big.NewInt(h.Number))
 	if h.ParentHash != (common.Hash{}) {
 		jsonHead.ParentHash = &h.ParentHash
 	}

@@ -247,6 +247,69 @@ contract FunctionsTermsOfServiceAllowList_GetAllAllowedSenders is FunctionsOwner
   }
 }
 
+/// @notice #getAllowedSendersCount
+contract FunctionsTermsOfServiceAllowList_GetAllowedSendersCount is FunctionsOwnerAcceptTermsOfServiceSetup {
+  function test_GetAllowedSendersCount_Success() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint96 allowedSendersCount = s_termsOfServiceAllowList.getAllowedSendersCount();
+    // One allowed sender was made during setup
+    assertEq(allowedSendersCount, 1);
+  }
+}
+
+/// @notice #getAllowedSendersInRange
+contract FunctionsTermsOfServiceAllowList_GetAllowedSendersInRange is FunctionsOwnerAcceptTermsOfServiceSetup {
+  function test_GetAllowedSendersInRange_Success() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    address[] memory expectedSenders = new address[](1);
+    expectedSenders[0] = OWNER_ADDRESS;
+
+    assertEq(s_termsOfServiceAllowList.getAllowedSendersInRange(0, 0), expectedSenders);
+  }
+
+  function test_GetAllowedSendersInRange_RevertIfAllowedSendersIsEmpty() public {
+    // setup a new empty s_termsOfServiceAllowList
+    FunctionsRoutesSetup.setUp();
+
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 AllowedSendersCount = s_termsOfServiceAllowList.getAllowedSendersCount();
+    uint64 expected = 0;
+    assertEq(AllowedSendersCount, expected);
+
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+    s_termsOfServiceAllowList.getAllowedSendersInRange(0, 0);
+  }
+
+  function test_GetAllowedSendersInRange_RevertIfStartIsAfterEnd() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+
+    s_termsOfServiceAllowList.getAllowedSendersInRange(1, 0);
+  }
+
+  function test_GetAllowedSendersInRange_RevertIfEndIsAfterLastAllowedSender() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 AllowedSendersCount = s_termsOfServiceAllowList.getAllowedSendersCount();
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+    s_termsOfServiceAllowList.getAllowedSendersInRange(1, AllowedSendersCount + 1);
+  }
+}
+
 /// @notice #hasAccess
 contract FunctionsTermsOfServiceAllowList_HasAccess is FunctionsRoutesSetup {
   function test_HasAccess_FalseWhenEnabled() public {
@@ -371,5 +434,80 @@ contract FunctionsTermsOfServiceAllowList_UnblockSender is FunctionsRoutesSetup 
     bytes32 prefixedMessage = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", message));
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(TOS_SIGNER_PRIVATE_KEY, prefixedMessage);
     s_termsOfServiceAllowList.acceptTermsOfService(STRANGER_ADDRESS, STRANGER_ADDRESS, r, s, v);
+  }
+}
+
+/// @notice #getBlockedSendersCount
+contract FunctionsTermsOfServiceAllowList_GetBlockedSendersCount is FunctionsRoutesSetup {
+  function setUp() public virtual override {
+    FunctionsRoutesSetup.setUp();
+
+    s_termsOfServiceAllowList.blockSender(STRANGER_ADDRESS);
+  }
+
+  function test_GetBlockedSendersCount_Success() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint96 blockedSendersCount = s_termsOfServiceAllowList.getBlockedSendersCount();
+    // One blocked sender was made during setup
+    assertEq(blockedSendersCount, 1);
+  }
+}
+
+/// @notice #getBlockedSendersInRange
+contract FunctionsTermsOfServiceAllowList_GetBlockedSendersInRange is FunctionsRoutesSetup {
+  function setUp() public virtual override {
+    FunctionsRoutesSetup.setUp();
+
+    s_termsOfServiceAllowList.blockSender(STRANGER_ADDRESS);
+  }
+
+  function test_GetBlockedSendersInRange_Success() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    address[] memory expectedBlockedSenders = new address[](1);
+    expectedBlockedSenders[0] = STRANGER_ADDRESS;
+
+    assertEq(s_termsOfServiceAllowList.getBlockedSendersInRange(0, 0), expectedBlockedSenders);
+  }
+
+  function test_GetBlockedSendersInRange_RevertIfAllowedSendersIsEmpty() public {
+    // setup a new empty s_termsOfServiceBlockList
+    FunctionsRoutesSetup.setUp();
+
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 BlockedSendersCount = s_termsOfServiceAllowList.getBlockedSendersCount();
+    uint64 expected = 0;
+    assertEq(BlockedSendersCount, expected);
+
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+    s_termsOfServiceAllowList.getBlockedSendersInRange(0, 0);
+  }
+
+  function test_GetBlockedSendersInRange_RevertIfStartIsAfterEnd() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+
+    s_termsOfServiceAllowList.getBlockedSendersInRange(1, 0);
+  }
+
+  function test_GetBlockedSendersInRange_RevertIfEndIsAfterLastAllowedSender() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 BlockedSendersCount = s_termsOfServiceAllowList.getBlockedSendersCount();
+    vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
+    s_termsOfServiceAllowList.getBlockedSendersInRange(1, BlockedSendersCount + 1);
   }
 }

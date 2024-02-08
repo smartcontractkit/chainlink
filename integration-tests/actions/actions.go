@@ -2,13 +2,18 @@
 package actions
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -25,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -258,10 +263,11 @@ func TeardownSuite(
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
+	grafnaUrlProvider testreporters.GrafanaURLProvider,
 	clients ...blockchain.EVMClient,
 ) error {
 	l := logging.GetTestLogger(t)
-	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel, grafnaUrlProvider); err != nil {
 		return fmt.Errorf("Error dumping environment logs, leaving environment running for manual retrieval, err: %w", err)
 	}
 	// Delete all jobs to stop depleting the funds
@@ -302,11 +308,12 @@ func TeardownRemoteSuite(
 	namespace string,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
+	grafnaUrlProvider testreporters.GrafanaURLProvider,
 	client blockchain.EVMClient,
 ) error {
 	l := logging.GetTestLogger(t)
 	var err error
-	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter); err != nil {
+	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter, grafnaUrlProvider); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
@@ -415,8 +422,8 @@ func UpgradeChainlinkNodeVersions(
 	newImage, newVersion string,
 	nodes ...*client.ChainlinkK8sClient,
 ) error {
-	if newImage == "" && newVersion == "" {
-		return fmt.Errorf("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
+	if newImage == "" || newVersion == "" {
+		return errors.New("New image and new version is needed to upgrade the node")
 	}
 	for _, node := range nodes {
 		if err := node.UpgradeVersion(testEnvironment, newImage, newVersion); err != nil {
@@ -480,4 +487,76 @@ func FundAddress(client blockchain.EVMClient, sendingKey string, fundingToSendEt
 func GetTxFromAddress(tx *types.Transaction) (string, error) {
 	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
 	return from.String(), err
+}
+
+// todo - move to CTF
+func GetTxByHash(ctx context.Context, client blockchain.EVMClient, hash common.Hash) (*types.Transaction, bool, error) {
+	return client.(*blockchain.EthereumMultinodeClient).
+		DefaultClient.(*blockchain.EthereumClient).
+		Client.
+		TransactionByHash(ctx, hash)
+}
+
+// todo - move to CTF
+func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, error) {
+	jsonABI, err := abi.JSON(strings.NewReader(abiString))
+	if err != nil {
+		return nil, err
+	}
+	methodSigData := data[:4]
+	inputsSigData := data[4:]
+	method, err := jsonABI.MethodById(methodSigData)
+	if err != nil {
+		return nil, err
+	}
+	inputsMap := make(map[string]interface{})
+	if err := method.Inputs.UnpackIntoMap(inputsMap, inputsSigData); err != nil {
+		return nil, err
+	}
+	return inputsMap, nil
+}
+
+// todo - move to EVMClient
+func WaitForBlockNumberToBe(
+	waitForBlockNumberToBe uint64,
+	client blockchain.EVMClient,
+	wg *sync.WaitGroup,
+	timeout time.Duration,
+	t testing.TB,
+) (uint64, error) {
+	blockNumberChannel := make(chan uint64)
+	errorChannel := make(chan error)
+	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
+	defer testCancel()
+
+	ticker := time.NewTicker(time.Second * 1)
+	var blockNumber uint64
+	for {
+		select {
+		case <-testContext.Done():
+			ticker.Stop()
+			wg.Done()
+			return blockNumber,
+				fmt.Errorf("timeout waiting for Block Number to be: %d. Last recorded block number was: %d",
+					waitForBlockNumberToBe, blockNumber)
+		case <-ticker.C:
+			go func() {
+				currentBlockNumber, err := client.LatestBlockNumber(testcontext.Get(t))
+				if err != nil {
+					errorChannel <- err
+				}
+				blockNumberChannel <- currentBlockNumber
+			}()
+		case blockNumber = <-blockNumberChannel:
+			if blockNumber == waitForBlockNumberToBe {
+				ticker.Stop()
+				wg.Done()
+				return blockNumber, nil
+			}
+		case err := <-errorChannel:
+			ticker.Stop()
+			wg.Done()
+			return 0, err
+		}
+	}
 }

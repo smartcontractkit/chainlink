@@ -33,6 +33,12 @@ func RandomAddress() common.Address {
 	return common.BytesToAddress(b)
 }
 
+func RandomHash() common.Hash {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+	return common.BytesToHash(b)
+}
+
 // IsEmptyAddress checks that the address is empty, synonymous with the zero
 // account/address. No logs can come from this address, as there is no contract
 // present there.

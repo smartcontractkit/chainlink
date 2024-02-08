@@ -20,29 +20,30 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
+	BlockHeaderFeederJobType       string = "blockheaderfeeder"
+	BlockhashStoreJobType          string = "blockhashstore"
+	BootstrapJobType               string = "bootstrap"
 	CronJobType                    string = "cron"
 	DirectRequestJobType           string = "directrequest"
 	FluxMonitorJobType             string = "fluxmonitor"
-	OffchainReportingJobType       string = "offchainreporting"
-	OffchainReporting2JobType      string = "offchainreporting2"
-	KeeperJobType                  string = "keeper"
-	VRFJobType                     string = "vrf"
-	BlockhashStoreJobType          string = "blockhashstore"
-	BlockHeaderFeederJobType       string = "blockheaderfeeder"
-	WebhookJobType                 string = "webhook"
-	BootstrapJobType               string = "bootstrap"
 	GatewayJobType                 string = "gateway"
+	KeeperJobType                  string = "keeper"
 	LegacyGasStationServerJobType  string = "legacygasstationserver"
 	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
+	OffchainReporting2JobType      string = "offchainreporting2"
+	OffchainReportingJobType       string = "offchainreporting"
+	StreamJobType                  string = "stream"
+	VRFJobType                     string = "vrf"
+	WebhookJobType                 string = "webhook"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -65,7 +66,7 @@ type (
 
 	Config interface {
 		DefaultHTTPLimit() int64
-		DefaultHTTPTimeout() models.Duration
+		DefaultHTTPTimeout() commonconfig.Duration
 		MaxRunDuration() time.Duration
 		ReaperInterval() time.Duration
 		ReaperThreshold() time.Duration

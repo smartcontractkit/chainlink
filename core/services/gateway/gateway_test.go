@@ -225,7 +225,7 @@ func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	timeoutCtx, cancel := context.WithTimeout(testutils.Context(t), time.Duration(time.Millisecond*10))
+	timeoutCtx, cancel := context.WithTimeout(testutils.Context(t), time.Millisecond*10)
 	defer cancel()
 
 	req := newSignedRequest(t, "abcd", "request", "testDON", []byte{})

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -23,11 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
@@ -1379,7 +1378,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		etx := mustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
 		require.Len(t, etx.TxAttempts, 1)
 
-		zero := models.MustNewDuration(time.Duration(0))
+		zero := commonconfig.MustNewDuration(time.Duration(0))
 		evmCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].Chain.Transactions.ReaperInterval = zero
 			c.EVM[0].Chain.Transactions.ReaperThreshold = zero
@@ -1723,7 +1722,6 @@ func TestORM_CreateTransaction(t *testing.T) {
 		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(int64(0), nil)
 		etx, err := txStore.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -1780,7 +1778,6 @@ func TestORM_CreateTransaction(t *testing.T) {
 		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(int64(0), nil)
 		etx, err := txStore.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -1816,22 +1813,22 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	t.Run("does not prune if queue has not exceeded capacity", func(t *testing.T) {
+	t.Run("does not prune if queue has not exceeded capacity-1", func(t *testing.T) {
 		subject1 := uuid.New()
 		strategy1 := txmgrcommon.NewDropOldestStrategy(subject1, uint32(5), cfg.Database().DefaultQueryTimeout())
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy1))
 		}
-		AssertCountPerSubject(t, txStore, int64(5), subject1)
+		AssertCountPerSubject(t, txStore, int64(4), subject1)
 	})
 
-	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
+	t.Run("prunes if queue has exceeded capacity-1", func(t *testing.T) {
 		subject2 := uuid.New()
 		strategy2 := txmgrcommon.NewDropOldestStrategy(subject2, uint32(3), cfg.Database().DefaultQueryTimeout())
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy2))
 		}
-		AssertCountPerSubject(t, txStore, int64(3), subject2)
+		AssertCountPerSubject(t, txStore, int64(2), subject2)
 	})
 }
 

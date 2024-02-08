@@ -3,9 +3,10 @@ package chainlink
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
 var _ config.MercuryCache = (*mercuryCacheConfig)(nil)
@@ -24,14 +25,22 @@ func (m *mercuryCacheConfig) LatestReportDeadline() time.Duration {
 	return m.c.LatestReportDeadline.Duration()
 }
 
+type mercuryTLSConfig struct {
+	c toml.MercuryTLS
+}
+
+func (m *mercuryTLSConfig) CertFile() string {
+	return *m.c.CertFile
+}
+
 type mercuryConfig struct {
 	c toml.Mercury
 	s toml.MercurySecrets
 }
 
-func (m *mercuryConfig) Credentials(credName string) *models.MercuryCredentials {
+func (m *mercuryConfig) Credentials(credName string) *types.MercuryCredentials {
 	if mc, ok := m.s.Credentials[credName]; ok {
-		c := &models.MercuryCredentials{
+		c := &types.MercuryCredentials{
 			URL:      mc.URL.URL().String(),
 			Password: string(*mc.Password),
 			Username: string(*mc.Username),
@@ -46,4 +55,8 @@ func (m *mercuryConfig) Credentials(credName string) *models.MercuryCredentials 
 
 func (m *mercuryConfig) Cache() config.MercuryCache {
 	return &mercuryCacheConfig{c: m.c.Cache}
+}
+
+func (m *mercuryConfig) TLS() config.MercuryTLS {
+	return &mercuryTLSConfig{c: m.c.TLS}
 }

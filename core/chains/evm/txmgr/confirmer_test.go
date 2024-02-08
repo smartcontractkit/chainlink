@@ -1724,7 +1724,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(500))
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
 	})
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 
@@ -2373,7 +2373,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(500))
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
 	})
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 
