@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
+	"runtime"
 	"testing"
 	"time"
 
+	"github.com/shirou/gopsutil/cpu"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -23,6 +26,50 @@ import (
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
+	// DEBUG: For monitoring GHA resources
+	resourcesFile, err := os.OpenFile("resources.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resourcesFile.Close()
+
+	go func() {
+		_, err := resourcesFile.WriteString("Started Monitoring\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+
+			_, err := resourcesFile.WriteString(fmt.Sprintf("%s | Alloc = %v MiB", time.Now().String(), m.Alloc/1024/1024))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = resourcesFile.WriteString(fmt.Sprintf("\tTotalAlloc = %v MiB", m.TotalAlloc/1024/1024))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = resourcesFile.WriteString(fmt.Sprintf("\tSys = %v MiB", m.Sys/1024/1024))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = resourcesFile.WriteString(fmt.Sprintf("\tNumGC = %v\n", m.NumGC))
+			if err != nil {
+				t.Fatal(err)
+			}
+			percentages, err := cpu.Percent(1*time.Second, false)
+			if err != nil {
+				fmt.Printf("Error retrieving CPU usage: %s\n", err)
+				return
+			}
+			_, err = resourcesFile.WriteString(fmt.Sprintf("%s | CPU Usage: %.2f%%\n", time.Now().String(), percentages[0]))
+			if err != nil {
+				t.Fatal(err)
+			}
+			time.Sleep(time.Second * 5)
+		}
+	}()
 
 	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
 	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}

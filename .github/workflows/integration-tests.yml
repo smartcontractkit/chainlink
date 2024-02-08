@@ -441,12 +441,12 @@ jobs:
           #   pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 6
-            os: ubuntu20.04-32cores-128GB
+            os: ubuntu20.04-16cores-64GB
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 6
-            os: ubuntu20.04-32cores-128GB
+            os: ubuntu20.04-16cores-64GB
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           # - name: vrf
@@ -585,6 +585,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
+      - name: DEBUG Get Resource file
+        uses: actions/upload-artifact@v3
+        with:
+          name: resource.log
+          path: resource.log
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
