@@ -2408,6 +2408,19 @@ func (e *EthereumMercuryFeeManager) Address() common.Address {
 	return e.address
 }
 
+func (e *EthereumMercuryFeeManager) UpdateSubscriberDiscount(subscriber common.Address, feedId [32]byte, token common.Address, discount uint64) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.UpdateSubscriberDiscount(opts, subscriber, feedId, token, discount)
+	e.l.Info().Err(err).Msg("Called EthereumMercuryFeeManager.UpdateSubscriberDiscount()")
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
 type EthereumMercuryRewardManager struct {
 	address  common.Address
 	client   blockchain.EVMClient

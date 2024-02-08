@@ -23,6 +23,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
   bytes internal constant COMPRESSED_PUBLIC_KEY =
     hex"a0434d9e47f3c86235477c7b1ae6ae5d3442d49b1943c2b752a68e2a47e247c701";
   bytes32 internal constant KEY_HASH = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
+  uint64 internal constant GAS_LANE_MAX_GAS = 5000 gwei;
 
   ExposedVRFCoordinatorV2_5 v1Coordinator;
   VRFCoordinatorV2Plus_V2Example v2Coordinator;
@@ -91,7 +92,10 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
       600,
       10_000,
       20_000,
-      VRFCoordinatorV2_5.FeeConfig({fulfillmentFlatFeeLinkPPM: 200, fulfillmentFlatFeeNativePPM: 100})
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
     );
     v1Coordinator_noLink.setConfig(
       DEFAULT_REQUEST_CONFIRMATIONS,
@@ -99,7 +103,10 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
       600,
       10_000,
       20_000,
-      VRFCoordinatorV2_5.FeeConfig({fulfillmentFlatFeeLinkPPM: 200, fulfillmentFlatFeeNativePPM: 100})
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
     );
     registerProvingKey();
     testConsumer.setCoordinator(v1CoordinatorAddr);
@@ -331,8 +338,8 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
 
   function registerProvingKey() public {
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(UNCOMPRESSED_PUBLIC_KEY);
-    v1Coordinator.registerProvingKey(uncompressedKeyParts);
-    v1Coordinator_noLink.registerProvingKey(uncompressedKeyParts);
+    v1Coordinator.registerProvingKey(uncompressedKeyParts, GAS_LANE_MAX_GAS);
+    v1Coordinator_noLink.registerProvingKey(uncompressedKeyParts, GAS_LANE_MAX_GAS);
   }
 
   // note: Call this function via this.getProvingKeyParts to be able to pass memory as calldata and
