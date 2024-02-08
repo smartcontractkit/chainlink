@@ -15,6 +15,9 @@ use_tee() {
     cat > "$@"
   fi
 }
+
+# the amount of --seconds here is subject to change based on how long the CI job takes in the future
+# as we add more fuzz tests, we should take into consideration increasing this timelapse, so we can have enough coverage.
 cd ./fuzz && ./fuzz_all_native.py --ci --seconds 420 | use_tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
