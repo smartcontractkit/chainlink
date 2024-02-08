@@ -589,7 +589,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: resource.log
-          path: resource.log
+          path: output/output.txt
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'

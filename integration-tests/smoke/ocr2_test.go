@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -27,7 +28,15 @@ import (
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
 	// DEBUG: For monitoring GHA resources
-	resourcesFile, err := os.OpenFile("resources.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	workspace := os.Getenv("GITHUB_WORKSPACE")                     // Get the GitHub Actions workspace path
+	outputPath := filepath.Join(workspace, "output", "output.txt") // Specify a path within the workspace
+
+	// Ensure the directory exists
+	err := os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	resourcesFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
