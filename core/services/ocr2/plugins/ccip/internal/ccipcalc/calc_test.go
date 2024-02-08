@@ -157,23 +157,58 @@ func TestDeviates(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "x2 is zero and x1 neq x2",
+			args: args{x1: big.NewInt(1), x2: big.NewInt(0), ppb: 999},
+			want: true,
+		},
+		{
 			name: "x1 and x2 are both zero",
 			args: args{x1: big.NewInt(0), x2: big.NewInt(0), ppb: 999},
 			want: false,
 		},
 		{
-			name: "does not deviate",
-			args: args{x1: big.NewInt(10), x2: big.NewInt(5), ppb: 500e6},
-			want: false,
-		},
-		{
-			name: "near deviation limit but deviates",
-			args: args{x1: big.NewInt(10), x2: big.NewInt(5), ppb: 500e6 - 1},
+			name: "deviates when ppb is 0",
+			args: args{x1: big.NewInt(0), x2: big.NewInt(1), ppb: 0},
 			want: true,
 		},
 		{
+			name: "does not deviate when x1 eq x2",
+			args: args{x1: big.NewInt(5), x2: big.NewInt(5), ppb: 1},
+			want: false,
+		},
+		{
+			name: "does not deviate with high ppb when x2 is greater",
+			args: args{x1: big.NewInt(5), x2: big.NewInt(10), ppb: 2e9},
+			want: false,
+		},
+		{
+			name: "does not deviate with high ppb when x1 is greater",
+			args: args{x1: big.NewInt(10), x2: big.NewInt(5), ppb: 2e9},
+			want: false,
+		},
+		{
+			name: "deviates with low ppb when x2 is greater",
+			args: args{x1: big.NewInt(5), x2: big.NewInt(10), ppb: 9e8},
+			want: true,
+		},
+		{
+			name: "deviates with low ppb when x1 is greater",
+			args: args{x1: big.NewInt(10), x2: big.NewInt(5), ppb: 9e8},
+			want: true,
+		},
+		{
+			name: "near deviation limit but deviates",
+			args: args{x1: big.NewInt(10), x2: big.NewInt(5), ppb: 1e9 - 1},
+			want: true,
+		},
+		{
+			name: "at deviation limit but does not deviate",
+			args: args{x1: big.NewInt(10), x2: big.NewInt(5), ppb: 1e9},
+			want: false,
+		},
+		{
 			name: "near deviation limit but does not deviate",
-			args: args{x1: big.NewInt(10), x2: big.NewInt(5), ppb: 500e6 + 1},
+			args: args{x1: big.NewInt(10), x2: big.NewInt(5), ppb: 1e9 + 1},
 			want: false,
 		},
 	}
