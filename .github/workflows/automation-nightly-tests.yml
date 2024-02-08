@@ -82,7 +82,7 @@ jobs:
           upgradeImage: ${{ env.CHAINLINK_IMAGE }}
           upgradeVersion: ${{ github.sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
