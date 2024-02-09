@@ -253,7 +253,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state nodeState) {
 	case nodeStateAlive:
 		n.declareAlive()
 	default:
-		panic(fmt.Sprintf("%#v state declaration is not impletemented", state))
+		panic(fmt.Sprintf("%#v state declaration is not implemented", state))
 	}
 }
 
