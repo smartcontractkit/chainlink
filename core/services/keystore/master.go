@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
@@ -266,7 +266,7 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "Eth", nil
 	case ocrkey.KeyV2:
 		return "OCR", nil
-	case ocr2pluskey.KeyBundle:
+	case ocr2key.KeyBundle:
 		return "OCR2", nil
 	case p2pkey.KeyV2:
 		return "P2P", nil

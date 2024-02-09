@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,11 +35,11 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 	`
 
 	gError := errors.New("error")
-	fakeKeys := []ocr2pluskey.KeyBundle{
-		ocr2pluskey.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm"),
-		ocr2pluskey.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "cosmos"),
-		ocr2pluskey.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "solana"),
-		ocr2pluskey.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "starknet"),
+	fakeKeys := []ocr2key.KeyBundle{
+		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm"),
+		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "cosmos"),
+		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "solana"),
+		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "starknet"),
 	}
 	expectedBundles := []map[string]interface{}{}
 	for _, k := range fakeKeys {
@@ -121,7 +121,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 	`
 
 	gError := errors.New("error")
-	fakeKey := ocr2pluskey.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
+	fakeKey := ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
 	ct, err := ToOCR2ChainType(string(fakeKey.ChainType()))
 	require.NoError(t, err)
 
@@ -187,7 +187,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 	t.Parallel()
 
-	fakeKey := ocr2pluskey.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
+	fakeKey := ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
 
 	mutation := `
 		mutation DeleteOCR2KeyBundle($id: ID!) {

@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
 func Test_OCR2KeyStore_E2E(t *testing.T) {
@@ -115,7 +115,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
 		for _, chain := range chaintype.SupportedChainTypes {
-			newKey, err := ocr2pluskey.New(chain)
+			newKey, err := ocr2key.New(chain)
 			require.NoError(t, err)
 			err = ks.Add(newKey)
 			require.NoError(t, err)

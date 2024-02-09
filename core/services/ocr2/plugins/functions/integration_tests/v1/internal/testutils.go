@@ -45,7 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -294,7 +294,7 @@ type Node struct {
 	App            *cltest.TestApplication
 	PeerID         string
 	Transmitter    common.Address
-	Keybundle      ocr2pluskey.KeyBundle
+	Keybundle      ocr2key.KeyBundle
 	OracleIdentity confighelper2.OracleIdentityExtra
 }
 
@@ -360,7 +360,7 @@ func StartNewNode(
 	require.NoError(t, err)
 	b.Commit()
 
-	var kb ocr2pluskey.KeyBundle
+	var kb ocr2key.KeyBundle
 	if ocr2Keystore != nil {
 		kb, err = app.GetKeyStore().OCR2().Import(ocr2Keystore, "testPassword")
 	} else {

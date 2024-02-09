@@ -35,7 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -131,7 +131,7 @@ func randomFeedID(version uint16) [32]byte {
 type Node struct {
 	App          chainlink.Application
 	ClientPubKey credentials.StaticSizedPublicKey
-	KeyBundle    ocr2pluskey.KeyBundle
+	KeyBundle    ocr2key.KeyBundle
 }
 
 func (node *Node) AddJob(t *testing.T, spec string) {
@@ -155,11 +155,11 @@ func setupNode(
 	dbName string,
 	backend *backends.SimulatedBackend,
 	csaKey csakey.KeyV2,
-) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2pluskey.KeyBundle, observedLogs *observer.ObservedLogs) {
+) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
 	rdr := keystest.NewRandReaderFromSeed(int64(port))
-	ocr2kb = ocr2pluskey.MustNewInsecure(rdr, chaintype.EVM)
+	ocr2kb = ocr2key.MustNewInsecure(rdr, chaintype.EVM)
 
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 

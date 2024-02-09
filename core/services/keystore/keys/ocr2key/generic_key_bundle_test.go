@@ -1,4 +1,4 @@
-package ocr2pluskey
+package ocr2key
 
 import (
 	cryptorand "crypto/rand"

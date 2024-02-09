@@ -55,7 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -113,7 +113,7 @@ func setupNode(
 	backend *backends.SimulatedBackend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	mercury MercuryEndpoint,
-) (chainlink.Application, string, common.Address, ocr2pluskey.KeyBundle) {
+) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
 	p2pKey := keystest.NewP2PKeyV2(t)
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -161,7 +161,7 @@ func setupNode(
 type Node struct {
 	App         chainlink.Application
 	Transmitter common.Address
-	KeyBundle   ocr2pluskey.KeyBundle
+	KeyBundle   ocr2key.KeyBundle
 }
 
 func (node *Node) AddJob(t *testing.T, spec string) {
