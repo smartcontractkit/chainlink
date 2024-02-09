@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -37,14 +38,20 @@ import (
 // See heavyweight.FullTestDB() as a convenience function to help you do this,
 // but please use sparingly because as it's name implies, it is expensive.
 func init() {
-	testing.Init()
-	if !flag.Parsed() {
-		flag.Parse()
+	// Allow txdb to be re-used with in non-tests, like chainlink-dev
+	// where tests are run as an executable against real chains.
+	_, skipTestSetFlagSet := os.LookupEnv("CL_DATABASE_SKIP_TEST_INIT_FLAGS")
+	if !skipTestSetFlagSet {
+		testing.Init()
+		if !flag.Parsed() {
+			flag.Parse()
+		}
+		if testing.Short() {
+			// -short tests don't need a DB
+			return
+		}
 	}
-	if testing.Short() {
-		// -short tests don't need a DB
-		return
-	}
+
 	dbURL := string(env.DatabaseURL.Get())
 	if dbURL == "" {
 		panic("you must provide a CL_DATABASE_URL environment variable")
