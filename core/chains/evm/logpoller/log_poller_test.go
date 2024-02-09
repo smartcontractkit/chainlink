@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -150,6 +151,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 
 func TestLogPoller_Integration(t *testing.T) {
 	lpOpts := logpoller.Opts{
+		PollPeriod:               1 * time.Hour,
 		FinalityDepth:            2,
 		BackfillBatchSize:        3,
 		RpcBatchSize:             2,
@@ -161,11 +163,13 @@ func TestLogPoller_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	require.NoError(t, th.LogPoller.RegisterFilter(ctx, logpoller.Filter{Name: "Integration test", EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID}, Addresses: []common.Address{th.EmitterAddress1}}))
-	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
-	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
-
-	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
-	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
+	reqs := th.LogPoller.EthGetLogsReqs(nil, nil, nil)
+	require.Len(t, reqs, 1)
+	req := reqs[0]
+	require.Len(t, req.Addresses(), 1)
+	topics := req.Topics()
+	require.Len(t, topics, 4)
+	require.Len(t, topics[0], 1)
 
 	// Emit some logs in blocks 3->7.
 	for i := 0; i < 5; i++ {
@@ -189,7 +193,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	require.Equal(t, 4, len(logs))
 
 	// Once the backup poller runs we should also have the log from block 3
-	testutils.AssertEventually(t, func() bool {
+	testutils.RequireEventually(t, func() bool {
 		l, err2 := th.LogPoller.Logs(ctx, 3, 3, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 		require.NoError(t, err2)
 		return len(l) == 1
@@ -672,8 +676,10 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	th.PollAndSaveLogs(ctx, lb.BlockNumber+1)
 	lg1, err := th.LogPoller.Logs(ctx, 0, 20, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 	require.NoError(t, err)
+	require.NotNil(t, lg1)
 	lg2, err := th.LogPoller.Logs(ctx, 0, 20, EmitterABI.Events["Log2"].ID, th.EmitterAddress2)
 	require.NoError(t, err)
+	require.NotNil(t, lg2)
 
 	// Logs should have correct timestamps
 	b, _ := th.Client.BlockByHash(ctx, lg1[0].BlockHash)
@@ -1181,6 +1187,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			// Check that L1_1 has a proper data payload
 			lgs, err := th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 2)
 			require.NoError(t, err)
+			require.NotNil(t, lgs)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 
 			// Single block reorg and log poller not working for a while, mine blocks and progress with finalization
@@ -1564,16 +1571,34 @@ func TestTooManyLogResults(t *testing.T) {
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})
 
-	call2 := ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
-		if fq.BlockHash != nil {
-			return []types.Log{}, nil // succeed when single block requested
+	// If the # of blocks requested exceeds sizeLimit, simulate a "too many results" error from rpc server
+	handleBatchCall := func(b []rpc.BatchElem, sizeLimit uint64) error {
+		require.Len(t, b, 1)
+		require.Equal(t, "eth_getLogs", b[0].Method)
+		require.Len(t, b[0].Args, 1)
+		params := b[0].Args[0].(map[string]interface{})
+		blockHash, ok := params["blockHash"]
+		if ok && blockHash.(*common.Hash) != nil {
+			return nil // succeed when single block requested
 		}
-		from := fq.FromBlock.Uint64()
-		to := fq.ToBlock.Uint64()
-		if to-from >= 4 {
-			return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+		fromBlock, ok := params["fromBlock"]
+		require.True(t, ok)
+		toBlock, ok := params["toBlock"]
+		require.True(t, ok)
+
+		from := fromBlock.(*big.Int)
+		require.NotNil(t, from)
+		to := toBlock.(*big.Int)
+		require.NotNil(t, to)
+
+		if to.Uint64()-from.Uint64() >= sizeLimit {
+			return &clientErr // return "too many results" error if block range spans more than sizeLimit # of blocks
 		}
-		return logs, err
+		return nil
+	}
+
+	call2 := ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(func(ctx context.Context, b []rpc.BatchElem) error {
+		return handleBatchCall(b, 4) // error out if requesting more than 4 blocks at once
 	})
 
 	addr := testutils.NewAddress()
@@ -1607,11 +1632,8 @@ func TestTooManyLogResults(t *testing.T) {
 		}
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})
-	call2.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
-		if fq.BlockHash != nil {
-			return []types.Log{}, nil // succeed when single block requested
-		}
-		return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+	call2.On("BatchCallContext", mock.Anything, mock.Anything).Return(func(ctx context.Context, b []rpc.BatchElem) error {
+		return handleBatchCall(b, 0) // error out for any range request
 	})
 
 	lp.PollAndSaveLogs(ctx, 298)
@@ -1919,4 +1941,123 @@ func markBlockAsFinalizedByHash(t *testing.T, th TestHarness, blockHash common.H
 	b, err := th.Client.BlockByHash(testutils.Context(t), blockHash)
 	require.NoError(t, err)
 	th.Client.Blockchain().SetFinalized(b.Header())
+}
+
+func Test_EthGetLogsRecs(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	lpOpts := logpoller.Opts{
+		UseFinalityTag:           true,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	th := SetupTH(t, lpOpts)
+	lp := th.LogPoller
+
+	addr1 := common.HexToAddress("0x0000000000000000000000000000001111111111")
+	addr2 := common.HexToAddress("0x0000000000000000000000000000002222222222")
+	addr3 := common.HexToAddress("0x0000000000000000000000000000003333333333")
+
+	event1 := common.HexToHash("0x112233440000000000000000111111111111111111111111111111111111101")
+	event2 := common.HexToHash("0x112233440000000000000000222222222222222222222222222222222222202")
+	event3 := common.HexToHash("0x112233440000000000000000333333333333333333333333333333333333303")
+	event4 := common.HexToHash("0x112233440000000000000000444444444444444444444444444444444444404")
+
+	topicA := common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000aaaa")
+	topicB := common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000bbbb")
+	topicC := common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000cccc")
+	topicD := common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000dddd")
+
+	filters := map[string]*logpoller.Filter{
+		"1 event sig, 2 addresses":     {EventSigs: evmtypes.HashArray{event1}, Addresses: evmtypes.AddressArray{addr1, addr2}},
+		"3 event sigs, 2 addresses":    {EventSigs: evmtypes.HashArray{event2, event3, event4}, Addresses: evmtypes.AddressArray{addr2, addr3}},
+		"1 event sig, 2 topic2 values": {EventSigs: evmtypes.HashArray{event1}, Addresses: evmtypes.AddressArray{addr2}, Topic2: evmtypes.HashArray{topicA, topicB}},
+		"2 addresses, 2 event sigs, topics 2, 3, and 4 filtered": {
+			EventSigs: evmtypes.HashArray{event1},
+			Addresses: evmtypes.AddressArray{addr3},
+			Topic2:    evmtypes.HashArray{topicA},
+			Topic3:    evmtypes.HashArray{topicB},
+			Topic4:    evmtypes.HashArray{topicC, topicD},
+		},
+	}
+	for name, filter := range filters {
+		filter.Name = name
+	}
+
+	otherFilter := *filters["1 event sig, 2 topic2 values"] // update Topics2, but keep name of filter the same
+	otherFilter.Topic2 = evmtypes.HashArray{topicD, topicA}
+	filters["1 eventsig, 2 other topic2 values"] = &otherFilter
+
+	req1 := *logpoller.NewGetLogsReq(*filters["1 event sig, 2 addresses"])
+	req2 := *logpoller.NewGetLogsReq(*filters["3 event sigs, 2 addresses"])
+	req3 := *logpoller.NewGetLogsReq(*filters["1 event sig, 2 topic2 values"])
+	req4 := *logpoller.NewGetLogsReq(*filters["2 addresses, 2 event sigs, topics 2, 3, and 4 filtered"])
+
+	tests := []struct {
+		name           string
+		newFilters     []string
+		removedFilters []string
+		expected       []logpoller.GetLogsBatchElem
+	}{
+		{
+			name:           "add filter with 2 addresses",
+			newFilters:     []string{"1 event sig, 2 addresses"},
+			removedFilters: []string{},
+			expected:       []logpoller.GetLogsBatchElem{req1},
+		},
+		{
+			name:           "add filter with 3 event sigs",
+			newFilters:     []string{"3 event sigs, 2 addresses"},
+			removedFilters: []string{},
+			expected:       []logpoller.GetLogsBatchElem{req1, req2},
+		},
+		{
+			name:           "add filter with 2 topic values",
+			newFilters:     []string{"1 event sig, 2 topic2 values"},
+			removedFilters: []string{},
+			expected:       []logpoller.GetLogsBatchElem{req1, req2}, // 3rd filter is already covered by existing filters
+		},
+		{
+			name:           "add filter with complex topic filtering",
+			newFilters:     []string{"2 addresses, 2 event sigs, topics 2, 3, and 4 filtered"},
+			removedFilters: []string{},
+			expected:       []logpoller.GetLogsBatchElem{req4, req1, req2}, // 3rd req for 4th filter added
+		},
+		{
+			name:           "update topic values in filter",
+			newFilters:     []string{"1 event sig, 2 topic2 values"},
+			removedFilters: []string{"1 event sig, 2 other topic2 values"},
+			expected:       []logpoller.GetLogsBatchElem{req4, req1, req2}, // shouldn't change reqs
+		},
+		{
+			name:           "remove first two filters",
+			newFilters:     []string{},
+			removedFilters: []string{"1 event sig, 2 addresses", "3 event sigs, 2 addresses"},
+			expected:       []logpoller.GetLogsBatchElem{req3, req4}, // when req1 & req2 are removed, narrower req3 should be added
+		},
+		{
+			name:           "add a filter and remove one",
+			newFilters:     []string{"1 event sig, 2 addresses"},
+			removedFilters: []string{"1 event sig, 2 topic2 values"},
+			expected:       []logpoller.GetLogsBatchElem{req4, req1}, // req1 added for 1st filter, req3 removed
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, name := range tt.newFilters {
+				err := lp.RegisterFilter(ctx, *filters[name])
+				require.NoError(t, err)
+			}
+
+			for _, name := range tt.removedFilters {
+				err := lp.UnregisterFilter(ctx, name)
+				require.NoError(t, err)
+			}
+			reqs := lp.EthGetLogsReqs(nil, nil, nil)
+			assert.Equal(t, tt.expected, reqs)
+		})
+	}
 }

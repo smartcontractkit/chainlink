@@ -5,10 +5,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -66,6 +66,60 @@ type LogPoller interface {
 	LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations) ([]Log, error)
 }
 
+// GetLogsBatchElem hides away all the interface casting, so the fields can be accessed more easily, and with type safety
+type GetLogsBatchElem rpc.BatchElem
+
+func NewGetLogsReq(filter Filter) *GetLogsBatchElem {
+	params := map[string]interface{}{
+		"addresses": []common.Address(filter.Addresses),
+		"topics":    [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4},
+		"fromBlock": (*big.Int)(nil),
+		"toBlock":   (*big.Int)(nil),
+		"blockHash": (*common.Hash)(nil),
+	}
+	return &GetLogsBatchElem{
+		Method: "eth_getLogs",
+		Args:   []interface{}{params},
+		Result: new([]types.Log),
+	}
+}
+
+func (e GetLogsBatchElem) params() map[string]interface{} {
+	return e.Args[0].(map[string]interface{})
+}
+
+func (e GetLogsBatchElem) Addresses() []common.Address {
+	return e.params()["addresses"].([]common.Address)
+}
+
+func (e GetLogsBatchElem) SetAddresses(addresses []common.Address) {
+	e.params()["addresses"] = addresses
+}
+
+func (e GetLogsBatchElem) Topics() [][]common.Hash {
+	return e.params()["topics"].([][]common.Hash)
+}
+
+func (e GetLogsBatchElem) SetTopics(topics [][]common.Hash) {
+	e.params()["topics"] = topics
+}
+
+func (e GetLogsBatchElem) FromBlock() *big.Int {
+	return e.params()["fromBlock"].(*big.Int)
+}
+
+func (e GetLogsBatchElem) ToBlock() *big.Int {
+	return e.params()["toBlock"].(*big.Int)
+}
+
+func (e GetLogsBatchElem) BlockHash() *common.Hash {
+	return e.params()["blockHash"].(*common.Hash)
+}
+
+func (e GetLogsBatchElem) SetFromBlock(fromBlock *big.Int) {
+	e.params()["fromBlock"] = fromBlock
+}
+
 type Confirmations int
 
 const (
@@ -77,7 +131,7 @@ type LogPollerTest interface {
 	LogPoller
 	PollAndSaveLogs(ctx context.Context, currentBlockNumber int64)
 	BackupPollAndSaveLogs(ctx context.Context)
-	Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery
+	EthGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *common.Hash) []GetLogsBatchElem
 	GetReplayFromBlock(ctx context.Context, requested int64) (int64, error)
 	PruneOldBlocks(ctx context.Context) (bool, error)
 }
@@ -92,32 +146,32 @@ type Client interface {
 
 var (
 	_                       LogPollerTest = &logPoller{}
-	ErrReplayRequestAborted               = pkgerrors.New("aborted, replay request cancelled")
-	ErrReplayInProgress                   = pkgerrors.New("replay request cancelled, but replay is already in progress")
-	ErrLogPollerShutdown                  = pkgerrors.New("replay aborted due to log poller shutdown")
-	ErrFinalityViolated                   = pkgerrors.New("finality violated")
+	ErrReplayRequestAborted               = errors.New("aborted, replay request cancelled")
+	ErrReplayInProgress                   = errors.New("replay request cancelled, but replay is already in progress")
+	ErrLogPollerShutdown                  = errors.New("replay aborted due to log poller shutdown")
+	ErrFinalityViolated                   = errors.New("finality violated")
 )
 
 type logPoller struct {
 	services.StateMachine
-	ec                       Client
-	orm                      ORM
-	lggr                     logger.SugaredLogger
-	pollPeriod               time.Duration // poll period set by block production rate
-	useFinalityTag           bool          // indicates whether logPoller should use chain's finality or pick a fixed depth for finality
-	finalityDepth            int64         // finality depth is taken to mean that block (head - finality) is finalized. If `useFinalityTag` is set to true, this value is ignored, because finalityDepth is fetched from chain
-	keepFinalizedBlocksDepth int64         // the number of blocks behind the last finalized block we keep in database
-	backfillBatchSize        int64         // batch size to use when backfilling finalized logs
-	rpcBatchSize             int64         // batch size to use for fallback RPC calls made in GetBlocks
-	logPrunePageSize         int64
-	backupPollerNextBlock    int64 // next block to be processed by Backup LogPoller
-	backupPollerBlockDelay   int64 // how far behind regular LogPoller should BackupLogPoller run. 0 = disabled
-
-	filterMu        sync.RWMutex
-	filters         map[string]Filter
-	filterDirty     bool
-	cachedAddresses []common.Address
-	cachedEventSigs []common.Hash
+	ec                          Client
+	orm                         ORM
+	lggr                        logger.SugaredLogger
+	pollPeriod                  time.Duration // poll period set by block production rate
+	useFinalityTag              bool          // indicates whether logPoller should use chain's finality or pick a fixed depth for finality
+	finalityDepth               int64         // finality depth is taken to mean that block (head - finality) is finalized. If `useFinalityTag` is set to true, this value is ignored, because finalityDepth is fetched from chain
+	keepFinalizedBlocksDepth    int64         // the number of blocks behind the last finalized block we keep in database
+	backfillBatchSize           int64         // batch size to use when backfilling finalized logs
+	rpcBatchSize                int64         // batch size to use for fallback RPC calls made in GetBlocks
+	logPrunePageSize            int64
+	backupPollerNextBlock       int64 // next block to be processed by Backup LogPoller
+	backupPollerBlockDelay      int64 // how far behind regular LogPoller should BackupLogPoller run. 0 = disabled
+	filtersMu                   sync.RWMutex
+	filters                     map[string]Filter
+	newFilters                  map[string]struct{}                    // Set of filter names which have been added since cached reqs indices were last rebuilt
+	removedFilters              []Filter                               // Slice of filters which have been removed or replaced since cached reqs indices were last rebuilt
+	cachedReqsByAddress         map[common.Address][]*GetLogsBatchElem // Index of cached GetLogs requests, by contract address
+	cachedReqsByEventsTopicsKey map[string]*GetLogsBatchElem           // Index of cached GetLogs requests, by eventTopicsKey
 
 	replayStart    chan int64
 	replayComplete chan error
@@ -156,24 +210,26 @@ type Opts struct {
 func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, opts Opts) *logPoller {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &logPoller{
-		ctx:                      ctx,
-		cancel:                   cancel,
-		ec:                       ec,
-		orm:                      orm,
-		lggr:                     logger.Sugared(logger.Named(lggr, "LogPoller")),
-		replayStart:              make(chan int64),
-		replayComplete:           make(chan error),
-		pollPeriod:               opts.PollPeriod,
-		backupPollerBlockDelay:   opts.BackupPollerBlockDelay,
-		finalityDepth:            opts.FinalityDepth,
-		useFinalityTag:           opts.UseFinalityTag,
-		backfillBatchSize:        opts.BackfillBatchSize,
-		rpcBatchSize:             opts.RpcBatchSize,
-		keepFinalizedBlocksDepth: opts.KeepFinalizedBlocksDepth,
-		logPrunePageSize:         opts.LogPrunePageSize,
-		filters:                  make(map[string]Filter),
-		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
-		finalityViolated:         new(atomic.Bool),
+		ctx:                         ctx,
+		cancel:                      cancel,
+		ec:                          ec,
+		orm:                         orm,
+		lggr:                        logger.Sugared(logger.Named(lggr, "LogPoller")),
+		replayStart:                 make(chan int64),
+		replayComplete:              make(chan error),
+		pollPeriod:                  opts.PollPeriod,
+		backupPollerBlockDelay:      opts.BackupPollerBlockDelay,
+		finalityDepth:               opts.FinalityDepth,
+		useFinalityTag:              opts.UseFinalityTag,
+		backfillBatchSize:           opts.BackfillBatchSize,
+		rpcBatchSize:                opts.RpcBatchSize,
+		keepFinalizedBlocksDepth:    opts.KeepFinalizedBlocksDepth,
+		logPrunePageSize:            opts.LogPrunePageSize,
+		cachedReqsByAddress:         make(map[common.Address][]*GetLogsBatchElem),
+		cachedReqsByEventsTopicsKey: make(map[string]*GetLogsBatchElem),
+		filters:                     make(map[string]Filter),
+		newFilters:                  make(map[string]struct{}),
+		finalityViolated:            new(atomic.Bool),
 	}
 }
 
@@ -211,26 +267,46 @@ func (filter *Filter) Contains(other *Filter) bool {
 	if other == nil {
 		return true
 	}
+
 	addresses := make(map[common.Address]interface{})
 	for _, addr := range filter.Addresses {
 		addresses[addr] = struct{}{}
 	}
-	events := make(map[common.Hash]interface{})
-	for _, ev := range filter.EventSigs {
-		events[ev] = struct{}{}
-	}
-
 	for _, addr := range other.Addresses {
 		if _, ok := addresses[addr]; !ok {
 			return false
 		}
 	}
-	for _, ev := range other.EventSigs {
-		if _, ok := events[ev]; !ok {
-			return false
+
+	theseTopics := [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4}
+	otherTopics := [][]common.Hash{other.EventSigs, other.Topic2, other.Topic3, other.Topic4}
+	return isTopicsSubset(otherTopics, theseTopics)
+}
+
+type BytesRepresentable interface {
+	Bytes() []byte
+}
+
+// sortByteArrays can sort a slice of byte arrays (eg common.Address or common.Hash)
+// by comparing bytes.  It will also remove any duplicate entries found
+func sortByteArrays[T BytesRepresentable](vals []T) []T {
+	if len(vals) <= 1 {
+		return vals
+	}
+
+	slices.SortStableFunc(vals, func(b1, b2 T) int {
+		return bytes.Compare(
+			b1.Bytes(),
+			b2.Bytes())
+	})
+
+	res := []T{vals[0]}
+	for _, val := range vals {
+		if !bytes.Equal(val.Bytes(), res[len(res)-1].Bytes()) {
+			res = append(res, val)
 		}
 	}
-	return true
+	return res
 }
 
 // RegisterFilter adds the provided EventSigs and Addresses to the log poller's log filter query.
@@ -250,25 +326,34 @@ func (filter *Filter) Contains(other *Filter) bool {
 // Warnings/debug information is keyed by filter name.
 func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 	if len(filter.Addresses) == 0 {
-		return pkgerrors.Errorf("at least one address must be specified")
+		return fmt.Errorf("at least one address must be specified")
 	}
 	if len(filter.EventSigs) == 0 {
-		return pkgerrors.Errorf("at least one event must be specified")
+		return fmt.Errorf("at least one event must be specified")
 	}
+
+	lp.lggr.Warnf("RegisterFilter called for filter '%s' address %v event sig %v", filter.Name, filter.Addresses[0], filter.EventSigs[0])
 
 	for _, eventSig := range filter.EventSigs {
 		if eventSig == [common.HashLength]byte{} {
-			return pkgerrors.Errorf("empty event sig")
+			return fmt.Errorf("empty event sig")
 		}
 	}
 	for _, addr := range filter.Addresses {
 		if addr == [common.AddressLength]byte{} {
-			return pkgerrors.Errorf("empty address")
+			return fmt.Errorf("empty address")
 		}
 	}
 
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
+	// Sort all of these, to speed up comparisons between topics & addresses of different filters
+	filter.Addresses = sortByteArrays(filter.Addresses)
+	filter.EventSigs = sortByteArrays(filter.EventSigs)
+	filter.Topic2 = sortByteArrays(filter.Topic2)
+	filter.Topic3 = sortByteArrays(filter.Topic3)
+	filter.Topic4 = sortByteArrays(filter.Topic4)
+
+	lp.filtersMu.Lock()
+	defer lp.filtersMu.Unlock()
 
 	if existingFilter, ok := lp.filters[filter.Name]; ok {
 		if existingFilter.Contains(&filter) {
@@ -277,13 +362,16 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 			return nil
 		}
 		lp.lggr.Warnw("Updating existing filter with more events or addresses", "name", filter.Name, "filter", filter)
+		lp.removedFilters = append(lp.removedFilters, existingFilter)
 	}
 
 	if err := lp.orm.InsertFilter(ctx, filter); err != nil {
-		return pkgerrors.Wrap(err, "error inserting filter")
+		return fmt.Errorf("error inserting filter: %w", err)
 	}
 	lp.filters[filter.Name] = filter
-	lp.filterDirty = true
+	lp.newFilters[filter.Name] = struct{}{}
+
+	lp.lggr.Warnf("RegisterFilter returning nil, inserted filter '%s' address %v event sig %v successfully", filter.Name, filter.Addresses[0], filter.EventSigs[0])
 	return nil
 }
 
@@ -291,8 +379,10 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 // If the name does not exist, it will log an error but not return an error.
 // Warnings/debug information is keyed by filter name.
 func (lp *logPoller) UnregisterFilter(ctx context.Context, name string) error {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
+	lp.filtersMu.Lock()
+	defer lp.filtersMu.Unlock()
+
+	lp.lggr.Warnf("UnregisterFilter called for filter '%s'", name)
 
 	_, ok := lp.filters[name]
 	if !ok {
@@ -301,19 +391,22 @@ func (lp *logPoller) UnregisterFilter(ctx context.Context, name string) error {
 	}
 
 	if err := lp.orm.DeleteFilter(ctx, name); err != nil {
-		return pkgerrors.Wrap(err, "error deleting filter")
+		return fmt.Errorf("error deleting filter: %w", err)
 	}
+
+	lp.removedFilters = append(lp.removedFilters, lp.filters[name])
 	delete(lp.filters, name)
-	lp.filterDirty = true
+
 	return nil
 }
 
 // HasFilter returns true if the log poller has an active filter with the given name.
 func (lp *logPoller) HasFilter(name string) bool {
-	lp.filterMu.RLock()
-	defer lp.filterMu.RUnlock()
+	lp.filtersMu.RLock()
+	defer lp.filtersMu.RUnlock()
 
 	_, ok := lp.filters[name]
+	lp.lggr.Warnf("HasFilter called with name=%s, returning %v", name, ok)
 	return ok
 }
 
@@ -346,52 +439,6 @@ func (lp *logPoller) GetFilters() map[string]Filter {
 	return filters
 }
 
-func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
-	if !lp.filterDirty {
-		return ethereum.FilterQuery{FromBlock: from, ToBlock: to, BlockHash: bh, Topics: [][]common.Hash{lp.cachedEventSigs}, Addresses: lp.cachedAddresses}
-	}
-	var (
-		addresses  []common.Address
-		eventSigs  []common.Hash
-		addressMp  = make(map[common.Address]struct{})
-		eventSigMp = make(map[common.Hash]struct{})
-	)
-	// Merge filters.
-	for _, filter := range lp.filters {
-		for _, addr := range filter.Addresses {
-			addressMp[addr] = struct{}{}
-		}
-		for _, eventSig := range filter.EventSigs {
-			eventSigMp[eventSig] = struct{}{}
-		}
-	}
-	for addr := range addressMp {
-		addresses = append(addresses, addr)
-	}
-	sort.Slice(addresses, func(i, j int) bool {
-		return bytes.Compare(addresses[i][:], addresses[j][:]) < 0
-	})
-	for eventSig := range eventSigMp {
-		eventSigs = append(eventSigs, eventSig)
-	}
-	sort.Slice(eventSigs, func(i, j int) bool {
-		return bytes.Compare(eventSigs[i][:], eventSigs[j][:]) < 0
-	})
-	if len(eventSigs) == 0 && len(addresses) == 0 {
-		// If no filter specified, ignore everything.
-		// This allows us to keep the log poller up and running with no filters present (e.g. no jobs on the node),
-		// then as jobs are added dynamically start using their filters.
-		addresses = []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000000")}
-		eventSigs = []common.Hash{}
-	}
-	lp.cachedAddresses = addresses
-	lp.cachedEventSigs = eventSigs
-	lp.filterDirty = false
-	return ethereum.FilterQuery{FromBlock: from, ToBlock: to, BlockHash: bh, Topics: [][]common.Hash{eventSigs}, Addresses: addresses}
-}
-
 // Replay signals that the poller should resume from a new block.
 // Blocks until the replay is complete.
 // Replay can be used to ensure that filter modification has been applied for all blocks from "fromBlock" up to latest.
@@ -411,7 +458,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
 		return err
 	}
 	if fromBlock < 1 || fromBlock > latest.Number {
-		return pkgerrors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
+		return fmt.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
 	}
 
 	// Backfill all logs up to the latest saved finalized block outside the LogPoller's main loop.
@@ -438,7 +485,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
 	select {
 	case lp.replayStart <- fromBlock:
 	case <-ctx.Done():
-		return pkgerrors.Wrap(ErrReplayRequestAborted, ctx.Err().Error())
+		return fmt.Errorf("%w: %w", ErrReplayRequestAborted, ctx.Err())
 	}
 	// Block until replay complete or cancelled.
 	select {
@@ -524,7 +571,7 @@ func (lp *logPoller) HealthReport() map[string]error {
 func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
 	lastProcessed, err := lp.orm.SelectLatestBlock(ctx)
 	if err != nil {
-		if !pkgerrors.Is(err, sql.ErrNoRows) {
+		if !errors.Is(err, sql.ErrNoRows) {
 			// Real DB error
 			return 0, err
 		}
@@ -538,16 +585,19 @@ func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (i
 }
 
 func (lp *logPoller) loadFilters() error {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
+	lp.filtersMu.Lock()
+	defer lp.filtersMu.Unlock()
 	filters, err := lp.orm.LoadFilters(lp.ctx)
 
 	if err != nil {
-		return pkgerrors.Wrapf(err, "Failed to load initial filters from db, retrying")
+		return fmt.Errorf("Failed to load initial filters from db, retrying: %w", err)
 	}
 
-	lp.filters = filters
-	lp.filterDirty = true
+	for name, filter := range filters {
+		lp.filters[name] = filter
+		lp.newFilters[name] = struct{}{}
+	}
+
 	return nil
 }
 
@@ -578,7 +628,7 @@ func (lp *logPoller) run() {
 			var start int64
 			lastProcessed, err := lp.orm.SelectLatestBlock(lp.ctx)
 			if err != nil {
-				if !pkgerrors.Is(err, sql.ErrNoRows) {
+				if !errors.Is(err, sql.ErrNoRows) {
 					// Assume transient db reading issue, retry forever.
 					lp.lggr.Errorw("unable to get starting block", "err", err)
 					continue
@@ -692,7 +742,7 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {
 	if lp.backupPollerNextBlock == 0 {
 		lastProcessed, err := lp.orm.SelectLatestBlock(ctx)
 		if err != nil {
-			if pkgerrors.Is(err, sql.ErrNoRows) {
+			if errors.Is(err, sql.ErrNoRows) {
 				lp.lggr.Warnw("Backup log poller ran before first successful log poller run, skipping")
 			} else {
 				lp.lggr.Errorw("Backup log poller unable to get starting block", "err", err)
@@ -789,10 +839,10 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 	batchSize := lp.backfillBatchSize
 	for from := start; from <= end; from += batchSize {
 		to := mathutil.Min(from+batchSize-1, end)
-		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
+		gethLogs, err := lp.fetchLogs(ctx, big.NewInt(from), big.NewInt(to), nil)
 		if err != nil {
 			var rpcErr client.JsonError
-			if pkgerrors.As(err, &rpcErr) {
+			if errors.As(err, &rpcErr) {
 				if rpcErr.Code != jsonRpcLimitExceeded {
 					lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
 					return err
@@ -851,20 +901,21 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// Additional sanity checks, don't necessarily trust the RPC.
 		if currentBlock == nil {
 			lp.lggr.Errorf("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
-			return nil, pkgerrors.Errorf("Got nil block for %d", currentBlockNumber)
+			return nil, fmt.Errorf("Got nil block for %d", currentBlockNumber)
 		}
 		if currentBlock.Number != currentBlockNumber {
 			lp.lggr.Warnw("Unable to get currentBlock, rpc returned incorrect block", "currentBlockNumber", currentBlockNumber, "got", currentBlock.Number)
-			return nil, pkgerrors.Errorf("Block mismatch have %d want %d", currentBlock.Number, currentBlockNumber)
+			return nil, fmt.Errorf("Block mismatch have %d want %d", currentBlock.Number, currentBlockNumber)
 		}
 	}
 	// Does this currentBlock point to the same parent that we have saved?
 	// If not, there was a reorg, so we need to rewind.
+
 	expectedParent, err1 := lp.orm.SelectBlockByNumber(ctx, currentBlockNumber-1)
-	if err1 != nil && !pkgerrors.Is(err1, sql.ErrNoRows) {
+	if err1 != nil && !errors.Is(err1, sql.ErrNoRows) {
 		// If err is not a 'no rows' error, assume transient db issue and retry
 		lp.lggr.Warnw("Unable to read latestBlockNumber currentBlock saved", "err", err1, "currentBlockNumber", currentBlockNumber)
-		return nil, pkgerrors.New("Unable to read latestBlockNumber currentBlock saved")
+		return nil, errors.New("Unable to read latestBlockNumber currentBlock saved")
 	}
 	// We will not have the previous currentBlock on initial poll.
 	havePreviousBlock := err1 == nil
@@ -880,7 +931,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		blockAfterLCA, err2 := lp.findBlockAfterLCA(ctx, currentBlock, expectedParent.FinalizedBlockNumber)
 		if err2 != nil {
 			lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err2)
-			return nil, pkgerrors.New("Unable to find LCA after reorg, retrying")
+			return nil, errors.New("Unable to find LCA after reorg, retrying")
 		}
 
 		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number, "currentBlockNumber", currentBlockNumber)
@@ -970,7 +1021,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	for {
 		h := currentBlock.Hash
 		var logs []types.Log
-		logs, err = lp.ec.FilterLogs(ctx, lp.Filter(nil, nil, &h))
+		logs, err = lp.fetchLogs(ctx, nil, nil, &h)
 		if err != nil {
 			lp.lggr.Warnw("Unable to query for logs, retrying", "err", err, "block", currentBlockNumber)
 			return
@@ -1063,7 +1114,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 		}
 	}
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
-	rerr := pkgerrors.New("Reorg greater than finality depth")
+	rerr := errors.New("Reorg greater than finality depth")
 	lp.SvcErrBuffer.Append(rerr)
 	lp.finalityViolated.Store(true)
 	return nil, rerr
@@ -1246,7 +1297,7 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]Lo
 	}
 
 	if len(blocksNotFound) > 0 {
-		return nil, pkgerrors.Errorf("blocks were not found in db or RPC call: %v", blocksNotFound)
+		return nil, fmt.Errorf("blocks were not found in db or RPC call: %v", blocksNotFound)
 	}
 
 	return blocks, nil
@@ -1287,6 +1338,321 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	return logPollerBlocks, nil
 }
 
+// mergeAddressesIntoGetLogsReq merges a new list of addresses into a GetLogs req,
+// while preserving sort order and removing duplicates
+func mergeAddressesIntoGetLogsReq(req *GetLogsBatchElem, newAddresses []common.Address) {
+	var merged []common.Address
+	var i, j int
+	addresses := req.Addresses()
+
+	for i < len(addresses) && j < len(newAddresses) {
+		cmp := bytes.Compare(newAddresses[j].Bytes(), addresses[i].Bytes())
+		if cmp < 0 {
+			merged = append(merged, newAddresses[j])
+			j++
+		} else if cmp > 0 {
+			merged = append(merged, addresses[i])
+			i++
+		} else {
+			merged = append(merged, addresses[i])
+			i++
+			j++ // only keep original, skip duplicate
+			continue
+		}
+	}
+
+	// Append remaining elements, if any
+	merged = append(merged, newAddresses[j:]...)
+	merged = append(merged, addresses[i:]...)
+
+	req.SetAddresses(merged)
+}
+
+// isTopicsSubset returns true if all of the sets in the list topicsA are subsets of or equal to the sets in topicsB.
+// topicsA and topicsB each contain 4 (or any equal number of) sets of slices of topic values.
+//
+// Interpreting A & B as filters on the same contract address, "true" means that anything matching A will match B
+//
+// Assumptions:
+// - topicsA and topicsB must have the same length (outer dimension)
+// - every element of topicsA & topicsB are sorted lists containing no duplicates
+func isTopicsSubset(topicsA [][]common.Hash, topicsB [][]common.Hash) bool {
+	if len(topicsA) != len(topicsB) {
+		panic(fmt.Sprintf("Assumption violation: isTopicsSubset called with len(topicsA)=%d != len(topicsB)=%d", len(topicsA), len(topicsB)))
+	}
+
+	for i := range topicsA {
+		if len(topicsB[i]) == 0 {
+			continue // nil/empty list of topics matches all values, so topicsA[n] automatically a subset
+		}
+		if len(topicsA[i]) == 0 {
+			return false // topicsA[n] matches all values, but not topicsB[n], so topicsA is not a subset
+		}
+		topicsMapB := make(map[common.Hash]interface{})
+		for _, b := range topicsB[i] {
+			topicsMapB[b] = struct{}{}
+		}
+		for _, a := range topicsA[i] {
+			if _, ok := topicsMapB[a]; !ok {
+				return false
+			}
+		}
+		//j := 0
+		//for _, valA := range topicsA[i] { // check that each element of topicsA[n] is in topicsB[n]
+		//	found := false
+		//	for ; j < len(topicsB[i]); j++ {
+		//		cmp := bytes.Compare(topicsB[i][j].Bytes(), valA.Bytes())
+		//		if cmp > 0 { // if topicsB[i][j] > valA,
+		//			return false //    valA not found in topicsB[n]
+		//		} else if cmp == 0 { // if valA found in topicsB[n],
+		//			found = true
+		//			break //    check next element of topicsA[n]
+		//		}
+		//	}
+		//	if !found {
+		//		return false // valA not found in topicsB[n]
+		//	}
+		//}
+	}
+	return true
+}
+
+func makeEventsTopicsKey(filter Filter) string {
+	// eventsTopicsKey is constructed to uniquely identify the particular combination of
+	// eventSigs and topics sets a filter has. Because we don't want the key to depend on
+	// the order of eventSigs, or the order of topic values for a specific topic index, we
+	// must make sure these 4 lists are sorted in the same way
+
+	size := len(filter.EventSigs[0])*(len(filter.EventSigs)+len(filter.Topic2)+len(filter.Topic3)+len(filter.Topic4)) + 4
+	var eventsTopicsKey = make([]byte, 0, size)
+
+	appendHashes := func(hashes []common.Hash) {
+		for _, h := range hashes {
+			eventsTopicsKey = append(eventsTopicsKey, h[:]...)
+		}
+		eventsTopicsKey = append(eventsTopicsKey, 0xFF) // separator
+	}
+	appendHashes(filter.EventSigs)
+	appendHashes(filter.Topic2)
+	appendHashes(filter.Topic3)
+	appendHashes(filter.Topic4)
+	return hex.EncodeToString(eventsTopicsKey)
+}
+
+func compareBlockNumbers(n, m *big.Int) (cmp int) {
+	if n != nil && m != nil {
+		return int(m.Uint64() - n.Uint64())
+	}
+	if n == nil {
+		cmp--
+	}
+	if m == nil {
+		cmp++
+	}
+	return cmp
+}
+
+// Exposes ethGetLogsReqs to tests, casting the results to []GetLogBatchElem and sorting them to make
+// the output more predictable and convenient for assertions
+func (lp *logPoller) EthGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *common.Hash) []GetLogsBatchElem {
+	rawReqs := lp.ethGetLogsReqs(fromBlock, toBlock, blockHash)
+	reqs := make([]GetLogsBatchElem, len(rawReqs))
+	for i := range rawReqs {
+		reqs[i] = GetLogsBatchElem(rawReqs[i])
+	}
+
+	slices.SortStableFunc(reqs, func(a, b GetLogsBatchElem) int {
+		nilA, nilB := a.BlockHash() == nil, b.BlockHash() == nil
+		if nilA && !nilB {
+			return -1
+		} else if !nilA && nilB {
+			return 1
+		}
+		if !nilB && !nilA {
+			if cmp := bytes.Compare(a.BlockHash()[:], b.BlockHash()[:]); cmp != 0 {
+				return cmp
+			}
+		}
+
+		if cmp := compareBlockNumbers(a.FromBlock(), b.FromBlock()); cmp != 0 {
+			return cmp
+		}
+
+		if cmp := compareBlockNumbers(a.ToBlock(), b.ToBlock()); cmp != 0 {
+			return cmp
+		}
+
+		addressesA, addressesB := a.Addresses(), b.Addresses()
+		if len(addressesA) != len(addressesB) {
+			return len(addressesA) - len(addressesB)
+		}
+		for i := range addressesA {
+			if cmp := bytes.Compare(addressesA[i][:], addressesB[i][:]); cmp != 0 {
+				return cmp
+			}
+		}
+
+		topicsA, topicsB := a.Topics(), b.Topics()
+		if len(topicsA) != len(topicsB) { // should both be 4, but may as well handle more general case
+			return len(topicsA) - len(topicsB)
+		}
+		for i := range topicsA {
+			if len(topicsA[i]) != len(topicsB[i]) {
+				return len(topicsA[i]) - len(topicsB[i])
+			}
+			for j := range topicsA[i] {
+				if cmp := bytes.Compare(topicsA[i][j][:], topicsB[i][j][:]); cmp != 0 {
+					return cmp
+				}
+			}
+		}
+		return 0 // a and b are identical
+	})
+	return reqs
+}
+
+// ethGetLogsReqs generates a batched rpc reqs for all logs matching registered filters,
+// copying cached reqs and filling in block range/hash if none of the registered filters have changed
+func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *common.Hash) []rpc.BatchElem {
+	lp.lggr.Warnf("ethGetLogsReqs called with fromBlock=%v, toBlock=%v, blockHash=%v", fromBlock, toBlock, blockHash)
+	lp.filtersMu.Lock()
+	if len(lp.removedFilters) != 0 || len(lp.newFilters) != 0 {
+		eventsTopicsKeys := map[string]string{}
+		deletedAddresses := map[common.Address]struct{}{}
+		deletedEventsTopicsKeys := map[string]struct{}{}
+
+		// First, remove any reqs corresponding to removed filters
+		// Some of them we may still need, they will be rebuilt on the next pass
+		for _, filter := range lp.removedFilters {
+			eventsTopicsKeys[filter.Name] = makeEventsTopicsKey(filter)
+			deletedEventsTopicsKeys[eventsTopicsKeys[filter.Name]] = struct{}{}
+			delete(lp.cachedReqsByEventsTopicsKey, eventsTopicsKeys[filter.Name])
+			for _, address := range filter.Addresses {
+				deletedAddresses[address] = struct{}{}
+				delete(lp.cachedReqsByAddress, address)
+			}
+		}
+		lp.removedFilters = nil
+
+		// Merge/add any new filters.
+		for _, filter := range lp.filters {
+			var newReq *GetLogsBatchElem
+
+			eventsTopicsKey, ok := eventsTopicsKeys[filter.Name]
+			if !ok {
+				eventsTopicsKey = makeEventsTopicsKey(filter)
+			}
+
+			_, isNew := lp.newFilters[filter.Name]
+
+			_, hasDeletedTopics := deletedEventsTopicsKeys[eventsTopicsKey]
+			var hasDeletedAddress bool
+			for _, addr := range filter.Addresses {
+				if _, hasDeletedAddress = deletedAddresses[addr]; hasDeletedAddress {
+					break
+				}
+			}
+
+			if !(isNew || hasDeletedTopics || hasDeletedAddress) {
+				continue // only rebuild reqs associated with new filters or those sharing topics or addresses with a removed filter
+			}
+
+			if req, ok := lp.cachedReqsByEventsTopicsKey[eventsTopicsKey]; ok {
+				// merge this filter with other filters with the same events and topics lists
+				mergeAddressesIntoGetLogsReq(req, filter.Addresses)
+				continue
+			}
+
+			for _, addr := range filter.Addresses {
+				if reqsForAddress, ok := lp.cachedReqsByAddress[addr]; !ok {
+					newReq = NewGetLogsReq(filter)
+					lp.cachedReqsByEventsTopicsKey[eventsTopicsKey] = newReq
+					lp.cachedReqsByAddress[addr] = []*GetLogsBatchElem{newReq}
+				} else {
+					newTopics := [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4}
+
+					for i, req := range reqsForAddress {
+						topics := req.Topics()
+						if isTopicsSubset(newTopics, topics) {
+							// Already covered by existing req
+							break
+						} else if isTopicsSubset(topics, newTopics) {
+							// Replace existing req by new req which includes it
+							reqsForAddress[i] = NewGetLogsReq(filter)
+							lp.cachedReqsByAddress[addr] = reqsForAddress
+							break
+						}
+						// Nothing similar enough found for this address, add a new req
+						lp.cachedReqsByEventsTopicsKey[eventsTopicsKey] = NewGetLogsReq(filter)
+						lp.cachedReqsByAddress[addr] = append(reqsForAddress, lp.cachedReqsByEventsTopicsKey[eventsTopicsKey])
+					}
+				}
+			}
+		}
+		lp.newFilters = make(map[string]struct{})
+	}
+	lp.filtersMu.Unlock()
+
+	// Fill fromBlock, toBlock, & blockHash while copying cached reqs into a result array
+	reqs := make([]rpc.BatchElem, 0, len(lp.cachedReqsByEventsTopicsKey))
+	for _, req := range lp.cachedReqsByEventsTopicsKey {
+		reqs = append(reqs, rpc.BatchElem{
+			Method: req.Method,
+			Args: []interface{}{
+				map[string]interface{}{
+					"addresses": req.Addresses(),
+					"topics":    req.Topics(),
+					"fromBlock": fromBlock,
+					"toBlock":   toBlock,
+					"blockHash": blockHash,
+				},
+			},
+			Result: new([]types.Log),
+		})
+	}
+
+	return reqs
+}
+
+// fetchLogs fetches logs for either a single block by block hash, or by block range,
+// rebuilding the cached reqs if necessary, sending them to the rpc server, and parsing the results
+// Requests for different filters are sent in parallel batches. For block range requests, the
+// block range is also broken up into serial batches
+func (lp *logPoller) fetchLogs(ctx context.Context, fromBlock *big.Int, toBlock *big.Int, blockHash *common.Hash) ([]types.Log, error) {
+	reqs := lp.ethGetLogsReqs(fromBlock, toBlock, blockHash)
+	if err := lp.sendBatchedRequests(ctx, lp.rpcBatchSize, reqs); err != nil {
+		return nil, err
+	}
+
+	var logs []types.Log
+	for _, req := range reqs {
+		if req.Error != nil {
+			return nil, req.Error
+		}
+		res, ok := req.Result.(*[]types.Log)
+		if !ok {
+			return nil, fmt.Errorf("expected result type %T from eth_getLogs request, got %T", res, req.Result)
+		}
+		logs = append(logs, *res...)
+	}
+	return logs, nil
+}
+
+func (lp *logPoller) sendBatchedRequests(ctx context.Context, batchSize int64, reqs []rpc.BatchElem) error {
+	for i := 0; i < len(reqs); i += int(batchSize) {
+		j := i + int(batchSize)
+		if j > len(reqs) {
+			j = len(reqs)
+		}
+
+		err := lp.ec.BatchCallContext(ctx, reqs[i:j])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []string, batchSize int64) ([]*evmtypes.Head, error) {
 	reqs := make([]rpc.BatchElem, 0, len(blocksRequested))
 	for _, num := range blocksRequested {
@@ -1298,16 +1664,9 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []str
 		reqs = append(reqs, req)
 	}
 
-	for i := 0; i < len(reqs); i += int(batchSize) {
-		j := i + int(batchSize)
-		if j > len(reqs) {
-			j = len(reqs)
-		}
-
-		err := lp.ec.BatchCallContext(ctx, reqs[i:j])
-		if err != nil {
-			return nil, err
-		}
+	err := lp.sendBatchedRequests(ctx, batchSize, reqs)
+	if err != nil {
+		return nil, err
 	}
 
 	var blocks = make([]*evmtypes.Head, 0, len(reqs))
@@ -1318,16 +1677,16 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []str
 		block, is := r.Result.(*evmtypes.Head)
 
 		if !is {
-			return nil, pkgerrors.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
+			return nil, fmt.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
 		}
 		if block == nil {
-			return nil, pkgerrors.New("invariant violation: got nil block")
+			return nil, errors.New("invariant violation: got nil block")
 		}
 		if block.Hash == (common.Hash{}) {
-			return nil, pkgerrors.Errorf("missing block hash for block number: %d", block.Number)
+			return nil, fmt.Errorf("missing block hash for block number: %d", block.Number)
 		}
 		if block.Number < 0 {
-			return nil, pkgerrors.Errorf("expected block number to be >= to 0, got %d", block.Number)
+			return nil, fmt.Errorf("expected block number to be >= to 0, got %d", block.Number)
 		}
 		blocks = append(blocks, block)
 	}

@@ -54,8 +54,8 @@ func validateFiltersTable(t *testing.T, lp *logPoller, orm ORM) {
 
 func TestLogPoller_RegisterFilter(t *testing.T) {
 	t.Parallel()
-	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
-	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
+	a1 := common.HexToAddress("0x2Ab9A2Dc53736b361b72D900Cdf9f78F9406FBBb")
+	a2 := common.HexToAddress("0x2Ab9A2Dc53736b361b72D900Cdf9f78F9406FBBc")
 
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.NewRandomEVMChainID()
@@ -73,29 +73,64 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	}
 	lp := NewLogPoller(orm, nil, lggr, lpOpts)
 
-	// We expect a zero Filter if nothing registered yet.
-	f := lp.Filter(nil, nil, nil)
-	require.Equal(t, 1, len(f.Addresses))
-	assert.Equal(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), f.Addresses[0])
-
-	err := lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1", EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID}, Addresses: []common.Address{a1}})
+	// We expect empty list of reqs if nothing registered yet.
+	reqs := lp.EthGetLogsReqs(nil, nil, nil)
+	require.Len(t, reqs, 0)
+	topics1 := [][]common.Hash{{EmitterABI.Events["Log1"].ID}, nil, nil, nil}
+	topics2 := [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, nil, nil, nil}
+	err := lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1, address 1", EventSigs: topics1[0], Addresses: []common.Address{a1}})
 	require.NoError(t, err)
-	assert.Equal(t, []common.Address{a1}, lp.Filter(nil, nil, nil).Addresses)
-	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.Filter(nil, nil, nil).Topics)
+	reqs = lp.EthGetLogsReqs(nil, nil, nil)
+	require.Len(t, reqs, 1)
+	assert.Equal(t, []common.Address{a1}, reqs[0].Addresses())
+	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}, nil, nil, nil}, reqs[0].Topics())
 	validateFiltersTable(t, lp, orm)
 
-	// Should de-dupe EventSigs
-	err = lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1 + 2", EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, Addresses: []common.Address{a2}})
+	err = lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1 + 2, address 2", EventSigs: topics2[0], Addresses: []common.Address{a2}})
 	require.NoError(t, err)
-	assert.Equal(t, []common.Address{a1, a2}, lp.Filter(nil, nil, nil).Addresses)
-	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter(nil, nil, nil).Topics)
+	reqs = lp.EthGetLogsReqs(nil, nil, nil)
+	require.Len(t, reqs, 2) // should have 2 separate reqs, since these cannot be merged
+	getLogsReq1 := reqs[0]
+	getLogsReq2 := reqs[1]
+	addresses1 := reqs[0].Addresses()
+	require.Len(t, addresses1, 1)
+	addresses2 := reqs[1].Addresses()
+	require.Len(t, addresses2, 1)
+	assert.Equal(t, a1, addresses1[0])
+	assert.Equal(t, a2, addresses2[0])
+	assert.Equal(t, topics1, getLogsReq1.Topics())
+	assert.Equal(t, topics2, getLogsReq2.Topics())
 	validateFiltersTable(t, lp, orm)
 
-	// Should de-dupe Addresses
-	err = lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1 + 2 dupe", EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, Addresses: []common.Address{a2}})
+	// Reqs should not change when a duplicate filter is added
+	err = lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1 + 2 dupe", EventSigs: topics2[0], Addresses: []common.Address{a2}})
 	require.NoError(t, err)
-	assert.Equal(t, []common.Address{a1, a2}, lp.Filter(nil, nil, nil).Addresses)
-	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}, lp.Filter(nil, nil, nil).Topics)
+	reqs = lp.EthGetLogsReqs(nil, nil, nil)
+	require.Len(t, reqs, 2)
+	assert.Equal(t, []common.Address{a1}, reqs[0].Addresses())
+	assert.Equal(t, topics1, reqs[0].Topics())
+	assert.Equal(t, []common.Address{a2}, reqs[1].Addresses())
+	assert.Equal(t, topics2, reqs[1].Topics())
+	validateFiltersTable(t, lp, orm)
+
+	// Same address as "Emitter Log 1 + 2, address 2", but only looking for Log1 (subset of topics). Recs should not change
+	err = lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 2, address 2", EventSigs: evmtypes.HashArray{topics2[0][1]}, Addresses: []common.Address{a2}})
+	require.NoError(t, err)
+	reqs = lp.EthGetLogsReqs(nil, nil, nil)
+	require.Len(t, reqs, 2)
+	assert.Equal(t, []common.Address{a1}, reqs[0].Addresses())
+	assert.Equal(t, topics1, reqs[0].Topics())
+	assert.Equal(t, []common.Address{a2}, reqs[1].Addresses())
+	assert.Equal(t, topics2, reqs[1].Topics())
+	validateFiltersTable(t, lp, orm)
+
+	// Same address as "Emitter Log 1, address 1", but different topics lists. Should create new rec
+	err = lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 2, address 1", EventSigs: evmtypes.HashArray{topics2[0][1]}, Addresses: []common.Address{a1}})
+	require.NoError(t, err)
+	reqs = lp.EthGetLogsReqs(nil, nil, nil)
+	require.Len(t, reqs, 3)
+	assert.Equal(t, []common.Address{a1}, reqs[1].Addresses())
+	assert.Equal(t, [][]common.Hash{{topics2[0][1]}, nil, nil, nil}, reqs[1].Topics())
 	validateFiltersTable(t, lp, orm)
 
 	// Address required.
@@ -113,35 +148,46 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.Contains(t, observedLogs.TakeAll()[0].Entry.Message, "not found")
 
 	// Check that all filters are still there
-	_, ok := lp.filters["Emitter Log 1"]
-	require.True(t, ok, "'Emitter Log 1 Filter' missing")
-	_, ok = lp.filters["Emitter Log 1 + 2"]
-	require.True(t, ok, "'Emitter Log 1 + 2' Filter missing")
+	_, ok := lp.filters["Emitter Log 1, address 1"]
+	require.True(t, ok, "'Emitter Log 1, address 1' Filter missing")
+	_, ok = lp.filters["Emitter Log 1 + 2, address 2"]
+	require.True(t, ok, "'Emitter Log 1 + 2, address 2' Filter missing")
 	_, ok = lp.filters["Emitter Log 1 + 2 dupe"]
 	require.True(t, ok, "'Emitter Log 1 + 2 dupe' Filter missing")
+	_, ok = lp.filters["Emitter Log 2, address 2"]
+	require.True(t, ok, "'Emitter Log 2, address 2' Filter missing")
+	_, ok = lp.filters["Emitter Log 2, address 1"]
+	require.True(t, ok, "'Emitter Log 2, address 1' Filter missing")
 
 	// Removing an existing Filter should remove it from both memory and db
-	err = lp.UnregisterFilter(ctx, "Emitter Log 1 + 2")
+	err = lp.UnregisterFilter(ctx, "Emitter Log 1 + 2, address 2")
 	require.NoError(t, err)
-	_, ok = lp.filters["Emitter Log 1 + 2"]
+	_, ok = lp.filters["Emitter Log 1 + 2, address 2"]
 	require.False(t, ok, "'Emitter Log 1 Filter' should have been removed by UnregisterFilter()")
-	require.Len(t, lp.filters, 2)
+	require.Len(t, lp.filters, 4)
 	validateFiltersTable(t, lp, orm)
 
 	err = lp.UnregisterFilter(ctx, "Emitter Log 1 + 2 dupe")
 	require.NoError(t, err)
-	err = lp.UnregisterFilter(ctx, "Emitter Log 1")
+	err = lp.UnregisterFilter(ctx, "Emitter Log 1, address 1")
+	require.NoError(t, err)
+	err = lp.UnregisterFilter(ctx, "Emitter Log 2, address 1")
+	require.NoError(t, err)
+	err = lp.UnregisterFilter(ctx, "Emitter Log 2, address 2")
 	require.NoError(t, err)
 	assert.Len(t, lp.filters, 0)
 	filters, err := lp.orm.LoadFilters(ctx)
 	require.NoError(t, err)
 	assert.Len(t, filters, 0)
 
+	require.Len(t, lp.newFilters, 0)
+	require.Len(t, lp.removedFilters, 5)
+
+	lp.EthGetLogsReqs(nil, nil, nil)
+
 	// Make sure cache was invalidated
-	assert.Len(t, lp.Filter(nil, nil, nil).Addresses, 1)
-	assert.Equal(t, lp.Filter(nil, nil, nil).Addresses[0], common.HexToAddress("0x0000000000000000000000000000000000000000"))
-	assert.Len(t, lp.Filter(nil, nil, nil).Topics, 1)
-	assert.Len(t, lp.Filter(nil, nil, nil).Topics[0], 0)
+	assert.Len(t, lp.cachedReqsByEventsTopicsKey, 0)
+	assert.Len(t, lp.cachedReqsByAddress, 0)
 }
 
 func TestLogPoller_ConvertLogs(t *testing.T) {
@@ -200,27 +246,15 @@ func TestFilterName(t *testing.T) {
 }
 
 func TestLogPoller_BackupPollerStartup(t *testing.T) {
-	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 
 	head := evmtypes.Head{Number: 3}
-	events := []common.Hash{EmitterABI.Events["Log1"].ID}
-	log1 := types.Log{
-		Index:       0,
-		BlockHash:   common.Hash{},
-		BlockNumber: uint64(3),
-		Topics:      events,
-		Address:     addr,
-		TxHash:      common.HexToHash("0x1234"),
-		Data:        EvmWord(uint64(300)).Bytes(),
-	}
 
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
-	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 
 	ctx := testutils.Context(t)
@@ -258,19 +292,10 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	head := evmtypes.Head{Number: 4}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
-	log1 := types.Log{
-		Index:       0,
-		BlockHash:   common.Hash{},
-		BlockNumber: uint64(head.Number),
-		Topics:      events,
-		Address:     addr,
-		TxHash:      common.HexToHash("0x1234"),
-		Data:        EvmWord(uint64(300)).Bytes(),
-	}
 
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
-	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Twice()
+	ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Twice()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
@@ -281,6 +306,9 @@ func TestLogPoller_Replay(t *testing.T) {
 		BackupPollerBlockDelay:   100,
 	}
 	lp := NewLogPoller(orm, ec, lggr, lpOpts)
+
+	err := lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1", EventSigs: events, Addresses: []common.Address{addr}})
+	require.NoError(t, err)
 
 	// process 1 log in block 3
 	lp.PollAndSaveLogs(ctx, 4)
@@ -344,7 +372,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		rctx, rcancel := context.WithCancel(testutils.Context(t))
 		var wg sync.WaitGroup
 		defer func() { wg.Wait() }()
-		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+		ec.On("BatchCallContext", mock.Anything, mock.Anything).Once().Return(nil).Run(func(args mock.Arguments) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -352,7 +380,7 @@ func TestLogPoller_Replay(t *testing.T) {
 				close(cancelled)
 			}()
 		})
-		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+		ec.On("BatchCallContext", mock.Anything, mock.Anything).Once().Return(nil).Run(func(args mock.Arguments) {
 			rcancel()
 			wg.Add(1)
 			go func() {
@@ -369,7 +397,7 @@ func TestLogPoller_Replay(t *testing.T) {
 			<-cancelled
 		})
 
-		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
+		ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Maybe() // in case task gets delayed by >= 100ms
 
 		t.Cleanup(lp.reset)
 		servicetest.Run(t, lp)
@@ -382,7 +410,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 
 	// remove Maybe expectation from prior subtest, as it will override all expected calls in future subtests
-	ec.On("FilterLogs", mock.Anything, mock.Anything).Unset()
+	ec.On("BatchCallContext", mock.Anything, mock.Anything).Unset()
 
 	// run() should abort if log poller shuts down while replay is in progress
 	t.Run("shutdown during replay", func(t *testing.T) {
@@ -392,7 +420,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		done := make(chan struct{})
 		defer func() { <-done }()
 
-		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+		ec.On("BatchCallContext", mock.Anything, mock.Anything).Once().Return(nil).Run(func(args mock.Arguments) {
 			go func() {
 				defer close(done)
 				select {
@@ -401,11 +429,11 @@ func TestLogPoller_Replay(t *testing.T) {
 				}
 			}()
 		})
-		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
+		ec.On("BatchCallContext", mock.Anything, mock.Anything).Once().Return(nil).Run(func(args mock.Arguments) {
 			lp.cancel()
 			close(pass)
 		})
-		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
+		ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Maybe() // in case task gets delayed by >= 100ms
 
 		t.Cleanup(lp.reset)
 		servicetest.Run(t, lp)
@@ -554,8 +582,58 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	})
 }
 
-func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
+func Test_GetLogsReqHelpers(t *testing.T) {
+	t.Parallel()
+
+	filter1 := Filter{
+		Name:      "filter1",
+		Addresses: evmtypes.AddressArray{testutils.NewAddress()},
+		EventSigs: evmtypes.HashArray{EmitterABI.Events["Log1"].ID},
+		Topic2:    nil,
+	}
+
+	blockHash := common.HexToHash("0x1234")
+
+	testCases := []struct {
+		name      string
+		filter    Filter
+		fromBlock *big.Int
+		toBlock   *big.Int
+		blockHash *common.Hash
+	}{
+		{"basic", filter1, big.NewInt(5), big.NewInt(10), nil},
+		{"b", filter1, nil, nil, &blockHash},
+	}
+
+	for _, c := range testCases {
+		var req *GetLogsBatchElem
+		t.Run("createGetLogsRec", func(t *testing.T) {
+			req = NewGetLogsReq(filter1)
+			assert.Equal(t, req.Method, "eth_getLogs")
+			require.Len(t, req.Args, 1)
+			assert.Equal(t, c.filter.Addresses, evmtypes.AddressArray(req.Addresses()))
+			assert.Equal(t, c.filter.EventSigs, evmtypes.HashArray(req.Topics()[0]))
+			assert.Equal(t, c.filter.Topic2, evmtypes.HashArray(req.Topics()[1]))
+			assert.Equal(t, c.filter.Topic3, evmtypes.HashArray(req.Topics()[2]))
+			assert.Equal(t, c.filter.Topic4, evmtypes.HashArray(req.Topics()[3]))
+
+		})
+		t.Run("appendAddressesToGetLogsRec", func(t *testing.T) {
+			newAddresses := []common.Address{testutils.NewAddress(), testutils.NewAddress()}
+			mergeAddressesIntoGetLogsReq(req, newAddresses)
+			assert.Len(t, req.Addresses(), len(c.filter.Addresses)+2)
+			assert.Contains(t, req.Addresses(), newAddresses[0])
+			assert.Contains(t, req.Addresses(), newAddresses[1])
+		})
+	}
+}
+
+func benchmarkEthGetLogsReqs(b *testing.B, nFilters, nAddresses, nEvents int) {
 	lggr := logger.Test(b)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(b)
+
+	orm := NewORM(chainID, db, lggr)
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
 		FinalityDepth:            2,
@@ -563,7 +641,7 @@ func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := NewLogPoller(nil, nil, lggr, lpOpts)
+	lp := NewLogPoller(orm, nil, lggr, lpOpts)
 	for i := 0; i < nFilters; i++ {
 		var addresses []common.Address
 		var events []common.Hash
@@ -578,16 +656,16 @@ func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 	}
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		lp.Filter(nil, nil, nil)
+		lp.EthGetLogsReqs(nil, nil, nil)
 	}
 }
 
-func BenchmarkFilter10_1(b *testing.B) {
-	benchmarkFilter(b, 10, 1, 1)
+func BenchmarkEthGetLogsReqs10_1(b *testing.B) {
+	benchmarkEthGetLogsReqs(b, 10, 1, 1)
 }
-func BenchmarkFilter100_10(b *testing.B) {
-	benchmarkFilter(b, 100, 10, 10)
+func BenchmarkEthGetLogsReqs100_10(b *testing.B) {
+	benchmarkEthGetLogsReqs(b, 100, 10, 10)
 }
-func BenchmarkFilter1000_100(b *testing.B) {
-	benchmarkFilter(b, 1000, 100, 100)
+func BenchmarkEthGetLogsReqs1000_100(b *testing.B) {
+	benchmarkEthGetLogsReqs(b, 1000, 100, 100)
 }

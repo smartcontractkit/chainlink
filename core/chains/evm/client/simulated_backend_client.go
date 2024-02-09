@@ -749,7 +749,7 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 		// lastTopic is the topic index of the last non-nil topic slice
 		//  We have to drop any nil values in the topics slice after that due to a quirk in FilterLogs(),
 		//  which will only use nil as a wildcard if there are non-nil values after it in the slice
-		for i := 0; i < lastTopic; i++ {
+		for i := 0; i <= lastTopic; i++ {
 			topics = append(topics, tt[i])
 		}
 	}

@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -155,9 +156,19 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		Addresses: []common.Address{emitterAddress1},
 		Retention: 0}))
 	require.Nil(t, err)
-	require.Len(t, lp.Filter(nil, nil, nil).Addresses, 2)
-	require.Len(t, lp.Filter(nil, nil, nil).Topics, 1)
-	require.Len(t, lp.Filter(nil, nil, nil).Topics[0], 3)
+	reqs := lp.EthGetLogsReqs(nil, nil, nil)
+	require.Len(t, reqs, 2)
+	req1, req2 := reqs[0], reqs[1]
+	if bytes.Compare(vrfLogEmitterAddress[:], emitterAddress1[:]) < 0 {
+		// reqs will come back sorted by address; swap if necessary, so that rec1 is emitterAddress1
+		req1, req2 = req2, req1
+	}
+	require.Len(t, req1.Addresses(), 1)
+	require.Len(t, req1.Topics(), 4)
+	require.Len(t, req1.Topics()[0], 1)
+	require.Len(t, req2.Addresses(), 1)
+	require.Len(t, req2.Topics(), 4)
+	require.Len(t, req2.Topics()[0], 2)
 
 	th := &vrfLogPollerListenerTH{
 		Lggr:              lggr,
