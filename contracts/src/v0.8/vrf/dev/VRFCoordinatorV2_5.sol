@@ -473,16 +473,18 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function _chargePayment(uint96 payment, bool nativePayment, uint256 subId) internal {
     if (nativePayment) {
-      if (s_subscriptions[subId].nativeBalance < payment) {
+      uint96 prevBal = s_subscriptions[subId].nativeBalance;
+      if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].nativeBalance -= payment;
+      s_subscriptions[subId].nativeBalance = prevBal - payment;
       s_withdrawableNative += payment;
     } else {
-      if (s_subscriptions[subId].balance < payment) {
+      uint96 prevBal = s_subscriptions[subId].balance;
+      if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].balance -= payment;
+      s_subscriptions[subId].balance = prevBal - payment;
       s_withdrawableTokens += payment;
     }
   }
