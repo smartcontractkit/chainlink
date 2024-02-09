@@ -165,10 +165,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @dev notably can be called even if there are pending requests, outstanding ones may fail onchain
    */
   function ownerCancelSubscription(uint256 subId) external onlyOwner {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    address owner = s_subscriptionConfigs[subId].owner;
+    if (owner == address(0)) {
       revert InvalidSubscription();
     }
-    _cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
+    _cancelSubscriptionHelper(subId, owner);
   }
 
   /**
