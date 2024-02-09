@@ -50,9 +50,13 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
+  // TODO re-adjust overheads
   uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_100; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
   uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_200; // Used in actual payment. overhead per upkeep performed
+
+  // TODO - 100 is just a placeholder, this needs to be measured & tested
+  uint256 internal constant MINIMUM_TRANSMIT_PAYLOAD_SIZE_BYTES = 100; // The minimum additional bytes overhead to add to max perform data size when estimating transmit costs
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
@@ -391,7 +395,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @member performSuccess whether the perform was successful
    * @member triggerType the type of trigger
    * @member gasUsed gasUsed by this upkeep in perform
-   * @member gasOverhead gasOverhead for this upkeep
    * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
@@ -401,7 +404,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     bool performSuccess;
     Trigger triggerType;
     uint256 gasUsed;
-    uint256 gasOverhead;
     bytes32 dedupID;
   }
 
@@ -594,7 +596,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @param gasOverhead the amount of gas overhead
    * @param fastGasWei the fast gas price
    * @param linkNative the exchange ratio between LINK and Native token
-   * @param numBatchedUpkeeps the number of upkeeps in this batch. Used to divide the L1 cost
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
@@ -603,25 +604,14 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     uint256 gasOverhead,
     uint256 fastGasWei,
     uint256 linkNative,
-    uint16 numBatchedUpkeeps,
-    bool isExecution
+    bool isExecution,
+    uint256 l1CostWei
   ) internal view returns (uint96, uint96) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (isExecution && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
-
-    uint256 l1CostWei = 0;
-    if (isExecution) {
-      l1CostWei = hotVars.chainModule.getCurrentL1Fee();
-    } else {
-      // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
-      l1CostWei = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize);
-    }
-    // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
-    l1CostWei = l1CostWei / numBatchedUpkeeps;
-
     uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / linkNative;
     uint256 premium = (((gasWei * gasLimit) + l1CostWei) * 1e9 * hotVars.paymentPremiumPPB) /
       linkNative +
@@ -642,6 +632,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     uint32 performDataLength,
     uint256 fastGasWei,
     uint256 linkNative,
+    uint256 l1CostWei,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (uint96) {
     uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
@@ -651,11 +642,17 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       gasOverhead,
       fastGasWei,
       linkNative,
-      1, // Consider only 1 upkeep in batch to get maxPayment
-      isExecution
+      isExecution,
+      l1CostWei
     );
 
     return reimbursement + premium;
+  }
+
+  function _getMaxL1Fee(HotVars memory hotVars) internal view returns (uint256) {
+    return
+      hotVars.gasCeilingMultiplier *
+      hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize + MINIMUM_TRANSMIT_PAYLOAD_SIZE_BYTES);
   }
 
   /**
@@ -905,40 +902,36 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     UpkeepTransmitInfo memory upkeepTransmitInfo,
     uint256 fastGasWei,
     uint256 linkNative,
-    uint16 numBatchedUpkeeps
+    uint256 gasOverhead,
+    uint256 l1Fee
   ) internal returns (uint96 gasReimbursement, uint96 premium) {
     (gasReimbursement, premium) = _calculatePaymentAmount(
       hotVars,
       upkeepTransmitInfo.gasUsed,
-      upkeepTransmitInfo.gasOverhead,
+      gasOverhead,
       fastGasWei,
       linkNative,
-      numBatchedUpkeeps,
-      true
+      true,
+      l1Fee
     );
 
+    uint96 balance = s_upkeep[upkeepId].balance;
     uint96 payment = gasReimbursement + premium;
+
+    // this shouldn't happen, but in rare cases, we charge the full balance in case the user can't cover the amount owed
+    if (balance < gasReimbursement) {
+      payment = balance;
+      gasReimbursement = balance;
+      premium = 0;
+    } else if (balance < payment) {
+      payment = balance;
+      premium = payment - gasReimbursement;
+    }
+
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
 
     return (gasReimbursement, premium);
-  }
-
-  /**
-   * @dev Caps the gas overhead by the constant overhead used within initial payment checks in order to
-   * prevent a revert in payment processing.
-   */
-  function _getCappedGasOverhead(
-    uint256 calculatedGasOverhead,
-    Trigger triggerType,
-    uint32 performDataLength,
-    uint8 f
-  ) internal pure returns (uint256 cappedGasOverhead) {
-    cappedGasOverhead = _getMaxGasOverhead(triggerType, performDataLength, f);
-    if (calculatedGasOverhead < cappedGasOverhead) {
-      return calculatedGasOverhead;
-    }
-    return cappedGasOverhead;
   }
 
   /**

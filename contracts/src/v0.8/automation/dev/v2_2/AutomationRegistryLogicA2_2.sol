@@ -78,6 +78,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       s_storage.maxPerformDataSize,
       fastGasWei,
       linkNative,
+      _getMaxL1Fee(hotVars),
       false
     );
     if (upkeep.balance < maxLinkPayment) {
