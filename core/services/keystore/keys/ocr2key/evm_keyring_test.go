@@ -9,9 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestEVMKeyring_SignVerify(t *testing.T) {
