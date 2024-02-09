@@ -373,8 +373,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     address newOwner
   ) external override onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
-    if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
-      s_subscriptionConfigs[subId].requestedOwner = newOwner;
+    SubscriptionConfig storage subscriptionConfig = s_subscriptionConfigs[subId];
+    if (subscriptionConfig.requestedOwner != newOwner) {
+      subscriptionConfig.requestedOwner = newOwner;
       emit SubscriptionOwnerTransferRequested(subId, msg.sender, newOwner);
     }
   }
