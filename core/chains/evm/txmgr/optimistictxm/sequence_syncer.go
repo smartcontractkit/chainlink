@@ -115,7 +115,7 @@ func (s *sequenceSyncer) SyncSequence(ctx context.Context, addr common.Address, 
 	}
 }
 
-func (s *sequenceSyncer) syncOnChain(ctx context.Context, addr common.Address, localSequence evmtypes.Nonce) (err error) {
+func (s *sequenceSyncer) syncOnChain(ctx context.Context, addr common.Address, localSequence evmtypes.Nonce) error {
 	chainSequence, err := s.client.PendingNonceAt(ctx, addr)
 	if err != nil {
 		return err

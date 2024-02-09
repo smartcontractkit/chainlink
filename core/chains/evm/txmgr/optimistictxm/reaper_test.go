@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -79,7 +80,7 @@ func TestReaper_ReapTxs(t *testing.T) {
 			BroadcastAt:        &oneDayAgo,
 			InitialBroadcastAt: &oneDayAgo,
 			Error:              null.String{},
-			State:              TxConfirmed,
+			State:              commontxmgr.TxConfirmed,
 		}
 
 		require.NoError(t, txStore.InsertTx(&txConfirmed))
@@ -110,7 +111,7 @@ func TestReaper_ReapTxs(t *testing.T) {
 			BroadcastAt:        &timeNow,
 			InitialBroadcastAt: &timeNow,
 			Error:              null.String{},
-			State:              TxConfirmed,
+			State:              commontxmgr.TxConfirmed,
 		}
 
 		require.NoError(t, txStore.InsertTx(&txUnconfirmed))

@@ -734,7 +734,9 @@ func (o *evmTxStore) MarkTxsConfirmed(ctx context.Context, chainID *big.Int, add
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	_, err := qq.Exec(`UPDATE evm.txes SET state = 'confirmed' WHERE evm_chain_id = $1 AND from_address = $2 AND nonce < $3`, chainID.String(), addr, minedNonce)
+	_, err := qq.Exec(`
+	UPDATE evm.txes SET state = 'confirmed'
+	WHERE state = 'unconfirmed' AND evm_chain_id = $1 AND from_address = $2 AND nonce < $3`, chainID.String(), addr, minedNonce)
 	return pkgerrors.Wrap(err, "MarkConfirmed failed to update evm.txes")
 }
 
@@ -1374,7 +1376,7 @@ func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err erro
 	return txe, nil
 }
 
-func (o *evmTxStore) FindTxsRequiringBumping(ctx context.Context, olderThan time.Time, maxInFlight uint32, chainID *big.Int, address common.Address, nonce evmtypes.Nonce) (etxs []Tx, err error) {
+func (o *evmTxStore) FindUnconfirmedTxsRequiringBumping(ctx context.Context, olderThan time.Time, maxInFlight uint32, chainID *big.Int, address common.Address, nonce evmtypes.Nonce) (etxs []Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1384,13 +1386,23 @@ func (o *evmTxStore) FindTxsRequiringBumping(ctx context.Context, olderThan time
 		limit = null.Uint32From(maxInFlight)
 	}
 	var dbEtxs []DbEthTx
-	err = qq.Select(&dbEtxs, `
-	SELECT DISTINCT ON (evm.txes.nonce) evm.txes.* FROM evm.txes
-	WHERE state IN ('unconfirmed', 'confirmed') AND from_address = $1 AND evm_chain_id = $2 AND broadcast_at <= $3 AND nonce >= $4 LIMIT $5
-`, address, chainID.String(), olderThan, nonce.Int64(), limit)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "FindEthTxsRequiringGasBump failed to load evm.txes")
-	}
+	err = qq.Transaction(func(tx pg.Queryer) error {
+
+		err = tx.Select(&dbEtxs, `
+	    SELECT DISTINCT ON (evm.txes.nonce) evm.txes.* FROM evm.txes
+	    WHERE state IN ('unconfirmed', 'confirmed') AND from_address = $1 AND evm_chain_id = $2 AND broadcast_at <= $3 AND nonce >= $4 LIMIT $5
+	    `, address, chainID.String(), olderThan, nonce.Int64(), limit)
+		if err != nil {
+			return pkgerrors.Wrap(err, "FindTxsRequiringBumping failed to load evm.txes")
+		}
+		var etxIDs []int64
+		for _, tx := range dbEtxs {
+			etxIDs = append(etxIDs, tx.ID)
+		}
+		_, err = qq.Exec(`UPDATE evm.txes SET state = 'unconfirmed' WHERE id = ANY($1)`, pq.Array(etxIDs))
+		return pkgerrors.Wrap(err, "FindTxsRequiringBumping failed to update evm.txes")
+
+	}, pg.OptReadOnlyTx())
 
 	return dbEthTxsToEvmEthTxs(dbEtxs), nil
 }
@@ -1637,14 +1649,12 @@ func (o *evmTxStore) UpdateTxInProgressToUnconfirmed(ctx context.Context, etx *T
 		return pkgerrors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
 	etx.State = txmgr.TxUnconfirmed
-	return qq.Transaction(func(tx pg.Queryer) error {
-		var dbEtx DbEthTx
-		dbEtx.FromTx(etx)
-		if err := tx.Get(&dbEtx, `UPDATE evm.txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, dbEtx.State, dbEtx.Error, dbEtx.BroadcastAt, dbEtx.InitialBroadcastAt, dbEtx.ID); err != nil {
-			return pkgerrors.Wrap(err, "SaveEthTxAttempt failed to save eth_tx")
-		}
-		return nil
-	})
+	var dbEtx DbEthTx
+	dbEtx.FromTx(etx)
+	if err := qq.Get(&dbEtx, `UPDATE evm.txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, dbEtx.State, dbEtx.Error, dbEtx.BroadcastAt, dbEtx.InitialBroadcastAt, dbEtx.ID); err != nil {
+		return pkgerrors.Wrap(err, "UpdateTxInProgressToUnconfirmed failed to save eth_tx")
+	}
+	return nil
 }
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.

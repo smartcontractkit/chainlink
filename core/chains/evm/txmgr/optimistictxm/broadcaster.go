@@ -19,22 +19,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	txmtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-const (
-	// InFlightTransactionRecheckInterval controls how often the Broadcaster
-	// will poll the unconfirmed queue to see if it is allowed to send another
-	// transaction
-	InFlightTransactionRecheckInterval = 1 * time.Second
-
-	TxUnstarted   = txmtypes.TxState("unstarted")
-	TxInProgress  = txmtypes.TxState("in_progress")
-	TxUnconfirmed = txmtypes.TxState("unconfirmed")
-	TxConfirmed   = txmtypes.TxState("confirmed")
-)
+// InFlightTransactionRecheckInterval controls how often the Broadcaster
+// will poll the unconfirmed queue to see if it is allowed to send another
+// transaction
+const InFlightTransactionRecheckInterval = 1 * time.Second
 
 var ErrTxRemoved = errors.New("tx removed")
 
@@ -103,7 +96,7 @@ func NewBroadcaster(
 	sequenceSyncer SequenceSyncer,
 ) *Broadcaster {
 	lggr = logger.Named(lggr, "Broadcaster")
-	b := &Broadcaster{
+	return &Broadcaster{
 		txAttemptBuilder: txAttemptBuilder,
 		lggr:             logger.Sugared(lggr),
 		txStore:          txStore,
@@ -113,8 +106,6 @@ func NewBroadcaster(
 		ks:               keystore,
 		sequenceSyncer:   sequenceSyncer,
 	}
-
-	return b
 }
 
 func (b *Broadcaster) Start(ctx context.Context) error {
@@ -141,7 +132,7 @@ func (b *Broadcaster) Start(ctx context.Context) error {
 			b.triggers[addr] = triggerCh
 			go b.monitorTxs(addr, triggerCh)
 		}
-		return nil
+		return
 	})
 }
 
@@ -287,7 +278,7 @@ func (b *Broadcaster) nextUnstartedTransactionWithSequence(fromAddress common.Ad
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("findNextUnstartedTransactionFromAddress failed: %w", err)
+		return nil, fmt.Errorf("FindNextUnstartedTransactionFromAddress failed: %w", err)
 	}
 
 	sequence, err := b.sequenceSyncer.GetNextSequence(ctx, tx.FromAddress)
@@ -296,7 +287,7 @@ func (b *Broadcaster) nextUnstartedTransactionWithSequence(fromAddress common.Ad
 	}
 	tx.Sequence = &sequence
 
-	if tx.State != TxUnstarted {
+	if tx.State != commontxmgr.TxUnstarted {
 		return nil, fmt.Errorf("invariant violation: expected transaction %v to be unstarted, it was %s", tx.ID, tx.State)
 	}
 
@@ -315,14 +306,14 @@ func (b *Broadcaster) handleAnyInProgressTx(ctx context.Context, fromAddress com
 		return fmt.Errorf("handleAnyInProgressTx failed: %w", err)
 	}
 	if tx == nil {
-		return err
+		return
 	}
 
 	return b.handleInProgressTx(ctx, *tx)
 }
 
 func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx txmgr.Tx) error {
-	if tx.State != TxInProgress {
+	if tx.State != commontxmgr.TxInProgress {
 		return fmt.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", tx.ID, tx.State)
 	}
 
@@ -338,7 +329,7 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx txmgr.Tx) error
 		return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
 	}
 	err = b.client.SendTransaction(ctx, signedTx)
-	lgr.Infow("Sent transaction", "tx", tx.PrettyPrint(), "attempt", attempt.PrettyPrint(), "error", err)
+	lgr.Infow("Sent transaction", tx.PrettyPrint(), attempt.PrettyPrint(), "error", err)
 
 	if err != nil {
 		nextSequence, e := b.client.PendingNonceAt(ctx, tx.FromAddress)

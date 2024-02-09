@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
@@ -122,7 +123,7 @@ func TestBroadcaster_ProcessUnstartedTxs_InProgress(t *testing.T) {
 			Value:          value,
 			FeeLimit:       gasLimit,
 			Error:          null.String{},
-			State:          TxInProgress,
+			State:          commontxmgr.TxInProgress,
 		}
 
 		err := txStore.InsertTx(&txInProgress)
@@ -154,7 +155,7 @@ func TestBroadcaster_ProcessUnstartedTxs_InProgress(t *testing.T) {
 			Value:          value,
 			FeeLimit:       gasLimit,
 			Error:          null.String{},
-			State:          TxInProgress,
+			State:          commontxmgr.TxInProgress,
 		}
 
 		err := txStore.InsertTx(&txInProgress)
@@ -221,7 +222,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 			BroadcastAt:        &timeNow,
 			InitialBroadcastAt: &timeNow,
 			Error:              null.String{},
-			State:              TxUnconfirmed,
+			State:              commontxmgr.TxUnconfirmed,
 		}
 
 		txUnstarted := txmgr.Tx{
@@ -230,7 +231,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          TxUnstarted,
+			State:          commontxmgr.TxUnstarted,
 		}
 
 		require.NoError(t, txStore.InsertTx(&txUnconfirmed))
@@ -264,7 +265,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          TxUnstarted,
+			State:          commontxmgr.TxUnstarted,
 		}
 
 		db := pgtest.NewSqlxDB(t)
@@ -299,7 +300,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 			EncodedPayload: encodedPayload,
 			Value:          value,
 			FeeLimit:       gasLimit,
-			State:          TxUnstarted,
+			State:          commontxmgr.TxUnstarted,
 		}
 
 		db := pgtest.NewSqlxDB(t)

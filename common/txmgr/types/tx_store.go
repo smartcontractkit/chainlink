@@ -109,7 +109,7 @@ type TransactionStore[
 	ReapTxs(context.Context, time.Time, SEQ, CHAIN_ID) error
 	MarkTxsConfirmed(context.Context, *big.Int, ADDR, SEQ) error
 	UpdateBroadcastAtsForUnconfirmed(context.Context, time.Time, []int64) error
-	FindTxsRequiringBumping(context.Context, time.Time, uint32, *big.Int, ADDR, SEQ) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
+	FindUnconfirmedTxsRequiringBumping(context.Context, time.Time, uint32, *big.Int, ADDR, SEQ) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
 	UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxFatalError(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxForRebroadcast(ctx context.Context, etx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error

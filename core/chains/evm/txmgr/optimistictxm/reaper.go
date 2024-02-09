@@ -97,7 +97,7 @@ func (r *Reaper) ReapTxs() error {
 	defer cancel()
 	threshold := r.config.ReaperThreshold
 	if threshold == 0 {
-		r.lggr.Debug("Transactions.ReaperThreshold  set to 0; skipping ReapTxs")
+		r.lggr.Debug("ReaperThreshold  set to 0; skipping ReapTxs")
 		return nil
 	}
 	mark := time.Now()
