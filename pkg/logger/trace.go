@@ -20,7 +20,7 @@ func (s *sugared) Trace(args ...interface{}) {
 	s.h.Error(append([]any{tracePrefix}, args...)...)
 }
 
-func (s *sugared) Tracef(format string, vals ...interface{}) {
+func (s *sugared) Tracef(format string, values ...interface{}) {
 	switch t := s.h.(type) {
 	case *logger:
 		t.DPanicf(format, values...)
@@ -65,7 +65,7 @@ func Trace(l Logger, args ...interface{}) {
 //	Sugared(l).Tracef(args...)
 func Tracef(l Logger, format string, values ...interface{}) {
 	s := &sugared{Logger: l, h: Helper(l, 2)}
-	s.Tracef(fromat, values...)
+	s.Tracef(format, values...)
 }
 
 // Deprecated: instead use [SugaredLogger.Tracew]:
