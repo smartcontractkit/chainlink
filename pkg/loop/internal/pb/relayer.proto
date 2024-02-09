@@ -129,19 +129,6 @@ message TransactionRequest {
   bool balanceCheck = 4;
 }
 
-service DataSource {
-  rpc Observe (ObserveRequest) returns (ObserveReply) {}
-}
-
-// ObserveRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.DataSource.Observe].
-message ObserveRequest {
-  ReportTimestamp reportTimestamp = 1;
-}
-
-// ObserveReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.DataSource.Observe].
-message ObserveReply {
-  BigInt value = 1;
-}
 
 service OffchainConfigDigester {
   rpc ConfigDigest (ConfigDigestRequest) returns (ConfigDigestReply) {}

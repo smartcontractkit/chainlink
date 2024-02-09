@@ -1,0 +1,41 @@
+syntax = "proto3";
+// this is it's own package to avoid name collision with median types like OnchainConfig and BuildReport
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/mercury/v3;mercuryv3pb";
+
+package loop.internal.pb.mercury.v3;
+
+
+// not: the generate.go file in this dir specifies the import path of the relative proto files
+import "relayer.proto";
+
+// DataSource is a gRPC adapter for [pkg/types/mercury/v1/DataSource]
+service DataSource {
+    rpc Observe(ObserveRequest) returns (ObserveResponse) {}
+}
+
+// ObserveRequest is the request payload for the Observe method, which is a gRPC adapter for input arguments of [pkg/types/mercury/v1/DataSource.Observe]
+message ObserveRequest {
+    ReportTimestamp report_timestamp = 1;
+    bool fetchMaxFinalizedBlockNum = 2;
+}
+
+// Block is a gRPC adapter for [pkg/types/mercury/v1/Block]
+message Block {
+    int64 number = 1;
+    bytes hash = 2;
+    uint64 timestamp = 3;
+}
+
+// Observation is a gRPC adapter for [pkg/types/mercury/v1/Observation]
+message Observation {
+    BigInt benchmarkPrice = 1;
+    BigInt bid = 2;
+    BigInt ask = 3;
+    int64 maxFinalizedTimestamp = 4;
+    BigInt linkPrice =5;
+    BigInt nativePrice = 6;
+}
+// ObserveResponse is the response payload for the Observe method, which is a gRPC adapter for output arguments of [pkg/types/mercury/v1/DataSource.Observe]
+message ObserveResponse {
+    Observation observation = 1;
+}

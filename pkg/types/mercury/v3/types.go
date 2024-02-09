@@ -1,6 +1,7 @@
 package v3
 
 import (
+	"context"
 	"math/big"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -33,6 +34,32 @@ type ReportCodec interface {
 	MaxReportLength(n int) (int, error)
 
 	ObservationTimestampFromReport(ocrtypes.Report) (uint32, error)
+}
+
+// DataSource implementations must be thread-safe. Observe may be called by many
+// different threads concurrently.
+type DataSource interface {
+	// Observe queries the data source. Returns a value or an error. Once the
+	// context is expires, Observe may still do cheap computations and return a
+	// result, but should return as quickly as possible.
+	//
+	// More details: In the current implementation, the context passed to
+	// Observe will time out after MaxDurationObservation. However, Observe
+	// should *not* make any assumptions about context timeout behavior. Once
+	// the context times out, Observe should prioritize returning as quickly as
+	// possible, but may still perform fast computations to return a result
+	// rather than error. For example, if Observe medianizes a number of data
+	// sources, some of which already returned a result to Observe prior to the
+	// context's expiry, Observe might still compute their median, and return it
+	// instead of an error.
+	//
+	// Important: Observe should not perform any potentially time-consuming
+	// actions like database access, once the context passed has expired.
+	//
+	// TODO/WARNING: the type of repts is ocrtypes.ReportTimestamp, but the type of the
+	// argument to Observe is types.ReportTimestamp. the underlying struct is the same, but
+	// updated here to be self-consistent.
+	Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (Observation, error)
 }
 
 type Observation struct {

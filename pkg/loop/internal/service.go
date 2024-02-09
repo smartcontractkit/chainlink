@@ -92,3 +92,15 @@ func (s *serviceServer) HealthReport(ctx context.Context, empty *emptypb.Empty) 
 	}
 	return &r, nil
 }
+
+func healthReport(s map[string]string) (hr map[string]error) {
+	hr = make(map[string]error, len(s))
+	for n, e := range s {
+		var err error
+		if e != "" {
+			err = errors.New(e)
+		}
+		hr[n] = err
+	}
+	return hr
+}

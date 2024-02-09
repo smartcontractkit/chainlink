@@ -1,0 +1,168 @@
+syntax = "proto3";
+// this is it's own package to avoid name collision with median types like OnchainConfig and BuildReport
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/mercury;mercurypb";
+
+
+// note: the generate.go file in this dir specifies the import path of the relative proto files
+package loop.internal.pb.mercury; // related to above, seems to need to have loop package
+import "relayer.proto";
+import "v1/reportcodec_v1.proto";
+import "v2/reportcodec_v2.proto";
+import "v3/reportcodec_v3.proto";
+
+
+service MercuryAdapter {
+  rpc NewMercuryV1Factory (NewMercuryV1FactoryRequest) returns (NewMercuryV1FactoryReply) {}
+  rpc NewMercuryV2Factory (NewMercuryV2FactoryRequest) returns (NewMercuryV2FactoryReply) {}
+  rpc NewMercuryV3Factory (NewMercuryV3FactoryRequest) returns (NewMercuryV3FactoryReply) {}
+}
+
+
+// NewMercuryV3FactoryRequest is a grpc wrapper for the input to  [github.com/smartcontractkit/chainlink-data-streams/mercury/v3/NewFactory].
+message NewMercuryV3FactoryRequest {
+  uint32 mercuryProviderID = 1;
+  uint32 dataSourceV3ID = 2; // id of the data source server for this factory instance
+}
+
+// NewMercuryV3FactoryReply tracks the factory identifier used for brokering connecitons.
+message NewMercuryV3FactoryReply {
+  uint32 mercuryV3FactoryID = 1;
+}
+
+// NewMercuryV1FactoryRequest is a grpc wrapper for the input to  [github.com/smartcontractkit/chainlink-data-streams/mercury/v1/NewFactory].
+message NewMercuryV1FactoryRequest {
+  uint32 mercuryProviderID = 1;
+  uint32 dataSourceV1ID = 2; // id of the data source server for this factory instance
+}
+
+// NewMercuryV1FactoryReply tracks the factory identifier used for brokering connecitons.
+message NewMercuryV1FactoryReply {
+  uint32 mercuryV1FactoryID = 1;
+}
+
+// NewMercuryV2FactoryRequest is a grpc wrapper for the input to  [github.com/smartcontractkit/chainlink-data-streams/mercury/v2/NewFactory].
+message NewMercuryV2FactoryRequest {
+  uint32 mercuryProviderID = 1;
+  uint32 dataSourceV2ID = 2; // id of the data source server for this factory instance
+}
+
+// NewMercuryV2FactoryReply tracks the factory identifier used for brokering connecitons.
+message NewMercuryV2FactoryReply {
+  uint32 mercuryV2FactoryID = 1;
+}
+
+// OnchainConfigCodec is a gRPC adapter for the OnchainConfigCodec interface [pkg/types/mercury/v3/OnchainConfigCodec].
+service OnchainConfigCodec {
+  rpc Encode(EncodeOnchainConfigRequest) returns (EncodeOnchainConfigReply) {}
+  rpc Decode (DecodeOnchainConfigRequest) returns (DecodeOnchainConfigReply) {}
+}
+
+// OnchainConfig is a gRPC adapter for the OnchainConfig struct [pkg/types/mercury/OnchainConfig].
+message OnchainConfig {
+  BigInt min = 1;
+  BigInt max = 2;
+}
+
+// EncodeOnchainConfigRequest is gRPC adapter for the inputs arguments of [pkg/types/mercury/OnchainConfig.Encode].
+message EncodeOnchainConfigRequest {
+  OnchainConfig onchainConfig = 1;
+}
+
+// EncodeOnchainConfigReply is gRPC adapter for the return values of [pkg/types/mercury/OnchainConfig.Encode].
+message EncodeOnchainConfigReply {
+  bytes onchainConfig = 1;
+}
+
+// DecodeOnchainConfigRequest is gRPC adapter for the inputs arguments of [pkg/types/mercury/OnchainConfig.Decode].
+message DecodeOnchainConfigRequest {
+  bytes onchainConfig = 1;
+}
+
+// DecodeOnchainConfigReply has is gRPC adapter for the return values of [pkg/types/mercury/OnchainConfig.Decode].
+message DecodeOnchainConfigReply {
+  OnchainConfig onchainConfig = 1;
+}
+
+// handle the report codec versions
+// we need top level service to conform to the MercuryProvider API
+// protobuf doesn't support aliasing, so this top level service is a thin wrapper around the v3 implementation
+
+// ReportCodec is a gRPC adapter for the ReportCodec interface [pkg/types/mercury/v3/ReportCodec].
+service ReportCodecV3 {
+  rpc BuildReport (loop.internal.pb.mercury.v3.BuildReportRequest) returns (loop.internal.pb.mercury.v3.BuildReportReply) {}
+  rpc MaxReportLength (loop.internal.pb.mercury.v3.MaxReportLengthRequest) returns (loop.internal.pb.mercury.v3.MaxReportLengthReply) {}
+  rpc ObservationTimestampFromReport (loop.internal.pb.mercury.v3.ObservationTimestampFromReportRequest) returns (loop.internal.pb.mercury.v3.ObservationTimestampFromReportReply) {}
+
+}
+
+// ReportCodecV1 is a gRPC adapter for the ReportCodec interface [pkg/types/mercury/v1/ReportCodec].
+service ReportCodecV1 {
+  rpc BuildReport (loop.internal.pb.mercury.v1.BuildReportRequest) returns (loop.internal.pb.mercury.v1.BuildReportReply) {}
+  rpc MaxReportLength (loop.internal.pb.mercury.v1.MaxReportLengthRequest) returns (loop.internal.pb.mercury.v1.MaxReportLengthReply) {}
+  rpc CurrentBlockNumFromReport (loop.internal.pb.mercury.v1.CurrentBlockNumFromReportRequest) returns (loop.internal.pb.mercury.v1.CurrentBlockNumFromReportResponse) {}
+}
+
+// ReportCodecV2 is gRPC adapter for the ReportCodec interface [pkg/types/mercury/v2/ReportCodec].
+service ReportCodecV2 {
+  rpc BuildReport (loop.internal.pb.mercury.v2.BuildReportRequest) returns (loop.internal.pb.mercury.v2.BuildReportReply) {}
+  rpc MaxReportLength (loop.internal.pb.mercury.v2.MaxReportLengthRequest) returns (loop.internal.pb.mercury.v2.MaxReportLengthReply) {}
+  rpc ObservationTimestampFromReport (loop.internal.pb.mercury.v2.ObservationTimestampFromReportRequest) returns (loop.internal.pb.mercury.v2.ObservationTimestampFromReportReply) {}
+
+}
+
+// ServerFetcher is a gRPC adapter for the ServerFetcher interface [pkg/types/mercury/v3/ServerFetcher].
+service ServerFetcher {
+  rpc FetchInitialMaxFinalizedBlockNumber (FetchInitialMaxFinalizedBlockNumberRequest) returns (FetchInitialMaxFinalizedBlockNumberReply) {}
+  rpc LatestPrice (LatestPriceRequest) returns (LatestPriceReply) {}
+  rpc LatestTimestamp( LatestTimestampRequest) returns (LatestTimestampReply) {}
+}
+
+// FetchInitialMaxFinalizedBlockNumberRequest is gRPC adapter for [pkg/types/mercury/ServerFetcher.FetchInitialMaxFinalizedBlockNumber].
+message FetchInitialMaxFinalizedBlockNumberRequest {
+}
+
+// FetchInitialMaxFinalizedBlockNumberReply is gRPC adapter for [pkg/types/mercury/ServerFetcher.FetchInitialMaxFinalizedBlockNumber].
+message FetchInitialMaxFinalizedBlockNumberReply {
+  int64 initialMaxFinalizedBlockNumber = 1;
+}
+
+// LatestPriceRequest is gRPC adapter for [pkg/types/mercury/ServerFetcher.LatestPrice].
+message LatestPriceRequest {
+  bytes feedID = 1; // WARNING: this must be [32]byte in ServerFetcher interface
+}
+
+// LatestPriceReply is gRPC adapter for [pkg/types/mercury/ServerFetcher.LatestPrice].
+message LatestPriceReply {
+  BigInt latestPrice = 1;
+}
+
+// LatestTimestampRequest is gRPC adapter for [pkg/types/mercury/ServerFetcher.LatestTimestamp].
+message LatestTimestampRequest {
+}
+
+// LatestTimestampReply is gRPC adapter for [pkg/types/mercury/ServerFetcher.LatestTimestamp].
+message LatestTimestampReply {
+  int64 latestTimestamp = 1;
+}
+
+// MercuryChainReader is a gRPC adapter for the MercuryChainReader interface [pkg/types/mercury/MercuryChainReader].
+service MercuryChainReader {
+ rpc LatestHeads (LatestHeadsRequest) returns (LatestHeadsReply) {}
+}
+
+// Head is gRPC adapter for the Head struct [pkg/types/mercury/MercuryChainReader].
+message Head {
+  uint64 number = 1;
+  bytes hash = 2;
+  uint64 timestamp = 3;
+}
+
+// LatestHeadsRequest is gRPC adapter for input arguments to [pkg/types/mercury/MercuryChainReader.LatestHeads].
+message LatestHeadsRequest {
+  int64 numHeads = 1;
+}
+
+// LatestHeadsReply is gRPC adapter for return arguments to [pkg/types/mercury/MercuryChainReader.LatestHeads].
+message LatestHeadsReply {
+  repeated Head heads = 1;
+}

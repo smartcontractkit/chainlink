@@ -18,6 +18,7 @@ import (
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	median_internal "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/median"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -40,7 +41,7 @@ func NewPluginMedianClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.Cli
 func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
 	cc := m.newClientConn("MedianPluginFactory", func(ctx context.Context) (id uint32, deps resources, err error) {
 		dataSourceID, dsRes, err := m.serveNew("DataSource", func(s *grpc.Server) {
-			pb.RegisterDataSourceServer(s, &dataSourceServer{impl: dataSource})
+			pb.RegisterDataSourceServer(s, median_internal.NewDataSourceServer(dataSource))
 		})
 		if err != nil {
 			return 0, nil, err
@@ -48,7 +49,7 @@ func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider type
 		deps.Add(dsRes)
 
 		juelsPerFeeCoinDataSourceID, juelsPerFeeCoinDataSourceRes, err := m.serveNew("JuelsPerFeeCoinDataSource", func(s *grpc.Server) {
-			pb.RegisterDataSourceServer(s, &dataSourceServer{impl: juelsPerFeeCoin})
+			pb.RegisterDataSourceServer(s, median_internal.NewDataSourceServer(juelsPerFeeCoin))
 		})
 		if err != nil {
 			return 0, nil, err
@@ -131,7 +132,7 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 		return nil, ErrConnDial{Name: "DataSource", ID: request.DataSourceID, Err: err}
 	}
 	dsRes := resource{dsConn, "DataSource"}
-	dataSource := newDataSourceClient(dsConn)
+	dataSource := median_internal.NewDataSourceClient(dsConn)
 
 	juelsConn, err := m.dial(request.JuelsPerFeeCoinDataSourceID)
 	if err != nil {
@@ -139,7 +140,7 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 		return nil, ErrConnDial{Name: "JuelsPerFeeCoinDataSource", ID: request.JuelsPerFeeCoinDataSourceID, Err: err}
 	}
 	juelsRes := resource{juelsConn, "JuelsPerFeeCoinDataSource"}
-	juelsPerFeeCoin := newDataSourceClient(juelsConn)
+	juelsPerFeeCoin := median_internal.NewDataSourceClient(juelsConn)
 
 	providerConn, err := m.dial(request.MedianProviderID)
 	if err != nil {

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
+
+package loop;
+
+import "relayer.proto";
+
+service DataSource {
+    rpc Observe (ObserveRequest) returns (ObserveReply) {}
+  }
+  
+  // ObserveRequest has arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.DataSource.Observe].
+  message ObserveRequest {
+    ReportTimestamp reportTimestamp = 1;
+  }
+  
+  // ObserveReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop.DataSource.Observe].
+  message ObserveReply {
+    BigInt value = 1;
+  }
+  

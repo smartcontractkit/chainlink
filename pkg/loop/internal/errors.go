@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"math"
 )
 
 type ErrConnAccept struct {
@@ -31,19 +30,4 @@ func (e ErrConnDial) Error() string {
 
 func (e ErrConnDial) Unwrap() error {
 	return e.Err
-}
-
-type ErrConfigDigestLen int
-
-func (e ErrConfigDigestLen) Error() string {
-	return fmt.Sprintf("invalid ConfigDigest len %d: must be 32", e)
-}
-
-type ErrUint8Bounds struct {
-	U    uint32
-	Name string
-}
-
-func (e ErrUint8Bounds) Error() string {
-	return fmt.Sprintf("expected uint8 %s (max %d) but got %d", e.Name, math.MaxUint8, e.U)
 }

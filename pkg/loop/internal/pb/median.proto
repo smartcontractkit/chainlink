@@ -34,6 +34,7 @@ message SaveErrorRequest {
   string message = 1;
 }
 
+// ReportCodec is gRPC adapter of [github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median.ReportCodec].
 service ReportCodec {
   rpc BuildReport (BuildReportRequest) returns (BuildReportReply) {}
   rpc MedianFromReport (MedianFromReportRequest) returns (MedianFromReportReply) {}
