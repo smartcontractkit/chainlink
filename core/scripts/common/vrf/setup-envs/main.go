@@ -83,6 +83,7 @@ func main() {
 	subscriptionBalanceNativeWeiString := flag.String("subscription-balance-native", constants.SubscriptionBalanceNativeWei, "amount to fund subscription with native token (Wei)")
 
 	minConfs := flag.Int("min-confs", constants.MinConfs, "minimum confirmations")
+	nativeOnly := flag.Bool("native-only", false, "if true, link and link feed are not set up. Only used in v2 plus")
 	linkAddress := flag.String("link-address", "", "address of link token")
 	linkEthAddress := flag.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := flag.String("bhs-address", "", "address of BHS contract")
@@ -257,6 +258,8 @@ func main() {
 				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2Plus,
+				*batchFulfillmentEnabled,
+				*nativeOnly,
 				nodesMap,
 				uint64(*maxGasPriceGwei),
 				coordinatorJobSpecConfig,
