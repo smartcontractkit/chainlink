@@ -331,7 +331,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     endIndex = endIndex > numSubs || maxCount == 0 ? numSubs : endIndex;
     uint256 idsLength = endIndex - startIndex;
     ids = new uint256[](idsLength);
-    for (uint256 idx = 0; idx < idsLength; idx++) {
+    for (uint256 idx = 0; idx < idsLength; ++idx) {
       ids[idx] = s_subIds.at(idx + startIndex);
     }
     return ids;
@@ -346,7 +346,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
       keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), s_currentSubNonce))
     );
     // Increment the subscription nonce counter.
-    s_currentSubNonce++;
+    ++s_currentSubNonce;
     // Initialize storage variables.
     address[] memory consumers = new address[](0);
     s_subscriptions[subId] = Subscription({balance: 0, nativeBalance: 0, reqCount: 0});
@@ -419,7 +419,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     uint256 consumersLength = consumers.length;
-    for (uint256 i = 0; i < consumersLength; i++) {
+    for (uint256 i = 0; i < consumersLength; ++i) {
       delete s_consumers[consumers[i]][subId];
     }
     delete s_subscriptionConfigs[subId];

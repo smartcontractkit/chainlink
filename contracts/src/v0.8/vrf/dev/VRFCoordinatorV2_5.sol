@@ -123,7 +123,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     }
     delete s_provingKeys[kh];
     uint256 s_provingKeyHashesLength = s_provingKeyHashes.length;
-    for (uint256 i = 0; i < s_provingKeyHashesLength; i++) {
+    for (uint256 i = 0; i < s_provingKeyHashesLength; ++i) {
       if (s_provingKeyHashes[i] == kh) {
         // Copy last element and overwrite kh to be deleted with it
         s_provingKeyHashes[i] = s_provingKeyHashes[s_provingKeyHashesLength - 1];
@@ -452,7 +452,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     {
       uint256 numWords = rc.numWords;
       randomWords = new uint256[](numWords);
-      for (uint256 i = 0; i < numWords; i++) {
+      for (uint256 i = 0; i < numWords; ++i) {
         randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
       }
     }
@@ -591,9 +591,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (provingKeyHashesLength == 0) {
       return false;
     }
-    for (uint256 i = 0; i < consumersLength; i++) {
+    for (uint256 i = 0; i < consumersLength; ++i) {
       address consumer = consumers[i];
-      for (uint256 j = 0; j < provingKeyHashesLength; j++) {
+      for (uint256 j = 0; j < provingKeyHashesLength; ++j) {
         (uint256 reqId, ) = _computeRequestId(s_provingKeyHashes[j], consumer, subId, s_consumers[consumer][subId]);
         if (s_requestCommitments[reqId] != 0) {
           return true;
@@ -616,7 +616,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // Note bounded by MAX_CONSUMERS
     address[] memory consumers = s_subscriptionConfigs[subId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
-    for (uint256 i = 0; i < consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; ++i) {
       if (consumers[i] == consumer) {
         address last = consumers[lastConsumerIndex];
         // Storage write to preserve last element
@@ -675,7 +675,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function _isTargetRegistered(address target) internal view returns (bool) {
     uint256 migrationTargetsLength = s_migrationTargets.length;
-    for (uint256 i = 0; i < migrationTargetsLength; i++) {
+    for (uint256 i = 0; i < migrationTargetsLength; ++i) {
       if (s_migrationTargets[i] == target) {
         return true;
       }
@@ -693,7 +693,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function deregisterMigratableCoordinator(address target) external onlyOwner {
     uint256 nTargets = s_migrationTargets.length;
-    for (uint256 i = 0; i < nTargets; i++) {
+    for (uint256 i = 0; i < nTargets; ++i) {
       if (s_migrationTargets[i] == target) {
         s_migrationTargets[i] = s_migrationTargets[nTargets - 1];
         s_migrationTargets.pop();
@@ -735,7 +735,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // despite the fact that we follow best practices this is still probably safest
     // to prevent any re-entrancy possibilities.
     s_config.reentrancyLock = true;
-    for (uint256 i = 0; i < consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; ++i) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);
     }
     s_config.reentrancyLock = false;
