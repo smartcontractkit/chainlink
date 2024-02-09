@@ -8,8 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
+	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -17,7 +18,7 @@ type mockCapability struct {
 	capabilities.CapabilityInfo
 }
 
-func (m *mockCapability) Execute(ctx context.Context, callback chan capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
+func (m *mockCapability) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
 	return nil
 }
 
@@ -32,7 +33,7 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 func TestRegistry(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	r := capabilities.NewRegistry()
+	r := coreCapabilities.NewRegistry()
 
 	id := "capability-1"
 	ci, err := capabilities.NewCapabilityInfo(
@@ -52,14 +53,15 @@ func TestRegistry(t *testing.T) {
 
 	assert.Equal(t, c, gc)
 
-	cs := r.List(ctx)
+	cs, err := r.List(ctx)
+	require.NoError(t, err)
 	assert.Len(t, cs, 1)
 	assert.Equal(t, c, cs[0])
 }
 
 func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	ctx := testutils.Context(t)
-	r := capabilities.NewRegistry()
+	r := coreCapabilities.NewRegistry()
 
 	id := "capability-1"
 	ci, err := capabilities.NewCapabilityInfo(
@@ -90,13 +92,13 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 	tcs := []struct {
 		name          string
-		newCapability func(ctx context.Context, reg *capabilities.Registry) (string, error)
-		getCapability func(ctx context.Context, reg *capabilities.Registry, id string) error
+		newCapability func(ctx context.Context, reg *coreCapabilities.Registry) (string, error)
+		getCapability func(ctx context.Context, reg *coreCapabilities.Registry, id string) error
 		errContains   string
 	}{
 		{
 			name: "action",
-			newCapability: func(ctx context.Context, reg *capabilities.Registry) (string, error) {
+			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
 				id := uuid.New().String()
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
@@ -109,14 +111,14 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				c := &mockCapability{CapabilityInfo: ci}
 				return id, reg.Add(ctx, c)
 			},
-			getCapability: func(ctx context.Context, reg *capabilities.Registry, id string) error {
+			getCapability: func(ctx context.Context, reg *coreCapabilities.Registry, id string) error {
 				_, err := reg.GetAction(ctx, id)
 				return err
 			},
 		},
 		{
 			name: "target",
-			newCapability: func(ctx context.Context, reg *capabilities.Registry) (string, error) {
+			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
 				id := uuid.New().String()
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
@@ -129,26 +131,27 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				c := &mockCapability{CapabilityInfo: ci}
 				return id, reg.Add(ctx, c)
 			},
-			getCapability: func(ctx context.Context, reg *capabilities.Registry, id string) error {
+			getCapability: func(ctx context.Context, reg *coreCapabilities.Registry, id string) error {
 				_, err := reg.GetTarget(ctx, id)
 				return err
 			},
 		},
 		{
 			name: "trigger",
-			newCapability: func(ctx context.Context, reg *capabilities.Registry) (string, error) {
+			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
 				odt := triggers.NewOnDemand()
-				info := odt.Info()
+				info, err := odt.Info(ctx)
+				require.NoError(t, err)
 				return info.ID, reg.Add(ctx, odt)
 			},
-			getCapability: func(ctx context.Context, reg *capabilities.Registry, id string) error {
+			getCapability: func(ctx context.Context, reg *coreCapabilities.Registry, id string) error {
 				_, err := reg.GetTrigger(ctx, id)
 				return err
 			},
 		},
 		{
 			name: "consensus",
-			newCapability: func(ctx context.Context, reg *capabilities.Registry) (string, error) {
+			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
 				id := uuid.New().String()
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
@@ -161,7 +164,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 				c := &mockCapability{CapabilityInfo: ci}
 				return id, reg.Add(ctx, c)
 			},
-			getCapability: func(ctx context.Context, reg *capabilities.Registry, id string) error {
+			getCapability: func(ctx context.Context, reg *coreCapabilities.Registry, id string) error {
 				_, err := reg.GetConsensus(ctx, id)
 				return err
 			},
@@ -169,7 +172,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 	}
 
 	ctx := testutils.Context(t)
-	reg := capabilities.NewRegistry()
+	reg := coreCapabilities.NewRegistry()
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			id, err := tc.newCapability(ctx, reg)

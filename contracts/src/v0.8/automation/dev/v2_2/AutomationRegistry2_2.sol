@@ -84,6 +84,14 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     _verifyReportSignature(reportContext, rawReport, rs, ss, rawVs);
 
     Report memory report = _decodeReport(rawReport);
+
+    uint40 epochAndRound = uint40(uint256(reportContext[1]));
+    uint32 epoch = uint32(epochAndRound >> 8);
+
+    _handleReport(hotVars, report, gasOverhead, epoch);
+  }
+
+  function _handleReport(HotVars memory hotVars, Report memory report, uint256 gasOverhead, uint32 epoch) private {
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     uint16 numUpkeepsPassedChecks;
 
@@ -133,8 +141,9 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes, which is approximated to be reportLength
     // Rest of msg.data is accounted for in accounting overheads
+    // NOTE in process of changing acounting, so pre-emptively changed reportLength to msg.data.length
     gasOverhead =
-      (gasOverhead - gasleft() + 16 * rawReport.length) +
+      (gasOverhead - gasleft() + 16 * msg.data.length) +
       ACCOUNTING_FIXED_GAS_OVERHEAD +
       (ACCOUNTING_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1));
     gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
@@ -179,8 +188,6 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     s_transmitters[msg.sender].balance += totalReimbursement;
     s_hotVars.totalPremium += totalPremium;
 
-    uint40 epochAndRound = uint40(uint256(reportContext[1]));
-    uint32 epoch = uint32(epochAndRound >> 8);
     if (epoch > hotVars.latestEpoch) {
       s_hotVars.latestEpoch = epoch;
     }
@@ -227,7 +234,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
 
   /**
    * @inheritdoc OCR2Abstract
-   * @dev prefer the type-safe version of setConfig (below) whenever possible
+   * @dev prefer the type-safe version of setConfig (below) whenever possible. The OnchainConfig could differ between registry versions
    */
   function setConfig(
     address[] memory signers,
