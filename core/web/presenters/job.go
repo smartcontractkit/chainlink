@@ -517,6 +517,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
 	case job.Stream:
 		// no spec; nothing to do
+	case job.Workflow:
+		// no spec; nothing to do
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}
