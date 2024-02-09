@@ -15,6 +15,11 @@ func NewJAID(id string) JAID {
 	return JAID{id}
 }
 
+// NewPrefixedJAID prefixes JAID with chain id in %s/%s format.
+func NewPrefixedJAID(id string, chainID string) JAID {
+	return JAID{ID: fmt.Sprintf("%s/%s", chainID, id)}
+}
+
 // NewJAIDInt32 converts an int32 into a JAID
 func NewJAIDInt32(id int32) JAID {
 	return JAID{strconv.Itoa(int(id))}
@@ -35,9 +40,4 @@ func (jaid *JAID) SetID(value string) error {
 	jaid.ID = value
 
 	return nil
-}
-
-// GetWithPrefixedChainID returns JAID formatted with chainID, this is done to prevent cross chain ID collision.
-func (jaid JAID) GetWithPrefixedChainID(chainID string) JAID {
-	return JAID{ID: fmt.Sprintf("%s/%s", chainID, jaid.ID)}
 }

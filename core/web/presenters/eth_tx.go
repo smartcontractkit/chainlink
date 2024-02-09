@@ -66,7 +66,7 @@ func NewEthTxResourceFromAttempt(txa txmgr.TxAttempt) EthTxResource {
 
 	if txa.Tx.ChainID != nil {
 		r.EVMChainID = *big.New(txa.Tx.ChainID)
-		r.JAID = r.JAID.GetWithPrefixedChainID(txa.Tx.ChainID.String())
+		r.JAID = NewPrefixedJAID(r.JAID.ID, txa.Tx.ChainID.String())
 	}
 
 	if tx.Sequence != nil {
