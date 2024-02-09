@@ -242,17 +242,19 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    */
   function requestRandomWords(
     VRFV2PlusClient.RandomWordsRequest calldata req
-  ) external override nonReentrant returns (uint256) {
+  ) external override nonReentrant returns (uint256 requestId) {
     // Input validation using the subscription storage.
-    if (s_subscriptionConfigs[req.subId].owner == address(0)) {
+    uint256 subId = req.subId;
+    if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][req.subId];
-    if (currentNonce == 0) {
-      revert InvalidConsumer(req.subId, msg.sender);
+    mapping(uint256 => uint64) storage nonces = s_consumers[msg.sender];
+    uint64 nonce = nonces[subId];
+    if (nonce == 0) {
+      revert InvalidConsumer(subId, msg.sender);
     }
     // Input validation using the config storage word.
     if (
@@ -274,19 +276,20 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (req.numWords > MAX_NUM_WORDS) {
       revert NumWordsTooBig(req.numWords, MAX_NUM_WORDS);
     }
+
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
-    uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = _computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
+    ++nonce;
+    uint256 preSeed;
+    (requestId, preSeed) = _computeRequestId(req.keyHash, msg.sender, subId, nonce);
 
-    VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
-    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
+    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(_fromBytes(req.extraArgs));
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
         ChainSpecificUtil._getBlockNumber(),
-        req.subId,
+        subId,
         req.callbackGasLimit,
         req.numWords,
         msg.sender,
@@ -297,14 +300,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       req.keyHash,
       requestId,
       preSeed,
-      req.subId,
+      subId,
       req.requestConfirmations,
       req.callbackGasLimit,
       req.numWords,
       extraArgsBytes,
       msg.sender
     );
-    s_consumers[msg.sender][req.subId] = nonce;
+    nonces[subId] = nonce;
 
     return requestId;
   }
