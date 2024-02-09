@@ -1,11 +1,9 @@
 package test_env
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"os"
 	"runtime/debug"
 	"testing"
 
@@ -24,6 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+
+	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -66,7 +66,7 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 	te.Cfg = cfg
 	if cfg.MockAdapter.ContainerName != "" {
 		n := []string{te.Network.Name}
-		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
+		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName), test_env.WithLogStream(te.LogStream))
 	}
 	return te
 }
@@ -150,14 +150,15 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 	return te.MockAdapter.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, opts ...ClNodeOption) error {
+// pass config here
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig core_testconfig.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
-		opts = append(opts, WithSecrets(secretsConfig))
+		opts = append(opts, WithSecrets(secretsConfig), WithLogStream(te.LogStream))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode, err := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_VERSION"), nodeConfig, opts...)
+			ocrNode, err := NewClNode([]string{te.Network.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, opts...)
 			if err != nil {
 				return err
 			}
@@ -169,18 +170,6 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 	if te.t != nil {
 		for _, n := range te.ClCluster.Nodes {
 			n.SetTestLogger(te.t)
-		}
-	}
-
-	if te.LogStream != nil {
-		for _, node := range te.ClCluster.Nodes {
-			node.ls = te.LogStream
-		}
-		if te.MockAdapter != nil {
-			err := te.LogStream.ConnectContainer(context.Background(), te.MockAdapter.Container, "mock-adapter")
-			if err != nil {
-				return err
-			}
 		}
 	}
 

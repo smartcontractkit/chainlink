@@ -90,12 +90,12 @@ type Config struct {
 	FeedQuoteAddr string `mapstructure:"FEED_QUOTE_ADDR"`
 	FeedDecimals  uint8  `mapstructure:"FEED_DECIMALS"`
 
-	// Mercury Config
-	MercuryURL       string `mapstructure:"MERCURY_URL"`
-	MercuryLegacyURL string `mapstructure:"MERCURY_LEGACY_URL"`
-	MercuryID        string `mapstructure:"MERCURY_ID"`
-	MercuryKey       string `mapstructure:"MERCURY_KEY"`
-	MercuryCredName  string `mapstructure:"MERCURY_CRED_NAME"`
+	// Data Streams Config
+	DataStreamsURL       string `mapstructure:"DATA_STREAMS_URL"`
+	DataStreamsLegacyURL string `mapstructure:"DATA_STREAMS_LEGACY_URL"`
+	DataStreamsID        string `mapstructure:"DATA_STREAMS_ID"`
+	DataStreamsKey       string `mapstructure:"DATA_STREAMS_KEY"`
+	DataStreamsCredName  string `mapstructure:"DATA_STREAMS_CRED_NAME"`
 
 	// Tenderly
 	TenderlyKey         string `mapstructure:"TENDERLY_KEY"`

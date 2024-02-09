@@ -137,7 +137,8 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, lggr logger.Logger, vars Vars, in
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	b, err := vrfCoordinatorV2PlusABI.Pack("fulfillRandomWords", onChainProof, rc)
+	// onlyPremium is false because this task assumes that chainlink node fulfills the VRF request
+	b, err := vrfCoordinatorV2PlusABI.Pack("fulfillRandomWords", onChainProof, rc, false /* onlyPremium */)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}

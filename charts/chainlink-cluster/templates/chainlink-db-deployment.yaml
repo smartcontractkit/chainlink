@@ -24,12 +24,20 @@ spec:
   selector:
     matchLabels:
       app: {{ $.Release.Name }}-db
+      # Used for testing.
+      # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+      havoc-component-group: db
+      havoc-network-group: db
       instance: {{ $cfg.name }}-db
       release: {{ $.Release.Name }}
   template:
     metadata:
       labels:
         app: {{ $.Release.Name }}-db
+        # Used for testing.
+        # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+        havoc-component-group: db
+        havoc-network-group: db
         instance: {{ $cfg.name }}-db
         release: {{ $.Release.Name }}
         {{- range $key, $value := $.Values.labels }}

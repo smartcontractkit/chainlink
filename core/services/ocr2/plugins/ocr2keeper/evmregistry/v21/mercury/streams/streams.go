@@ -36,7 +36,7 @@ type latestBlockProvider interface {
 	LatestBlock() *ocr2keepers.BlockKey
 }
 
-type streamsRegistry interface {
+type streamRegistry interface {
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
 	Address() common.Address
@@ -52,7 +52,7 @@ type streams struct {
 	mercuryConfig   mercury.MercuryConfigProvider
 	abi             abi.ABI
 	blockSubscriber latestBlockProvider
-	registry        streamsRegistry
+	registry        streamRegistry
 	client          contextCaller
 	lggr            logger.Logger
 	threadCtrl      utils.ThreadControl
@@ -70,7 +70,7 @@ func NewStreamsLookup(
 	mercuryConfig mercury.MercuryConfigProvider,
 	blockSubscriber latestBlockProvider,
 	client contextCaller,
-	registry streamsRegistry,
+	registry streamRegistry,
 	lggr logger.Logger) *streams {
 	httpClient := http.DefaultClient
 	threadCtrl := utils.NewThreadControl()
@@ -123,11 +123,6 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	block := big.NewInt(int64(checkResult.Trigger.BlockNumber))
 	upkeepId := checkResult.UpkeepID
 
-	if s.mercuryConfig.Credentials() == nil {
-		lookupLggr.Errorf("at block %d upkeep %s tries to access mercury server but mercury credential is not configured", block, upkeepId)
-		return
-	}
-
 	// Try to decode the revert error into streams lookup format. User upkeeps can revert with any reason, see if they
 	// tried to call mercury
 	lookupLggr.Infof("at block %d upkeep %s trying to DecodeStreamsLookupRequest performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
@@ -138,6 +133,10 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 		return
 	}
 	streamsLookupResponse := &mercury.StreamsLookup{StreamsLookupError: streamsLookupErr}
+	if s.mercuryConfig.Credentials() == nil {
+		lookupLggr.Errorf("at block %d upkeep %s tries to access mercury server but mercury credential is not configured", block, upkeepId)
+		return
+	}
 
 	if len(streamsLookupResponse.Feeds) == 0 {
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
