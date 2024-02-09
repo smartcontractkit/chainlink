@@ -307,14 +307,15 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     override
     returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers)
   {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    owner = s_subscriptionConfigs[subId].owner;
+    if (owner == address(0)) {
       revert InvalidSubscription();
     }
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].nativeBalance,
       s_subscriptions[subId].reqCount,
-      s_subscriptionConfigs[subId].owner,
+      owner,
       s_subscriptionConfigs[subId].consumers
     );
   }
