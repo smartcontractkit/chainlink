@@ -384,13 +384,13 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @inheritdoc IVRFSubscriptionV2Plus
    */
   function acceptSubscriptionOwnerTransfer(uint256 subId) external override nonReentrant {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    address oldOwner = s_subscriptionConfigs[subId].owner;
+    if (oldOwner == address(0)) {
       revert InvalidSubscription();
     }
     if (s_subscriptionConfigs[subId].requestedOwner != msg.sender) {
       revert MustBeRequestedOwner(s_subscriptionConfigs[subId].requestedOwner);
     }
-    address oldOwner = s_subscriptionConfigs[subId].owner;
     s_subscriptionConfigs[subId].owner = msg.sender;
     s_subscriptionConfigs[subId].requestedOwner = address(0);
     emit SubscriptionOwnerTransferred(subId, oldOwner, msg.sender);
