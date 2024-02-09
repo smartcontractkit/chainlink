@@ -95,10 +95,21 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	chains, count, err := r.App.EVMORM().Chains()
-	if err != nil {
-		return nil, err
+	var chains []types.ChainStatus
+	for _, rel := range r.App.GetRelayers().Slice() {
+		status, err := rel.GetChainStatus(ctx)
+		if err != nil {
+			return nil, err
+		}
+		chains = append(chains, status)
 	}
+	count := len(chains)
+
+	if count == 0 {
+		//No chains are configured, return an empty ChainsPayload, so we don't break the UI
+		return NewChainsPayload(nil, 0), nil
+	}
+
 	// bound the chain results
 	if offset >= len(chains) {
 		return nil, fmt.Errorf("offset %d out of range", offset)
@@ -238,25 +249,25 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	r.App.GetLogger().Debug("resolver Node args %v", args)
 	name := string(args.ID)
 	r.App.GetLogger().Debug("resolver Node name %s", name)
-	node, err := r.App.EVMORM().NodeStatus(name)
-	if err != nil {
-		r.App.GetLogger().Errorw("resolver getting node status", "err", err)
 
-		if errors.Is(err, chains.ErrNotFound) {
-			npr, warn := NewNodePayloadResolver(nil, err)
-			if warn != nil {
-				r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "err", warn)
-			}
-			return npr, nil
+	for _, relayer := range r.App.GetRelayers().Slice() {
+		statuses, _, _, err := relayer.ListNodeStatuses(ctx, 0, "")
+		if err != nil {
+			return nil, err
 		}
-		return nil, err
+		for i, s := range statuses {
+			if s.Name == name {
+				npr, err2 := NewNodePayloadResolver(&statuses[i], nil)
+				if err2 != nil {
+					return nil, err2
+				}
+				return npr, nil
+			}
+		}
 	}
 
-	npr, warn := NewNodePayloadResolver(&node, nil)
-	if warn != nil {
-		r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "err", warn)
-	}
-	return npr, nil
+	r.App.GetLogger().Errorw("resolver getting node status", "err", chains.ErrNotFound)
+	return NewNodePayloadResolver(nil, chains.ErrNotFound)
 }
 
 func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error) {

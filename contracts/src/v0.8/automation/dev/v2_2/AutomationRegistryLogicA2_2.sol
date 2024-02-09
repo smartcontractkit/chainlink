@@ -30,7 +30,8 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
       logicB.getFastGasFeedAddress(),
-      logicB.getAutomationForwarderLogic()
+      logicB.getAutomationForwarderLogic(),
+      logicB.getAllowedReadOnlyAddress()
     )
     Chainable(address(logicB))
   {}
@@ -49,7 +50,6 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes memory triggerData
   )
     public
-    cannotExecute
     returns (
       bool upkeepNeeded,
       bytes memory performData,
@@ -60,6 +60,8 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       uint256 linkNative
     )
   {
+    _preventExecution();
+
     Trigger triggerType = _getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
@@ -172,7 +174,6 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes calldata extraData
   )
     external
-    cannotExecute
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
     bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
@@ -190,9 +191,10 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes memory payload
   )
     public
-    cannotExecute
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
+    _preventExecution();
+
     Upkeep memory upkeep = s_upkeep[id];
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
