@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -187,7 +187,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 	})
 }
 
-func requireOCR2KeyCount(t *testing.T, app chainlink.Application, length int) []ocr2key.KeyBundle {
+func requireOCR2KeyCount(t *testing.T, app chainlink.Application, length int) []ocr2pluskey.KeyBundle {
 	keys, err := app.GetKeyStore().OCR2().GetAll()
 	require.NoError(t, err)
 	require.Len(t, keys, length)

@@ -1,4 +1,4 @@
-package ocr2key
+package ocr2pluskey
 
 import (
 	"bytes"

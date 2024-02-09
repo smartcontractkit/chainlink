@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
 )
 
 // OCR2ChainType defines OCR2 Chain Types accepted on this resolver
@@ -61,11 +61,11 @@ func FromOCR2ChainType(ct OCR2ChainType) string {
 
 // OCR2KeyBundleResolver defines the OCR2 Key bundle on GQL
 type OCR2KeyBundleResolver struct {
-	key ocr2key.KeyBundle
+	key ocr2pluskey.KeyBundle
 }
 
 // NewOCR2KeyBundle creates a new GQL OCR2 key bundle resolver
-func NewOCR2KeyBundle(key ocr2key.KeyBundle) *OCR2KeyBundleResolver {
+func NewOCR2KeyBundle(key ocr2pluskey.KeyBundle) *OCR2KeyBundleResolver {
 	return &OCR2KeyBundleResolver{key: key}
 }
 
@@ -105,11 +105,11 @@ func (r OCR2KeyBundleResolver) ConfigPublicKey() string {
 
 // OCR2KeyBundlesPayloadResolver defines the OCR2 Key bundles query resolver
 type OCR2KeyBundlesPayloadResolver struct {
-	keys []ocr2key.KeyBundle
+	keys []ocr2pluskey.KeyBundle
 }
 
 // NewOCR2KeyBundlesPayload returns the OCR2 key bundles resolver
-func NewOCR2KeyBundlesPayload(keys []ocr2key.KeyBundle) *OCR2KeyBundlesPayloadResolver {
+func NewOCR2KeyBundlesPayload(keys []ocr2pluskey.KeyBundle) *OCR2KeyBundlesPayloadResolver {
 	return &OCR2KeyBundlesPayloadResolver{keys: keys}
 }
 
@@ -128,11 +128,11 @@ func (r *OCR2KeyBundlesPayloadResolver) Results() []OCR2KeyBundleResolver {
 
 // CreateOCR2KeyBundlePayloadResolver defines the create OCR2 Key bundle mutation resolver
 type CreateOCR2KeyBundlePayloadResolver struct {
-	key *ocr2key.KeyBundle
+	key *ocr2pluskey.KeyBundle
 }
 
 // NewCreateOCR2KeyBundlePayload returns the create OCR2 key bundle resolver
-func NewCreateOCR2KeyBundlePayload(key *ocr2key.KeyBundle) *CreateOCR2KeyBundlePayloadResolver {
+func NewCreateOCR2KeyBundlePayload(key *ocr2pluskey.KeyBundle) *CreateOCR2KeyBundlePayloadResolver {
 	return &CreateOCR2KeyBundlePayloadResolver{key: key}
 }
 
@@ -147,11 +147,11 @@ func (r *CreateOCR2KeyBundlePayloadResolver) ToCreateOCR2KeyBundleSuccess() (*Cr
 
 // CreateOCR2KeyBundleSuccessResolver defines the create OCR2 key bundle success resolver
 type CreateOCR2KeyBundleSuccessResolver struct {
-	key *ocr2key.KeyBundle
+	key *ocr2pluskey.KeyBundle
 }
 
 // NewCreateOCR2KeyBundleSuccess returns the create OCR2 key bundle success resolver
-func NewCreateOCR2KeyBundleSuccess(key *ocr2key.KeyBundle) *CreateOCR2KeyBundleSuccessResolver {
+func NewCreateOCR2KeyBundleSuccess(key *ocr2pluskey.KeyBundle) *CreateOCR2KeyBundleSuccessResolver {
 	return &CreateOCR2KeyBundleSuccessResolver{key: key}
 }
 
@@ -164,12 +164,12 @@ func (r *CreateOCR2KeyBundleSuccessResolver) Bundle() *OCR2KeyBundleResolver {
 
 // DeleteOCR2KeyBundlePayloadResolver defines the delete OCR2 Key bundle mutation resolver
 type DeleteOCR2KeyBundlePayloadResolver struct {
-	key *ocr2key.KeyBundle
+	key *ocr2pluskey.KeyBundle
 	NotFoundErrorUnionType
 }
 
 // NewDeleteOCR2KeyBundlePayloadResolver returns the delete OCR2 key bundle payload resolver
-func NewDeleteOCR2KeyBundlePayloadResolver(key *ocr2key.KeyBundle, err error) *DeleteOCR2KeyBundlePayloadResolver {
+func NewDeleteOCR2KeyBundlePayloadResolver(key *ocr2pluskey.KeyBundle, err error) *DeleteOCR2KeyBundlePayloadResolver {
 	var e NotFoundErrorUnionType
 
 	if err != nil {
@@ -194,11 +194,11 @@ func (r *DeleteOCR2KeyBundlePayloadResolver) ToDeleteOCR2KeyBundleSuccess() (*De
 
 // DeleteOCR2KeyBundleSuccessResolver defines the delete OCR2 key bundle success resolver
 type DeleteOCR2KeyBundleSuccessResolver struct {
-	key *ocr2key.KeyBundle
+	key *ocr2pluskey.KeyBundle
 }
 
 // NewDeleteOCR2KeyBundleSuccessResolver returns the delete OCR2 key bundle success resolver
-func NewDeleteOCR2KeyBundleSuccessResolver(key *ocr2key.KeyBundle) *DeleteOCR2KeyBundleSuccessResolver {
+func NewDeleteOCR2KeyBundleSuccessResolver(key *ocr2pluskey.KeyBundle) *DeleteOCR2KeyBundleSuccessResolver {
 	return &DeleteOCR2KeyBundleSuccessResolver{key: key}
 }
 

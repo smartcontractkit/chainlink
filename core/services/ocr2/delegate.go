@@ -43,7 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
@@ -510,7 +510,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
@@ -661,7 +661,7 @@ func (d *Delegate) newServicesMercury(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
@@ -746,7 +746,7 @@ func (d *Delegate) newServicesMedian(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
@@ -797,7 +797,7 @@ func (d *Delegate) newServicesDKG(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
@@ -865,7 +865,7 @@ func (d *Delegate) newServicesOCR2VRF(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 ) ([]job.ServiceCtx, error) {
@@ -1042,7 +1042,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
@@ -1072,7 +1072,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
@@ -1218,7 +1218,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
@@ -1339,7 +1339,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
+	kb ocr2pluskey.KeyBundle,
 	functionsOcrDB *db,
 	thresholdOcrDB *db,
 	s4OcrDB *db,

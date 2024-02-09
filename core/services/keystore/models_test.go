@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
@@ -31,10 +31,10 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1)),
 		ocrkey.MustNewV2XXXTestingOnly(big.NewInt(2)),
 	}
-	var ocr2 []ocr2key.KeyBundle
-	var ocr2_raw []ocr2key.Raw
+	var ocr2 []ocr2pluskey.KeyBundle
+	var ocr2_raw []ocr2pluskey.Raw
 	for _, chain := range chaintype.SupportedChainTypes {
-		key := ocr2key.MustNewInsecure(rand.Reader, chain)
+		key := ocr2pluskey.MustNewInsecure(rand.Reader, chain)
 		ocr2 = append(ocr2, key)
 		ocr2_raw = append(ocr2_raw, key.Raw())
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 )
 
@@ -54,7 +54,7 @@ func (r OCR2KeysBundleResource) GetName() string {
 	return "keyV2s"
 }
 
-func NewOCR2KeysBundleResource(key ocr2key.KeyBundle) *OCR2KeysBundleResource {
+func NewOCR2KeysBundleResource(key ocr2pluskey.KeyBundle) *OCR2KeysBundleResource {
 	configPublic := key.ConfigEncryptionPublicKey()
 	pubKey := key.OffchainPublicKey()
 	return &OCR2KeysBundleResource{
@@ -66,7 +66,7 @@ func NewOCR2KeysBundleResource(key ocr2key.KeyBundle) *OCR2KeysBundleResource {
 	}
 }
 
-func NewOCR2KeysBundleResources(keys []ocr2key.KeyBundle) []OCR2KeysBundleResource {
+func NewOCR2KeysBundleResources(keys []ocr2pluskey.KeyBundle) []OCR2KeysBundleResource {
 	rs := []OCR2KeysBundleResource{}
 	for _, key := range keys {
 		rs = append(rs, *NewOCR2KeysBundleResource(key))

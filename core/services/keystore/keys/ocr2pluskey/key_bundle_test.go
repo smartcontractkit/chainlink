@@ -1,4 +1,4 @@
-package ocr2key_test
+package ocr2pluskey_test
 
 import (
 	"fmt"
@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
 )
 
-func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2key.KeyBundle, pk2 ocr2key.KeyBundle) {
+func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2pluskey.KeyBundle, pk2 ocr2pluskey.KeyBundle) {
 	assert.NotEqual(t, pk1.ID(), pk2.ID())
 	assert.NotEqualValues(t, pk1.OffchainPublicKey(), pk2.OffchainPublicKey())
 	assert.NotEqualValues(t, pk1.OnChainPublicKey(), pk2.OnChainPublicKey())
@@ -19,13 +19,13 @@ func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2key.KeyBundle, pk2 ocr2key.K
 
 func TestOCR2Keys_New(t *testing.T) {
 	t.Parallel()
-	var keys []ocr2key.KeyBundle
+	var keys []ocr2pluskey.KeyBundle
 
 	// create two keys for each chain type
 	for _, chain := range chaintype.SupportedChainTypes {
-		pk0, err := ocr2key.New(chain)
+		pk0, err := ocr2pluskey.New(chain)
 		require.NoError(t, err)
-		pk1, err := ocr2key.New(chain)
+		pk1, err := ocr2pluskey.New(chain)
 		require.NoError(t, err)
 
 		keys = append(keys, pk0)
@@ -55,7 +55,7 @@ func TestOCR2KeyBundle_RawToKey(t *testing.T) {
 	t.Parallel()
 
 	for _, chain := range chaintype.SupportedChainTypes {
-		pk, err := ocr2key.New(chain)
+		pk, err := ocr2pluskey.New(chain)
 		require.NoError(t, err)
 
 		pkFromRaw := pk.Raw().Key()
@@ -67,7 +67,7 @@ func TestOCR2KeyBundle_BundleBase(t *testing.T) {
 	t.Parallel()
 
 	for _, chain := range chaintype.SupportedChainTypes {
-		kb, err := ocr2key.New(chain)
+		kb, err := ocr2pluskey.New(chain)
 		require.NoError(t, err)
 
 		assert.NotNil(t, kb.ID())

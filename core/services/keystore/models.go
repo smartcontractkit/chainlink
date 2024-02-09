@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2pluskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
@@ -152,7 +152,7 @@ type keyRing struct {
 	CSA        map[string]csakey.KeyV2
 	Eth        map[string]ethkey.KeyV2
 	OCR        map[string]ocrkey.KeyV2
-	OCR2       map[string]ocr2key.KeyBundle
+	OCR2       map[string]ocr2pluskey.KeyBundle
 	P2P        map[string]p2pkey.KeyV2
 	Cosmos     map[string]cosmoskey.Key
 	Solana     map[string]solkey.Key
@@ -168,7 +168,7 @@ func newKeyRing() *keyRing {
 		CSA:        make(map[string]csakey.KeyV2),
 		Eth:        make(map[string]ethkey.KeyV2),
 		OCR:        make(map[string]ocrkey.KeyV2),
-		OCR2:       make(map[string]ocr2key.KeyBundle),
+		OCR2:       make(map[string]ocr2pluskey.KeyBundle),
 		P2P:        make(map[string]p2pkey.KeyV2),
 		Cosmos:     make(map[string]cosmoskey.Key),
 		Solana:     make(map[string]solkey.Key),
@@ -218,8 +218,8 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, ocrKey := range kr.OCR {
 		rawKeys.OCR = append(rawKeys.OCR, ocrKey.Raw())
 	}
-	for _, ocr2key := range kr.OCR2 {
-		rawKeys.OCR2 = append(rawKeys.OCR2, ocr2key.Raw())
+	for _, ocr2pluskey := range kr.OCR2 {
+		rawKeys.OCR2 = append(rawKeys.OCR2, ocr2pluskey.Raw())
 	}
 	for _, p2pKey := range kr.P2P {
 		rawKeys.P2P = append(rawKeys.P2P, p2pKey.Raw())
@@ -336,7 +336,7 @@ type rawKeyRing struct {
 	Eth        []ethkey.Raw
 	CSA        []csakey.Raw
 	OCR        []ocrkey.Raw
-	OCR2       []ocr2key.Raw
+	OCR2       []ocr2pluskey.Raw
 	P2P        []p2pkey.Raw
 	Cosmos     []cosmoskey.Raw
 	Solana     []solkey.Raw
