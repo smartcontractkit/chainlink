@@ -2,37 +2,29 @@
 # 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
-# Misc
-/core/store @samsondav @jmank88
-/core/chains @samsondav
-/core/logger @jmank88
-/core/internal @samsondav @jmank88
+# Core
+/core @smartcontractkit/foundations
 
 # Chains
 /common @smartcontractkit/integrations
-/core/chains/evm @samsondav @prashantkumar1982
-/core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
-/core/chains/evm/client @samsondav @prashantkumar1982
-/core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
-/core/chains/evm/logpoller @reductionista @connorwstein
-/core/chains/cosmos @archseer @cfal
+/core/chains/ @smartcontractkit/integrations
 
 # Services
-/core/services/cron @samsondav
-/core/services/directrequest @connorwstein @samsondav
-/core/services/feeds @jkongie
-/core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @connorwstein
-/core/services/health @samsondav
-/core/services/job @connorwstein
-/core/services/keystore @RyanRHall
-/core/services/ocr* @connorwstein @samsondav
-/core/services/ocr2 @jmank88 @krehermann
-/core/services/periodicbackup @PiotrTrzpil @samsondav
-/core/services/pg @samsondav
-/core/services/pipeline @connorwstein @prashantkumar1982
-/core/services/synchronization
-/core/services/telemetry
-/core/services/relay/evm/mercury @samsondav @sdrug @martin-cll
+/core/services/directrequest @smartcontractkit/keepers
+/core/services/feeds @smartcontractkit/FMS
+
+# To be deprecated in Chainlink V3
+/core/services/fluxmonitorv2 @smartcontractkit/foundations
+/core/services/job @smartcontractkit/ccip
+/core/services/keystore @smartcontractkit/keepers
+/core/services/ocr* @smartcontractkit/foundations
+/core/services/periodicbackup @smartcontractkit/foundations
+/core/services/pg @smartcontractkit/foundations @samsondav
+/core/services/pipeline @smartcontractkit/foundations @smartcontractkit/integrations
+/core/services/telemetry @smartcontractkit/realtime
+/core/services/relay/evm/mercury @smartcontractkit/mercury-team
+/core/services/webhook @smartcontractkit/foundations @smartcontractkit/integrations
+/core/services/llo @smartcontractkit/mercury-team
 
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team
@@ -48,27 +40,16 @@
 /core/services/keeper @smartcontractkit/keepers
 /core/services/ocr2/plugins/ocr2keeper @smartcontractkit/keepers
 
-/core/services/webhook @samsondav
-
 # Chainlink Functions
 core/services/functions @smartcontractkit/functions
 core/services/ocr2/plugins/functions @smartcontractkit/functions
-core/services/s4 @pinebit @bolekk
-core/service/ocr2/plugins/s4 @pinebit @bolekk
-core/services/ocr2/plugins/threshold @KuphJr @bolekk
-core/services/relay/evm/functions.go @bolekk @justinkaseman @KuphJr
-core/services/relay/evm/functions @bolekk @justinkaseman @KuphJr
+core/services/s4 @smartcontractkit/functions
+core/service/ocr2/plugins/s4 @smartcontractkit/functions
+core/services/ocr2/plugins/threshold @smartcontractkit/functions
+core/services/relay/evm/functions @smartcontractkit/functions
+core/services/relay/evm/functions @smartcontractkit/functions
 core/scripts/functions @smartcontractkit/functions
-core/scripts/gateway @bolekk @pinebit
-
-# API
-/core/web @jkongie
-
-# CLI
-/core/cmd @jkongie @jmank88 @samsondav
-
-# UI
-/operator-ui/ @DeividasK @jkongie
+core/scripts/gateway @smartcontractkit/functions
 
 # Contracts
 /contracts/ @RensR
@@ -78,23 +59,21 @@ core/scripts/gateway @bolekk @pinebit
 # This could give some false positives, so afterwards we match on the project directories
 # to ensure the entire directory is always owned by the correct team.
 
-/contracts/**/*shared* @RensR
 /contracts/**/*keeper* @smartcontractkit/keepers
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
 /contracts/**/*functions* @smartcontractkit/functions
-/contracts/**/*llo-feeds* @austinborn @Fletch153
+/contracts/**/*llo-feeds* @smartcontrackit/mercury-team
 /contracts/**/*vrf* @smartcontractkit/vrf-team
-/contracts/**/*l2ep* @simsonraj
-/contracts/**/*operatorforwarder* @essamhassan
+/contracts/**/*l2ep* @smartcontractkit/integrations
 
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
-/contracts/src/v0.8/l2ep @simsonraj
-/contracts/src/v0.8/llo-feeds @austinborn @Fletch153
+/contracts/src/v0.8/l2ep @chris-de-leon-cll
+/contracts/src/v0.8/llo-feeds @smartcontractkit/mercury-team
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
-/contracts/src/v0.8/operatorforwarder @essamhassan
+/contracts/src/v0.8/operatorforwarder @smartcontractkit/foundations
 /contracts/src/v0.8/shared @RensR
 # TODO: tests folder, folder should be removed and files moved to the correct folders
 # TODO: transmission folder, owner should be found
@@ -112,10 +91,7 @@ core/scripts/gateway @bolekk @pinebit
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
 # CI/CD
-/.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
-/.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team
-/.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
-/.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team
+/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
@@ -138,9 +114,5 @@ flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
 
 # Config
-./core/config @samsondav @jmank88
-./docs/CONFIG.md @samsondav @jmank88 @dwightjl
-./internal/config/docs.toml @samsondav @jmank88 @dwightjl
-
-# LOOP Plugins
-/plugins @jmank88 @krehermann
+./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/devrel
+./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/devrel

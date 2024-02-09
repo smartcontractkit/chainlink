@@ -1263,14 +1263,18 @@ observationSource = """
 
 // BlockhashStoreJobSpec represents a blockhashstore job
 type BlockhashStoreJobSpec struct {
-	Name                  string `toml:"name"`
-	CoordinatorV2Address  string `toml:"coordinatorV2Address"` // Address of the VRF CoordinatorV2 contract
-	WaitBlocks            int    `toml:"waitBlocks"`
-	LookbackBlocks        int    `toml:"lookbackBlocks"`
-	BlockhashStoreAddress string `toml:"blockhashStoreAddress"`
-	PollPeriod            string `toml:"pollPeriod"`
-	RunTimeout            string `toml:"runTimeout"`
-	EVMChainID            string `toml:"evmChainID"`
+	Name                     string        `toml:"name"`
+	CoordinatorV2Address     string        `toml:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress string        `toml:"coordinatorV2PlusAddress"`
+	BlockhashStoreAddress    string        `toml:"blockhashStoreAddress"`
+	ExternalJobID            string        `toml:"externalJobID"`
+	FromAddresses            []string      `toml:"fromAddresses"`
+	EVMChainID               string        `toml:"evmChainID"`
+	ForwardingAllowed        bool          `toml:"forwardingAllowed"`
+	PollPeriod               time.Duration `toml:"pollPeriod"`
+	RunTimeout               time.Duration `toml:"runTimeout"`
+	WaitBlocks               int           `toml:"waitBlocks"`
+	LookbackBlocks           int           `toml:"lookbackBlocks"`
 }
 
 // Type returns the type of the job
@@ -1282,13 +1286,17 @@ func (b *BlockhashStoreJobSpec) String() (string, error) {
 type                     = "blockhashstore"
 schemaVersion            = 1
 name                     = "{{.Name}}"
-coordinatorV2Address     = "{{.CoordinatorV2Address}}"
-waitBlocks               = {{.WaitBlocks}}
-lookbackBlocks           = {{.LookbackBlocks}}
-blockhashStoreAddress    = "{{.BlockhashStoreAddress}}"
-pollPeriod               = "{{.PollPeriod}}"
-runTimeout               = "{{.RunTimeout}}"
+forwardingAllowed        = {{.ForwardingAllowed}}
+coordinatorV2Address       = "{{.CoordinatorV2Address}}"
+coordinatorV2PlusAddress       = "{{.CoordinatorV2PlusAddress}}"
+blockhashStoreAddress	   = "{{.BlockhashStoreAddress}}"
+fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
+externalJobID            = "{{.ExternalJobID}}"
+waitBlocks               = {{.WaitBlocks}}
+lookbackBlocks            = {{.LookbackBlocks}}
+pollPeriod              = "{{.PollPeriod}}"
+runTimeout          = "{{.RunTimeout}}"
 `
 	return MarshallTemplate(b, "BlockhashStore Job", vrfTemplateString)
 }
