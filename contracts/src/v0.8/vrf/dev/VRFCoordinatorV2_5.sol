@@ -565,14 +565,12 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     return uint96(payment);
   }
 
-  function _getFeedData() private view returns (int256) {
+  function _getFeedData() private view returns (int256 weiPerUnitLink) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
-    bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
-    int256 weiPerUnitLink;
     (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
+    if (stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
     return weiPerUnitLink;
