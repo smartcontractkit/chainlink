@@ -40,8 +40,6 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [AuditLogger]
 Enabled = true
@@ -308,7 +306,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -396,7 +394,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -417,7 +415,7 @@ MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 
 [EVM.Transactions]
@@ -478,7 +476,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'bar'

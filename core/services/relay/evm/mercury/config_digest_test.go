@@ -107,7 +107,7 @@ func GenHash(t *testing.T) gopter.Gen {
 			array, ok := byteArray.(*gopter.GenResult).Retrieve()
 			require.True(t, ok, "failed to retrieve gen result")
 			for i, byteVal := range array.([]interface{}) {
-				rv[i] = byte(byteVal.(uint8))
+				rv[i] = byteVal.(uint8)
 			}
 			return rv
 		},
@@ -199,7 +199,7 @@ func GenBytes(t *testing.T) gopter.Gen {
 					iArray := array.([]interface{})
 					rv := make([]byte, len(iArray))
 					for i, byteVal := range iArray {
-						rv[i] = byte(byteVal.(uint8))
+						rv[i] = byteVal.(uint8)
 					}
 					return rv
 				},

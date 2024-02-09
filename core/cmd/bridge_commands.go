@@ -91,7 +91,7 @@ func (s *Shell) ShowBridge(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("must pass the name of the bridge to be shown"))
 	}
 	bridgeName := c.Args().First()
-	resp, err := s.HTTP.Get("/v2/bridge_types/" + bridgeName)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/bridge_types/"+bridgeName)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -115,7 +115,7 @@ func (s *Shell) CreateBridge(c *cli.Context) (err error) {
 		return s.errorOut(err)
 	}
 
-	resp, err := s.HTTP.Post("/v2/bridge_types", buf)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/bridge_types", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -134,7 +134,7 @@ func (s *Shell) RemoveBridge(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("must pass the name of the bridge to be removed"))
 	}
 	bridgeName := c.Args().First()
-	resp, err := s.HTTP.Delete("/v2/bridge_types/" + bridgeName)
+	resp, err := s.HTTP.Delete(s.ctx(), "/v2/bridge_types/"+bridgeName)
 	if err != nil {
 		return s.errorOut(err)
 	}

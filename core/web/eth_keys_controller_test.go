@@ -401,7 +401,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	subject := uuid.New()
 	strategy := commontxmmocks.NewTxStrategy(t)
 	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-	strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(int64(0), nil)
+	strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(nil, nil)
 	_, err := chain.TxManager().CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 		FromAddress:    addr,
 		ToAddress:      testutils.NewAddress(),

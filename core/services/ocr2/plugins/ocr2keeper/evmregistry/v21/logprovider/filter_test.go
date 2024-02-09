@@ -74,7 +74,7 @@ func TestUpkeepFilter_Select(t *testing.T) {
 			"no selector configured - all logs are returned",
 			upkeepFilter{
 				selector: 0,
-				topics:   []common.Hash{contractAddress.Hash(), emptyTopic, emptyTopic, emptyTopic},
+				topics:   []common.Hash{common.BytesToHash(contractAddress.Bytes()), emptyTopic, emptyTopic, emptyTopic},
 				upkeepID: uid,
 			},
 			[]logpoller.Log{
@@ -90,7 +90,7 @@ func TestUpkeepFilter_Select(t *testing.T) {
 			"selector is 1 - topics 1 is used to filter logs",
 			upkeepFilter{
 				selector: 1,
-				topics:   []common.Hash{contractAddress.Hash(), common.HexToHash(topic10), emptyTopic, emptyTopic},
+				topics:   []common.Hash{common.BytesToHash(contractAddress.Bytes()), common.HexToHash(topic10), emptyTopic, emptyTopic},
 				upkeepID: uid,
 			},
 			[]logpoller.Log{
@@ -105,7 +105,7 @@ func TestUpkeepFilter_Select(t *testing.T) {
 			"selector is 2 - topic 2 is used to filter logs",
 			upkeepFilter{
 				selector: 2,
-				topics:   []common.Hash{contractAddress.Hash(), emptyTopic, common.HexToHash(topic21), emptyTopic},
+				topics:   []common.Hash{common.BytesToHash(contractAddress.Bytes()), emptyTopic, common.HexToHash(topic21), emptyTopic},
 				upkeepID: uid,
 			},
 			[]logpoller.Log{
@@ -120,7 +120,7 @@ func TestUpkeepFilter_Select(t *testing.T) {
 			"selector is 3 - topics 1 2 are used to filter logs",
 			upkeepFilter{
 				selector: 3,
-				topics:   []common.Hash{contractAddress.Hash(), common.HexToHash(topic10), common.HexToHash(topic21), emptyTopic},
+				topics:   []common.Hash{common.BytesToHash(contractAddress.Bytes()), common.HexToHash(topic10), common.HexToHash(topic21), emptyTopic},
 				upkeepID: uid,
 			},
 			[]logpoller.Log{
@@ -137,7 +137,7 @@ func TestUpkeepFilter_Select(t *testing.T) {
 			"selector is 4 - topic 3 is used to filter logs",
 			upkeepFilter{
 				selector: 4,
-				topics:   []common.Hash{contractAddress.Hash(), emptyTopic, emptyTopic, common.HexToHash(topic31)},
+				topics:   []common.Hash{common.BytesToHash(contractAddress.Bytes()), emptyTopic, emptyTopic, common.HexToHash(topic31)},
 				upkeepID: uid,
 			},
 			[]logpoller.Log{
@@ -152,7 +152,7 @@ func TestUpkeepFilter_Select(t *testing.T) {
 			"selector is 5 - topics 1 3 are used to filter logs",
 			upkeepFilter{
 				selector: 5,
-				topics:   []common.Hash{contractAddress.Hash(), common.HexToHash(topic11), emptyTopic, common.HexToHash(topic31)},
+				topics:   []common.Hash{common.BytesToHash(contractAddress.Bytes()), common.HexToHash(topic11), emptyTopic, common.HexToHash(topic31)},
 				upkeepID: uid,
 			},
 			[]logpoller.Log{
@@ -170,7 +170,7 @@ func TestUpkeepFilter_Select(t *testing.T) {
 			"selector is 7 - topics 1 2 3 are used to filter logs",
 			upkeepFilter{
 				selector: 7,
-				topics:   []common.Hash{contractAddress.Hash(), common.HexToHash(topic10), common.HexToHash(topic20), common.HexToHash(topic30)},
+				topics:   []common.Hash{common.BytesToHash(contractAddress.Bytes()), common.HexToHash(topic10), common.HexToHash(topic20), common.HexToHash(topic30)},
 				upkeepID: uid,
 			},
 			[]logpoller.Log{

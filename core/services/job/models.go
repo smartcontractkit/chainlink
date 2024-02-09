@@ -33,20 +33,21 @@ import (
 )
 
 const (
+	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
+	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
+	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
 	Cron                    Type = (Type)(pipeline.CronJobType)
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
 	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
-	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
-	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
+	Gateway                 Type = (Type)(pipeline.GatewayJobType)
 	Keeper                  Type = (Type)(pipeline.KeeperJobType)
-	VRF                     Type = (Type)(pipeline.VRFJobType)
-	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
-	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
 	LegacyGasStationServer  Type = (Type)(pipeline.LegacyGasStationServerJobType)
 	LegacyGasStationSidecar Type = (Type)(pipeline.LegacyGasStationSidecarJobType)
+	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
+	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
+	Stream                  Type = (Type)(pipeline.StreamJobType)
+	VRF                     Type = (Type)(pipeline.VRFJobType)
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
-	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
-	Gateway                 Type = (Type)(pipeline.GatewayJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -70,58 +71,62 @@ func (t Type) SchemaVersion() uint32 {
 
 var (
 	requiresPipelineSpec = map[Type]bool{
+		BlockHeaderFeeder:       false,
+		BlockhashStore:          false,
+		Bootstrap:               false,
 		Cron:                    true,
 		DirectRequest:           true,
 		FluxMonitor:             true,
-		OffchainReporting:       false, // bootstrap jobs do not require it
-		OffchainReporting2:      false, // bootstrap jobs do not require it
+		Gateway:                 false,
 		Keeper:                  false, // observationSource is injected in the upkeep executor
-		VRF:                     true,
-		Webhook:                 true,
-		BlockhashStore:          false,
-		BlockHeaderFeeder:       false,
 		LegacyGasStationServer:  false,
 		LegacyGasStationSidecar: false,
-		Bootstrap:               false,
-		Gateway:                 false,
+		OffchainReporting2:      false, // bootstrap jobs do not require it
+		OffchainReporting:       false, // bootstrap jobs do not require it
+		Stream:                  true,
+		VRF:                     true,
+		Webhook:                 true,
 	}
 	supportsAsync = map[Type]bool{
+		BlockHeaderFeeder:       false,
+		BlockhashStore:          false,
+		Bootstrap:               false,
 		Cron:                    true,
 		DirectRequest:           true,
 		FluxMonitor:             false,
-		OffchainReporting:       false,
-		OffchainReporting2:      false,
+		Gateway:                 false,
 		Keeper:                  true,
-		VRF:                     true,
-		Webhook:                 true,
-		BlockhashStore:          false,
-		BlockHeaderFeeder:       false,
 		LegacyGasStationServer:  false,
 		LegacyGasStationSidecar: false,
-		Bootstrap:               false,
-		Gateway:                 false,
+		OffchainReporting2:      false,
+		OffchainReporting:       false,
+		Stream:                  true,
+		VRF:                     true,
+		Webhook:                 true,
 	}
 	schemaVersions = map[Type]uint32{
+		BlockHeaderFeeder:       1,
+		BlockhashStore:          1,
+		Bootstrap:               1,
 		Cron:                    1,
 		DirectRequest:           1,
 		FluxMonitor:             1,
-		OffchainReporting:       1,
-		OffchainReporting2:      1,
+		Gateway:                 1,
 		Keeper:                  1,
-		VRF:                     1,
-		Webhook:                 1,
-		BlockhashStore:          1,
-		BlockHeaderFeeder:       1,
 		LegacyGasStationServer:  1,
 		LegacyGasStationSidecar: 1,
-		Bootstrap:               1,
-		Gateway:                 1,
+		OffchainReporting2:      1,
+		OffchainReporting:       1,
+		Stream:                  1,
+		VRF:                     1,
+		Webhook:                 1,
 	}
 )
 
 type Job struct {
 	ID                            int32     `toml:"-"`
 	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
+	StreamID                      *uint32   `toml:"streamID"`
 	OCROracleSpecID               *int32
 	OCROracleSpec                 *OCROracleSpec
 	OCR2OracleSpecID              *int32
@@ -157,11 +162,11 @@ type Job struct {
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
-	Type                          Type
-	SchemaVersion                 uint32
+	Type                          Type          `toml:"type"`
+	SchemaVersion                 uint32        `toml:"schemaVersion"`
 	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
 	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
-	Name                          null.String
+	Name                          null.String   `toml:"name"`
 	MaxTaskDuration               models.Interval
 	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
 	CreatedAt                     time.Time
@@ -232,7 +237,7 @@ func (pr *PipelineRun) SetID(value string) error {
 	if err != nil {
 		return err
 	}
-	pr.ID = int64(ID)
+	pr.ID = ID
 	return nil
 }
 
@@ -273,7 +278,8 @@ func (s *OCROracleSpec) SetID(value string) error {
 	return nil
 }
 
-// JSONConfig is a Go mapping for JSON based database properties.
+// JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
+// sql.Scanner and driver.Valuer.
 type JSONConfig map[string]interface{}
 
 // Bytes returns the raw bytes

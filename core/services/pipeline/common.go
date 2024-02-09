@@ -29,20 +29,21 @@ import (
 )
 
 const (
+	BlockHeaderFeederJobType       string = "blockheaderfeeder"
+	BlockhashStoreJobType          string = "blockhashstore"
+	BootstrapJobType               string = "bootstrap"
 	CronJobType                    string = "cron"
 	DirectRequestJobType           string = "directrequest"
 	FluxMonitorJobType             string = "fluxmonitor"
-	OffchainReportingJobType       string = "offchainreporting"
-	OffchainReporting2JobType      string = "offchainreporting2"
-	KeeperJobType                  string = "keeper"
-	VRFJobType                     string = "vrf"
-	BlockhashStoreJobType          string = "blockhashstore"
-	BlockHeaderFeederJobType       string = "blockheaderfeeder"
-	WebhookJobType                 string = "webhook"
-	BootstrapJobType               string = "bootstrap"
 	GatewayJobType                 string = "gateway"
+	KeeperJobType                  string = "keeper"
 	LegacyGasStationServerJobType  string = "legacygasstationserver"
 	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
+	OffchainReporting2JobType      string = "offchainreporting2"
+	OffchainReportingJobType       string = "offchainreporting"
+	StreamJobType                  string = "stream"
+	VRFJobType                     string = "vrf"
+	WebhookJobType                 string = "webhook"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -240,6 +241,16 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 		l.Panicw("Expected at least one task to be final", "tasks", trrs)
 	}
 	return fr
+}
+
+// Terminals returns all terminal task run results
+func (trrs TaskRunResults) Terminals() (terminals []TaskRunResult) {
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			terminals = append(terminals, trr)
+		}
+	}
+	return
 }
 
 // GetNextTaskOf returns the task with the next id or nil if it does not exist

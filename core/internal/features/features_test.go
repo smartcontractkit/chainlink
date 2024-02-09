@@ -40,6 +40,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -523,8 +524,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -569,8 +570,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -607,8 +608,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -1319,7 +1320,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
 	for _, re := range cc.Slice() {
-		require.NoError(t, re.Start(testutils.Context(t)))
+		servicetest.Run(t, re)
 	}
 	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
@@ -1343,6 +1344,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &b43
 	})
+	ethClient.On("Close").Return().Once()
 
 	// Simulate one new head and check the gas price got updated
 	h43 := cltest.Head(43)

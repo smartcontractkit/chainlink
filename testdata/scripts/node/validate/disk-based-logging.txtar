@@ -96,8 +96,6 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [AuditLogger]
 Enabled = false
@@ -364,7 +362,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'fake'

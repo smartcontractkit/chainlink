@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,13 +22,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
@@ -37,8 +38,8 @@ type MockMercuryConfigProvider struct {
 	mock.Mock
 }
 
-func (m *MockMercuryConfigProvider) Credentials() *models.MercuryCredentials {
-	mc := &models.MercuryCredentials{
+func (m *MockMercuryConfigProvider) Credentials() *types.MercuryCredentials {
+	mc := &types.MercuryCredentials{
 		LegacyURL: "https://google.old.com",
 		URL:       "https://google.com",
 		Username:  "FakeClientID",
@@ -138,7 +139,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 
 		state     encoding.PipelineExecutionState
 		retryable bool
-		registry  streamsRegistry
+		registry  streamRegistry
 	}{
 		{
 			name: "success - empty extra data",
@@ -283,7 +284,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		err        error
 		state      encoding.PipelineExecutionState
 		reason     encoding.UpkeepFailureReason
-		registry   streamsRegistry
+		registry   streamRegistry
 		retryable  bool
 		config     []byte
 	}{
@@ -473,7 +474,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 		hasError          bool
 		hasPermission     bool
 		v3                bool
-		registry          streamsRegistry
+		registry          streamRegistry
 	}{
 		{
 			name: "success - happy path no cache",
