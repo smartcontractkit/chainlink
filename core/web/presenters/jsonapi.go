@@ -1,6 +1,7 @@
 package presenters
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -34,4 +35,9 @@ func (jaid *JAID) SetID(value string) error {
 	jaid.ID = value
 
 	return nil
+}
+
+// GetWithPrefixedChainID returns JAID formatted with chainID, this is done to prevent cross chain ID collision.
+func (jaid JAID) GetWithPrefixedChainID(chainID string) JAID {
+	return JAID{ID: fmt.Sprintf("%s/%s", chainID, jaid.ID)}
 }

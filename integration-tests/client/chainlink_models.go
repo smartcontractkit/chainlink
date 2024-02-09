@@ -379,8 +379,8 @@ type TxKeyData struct {
 // TxKeyAttributes is the model that represents the created keys when read
 type TxKeyAttributes struct {
 	PublicKey string `json:"publicKey"`
-
-	StarkKey string `json:"starkPubKey,omitempty"`
+	Address   string `json:"address"`
+	StarkKey  string `json:"starkPubKey,omitempty"`
 }
 
 type SingleTransactionDataWrapper struct {

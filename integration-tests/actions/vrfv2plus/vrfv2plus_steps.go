@@ -333,8 +333,8 @@ func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, vrfv2PlusConfig vr
 		if response.StatusCode != 200 {
 			return nil, fmt.Errorf("error creating transaction key - response code, err %d", response.StatusCode)
 		}
-		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.ID)
-		err = actions.FundAddress(env.EVMClient, newTxKey.Data.ID, big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding))
+		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.Attributes.Address)
+		err = actions.FundAddress(env.EVMClient, newTxKey.Data.Attributes.Address, big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding))
 		if err != nil {
 			return nil, err
 		}
