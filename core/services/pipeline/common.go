@@ -671,3 +671,14 @@ func getJsonNumberValue(value json.Number) (interface{}, error) {
 
 	return result, nil
 }
+
+func selectBlock(block string) (string, error) {
+	if block == "" {
+		return "latest", nil
+	}
+	block = strings.ToLower(block)
+	if block == "pending" || block == "latest" {
+		return block, nil
+	}
+	return "", pkgerrors.Errorf("unsupported block param: %s", block)
+}

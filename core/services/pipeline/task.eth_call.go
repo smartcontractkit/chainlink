@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -33,6 +33,7 @@ type ETHCallTask struct {
 	GasUnlimited        string `json:"gasUnlimited"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
+	Block               string `json:"block"`
 
 	specGasLimit *uint32
 	legacyChains legacyevm.LegacyChainContainer
@@ -78,6 +79,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasFeeCap    MaybeBigIntParam
 		gasUnlimited BoolParam
 		chainID      StringParam
+		block        StringParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
@@ -89,6 +91,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
 		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID"),
 		errors.Wrap(ResolveParam(&gasUnlimited, From(VarExpr(t.GasUnlimited, vars), NonemptyString(t.GasUnlimited), false)), "gasUnlimited"),
+		errors.Wrap(ResolveParam(&block, From(VarExpr(t.Block, vars), t.Block)), "block"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -115,23 +118,29 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		}
 	}
 
-	call := ethereum.CallMsg{
-		To:        (*common.Address)(&contractAddr),
-		From:      (common.Address)(from),
-		Data:      []byte(data),
-		Gas:       uint64(selectedGas),
-		GasPrice:  gasPrice.BigInt(),
-		GasTipCap: gasTipCap.BigInt(),
-		GasFeeCap: gasFeeCap.BigInt(),
+	args := map[string]interface{}{
+		"from":                 common.Address(from),
+		"to":                   (*common.Address)(&contractAddr),
+		"input":                hexutil.Bytes([]byte(data)),
+		"gas":                  hexutil.Uint64(uint64(selectedGas)),
+		"gasPrice":             (*hexutil.Big)(gasPrice.BigInt()),
+		"maxFeePerGas":         (*hexutil.Big)(gasFeeCap.BigInt()),
+		"maxPriorityFeePerGas": (*hexutil.Big)(gasTipCap.BigInt()),
 	}
 
-	lggr = lggr.With("gas", call.Gas).
-		With("gasPrice", call.GasPrice).
-		With("gasTipCap", call.GasTipCap).
-		With("gasFeeCap", call.GasFeeCap)
+	selectedBlock, err := selectBlock(string(block))
+	if err != nil {
+		return Result{Error: err}, runInfo
+	}
+
+	lggr = lggr.With("gas", uint64(selectedGas)).
+		With("gasPrice", gasPrice.BigInt()).
+		With("gasTipCap", gasTipCap.BigInt()).
+		With("gasFeeCap", gasFeeCap.BigInt())
 
 	start := time.Now()
-	resp, err := chain.Client().CallContract(ctx, call, nil)
+	var resp hexutil.Bytes
+	err = chain.Client().CallContext(ctx, &resp, "eth_call", args, selectedBlock)
 	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
@@ -149,6 +158,5 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	}
 
 	promETHCallTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
-
-	return Result{Value: resp}, runInfo
+	return Result{Value: []byte(resp)}, runInfo
 }

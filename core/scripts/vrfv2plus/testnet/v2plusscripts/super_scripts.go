@@ -472,6 +472,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
 	// required flags
+	nativeOnly := deployCmd.Bool("native-only", false, "if true, link and link feed are not set up")
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := deployCmd.String("bhs-address", "", "address of BHS contract")
@@ -506,6 +507,15 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
 	)
+
+	if *nativeOnly {
+		if *linkAddress != "" || *linkEthAddress != "" {
+			panic("native-only flag is set, but link address or link eth address is provided")
+		}
+		if *subscriptionBalanceJuelsString != "0" {
+			panic("native-only flag is set, but link subscription balance is provided")
+		}
+	}
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
@@ -569,6 +579,8 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
+		*batchFulfillmentEnabled,
+		*nativeOnly,
 		nodesMap,
 		uint64(*gasLaneMaxGas),
 		coordinatorJobSpecConfig,
@@ -587,6 +599,8 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2Plus,
+	batchFulfillmentEnabled bool,
+	nativeOnly bool,
 	nodesMap map[string]model.Node,
 	gasLaneMaxGas uint64,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
@@ -618,12 +632,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		helpers.PanicErr(err)
 	}
 
-	if len(contractAddresses.LinkAddress) == 0 {
+	if !nativeOnly && len(contractAddresses.LinkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
 		contractAddresses.LinkAddress = helpers.DeployLinkToken(e).String()
 	}
 
-	if len(contractAddresses.LinkEthAddress) == 0 {
+	if !nativeOnly && len(contractAddresses.LinkEthAddress) == 0 {
 		fmt.Println("\nDeploying LINK/ETH Feed...")
 		contractAddresses.LinkEthAddress = helpers.DeployLinkEthFeed(e, contractAddresses.LinkAddress, coordinatorConfig.FallbackWeiPerUnitLink).String()
 	}
@@ -715,11 +729,10 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 	formattedVrfV2PlusPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFV2PlusJobFormatted,
-		contractAddresses.CoordinatorAddress,                                                        //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress,                                                   //batchCoordinatorAddress
-		coordinatorJobSpecConfig.BatchFulfillmentEnabled,                                            //batchFulfillmentEnabled
-		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier,                                      //batchFulfillmentGasMultiplier
-		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
+		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
 		compressedPkHex,            //publicKey
 		coordinatorConfig.MinConfs, //minIncomingConfirmations
 		e.ChainID,                  //evmChainID

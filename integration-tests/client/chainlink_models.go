@@ -654,7 +654,8 @@ generate_proof [type=vrfv2plus
 estimate_gas [type=estimategaslimit
              to="{{ .Address }}"
              multiplier="{{ .EstimateGasMultiplier }}"
-             data="$(generate_proof.output)"]
+             data="$(generate_proof.output)"
+			 request="pending"]
 simulate_fulfillment [type=ethcall
 					  from="{{ .FromAddress }}"	
                       to="{{ .Address }}"
@@ -662,7 +663,8 @@ simulate_fulfillment [type=ethcall
                       gasPrice="$(jobSpec.maxGasPrice)"
                       extractRevertReason=true
                       contract="{{ .Address }}"
-                      data="$(generate_proof.output)"]
+                      data="$(generate_proof.output)"
+					  request="pending"]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment`
 	return MarshallTemplate(d, "VRFV2 Plus pipeline template", sourceString)
 }

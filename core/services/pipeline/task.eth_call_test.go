@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -43,6 +44,7 @@ func TestETHCallTask(t *testing.T) {
 		data                  string
 		evmChainID            string
 		gas                   string
+		block                 string
 		specGasLimit          *uint32
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
@@ -52,24 +54,43 @@ func TestETHCallTask(t *testing.T) {
 		expectedErrorContains string
 	}{
 		{
-			"happy with empty from",
-			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
-			"",
-			"$(foo)",
-			"0",
-			"",
-			nil,
-			pipeline.NewVarsFrom(map[string]interface{}{
+			"happy with empty from",                      // name
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", // contract
+			"",       // from
+			"$(foo)", // data
+			"0",      // evmChainID
+			"",       // gas
+			"",       // block
+			nil,      // specGasLimit
+			pipeline.NewVarsFrom(map[string]interface{}{ // vars
 				"foo": []byte("foo bar"),
 			}),
-			nil,
-			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) {
+			nil, // inputs
+			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) { // setupClientMocks
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				//[]byte("baz quux")
 				ethClient.
-					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: uint64(drJobTypeGasLimit), Data: []byte("foo bar")}, (*big.Int)(nil)).
-					Return([]byte("baz quux"), nil)
+					On("CallContext",
+						mock.Anything,
+						mock.Anything,
+						"eth_call",
+						map[string]interface{}{
+							"from":                 common.Address{},
+							"to":                   &contractAddr,
+							"gas":                  hexutil.Uint64(uint64(drJobTypeGasLimit)),
+							"input":                hexutil.Bytes([]byte("foo bar")),
+							"gasPrice":             (*hexutil.Big)(nil),
+							"maxFeePerGas":         (*hexutil.Big)(nil),
+							"maxPriorityFeePerGas": (*hexutil.Big)(nil),
+						},
+						"latest").Return(nil).Run(func(args mock.Arguments) {
+					resp := args.Get(1).(*hexutil.Bytes)
+					*resp = []byte("baz quux")
+				})
 			},
-			[]byte("baz quux"), nil, "",
+			[]byte("baz quux"), // expected
+			nil,                // expecedErrorCause
+			"",                 // expectedErrorContains
 		},
 		{
 			"happy with gas limit per task",
@@ -78,19 +99,38 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"0",
 			"$(gasLimit)",
+			"", // block
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo":      []byte("foo bar"),
 				"gasLimit": 100_000,
 			}),
 			nil,
-			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) {
+			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) { // setupClientMocks
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				//[]byte("baz quux")
 				ethClient.
-					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: 100_000, Data: []byte("foo bar")}, (*big.Int)(nil)).
-					Return([]byte("baz quux"), nil)
+					On("CallContext",
+						mock.Anything,
+						mock.Anything,
+						"eth_call",
+						map[string]interface{}{
+							"from":                 common.Address{},
+							"to":                   &contractAddr,
+							"gas":                  hexutil.Uint64(uint64(100_000)),
+							"input":                hexutil.Bytes([]byte("foo bar")),
+							"gasPrice":             (*hexutil.Big)(nil),
+							"maxFeePerGas":         (*hexutil.Big)(nil),
+							"maxPriorityFeePerGas": (*hexutil.Big)(nil),
+						},
+						"latest").Return(nil).Run(func(args mock.Arguments) {
+					resp := args.Get(1).(*hexutil.Bytes)
+					*resp = []byte("baz quux")
+				})
 			},
-			[]byte("baz quux"), nil, "",
+			[]byte("baz quux"),
+			nil,
+			"",
 		},
 		{
 			"happy with gas limit per spec",
@@ -99,18 +139,37 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"0",
 			"",
+			"pending", // block
 			&specGasLimit,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
-			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) {
+			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) { // setupClientMocks
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				//[]byte("baz quux")
 				ethClient.
-					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: uint64(specGasLimit), Data: []byte("foo bar")}, (*big.Int)(nil)).
-					Return([]byte("baz quux"), nil)
+					On("CallContext",
+						mock.Anything,
+						mock.Anything,
+						"eth_call",
+						map[string]interface{}{
+							"from":                 common.Address{},
+							"to":                   &contractAddr,
+							"gas":                  hexutil.Uint64(uint64(specGasLimit)),
+							"input":                hexutil.Bytes([]byte("foo bar")),
+							"gasPrice":             (*hexutil.Big)(nil),
+							"maxFeePerGas":         (*hexutil.Big)(nil),
+							"maxPriorityFeePerGas": (*hexutil.Big)(nil),
+						},
+						"pending").Return(nil).Run(func(args mock.Arguments) {
+					resp := args.Get(1).(*hexutil.Bytes)
+					*resp = []byte("baz quux")
+				})
 			},
-			[]byte("baz quux"), nil, "",
+			[]byte("baz quux"), // expected
+			nil,
+			"",
 		},
 		{
 			"happy with from addr",
@@ -119,17 +178,34 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"0",
 			"",
+			"pending", // block
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
 			}),
 			nil,
-			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) {
+			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) { // setupClientMocks
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				fromAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
+				//[]byte("baz quux")
 				ethClient.
-					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Gas: uint64(drJobTypeGasLimit), From: fromAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
-					Return([]byte("baz quux"), nil)
+					On("CallContext",
+						mock.Anything,
+						mock.Anything,
+						"eth_call",
+						map[string]interface{}{
+							"from":                 fromAddr,
+							"to":                   &contractAddr,
+							"gas":                  hexutil.Uint64(drJobTypeGasLimit),
+							"input":                hexutil.Bytes([]byte("foo bar")),
+							"gasPrice":             (*hexutil.Big)(nil),
+							"maxFeePerGas":         (*hexutil.Big)(nil),
+							"maxPriorityFeePerGas": (*hexutil.Big)(nil),
+						},
+						"pending").Return(nil).Run(func(args mock.Arguments) {
+					resp := args.Get(1).(*hexutil.Bytes)
+					*resp = []byte("baz quux")
+				})
 			},
 			[]byte("baz quux"), nil, "",
 		},
@@ -139,6 +215,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xThisAintGonnaWork",
 			"$(foo)",
 			"0",
+			"",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -155,6 +232,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"0",
 			"",
+			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
@@ -169,6 +247,7 @@ func TestETHCallTask(t *testing.T) {
 			"",
 			"$(foo)",
 			"0",
+			"",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -185,6 +264,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"0",
 			"",
+			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte(nil),
@@ -200,6 +280,7 @@ func TestETHCallTask(t *testing.T) {
 			"$(foo)",
 			"0",
 			"",
+			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
 				"foo": []byte("foo bar"),
@@ -209,11 +290,30 @@ func TestETHCallTask(t *testing.T) {
 			nil, pipeline.ErrTooManyErrors, "task inputs",
 		},
 		{
+			"invalid block", // name
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", // contract
+			"",             // from
+			"$(foo)",       // data
+			"0",            // evmChainID
+			"",             // gas
+			"invalidblock", // block
+			nil,            // specGasLimit
+			pipeline.NewVarsFrom(map[string]interface{}{ // vars
+				"foo": []byte("foo bar"),
+			}),
+			nil, // inputs
+			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) {}, // setupClientMocks
+			nil,                       // expected
+			nil,                       // expectedErrorCause
+			"unsupported block param", // expectedErrorContains
+		},
+		{
 			"missing chainID",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
 			"$(evmChainID)",
+			"",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -241,6 +341,7 @@ func TestETHCallTask(t *testing.T) {
 				Data:       test.data,
 				EVMChainID: test.evmChainID,
 				Gas:        test.gas,
+				Block:      test.block,
 			}
 
 			ethClient := evmclimocks.NewClient(t)
