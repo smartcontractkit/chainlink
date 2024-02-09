@@ -342,13 +342,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function createSubscription() external override nonReentrant returns (uint256) {
+  function createSubscription() external override nonReentrant returns (uint256 subId) {
     // Generate a subscription id that is globally unique.
-    uint256 subId = uint256(
-      keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), s_currentSubNonce))
+    uint64 currentSubNonce = s_currentSubNonce;
+    subId = uint256(
+      keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), currentSubNonce))
     );
     // Increment the subscription nonce counter.
-    ++s_currentSubNonce;
+    s_currentSubNonce = currentSubNonce + 1;
     // Initialize storage variables.
     address[] memory consumers = new address[](0);
     s_subscriptions[subId] = Subscription({balance: 0, nativeBalance: 0, reqCount: 0});
