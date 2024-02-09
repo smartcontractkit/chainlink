@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type TransmitUnpacker interface {
@@ -144,7 +143,7 @@ func (c *LogProvider) HealthReport() map[string]error {
 }
 
 func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	end, err := c.logPoller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
 	}
@@ -158,7 +157,6 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
@@ -185,7 +183,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 }
 
 func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleReportLog, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	end, err := c.logPoller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
 	}
@@ -201,7 +199,6 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
@@ -219,7 +216,6 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
@@ -237,7 +233,6 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)

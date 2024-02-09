@@ -12,7 +12,6 @@ import (
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -97,8 +96,7 @@ func (v *V1Coordinator) Requests(
 		[]common.Hash{
 			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v1 requests")
 	}
@@ -121,7 +119,7 @@ func (v *V1Coordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
+	toBlock, err := v.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
 	}
@@ -132,8 +130,7 @@ func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		[]common.Hash{
 			v1.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v1 fulfillments")
 	}
@@ -188,8 +185,7 @@ func (v *V2Coordinator) Requests(
 		[]common.Hash{
 			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v2 requests")
 	}
@@ -212,7 +208,7 @@ func (v *V2Coordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
+	toBlock, err := v.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
 	}
@@ -223,8 +219,7 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 		[]common.Hash{
 			v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v2 fulfillments")
 	}
@@ -279,8 +274,7 @@ func (v *V2PlusCoordinator) Requests(
 		[]common.Hash{
 			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v2 requests")
 	}
@@ -303,7 +297,7 @@ func (v *V2PlusCoordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
+	toBlock, err := v.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
 	}
@@ -314,8 +308,7 @@ func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) 
 		[]common.Hash{
 			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v2 fulfillments")
 	}

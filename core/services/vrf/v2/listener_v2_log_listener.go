@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
@@ -107,7 +106,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	start := time.Now()
 
 	// will retry on error in the runLogListener loop
-	latestBlock, err := lp.LatestBlock()
+	latestBlock, err := lp.LatestBlock(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("LogPoller.LatestBlock(): %w", err)
 	}
@@ -172,7 +171,7 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 	lp := lsn.chain.LogPoller()
 	start := time.Now()
 
-	latestBlock, err := lp.LatestBlock(pg.WithParentCtx(ctx))
+	latestBlock, err := lp.LatestBlock(ctx)
 	if err != nil {
 		lsn.l.Errorw("error getting latest block", "err", err)
 		return 0, fmt.Errorf("LogPoller.LatestBlock(): %w", err)
@@ -191,7 +190,6 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 		latestBlock.FinalizedBlockNumber,
 		[]common.Hash{lsn.coordinator.RandomWordsFulfilledTopic(), lsn.coordinator.RandomWordsRequestedTopic()},
 		lsn.coordinator.Address(),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return currLastProcessedBlock, fmt.Errorf("LogPoller.LogsWithSigs: %w", err)
@@ -228,7 +226,7 @@ func (lsn *listenerV2) pollLogs(ctx context.Context, minConfs uint32, lastProces
 	// latest unfinalized block used on purpose to get bleeding edge logs
 	// we don't really have the luxury to wait for finalization on most chains
 	// if we want to fulfill on time.
-	latestBlock, err := lp.LatestBlock()
+	latestBlock, err := lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("LogPoller.LatestBlock(): %w", err)
 	}
@@ -250,7 +248,6 @@ func (lsn *listenerV2) pollLogs(ctx context.Context, minConfs uint32, lastProces
 		latestBlock.BlockNumber,
 		[]common.Hash{lsn.coordinator.RandomWordsFulfilledTopic(), lsn.coordinator.RandomWordsRequestedTopic()},
 		lsn.coordinator.Address(),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("LogPoller.LogsWithSigs: %w", err)

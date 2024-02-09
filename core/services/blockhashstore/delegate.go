@@ -169,7 +169,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		int(jb.BlockhashStoreSpec.LookbackBlocks),
 		jb.BlockhashStoreSpec.HeartbeatPeriod,
 		func(ctx context.Context) (uint64, error) {
-			head, err := lp.LatestBlock(pg.WithParentCtx(ctx))
+			head, err := lp.LatestBlock(ctx)
 			if err != nil {
 				return 0, errors.Wrap(err, "getting chain head")
 			}

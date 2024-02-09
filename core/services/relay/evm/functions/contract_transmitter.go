@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -228,7 +227,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
 	latest, err := oc.lp.LatestLogByEventSigWithConfs(
-		oc.transmittedEventSig, *contractAddr, 1, pg.WithParentCtx(ctx))
+		oc.transmittedEventSig, *contractAddr, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet

@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -158,7 +157,7 @@ func (p *logEventProvider) HealthReport() map[string]error {
 }
 
 func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
-	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
@@ -196,7 +195,7 @@ func (p *logEventProvider) ReadLogs(pctx context.Context, ids ...*big.Int) error
 	ctx, cancel := context.WithTimeout(pctx, readLogsTimeout)
 	defer cancel()
 
-	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := p.poller.LatestBlock(pctx)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
@@ -378,7 +377,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			start = configUpdateBlock
 		}
 		// query logs based on contract address, event sig, and blocks
-		logs, err := p.poller.LogsWithSigs(start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+		logs, err := p.poller.LogsWithSigs(start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr))
 		if err != nil {
 			// cancel limit reservation as we failed to get logs
 			resv.Cancel()

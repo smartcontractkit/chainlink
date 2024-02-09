@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -39,7 +38,8 @@ var (
 
 // Validate that filters stored in log_filters_table match the filters stored in memory
 func validateFiltersTable(t *testing.T, lp *logPoller, orm *DbORM) {
-	filters, err := orm.LoadFilters()
+	ctx := testutils.Context(t)
+	filters, err := orm.LoadFilters(ctx)
 	require.NoError(t, err)
 	require.Equal(t, len(filters), len(lp.filters))
 	for name, dbFilter := range filters {
@@ -61,7 +61,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
-	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(chainID, db, lggr)
 
 	// Set up a test chain with a log emitting contract deployed.
 	lp := NewLogPoller(orm, nil, lggr, time.Hour, false, 1, 1, 2, 1000)
@@ -126,7 +126,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	err = lp.UnregisterFilter("Emitter Log 1")
 	require.NoError(t, err)
 	assert.Len(t, lp.filters, 0)
-	filters, err := lp.orm.LoadFilters()
+	filters, err := lp.orm.LoadFilters(lp.ctx)
 	require.NoError(t, err)
 	assert.Len(t, filters, 0)
 
@@ -197,7 +197,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(chainID, db, lggr)
 
 	head := evmtypes.Head{Number: 3}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
@@ -225,7 +225,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 
 	lp.PollAndSaveLogs(ctx, 3)
 
-	lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
+	lastProcessed, err := lp.orm.SelectLatestBlock(ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(3), lastProcessed.BlockNumber)
 
@@ -240,7 +240,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(chainID, db, lggr)
 
 	head := evmtypes.Head{Number: 4}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
@@ -262,7 +262,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// process 1 log in block 3
 	lp.PollAndSaveLogs(testutils.Context(t), 4)
-	latest, err := lp.LatestBlock()
+	latest, err := lp.LatestBlock(lp.ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), latest.BlockNumber)
 
@@ -438,7 +438,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	lggr := logger.Test(t)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(chainID, db, lggr)
 
 	t.Run("pick latest block from chain and use finality from config with finality disabled", func(t *testing.T) {
 		head := evmtypes.Head{Number: 4}

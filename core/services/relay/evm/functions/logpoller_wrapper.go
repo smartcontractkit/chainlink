@@ -151,7 +151,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	if l.proposedCoordinator != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
-	latest, err := l.logPoller.LatestBlock()
+	latest, err := l.logPoller.LatestBlock(context.Background())
 	if err != nil {
 		l.mu.Unlock()
 		return nil, nil, err

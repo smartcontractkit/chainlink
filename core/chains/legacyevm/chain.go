@@ -243,7 +243,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 			logPoller = opts.GenLogPoller(chainID)
 		} else {
 			logPoller = logpoller.NewLogPoller(
-				logpoller.NewObservedORM(chainID, db, l, cfg.Database()),
+				logpoller.NewObservedORM(chainID, db, l),
 				client,
 				l,
 				cfg.EVM().LogPollInterval(),

@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -351,7 +350,7 @@ func (r *EvmRegistry) pollLogs() error {
 	var end logpoller.LogPollerBlock
 	var err error
 
-	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
+	if end, err = r.poller.LatestBlock(r.ctx); err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
@@ -373,7 +372,6 @@ func (r *EvmRegistry) pollLogs() error {
 			end.BlockNumber,
 			upkeepStateEvents,
 			r.addr,
-			pg.WithParentCtx(r.ctx),
 		); err != nil {
 			return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
 		}

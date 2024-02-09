@@ -12,7 +12,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -105,7 +104,7 @@ func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOption
 
 // register registers the upkeep filter with the log poller and adds it to the filter store.
 func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filter, ufilter upkeepFilter) error {
-	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
 	}

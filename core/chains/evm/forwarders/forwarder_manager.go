@@ -255,7 +255,6 @@ func (f *FwdMgr) runLoop() {
 				[]common.Hash{authChangedTopic},
 				addrs,
 				evmlogpoller.Confirmations(f.cfg.FinalityDepth()),
-				pg.WithParentCtx(f.ctx),
 			)
 			if err != nil {
 				f.logger.Errorw("Failed to retrieve latest log round", "err", err)

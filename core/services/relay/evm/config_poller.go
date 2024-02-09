@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -164,7 +163,7 @@ func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, cp.aggregatorContractAddr, 1, pg.WithParentCtx(ctx))
+	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, cp.aggregatorContractAddr, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			if cp.isConfigStoreAvailable() {
@@ -185,7 +184,7 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 
 // LatestConfig returns the latest config from the logs on a certain block
 func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, cp.aggregatorContractAddr, pg.WithParentCtx(ctx))
+	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, cp.aggregatorContractAddr)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
@@ -206,7 +205,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 
 // LatestBlockHeight returns the latest block height from the logs
 func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
-	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := cp.destChainLogPoller.LatestBlock(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil

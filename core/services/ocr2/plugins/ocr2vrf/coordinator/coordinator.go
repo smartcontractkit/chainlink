@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -226,7 +225,7 @@ func New(
 }
 
 func (c *coordinator) CurrentChainHeight(ctx context.Context) (uint64, error) {
-	head, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
+	head, err := c.lp.LatestBlock(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -263,8 +262,7 @@ func (c *coordinator) ReportIsOnchain(
 		[]common.Hash{
 			enrTopic,
 		},
-		1,
-		pg.WithParentCtx(ctx))
+		1)
 	if err != nil {
 		return false, errors.Wrap(err, "log poller IndexedLogs")
 	}
@@ -350,8 +348,7 @@ func (c *coordinator) ReportBlocks(
 			c.randomWordsFulfilledTopic,
 			c.outputsServedTopic,
 		},
-		c.coordinatorAddress,
-		pg.WithParentCtx(ctx))
+		c.coordinatorAddress)
 	if err != nil {
 		err = errors.Wrapf(err, "logs with topics. address: %s", c.coordinatorAddress)
 		return
@@ -548,7 +545,7 @@ func (c *coordinator) getBlockhashesMapping(
 		return blockNumbers[a] < blockNumbers[b]
 	})
 
-	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers, pg.WithParentCtx(ctx))
+	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers)
 	if err != nil {
 		return nil, errors.Wrap(err, "logpoller.GetBlocks")
 	}
@@ -915,7 +912,6 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		c.configSetTopic,
 		c.beaconAddress,
 		logpoller.Confirmations(c.finalityDepth),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest vrf ConfigSet by sig with confs")
@@ -926,7 +922,6 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 		c.configSetTopic,
 		c.dkgAddress,
 		logpoller.Confirmations(c.finalityDepth),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest dkg ConfigSet by sig with confs")
