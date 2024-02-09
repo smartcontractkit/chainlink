@@ -72,17 +72,13 @@ contract AutomationRegistry2_2_LatestConfigDetails is AutomationRegistry2_2_SetU
 
 contract AutomationRegistry2_2_CheckUpkeep is AutomationRegistry2_2_SetUp {
   function testPreventExecutionOnCheckUpkeep() public {
-    IAutomationRegistryMaster registry = IAutomationRegistryMaster(
-      address(deployRegistry2_2(AutomationRegistryBase2_2.Mode(0)))
-    );
-
     uint256 id = 1;
     bytes memory triggerData = abi.encodePacked("trigger_data");
 
     // The tx.origin is the DEFAULT_SENDER (0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) of foundry
     // Expecting a revert since the tx.origin is not address(0)
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster.OnlySimulatedBackend.selector));
-    registry.checkUpkeep(id, triggerData);
+    registryMaster.checkUpkeep(id, triggerData);
   }
 }
 

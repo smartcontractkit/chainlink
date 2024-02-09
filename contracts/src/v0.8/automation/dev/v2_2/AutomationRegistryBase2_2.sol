@@ -3,9 +3,6 @@ pragma solidity 0.8.19;
 
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {StreamsLookupCompatibleInterface} from "../../interfaces/StreamsLookupCompatibleInterface.sol";
 import {ILogAutomation, Log} from "../../interfaces/ILogAutomation.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
@@ -847,7 +844,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     bytes32[3] calldata reportContext,
     bytes calldata report,
     bytes32[] calldata rs,
-    bytes32[] memory ss,
+    bytes32[] calldata ss,
     bytes32 rawVs
   ) internal view {
     bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));

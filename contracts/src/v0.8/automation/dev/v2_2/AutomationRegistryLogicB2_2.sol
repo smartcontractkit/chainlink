@@ -22,9 +22,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
-  )
-    AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress)
-  {}
+  ) AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -453,6 +451,13 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
+  }
+
+  /**
+   * @notice get the chain module
+   */
+  function getChainModule() external view returns (IChainModule chainModule) {
+    return s_hotVars.chainModule;
   }
 
   /**
