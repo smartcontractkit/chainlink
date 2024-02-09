@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -22,6 +23,7 @@ type TestNodePoolConfig struct {
 	NodeSelectionMode        string
 	NodeSyncThreshold        uint32
 	NodeLeaseDuration        time.Duration
+	NodeIsSyncingEnabledVal  bool
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -30,6 +32,10 @@ func (tc TestNodePoolConfig) SelectionMode() string        { return tc.NodeSelec
 func (tc TestNodePoolConfig) SyncThreshold() uint32        { return tc.NodeSyncThreshold }
 func (tc TestNodePoolConfig) LeaseDuration() time.Duration {
 	return tc.NodeLeaseDuration
+}
+
+func (tc TestNodePoolConfig) NodeIsSyncingEnabled() bool {
+	return tc.NodeIsSyncingEnabledVal
 }
 
 func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeadsThreshold time.Duration, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {

@@ -42,6 +42,7 @@ type NodeConfig interface {
 	PollInterval() time.Duration
 	SelectionMode() string
 	SyncThreshold() uint32
+	NodeIsSyncingEnabled() bool
 }
 
 //go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
@@ -287,15 +288,17 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyConn(ctx context.Context, lggr logger.
 		return state
 	}
 
-	isSyncing, err := n.rpc.IsSyncing(ctx)
-	if err != nil {
-		lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
-		return nodeStateUnreachable
-	}
+	if n.nodePoolCfg.NodeIsSyncingEnabled() {
+		isSyncing, err := n.rpc.IsSyncing(ctx)
+		if err != nil {
+			lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
+			return nodeStateUnreachable
+		}
 
-	if isSyncing {
-		lggr.Errorw("Verification failed: Node is syncing", "nodeState", n.State())
-		return nodeStateSyncing
+		if isSyncing {
+			lggr.Errorw("Verification failed: Node is syncing", "nodeState", n.State())
+			return nodeStateSyncing
+		}
 	}
 
 	return nodeStateAlive

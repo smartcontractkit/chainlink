@@ -689,6 +689,7 @@ type NodePool struct {
 	SelectionMode        *string
 	SyncThreshold        *uint32
 	LeaseDuration        *commonconfig.Duration
+	NodeIsSyncingEnabled *bool
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -706,6 +707,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.LeaseDuration; v != nil {
 		p.LeaseDuration = v
+	}
+	if v := f.NodeIsSyncingEnabled; v != nil {
+		p.NodeIsSyncingEnabled = v
 	}
 }
 

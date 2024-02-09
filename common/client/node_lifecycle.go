@@ -449,6 +449,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			panic(fmt.Sprintf("syncingLoop can only run for node in nodeStateSyncing state, got: %s", state))
 		}
 	}
+
 	syncingAt := time.Now()
 
 	lggr := logger.Sugared(logger.Named(n.lfcLog, "Syncing"))
@@ -483,14 +484,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			lggr.Infow(fmt.Sprintf("Successfully verified RPC node. Node was syncing for %s", time.Since(syncingAt)), "nodeState", n.State())
 			n.declareAlive()
 			return
-		case <-time.After(zombieNodeCheckInterval(n.noNewHeadsThreshold)):
-			if n.nLiveNodes != nil {
-				if l, _, _ := n.nLiveNodes(); l < 1 {
-					lggr.Critical("RPC endpoint is still syncing, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
-					n.declareInSync()
-					return
-				}
-			}
 		}
 
 	}

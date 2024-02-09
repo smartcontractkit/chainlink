@@ -61,6 +61,8 @@ func (n nodeState) String() string {
 		return "OutOfSync"
 	case nodeStateClosed:
 		return "Closed"
+	case nodeStateSyncing:
+		return "Syncing"
 	default:
 		return fmt.Sprintf("nodeState(%d)", n)
 	}
@@ -301,6 +303,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 		n.state = nodeStateSyncing
 	default:
 		panic(transitionFail(n.state, nodeStateSyncing))
+	}
+
+	if !n.nodePoolCfg.NodeIsSyncingEnabled() {
+		panic("unexpected transition to nodeStateSyncing, while it's disabled")
 	}
 	fn()
 }

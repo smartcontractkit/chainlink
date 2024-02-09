@@ -7,6 +7,7 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -130,6 +131,7 @@ type NodePool interface {
 	SelectionMode() string
 	SyncThreshold() uint32
 	LeaseDuration() time.Duration
+	NodeIsSyncingEnabled() bool
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

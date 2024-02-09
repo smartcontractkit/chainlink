@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `chainlink health` CLI command and HTML `/health` endpoint, to provide human-readable views of the underlying JSON health data.
+- Added a new configuration field named `NodeIsSyncingEnabled` for `EVM.NodePool` that will check on every reconnection to an RPC if it's syncing and should not be transitioned to `Alive` state. Disabled by default.
 
 ### Fixed
 
