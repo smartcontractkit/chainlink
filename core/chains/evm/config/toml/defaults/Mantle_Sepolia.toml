@@ -1,5 +1,4 @@
 ChainID = '5003'
-ChainType = 'optimismBedrock'
 FinalityDepth = 200
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '0'
