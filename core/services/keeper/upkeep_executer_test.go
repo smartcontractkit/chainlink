@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -148,15 +148,17 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
-			func(callArgs ethereum.CallMsg) bool {
-				return callArgs.GasPrice == nil &&
-					callArgs.Gas == 0
+			func(args map[string]interface{}) bool {
+				gasPrice := args["gasPrice"].(*hexutil.Big)
+				gas := args["gas"].(hexutil.Uint64)
+				return gasPrice == nil &&
+					gas == 0
 			},
 			checkUpkeepResponse,
 		)
 		registryMock.MockMatchedResponse(
 			"performUpkeep",
-			func(callArgs ethereum.CallMsg) bool { return true },
+			func(args map[string]interface{}) bool { return true },
 			checkPerformResponse,
 		)
 
@@ -193,15 +195,17 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 			registryMock.MockMatchedResponse(
 				"checkUpkeep",
-				func(callArgs ethereum.CallMsg) bool {
-					return callArgs.GasPrice == nil &&
-						callArgs.Gas == 0
+				func(args map[string]interface{}) bool {
+					gasPrice := args["gasPrice"].(*hexutil.Big)
+					gas := args["gas"].(hexutil.Uint64)
+					return gasPrice == nil &&
+						gas == 0
 				},
 				checkUpkeepResponse,
 			)
 			registryMock.MockMatchedResponse(
 				"performUpkeep",
-				func(callArgs ethereum.CallMsg) bool { return true },
+				func(args map[string]interface{}) bool { return true },
 				checkPerformResponse,
 			)
 
@@ -239,15 +243,17 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
-			func(callArgs ethereum.CallMsg) bool {
-				return callArgs.GasPrice == nil &&
-					callArgs.Gas == 0
+			func(args map[string]interface{}) bool {
+				gasPrice := args["gasPrice"].(*hexutil.Big)
+				gas := args["gas"].(hexutil.Uint64)
+				return gasPrice == nil &&
+					gas == 0
 			},
 			checkUpkeepResponse,
 		)
 		registryMock.MockMatchedResponse(
 			"performUpkeep",
-			func(callArgs ethereum.CallMsg) bool { return true },
+			func(args map[string]interface{}) bool { return true },
 			checkPerformResponse,
 		)
 
@@ -299,7 +305,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
 		registryMock.MockMatchedResponse(
 			"performUpkeep",
-			func(callArgs ethereum.CallMsg) bool { return true },
+			func(args map[string]interface{}) bool { return true },
 			checkPerformResponse,
 		)
 		// turn falls somewhere between 20-39 (blockCountPerTurn=20)

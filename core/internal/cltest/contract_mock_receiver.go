@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -45,17 +44,25 @@ func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs 
 
 	return receiver.ethMock.
 		On(
-			"CallContract",
+			"CallContext",
 			mock.Anything,
-			mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
-				return *callArgs.To == receiver.address &&
-					hexutil.Encode(callArgs.Data)[0:funcSigLength] == funcSig
+			mock.Anything,
+			"eth_call",
+			mock.MatchedBy(func(args map[string]interface{}) bool {
+				to := args["to"].(*common.Address)
+				data := args["input"].(hexutil.Bytes)
+				return *to == receiver.address &&
+					hexutil.Encode(data)[0:funcSigLength] == funcSig
 			}),
 			mock.Anything).
-		Return(encoded, nil)
+		Return(nil).Run(func(args mock.Arguments) {
+		resp := args.Get(1).(*hexutil.Bytes)
+		*resp = encoded
+	})
+
 }
 
-func (receiver contractMockReceiver) MockMatchedResponse(funcName string, matcher func(callArgs ethereum.CallMsg) bool, responseArgs ...interface{}) *mock.Call {
+func (receiver contractMockReceiver) MockMatchedResponse(funcName string, matcher func(args map[string]interface{}) bool, responseArgs ...interface{}) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
@@ -63,17 +70,26 @@ func (receiver contractMockReceiver) MockMatchedResponse(funcName string, matche
 
 	encoded := receiver.mustEncodeResponse(funcName, responseArgs...)
 
+	// TODO: ALL CALLER MATCHER FUNCTIONS SHOULD BE CHANGED
+
 	return receiver.ethMock.
 		On(
-			"CallContract",
+			"CallContext",
 			mock.Anything,
-			mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
-				return *callArgs.To == receiver.address &&
-					hexutil.Encode(callArgs.Data)[0:funcSigLength] == funcSig &&
-					matcher(callArgs)
+			mock.Anything,
+			"eth_call",
+			mock.MatchedBy(func(args map[string]interface{}) bool {
+				to := args["to"].(*common.Address)
+				data := args["input"].(hexutil.Bytes)
+				return *to == receiver.address &&
+					hexutil.Encode(data)[0:funcSigLength] == funcSig &&
+					matcher(args)
 			}),
 			mock.Anything).
-		Return(encoded, nil)
+		Return(nil).Run(func(args mock.Arguments) {
+		resp := args.Get(1).(*hexutil.Bytes)
+		*resp = encoded
+	})
 }
 
 func (receiver contractMockReceiver) MockRevertResponse(funcName string) *mock.Call {
@@ -84,14 +100,19 @@ func (receiver contractMockReceiver) MockRevertResponse(funcName string) *mock.C
 
 	return receiver.ethMock.
 		On(
-			"CallContract",
+			"CallContext",
 			mock.Anything,
-			mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
-				return *callArgs.To == receiver.address &&
-					hexutil.Encode(callArgs.Data)[0:funcSigLength] == funcSig
+			mock.Anything,
+			"eth_call",
+			mock.MatchedBy(func(args map[string]interface{}) bool {
+				to := args["to"].(*common.Address)
+				data := args["input"].(hexutil.Bytes)
+				return *to == receiver.address &&
+					hexutil.Encode(data)[0:funcSigLength] == funcSig
 			}),
 			mock.Anything).
-		Return(nil, errors.New("revert"))
+		Return(errors.New("revert"))
+
 }
 
 func (receiver contractMockReceiver) mustEncodeResponse(funcName string, responseArgs ...interface{}) []byte {
