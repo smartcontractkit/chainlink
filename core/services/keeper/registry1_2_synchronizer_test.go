@@ -83,13 +83,13 @@ func mockRegistry1_2(
 	ethMock.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
 		Return(&evmtypes.Head{Number: 10}, nil)
 	if getStateTime > 0 {
-		registryMock.MockResponse("getState", getState).Times(getStateTime)
+		registryMock.MockCallContractResponse("getState", getState).Times(getStateTime)
 	}
 	if getActiveUpkeepIDsTime > 0 {
-		registryMock.MockResponse("getActiveUpkeepIDs", activeUpkeepIDs).Times(getActiveUpkeepIDsTime)
+		registryMock.MockCallContractResponse("getActiveUpkeepIDs", activeUpkeepIDs).Times(getActiveUpkeepIDsTime)
 	}
 	if timesGetUpkeepMock > 0 {
-		registryMock.MockResponse("getUpkeep", upkeepConfig).Times(timesGetUpkeepMock)
+		registryMock.MockCallContractResponse("getUpkeep", upkeepConfig).Times(timesGetUpkeepMock)
 	}
 }
 
@@ -102,7 +102,7 @@ func Test_LogListenerOpts1_2(t *testing.T) {
 
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_1ABI, contractAddress)
-	registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
+	registryMock.MockCallContractResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
 
 	registryWrapper, err := keeper.NewRegistryWrapper(j.KeeperSpec.ContractAddress, ethClient)
 	require.NoError(t, err)
@@ -246,7 +246,7 @@ func Test_RegistrySynchronizer1_2_ConfigSetLog(t *testing.T) {
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
 	newConfig := registryConfig1_2
 	newConfig.BlockCountPerTurn = big.NewInt(40) // change from default
-	registryMock.MockResponse("getState", registry1_2.GetState{
+	registryMock.MockCallContractResponse("getState", registry1_2.GetState{
 		State:   registryState1_2,
 		Config:  newConfig,
 		Keepers: []common.Address{fromAddress},
@@ -297,7 +297,7 @@ func Test_RegistrySynchronizer1_2_KeepersUpdatedLog(t *testing.T) {
 
 	addresses := []common.Address{fromAddress, testutils.NewAddress()} // change from default
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
-	registryMock.MockResponse("getState", registry1_2.GetState{
+	registryMock.MockCallContractResponse("getState", registry1_2.GetState{
 		State:   registryState1_2,
 		Config:  registryConfig1_2,
 		Keepers: addresses,
@@ -385,7 +385,7 @@ func Test_RegistrySynchronizer1_2_UpkeepRegisteredLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
-	registryMock.MockResponse("getUpkeep", upkeepConfig1_2).Once()
+	registryMock.MockCallContractResponse("getUpkeep", upkeepConfig1_2).Once()
 
 	cfg := configtest.NewGeneralConfig(t, nil)
 	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
@@ -493,7 +493,7 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
 	newConfig := upkeepConfig1_2
 	newConfig.ExecuteGas = 4_000_000 // change from default
-	registryMock.MockResponse("getUpkeep", newConfig).Once()
+	registryMock.MockCallContractResponse("getUpkeep", newConfig).Once()
 
 	cfg := configtest.NewGeneralConfig(t, nil)
 	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
@@ -535,7 +535,7 @@ func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
-	registryMock.MockResponse("getUpkeep", upkeepConfig1_2).Once()
+	registryMock.MockCallContractResponse("getUpkeep", upkeepConfig1_2).Once()
 
 	cfg := configtest.NewGeneralConfig(t, nil)
 	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)

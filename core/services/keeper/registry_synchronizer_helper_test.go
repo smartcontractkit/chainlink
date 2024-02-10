@@ -54,13 +54,13 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	switch version {
 	case keeper.RegistryVersion_1_0, keeper.RegistryVersion_1_1:
 		registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_1ABI, contractAddress)
-		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.1.1").Once()
+		registryMock.MockCallContractResponse("typeAndVersion", "KeeperRegistry 1.1.1").Once()
 	case keeper.RegistryVersion_1_2:
 		registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_2ABI, contractAddress)
-		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
+		registryMock.MockCallContractResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
 	case keeper.RegistryVersion_1_3:
 		registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_3ABI, contractAddress)
-		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.3.0").Once()
+		registryMock.MockCallContractResponse("typeAndVersion", "KeeperRegistry 1.3.0").Once()
 	case keeper.RegistryVersion_2_0, keeper.RegistryVersion_2_1:
 		t.Fatalf("Unsupported version: %s", version)
 	}

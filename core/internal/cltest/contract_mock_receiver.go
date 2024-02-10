@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -34,7 +35,27 @@ type contractMockReceiver struct {
 	address common.Address
 }
 
-func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs ...interface{}) *mock.Call {
+func (receiver contractMockReceiver) MockCallContractResponse(funcName string, responseArgs ...interface{}) *mock.Call {
+	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
+	if len(funcSig) != funcSigLength {
+		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
+	}
+
+	encoded := receiver.mustEncodeResponse(funcName, responseArgs...)
+
+	return receiver.ethMock.
+		On(
+			"CallContract",
+			mock.Anything,
+			mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
+				return *callArgs.To == receiver.address &&
+					hexutil.Encode(callArgs.Data)[0:funcSigLength] == funcSig
+			}),
+			mock.Anything).
+		Return(encoded, nil)
+}
+
+func (receiver contractMockReceiver) MockCallContextResponse(funcName string, responseArgs ...interface{}) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
@@ -62,7 +83,7 @@ func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs 
 
 }
 
-func (receiver contractMockReceiver) MockMatchedResponse(funcName string, matcher func(args map[string]interface{}) bool, responseArgs ...interface{}) *mock.Call {
+func (receiver contractMockReceiver) MockCallContextMatchedResponse(funcName string, matcher func(args map[string]interface{}) bool, responseArgs ...interface{}) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
@@ -92,7 +113,7 @@ func (receiver contractMockReceiver) MockMatchedResponse(funcName string, matche
 	})
 }
 
-func (receiver contractMockReceiver) MockRevertResponse(funcName string) *mock.Call {
+func (receiver contractMockReceiver) MockCallContextRevertResponse(funcName string) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)

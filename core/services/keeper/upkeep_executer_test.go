@@ -146,7 +146,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-		registryMock.MockMatchedResponse(
+		registryMock.MockCallContextMatchedResponse(
 			"checkUpkeep",
 			func(args map[string]interface{}) bool {
 				gasPrice := args["gasPrice"].(*hexutil.Big)
@@ -156,7 +156,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			},
 			checkUpkeepResponse,
 		)
-		registryMock.MockMatchedResponse(
+		registryMock.MockCallContextMatchedResponse(
 			"performUpkeep",
 			func(args map[string]interface{}) bool { return true },
 			checkPerformResponse,
@@ -193,7 +193,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-			registryMock.MockMatchedResponse(
+			registryMock.MockCallContextMatchedResponse(
 				"checkUpkeep",
 				func(args map[string]interface{}) bool {
 					gasPrice := args["gasPrice"].(*hexutil.Big)
@@ -203,7 +203,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				},
 				checkUpkeepResponse,
 			)
-			registryMock.MockMatchedResponse(
+			registryMock.MockCallContextMatchedResponse(
 				"performUpkeep",
 				func(args map[string]interface{}) bool { return true },
 				checkPerformResponse,
@@ -241,7 +241,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		require.NoError(t, err)
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-		registryMock.MockMatchedResponse(
+		registryMock.MockCallContextMatchedResponse(
 			"checkUpkeep",
 			func(args map[string]interface{}) bool {
 				gasPrice := args["gasPrice"].(*hexutil.Big)
@@ -251,7 +251,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			},
 			checkUpkeepResponse,
 		)
-		registryMock.MockMatchedResponse(
+		registryMock.MockCallContextMatchedResponse(
 			"performUpkeep",
 			func(args map[string]interface{}) bool { return true },
 			checkPerformResponse,
@@ -302,8 +302,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
-		registryMock.MockMatchedResponse(
+		registryMock.MockCallContextResponse("checkUpkeep", checkUpkeepResponse)
+		registryMock.MockCallContextMatchedResponse(
 			"performUpkeep",
 			func(args map[string]interface{}) bool { return true },
 			checkPerformResponse,
@@ -333,7 +333,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	var wasCalled atomic.Bool
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
+	registryMock.MockCallContextRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
 		wasCalled.Store(true)
 	})
 
