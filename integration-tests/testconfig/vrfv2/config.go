@@ -49,7 +49,7 @@ func (c *ExistingEnvConfig) Validate() error {
 			return errors.New("sub_id must be set when using existing environment")
 		}
 
-		if *c.SubID < 0 {
+		if *c.SubID == 0 {
 			return errors.New("sub_id must be positive value")
 		}
 	}
