@@ -260,7 +260,7 @@ func SetupVRFV2Environment(
 	l zerolog.Logger,
 ) (*vrfcommon.VRFContracts, []uint64, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	l.Info().Msg("Starting VRFV2 environment setup")
-	vrfv2Config := vrfv2TestConfig.GetVRFv2Config().General
+	configGeneral := vrfv2TestConfig.GetVRFv2Config().General
 
 	vrfContracts, subIDs, err := SetupContracts(
 		env,
@@ -269,7 +269,7 @@ func SetupVRFV2Environment(
 		numberOfConsumers,
 		useVRFOwner,
 		useTestCoordinator,
-		vrfv2Config,
+		configGeneral,
 		numberOfSubToCreate,
 		l,
 	)
@@ -339,7 +339,7 @@ func SetupVRFV2Environment(
 	g := errgroup.Group{}
 	if vrfNode, exists := nodesMap[vrfcommon.VRF]; exists {
 		g.Go(func() error {
-			err := setupVRFNode(vrfContracts, chainID, vrfv2Config, pubKeyCompressed, vrfOwnerConfig, l, vrfNode)
+			err := setupVRFNode(vrfContracts, chainID, configGeneral, pubKeyCompressed, vrfOwnerConfig, l, vrfNode)
 			if err != nil {
 				return err
 			}
@@ -351,7 +351,7 @@ func SetupVRFV2Environment(
 		g.Go(func() error {
 			err := vrfcommon.SetupBHSNode(
 				env,
-				vrfv2TestConfig.GetVRFv2Config().General,
+				configGeneral.General,
 				numberOfTxKeysToCreate,
 				chainID,
 				vrfContracts.CoordinatorV2.Address(),
@@ -1006,7 +1006,7 @@ func LogRandomnessRequestedEvent(
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
 		Uint64("Subscription ID", randomWordsRequestedEvent.SubId).
 		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
-		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
+		Str("Keyhash", fmt.Sprintf("0x%x", randomWordsRequestedEvent.KeyHash)).
 		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
 		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
 		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).

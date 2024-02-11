@@ -12,7 +12,6 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
-	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
@@ -191,17 +190,17 @@ func SetupVRFV2_5Environment(
 	}
 
 	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2Plus.Address()).Msg("Setting Coordinator Config")
-	vrfv2PlusConfig := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
+	configGeneral := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
 	err = vrfContracts.CoordinatorV2Plus.SetConfig(
-		*vrfv2PlusConfig.MinimumConfirmations,
-		*vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
-		*vrfv2PlusConfig.StalenessSeconds,
-		*vrfv2PlusConfig.GasAfterPaymentCalculation,
-		big.NewInt(*vrfv2PlusConfig.FallbackWeiPerUnitLink),
-		*vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
-		*vrfv2PlusConfig.FulfillmentFlatFeeLinkDiscountPPM,
-		*vrfv2PlusConfig.NativePremiumPercentage,
-		*vrfv2PlusConfig.LinkPremiumPercentage,
+		*configGeneral.MinimumConfirmations,
+		*configGeneral.MaxGasLimitCoordinatorConfig,
+		*configGeneral.StalenessSeconds,
+		*configGeneral.GasAfterPaymentCalculation,
+		big.NewInt(*configGeneral.FallbackWeiPerUnitLink),
+		*configGeneral.FulfillmentFlatFeeNativePPM,
+		*configGeneral.FulfillmentFlatFeeLinkDiscountPPM,
+		*configGeneral.NativePremiumPercentage,
+		*configGeneral.LinkPremiumPercentage,
 	)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrSetVRFCoordinatorConfig, err)
@@ -222,12 +221,12 @@ func SetupVRFV2_5Environment(
 		Msg("Creating and funding subscriptions, adding consumers")
 	subIDs, err := CreateFundSubsAndAddConsumers(
 		env,
-		big.NewFloat(*vrfv2PlusConfig.SubscriptionFundingAmountNative),
-		big.NewFloat(*vrfv2PlusConfig.SubscriptionFundingAmountLink),
+		big.NewFloat(*configGeneral.SubscriptionFundingAmountNative),
+		big.NewFloat(*configGeneral.SubscriptionFundingAmountLink),
 		linkToken,
 		vrfContracts.CoordinatorV2Plus, vrfContracts.VRFV2PlusConsumer,
 		numberOfSubToCreate,
-		vrfv2plus_config.BillingType(*vrfv2PlusConfig.SubscriptionBillingType))
+		vrfv2plus_config.BillingType(*configGeneral.SubscriptionBillingType))
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -252,7 +251,7 @@ func SetupVRFV2_5Environment(
 		Msg("VRF Key created on the Node")
 
 	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2Plus.Address()).Msg("Registering Proving Key")
-	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, vrfContracts.CoordinatorV2Plus, uint64(*vrfv2PlusConfig.CLNodeMaxGasPriceGWei)*1e9)
+	provingKey, err := VRFV2_5RegisterProvingKey(vrfKey, vrfContracts.CoordinatorV2Plus, uint64(assets.GWei(*configGeneral.CLNodeMaxGasPriceGWei).Int64()))
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRegisteringProvingKey, err)
 	}
@@ -277,7 +276,7 @@ func SetupVRFV2_5Environment(
 	g := errgroup.Group{}
 	if vrfNode, exists := nodesMap[vrfcommon.VRF]; exists {
 		g.Go(func() error {
-			err := setupVRFNode(vrfContracts, chainID, vrfv2PlusConfig.General, pubKeyCompressed, l, vrfNode)
+			err := setupVRFNode(vrfContracts, chainID, configGeneral, pubKeyCompressed, l, vrfNode)
 			if err != nil {
 				return err
 			}
@@ -289,7 +288,7 @@ func SetupVRFV2_5Environment(
 		g.Go(func() error {
 			err := vrfcommon.SetupBHSNode(
 				env,
-				vrfv2PlusConfig.General,
+				configGeneral.General,
 				numberOfTxKeysToCreate,
 				chainID,
 				vrfContracts.CoordinatorV2Plus.Address(),
@@ -319,19 +318,19 @@ func SetupVRFV2_5Environment(
 	return vrfContracts, subIDs, &vrfKeyData, nodesMap, nil
 }
 
-func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Config *testconfig.General, pubKeyCompressed string, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
+func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *vrfv2plus_config.General, pubKeyCompressed string, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
 	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
-		ForwardingAllowed:             *vrfv2Config.VRFJobForwardingAllowed,
+		ForwardingAllowed:             *config.VRFJobForwardingAllowed,
 		CoordinatorAddress:            contracts.CoordinatorV2Plus.Address(),
 		FromAddresses:                 vrfNode.TXKeyAddressStrings,
 		EVMChainID:                    chainID.String(),
-		MinIncomingConfirmations:      int(*vrfv2Config.MinimumConfirmations),
+		MinIncomingConfirmations:      int(*config.MinimumConfirmations),
 		PublicKey:                     pubKeyCompressed,
-		EstimateGasMultiplier:         *vrfv2Config.VRFJobEstimateGasMultiplier,
-		BatchFulfillmentEnabled:       *vrfv2Config.VRFJobBatchFulfillmentEnabled,
-		BatchFulfillmentGasMultiplier: *vrfv2Config.VRFJobBatchFulfillmentGasMultiplier,
-		PollPeriod:                    vrfv2Config.VRFJobPollPeriod.Duration,
-		RequestTimeout:                vrfv2Config.VRFJobRequestTimeout.Duration,
+		EstimateGasMultiplier:         *config.VRFJobEstimateGasMultiplier,
+		BatchFulfillmentEnabled:       *config.VRFJobBatchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: *config.VRFJobBatchFulfillmentGasMultiplier,
+		PollPeriod:                    config.VRFJobPollPeriod.Duration,
+		RequestTimeout:                config.VRFJobRequestTimeout.Duration,
 		VRFOwnerConfig:                nil,
 	}
 
@@ -350,7 +349,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Conf
 	//	Key = '...'
 	nodeConfig := node.NewConfig(vrfNode.CLNode.NodeConfig,
 		node.WithLogPollInterval(1*time.Second),
-		node.WithVRFv2EVMEstimator(vrfNode.TXKeyAddressStrings, *vrfv2Config.CLNodeMaxGasPriceGWei),
+		node.WithVRFv2EVMEstimator(vrfNode.TXKeyAddressStrings, *config.CLNodeMaxGasPriceGWei),
 	)
 	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
 	err = vrfNode.CLNode.Restart(nodeConfig)
@@ -1008,7 +1007,7 @@ func LogRandomnessRequestedEventUpgraded(
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
 		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
 		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
-		Interface("Keyhash", fmt.Sprintf("0x%x", randomWordsRequestedEvent.KeyHash)).
+		Str("Keyhash", fmt.Sprintf("0x%x", randomWordsRequestedEvent.KeyHash)).
 		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
 		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
 		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).

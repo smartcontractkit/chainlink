@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
+	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
 )
 
 func CreateFundAndGetSendingKeys(
@@ -65,7 +65,7 @@ func CreateAndFundSendingKeys(
 
 func SetupBHSNode(
 	env *test_env.CLClusterTestEnv,
-	config *testconfig.General,
+	config *vrf_common_config.General,
 	numberOfTxKeysToCreate int,
 	chainID *big.Int,
 	coordinatorAddress string,

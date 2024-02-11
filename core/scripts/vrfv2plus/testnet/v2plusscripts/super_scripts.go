@@ -486,6 +486,10 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	estimateGasMultiplier := deployCmd.Float64("estimate-gas-multiplier", 1.1, "")
 	pollPeriod := deployCmd.String("poll-period", "300ms", "")
 	requestTimeout := deployCmd.String("request-timeout", "30m0s", "")
+	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
+	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
+	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
+	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
@@ -562,6 +566,13 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		RequestTimeout:                *requestTimeout,
 	}
 
+	bhsJobSpecConfig := model.BHSJobSpecConfig{
+		RunTimeout:     *bhsJobRunTimeout,
+		WaitBlocks:     *bhsJobWaitBlocks,
+		LookBackBlocks: *bhsJobLookBackBlocks,
+		PollPeriod:     *bhsJobPollPeriod,
+	}
+
 	VRFV2PlusDeployUniverse(
 		e,
 		subscriptionBalanceJuels,
@@ -572,6 +583,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		nodesMap,
 		uint64(*gasLaneMaxGas),
 		coordinatorJobSpecConfig,
+		bhsJobSpecConfig,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -590,6 +602,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	nodesMap map[string]model.Node,
 	gasLaneMaxGas uint64,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
+	bhsJobSpecConfig model.BHSJobSpecConfig,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -764,9 +777,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		30,                                   //waitBlocks
-		200,                                  //lookbackBlocks
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		bhsJobSpecConfig.WaitBlocks,          //waitBlocks
+		bhsJobSpecConfig.LookBackBlocks,      //lookbackBlocks
 		contractAddresses.BhsContractAddress, //bhs address
+		bhsJobSpecConfig.PollPeriod,          //pollPeriod
+		bhsJobSpecConfig.RunTimeout,          //runTimeout
 		e.ChainID,                            //chain id
 		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), //sending addresses
 	)
@@ -774,9 +790,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	formattedBHSBackupJobSpec := fmt.Sprintf(
 		jobs.BHSPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
 		100,                                  //waitBlocks
 		200,                                  //lookbackBlocks
 		contractAddresses.BhsContractAddress, //bhs adreess
+		bhsJobSpecConfig.PollPeriod,          //pollPeriod
+		bhsJobSpecConfig.RunTimeout,          //runTimeout
 		e.ChainID,                            //chain id
 		strings.Join(util.MapToAddressArr(nodesMap[model.BHSBackupNodeName].SendingKeys), "\",\""), //sending addresses
 	)
@@ -803,7 +822,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		"\nVRF Subscription LINK Balance:", *subscriptionBalanceJuels,
 		"\nVRF Subscription Native Balance:", *subscriptionBalanceNativeWei,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
+		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --native-payment-enabled true --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
 		"\nRetrieve Request Status: ",
 		fmt.Sprintf("go run . eoa-load-test-read-metrics --consumer-address=%s", consumerAddress),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",

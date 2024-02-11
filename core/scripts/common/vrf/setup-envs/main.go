@@ -67,7 +67,7 @@ func main() {
 	bhfCredsFile := flag.String("bhf-creds-file", "", "Creds to authenticate to the node")
 
 	numEthKeys := flag.Int("num-eth-keys", 5, "Number of eth keys to create")
-	maxGasPriceGwei := flag.Int("max-gas-price-gwei", 1e12, "Max gas price gwei of the eth keys")
+	maxGasPriceGwei := flag.Int("max-gas-price-gwei", -1, "Max gas price gwei of the eth keys")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
 	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 	batchFulfillmentGasMultiplier := flag.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
@@ -75,6 +75,10 @@ func main() {
 	pollPeriod := flag.String("poll-period", "300ms", "")
 	requestTimeout := flag.String("request-timeout", "30m0s", "")
 	revertsPipelineEnabled := flag.Bool("reverts-pipeline-enabled", true, "")
+	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
+	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
+	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
+	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
 	vrfVersion := flag.String("vrf-version", "v2", "VRF version to use")
 	deployContractsAndCreateJobs := flag.Bool("deploy-contracts-and-create-jobs", false, "whether to deploy contracts and create jobs")
@@ -218,6 +222,12 @@ func main() {
 				RevertsPipelineEnabled:        *revertsPipelineEnabled,
 			}
 
+			bhsJobSpecConfig := model.BHSJobSpecConfig{
+				RunTimeout:     *bhsJobRunTimeout,
+				WaitBlocks:     *bhsJobWaitBlocks,
+				LookBackBlocks: *bhsJobLookBackBlocks,
+				PollPeriod:     *bhsJobPollPeriod,
+			}
 			jobSpecs = v2scripts.VRFV2DeployUniverse(
 				e,
 				subscriptionBalanceJuels,
@@ -227,6 +237,7 @@ func main() {
 				nodesMap,
 				*deployVRFOwner,
 				coordinatorJobSpecConfig,
+				bhsJobSpecConfig,
 				*useTestCoordinator,
 			)
 		case "v2plus":
@@ -250,6 +261,13 @@ func main() {
 				RequestTimeout:                *requestTimeout,
 			}
 
+			bhsJobSpecConfig := model.BHSJobSpecConfig{
+				RunTimeout:     *bhsJobRunTimeout,
+				WaitBlocks:     *bhsJobWaitBlocks,
+				LookBackBlocks: *bhsJobLookBackBlocks,
+				PollPeriod:     *bhsJobPollPeriod,
+			}
+
 			jobSpecs = v2plusscripts.VRFV2PlusDeployUniverse(
 				e,
 				subscriptionBalanceJuels,
@@ -260,6 +278,7 @@ func main() {
 				nodesMap,
 				uint64(*maxGasPriceGwei),
 				coordinatorJobSpecConfig,
+				bhsJobSpecConfig,
 			)
 		}
 

@@ -870,7 +870,7 @@ func main() {
 		cbGasLimit := request.Uint("cb-gas-limit", 100_000, "request callback gas limit")
 		nativePaymentEnabled := request.Bool("native-payment-enabled", false, "native payment enabled")
 		numWords := request.Uint("num-words", 1, "num words to request")
-		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
+		requests := request.Uint("requests", 1, "number of randomness requests to make per run")
 		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
 		keyHashBytes := common.HexToHash(*keyHash)

@@ -87,8 +87,8 @@ coordinatorV2Address = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
-pollPeriod = "30s"
-runTimeout = "1m0s"
+pollPeriod = "%s"
+runTimeout = "%s"
 evmChainID = "%d"
 fromAddresses = ["%s"]
 `
@@ -96,12 +96,13 @@ fromAddresses = ["%s"]
 schemaVersion = 1
 name = "blockhashstore"
 forwardingAllowed = false
+coordinatorV2Address = "%s"
 coordinatorV2PlusAddress = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
-pollPeriod = "30s"
-runTimeout = "1m0s"
+pollPeriod = "%s"
+runTimeout = "%s"
 evmChainID = "%d"
 fromAddresses = ["%s"]
 `

@@ -44,6 +44,10 @@ go run . \
 --request-timeout="30m0s" \
 --reverts-pipeline-enabled="true" \
 --min-confs=3 \
+--bhs-job-wait-blocks=30 \
+--bhs-job-look-back-blocks=200 \
+--bhs-job-poll-period="1s" \
+--bhs-job-run-timeout="1m" \
 --register-vrf-key-against-address=<vrf key will be registered against this address 
 in order to call oracleWithdraw from this address> \
 --deploy-vrfv2-owner="true" \
@@ -79,7 +83,11 @@ go run . \
 --estimate-gas-multiplier=1.1 \
 --poll-period="5s" \
 --request-timeout="30m0s" \
---min-confs=3 
+--min-confs=3 \
+--bhs-job-wait-blocks=30 \
+--bhs-job-look-back-blocks=200 \
+--bhs-job-poll-period="1s" \
+--bhs-job-run-timeout="1m" 
 ```
 
 Optional parameters - will not be deployed if specified 
