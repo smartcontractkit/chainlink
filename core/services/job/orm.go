@@ -442,6 +442,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.GatewaySpecID = &specID
 		case Stream:
 			// 'stream' type has no associated spec, nothing to do here
+		case Workflow:
+			// 'workflow' type has no associated spec, nothing to do here
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
