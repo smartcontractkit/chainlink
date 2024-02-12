@@ -55,7 +55,8 @@ func NewOptimisticTxm(
 	evmBroadcaster := optimistictxm.NewBroadcaster(txAttemptBuilder, lggr, txStore, client, bcfg,keyStore, sequenceSyncer)
 
 	rcfg := optimistictxm.ResenderConfig{
-		BumpAfterThreshold:  time.Duration(fCfg.BumpThreshold()) * blockTime, // Polygon
+		//BumpAfterThreshold:  time.Duration(fCfg.BumpThreshold()) * blockTime, // Polygon
+		BumpAfterThreshold:  blockTime, // Set inclusion to 1 block to force bumping 
 		MaxBumpCycles:       5,
 		MaxInFlight:         txConfig.MaxInFlight(),
 		ResendInterval:      blockTime,
