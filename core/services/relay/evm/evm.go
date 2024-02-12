@@ -126,6 +126,8 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 }
 
 func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
+	lggr := r.lggr.Named("PluginProvider").Named(rargs.ExternalJobID.String())
+
 	configWatcher, err := newConfigProvider(r.lggr, r.chain, types.NewRelayOpts(rargs))
 	if err != nil {
 		return nil, err
@@ -140,8 +142,8 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 		r.chainReader,
 		r.codec,
 		transmitter,
-		configWatcher.configPoller,
-		configWatcher.offchainDigester,
+		configWatcher,
+		lggr,
 	), nil
 }
 
