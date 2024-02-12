@@ -48,6 +48,7 @@ const (
 	Stream                  Type = (Type)(pipeline.StreamJobType)
 	VRF                     Type = (Type)(pipeline.VRFJobType)
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
+	Workflow                Type = (Type)(pipeline.WorkflowJobType)
 )
 
 //revive:disable:redefines-builtin-id
