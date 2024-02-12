@@ -564,26 +564,6 @@ func (d *Delegate) newServicesGenericPlugin(
 	}
 	srvs = append(srvs, provider)
 
-	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
-		rid.Network,
-		rid.ChainID,
-		spec.ContractID,
-		synchronization.TelemetryType(p.TelemetryType),
-	)
-	oracleArgs := libocr2.OCR2OracleArgs{
-		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
-		V2Bootstrappers:              bootstrapPeers,
-		Database:                     ocrDB,
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           oracleEndpoint,
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
-		ContractTransmitter:          provider.ContractTransmitter(),
-		ContractConfigTracker:        provider.ContractConfigTracker(),
-		OffchainConfigDigester:       provider.OffchainConfigDigester(),
-	}
-
 	envVars, err := plugins.ParseEnvFile(plugEnv.Env.Get())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse median env file: %w", err)
@@ -643,16 +623,66 @@ func (d *Delegate) newServicesGenericPlugin(
 	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
 	ta := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 
-	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
-	oracleArgs.ReportingPluginFactory = plugin
-	srvs = append(srvs, plugin)
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(p.TelemetryType),
+	)
 
-	oracle, err := libocr2.NewOracle(oracleArgs)
-	if err != nil {
-		return nil, err
+	if p.OCRVersion == 3 {
+		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
+		plugin := reportingplugins.NewOCR3LOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
+
+		contractTransmitter := &contractTransmitterOCR3Wrapper{ct: provider.ContractTransmitter()}
+
+		oracleArgs := libocr2.OCR3OracleArgs[any]{
+			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			ContractConfigTracker:        provider.ContractConfigTracker(),
+			ContractTransmitter:          contractTransmitter,
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           oracleEndpoint,
+			OffchainConfigDigester:       provider.OffchainConfigDigester(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               &keyBundleOCR3Wrapper{kb: kb},
+		}
+		oracleArgs.ReportingPluginFactory = plugin
+		srvs = append(srvs, plugin)
+		oracle, err := libocr2.NewOracle(oracleArgs)
+		if err != nil {
+			return nil, err
+		}
+		srvs = append(srvs, job.NewServiceAdapter(oracle))
+
+	} else {
+		//OCR2
+		plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
+
+		oracleArgs := libocr2.OCR2OracleArgs{
+			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+			V2Bootstrappers:              bootstrapPeers,
+			Database:                     ocrDB,
+			LocalConfig:                  lc,
+			Logger:                       ocrLogger,
+			MonitoringEndpoint:           oracleEndpoint,
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
+			ContractTransmitter:          provider.ContractTransmitter(),
+			ContractConfigTracker:        provider.ContractConfigTracker(),
+			OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		}
+		oracleArgs.ReportingPluginFactory = plugin
+		srvs = append(srvs, plugin)
+		oracle, err := libocr2.NewOracle(oracleArgs)
+		if err != nil {
+			return nil, err
+		}
+		srvs = append(srvs, job.NewServiceAdapter(oracle))
 	}
 
-	srvs = append(srvs, job.NewServiceAdapter(oracle))
 	return srvs, nil
 }
 
