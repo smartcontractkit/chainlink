@@ -259,7 +259,7 @@ jobs:
         with:
           only-modules: "true"
       - name: Install protoc-gen-go-wsrpc
-        run: echo $PATH && curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME
+        run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - run: make generate # generate install go deps
