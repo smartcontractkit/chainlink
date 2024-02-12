@@ -16,9 +16,9 @@ jobs:
     runs-on: "ubuntu20.04-4cores-16GB"
     steps:
       - name: "Checkout"
-        uses: "actions/checkout@v3"
+        uses: "actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11" # v4.1.1
       - name: "Setup go"
-        uses: "actions/setup-go@v3"
+        uses: "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491" # v5.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -28,7 +28,7 @@ jobs:
         run: echo "corpus_dir=$(go env GOCACHE)/fuzz" >> $GITHUB_OUTPUT
         shell: "bash"
       - name: "Restore corpus"
-        uses: "actions/cache/restore@v3"
+        uses: "actions/cache/restore@13aacd865c20de90d75de3b17ebe84f7a17d57d2" # v4.0.0
         id: "restore-corpus"
         with:
           path: "${{ steps.get-corpus-dir.outputs.corpus_dir }}"
@@ -44,7 +44,7 @@ jobs:
         if: failure()
         run: find . -type f|fgrep '/testdata/fuzz/'|while read f; do echo $f; cat $f; done
       - name: "Save corpus"
-        uses: "actions/cache/save@v3"
+        uses: "actions/cache/save@13aacd865c20de90d75de3b17ebe84f7a17d57d2" # v4.0.0
         # We save also on failure, so that we can keep the valuable corpus generated that led to finding a crash.
         # If the corpus gets clobbered for any reason, we can remove the offending cache from the Github UI.
         if: always()

@@ -21,7 +21,9 @@ jobs:
         run: go test -race ./... -coverpkg=./... -coverprofile=pkg_coverage.out
       
       - name: Fuzz Tests
-        run: cd fuzz && ./fuzz_all_native.py --ci
+        # the amount of --seconds here is subject to change based on how long the CI job takes in the future
+        # as we add more fuzz tests, we should take into consideration increasing this timelapse, so we can have enough coverage.
+        run: cd fuzz && ./fuzz_all_native.py --ci --seconds 360
       
       - name: Upload Go test results
         if: always()
