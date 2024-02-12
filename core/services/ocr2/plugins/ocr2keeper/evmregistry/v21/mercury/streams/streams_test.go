@@ -100,7 +100,7 @@ func (r *mockRegistry) CheckCallback(opts *bind.CallOpts, id *big.Int, values []
 	return r.CheckCallbackFn(opts, id, values, extraData)
 }
 
-// setups up a streams object for tests.
+// set up a streams object for tests.
 func setupStreams(t *testing.T) *streams {
 	lggr := logger.TestLogger(t)
 	mercuryConfig := new(MockMercuryConfigProvider)

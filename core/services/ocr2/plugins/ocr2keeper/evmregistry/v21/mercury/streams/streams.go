@@ -174,8 +174,9 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	lookups[i] = streamsLookupResponse
 }
 
-func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *mercury.StreamsLookup, i int, checkResults []ocr2keepers.CheckResult) {
-	defer wg.Done()
+// TODO remove this line
+func (s *streams) doLookup(ctx context.Context, wg2 *sync.WaitGroup, lookup *mercury.StreamsLookup, i int, checkResults []ocr2keepers.CheckResult) {
+	defer wg2.Done()
 
 	values, err := s.DoMercuryRequest(ctx, lookup, checkResults, i)
 	if err != nil {
