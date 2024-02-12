@@ -5,9 +5,8 @@ import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/in
 import {Common} from "../../libraries/Common.sol";
 
 interface IChannelVerifier is IERC165 {
-
-    /**
-     * @notice Verifies that the data encoded has been signed
+  /**
+   * @notice Verifies that the data encoded has been signed
    * correctly by routing to the correct verifier.
    * @param signedReport The encoded data to be verified.
    * @param sender The address that requested to verify the contract.
@@ -17,10 +16,10 @@ interface IChannelVerifier is IERC165 {
    * contract will always be the proxy.
    * @return verifierResponse The encoded verified response.
    */
-    function verify(bytes calldata signedReport, address sender) external returns (bytes memory verifierResponse);
+  function verify(bytes calldata signedReport, address sender) external returns (bytes memory verifierResponse);
 
-    /**
-     * @notice sets offchain reporting protocol configuration incl. participating oracles
+  /**
+   * @notice sets offchain reporting protocol configuration incl. participating oracles
    * @param signers addresses with which oracles sign the reports
    * @param offchainTransmitters CSA key for the ith Oracle
    * @param f number of faulty oracles the system can tolerate
@@ -29,18 +28,18 @@ interface IChannelVerifier is IERC165 {
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
    * @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
    */
-    function setConfig(
-        address[] memory signers,
-        bytes32[] memory offchainTransmitters,
-        uint8 f,
-        bytes memory onchainConfig,
-        uint64 offchainConfigVersion,
-        bytes memory offchainConfig,
-        Common.AddressAndWeight[] memory recipientAddressesAndWeights
-    ) external;
+  function setConfig(
+    address[] memory signers,
+    bytes32[] memory offchainTransmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights
+  ) external;
 
-    /**
-     * @notice identical to `setConfig` except with args for sourceChainId and sourceAddress
+  /**
+   * @notice identical to `setConfig` except with args for sourceChainId and sourceAddress
    * @param sourceChainId Chain ID of source config
    * @param sourceAddress Address of source config Verifier
    * @param newConfigCount Param to force the new config count
@@ -52,61 +51,61 @@ interface IChannelVerifier is IERC165 {
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
    * @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
    */
-    function setConfigFromSource(
-        uint256 sourceChainId,
-        address sourceAddress,
-        uint32 newConfigCount,
-        address[] memory signers,
-        bytes32[] memory offchainTransmitters,
-        uint8 f,
-        bytes memory onchainConfig,
-        uint64 offchainConfigVersion,
-        bytes memory offchainConfig,
-        Common.AddressAndWeight[] memory recipientAddressesAndWeights
-    ) external;
+  function setConfigFromSource(
+    uint256 sourceChainId,
+    address sourceAddress,
+    uint32 newConfigCount,
+    address[] memory signers,
+    bytes32[] memory offchainTransmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights
+  ) external;
 
-    /**
-     * @notice Activates the configuration for a config digest
+  /**
+   * @notice Activates the configuration for a config digest
    * @param configDigest The config digest to activate
    * @dev This function can be called by the contract admin to activate a configuration.
    */
-    function activateConfig(bytes32 configDigest) external;
+  function activateConfig(bytes32 configDigest) external;
 
-    /**
-     * @notice Deactivates the configuration for a config digest
+  /**
+   * @notice Deactivates the configuration for a config digest
    * @param configDigest The config digest to deactivate
    * @dev This function can be called by the contract admin to deactivate an incorrect configuration.
    */
-    function deactivateConfig(bytes32 configDigest) external;
+  function deactivateConfig(bytes32 configDigest) external;
 
-    /**
-     * @notice Activates the given feed
+  /**
+   * @notice Activates the given feed
    * @param feedId Feed ID to activated
    * @dev This function can be called by the contract admin to activate a feed
    */
-    function activateFeed(bytes32 feedId) external;
+  function activateFeed(bytes32 feedId) external;
 
-    /**
-     * @notice Deactivates the given feed
+  /**
+   * @notice Deactivates the given feed
    * @param feedId Feed ID to deactivated
    * @dev This function can be called by the contract admin to deactivate a feed
    */
-    function deactivateFeed(bytes32 feedId) external;
+  function deactivateFeed(bytes32 feedId) external;
 
-    /**
-     * @notice returns the latest config digest and epoch
+  /**
+   * @notice returns the latest config digest and epoch
    * @return scanLogs indicates whether to rely on the configDigest and epoch
    * returned or whether to scan logs for the Transmitted event instead.
    * @return configDigest
    * @return epoch
    */
-    function latestConfigDigestAndEpoch() external view returns (bool scanLogs, bytes32 configDigest, uint32 epoch);
+  function latestConfigDigestAndEpoch() external view returns (bool scanLogs, bytes32 configDigest, uint32 epoch);
 
-    /**
-     * @notice information about current offchain reporting protocol configuration
+  /**
+   * @notice information about current offchain reporting protocol configuration
    * @return configCount ordinal number of current config, out of all configs applied to this contract so far
    * @return blockNumber block at which this config was set
    * @return configDigest domain-separation tag for current config
    */
-    function latestConfigDetails() external view returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest);
+  function latestConfigDetails() external view returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest);
 }
