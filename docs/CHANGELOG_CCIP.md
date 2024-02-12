@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Token pools are no longer configured with specific on- or offRamps but rather chains through chain selectors. 
+  - Token pools validate callers through the router, which should now be passed in via the constructor
+  - Many events around adding/removing/updating allowed ramps now have an updated event around adding/removing/updating chains.
+  - Rate limits are set for inbound and outbound explicitly, this is not different from the previous method where onRamps and offRamps are set separately.
+    - Rate limits apply per remote chain, not per lane. This means that having multiple lanes enabled doesn't increase risk like it used to.
+  - Enabling a chain on a token pool will allow every on- and offRamp that is configured on the router for that remote chain.
+    - This also means that token pool ramp permissions do not need to be updated on a lane upgrade
+
+
 - `OffRamp` offchain config format changed:
   - Renamed the `MaxGasPrice` field to `DestMaxGasPrice`.
   - Removed obsolete `SourceFinalityDepth` and `DestFinalityDepth` fields.
