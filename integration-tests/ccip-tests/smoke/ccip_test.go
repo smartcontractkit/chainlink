@@ -20,51 +20,57 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
 )
 
+type testDefinition struct {
+	testName string
+	lane     *actions.CCIPLane
+}
+
 func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 	t.Parallel()
-	type subtestInput struct {
-		testName string
-		lane     *actions.CCIPLane
-	}
-	l := logging.GetTestLogger(t)
-	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
+	log := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	require.NotNil(t, TestCfg.TestGroupInput.DestGasLimit)
 	gasLimit := big.NewInt(*TestCfg.TestGroupInput.DestGasLimit)
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", nil, TestCfg)
-	var tcs []subtestInput
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
+		log.Info().Msg("No lanes found")
 		return
 	}
 
 	t.Cleanup(func() {
-		// if we are running a test that is a token transfer, we need to verify the balance
-		// For USDC deployment, the mock contracts cannot mint the token in destination, therefore skip the balance check
+		// If we are running a test that is a token transfer, we need to verify the balance.
+		// For USDC deployment, the mock contracts cannot mint the token in destination, therefore skip the balance check.
 		if TestCfg.TestGroupInput.MsgType == actions.TokenTransfer && !pointer.GetBool(TestCfg.TestGroupInput.USDCMockDeployment) {
 			setUpOutput.Balance.Verify(t)
 		}
 		require.NoError(t, setUpOutput.TearDown())
 	})
-	for i := range setUpOutput.Lanes {
-		tcs = append(tcs, subtestInput{
+
+	// Create test definitions for each lane.
+	var tests []testDefinition
+	for _, lane := range setUpOutput.Lanes {
+		tests = append(tests, testDefinition{
 			testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
-				setUpOutput.Lanes[i].ForwardLane.SourceNetworkName, setUpOutput.Lanes[i].ForwardLane.DestNetworkName),
-			lane: setUpOutput.Lanes[i].ForwardLane,
+				lane.ForwardLane.SourceNetworkName, lane.ForwardLane.DestNetworkName),
+			lane: lane.ForwardLane,
 		})
-		if setUpOutput.Lanes[i].ReverseLane != nil {
-			tcs = append(tcs, subtestInput{
+		if lane.ReverseLane != nil {
+			tests = append(tests, testDefinition{
 				testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
-					setUpOutput.Lanes[i].ReverseLane.SourceNetworkName, setUpOutput.Lanes[i].ReverseLane.DestNetworkName),
-				lane: setUpOutput.Lanes[i].ReverseLane,
+					lane.ReverseLane.SourceNetworkName, lane.ReverseLane.DestNetworkName),
+				lane: lane.ReverseLane,
 			})
 		}
 	}
-	l.Info().Int("Total Lanes", len(tcs)).Msg("Starting CCIP test")
-	for _, testcase := range tcs {
-		tc := testcase
+
+	// Execute tests.
+	log.Info().Int("Total Lanes", len(tests)).Msg("Starting CCIP test")
+	for _, test := range tests {
+		tc := test
 		t.Run(tc.testName, func(t *testing.T) {
 			t.Parallel()
 			tc.lane.Test = t
-			l.Info().
+			log.Info().
 				Str("Source", tc.lane.SourceNetworkName).
 				Str("Destination", tc.lane.DestNetworkName).
 				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
@@ -79,29 +85,23 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 
 func TestSmokeCCIPRateLimit(t *testing.T) {
 	t.Parallel()
-	type subtestInput struct {
-		testName string
-		lane     *actions.CCIPLane
-	}
-	l := logging.GetTestLogger(t)
-	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
+	log := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	require.Equal(t, actions.TokenTransfer, TestCfg.TestGroupInput.MsgType, "Test config should have token transfer message type")
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(
-		t, l, "smoke-ccip", nil, TestCfg)
-	var tcs []subtestInput
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}
-
 	t.Cleanup(func() {
 		require.NoError(t, setUpOutput.TearDown())
 	})
 
-	for i := range setUpOutput.Lanes {
-		tcs = append(tcs, subtestInput{
+	var tests []testDefinition
+	for _, lane := range setUpOutput.Lanes {
+		tests = append(tests, testDefinition{
 			testName: fmt.Sprintf("Network %s to network %s",
-				setUpOutput.Lanes[i].ForwardLane.SourceNetworkName, setUpOutput.Lanes[i].ForwardLane.DestNetworkName),
-			lane: setUpOutput.Lanes[i].ForwardLane,
+				lane.ForwardLane.SourceNetworkName, lane.ForwardLane.DestNetworkName),
+			lane: lane.ForwardLane,
 		})
 	}
 
@@ -114,8 +114,8 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 	TokenPoolRateLimitCapacity := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
 	TokenPoolRateLimitRate := big.NewInt(1e17)
 
-	for _, testcase := range tcs {
-		tc := testcase
+	for _, test := range tests {
+		tc := test
 		t.Run(fmt.Sprintf("%s - Rate Limit", tc.testName), func(t *testing.T) {
 			tc.lane.Test = t
 			src := tc.lane.Source
@@ -131,7 +131,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				addFund(src.Common)
 				addFund(tc.lane.Dest.Common)
 			}
-			l.Info().
+			log.Info().
 				Str("Source", tc.lane.SourceNetworkName).
 				Str("Destination", tc.lane.DestNetworkName).
 				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
@@ -172,7 +172,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			AggregatedRateLimitChanged := false
 			TokenPoolRateLimitChanged := false
 
-			// reset the rate limit config to what it was before the test
+			// reset the rate limit config to what it was before the tc
 			t.Cleanup(func() {
 				if AggregatedRateLimitChanged {
 					require.NoError(t, src.OnRamp.SetRateLimit(evm_2_evm_onramp.RateLimiterConfig{
@@ -378,47 +378,44 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 
 func TestSmokeCCIPMulticall(t *testing.T) {
 	t.Parallel()
-	type subtestInput struct {
-		testName string
-		lane     *actions.CCIPLane
-	}
-	l := logging.GetTestLogger(t)
-	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
+	log := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	// enable multicall in one tx for this test
 	TestCfg.TestGroupInput.MulticallInOneTx = ptr.Ptr(true)
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", nil, TestCfg)
-	var tcs []subtestInput
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}
-
 	t.Cleanup(func() {
 		if TestCfg.TestGroupInput.MsgType == actions.TokenTransfer {
 			setUpOutput.Balance.Verify(t)
 		}
 		require.NoError(t, setUpOutput.TearDown())
 	})
-	for i := range setUpOutput.Lanes {
-		tcs = append(tcs, subtestInput{
+
+	var tests []testDefinition
+	for _, lane := range setUpOutput.Lanes {
+		tests = append(tests, testDefinition{
 			testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
-				setUpOutput.Lanes[i].ForwardLane.SourceNetworkName, setUpOutput.Lanes[i].ForwardLane.DestNetworkName),
-			lane: setUpOutput.Lanes[i].ForwardLane,
+				lane.ForwardLane.SourceNetworkName, lane.ForwardLane.DestNetworkName),
+			lane: lane.ForwardLane,
 		})
-		if setUpOutput.Lanes[i].ReverseLane != nil {
-			tcs = append(tcs, subtestInput{
+		if lane.ReverseLane != nil {
+			tests = append(tests, testDefinition{
 				testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
-					setUpOutput.Lanes[i].ReverseLane.SourceNetworkName, setUpOutput.Lanes[i].ReverseLane.DestNetworkName),
-				lane: setUpOutput.Lanes[i].ReverseLane,
+					lane.ReverseLane.SourceNetworkName, lane.ReverseLane.DestNetworkName),
+				lane: lane.ReverseLane,
 			})
 		}
 	}
-	l.Info().Int("Total Lanes", len(tcs)).Msg("Starting CCIP test")
-	for _, testcase := range tcs {
-		tc := testcase
+
+	log.Info().Int("Total Lanes", len(tests)).Msg("Starting CCIP test")
+	for _, test := range tests {
+		tc := test
 		t.Run(tc.testName, func(t *testing.T) {
 			t.Parallel()
 			tc.lane.Test = t
-			l.Info().
+			log.Info().
 				Str("Source", tc.lane.SourceNetworkName).
 				Str("Destination", tc.lane.DestNetworkName).
 				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
@@ -433,45 +430,42 @@ func TestSmokeCCIPMulticall(t *testing.T) {
 
 func TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas(t *testing.T) {
 	t.Parallel()
-	type subtestInput struct {
-		testName string
-		lane     *actions.CCIPLane
-	}
-	l := logging.GetTestLogger(t)
-	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", nil, TestCfg)
-	var tcs []subtestInput
+	log := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}
-
 	t.Cleanup(func() {
 		if TestCfg.TestGroupInput.MsgType == actions.TokenTransfer {
 			setUpOutput.Balance.Verify(t)
 		}
 		require.NoError(t, setUpOutput.TearDown())
 	})
-	for i := range setUpOutput.Lanes {
-		tcs = append(tcs, subtestInput{
+
+	var tests []testDefinition
+	for _, lane := range setUpOutput.Lanes {
+		tests = append(tests, testDefinition{
 			testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
-				setUpOutput.Lanes[i].ForwardLane.SourceNetworkName, setUpOutput.Lanes[i].ForwardLane.DestNetworkName),
-			lane: setUpOutput.Lanes[i].ForwardLane,
+				lane.ForwardLane.SourceNetworkName, lane.ForwardLane.DestNetworkName),
+			lane: lane.ForwardLane,
 		})
-		if setUpOutput.Lanes[i].ReverseLane != nil {
-			tcs = append(tcs, subtestInput{
+		if lane.ReverseLane != nil {
+			tests = append(tests, testDefinition{
 				testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
-					setUpOutput.Lanes[i].ReverseLane.SourceNetworkName, setUpOutput.Lanes[i].ReverseLane.DestNetworkName),
-				lane: setUpOutput.Lanes[i].ReverseLane,
+					lane.ReverseLane.SourceNetworkName, lane.ReverseLane.DestNetworkName),
+				lane: lane.ReverseLane,
 			})
 		}
 	}
-	l.Info().Int("Total Lanes", len(tcs)).Msg("Starting CCIP test")
-	for _, testcase := range tcs {
-		tc := testcase
+
+	log.Info().Int("Total Lanes", len(tests)).Msg("Starting CCIP test")
+	for _, test := range tests {
+		tc := test
 		t.Run(tc.testName, func(t *testing.T) {
 			t.Parallel()
 			tc.lane.Test = t
-			l.Info().
+			log.Info().
 				Str("Source", tc.lane.SourceNetworkName).
 				Str("Destination", tc.lane.DestNetworkName).
 				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
@@ -482,7 +476,8 @@ func TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas(t *te
 			require.NoError(t, err)
 			tc.lane.ValidateRequests(false)
 			// wait for events
-			require.NoError(t, tc.lane.Dest.Common.ChainClient.WaitForEvents())
+			err = tc.lane.Dest.Common.ChainClient.WaitForEvents()
+			require.NoError(t, err)
 			// execute all failed ccip requests manually
 			err = tc.lane.ExecuteManually()
 			require.NoError(t, err)

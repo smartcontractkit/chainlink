@@ -1273,30 +1273,24 @@ func (s *service) validateProposeJobArgs(args ProposeJobArgs) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to generate a job based on spec")
 	}
-
-	// Validate bootstrap multiaddrs which are only allowed for OCR jobs
+	// Validate bootstrap multiaddrs which are only allowed for OCR jobs.
 	if len(args.Multiaddrs) > 0 && j.Type != job.OffchainReporting && j.Type != job.OffchainReporting2 {
 		return errors.New("only OCR job type supports multiaddr")
 	}
-
 	return nil
 }
 
 func (s *service) restartConnection(ctx context.Context, mgr FeedsManager) error {
 	s.lggr.Infof("Restarting connection")
-
 	if err := s.connMgr.Disconnect(mgr.ID); err != nil {
 		s.lggr.Info("Feeds Manager not connected, attempting to connect")
 	}
-
 	// Establish a new connection
 	privkey, err := s.getCSAPrivateKey()
 	if err != nil {
 		return err
 	}
-
 	s.connectFeedManager(ctx, mgr, privkey)
-
 	return nil
 }
 
