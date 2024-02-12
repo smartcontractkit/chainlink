@@ -52,9 +52,12 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
       gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback * 2,
       requestTimeoutSeconds: getCoordinatorConfig().requestTimeoutSeconds * 2,
       donFee: getCoordinatorConfig().donFee * 2,
+      operationFee: getCoordinatorConfig().operationFee * 2,
       maxSupportedRequestDataVersion: getCoordinatorConfig().maxSupportedRequestDataVersion * 2,
       fulfillmentGasPriceOverEstimationBP: getCoordinatorConfig().fulfillmentGasPriceOverEstimationBP * 2,
       fallbackNativePerUnitLink: getCoordinatorConfig().fallbackNativePerUnitLink * 2,
+      fallbackUsdPerUnitLink: getCoordinatorConfig().fallbackUsdPerUnitLink * 2,
+      fallbackUsdPerUnitLinkDecimals: getCoordinatorConfig().fallbackUsdPerUnitLinkDecimals * 2,
       minimumEstimateGasPriceWei: getCoordinatorConfig().minimumEstimateGasPriceWei * 2
     });
   }
@@ -102,7 +105,23 @@ contract FunctionsBilling_GetDONFee is FunctionsRouterSetup {
     vm.startPrank(STRANGER_ADDRESS);
 
     uint72 donFee = s_functionsCoordinator.getDONFee(new bytes(0));
-    assertEq(donFee, s_donFee);
+    uint72 expectedDonFee = uint72(((s_donFee * 10 ** (18 + LINK_USD_DECIMALS)) / uint256(LINK_USD_RATE)) / 100);
+    assertEq(donFee, expectedDonFee);
+  }
+}
+
+/// @notice #getOperationFee
+contract FunctionsBilling_GetOperationFee is FunctionsRouterSetup {
+  function test_GetOperationFee_Success() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint72 operationFee = s_functionsCoordinator.getOperationFee();
+    uint72 expectedOperationFee = uint72(
+      ((s_operationFee * 10 ** (18 + LINK_USD_DECIMALS)) / uint256(LINK_USD_RATE)) / 100
+    );
+    assertEq(operationFee, expectedOperationFee);
   }
 }
 
@@ -183,7 +202,10 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
       callbackGasLimit,
       gasPriceWei
     );
-    uint96 expectedCostEstimate = 51110500000000200;
+    uint96 expectedCostEstimate = 51110500000000000 +
+      s_adminFee +
+      s_functionsCoordinator.getDONFee(requestData) +
+      s_functionsCoordinator.getOperationFee();
     assertEq(costEstimate, expectedCostEstimate);
   }
 
@@ -208,7 +230,10 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
       callbackGasLimit,
       gasPriceWei
     );
-    uint96 expectedCostEstimate = 255552500000000200;
+    uint96 expectedCostEstimate = 255552500000000000 +
+      s_adminFee +
+      s_functionsCoordinator.getDONFee(requestData) +
+      s_functionsCoordinator.getOperationFee();
     assertEq(costEstimate, expectedCostEstimate);
   }
 }
@@ -276,17 +301,15 @@ contract FunctionsBilling__FulfillAndBill is FunctionsClientRequestSetup {
     uint96 juelsPerGas,
     uint256 l1FeeShareWei,
     uint96 callbackCostJuels,
-    uint96 totalCostJuels
+    uint72 donFee,
+    uint72 adminFee,
+    uint72 operationFee
   );
 
   function test__FulfillAndBill_Success() public {
     uint96 juelsPerGas = uint96((1e18 * TX_GASPRICE_START) / uint256(LINK_ETH_RATE));
     uint96 callbackCostGas = 5072; // Taken manually
     uint96 callbackCostJuels = juelsPerGas * callbackCostGas;
-    uint96 gasOverheadJuels = juelsPerGas *
-      (getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback);
-
-    uint96 totalCostJuels = gasOverheadJuels + callbackCostJuels + s_donFee + s_adminFee;
 
     // topic0 (function signature, always checked), check topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
     bool checkTopic1 = true;
@@ -294,13 +317,21 @@ contract FunctionsBilling__FulfillAndBill is FunctionsClientRequestSetup {
     bool checkTopic3 = false;
     bool checkData = true;
     vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit RequestBilled(s_requests[1].requestId, juelsPerGas, 0, callbackCostJuels, totalCostJuels);
+    emit RequestBilled(
+      s_requests[1].requestId,
+      juelsPerGas,
+      0,
+      callbackCostJuels,
+      s_functionsCoordinator.getDONFee(new bytes(0)),
+      s_adminFee,
+      s_functionsCoordinator.getOperationFee()
+    );
 
     FunctionsResponse.FulfillResult resultCode = s_functionsCoordinator.fulfillAndBill_HARNESS(
       s_requests[1].requestId,
       new bytes(0),
       new bytes(0),
-      abi.encode(s_requests[1].commitment),
+      abi.encode(s_requests[1].commitmentWithOperationFee),
       new bytes(0),
       1
     );
@@ -377,7 +408,7 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
     vm.stopPrank();
     vm.startPrank(NOP_TRANSMITTER_ADDRESS_1);
 
-    uint96 expectedTransmitterBalance = s_fulfillmentCoordinatorBalance / 3;
+    uint96 expectedTransmitterBalance = s_fulfillmentCoordinatorBalance / s_requestsFulfilled;
 
     // Attempt to withdraw half of balance
     uint96 halfBalance = expectedTransmitterBalance / 2;
@@ -394,33 +425,49 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
     uint256[4] memory transmitterBalancesBefore = _getTransmitterBalances();
     _assertTransmittersAllHaveBalance(transmitterBalancesBefore, 0);
 
-    // Send as transmitter 1, which has transmitted 1 report
+    // Send as transmitter 1, which has transmitted 2 reports
     vm.stopPrank();
     vm.startPrank(NOP_TRANSMITTER_ADDRESS_1);
 
     // Attempt to withdraw with no amount, which will withdraw the full balance
     s_functionsCoordinator.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, 0);
 
-    // 3 report transmissions have been made
-    uint96 totalDonFees = s_donFee * 3;
-    // 4 transmitters will share the DON fees
-    uint96 donFeeShare = totalDonFees / 4;
-    uint96 expectedTransmitterBalance = ((s_fulfillmentCoordinatorBalance - totalDonFees) / 3) + donFeeShare;
+    uint96 totalOperationFees = s_functionsCoordinator.getOperationFee() * s_requestsFulfilled;
+    uint96 totalDonFees = s_functionsCoordinator.getDONFee(new bytes(0)) * s_requestsFulfilled;
+    uint96 donFeeShare = totalDonFees / uint8(s_transmitters.length);
+    uint96 expectedBalancePerFulfillment = ((s_fulfillmentCoordinatorBalance - totalOperationFees - totalDonFees) /
+      s_requestsFulfilled);
 
     uint256[4] memory transmitterBalancesAfter = _getTransmitterBalances();
-    assertEq(transmitterBalancesAfter[0], expectedTransmitterBalance);
+    // Transmitter 1 has transmitted twice
+    assertEq(transmitterBalancesAfter[0], (expectedBalancePerFulfillment * 2) + donFeeShare);
     assertEq(transmitterBalancesAfter[1], 0);
     assertEq(transmitterBalancesAfter[2], 0);
     assertEq(transmitterBalancesAfter[3], 0);
+  }
+
+  function test_OracleWithdraw_SuccessCoordinatorOwner() public {
+    // Send as Coordinator Owner
+    address coordinatorOwner = s_functionsCoordinator.owner();
+    vm.stopPrank();
+    vm.startPrank(coordinatorOwner);
+
+    uint256 coordinatorOwnerBalanceBefore = s_linkToken.balanceOf(coordinatorOwner);
+
+    // Attempt to withdraw with no amount, which will withdraw the full balance
+    s_functionsCoordinator.oracleWithdraw(coordinatorOwner, 0);
+
+    // 4 report transmissions have been made
+    uint96 totalOperationFees = s_functionsCoordinator.getOperationFee() * s_requestsFulfilled;
+
+    uint256 coordinatorOwnerBalanceAfter = s_linkToken.balanceOf(coordinatorOwner);
+    assertEq(coordinatorOwnerBalanceBefore + totalOperationFees, coordinatorOwnerBalanceAfter);
   }
 }
 
 /// @notice #oracleWithdrawAll
 contract FunctionsBilling_OracleWithdrawAll is FunctionsMultipleFulfillmentsSetup {
   function setUp() public virtual override {
-    // Use no DON fee so that a transmitter has a balance of 0
-    s_donFee = 0;
-
     FunctionsMultipleFulfillmentsSetup.setUp();
   }
 
@@ -439,22 +486,28 @@ contract FunctionsBilling_OracleWithdrawAll is FunctionsMultipleFulfillmentsSetu
 
     s_functionsCoordinator.oracleWithdrawAll();
 
-    uint96 expectedTransmitterBalance = s_fulfillmentCoordinatorBalance / 3;
+    uint96 totalOperationFees = s_functionsCoordinator.getOperationFee() * s_requestsFulfilled;
+    uint96 totalDonFees = s_functionsCoordinator.getDONFee(new bytes(0)) * s_requestsFulfilled;
+    uint96 donFeeShare = totalDonFees / uint8(s_transmitters.length);
+    uint96 expectedBalancePerFulfillment = ((s_fulfillmentCoordinatorBalance - totalOperationFees - totalDonFees) /
+      s_requestsFulfilled);
 
     uint256[4] memory transmitterBalancesAfter = _getTransmitterBalances();
-    assertEq(transmitterBalancesAfter[0], expectedTransmitterBalance);
-    assertEq(transmitterBalancesAfter[1], expectedTransmitterBalance);
-    assertEq(transmitterBalancesAfter[2], expectedTransmitterBalance);
-    // Transmitter 4 has no balance
-    assertEq(transmitterBalancesAfter[3], 0);
+    // Transmitter 1 has transmitted twice
+    assertEq(transmitterBalancesAfter[0], (expectedBalancePerFulfillment * 2) + donFeeShare);
+    // Transmitter 2 and 3 have transmitted once
+    assertEq(transmitterBalancesAfter[1], expectedBalancePerFulfillment + donFeeShare);
+    assertEq(transmitterBalancesAfter[2], expectedBalancePerFulfillment + donFeeShare);
+    // Transmitter 4 only not transmitted, it only has its share of the DON fees
+    assertEq(transmitterBalancesAfter[3], donFeeShare);
   }
 }
 
 /// @notice #_disperseFeePool
 contract FunctionsBilling__DisperseFeePool is FunctionsRouterSetup {
   function test__DisperseFeePool_RevertIfNotSet() public {
-    // Manually set s_feePool (at slot 11) to 1 to get past first check in _disperseFeePool
-    vm.store(address(s_functionsCoordinator), bytes32(uint256(11)), bytes32(uint256(1)));
+    // Manually set s_feePool (at slot 12) to 1 to get past first check in _disperseFeePool
+    vm.store(address(s_functionsCoordinator), bytes32(uint256(12)), bytes32(uint256(1)));
 
     vm.expectRevert(FunctionsBilling.NoTransmittersSet.selector);
     s_functionsCoordinator.disperseFeePool_HARNESS();

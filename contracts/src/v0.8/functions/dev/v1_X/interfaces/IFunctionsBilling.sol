@@ -7,10 +7,19 @@ interface IFunctionsBilling {
   /// @return weiPerUnitLink - The amount of WEI in one LINK
   function getWeiPerUnitLink() external view returns (uint256);
 
+  /// @notice Return the current conversion from LINK to USD from the configured Chainlink data feed
+  /// @return weiPerUnitLink - The amount of USD that one LINK is worth
+  /// @return decimals - The number of decimals that should be represented in the price feed's response
+  function getUsdPerUnitLink() external view returns (uint256, uint8);
+
   /// @notice Determine the fee that will be split between Node Operators for servicing a request
   /// @param requestCBOR - CBOR encoded Chainlink Functions request data, use FunctionsRequest library to encode a request
   /// @return fee - Cost in Juels (1e18) of LINK
   function getDONFee(bytes memory requestCBOR) external view returns (uint72);
+
+  /// @notice Determine the fee that will be paid to the Coordinator owner for operating the network
+  /// @return fee - Cost in Juels (1e18) of LINK
+  function getOperationFee() external view returns (uint72);
 
   /// @notice Determine the fee that will be paid to the Router owner for operating the network
   /// @return fee - Cost in Juels (1e18) of LINK
@@ -53,9 +62,12 @@ struct FunctionsBillingConfig {
   uint32 feedStalenessSeconds; //                  ║ How long before we consider the feed price to be stale and fallback to fallbackNativePerUnitLink.
   uint32 gasOverheadBeforeCallback; //             ║ Represents the average gas execution cost before the fulfillment callback. This amount is always billed for every request.
   uint32 gasOverheadAfterCallback; //              ║ Represents the average gas execution cost after the fulfillment callback. This amount is always billed for every request.
-  uint72 donFee; //                                ║ Additional flat fee (in Juels of LINK) that will be split between Node Operators. Max value is 2^80 - 1 == 1.2m LINK.
+  uint72 donFee; //                                ║ Additional flat fee (denominated in cents of USD, paid as LINK) that will be split between Node Operators.
   uint40 minimumEstimateGasPriceWei; //            ║ The lowest amount of wei that will be used as the tx.gasprice when estimating the cost to fulfill the request
   uint16 maxSupportedRequestDataVersion; // ═══════╝ The highest support request data version supported by the node. All lower versions should also be supported.
   uint224 fallbackNativePerUnitLink; // ═══════════╗ Fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
   uint32 requestTimeoutSeconds; // ════════════════╝ How many seconds it takes before we consider a request to be timed out
+  uint72 operationFee; // ═════════════════════════╗ Additional flat fee (denominated in cents of USD, paid as LINK) that will be paid to the owner of the Coordinator contract.
+  uint64 fallbackUsdPerUnitLink; //                ║ Fallback LINK / USD conversion rate if the data feed is stale
+  uint8 fallbackUsdPerUnitLinkDecimals; // ════════╝ Fallback LINK / USD conversion rate decimal places if the data feed is stale
 }

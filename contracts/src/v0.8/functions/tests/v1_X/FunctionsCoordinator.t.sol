@@ -14,7 +14,7 @@ import {FunctionsRouterSetup, FunctionsDONSetup, FunctionsSubscriptionSetup} fro
 /// @notice #constructor
 contract FunctionsCoordinator_Constructor is FunctionsRouterSetup {
   function test_Constructor_Success() public {
-    assertEq(s_functionsCoordinator.typeAndVersion(), "Functions Coordinator v1.2.0");
+    assertEq(s_functionsCoordinator.typeAndVersion(), "Functions Coordinator v2.0.0");
     assertEq(s_functionsCoordinator.owner(), OWNER_ADDRESS);
   }
 }
@@ -156,7 +156,7 @@ contract FunctionsCoordinator_StartRequest is FunctionsSubscriptionSetup {
     uint16 dataVersion,
     bytes32 flags,
     uint64 callbackGasLimit,
-    FunctionsResponse.Commitment commitment
+    FunctionsResponse.CommitmentWithOperationFee commitment
   );
 
   function test_StartRequest_Success() public {
@@ -189,19 +189,21 @@ contract FunctionsCoordinator_StartRequest is FunctionsSubscriptionSetup {
       )
     );
 
-    FunctionsResponse.Commitment memory expectedComittment = FunctionsResponse.Commitment({
-      adminFee: s_adminFee,
-      coordinator: address(s_functionsCoordinator),
-      client: address(s_functionsClient),
-      subscriptionId: s_subscriptionId,
-      callbackGasLimit: _callbackGasLimit,
-      estimatedTotalCostJuels: costEstimate,
-      timeoutTimestamp: timeoutTimestamp,
-      requestId: expectedRequestId,
-      donFee: s_donFee,
-      gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback,
-      gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback
-    });
+    FunctionsResponse.CommitmentWithOperationFee memory expectedComittment = FunctionsResponse
+      .CommitmentWithOperationFee({
+        adminFee: s_adminFee,
+        coordinator: address(s_functionsCoordinator),
+        client: address(s_functionsClient),
+        subscriptionId: s_subscriptionId,
+        callbackGasLimit: _callbackGasLimit,
+        estimatedTotalCostJuels: costEstimate,
+        timeoutTimestamp: timeoutTimestamp,
+        requestId: expectedRequestId,
+        donFee: s_functionsCoordinator.getDONFee(_requestData),
+        operationFee: s_functionsCoordinator.getOperationFee(),
+        gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback,
+        gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback
+      });
 
     // topic0 (function signature, always checked), topic1 (true), topic2 (true), NOT topic3 (false), and data (true).
     vm.expectEmit(true, true, false, true);

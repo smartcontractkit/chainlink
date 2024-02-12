@@ -17,7 +17,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   /// @inheritdoc ITypeAndVersion
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "Functions Coordinator v1.2.0";
+  string public constant override typeAndVersion = "Functions Coordinator v2.0.0";
 
   event OracleRequest(
     bytes32 indexed requestId,
@@ -29,7 +29,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint16 dataVersion,
     bytes32 flags,
     uint64 callbackGasLimit,
-    FunctionsResponse.Commitment commitment
+    FunctionsResponse.CommitmentWithOperationFee commitment
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
 
@@ -43,8 +43,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   constructor(
     address router,
     FunctionsBillingConfig memory config,
-    address linkToNativeFeed
-  ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed) {}
+    address linkToNativeFeed,
+    address linkToUsdFeed
+  ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed, linkToUsdFeed) {}
 
   /// @inheritdoc IFunctionsCoordinator
   function getThresholdPublicKey() external view override returns (bytes memory) {
@@ -93,11 +94,11 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /// @inheritdoc IFunctionsCoordinator
   function startRequest(
     FunctionsResponse.RequestMeta calldata request
-  ) external override onlyRouter returns (FunctionsResponse.Commitment memory commitment) {
-    commitment = _startBilling(request);
+  ) external override onlyRouter returns (FunctionsResponse.Commitment memory) {
+    FunctionsResponse.CommitmentWithOperationFee memory commitmentWithOperationFee = _startBilling(request);
 
     emit OracleRequest(
-      commitment.requestId,
+      commitmentWithOperationFee.requestId,
       request.requestingContract,
       // solhint-disable-next-line avoid-tx-origin
       tx.origin,
@@ -107,10 +108,23 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       request.dataVersion,
       request.flags,
       request.callbackGasLimit,
-      commitment
+      commitmentWithOperationFee
     );
 
-    return commitment;
+    return
+      FunctionsResponse.Commitment({
+        adminFee: commitmentWithOperationFee.adminFee,
+        coordinator: commitmentWithOperationFee.coordinator,
+        client: commitmentWithOperationFee.client,
+        subscriptionId: commitmentWithOperationFee.subscriptionId,
+        callbackGasLimit: commitmentWithOperationFee.callbackGasLimit,
+        estimatedTotalCostJuels: commitmentWithOperationFee.estimatedTotalCostJuels,
+        timeoutTimestamp: commitmentWithOperationFee.timeoutTimestamp,
+        requestId: commitmentWithOperationFee.requestId,
+        donFee: commitmentWithOperationFee.donFee,
+        gasOverheadBeforeCallback: commitmentWithOperationFee.gasOverheadBeforeCallback,
+        gasOverheadAfterCallback: commitmentWithOperationFee.gasOverheadAfterCallback
+      });
   }
 
   /// @dev DON fees are pooled together. If the OCR configuration is going to change, these need to be distributed.
@@ -204,5 +218,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /// @dev Used in FunctionsBilling.sol
   function _onlyOwner() internal view override {
     _validateOwnership();
+  }
+
+  /// @dev Used in FunctionsBilling.sol
+  function _owner() internal view override returns (address owner) {
+    return this.owner();
   }
 }

@@ -186,6 +186,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(5_000_000_000_000_000))
 	require.NoError(t, err)
 
+	// Deploy mock LINK/USD price feed
+	linkUsdFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(1_500_00_000))
+	require.NoError(t, err)
+
 	// Deploy Router contract
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
 	require.NoError(t, err)
@@ -227,11 +231,14 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		FulfillmentGasPriceOverEstimationBP: uint32(1_000),
 		FallbackNativePerUnitLink:           big.NewInt(5_000_000_000_000_000),
 		MinimumEstimateGasPriceWei:          big.NewInt(1_000_000_000),
+		OperationFee:                        big.NewInt(0),
+		FallbackUsdPerUnitLink:              uint64(1_400_000_000),
+		FallbackUsdPerUnitLinkDecimals:      uint8(8),
 	}
 	require.NoError(t, err)
-	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
+	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
-	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
+	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
 
 	// Deploy Client contracts

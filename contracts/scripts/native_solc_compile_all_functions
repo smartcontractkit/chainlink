@@ -33,7 +33,8 @@ export SOLC_VERSION=$SOLC_VERSION
 
 compileContract v1_X dev/v1_X/libraries/FunctionsRequest.sol
 compileContract v1_X dev/v1_X/FunctionsRouter.sol
-compileContract v1_X dev/v1_X/FunctionsCoordinator.sol
+compileContract v1_X dev/v1_X/FunctionsCoordinator.sol # Latest
+compileContract v1_1_0 v1_1_0/FunctionsCoordinator.sol # Coordinator v1.1.0
 compileContract v1_X dev/v1_X/accessControl/TermsOfServiceAllowList.sol
 compileContract v1_X dev/v1_X/example/FunctionsClientExample.sol
 

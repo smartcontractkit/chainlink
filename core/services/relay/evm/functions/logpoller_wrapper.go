@@ -2,6 +2,7 @@ package functions
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
@@ -30,8 +32,8 @@ type logPollerWrapper struct {
 	client                    client.Client
 	logPoller                 logpoller.LogPoller
 	subscribers               map[string]evmRelayTypes.RouteUpdateSubscriber
-	activeCoordinator         common.Address
-	proposedCoordinator       common.Address
+	activeCoordinator         coordinator
+	proposedCoordinator       coordinator
 	requestBlockOffset        int64
 	responseBlockOffset       int64
 	pastBlocksToPoll          int64
@@ -52,6 +54,11 @@ type detectedEvent struct {
 type detectedEvents struct {
 	isPreviouslyDetected  map[[32]byte]struct{}
 	detectedEventsOrdered []detectedEvent
+}
+
+type coordinator struct {
+	address        common.Address
+	typeAndVersion string
 }
 
 const logPollerCacheDurationSecDefault = 300
@@ -144,11 +151,11 @@ func (l *logPollerWrapper) Name() string { return l.lggr.Name() }
 // methods of LogPollerWrapper
 func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
 	l.mu.Lock()
-	coordinators := []common.Address{}
-	if l.activeCoordinator != (common.Address{}) {
+	coordinators := []coordinator{}
+	if l.activeCoordinator.address != (common.Address{}) {
 		coordinators = append(coordinators, l.activeCoordinator)
 	}
-	if l.proposedCoordinator != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
+	if l.proposedCoordinator.address != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
 	latest, err := l.logPoller.LatestBlock()
@@ -173,7 +180,12 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 
 	for _, coordinator := range coordinators {
 		requestEndBlock := latestBlockNum - l.requestBlockOffset
-		requestLogs, err := l.logPoller.Logs(startBlockNum, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
+		requestLogTopic, err := oracleRequestLogTopic(coordinator)
+		if err != nil {
+			l.lggr.Errorw("LatestEvents: ", err)
+			return nil, nil, err
+		}
+		requestLogs, err := l.logPoller.Logs(startBlockNum, requestEndBlock, requestLogTopic, coordinator.address)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", requestEndBlock)
 			return nil, nil, err
@@ -181,7 +193,12 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", requestEndBlock)
 		requestLogs = l.filterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
 		responseEndBlock := latestBlockNum - l.responseBlockOffset
-		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
+		responseLogTopic, err := oracleResponseLogTopic(coordinator)
+		if err != nil {
+			l.lggr.Errorw("LatestEvents: ", err)
+			return nil, nil, err
+		}
+		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, responseLogTopic, coordinator.address)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", responseEndBlock)
 			return nil, nil, err
@@ -189,91 +206,17 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debugw("LatestEvents: fetched request logs", "nResponseLogs", len(responseLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", responseEndBlock)
 		responseLogs = l.filterPreviouslyDetectedEvents(responseLogs, &l.detectedResponses, "responses")
 
-		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator, l.client)
+		l.lggr.Debugw("LatestEvents: parsing logs", "nRequestLogs", len(requestLogs), "nResponseLogs", len(responseLogs), "coordinatorAddress", coordinator.address.Hex())
+		requests, err := l.logsToRequests(coordinator, requestLogs)
 		if err != nil {
-			l.lggr.Error("LatestEvents: creating a contract instance for parsing failed")
 			return nil, nil, err
 		}
-
-		l.lggr.Debugw("LatestEvents: parsing logs", "nRequestLogs", len(requestLogs), "nResponseLogs", len(responseLogs), "coordinatorAddress", coordinator.Hex())
-		for _, log := range requestLogs {
-			gethLog := log.ToGethLog()
-			oracleRequest, err := parsingContract.ParseOracleRequest(gethLog)
-			if err != nil {
-				l.lggr.Errorw("LatestEvents: failed to parse a request log, skipping", "err", err)
-				continue
-			}
-
-			uint32Type, errType1 := abi.NewType("uint32", "uint32", nil)
-			uint40Type, errType2 := abi.NewType("uint40", "uint40", nil)
-			uint64Type, errType3 := abi.NewType("uint64", "uint64", nil)
-			uint72Type, errType4 := abi.NewType("uint72", "uint72", nil)
-			uint96Type, errType5 := abi.NewType("uint96", "uint96", nil)
-			addressType, errType6 := abi.NewType("address", "address", nil)
-			bytes32Type, errType7 := abi.NewType("bytes32", "bytes32", nil)
-
-			if errType1 != nil || errType2 != nil || errType3 != nil || errType4 != nil || errType5 != nil || errType6 != nil || errType7 != nil {
-				l.lggr.Errorw("LatestEvents: failed to initialize types", "errType1", errType1,
-					"errType2", errType2, "errType3", errType3, "errType4", errType4, "errType5", errType5, "errType6", errType6, "errType7", errType7,
-				)
-				continue
-			}
-			commitmentABI := abi.Arguments{
-				{Type: bytes32Type}, // RequestId
-				{Type: addressType}, // Coordinator
-				{Type: uint96Type},  // EstimatedTotalCostJuels
-				{Type: addressType}, // Client
-				{Type: uint64Type},  // SubscriptionId
-				{Type: uint32Type},  // CallbackGasLimit
-				{Type: uint72Type},  // AdminFee
-				{Type: uint72Type},  // DonFee
-				{Type: uint40Type},  // GasOverheadBeforeCallback
-				{Type: uint40Type},  // GasOverheadAfterCallback
-				{Type: uint32Type},  // TimeoutTimestamp
-			}
-			commitmentBytes, err := commitmentABI.Pack(
-				oracleRequest.Commitment.RequestId,
-				oracleRequest.Commitment.Coordinator,
-				oracleRequest.Commitment.EstimatedTotalCostJuels,
-				oracleRequest.Commitment.Client,
-				oracleRequest.Commitment.SubscriptionId,
-				oracleRequest.Commitment.CallbackGasLimit,
-				oracleRequest.Commitment.AdminFee,
-				oracleRequest.Commitment.DonFee,
-				oracleRequest.Commitment.GasOverheadBeforeCallback,
-				oracleRequest.Commitment.GasOverheadAfterCallback,
-				oracleRequest.Commitment.TimeoutTimestamp,
-			)
-			if err != nil {
-				l.lggr.Errorw("LatestEvents: failed to pack commitment bytes, skipping", err)
-			}
-
-			resultsReq = append(resultsReq, evmRelayTypes.OracleRequest{
-				RequestId:           oracleRequest.RequestId,
-				RequestingContract:  oracleRequest.RequestingContract,
-				RequestInitiator:    oracleRequest.RequestInitiator,
-				SubscriptionId:      oracleRequest.SubscriptionId,
-				SubscriptionOwner:   oracleRequest.SubscriptionOwner,
-				Data:                oracleRequest.Data,
-				DataVersion:         oracleRequest.DataVersion,
-				Flags:               oracleRequest.Flags,
-				CallbackGasLimit:    oracleRequest.CallbackGasLimit,
-				TxHash:              oracleRequest.Raw.TxHash,
-				OnchainMetadata:     commitmentBytes,
-				CoordinatorContract: coordinator,
-			})
+		resultsReq = append(resultsReq, requests...)
+		responses, err := l.logsToResponses(coordinator, responseLogs)
+		if err != nil {
+			return nil, nil, err
 		}
-		for _, log := range responseLogs {
-			gethLog := log.ToGethLog()
-			oracleResponse, err := parsingContract.ParseOracleResponse(gethLog)
-			if err != nil {
-				l.lggr.Errorw("LatestEvents: failed to parse a response log, skipping")
-				continue
-			}
-			resultsResp = append(resultsResp, evmRelayTypes.OracleResponse{
-				RequestId: oracleResponse.RequestId,
-			})
-		}
+		resultsResp = append(resultsResp, responses...)
 	}
 
 	l.lggr.Debugw("LatestEvents: done", "nRequestLogs", len(resultsReq), "nResponseLogs", len(resultsResp), "startBlock", startBlockNum, "endBlock", latestBlockNum)
@@ -369,7 +312,7 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 	var donId [32]byte
 	copy(donId[:], []byte(l.pluginConfig.DONID))
 
-	activeCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
+	activeCoordinatorAddress, err := l.routerContract.GetContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
 	}, donId)
@@ -382,25 +325,59 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 		Context: ctx,
 	}, donId)
 	if err != nil {
-		return activeCoordinator, l.proposedCoordinator, nil
+		return activeCoordinatorAddress, l.proposedCoordinator.address, nil
 	}
 
-	return activeCoordinator, proposedCoordinator, nil
+	return activeCoordinatorAddress, proposedCoordinator, nil
 }
 
-func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, proposedCoordinator common.Address) {
+func (l *logPollerWrapper) getCoordinatorTypeAndVersion(coordinatorAddress common.Address) (string, error) {
+	if coordinatorAddress == (common.Address{}) {
+		l.lggr.Debug("LogPollerWrapper: cannot get typeAndVersion from an unset address")
+		return "", nil
+	}
+
+	coordinatorContract, err := functions_coordinator.NewFunctionsCoordinator(coordinatorAddress, l.client)
+	if err != nil {
+		l.lggr.Error("LogPollerWrapper: could not initialize Coordinator contract ", coordinatorAddress)
+		return "", err
+	}
+
+	typeAndVersion, err := coordinatorContract.TypeAndVersion(&bind.CallOpts{})
+	if err != nil {
+		l.lggr.Error("LogPollerWrapper: could not get typeAndVersion from Coordinator contract ", coordinatorAddress)
+		return "", err
+	}
+
+	return typeAndVersion, nil
+}
+
+func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Address, proposedCoordinatorAddress common.Address) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if activeCoordinator == (common.Address{}) {
+	if activeCoordinatorAddress == (common.Address{}) {
 		l.lggr.Error("LogPollerWrapper: cannot update activeCoordinator to zero address")
 		return
 	}
 
-	if activeCoordinator == l.activeCoordinator && proposedCoordinator == l.proposedCoordinator {
+	if activeCoordinatorAddress == l.activeCoordinator.address && proposedCoordinatorAddress == l.proposedCoordinator.address {
 		l.lggr.Debug("LogPollerWrapper: no changes to routes")
 		return
 	}
+
+	activeCoordinatorTypeAndVersion, err := l.getCoordinatorTypeAndVersion(activeCoordinatorAddress)
+	if err != nil {
+		return
+	}
+	activeCoordinator := coordinator{address: activeCoordinatorAddress, typeAndVersion: activeCoordinatorTypeAndVersion}
+
+	proposedCoordinatorTypeAndVersion, err := l.getCoordinatorTypeAndVersion(proposedCoordinatorAddress)
+	if err != nil {
+		return
+	}
+	proposedCoordinator := coordinator{address: proposedCoordinatorAddress, typeAndVersion: proposedCoordinatorTypeAndVersion}
+
 	errActive := l.registerFilters(activeCoordinator)
 	errProposed := l.registerFilters(proposedCoordinator)
 	if errActive != nil || errProposed != nil {
@@ -408,33 +385,261 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, p
 		return
 	}
 
-	l.lggr.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.Hex(), "proposedCoordinator", proposedCoordinator.Hex())
+	l.lggr.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.address.Hex(), "proposedCoordinator", proposedCoordinator.address.Hex())
 	l.activeCoordinator = activeCoordinator
 	l.proposedCoordinator = proposedCoordinator
 
 	for _, subscriber := range l.subscribers {
-		err := subscriber.UpdateRoutes(activeCoordinator, proposedCoordinator)
+		err := subscriber.UpdateRoutes(activeCoordinator.address, proposedCoordinator.address)
 		if err != nil {
 			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "err", err)
 		}
 	}
 }
 
-func filterName(addr common.Address) string {
-	return logpoller.FilterName("FunctionsLogPollerWrapper", addr.String())
+func filterName(addr common.Address, version string) string {
+	return logpoller.FilterName("FunctionsLogPollerWrapper", addr.String(), "-v", version)
 }
 
-func (l *logPollerWrapper) registerFilters(coordinatorAddress common.Address) error {
-	if (coordinatorAddress == common.Address{}) {
+func (l *logPollerWrapper) registerFilters(coordinator coordinator) error {
+	if (coordinator.address == common.Address{}) {
 		return nil
 	}
-	return l.logPoller.RegisterFilter(
-		logpoller.Filter{
-			Name: filterName(coordinatorAddress),
-			EventSigs: []common.Hash{
-				functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(),
-				functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(),
-			},
-			Addresses: []common.Address{coordinatorAddress},
-		})
+
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+		return l.logPoller.RegisterFilter(
+			logpoller.Filter{
+				Name: filterName(coordinator.address, "1"),
+				EventSigs: []common.Hash{
+					functions_coordinator_1_1_0.FunctionsCoordinator110OracleRequest{}.Topic(),
+					functions_coordinator_1_1_0.FunctionsCoordinator110OracleResponse{}.Topic(),
+				},
+				Addresses: []common.Address{coordinator.address},
+			})
+	}
+
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+		return l.logPoller.RegisterFilter(
+			logpoller.Filter{
+				Name: filterName(coordinator.address, "2"),
+				EventSigs: []common.Hash{
+					functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(),
+					functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(),
+				},
+				Addresses: []common.Address{coordinator.address},
+			})
+	}
+
+	l.lggr.Errorw("RegisterFilters: Unsupported Coordinator version ", coordinator.typeAndVersion)
+	return errors.Errorf("RegisterFilters: Unsupported Coordinator version")
+}
+
+func oracleRequestLogTopic(coordinator coordinator) (common.Hash, error) {
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+		return functions_coordinator_1_1_0.FunctionsCoordinator110OracleRequest{}.Topic(), nil
+	}
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+		return functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), nil
+	}
+	return common.Hash{}, errors.Errorf("OracleRequestLogTopic: Unsupported Coordinator version %s", coordinator.typeAndVersion)
+}
+
+func oracleResponseLogTopic(coordinator coordinator) (common.Hash, error) {
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+		return functions_coordinator_1_1_0.FunctionsCoordinator110OracleResponse{}.Topic(), nil
+	}
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+		return functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), nil
+	}
+	return common.Hash{}, errors.Errorf("OracleResponseLogTopic: Unsupported Coordinator version %s", coordinator.typeAndVersion)
+}
+
+func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs []logpoller.Log) ([]evmRelayTypes.OracleRequest, error) {
+	var requests []evmRelayTypes.OracleRequest
+
+	uint32Type, errType1 := abi.NewType("uint32", "uint32", nil)
+	uint40Type, errType2 := abi.NewType("uint40", "uint40", nil)
+	uint64Type, errType3 := abi.NewType("uint64", "uint64", nil)
+	uint72Type, errType4 := abi.NewType("uint72", "uint72", nil)
+	uint96Type, errType5 := abi.NewType("uint96", "uint96", nil)
+	addressType, errType6 := abi.NewType("address", "address", nil)
+	bytes32Type, errType7 := abi.NewType("bytes32", "bytes32", nil)
+
+	if errType1 != nil || errType2 != nil || errType3 != nil || errType4 != nil || errType5 != nil || errType6 != nil || errType7 != nil {
+		l.lggr.Errorw("LogsToRequests: failed to initialize types", "errType1", errType1,
+			"errType2", errType2, "errType3", errType3, "errType4", errType4, "errType5", errType5, "errType6", errType6, "errType7", errType7,
+		)
+	}
+
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+		parsingContract, err := functions_coordinator_1_1_0.NewFunctionsCoordinator110(coordinator.address, l.client)
+		if err != nil {
+			return nil, errors.Errorf("LogsToRequests: creating a contract instance for parsing failed")
+		}
+
+		for _, log := range requestLogs {
+			gethLog := log.ToGethLog()
+			oracleRequest, err := parsingContract.ParseOracleRequest(gethLog)
+			if err != nil {
+				l.lggr.Errorw("LogsToRequests: failed to parse a request log, skipping", "err", err)
+				continue
+			}
+
+			commitmentABI := abi.Arguments{
+				{Type: bytes32Type}, // RequestId
+				{Type: addressType}, // Coordinator
+				{Type: uint96Type},  // EstimatedTotalCostJuels
+				{Type: addressType}, // Client
+				{Type: uint64Type},  // SubscriptionId
+				{Type: uint32Type},  // CallbackGasLimit
+				{Type: uint72Type},  // AdminFee
+				{Type: uint72Type},  // DonFee
+				{Type: uint40Type},  // GasOverheadBeforeCallback
+				{Type: uint40Type},  // GasOverheadAfterCallback
+				{Type: uint32Type},  // TimeoutTimestamp
+			}
+			commitmentBytes, err := commitmentABI.Pack(
+				oracleRequest.Commitment.RequestId,
+				oracleRequest.Commitment.Coordinator,
+				oracleRequest.Commitment.EstimatedTotalCostJuels,
+				oracleRequest.Commitment.Client,
+				oracleRequest.Commitment.SubscriptionId,
+				oracleRequest.Commitment.CallbackGasLimit,
+				oracleRequest.Commitment.AdminFee,
+				oracleRequest.Commitment.DonFee,
+				oracleRequest.Commitment.GasOverheadBeforeCallback,
+				oracleRequest.Commitment.GasOverheadAfterCallback,
+				oracleRequest.Commitment.TimeoutTimestamp,
+			)
+			if err != nil {
+				l.lggr.Errorw("LogsToRequests: failed to pack commitment bytes, skipping", err)
+			}
+
+			requests = append(requests, evmRelayTypes.OracleRequest{
+				RequestId:           oracleRequest.RequestId,
+				RequestingContract:  oracleRequest.RequestingContract,
+				RequestInitiator:    oracleRequest.RequestInitiator,
+				SubscriptionId:      oracleRequest.SubscriptionId,
+				SubscriptionOwner:   oracleRequest.SubscriptionOwner,
+				Data:                oracleRequest.Data,
+				DataVersion:         oracleRequest.DataVersion,
+				Flags:               oracleRequest.Flags,
+				CallbackGasLimit:    oracleRequest.CallbackGasLimit,
+				TxHash:              oracleRequest.Raw.TxHash,
+				OnchainMetadata:     commitmentBytes,
+				CoordinatorContract: coordinator.address,
+			})
+		}
+		return requests, nil
+	}
+
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator.address, l.client)
+		if err != nil {
+			return nil, errors.Errorf("LogsToRequests: creating a contract instance for parsing failed")
+		}
+
+		for _, log := range requestLogs {
+			gethLog := log.ToGethLog()
+			oracleRequest, err := parsingContract.ParseOracleRequest(gethLog)
+			if err != nil {
+				l.lggr.Errorw("LogsToRequests: failed to parse a request log, skipping", "err", err)
+				continue
+			}
+
+			commitmentABI := abi.Arguments{
+				{Type: bytes32Type}, // RequestId
+				{Type: addressType}, // Coordinator
+				{Type: uint96Type},  // EstimatedTotalCostJuels
+				{Type: addressType}, // Client
+				{Type: uint64Type},  // SubscriptionId
+				{Type: uint32Type},  // CallbackGasLimit
+				{Type: uint72Type},  // AdminFee
+				{Type: uint72Type},  // DonFee
+				{Type: uint40Type},  // GasOverheadBeforeCallback
+				{Type: uint40Type},  // GasOverheadAfterCallback
+				{Type: uint32Type},  // TimeoutTimestamp
+				{Type: uint72Type},  // OperationFee
+			}
+			commitmentBytes, err := commitmentABI.Pack(
+				oracleRequest.Commitment.RequestId,
+				oracleRequest.Commitment.Coordinator,
+				oracleRequest.Commitment.EstimatedTotalCostJuels,
+				oracleRequest.Commitment.Client,
+				oracleRequest.Commitment.SubscriptionId,
+				oracleRequest.Commitment.CallbackGasLimit,
+				oracleRequest.Commitment.AdminFee,
+				oracleRequest.Commitment.DonFee,
+				oracleRequest.Commitment.GasOverheadBeforeCallback,
+				oracleRequest.Commitment.GasOverheadAfterCallback,
+				oracleRequest.Commitment.TimeoutTimestamp,
+				oracleRequest.Commitment.OperationFee,
+			)
+			if err != nil {
+				l.lggr.Errorw("LogsToRequests: failed to pack commitment bytes, skipping", err)
+			}
+
+			requests = append(requests, evmRelayTypes.OracleRequest{
+				RequestId:           oracleRequest.RequestId,
+				RequestingContract:  oracleRequest.RequestingContract,
+				RequestInitiator:    oracleRequest.RequestInitiator,
+				SubscriptionId:      oracleRequest.SubscriptionId,
+				SubscriptionOwner:   oracleRequest.SubscriptionOwner,
+				Data:                oracleRequest.Data,
+				DataVersion:         oracleRequest.DataVersion,
+				Flags:               oracleRequest.Flags,
+				CallbackGasLimit:    oracleRequest.CallbackGasLimit,
+				TxHash:              oracleRequest.Raw.TxHash,
+				OnchainMetadata:     commitmentBytes,
+				CoordinatorContract: coordinator.address,
+			})
+		}
+		return requests, nil
+	}
+
+	return nil, errors.Errorf("LogsToRequests: Unsupported Coordinator version %s", coordinator.typeAndVersion)
+}
+
+func (l *logPollerWrapper) logsToResponses(coordinator coordinator, responseLogs []logpoller.Log) ([]evmRelayTypes.OracleResponse, error) {
+	var responses []evmRelayTypes.OracleResponse
+
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+		parsingContract, err := functions_coordinator_1_1_0.NewFunctionsCoordinator110(coordinator.address, l.client)
+		if err != nil {
+			return nil, errors.Errorf("LogsToResponses: creating a contract instance for parsing failed")
+		}
+		for _, log := range responseLogs {
+			gethLog := log.ToGethLog()
+			oracleResponse, err := parsingContract.ParseOracleResponse(gethLog)
+			if err != nil {
+				l.lggr.Errorw("LogsToResponses: failed to parse a response log, skipping")
+				continue
+			}
+			responses = append(responses, evmRelayTypes.OracleResponse{
+				RequestId: oracleResponse.RequestId,
+			})
+		}
+		return responses, nil
+	}
+
+	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator.address, l.client)
+		if err != nil {
+			return nil, errors.Errorf("LogsToResponses: creating a contract instance for parsing failed")
+		}
+		for _, log := range responseLogs {
+			gethLog := log.ToGethLog()
+			oracleResponse, err := parsingContract.ParseOracleResponse(gethLog)
+			if err != nil {
+				l.lggr.Errorw("LogsToResponses: failed to parse a response log, skipping")
+				continue
+			}
+			responses = append(responses, evmRelayTypes.OracleResponse{
+				RequestId: oracleResponse.RequestId,
+			})
+		}
+		return responses, nil
+	}
+
+	return nil, errors.Errorf("LogsToResponses: Unsupported Coordinator version %s", coordinator.typeAndVersion)
 }

@@ -298,7 +298,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     ) {
       delete s_requestCommitments[requestId];
       // Reimburse the transmitter for the fulfillment gas cost
-      s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
+      s_withdrawableTokens[msg.sender] += gasOverheadJuels + callbackCostJuels;
       // Put donFee into the pool of fees, to be split later
       // Saves on storage writes that would otherwise be charged to the user
       s_feePool += commitment.donFee;

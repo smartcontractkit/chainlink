@@ -41,4 +41,20 @@ library FunctionsResponse {
     uint40 gasOverheadAfterCallback; //    ║ Represents the average gas execution cost after the fulfillment callback.
     uint32 timeoutTimestamp; // ═══════════╝ The timestamp at which a request will be eligible to be timed out
   }
+
+  /// @dev This structure will take the place of Commitment in the Router contract's version 2.0
+  struct CommitmentWithOperationFee {
+    bytes32 requestId; // ═════════════════╸ A unique identifier for a Chainlink Functions request
+    address coordinator; // ═══════════════╗ The Coordinator contract that manages the DON that is servicing a request
+    uint96 estimatedTotalCostJuels; // ════╝ The maximum cost in Juels (1e18) of LINK that will be charged to fulfill a request
+    address client; // ════════════════════╗ The client contract that sent the request
+    uint64 subscriptionId; //              ║ Identifier of the billing subscription that will be charged for the request
+    uint32 callbackGasLimit; // ═══════════╝ The amount of gas that the callback to the consuming contract will be given
+    uint72 adminFee; // ═══════════════════╗ Flat fee (in Juels of LINK) that will be paid to the Router Owner for operation of the network
+    uint72 donFee; //                      ║ Fee (in Juels of LINK) that will be split between Node Operators for servicing a request
+    uint40 gasOverheadBeforeCallback; //   ║ Represents the average gas execution cost before the fulfillment callback.
+    uint40 gasOverheadAfterCallback; //    ║ Represents the average gas execution cost after the fulfillment callback.
+    uint32 timeoutTimestamp; // ═══════════╝ The timestamp at which a request will be eligible to be timed out
+    uint72 operationFee; // ══════════════════════ Flat fee (in Juels of LINK) that will be paid to the Coordinator Owner for operation of the network
+  }
 }
