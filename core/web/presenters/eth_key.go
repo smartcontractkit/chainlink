@@ -40,7 +40,7 @@ type NewETHKeyOption func(*ETHKeyResource)
 // Use the functional options to inject the ETH and LINK balances
 func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOption) *ETHKeyResource {
 	r := &ETHKeyResource{
-		JAID:        NewJAID(k.Address.Hex()),
+		JAID:        NewPrefixedJAID(k.Address.Hex(), state.EVMChainID.String()),
 		EVMChainID:  state.EVMChainID,
 		Address:     k.Address.Hex(),
 		EthBalance:  nil,
