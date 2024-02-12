@@ -26,6 +26,7 @@ export type FunctionsContracts = {
   client: Contract
   linkToken: Contract
   mockLinkEth: Contract
+  mockLinkUsd: Contract
   accessControl: Contract
 }
 
@@ -99,6 +100,9 @@ export type CoordinatorConfig = {
   fulfillmentGasPriceOverEstimationBP: number
   fallbackNativePerUnitLink: BigNumber
   minimumEstimateGasPriceWei: number
+  operationFee: number
+  fallbackUsdPerUnitLink: number
+  fallbackUsdPerUnitLinkDecimals: number
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
@@ -111,6 +115,9 @@ export const coordinatorConfig: CoordinatorConfig = {
   fulfillmentGasPriceOverEstimationBP: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   minimumEstimateGasPriceWei: 1000000000,
+  operationFee: 0,
+  fallbackUsdPerUnitLink: 1500000000,
+  fallbackUsdPerUnitLinkDecimals: 8,
 }
 export const accessControlMockPublicKey = ethers.utils.getAddress(
   '0x32237412cC0321f56422d206e505dB4B3871AF5c',
@@ -238,6 +245,7 @@ export function getSetupFactory(): () => {
 
   beforeEach(async () => {
     const linkEthRate = BigNumber.from(5021530000000000)
+    const linkUsdRate = BigNumber.from(1500000000)
 
     // Deploy
     const linkToken = await factories.linkTokenFactory
@@ -249,13 +257,23 @@ export function getSetupFactory(): () => {
       linkEthRate,
     )
 
+    const mockLinkUsd = await factories.mockAggregatorV3Factory.deploy(
+      0,
+      linkUsdRate,
+    )
+
     const router = await factories.functionsRouterFactory
       .connect(roles.defaultAccount)
       .deploy(linkToken.address, functionsRouterConfig)
 
     const coordinator = await factories.functionsCoordinatorFactory
       .connect(roles.defaultAccount)
-      .deploy(router.address, coordinatorConfig, mockLinkEth.address)
+      .deploy(
+        router.address,
+        coordinatorConfig,
+        mockLinkEth.address,
+        mockLinkUsd.address,
+      )
 
     const initialAllowedSenders: string[] = []
     const initialBlockedSenders: string[] = []
@@ -290,6 +308,7 @@ export function getSetupFactory(): () => {
       router,
       linkToken,
       mockLinkEth,
+      mockLinkUsd,
       accessControl,
     }
   })
