@@ -1,4 +1,4 @@
-package txm
+package txm_test
 
 import (
 	"math/big"
@@ -14,7 +14,7 @@ import (
 
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/optimistictxm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -23,11 +23,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-func newReaperWithChainID(t *testing.T, txStore ReaperTxStore, cfg ReaperConfig, cid *big.Int, client ReaperClient, ks KeyStore) *Reaper {
-	return NewReaper(logger.Test(t), txStore, cfg, cid, client, ks)
+func newReaperWithChainID(t *testing.T, txStore txm.ReaperTxStore, cfg txm.ReaperConfig, cid *big.Int, client txm.ReaperClient, ks txm.KeyStore) *txm.Reaper {
+	return txm.NewReaper(logger.Test(t), txStore, cfg, cid, client, ks)
 }
 
-func newReaper(t *testing.T, txStore ReaperTxStore, cfg ReaperConfig, client ReaperClient, ks KeyStore) *Reaper {
+func newReaper(t *testing.T, txStore txm.ReaperTxStore, cfg txm.ReaperConfig, client txm.ReaperClient, ks txm.KeyStore) *txm.Reaper {
 	return newReaperWithChainID(t, txStore, cfg, &cltest.FixtureChainID, client, ks)
 }
 
@@ -47,7 +47,7 @@ func TestReaper_ReapTxs(t *testing.T) {
 	gasLimit := uint32(242)
 
 	t.Run("with nothing in the database, doesn't error", func(t *testing.T) {
-		rc := ReaperConfig{ReaperThreshold: 1 * time.Hour}
+		rc := txm.ReaperConfig{ReaperThreshold: 1 * time.Hour}
 		r := newReaper(t, txStore, rc, client, keyStore)
 
 		err := r.ReapTxs()
@@ -55,7 +55,7 @@ func TestReaper_ReapTxs(t *testing.T) {
 	})
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
-		rc := ReaperConfig{ReaperThreshold: 0 * time.Second}
+		rc := txm.ReaperConfig{ReaperThreshold: 0 * time.Second}
 		r := newReaper(t, txStore, rc, client, keyStore)
 
 		err := r.ReapTxs()
@@ -63,13 +63,13 @@ func TestReaper_ReapTxs(t *testing.T) {
 	})
 
 	t.Run("doesn't touch txs with different chain ID", func(t *testing.T) {
-		rc := ReaperConfig{ReaperThreshold: 1 * time.Hour}
+		rc := txm.ReaperConfig{ReaperThreshold: 1 * time.Hour}
 		key1, addr1 := cltest.MustInsertRandomKey(t, keyStore)
 		chainID := big.NewInt(42)
 		r := newReaperWithChainID(t, txStore, rc, chainID, client, keyStore)
 
 		nonce0 := evmtypes.Nonce(0)
-		txConfirmed := txmgr.Tx{
+		txConfirmed := txm.Tx{
 			ChainID:            big.NewInt(99),
 			Sequence:           &nonce0,
 			FromAddress:        addr1,
@@ -94,13 +94,13 @@ func TestReaper_ReapTxs(t *testing.T) {
 	})
 
 	t.Run("deletes confirmed evm.txes that exceed the age threshold", func(t *testing.T) {
-		rc := ReaperConfig{ReaperThreshold: 1 * time.Hour}
+		rc := txm.ReaperConfig{ReaperThreshold: 1 * time.Hour}
 		_, addr2 := cltest.MustInsertRandomKey(t, keyStore)
 		r := newReaper(t, txStore, rc, client, keyStore)
 
 		nonce0 := evmtypes.Nonce(0)
 		timeNow := time.Now()
-		txUnconfirmed := txmgr.Tx{
+		txUnconfirmed := txm.Tx{
 			ChainID:            &cltest.FixtureChainID,
 			Sequence:           &nonce0,
 			FromAddress:        addr2,

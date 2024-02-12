@@ -46,7 +46,7 @@ type TxManager[
 	Trigger(addr ADDR)
 	CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error)
-	RegisterResumeCallback(fn ResumeCallback)
+	//RegisterResumeCallback(fn ResumeCallback)
 	SendNativeToken(ctx context.Context, chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	Reset(addr ADDR, abandon bool) error
 	// Find transactions by a field in the TxMeta blob and transaction states

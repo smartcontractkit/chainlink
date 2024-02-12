@@ -101,7 +101,7 @@ func (s *sequenceSyncer) SyncSequence(ctx context.Context, addr common.Address, 
 			return
 		case <-time.After(sequenceSyncRetryBackoff.Duration()):
 			attempt++
-			err := s.syncOnChain(ctx, addr, localSequence)
+			err := s.SyncOnChain(ctx, addr, localSequence)
 			if err != nil {
 				if attempt > 5 {
 					s.lggr.Criticalw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
@@ -115,7 +115,7 @@ func (s *sequenceSyncer) SyncSequence(ctx context.Context, addr common.Address, 
 	}
 }
 
-func (s *sequenceSyncer) syncOnChain(ctx context.Context, addr common.Address, localSequence evmtypes.Nonce) error {
+func (s *sequenceSyncer) SyncOnChain(ctx context.Context, addr common.Address, localSequence evmtypes.Nonce) error {
 	chainSequence, err := s.client.PendingNonceAt(ctx, addr)
 	if err != nil {
 		return err

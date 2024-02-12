@@ -1,4 +1,4 @@
-package txm
+package txm_test
 
 import (
 	"errors"
@@ -16,15 +16,16 @@ import (
 
 	clientmock "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	txstoremock "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/optimistictxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func NewTestSequenceSyncer(t testing.TB, txStore SequenceSyncerTxStore, client SequenceSyncerClient) *sequenceSyncer {
+func NewTestSequenceSyncer(t testing.TB, txStore txm.SequenceSyncerTxStore, client txm.SequenceSyncerClient) txm.SequenceSyncer {
 	t.Helper()
 
 	lggr := logger.Test(t)
-	return NewSequenceSyncer(lggr, txStore, client)
+	return txm.NewSequenceSyncer(lggr, txStore, client)
 }
 
 func TestSequenceSyncer_LoadSequenceMap(t *testing.T) {
@@ -88,7 +89,7 @@ func TestSequenceSyncer_syncOnChain(t *testing.T) {
 	t.Run("throws error if RPC call fails", func(t *testing.T) {
 		client.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), errors.New("RPC unavailable")).Once()
 
-		err := ss.syncOnChain(ctx, addr, types.Nonce(2))
+		err := ss.SyncOnChain(ctx, addr, types.Nonce(2))
 		require.Error(t, err)
 	})
 
@@ -99,7 +100,7 @@ func TestSequenceSyncer_syncOnChain(t *testing.T) {
 		ss.LoadNextSequenceMap(ctx, enabledAddresses)
 
 		// syncOnChain will set the next sequence even if the address is not present in the map
-		err := ss.syncOnChain(ctx, addr, types.Nonce(5))
+		err := ss.SyncOnChain(ctx, addr, types.Nonce(5))
 		require.NoError(t, err)
 
 		seq, err := ss.GetNextSequence(ctx, addr)
@@ -114,7 +115,7 @@ func TestSequenceSyncer_syncOnChain(t *testing.T) {
 		ss.LoadNextSequenceMap(ctx, enabledAddresses)
 
 		// syncOnChain will set the next sequence even if the address is not present in the map
-		err := ss.syncOnChain(ctx, addr, types.Nonce(5))
+		err := ss.SyncOnChain(ctx, addr, types.Nonce(5))
 		require.NoError(t, err)
 
 		seq, err := ss.GetNextSequence(ctx, addr)

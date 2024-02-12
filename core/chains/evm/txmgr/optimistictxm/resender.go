@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -22,12 +21,12 @@ import (
 const batchSendTransactionTimeout = 30 * time.Second
 
 type ResenderTxAttemptBuilder interface {
-	NewAttempt(context.Context, txmgr.Tx, logger.Logger) (txmgr.TxAttempt, error)
-	NewBumpTxAttempt(context.Context, txmgr.Tx, txmgr.TxAttempt, []txmgr.TxAttempt, logger.Logger) (txmgr.TxAttempt, gas.EvmFee, uint32, bool, error)
+	NewAttempt(context.Context, Tx, logger.Logger) (TxAttempt, error)
+	NewBumpTxAttempt(context.Context, Tx, TxAttempt, []TxAttempt, logger.Logger) (TxAttempt, gas.EvmFee, uint32, bool, error)
 }
 
 type ResenderTxStore interface {
-	FindUnconfirmedTxsRequiringBumping(context.Context, time.Time, uint32, *big.Int, common.Address, evmtypes.Nonce) ([]txmgr.Tx, error)
+	FindUnconfirmedTxsRequiringBumping(context.Context, time.Time, uint32, *big.Int, common.Address, evmtypes.Nonce) ([]Tx, error)
 	MarkTxsConfirmed(context.Context, *big.Int, common.Address, evmtypes.Nonce) error
 	UpdateBroadcastAtsForUnconfirmed(context.Context, time.Time, []int64) error
 }
@@ -84,7 +83,7 @@ func NewResender(
 }
 
 func (r *Resender) Start() {
-	r.lggr.Debugf("Enabled with resend interval of %s and age threshold of %s", r.config.ResendInterval, r.config.BumpAfterThreshold)
+	r.lggr.Debugf("Enabled with resend interval of %s and bump after threshold of %s", r.config.ResendInterval, r.config.BumpAfterThreshold)
 	go r.runLoop()
 }
 
@@ -104,7 +103,7 @@ func (r *Resender) runLoop() {
 			return
 		case <-ticker.C:
 			start := time.Now()
-			if err := r.resendUnconfirmed(); err != nil {
+			if err := r.ResendUnconfirmed(); err != nil {
 				r.lggr.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
 			r.lggr.Debug("resendUnconfirmed duration: ", time.Since(start))
@@ -112,14 +111,14 @@ func (r *Resender) runLoop() {
 	}
 }
 
-func (r *Resender) resendUnconfirmed() error {
+func (r *Resender) ResendUnconfirmed() error {
 	resenderAddresses, err := r.ks.EnabledAddressesForChain(r.chainID)
 	if err != nil {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", r.chainID.String(), err)
 	}
 
 	olderThan := time.Now().Add(-r.config.BumpAfterThreshold)
-	var allAttempts []txmgr.TxAttempt
+	var allAttempts []TxAttempt
 
 	for _, address := range resenderAddresses {
 		// Each tx equal or higher than the mined nonce is considered unconfirmed.
@@ -172,7 +171,7 @@ func (r *Resender) resendUnconfirmed() error {
 	return nil
 }
 
-func (r *Resender) bumpAttempt(ctx context.Context, tx txmgr.Tx, marketAttempt txmgr.TxAttempt) txmgr.TxAttempt {
+func (r *Resender) bumpAttempt(ctx context.Context, tx Tx, marketAttempt TxAttempt) TxAttempt {
 
 	var bumpedFee gas.EvmFee
 	var bumpedFeeLimit uint32
@@ -202,7 +201,7 @@ func batchSendTransactions(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	client ResenderClient,
-	attempts []txmgr.TxAttempt,
+	attempts []TxAttempt,
 	batchSize int,
 ) (
 	broadcastTime time.Time,
@@ -221,7 +220,7 @@ func batchSendTransactions(
 		ethTxIDs[i] = attempt.TxID
 		hashes[i] = attempt.Hash.String()
 		// Decode the signed raw tx back into a Transaction object
-		signedTx, decodeErr := txmgr.GetGethSignedTx(attempt.SignedRawTx)
+		signedTx, decodeErr := GetGethSignedTx(attempt.SignedRawTx)
 		if decodeErr != nil {
 			return broadcastTime, successfulBroadcastIDs, fmt.Errorf("failed to decode signed raw tx into Transaction object: %w", decodeErr)
 		}

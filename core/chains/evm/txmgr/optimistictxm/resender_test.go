@@ -1,4 +1,4 @@
-package txm
+package txm_test
 
 import (
 	"math/big"
@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/optimistictxm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -26,14 +27,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 )
 
-func TestResender_resendUnconfirmed(t *testing.T) {
+func TestResender_ResendUnconfirmed(t *testing.T) {
 	lggr := logger.Test(t)
 	chainID := big.NewInt(0)
 	blockTime := 2 * time.Second
 
 	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	rcfg := ResenderConfig{
+	rcfg := txm.ResenderConfig{
 		BumpAfterThreshold:  3 * blockTime,
 		MaxBumpCycles:       1,
 		MaxInFlight:         evmcfg.EVM().Transactions().MaxInFlight(),
@@ -47,18 +48,18 @@ func TestResender_resendUnconfirmed(t *testing.T) {
 	estimator := gasmocks.NewEvmFeeEstimator(t)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*chainID, evmcfg.EVM().GasEstimator(), keyStore, estimator)
 
-	r := NewResender(txBuilder, lggr, txStore, client, keyStore, rcfg)
+	r := txm.NewResender(txBuilder, lggr, txStore, client, keyStore, rcfg)
 
 	ctx := testutils.Context(t)
 	t.Run("no enabled addresses", func(t *testing.T) {
-		require.NoError(t, r.resendUnconfirmed())
+		require.NoError(t, r.ResendUnconfirmed())
 	})
 
 	t.Run("no txs at all for enabled address", func(t *testing.T) {
 		key1, addr1 := cltest.MustInsertRandomKey(t, keyStore)
 		client.On("SequenceAt", mock.Anything, addr1, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
 
-		require.NoError(t, r.resendUnconfirmed())
+		require.NoError(t, r.ResendUnconfirmed())
 		keyStore.Delete(key1.ID())
 	})
 
@@ -70,7 +71,7 @@ func TestResender_resendUnconfirmed(t *testing.T) {
 		value := big.Int(assets.NewEthValue(142))
 		gasLimit := uint32(242)
 		timeNow := time.Now()
-		txUnconfirmed1 := txmgr.Tx{
+		txUnconfirmed1 := txm.Tx{
 			Sequence:           &nonce0,
 			FromAddress:        addr2,
 			ToAddress:          utils.RandomAddress(),
@@ -84,7 +85,7 @@ func TestResender_resendUnconfirmed(t *testing.T) {
 		}
 
 		nonce1 := evmtypes.Nonce(1)
-		txUnconfirmed2 := txmgr.Tx{
+		txUnconfirmed2 := txm.Tx{
 			Sequence:           &nonce1,
 			FromAddress:        addr2,
 			ToAddress:          utils.RandomAddress(),
@@ -101,7 +102,7 @@ func TestResender_resendUnconfirmed(t *testing.T) {
 		require.NoError(t, txStore.InsertTx(&txUnconfirmed2))
 
 		client.On("SequenceAt", mock.Anything, addr2, mock.Anything).Return(evmtypes.Nonce(1), nil).Once()
-		require.NoError(t, r.resendUnconfirmed())
+		require.NoError(t, r.ResendUnconfirmed())
 
 		n, err := txStore.CountUnconfirmedTransactions(ctx, addr2, chainID)
 		require.NoError(t, err)
@@ -124,7 +125,7 @@ func TestResender_resendUnconfirmed(t *testing.T) {
 		gasLimit := uint32(242)
 		timeNow := time.Now().Add(-time.Hour)
 
-		txConfirmed := txmgr.Tx{
+		txConfirmed := txm.Tx{
 			Sequence:           &nonce0,
 			FromAddress:        addr3,
 			ToAddress:          utils.RandomAddress(),
@@ -138,7 +139,7 @@ func TestResender_resendUnconfirmed(t *testing.T) {
 		}
 
 		nonce1 := evmtypes.Nonce(1)
-		txUnconfirmed := txmgr.Tx{
+		txUnconfirmed := txm.Tx{
 			Sequence:           &nonce1,
 			FromAddress:        addr3,
 			ToAddress:          utils.RandomAddress(),
@@ -185,7 +186,7 @@ func TestResender_resendUnconfirmed(t *testing.T) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			*(elems[0].Result.(*common.Hash)) = bumpedAttempt2.Hash
 		}).Return(nil).Once()
-		require.NoError(t, r.resendUnconfirmed())
+		require.NoError(t, r.ResendUnconfirmed())
 
 		tx1, err := txStore.GetTxByID(ctx, txConfirmed.ID)
 		require.NoError(t, err)

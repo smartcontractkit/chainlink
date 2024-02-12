@@ -19,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -32,16 +30,16 @@ const InFlightTransactionRecheckInterval = 1 * time.Second
 var ErrTxRemoved = errors.New("tx removed")
 
 type TxAttemptBuilder interface {
-	NewAttempt(context.Context, txmgr.Tx, logger.Logger) (txmgr.TxAttempt, error)
+	NewAttempt(context.Context, Tx, logger.Logger) (TxAttempt, error)
 }
 
 type BroadcasterTxStore interface {
 	CountUnconfirmedTransactions(context.Context, common.Address, *big.Int) (uint32, error)
 	CountUnstartedTransactions(context.Context, common.Address, *big.Int) (uint32, error)
-	FindNextUnstartedTransactionFromAddress(context.Context, *txmgr.Tx, common.Address, *big.Int) error
-	BroadcasterUpdateTxUnstartedToInProgress(context.Context, *txmgr.Tx) error
-	BroadcasterGetTxInProgress(context.Context, common.Address) (*txmgr.Tx, error)
-	UpdateTxInProgressToUnconfirmed(context.Context, *txmgr.Tx) error
+	FindNextUnstartedTransactionFromAddress(context.Context, *Tx, common.Address, *big.Int) error
+	BroadcasterUpdateTxUnstartedToInProgress(context.Context, *Tx) error
+	BroadcasterGetTxInProgress(context.Context, common.Address) (*Tx, error)
+	UpdateTxInProgressToUnconfirmed(context.Context, *Tx) error
 }
 
 type BroadcasterClient interface {
@@ -65,6 +63,7 @@ type SequenceSyncer interface {
 	GetNextSequence(context.Context, common.Address) (evmtypes.Nonce, error)
 	IncrementNextSequence(common.Address)
 	SyncSequence(context.Context, common.Address, services.StopChan)
+	SyncOnChain(ctx context.Context, addr common.Address, localSequence evmtypes.Nonce) error
 }
 
 type Broadcaster struct {
@@ -270,10 +269,10 @@ func (b *Broadcaster) ProcessUnstartedTxs(ctx context.Context, fromAddress commo
 	}
 }
 
-func (b *Broadcaster) nextUnstartedTransactionWithSequence(fromAddress common.Address) (*txmgr.Tx, error) {
+func (b *Broadcaster) nextUnstartedTransactionWithSequence(fromAddress common.Address) (*Tx, error) {
 	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
-	tx := &txmgr.Tx{}
+	tx := &Tx{}
 	if err := b.txStore.FindNextUnstartedTransactionFromAddress(ctx, tx, fromAddress, b.chainID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -287,7 +286,7 @@ func (b *Broadcaster) nextUnstartedTransactionWithSequence(fromAddress common.Ad
 	}
 	tx.Sequence = &sequence
 
-	if tx.State != commontxmgr.TxUnstarted {
+	if tx.State != TxUnstarted {
 		return nil, fmt.Errorf("invariant violation: expected transaction %v to be unstarted, it was %s", tx.ID, tx.State)
 	}
 
@@ -312,8 +311,8 @@ func (b *Broadcaster) handleAnyInProgressTx(ctx context.Context, fromAddress com
 	return b.handleInProgressTx(ctx, *tx)
 }
 
-func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx txmgr.Tx) error {
-	if tx.State != commontxmgr.TxInProgress {
+func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx Tx) error {
+	if tx.State != TxInProgress {
 		return fmt.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", tx.ID, tx.State)
 	}
 
@@ -323,7 +322,7 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx txmgr.Tx) error
 	}
 
 	lgr := tx.GetLogger(logger.With(b.lggr))
-	signedTx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
+	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
 		b.lggr.Criticalw("Fatal error signing transaction", "err", err, "tx", tx)
 		return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)

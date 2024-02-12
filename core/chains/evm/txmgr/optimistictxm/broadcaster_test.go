@@ -1,4 +1,4 @@
-package txm
+package txm_test
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/optimistictxm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -33,7 +34,7 @@ func TestBroadcaster_Lifecycle(t *testing.T) {
 
 	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	bcfg := BroadcasterConfig{
+	bcfg := txm.BroadcasterConfig{
 		FallbackPollInterval: evmcfg.Database().Listener().FallbackPollInterval(),
 		MaxInFlight:          evmcfg.EVM().Transactions().MaxInFlight(),
 		NonceAutoSync:        false,
@@ -46,8 +47,8 @@ func TestBroadcaster_Lifecycle(t *testing.T) {
 	cltest.MustInsertRandomKeyReturningState(t, ks)
 	estimator := gasmocks.NewEvmFeeEstimator(t)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*chainID, evmcfg.EVM().GasEstimator(), ks, estimator)
-	ss := NewSequenceSyncer(lggr, txStore, client)
-	b := NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, ks, ss)
+	ss := txm.NewSequenceSyncer(lggr, txStore, client)
+	b := txm.NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, ks, ss)
 
 	// Can't close an unstarted instance
 	err := b.Close()
@@ -78,7 +79,7 @@ func TestBroadcaster_ProcessUnstartedTxs_InProgress(t *testing.T) {
 
 	cfg, db := heavyweight.FullTestDBV2(t, nil)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	bcfg := BroadcasterConfig{
+	bcfg := txm.BroadcasterConfig{
 		FallbackPollInterval: evmcfg.Database().Listener().FallbackPollInterval(),
 		MaxInFlight:          evmcfg.EVM().Transactions().MaxInFlight(),
 		NonceAutoSync:        false,
@@ -92,8 +93,8 @@ func TestBroadcaster_ProcessUnstartedTxs_InProgress(t *testing.T) {
 
 	estimator := gasmocks.NewEvmFeeEstimator(t)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*chainID, evmcfg.EVM().GasEstimator(), keyStore, estimator)
-	ss := NewSequenceSyncer(lggr, txStore, client)
-	b := NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
+	ss := txm.NewSequenceSyncer(lggr, txStore, client)
+	b := txm.NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
 
 	ctx := testutils.Context(t)
 	encodedPayload := []byte{1, 2, 3}
@@ -186,7 +187,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 
 	estimator := gasmocks.NewEvmFeeEstimator(t)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*chainID, evmcfg.EVM().GasEstimator(), keyStore, estimator)
-	ss := NewSequenceSyncer(lggr, txStore, client)
+	ss := txm.NewSequenceSyncer(lggr, txStore, client)
 
 	ctx := testutils.Context(t)
 	encodedPayload := []byte{1, 2, 3}
@@ -195,18 +196,18 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 	timeNow := time.Now()
 	nonce := evmtypes.Nonce(0)
 	t.Run("skips check if MaxInFlight is 0", func(t *testing.T) {
-		bcfg := BroadcasterConfig{
+		bcfg := txm.BroadcasterConfig{
 			FallbackPollInterval: evmcfg.Database().Listener().FallbackPollInterval(),
 			MaxInFlight:          0,
 			NonceAutoSync:        false,
 		}
-		b := NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
+		b := txm.NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
 		err := b.ProcessUnstartedTxs(ctx, utils.RandomAddress())
 		require.NoError(t, err)
 	})
 
 	t.Run("picks up a new unstarted tx if in flight txs are less than threshold", func(t *testing.T) {
-		bcfg := BroadcasterConfig{
+		bcfg := txm.BroadcasterConfig{
 			FallbackPollInterval: evmcfg.Database().Listener().FallbackPollInterval(),
 			MaxInFlight:          3,
 			NonceAutoSync:        false,
@@ -244,7 +245,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 		estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{Legacy: assets.GWei(32)}, uint32(500), nil).Once()
 		client.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
 
-		b := NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
+		b := txm.NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
 		require.NoError(t, b.ProcessUnstartedTxs(ctx, addr1))
 		// Nonce should have been incremented after successful broadcast
 		seq, err = ss.GetNextSequence(ctx, addr1)
@@ -253,7 +254,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 	})
 
 	t.Run("picks up a new unstarted tx and returns error if tx fails", func(t *testing.T) {
-		bcfg := BroadcasterConfig{
+		bcfg := txm.BroadcasterConfig{
 			FallbackPollInterval: evmcfg.Database().Listener().FallbackPollInterval(),
 			MaxInFlight:          evmcfg.EVM().Transactions().MaxInFlight(),
 			NonceAutoSync:        false,
@@ -270,7 +271,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 
 		db := pgtest.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-		ss := NewSequenceSyncer(lggr, txStore, client)
+		ss := txm.NewSequenceSyncer(lggr, txStore, client)
 		require.NoError(t, txStore.InsertTx(&txUnstarted))
 
 		client.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
@@ -283,12 +284,12 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 		client.On("SendTransaction", mock.Anything, mock.Anything).Return(errors.New("RPC error")).Once()
 		client.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
-		b := NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
+		b := txm.NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
 		require.Error(t, b.ProcessUnstartedTxs(ctx, addr1))
 	})
 
 	t.Run("marks unstarted tx unconfirmed if tx fails but on-chain pending nonce increases", func(t *testing.T) {
-		bcfg := BroadcasterConfig{
+		bcfg := txm.BroadcasterConfig{
 			FallbackPollInterval: evmcfg.Database().Listener().FallbackPollInterval(),
 			MaxInFlight:          evmcfg.EVM().Transactions().MaxInFlight(),
 			NonceAutoSync:        false,
@@ -305,7 +306,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 
 		db := pgtest.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-		ss := NewSequenceSyncer(lggr, txStore, client)
+		ss := txm.NewSequenceSyncer(lggr, txStore, client)
 		require.NoError(t, txStore.InsertTx(&txUnstarted))
 
 		client.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
@@ -318,7 +319,7 @@ func TestBroadcaster_ProcessUnstartedTxs_Unstarted(t *testing.T) {
 		client.On("SendTransaction", mock.Anything, mock.Anything).Return(errors.New("RPC error")).Once()
 		client.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil).Once()
 
-		b := NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
+		b := txm.NewBroadcaster(txBuilder, lggr, txStore, client, bcfg, keyStore, ss)
 		require.NoError(t, b.ProcessUnstartedTxs(ctx, addr1))
 	})
 }

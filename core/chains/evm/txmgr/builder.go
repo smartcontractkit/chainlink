@@ -13,10 +13,64 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	optimistictxm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/optimistictxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
+
+var blockTime time.Duration = 2 * time.Second
+
+func NewOptimisticTxm(
+	db *sqlx.DB,
+	chainConfig ChainConfig,
+	fCfg FeeConfig,
+	txConfig config.Transactions,
+	dbConfig DatabaseConfig,
+	listenerConfig ListenerConfig,
+	client evmclient.Client,
+	lggr logger.Logger,
+	logPoller logpoller.LogPoller,
+	keyStore keystore.Eth,
+	estimator gas.EvmFeeEstimator,
+) (optimistictxm.TxManager, error) {
+	var fwdMgr FwdMgr
+
+	if txConfig.ForwardersEnabled() {
+		fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, chainConfig, dbConfig)
+	} else {
+		lggr.Info("EvmForwarderManager: Disabled")
+	}
+	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
+	txStore := NewTxStore(db, lggr, dbConfig)
+	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
+	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
+	chainID := txmClient.ConfiguredChainID()
+	sequenceSyncer := optimistictxm.NewSequenceSyncer(lggr, txStore, client)
+
+	bcfg := optimistictxm.BroadcasterConfig{
+		FallbackPollInterval: listenerConfig.FallbackPollInterval(),
+		MaxInFlight:          txConfig.MaxInFlight(),
+		NonceAutoSync:        chainConfig.NonceAutoSync(),
+	}
+	evmBroadcaster := optimistictxm.NewBroadcaster(txAttemptBuilder, lggr, txStore, client, bcfg,keyStore, sequenceSyncer)
+
+	rcfg := optimistictxm.ResenderConfig{
+		BumpAfterThreshold:  time.Duration(fCfg.BumpThreshold()) * blockTime, // Polygon
+		MaxBumpCycles:       5,
+		MaxInFlight:         txConfig.MaxInFlight(),
+		ResendInterval:      blockTime,
+		RPCDefaultBatchSize: chainConfig.RPCDefaultBatchSize(),
+	}
+	evmResender := optimistictxm.NewResender(txAttemptBuilder, lggr, txStore, client, keyStore, rcfg)
+	rc := optimistictxm.ReaperConfig{
+		ReaperThreshold: txConfig.ReaperThreshold(),
+		ReaperInterval: txConfig.ReaperInterval(),
+	}
+	evmReaper := optimistictxm.NewReaper(lggr, txStore, rc, chainID, client, keyStore)
+	return optimistictxm.NewTxm(chainID, txmCfg, txConfig, keyStore, lggr, fwdMgr, txAttemptBuilder, txStore, sequenceSyncer, evmBroadcaster, evmResender, evmReaper), nil
+
+}
 
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
 func NewTxm(

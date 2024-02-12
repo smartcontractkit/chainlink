@@ -296,7 +296,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	for _, chain := range legacyEVMChains.Slice() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
-		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
+		//chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
 
 	srvcs = append(srvcs, pipelineORM)
