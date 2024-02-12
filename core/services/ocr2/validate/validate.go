@@ -9,7 +9,6 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
-
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -141,6 +140,7 @@ type innerConfig struct {
 	ProviderType  string            `json:"providerType"`
 	PluginName    string            `json:"pluginName"`
 	TelemetryType string            `json:"telemetryType"`
+	OCRVersion    int               `json:"OCRVersion"`
 	Config
 }
 
