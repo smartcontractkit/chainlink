@@ -21,18 +21,18 @@ func (e errorLogClient) SaveError(ctx context.Context, msg string) error {
 	return err
 }
 
-func newErrorLogClient(cc grpc.ClientConnInterface) *errorLogClient {
+func NewErrorLogClient(cc grpc.ClientConnInterface) *errorLogClient {
 	return &errorLogClient{pb.NewErrorLogClient(cc)}
 }
 
-var _ pb.ErrorLogServer = (*errorLogServer)(nil)
+var _ pb.ErrorLogServer = (*ErrorLogServer)(nil)
 
-type errorLogServer struct {
+type ErrorLogServer struct {
 	pb.UnimplementedErrorLogServer
 
-	impl types.ErrorLog
+	Impl types.ErrorLog
 }
 
-func (e *errorLogServer) SaveError(ctx context.Context, request *pb.SaveErrorRequest) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, e.impl.SaveError(ctx, request.Message)
+func (e *ErrorLogServer) SaveError(ctx context.Context, request *pb.SaveErrorRequest) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, e.Impl.SaveError(ctx, request.Message)
 }

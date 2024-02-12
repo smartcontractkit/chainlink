@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v4.24.3
-// source: reporting.proto
+// source: ocr3_reporting.proto
 
-package pb
+package ocr3pb
 
 import (
 	context "context"
@@ -20,7 +20,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	ReportingPluginFactory_NewReportingPlugin_FullMethodName = "/loop.ReportingPluginFactory/NewReportingPlugin"
+	ReportingPluginFactory_NewReportingPlugin_FullMethodName = "/loop.internal.pb.ocr3.ReportingPluginFactory/NewReportingPlugin"
 )
 
 // ReportingPluginFactoryClient is the client API for ReportingPluginFactory service.
@@ -98,7 +98,7 @@ func _ReportingPluginFactory_NewReportingPlugin_Handler(srv interface{}, ctx con
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ReportingPluginFactory_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "loop.ReportingPluginFactory",
+	ServiceName: "loop.internal.pb.ocr3.ReportingPluginFactory",
 	HandlerType: (*ReportingPluginFactoryServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -107,16 +107,19 @@ var ReportingPluginFactory_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "reporting.proto",
+	Metadata: "ocr3_reporting.proto",
 }
 
 const (
-	ReportingPlugin_Query_FullMethodName                        = "/loop.ReportingPlugin/Query"
-	ReportingPlugin_Observation_FullMethodName                  = "/loop.ReportingPlugin/Observation"
-	ReportingPlugin_Report_FullMethodName                       = "/loop.ReportingPlugin/Report"
-	ReportingPlugin_ShouldAcceptFinalizedReport_FullMethodName  = "/loop.ReportingPlugin/ShouldAcceptFinalizedReport"
-	ReportingPlugin_ShouldTransmitAcceptedReport_FullMethodName = "/loop.ReportingPlugin/ShouldTransmitAcceptedReport"
-	ReportingPlugin_Close_FullMethodName                        = "/loop.ReportingPlugin/Close"
+	ReportingPlugin_Query_FullMethodName                        = "/loop.internal.pb.ocr3.ReportingPlugin/Query"
+	ReportingPlugin_Observation_FullMethodName                  = "/loop.internal.pb.ocr3.ReportingPlugin/Observation"
+	ReportingPlugin_ValidateObservation_FullMethodName          = "/loop.internal.pb.ocr3.ReportingPlugin/ValidateObservation"
+	ReportingPlugin_ObservationQuorum_FullMethodName            = "/loop.internal.pb.ocr3.ReportingPlugin/ObservationQuorum"
+	ReportingPlugin_Outcome_FullMethodName                      = "/loop.internal.pb.ocr3.ReportingPlugin/Outcome"
+	ReportingPlugin_Reports_FullMethodName                      = "/loop.internal.pb.ocr3.ReportingPlugin/Reports"
+	ReportingPlugin_ShouldAcceptAttestedReport_FullMethodName   = "/loop.internal.pb.ocr3.ReportingPlugin/ShouldAcceptAttestedReport"
+	ReportingPlugin_ShouldTransmitAcceptedReport_FullMethodName = "/loop.internal.pb.ocr3.ReportingPlugin/ShouldTransmitAcceptedReport"
+	ReportingPlugin_Close_FullMethodName                        = "/loop.internal.pb.ocr3.ReportingPlugin/Close"
 )
 
 // ReportingPluginClient is the client API for ReportingPlugin service.
@@ -125,8 +128,11 @@ const (
 type ReportingPluginClient interface {
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryReply, error)
 	Observation(ctx context.Context, in *ObservationRequest, opts ...grpc.CallOption) (*ObservationReply, error)
-	Report(ctx context.Context, in *ReportRequest, opts ...grpc.CallOption) (*ReportReply, error)
-	ShouldAcceptFinalizedReport(ctx context.Context, in *ShouldAcceptFinalizedReportRequest, opts ...grpc.CallOption) (*ShouldAcceptFinalizedReportReply, error)
+	ValidateObservation(ctx context.Context, in *ValidateObservationRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ObservationQuorum(ctx context.Context, in *ObservationQuorumRequest, opts ...grpc.CallOption) (*ObservationQuorumReply, error)
+	Outcome(ctx context.Context, in *OutcomeRequest, opts ...grpc.CallOption) (*OutcomeReply, error)
+	Reports(ctx context.Context, in *ReportsRequest, opts ...grpc.CallOption) (*ReportsReply, error)
+	ShouldAcceptAttestedReport(ctx context.Context, in *ShouldAcceptAttestedReportRequest, opts ...grpc.CallOption) (*ShouldAcceptAttestedReportReply, error)
 	ShouldTransmitAcceptedReport(ctx context.Context, in *ShouldTransmitAcceptedReportRequest, opts ...grpc.CallOption) (*ShouldTransmitAcceptedReportReply, error)
 	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -157,18 +163,45 @@ func (c *reportingPluginClient) Observation(ctx context.Context, in *Observation
 	return out, nil
 }
 
-func (c *reportingPluginClient) Report(ctx context.Context, in *ReportRequest, opts ...grpc.CallOption) (*ReportReply, error) {
-	out := new(ReportReply)
-	err := c.cc.Invoke(ctx, ReportingPlugin_Report_FullMethodName, in, out, opts...)
+func (c *reportingPluginClient) ValidateObservation(ctx context.Context, in *ValidateObservationRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ReportingPlugin_ValidateObservation_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *reportingPluginClient) ShouldAcceptFinalizedReport(ctx context.Context, in *ShouldAcceptFinalizedReportRequest, opts ...grpc.CallOption) (*ShouldAcceptFinalizedReportReply, error) {
-	out := new(ShouldAcceptFinalizedReportReply)
-	err := c.cc.Invoke(ctx, ReportingPlugin_ShouldAcceptFinalizedReport_FullMethodName, in, out, opts...)
+func (c *reportingPluginClient) ObservationQuorum(ctx context.Context, in *ObservationQuorumRequest, opts ...grpc.CallOption) (*ObservationQuorumReply, error) {
+	out := new(ObservationQuorumReply)
+	err := c.cc.Invoke(ctx, ReportingPlugin_ObservationQuorum_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *reportingPluginClient) Outcome(ctx context.Context, in *OutcomeRequest, opts ...grpc.CallOption) (*OutcomeReply, error) {
+	out := new(OutcomeReply)
+	err := c.cc.Invoke(ctx, ReportingPlugin_Outcome_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *reportingPluginClient) Reports(ctx context.Context, in *ReportsRequest, opts ...grpc.CallOption) (*ReportsReply, error) {
+	out := new(ReportsReply)
+	err := c.cc.Invoke(ctx, ReportingPlugin_Reports_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *reportingPluginClient) ShouldAcceptAttestedReport(ctx context.Context, in *ShouldAcceptAttestedReportRequest, opts ...grpc.CallOption) (*ShouldAcceptAttestedReportReply, error) {
+	out := new(ShouldAcceptAttestedReportReply)
+	err := c.cc.Invoke(ctx, ReportingPlugin_ShouldAcceptAttestedReport_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -199,8 +232,11 @@ func (c *reportingPluginClient) Close(ctx context.Context, in *emptypb.Empty, op
 type ReportingPluginServer interface {
 	Query(context.Context, *QueryRequest) (*QueryReply, error)
 	Observation(context.Context, *ObservationRequest) (*ObservationReply, error)
-	Report(context.Context, *ReportRequest) (*ReportReply, error)
-	ShouldAcceptFinalizedReport(context.Context, *ShouldAcceptFinalizedReportRequest) (*ShouldAcceptFinalizedReportReply, error)
+	ValidateObservation(context.Context, *ValidateObservationRequest) (*emptypb.Empty, error)
+	ObservationQuorum(context.Context, *ObservationQuorumRequest) (*ObservationQuorumReply, error)
+	Outcome(context.Context, *OutcomeRequest) (*OutcomeReply, error)
+	Reports(context.Context, *ReportsRequest) (*ReportsReply, error)
+	ShouldAcceptAttestedReport(context.Context, *ShouldAcceptAttestedReportRequest) (*ShouldAcceptAttestedReportReply, error)
 	ShouldTransmitAcceptedReport(context.Context, *ShouldTransmitAcceptedReportRequest) (*ShouldTransmitAcceptedReportReply, error)
 	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedReportingPluginServer()
@@ -216,11 +252,20 @@ func (UnimplementedReportingPluginServer) Query(context.Context, *QueryRequest) 
 func (UnimplementedReportingPluginServer) Observation(context.Context, *ObservationRequest) (*ObservationReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Observation not implemented")
 }
-func (UnimplementedReportingPluginServer) Report(context.Context, *ReportRequest) (*ReportReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Report not implemented")
+func (UnimplementedReportingPluginServer) ValidateObservation(context.Context, *ValidateObservationRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateObservation not implemented")
 }
-func (UnimplementedReportingPluginServer) ShouldAcceptFinalizedReport(context.Context, *ShouldAcceptFinalizedReportRequest) (*ShouldAcceptFinalizedReportReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ShouldAcceptFinalizedReport not implemented")
+func (UnimplementedReportingPluginServer) ObservationQuorum(context.Context, *ObservationQuorumRequest) (*ObservationQuorumReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ObservationQuorum not implemented")
+}
+func (UnimplementedReportingPluginServer) Outcome(context.Context, *OutcomeRequest) (*OutcomeReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Outcome not implemented")
+}
+func (UnimplementedReportingPluginServer) Reports(context.Context, *ReportsRequest) (*ReportsReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Reports not implemented")
+}
+func (UnimplementedReportingPluginServer) ShouldAcceptAttestedReport(context.Context, *ShouldAcceptAttestedReportRequest) (*ShouldAcceptAttestedReportReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ShouldAcceptAttestedReport not implemented")
 }
 func (UnimplementedReportingPluginServer) ShouldTransmitAcceptedReport(context.Context, *ShouldTransmitAcceptedReportRequest) (*ShouldTransmitAcceptedReportReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ShouldTransmitAcceptedReport not implemented")
@@ -277,38 +322,92 @@ func _ReportingPlugin_Observation_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ReportingPlugin_Report_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ReportRequest)
+func _ReportingPlugin_ValidateObservation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateObservationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ReportingPluginServer).Report(ctx, in)
+		return srv.(ReportingPluginServer).ValidateObservation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ReportingPlugin_Report_FullMethodName,
+		FullMethod: ReportingPlugin_ValidateObservation_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReportingPluginServer).Report(ctx, req.(*ReportRequest))
+		return srv.(ReportingPluginServer).ValidateObservation(ctx, req.(*ValidateObservationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ReportingPlugin_ShouldAcceptFinalizedReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ShouldAcceptFinalizedReportRequest)
+func _ReportingPlugin_ObservationQuorum_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ObservationQuorumRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ReportingPluginServer).ShouldAcceptFinalizedReport(ctx, in)
+		return srv.(ReportingPluginServer).ObservationQuorum(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ReportingPlugin_ShouldAcceptFinalizedReport_FullMethodName,
+		FullMethod: ReportingPlugin_ObservationQuorum_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReportingPluginServer).ShouldAcceptFinalizedReport(ctx, req.(*ShouldAcceptFinalizedReportRequest))
+		return srv.(ReportingPluginServer).ObservationQuorum(ctx, req.(*ObservationQuorumRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ReportingPlugin_Outcome_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OutcomeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReportingPluginServer).Outcome(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReportingPlugin_Outcome_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReportingPluginServer).Outcome(ctx, req.(*OutcomeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ReportingPlugin_Reports_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReportsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReportingPluginServer).Reports(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReportingPlugin_Reports_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReportingPluginServer).Reports(ctx, req.(*ReportsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ReportingPlugin_ShouldAcceptAttestedReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShouldAcceptAttestedReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReportingPluginServer).ShouldAcceptAttestedReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReportingPlugin_ShouldAcceptAttestedReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReportingPluginServer).ShouldAcceptAttestedReport(ctx, req.(*ShouldAcceptAttestedReportRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -353,7 +452,7 @@ func _ReportingPlugin_Close_Handler(srv interface{}, ctx context.Context, dec fu
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ReportingPlugin_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "loop.ReportingPlugin",
+	ServiceName: "loop.internal.pb.ocr3.ReportingPlugin",
 	HandlerType: (*ReportingPluginServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -365,12 +464,24 @@ var ReportingPlugin_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ReportingPlugin_Observation_Handler,
 		},
 		{
-			MethodName: "Report",
-			Handler:    _ReportingPlugin_Report_Handler,
+			MethodName: "ValidateObservation",
+			Handler:    _ReportingPlugin_ValidateObservation_Handler,
 		},
 		{
-			MethodName: "ShouldAcceptFinalizedReport",
-			Handler:    _ReportingPlugin_ShouldAcceptFinalizedReport_Handler,
+			MethodName: "ObservationQuorum",
+			Handler:    _ReportingPlugin_ObservationQuorum_Handler,
+		},
+		{
+			MethodName: "Outcome",
+			Handler:    _ReportingPlugin_Outcome_Handler,
+		},
+		{
+			MethodName: "Reports",
+			Handler:    _ReportingPlugin_Reports_Handler,
+		},
+		{
+			MethodName: "ShouldAcceptAttestedReport",
+			Handler:    _ReportingPlugin_ShouldAcceptAttestedReport_Handler,
 		},
 		{
 			MethodName: "ShouldTransmitAcceptedReport",
@@ -382,5 +493,5 @@ var ReportingPlugin_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "reporting.proto",
+	Metadata: "ocr3_reporting.proto",
 }

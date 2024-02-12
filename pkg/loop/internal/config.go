@@ -15,13 +15,13 @@ import (
 var _ types.ConfigProvider = (*configProviderClient)(nil)
 
 type configProviderClient struct {
-	*serviceClient
+	*ServiceClient
 	offchainDigester libocr.OffchainConfigDigester
 	contractTracker  libocr.ContractConfigTracker
 }
 
-func newConfigProviderClient(b *brokerExt, cc grpc.ClientConnInterface) *configProviderClient {
-	c := &configProviderClient{serviceClient: newServiceClient(b, cc)}
+func newConfigProviderClient(b *BrokerExt, cc grpc.ClientConnInterface) *configProviderClient {
+	c := &configProviderClient{ServiceClient: NewServiceClient(b, cc)}
 	c.offchainDigester = &offchainConfigDigesterClient{b, pb.NewOffchainConfigDigesterClient(cc)}
 	c.contractTracker = &contractConfigTrackerClient{pb.NewContractConfigTrackerClient(cc)}
 	return c
@@ -38,12 +38,12 @@ func (c *configProviderClient) ContractConfigTracker() libocr.ContractConfigTrac
 var _ libocr.OffchainConfigDigester = (*offchainConfigDigesterClient)(nil)
 
 type offchainConfigDigesterClient struct {
-	*brokerExt
+	*BrokerExt
 	grpc pb.OffchainConfigDigesterClient
 }
 
 func (o *offchainConfigDigesterClient) ConfigDigest(config libocr.ContractConfig) (digest libocr.ConfigDigest, err error) {
-	ctx, cancel := o.stopCtx()
+	ctx, cancel := o.StopCtx()
 	defer cancel()
 
 	var reply *pb.ConfigDigestReply
@@ -62,7 +62,7 @@ func (o *offchainConfigDigesterClient) ConfigDigest(config libocr.ContractConfig
 }
 
 func (o *offchainConfigDigesterClient) ConfigDigestPrefix() (libocr.ConfigDigestPrefix, error) {
-	ctx, cancel := o.stopCtx()
+	ctx, cancel := o.StopCtx()
 	defer cancel()
 
 	reply, err := o.grpc.ConfigDigestPrefix(ctx, &pb.ConfigDigestPrefixRequest{})

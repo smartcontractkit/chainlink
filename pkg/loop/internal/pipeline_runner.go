@@ -15,11 +15,11 @@ import (
 var _ types.PipelineRunnerService = (*pipelineRunnerServiceClient)(nil)
 
 type pipelineRunnerServiceClient struct {
-	*brokerExt
+	*BrokerExt
 	grpc pb.PipelineRunnerServiceClient
 }
 
-func newPipelineRunnerClient(cc grpc.ClientConnInterface) *pipelineRunnerServiceClient {
+func NewPipelineRunnerClient(cc grpc.ClientConnInterface) *pipelineRunnerServiceClient {
 	return &pipelineRunnerServiceClient{grpc: pb.NewPipelineRunnerServiceClient(cc)}
 }
 
@@ -63,23 +63,23 @@ func (p pipelineRunnerServiceClient) ExecuteRun(ctx context.Context, spec string
 	return trs, nil
 }
 
-var _ pb.PipelineRunnerServiceServer = (*pipelineRunnerServiceServer)(nil)
+var _ pb.PipelineRunnerServiceServer = (*PipelineRunnerServiceServer)(nil)
 
-type pipelineRunnerServiceServer struct {
+type PipelineRunnerServiceServer struct {
 	pb.UnimplementedPipelineRunnerServiceServer
-	*brokerExt
+	*BrokerExt
 
-	impl types.PipelineRunnerService
+	Impl types.PipelineRunnerService
 }
 
-func (p *pipelineRunnerServiceServer) ExecuteRun(ctx context.Context, rr *pb.RunRequest) (*pb.RunResponse, error) {
+func (p *PipelineRunnerServiceServer) ExecuteRun(ctx context.Context, rr *pb.RunRequest) (*pb.RunResponse, error) {
 	vars := types.Vars{
 		Vars: rr.Vars.AsMap(),
 	}
 	options := types.Options{
 		MaxTaskDuration: rr.Options.MaxTaskDuration.AsDuration(),
 	}
-	trs, err := p.impl.ExecuteRun(ctx, rr.Spec, vars, options)
+	trs, err := p.Impl.ExecuteRun(ctx, rr.Spec, vars, options)
 	if err != nil {
 		return nil, err
 	}

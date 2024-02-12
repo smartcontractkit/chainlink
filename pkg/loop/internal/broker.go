@@ -61,37 +61,37 @@ type BrokerConfig struct {
 	GRPCOpts // optional
 }
 
-// brokerExt extends a Broker with various helper methods.
-type brokerExt struct {
-	broker Broker
+// BrokerExt extends a Broker with various helper methods.
+type BrokerExt struct {
+	Broker Broker
 	BrokerConfig
 }
 
-// withName returns a new [*brokerExt] with name added to the logger.
-func (b *brokerExt) withName(name string) *brokerExt {
+// WithName returns a new [*BrokerExt] with Name added to the logger.
+func (b *BrokerExt) WithName(name string) *BrokerExt {
 	bn := *b
 	bn.Logger = logger.Named(b.Logger, name)
 	return &bn
 }
 
-// newClientConn return a new *clientConn backed by this *brokerExt.
-func (b *brokerExt) newClientConn(name string, newClient newClientFn) *clientConn {
+// NewClientConn return a new *clientConn backed by this *BrokerExt.
+func (b *BrokerExt) NewClientConn(name string, newClient newClientFn) *clientConn {
 	return &clientConn{
-		brokerExt: b.withName(name),
+		BrokerExt: b.WithName(name),
 		newClient: newClient,
 		name:      name,
 	}
 }
 
-func (b *brokerExt) stopCtx() (context.Context, context.CancelFunc) {
+func (b *BrokerExt) StopCtx() (context.Context, context.CancelFunc) {
 	return utils.ContextFromChan(b.StopCh)
 }
 
-func (b *brokerExt) dial(id uint32) (conn *grpc.ClientConn, err error) {
-	return b.broker.DialWithOptions(id, b.DialOpts...)
+func (b *BrokerExt) Dial(id uint32) (conn *grpc.ClientConn, err error) {
+	return b.Broker.DialWithOptions(id, b.DialOpts...)
 }
 
-func (b *brokerExt) serveNew(name string, register func(*grpc.Server), deps ...resource) (uint32, resource, error) {
+func (b *BrokerExt) ServeNew(name string, register func(*grpc.Server), deps ...Resource) (uint32, Resource, error) {
 	var server *grpc.Server
 	if b.NewServer == nil {
 		server = grpc.NewServer()
@@ -99,23 +99,23 @@ func (b *brokerExt) serveNew(name string, register func(*grpc.Server), deps ...r
 		server = b.NewServer(nil)
 	}
 	register(server)
-	return b.serve(name, server, deps...)
+	return b.Serve(name, server, deps...)
 }
 
-func (b *brokerExt) serve(name string, server *grpc.Server, deps ...resource) (uint32, resource, error) {
-	id := b.broker.NextId()
+func (b *BrokerExt) Serve(name string, server *grpc.Server, deps ...Resource) (uint32, Resource, error) {
+	id := b.Broker.NextId()
 	b.Logger.Debugf("Serving %s on connection %d", name, id)
-	lis, err := b.broker.Accept(id)
+	lis, err := b.Broker.Accept(id)
 	if err != nil {
-		b.closeAll(deps...)
-		return 0, resource{}, ErrConnAccept{Name: name, ID: id, Err: err}
+		b.CloseAll(deps...)
+		return 0, Resource{}, ErrConnAccept{Name: name, ID: id, Err: err}
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer b.closeAll(deps...)
+		defer b.CloseAll(deps...)
 		if err := server.Serve(lis); err != nil {
 			b.Logger.Errorw(fmt.Sprintf("Failed to serve %s on connection %d", name, id), "err", err)
 		}
@@ -132,38 +132,38 @@ func (b *brokerExt) serve(name string, server *grpc.Server, deps ...resource) (u
 		}
 	}()
 
-	return id, resource{fnCloser(func() {
+	return id, Resource{fnCloser(func() {
 		server.Stop()
 		close(done)
 		wg.Wait()
 	}), name}, nil
 }
 
-func (b *brokerExt) closeAll(deps ...resource) {
+func (b *BrokerExt) CloseAll(deps ...Resource) {
 	for _, d := range deps {
 		if err := d.Close(); err != nil {
-			b.Logger.Error(fmt.Sprintf("Error closing %s", d.name), "err", err)
+			b.Logger.Error(fmt.Sprintf("Error closing %s", d.Name), "err", err)
 		}
 	}
 }
 
-type resource struct {
+type Resource struct {
 	io.Closer
-	name string
+	Name string
 }
 
-type resources []resource
+type Resources []Resource
 
-func (rs *resources) Add(r resource) {
+func (rs *Resources) Add(r Resource) {
 	*rs = append(*rs, r)
 }
 
-func (rs *resources) Stop(s interface{ Stop() }, name string) {
-	rs.Add(resource{fnCloser(s.Stop), name})
+func (rs *Resources) Stop(s interface{ Stop() }, name string) {
+	rs.Add(Resource{fnCloser(s.Stop), name})
 }
 
-func (rs *resources) Close(c io.Closer, name string) {
-	rs.Add(resource{c, name})
+func (rs *Resources) Close(c io.Closer, name string) {
+	rs.Add(Resource{c, name})
 }
 
 // fnCloser implements io.Closer with a func().

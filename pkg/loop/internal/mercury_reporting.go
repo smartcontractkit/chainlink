@@ -16,17 +16,17 @@ import (
 )
 
 type mercuryPluginFactoryClient struct {
-	*brokerExt
-	*serviceClient
+	*BrokerExt
+	*ServiceClient
 	grpc mercurypb.MercuryPluginFactoryClient
 }
 
-func newMercuryPluginFactoryClient(b *brokerExt, cc grpc.ClientConnInterface) *mercuryPluginFactoryClient {
-	return &mercuryPluginFactoryClient{b.withName("MercuryPluginProviderClient"), newServiceClient(b, cc), mercurypb.NewMercuryPluginFactoryClient(cc)}
+func newMercuryPluginFactoryClient(b *BrokerExt, cc grpc.ClientConnInterface) *mercuryPluginFactoryClient {
+	return &mercuryPluginFactoryClient{b.WithName("MercuryPluginProviderClient"), NewServiceClient(b, cc), mercurypb.NewMercuryPluginFactoryClient(cc)}
 }
 
 func (r *mercuryPluginFactoryClient) NewMercuryPlugin(config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
-	ctx, cancel := r.stopCtx()
+	ctx, cancel := r.StopCtx()
 	defer cancel()
 
 	response, err := r.grpc.NewMercuryPlugin(ctx, &mercurypb.NewMercuryPluginRequest{MercuryPluginConfig: &mercurypb.MercuryPluginConfig{
@@ -49,11 +49,11 @@ func (r *mercuryPluginFactoryClient) NewMercuryPlugin(config ocr3types.MercuryPl
 			MaxReportLength:      int(response.MercuryPluginInfo.MercuryPluginLimits.MaxReportLength),
 		},
 	}
-	cc, err := r.brokerExt.dial(response.MercuryPluginID)
+	cc, err := r.BrokerExt.Dial(response.MercuryPluginID)
 	if err != nil {
 		return nil, ocr3types.MercuryPluginInfo{}, err
 	}
-	return newMercuryPluginClient(r.brokerExt, cc), rpi, nil
+	return newMercuryPluginClient(r.BrokerExt, cc), rpi, nil
 }
 
 var _ mercurypb.MercuryPluginFactoryServer = (*mercuryPluginFactoryServer)(nil)
@@ -61,13 +61,13 @@ var _ mercurypb.MercuryPluginFactoryServer = (*mercuryPluginFactoryServer)(nil)
 type mercuryPluginFactoryServer struct {
 	mercurypb.UnimplementedMercuryPluginFactoryServer
 
-	*brokerExt
+	*BrokerExt
 
 	impl ocr3types.MercuryPluginFactory
 }
 
-func newMercuryPluginFactoryServer(impl ocr3types.MercuryPluginFactory, b *brokerExt) *mercuryPluginFactoryServer {
-	return &mercuryPluginFactoryServer{impl: impl, brokerExt: b.withName("MercuryPluginFactoryServer")}
+func newMercuryPluginFactoryServer(impl ocr3types.MercuryPluginFactory, b *BrokerExt) *mercuryPluginFactoryServer {
+	return &mercuryPluginFactoryServer{impl: impl, BrokerExt: b.WithName("MercuryPluginFactoryServer")}
 }
 
 func (r *mercuryPluginFactoryServer) NewMercuryPlugin(ctx context.Context, request *mercurypb.NewMercuryPluginRequest) (*mercurypb.NewMercuryPluginResponse, error) {
@@ -92,9 +92,9 @@ func (r *mercuryPluginFactoryServer) NewMercuryPlugin(ctx context.Context, reque
 	}
 
 	const mercuryname = "MercuryPlugin"
-	id, _, err := r.serveNew(mercuryname, func(s *grpc.Server) {
+	id, _, err := r.ServeNew(mercuryname, func(s *grpc.Server) {
 		mercurypb.RegisterMercuryPluginServer(s, &mercuryPluginServer{impl: rp})
-	}, resource{rp, mercuryname})
+	}, Resource{rp, mercuryname})
 	if err != nil {
 		return nil, err
 	}
@@ -111,12 +111,12 @@ func (r *mercuryPluginFactoryServer) NewMercuryPlugin(ctx context.Context, reque
 var _ ocr3types.MercuryPlugin = (*mercuryPluginClient)(nil)
 
 type mercuryPluginClient struct {
-	*brokerExt
+	*BrokerExt
 	grpc mercurypb.MercuryPluginClient
 }
 
-func newMercuryPluginClient(b *brokerExt, cc grpc.ClientConnInterface) *mercuryPluginClient {
-	return &mercuryPluginClient{b.withName("MercuryPluginClient"), mercurypb.NewMercuryPluginClient(cc)}
+func newMercuryPluginClient(b *BrokerExt, cc grpc.ClientConnInterface) *mercuryPluginClient {
+	return &mercuryPluginClient{b.WithName("MercuryPluginClient"), mercurypb.NewMercuryPluginClient(cc)}
 }
 
 func (r *mercuryPluginClient) Observation(ctx context.Context, timestamp libocr.ReportTimestamp, previous libocr.Report) (libocr.Observation, error) {
@@ -144,7 +144,7 @@ func (r *mercuryPluginClient) Report(timestamp libocr.ReportTimestamp, previousR
 }
 
 func (r *mercuryPluginClient) Close() error {
-	ctx, cancel := r.stopCtx()
+	ctx, cancel := r.StopCtx()
 	defer cancel()
 
 	_, err := r.grpc.Close(ctx, &emptypb.Empty{})

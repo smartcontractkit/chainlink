@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -152,4 +152,53 @@ URL = 'https://test.url'
 	getLatestValueParams        = map[string]string{"param1": "value1", "param2": "value2"}
 	contractName                = "my median contract"
 	latestValue                 = map[string]int{"ret1": 1, "ret2": 2}
+
+	//OCR3
+	ocr3reportingPluginConfig = ocr3types.ReportingPluginConfig{
+		ConfigDigest:                            configDigest,
+		OracleID:                                commontypes.OracleID(10),
+		N:                                       12,
+		F:                                       42,
+		OnchainConfig:                           []byte{17: 11},
+		OffchainConfig:                          []byte{32: 64},
+		EstimatedRoundInterval:                  time.Second,
+		MaxDurationQuery:                        time.Hour,
+		MaxDurationObservation:                  time.Millisecond,
+		MaxDurationShouldAcceptAttestedReport:   10 * time.Second,
+		MaxDurationShouldTransmitAcceptedReport: time.Minute,
+	}
+
+	ocr3rpi = ocr3types.ReportingPluginInfo{
+		Name: "test",
+		Limits: ocr3types.ReportingPluginLimits{
+			MaxQueryLength:       42,
+			MaxObservationLength: 13,
+			MaxOutcomeLength:     33,
+			MaxReportLength:      17,
+			MaxReportCount:       41,
+		},
+	}
+
+	outcomeContext = ocr3types.OutcomeContext{
+		SeqNr:           1,
+		PreviousOutcome: []byte("previous-outcome"),
+		Epoch:           2,
+		Round:           3,
+	}
+
+	ao      = libocr.AttributedObservation{Observation: []byte{21: 19}, Observer: commontypes.OracleID(99)}
+	quorum  = ocr3types.Quorum(7)
+	outcome = ocr3types.Outcome("outcome")
+	seqNr   = uint64(43)
+	RI      = ocr3types.ReportWithInfo[any]{
+		Report: []byte("report"),
+		Info:   nil,
+	}
+	RIs = []ocr3types.ReportWithInfo[any]{{
+		Report: []byte("report1"),
+		Info:   nil,
+	}, {
+		Report: []byte("report2"),
+		Info:   nil,
+	}}
 )

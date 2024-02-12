@@ -18,7 +18,7 @@ func NewCodecTestClient(conn *grpc.ClientConn) types.Codec {
 }
 
 type codecClient struct {
-	*brokerExt
+	*BrokerExt
 	grpc pb.CodecClient
 }
 

@@ -81,7 +81,7 @@ func TestChainReaderClient(t *testing.T) {
 		es.err = errorType
 		t.Run("Bind unwraps errors from server "+errorType.Error(), func(t *testing.T) {
 			ctx := tests.Context(t)
-			err := chainReader.Bind(ctx, []types.BoundContract{{Name: "name", Address: "address"}})
+			err := chainReader.Bind(ctx, []types.BoundContract{{Name: "Name", Address: "address"}})
 			assert.True(t, errors.Is(err, errorType))
 		})
 	}

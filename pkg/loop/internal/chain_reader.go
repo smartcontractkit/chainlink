@@ -24,7 +24,7 @@ func NewChainReaderTestClient(conn *grpc.ClientConn) types.ChainReader {
 }
 
 type chainReaderClient struct {
-	*brokerExt
+	*BrokerExt
 	grpc pb.ChainReaderClient
 }
 

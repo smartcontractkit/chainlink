@@ -3,6 +3,8 @@ package types
 import (
 	"context"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc"
 )
 
@@ -26,4 +28,22 @@ type ReportingPluginClient interface {
 // expected by the plugin.
 type ReportingPluginServer[T PluginProvider] interface {
 	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, provider T, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog) (ReportingPluginFactory, error)
+}
+
+type OCR3ReportingPluginClient interface {
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryService, errorLog ErrorLog) (OCR3ReportingPluginFactory, error)
+}
+
+type OCR3ReportingPluginServer[T PluginProvider] interface {
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, provider T, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog) (OCR3ReportingPluginFactory, error)
+}
+
+type ReportingPluginFactory interface {
+	Service
+	libocr.ReportingPluginFactory
+}
+
+type OCR3ReportingPluginFactory interface {
+	Service
+	ocr3types.ReportingPluginFactory[any]
 }

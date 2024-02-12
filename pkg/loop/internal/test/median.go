@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -59,6 +60,49 @@ func ReportingPluginFactory(t *testing.T, factory types.ReportingPluginFactory) 
 			require.NoError(t, err)
 			assert.True(t, gotShouldAccept)
 			gotShouldTransmit, err := rp.ShouldTransmitAcceptedReport(ctx, reportContext.ReportTimestamp, report)
+			require.NoError(t, err)
+			assert.True(t, gotShouldTransmit)
+		})
+	})
+}
+
+func OCR3ReportingPluginFactory(t *testing.T, factory types.OCR3ReportingPluginFactory) {
+	t.Run("OCR3ReportingPluginFactory", func(t *testing.T) {
+		rp, gotRPI, err := factory.NewReportingPlugin(ocr3reportingPluginConfig)
+		require.NoError(t, err)
+		assert.Equal(t, ocr3rpi, gotRPI)
+		t.Cleanup(func() { assert.NoError(t, rp.Close()) })
+		t.Run("OCR3ReportingPlugin", func(t *testing.T) {
+			ctx := tests.Context(t)
+
+			gotQuery, err := rp.Query(ctx, outcomeContext)
+			require.NoError(t, err)
+			assert.Equal(t, query, []byte(gotQuery))
+
+			gotObs, err := rp.Observation(ctx, outcomeContext, query)
+			require.NoError(t, err)
+			assert.Equal(t, observation, gotObs)
+
+			err = rp.ValidateObservation(outcomeContext, query, ao)
+			require.NoError(t, err)
+
+			gotQuorum, err := rp.ObservationQuorum(outcomeContext, query)
+			require.NoError(t, err)
+			assert.Equal(t, quorum, gotQuorum)
+
+			gotOutcome, err := rp.Outcome(outcomeContext, query, obs)
+			require.NoError(t, err)
+			assert.Equal(t, outcome, gotOutcome)
+
+			gotRI, err := rp.Reports(seqNr, outcome)
+			require.NoError(t, err)
+			assert.Equal(t, RIs, gotRI)
+
+			gotShouldAccept, err := rp.ShouldAcceptAttestedReport(ctx, seqNr, RI)
+			require.NoError(t, err)
+			assert.True(t, gotShouldAccept)
+
+			gotShouldTransmit, err := rp.ShouldTransmitAcceptedReport(ctx, seqNr, RI)
 			require.NoError(t, err)
 			assert.True(t, gotShouldTransmit)
 		})
@@ -377,4 +421,57 @@ func (s staticOnchainConfigCodec) Decode(b []byte) (median.OnchainConfig, error)
 		return median.OnchainConfig{}, fmt.Errorf("expected encoded %x but got %x", encoded, b)
 	}
 	return onchainConfig, nil
+}
+
+// OCR3
+type ocr3staticPluginFactory struct{}
+
+var _ types.OCR3ReportingPluginFactory = (*ocr3staticPluginFactory)(nil)
+
+func (o ocr3staticPluginFactory) Name() string { panic("implement me") }
+
+func (o ocr3staticPluginFactory) Start(ctx context.Context) error { return nil }
+
+func (o ocr3staticPluginFactory) Close() error { return nil }
+
+func (o ocr3staticPluginFactory) Ready() error { panic("implement me") }
+
+func (o ocr3staticPluginFactory) HealthReport() map[string]error { panic("implement me") }
+
+func (o ocr3staticPluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[any], ocr3types.ReportingPluginInfo, error) {
+	if config.ConfigDigest != ocr3reportingPluginConfig.ConfigDigest {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected ConfigDigest %x but got %x", reportingPluginConfig.ConfigDigest, config.ConfigDigest)
+	}
+	if config.OracleID != ocr3reportingPluginConfig.OracleID {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected OracleID %d but got %d", reportingPluginConfig.OracleID, config.OracleID)
+	}
+	if config.F != ocr3reportingPluginConfig.F {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected F %d but got %d", reportingPluginConfig.F, config.F)
+	}
+	if config.N != ocr3reportingPluginConfig.N {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected N %d but got %d", reportingPluginConfig.N, config.N)
+	}
+	if !bytes.Equal(config.OnchainConfig, ocr3reportingPluginConfig.OnchainConfig) {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected OnchainConfig %x but got %x", ocr3reportingPluginConfig.OnchainConfig, config.OnchainConfig)
+	}
+	if !bytes.Equal(config.OffchainConfig, ocr3reportingPluginConfig.OffchainConfig) {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected OffchainConfig %x but got %x", ocr3reportingPluginConfig.OffchainConfig, config.OffchainConfig)
+	}
+	if config.EstimatedRoundInterval != ocr3reportingPluginConfig.EstimatedRoundInterval {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected EstimatedRoundInterval %d but got %d", ocr3reportingPluginConfig.EstimatedRoundInterval, config.EstimatedRoundInterval)
+	}
+	if config.MaxDurationQuery != ocr3reportingPluginConfig.MaxDurationQuery {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected MaxDurationQuery %d but got %d", ocr3reportingPluginConfig.MaxDurationQuery, config.MaxDurationQuery)
+	}
+	if config.MaxDurationObservation != ocr3reportingPluginConfig.MaxDurationObservation {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected MaxDurationObservation %d but got %d", ocr3reportingPluginConfig.MaxDurationObservation, config.MaxDurationObservation)
+	}
+	if config.MaxDurationShouldAcceptAttestedReport != ocr3reportingPluginConfig.MaxDurationShouldAcceptAttestedReport {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected MaxDurationShouldAcceptAttestedReport %d but got %d", ocr3reportingPluginConfig.MaxDurationShouldAcceptAttestedReport, config.MaxDurationShouldAcceptAttestedReport)
+	}
+	if config.MaxDurationShouldTransmitAcceptedReport != ocr3reportingPluginConfig.MaxDurationShouldTransmitAcceptedReport {
+		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected MaxDurationShouldTransmitAcceptedReport %d but got %d", ocr3reportingPluginConfig.MaxDurationShouldTransmitAcceptedReport, config.MaxDurationShouldTransmitAcceptedReport)
+	}
+
+	return ocr3staticReportingPlugin{}, ocr3rpi, nil
 }

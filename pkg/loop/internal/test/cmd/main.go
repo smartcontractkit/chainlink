@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -129,7 +130,38 @@ func main() {
 			GRPCServer: grpcServer,
 		})
 		lggr.Debugf("Done serving %s", loop.PluginMercuryName)
+		os.Exit(0)
 
+	case ocr3.PluginServiceName:
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: reportingplugins.ReportingPluginHandshakeConfig(),
+			Plugins: map[string]plugin.Plugin{
+				ocr3.PluginServiceName: &ocr3.GRPCService[types.PluginProvider]{
+					PluginServer: test.OCR3StaticReportingPluginWithPluginProvider{},
+					BrokerConfig: loop.BrokerConfig{
+						Logger: lggr,
+						StopCh: stopCh,
+					},
+				},
+			},
+			GRPCServer: grpcServer,
+		})
+		os.Exit(0)
+
+	case test.OCR3ReportingPluginWithMedianProviderName:
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: reportingplugins.ReportingPluginHandshakeConfig(),
+			Plugins: map[string]plugin.Plugin{
+				ocr3.PluginServiceName: &ocr3.GRPCService[types.MedianProvider]{
+					PluginServer: test.OCR3StaticReportingPluginWithMedianProvider{},
+					BrokerConfig: loop.BrokerConfig{
+						Logger: lggr,
+						StopCh: stopCh,
+					},
+				},
+			},
+			GRPCServer: grpcServer,
+		})
 		os.Exit(0)
 
 	default:

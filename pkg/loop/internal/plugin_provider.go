@@ -17,8 +17,8 @@ type pluginProviderClient struct {
 
 func (p *pluginProviderClient) ClientConn() grpc.ClientConnInterface { return p.cc }
 
-func newPluginProviderClient(b *brokerExt, cc grpc.ClientConnInterface) *pluginProviderClient {
-	p := &pluginProviderClient{configProviderClient: newConfigProviderClient(b.withName("PluginProviderClient"), cc)}
+func newPluginProviderClient(b *BrokerExt, cc grpc.ClientConnInterface) *pluginProviderClient {
+	p := &pluginProviderClient{configProviderClient: newConfigProviderClient(b.WithName("PluginProviderClient"), cc)}
 	p.contractTransmitter = &contractTransmitterClient{b, pb.NewContractTransmitterClient(p.cc)}
 	return p
 }
@@ -30,7 +30,7 @@ func (p *pluginProviderClient) ContractTransmitter() libocr.ContractTransmitter 
 type PluginProviderServer struct{}
 
 func (p PluginProviderServer) ConnToProvider(conn grpc.ClientConnInterface, broker Broker, brokerCfg BrokerConfig) types.PluginProvider {
-	be := &brokerExt{broker: broker, BrokerConfig: brokerCfg}
+	be := &BrokerExt{Broker: broker, BrokerConfig: brokerCfg}
 	return newPluginProviderClient(be, conn)
 }
 

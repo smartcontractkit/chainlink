@@ -14,32 +14,32 @@ import (
 
 var ErrPluginUnavailable = errors.New("plugin unavailable")
 
-var _ services.Service = (*serviceClient)(nil)
+var _ services.Service = (*ServiceClient)(nil)
 
-type serviceClient struct {
-	b    *brokerExt
+type ServiceClient struct {
+	b    *BrokerExt
 	cc   grpc.ClientConnInterface
 	grpc pb.ServiceClient
 }
 
-func newServiceClient(b *brokerExt, cc grpc.ClientConnInterface) *serviceClient {
-	return &serviceClient{b, cc, pb.NewServiceClient(cc)}
+func NewServiceClient(b *BrokerExt, cc grpc.ClientConnInterface) *ServiceClient {
+	return &ServiceClient{b, cc, pb.NewServiceClient(cc)}
 }
 
-func (s *serviceClient) Start(ctx context.Context) error {
+func (s *ServiceClient) Start(ctx context.Context) error {
 	return nil // no-op: server side starts automatically
 }
 
-func (s *serviceClient) Close() error {
-	ctx, cancel := s.b.stopCtx()
+func (s *ServiceClient) Close() error {
+	ctx, cancel := s.b.StopCtx()
 	defer cancel()
 
 	_, err := s.grpc.Close(ctx, &emptypb.Empty{})
 	return err
 }
 
-func (s *serviceClient) Ready() error {
-	ctx, cancel := s.b.stopCtx()
+func (s *ServiceClient) Ready() error {
+	ctx, cancel := s.b.StopCtx()
 	defer cancel()
 	ctx, cancel = context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -48,10 +48,10 @@ func (s *serviceClient) Ready() error {
 	return err
 }
 
-func (s *serviceClient) Name() string { return s.b.Logger.Name() }
+func (s *ServiceClient) Name() string { return s.b.Logger.Name() }
 
-func (s *serviceClient) HealthReport() map[string]error {
-	ctx, cancel := s.b.stopCtx()
+func (s *ServiceClient) HealthReport() map[string]error {
+	ctx, cancel := s.b.StopCtx()
 	defer cancel()
 	ctx, cancel = context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -65,25 +65,25 @@ func (s *serviceClient) HealthReport() map[string]error {
 	return hr
 }
 
-var _ pb.ServiceServer = (*serviceServer)(nil)
+var _ pb.ServiceServer = (*ServiceServer)(nil)
 
-type serviceServer struct {
+type ServiceServer struct {
 	pb.UnimplementedServiceServer
-	srv services.Service
+	Srv services.Service
 }
 
-func (s *serviceServer) Close(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, s.srv.Close()
+func (s *ServiceServer) Close(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, s.Srv.Close()
 }
 
-func (s *serviceServer) Ready(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, s.srv.Ready()
+func (s *ServiceServer) Ready(ctx context.Context, empty *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, s.Srv.Ready()
 }
 
-func (s *serviceServer) HealthReport(ctx context.Context, empty *emptypb.Empty) (*pb.HealthReportReply, error) {
+func (s *ServiceServer) HealthReport(ctx context.Context, empty *emptypb.Empty) (*pb.HealthReportReply, error) {
 	var r pb.HealthReportReply
 	r.HealthReport = make(map[string]string)
-	for n, err := range s.srv.HealthReport() {
+	for n, err := range s.Srv.HealthReport() {
 		var serr string
 		if err != nil {
 			serr = err.Error()

@@ -14,7 +14,7 @@ import (
 var _ libocr.ContractTransmitter = (*contractTransmitterClient)(nil)
 
 type contractTransmitterClient struct {
-	*brokerExt
+	*BrokerExt
 	grpc pb.ContractTransmitterClient
 }
 
@@ -60,7 +60,7 @@ func (c *contractTransmitterClient) LatestConfigDigestAndEpoch(ctx context.Conte
 }
 
 func (c *contractTransmitterClient) FromAccount() (libocr.Account, error) {
-	ctx, cancel := c.stopCtx()
+	ctx, cancel := c.StopCtx()
 	defer cancel()
 
 	reply, err := c.grpc.FromAccount(ctx, &pb.FromAccountRequest{})
