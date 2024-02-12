@@ -63,8 +63,6 @@ jobs:
         uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres
         uses: ./.github/actions/setup-postgres
-      - name: Install protoc-gen-go-wsrpc
-        run: echo $PATH && curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
@@ -260,6 +258,8 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
+      - name: Install protoc-gen-go-wsrpc
+        run: echo $PATH && curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - run: make generate # generate install go deps
