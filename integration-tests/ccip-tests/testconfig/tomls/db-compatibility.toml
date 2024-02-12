@@ -31,4 +31,4 @@ DBTag = '15.5'
 [[CCIP.Env.Chainlink.Nodes]]
 Name = 'node6'
 DBImage = 'postgres'
-DBTag = '16.1'
+DBTag = '15.1'
