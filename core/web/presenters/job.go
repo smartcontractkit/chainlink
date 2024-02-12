@@ -452,7 +452,7 @@ func NewJobError(e job.SpecError) JobError {
 type JobResource struct {
 	JAID
 	Name                   string                  `json:"name"`
-	StreamID               *uint64                 `json:"streamID,omitempty"`
+	StreamID               *uint32                 `json:"streamID,omitempty"`
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
 	GasLimit               clnull.Uint32           `json:"gasLimit"`

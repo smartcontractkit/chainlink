@@ -1164,8 +1164,8 @@ github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumv
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429 h1:xkejUBZhcBpBrTSfxc91Iwzadrb6SXw8ks69bHIQ9Ww=
 github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429/go.mod h1:wJmVvDf4XSjsahWtfUq3wvIAYEAuhr7oxmxYnEL/LGQ=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240212145157-235e427d7648 h1:LgGXHm+waJFA3tqmfY94/lQo26ILEEQbFlZ6iDoxW7Y=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240212145157-235e427d7648/go.mod h1:pRlQrvcizMmuHAUV4N96oO2e3XbA99JCQELLc6ES160=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240209032254-f9b58810d8ca h1:Vtu+x4788S9stmuioWtfyxCKro7dwnqJFy96IuMRB7k=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240209032254-f9b58810d8ca/go.mod h1:pRlQrvcizMmuHAUV4N96oO2e3XbA99JCQELLc6ES160=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240206150430-fbccaa95af62 h1:DuSQLuq+Ilm3Q+2zn5agLrAi9UvFQmOUdKwZQKX0AFA=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240206150430-fbccaa95af62/go.mod h1:Ny6kBD8Houh5yZRmGiB0ovsLHdb4qOHHwBno9JZUT+Y=
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20231204152908-a6e3fe8ff2a1 h1:xYqRgZO0nMSO8CBCMR0r3WA+LZ4kNL8a6bnbyk/oBtQ=
@@ -1889,8 +1889,8 @@ google.golang.org/protobuf v1.25.0/go.mod h1:9JNX74DMeImyA3h4bdi1ymwjUzf21/xIlba
 google.golang.org/protobuf v1.26.0-rc.1/go.mod h1:jlhhOSvTdKEhbULTjvd4ARK9grFBp09yW+WbY/TyQbw=
 google.golang.org/protobuf v1.26.0/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
 google.golang.org/protobuf v1.28.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
-google.golang.org/protobuf v1.31.0 h1:g0LDEJHgrBl9N9r17Ru3sqWhkIx2NB67okBHPwC7hs8=
-google.golang.org/protobuf v1.31.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
+google.golang.org/protobuf v1.32.0 h1:pPC6BG5ex8PDFnkbrGU3EixyhKcQ2aDuBS36lqK/C7I=
+google.golang.org/protobuf v1.32.0/go.mod h1:c6P6GXX6sHbq/GpV6MGZEdwhWPcYBgnhAHhKbcUYpos=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
