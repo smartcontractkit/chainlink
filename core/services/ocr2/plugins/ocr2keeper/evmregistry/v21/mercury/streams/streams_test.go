@@ -139,7 +139,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 
 		state     encoding.PipelineExecutionState
 		retryable bool
-		registry  streamsRegistry
+		registry  streamRegistry
 	}{
 		{
 			name: "success - empty extra data",
@@ -284,7 +284,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		err        error
 		state      encoding.PipelineExecutionState
 		reason     encoding.UpkeepFailureReason
-		registry   streamsRegistry
+		registry   streamRegistry
 		retryable  bool
 		config     []byte
 	}{
@@ -474,7 +474,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 		hasError          bool
 		hasPermission     bool
 		v3                bool
-		registry          streamsRegistry
+		registry          streamRegistry
 	}{
 		{
 			name: "success - happy path no cache",
