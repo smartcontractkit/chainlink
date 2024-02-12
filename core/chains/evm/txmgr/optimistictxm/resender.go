@@ -182,7 +182,8 @@ func (r *Resender) bumpAttempt(ctx context.Context, tx txmgr.Tx, marketAttempt t
 	bumpingCycles := int(time.Since(*tx.BroadcastAt) / r.config.BumpAfterThreshold / time.Nanosecond)
 	bumpingCycles = min(bumpingCycles, r.config.MaxBumpCycles) // Don't bump more than MaxBumpCycles
 
-	for i := 0; i < bumpingCycles; i++ {
+	var i int
+	for i = 0; i < bumpingCycles; i++ {
 		preBumpedAttempt := bumpedAttempt
 		bumpedAttempt, bumpedFee, bumpedFeeLimit, _, err = r.txAttemptBuilder.NewBumpTxAttempt(ctx, tx, bumpedAttempt, nil, r.lggr)
 		if err != nil {
@@ -192,7 +193,7 @@ func (r *Resender) bumpAttempt(ctx context.Context, tx txmgr.Tx, marketAttempt t
 	}
 
 	if err == nil {
-		r.lggr.Debugw("Bumped market priced attempt.", "txID", tx.ID, "bumpedFee", bumpedFee.String(), "bumpedFeeLimit", bumpedFeeLimit, "hash", bumpedAttempt.Hash)
+		r.lggr.Debugw("Bumped market priced attempt.", "txID", tx.ID, "bumpedFee", bumpedFee.String(), "bumpedFeeLimit", bumpedFeeLimit, "hash", bumpedAttempt.Hash, "cycles", i)
 	}
 
 	return bumpedAttempt
@@ -258,7 +259,7 @@ func batchSendTransactions(
 		}
 		for k, req := range reqs[i:j] {
 			if req.Result.(*common.Hash).String() == attempts[k+i].Hash.String() {
-				lggr.Debug("Sent txAttempt.", attempts[k+i].Tx, attempts[i].PrettyPrint(), "err", req.Error)
+				lggr.Debugw("Sent transaction attempt.", "tx", attempts[k+i].Tx.PrettyPrint(), "attempt", attempts[i].PrettyPrint(), "err", req.Error)
 			} else {
 				return broadcastTime, successfulBroadcastIDs,
 					fmt.Errorf("request response and attempt hash were different. reqHash: %s , attemptHash: %s", req.Result.(*common.Hash).String(), attempts[i].Hash.String())

@@ -329,7 +329,7 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx txmgr.Tx) error
 		return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
 	}
 	err = b.client.SendTransaction(ctx, signedTx)
-	lgr.Infow("Sent transaction", tx.PrettyPrint(), attempt.PrettyPrint(), "error", err)
+	lgr.Infow("Sent transaction", "tx", tx.PrettyPrint(), "attempt", attempt.PrettyPrint(), "error", err)
 
 	if err != nil {
 		nextSequence, e := b.client.PendingNonceAt(ctx, tx.FromAddress)
