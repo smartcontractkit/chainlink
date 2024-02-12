@@ -165,7 +165,7 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
-func FormatWithPrefixedChainID(id, chainID string) string {
+func FormatWithPrefixedChainID(chainID, id string) string {
 	return fmt.Sprintf("%s/%s", chainID, id)
 }
 

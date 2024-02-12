@@ -48,7 +48,7 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	nodes := *r.Renders[0].(*cmd.CosmosNodePresenters)
 	require.Len(t, nodes, 1)
 	n := nodes[0]
-	assert.Equal(t, cltest.FormatWithPrefixedChainID(*node.Name, chainID), n.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID, *node.Name), n.ID)
 	assert.Equal(t, chainID, n.ChainID)
 	assert.Equal(t, *node.Name, n.Name)
 	wantConfig, err := toml.Marshal(node)
