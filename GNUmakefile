@@ -125,7 +125,8 @@ codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
 
 .PHONY: protoc
-protoc:
+protoc: ## Install protoc
+	core/scripts/install-protoc.sh 25.1 /
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
 
 .PHONY: telemetry-protobuf
