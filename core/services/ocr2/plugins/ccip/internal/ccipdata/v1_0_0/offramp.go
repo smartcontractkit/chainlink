@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -42,7 +41,6 @@ const (
 
 var (
 	abiOffRamp                                             = abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI)
-	abiCustomTokenPool                                     = abihelpers.MustParseABI(custom_token_pool.CustomTokenPoolABI)
 	_                               ccipdata.OffRampReader = &OffRamp{}
 	ExecutionStateChangedEvent                             = abihelpers.MustGetEventID("ExecutionStateChanged", abiOffRamp)
 	PoolAddedEvent                                         = abihelpers.MustGetEventID("PoolAdded", abiOffRamp)
@@ -273,41 +271,6 @@ func (o *OffRamp) getDestinationTokensFromSourceTokens(ctx context.Context, toke
 	return destTokens, nil
 }
 
-func (o *OffRamp) GetTokenPoolsRateLimits(ctx context.Context, poolAddresses []common.Address) ([]ccipdata.TokenBucketRateLimit, error) {
-	if len(poolAddresses) == 0 {
-		return nil, nil
-	}
-
-	evmCalls := make([]rpclib.EvmCall, 0, len(poolAddresses))
-	for _, poolAddress := range poolAddresses {
-		evmCalls = append(evmCalls, rpclib.NewEvmCall(
-			abiCustomTokenPool,
-			"currentOffRampRateLimiterState",
-			poolAddress,
-			o.addr,
-		))
-	}
-
-	latestBlock, err := o.lp.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("get latest block: %w", err)
-	}
-
-	results, err := o.evmBatchCaller.BatchCall(ctx, uint64(latestBlock.BlockNumber), evmCalls)
-	if err != nil {
-		return nil, fmt.Errorf("batch call limit: %w", err)
-	}
-
-	rateLimits, err := rpclib.ParseOutputs[ccipdata.TokenBucketRateLimit](results, func(d rpclib.DataAndErr) (ccipdata.TokenBucketRateLimit, error) {
-		return rpclib.ParseOutput[ccipdata.TokenBucketRateLimit](d, 0)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("parse outputs: %w", err)
-	}
-
-	return rateLimits, nil
-}
-
 func (o *OffRamp) GetSourceToDestTokensMapping(ctx context.Context) (map[common.Address]common.Address, error) {
 	tokens, err := o.GetTokens(ctx)
 	if err != nil {
@@ -339,6 +302,7 @@ func (o *OffRamp) GetTokens(ctx context.Context) (ccipdata.OffRampTokens, error)
 		if err != nil {
 			return ccipdata.OffRampTokens{}, fmt.Errorf("get pools by dest tokens: %w", err)
 		}
+
 		tokenToPool := make(map[common.Address]common.Address, len(destTokens))
 		for i := range destTokens {
 			tokenToPool[destTokens[i]] = destPools[i]
@@ -663,7 +627,6 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 			offRamp_poolAddedPoolRemovedEvents,
 			offRamp.Address(),
 		),
-
 		// values set on the fly after ChangeConfig is called
 		gasPriceEstimator: prices.ExecGasPriceEstimator{},
 		offchainConfig:    ccipdata.ExecOffchainConfig{},

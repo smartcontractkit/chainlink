@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
@@ -58,6 +59,7 @@ type ExecutionPluginStaticConfig struct {
 	tokenDataWorker          tokendata.Worker
 	destChainSelector        uint64
 	priceRegistryProvider    ccipdataprovider.PriceRegistry
+	tokenPoolBatchedReader   batchreader.TokenPoolBatchedReader
 	metricsCollector         ccip.PluginMetricsCollector
 }
 
@@ -74,11 +76,12 @@ type ExecutionReportingPlugin struct {
 	sourceWrappedNativeToken common.Address
 	onRampReader             ccipdata.OnRampReader
 	// Dest
-	commitStoreReader ccipdata.CommitStoreReader
-	destPriceRegistry ccipdata.PriceRegistryReader
-	destWrappedNative common.Address
-	onchainConfig     ccipdata.ExecOnchainConfig
-	offRampReader     ccipdata.OffRampReader
+	commitStoreReader      ccipdata.CommitStoreReader
+	destPriceRegistry      ccipdata.PriceRegistryReader
+	destWrappedNative      common.Address
+	onchainConfig          ccipdata.ExecOnchainConfig
+	offRampReader          ccipdata.OffRampReader
+	tokenPoolBatchedReader batchreader.TokenPoolBatchedReader
 	// State
 	inflightReports *inflightExecReportsContainer
 	snoozedRoots    cache.SnoozedRoots
@@ -240,7 +243,7 @@ func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commi
 
 	dstTokenToPool := make(map[common.Address]common.Address)
 	dstPoolToToken := make(map[common.Address]common.Address)
-	dstPools := make([]common.Address, 0)
+	dstPoolAddresses := make([]common.Address, 0)
 
 	for _, msg := range commitReports {
 		for _, req := range msg.sendRequestsWithMeta {
@@ -268,12 +271,12 @@ func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commi
 
 				dstTokenToPool[dstToken] = poolAddress
 				dstPoolToToken[poolAddress] = dstToken
-				dstPools = append(dstPools, poolAddress)
+				dstPoolAddresses = append(dstPoolAddresses, poolAddress)
 			}
 		}
 	}
 
-	rateLimits, err := r.offRampReader.GetTokenPoolsRateLimits(ctx, dstPools)
+	rateLimits, err := r.tokenPoolBatchedReader.GetInboundTokenPoolRateLimits(ctx, dstPoolAddresses)
 	if err != nil {
 		return nil, fmt.Errorf("fetch pool rate limits: %w", err)
 	}
@@ -285,9 +288,9 @@ func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commi
 			continue
 		}
 
-		tokenAddr, exists := dstPoolToToken[dstPools[i]]
+		tokenAddr, exists := dstPoolToToken[dstPoolAddresses[i]]
 		if !exists {
-			return nil, fmt.Errorf("pool to token mapping does not contain %s", dstPools[i])
+			return nil, fmt.Errorf("pool to token mapping does not contain %s", dstPoolAddresses[i])
 		}
 		res[tokenAddr] = rateLimit.Tokens
 	}

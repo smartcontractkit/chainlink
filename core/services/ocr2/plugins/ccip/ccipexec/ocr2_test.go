@@ -29,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
+	tokenpoolbatchedmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader/mocks"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
@@ -123,13 +125,15 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			offRamp, _ := testhelpers.NewFakeOffRamp(t)
 			offRamp.SetRateLimiterState(tc.rateLimiterState)
 
+			p.tokenPoolBatchedReader = batchreader.NewEVMTokenPoolBatchedReader(p.lggr, 0, offRamp.Address(), nil, nil)
+
 			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 			mockOffRampReader.On("GetExecutionStateChangesBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
 				Return(executionEvents, nil).Maybe()
 			mockOffRampReader.On("CurrentRateLimiterState", mock.Anything).Return(tc.rateLimiterState, nil).Maybe()
 			mockOffRampReader.On("Address").Return(offRamp.Address()).Maybe()
 			mockOffRampReader.On("GetSenderNonce", mock.Anything, mock.Anything).Return(offRamp.GetSenderNonce(nil, utils.RandomAddress())).Maybe()
-			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, []common.Address{}).
+			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, []ccipdata.TokenPoolReader{}).
 				Return([]ccipdata.TokenBucketRateLimit{}, nil).Maybe()
 			mockOffRampReader.On("GetSourceToDestTokensMapping", ctx).Return(nil, nil).Maybe()
 			mockOffRampReader.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{
@@ -879,10 +883,11 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 			mockOffRampReader.On("GetTokens", ctx).Return(ccipdata.OffRampTokens{
 				DestinationPool: poolsMapping,
 			}, tc.destPoolsCacheErr).Maybe()
-			mockOffRampReader.On("GetTokenPoolsRateLimits", ctx, tc.destPools).
-				Return(tc.poolRateLimits, nil).
-				Maybe()
 			p.offRampReader = mockOffRampReader
+
+			tokenPoolFactoryMock := tokenpoolbatchedmocks.NewTokenPoolBatchedReader(t)
+			tokenPoolFactoryMock.On("GetInboundTokenPoolRateLimits", mock.Anything, mock.Anything).Return(tc.poolRateLimits, nil).Maybe()
+			p.tokenPoolBatchedReader = tokenPoolFactoryMock
 
 			rateLimits, err := p.destPoolRateLimits(ctx, []commitReportWithSendRequests{
 				{
