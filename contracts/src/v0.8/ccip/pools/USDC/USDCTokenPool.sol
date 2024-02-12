@@ -50,7 +50,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   }
 
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "USDCTokenPool 1.2.0";
+  string public constant override typeAndVersion = "USDCTokenPool 1.4.0-dev";
 
   // We restrict to the first version. New pool may be required for subsequent versions.
   uint32 public constant SUPPORTED_USDC_VERSION = 0;
@@ -79,8 +79,9 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     ITokenMessenger tokenMessenger,
     IERC20 token,
     address[] memory allowlist,
-    address armProxy
-  ) TokenPool(token, allowlist, armProxy) {
+    address armProxy,
+    address router
+  ) TokenPool(token, allowlist, armProxy, router) {
     if (address(tokenMessenger) == address(0)) revert InvalidConfig();
     IMessageTransmitter transmitter = IMessageTransmitter(tokenMessenger.localMessageTransmitter());
     uint32 transmitterVersion = transmitter.version();
@@ -115,12 +116,12 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     address originalSender,
     bytes calldata destinationReceiver,
     uint256 amount,
-    uint64 destChainSelector,
+    uint64 remoteChainSelector,
     bytes calldata
-  ) external override onlyOnRamp checkAllowList(originalSender) returns (bytes memory) {
-    Domain memory domain = s_chainToDomain[destChainSelector];
-    if (!domain.enabled) revert UnknownDomain(destChainSelector);
-    _consumeOnRampRateLimit(amount);
+  ) external override onlyOnRamp(remoteChainSelector) checkAllowList(originalSender) returns (bytes memory) {
+    Domain memory domain = s_chainToDomain[remoteChainSelector];
+    if (!domain.enabled) revert UnknownDomain(remoteChainSelector);
+    _consumeOutboundRateLimit(remoteChainSelector, amount);
     bytes32 receiver = bytes32(destinationReceiver[0:32]);
     // Since this pool is the msg sender of the CCTP transaction, only this contract
     // is able to call replaceDepositForBurn. Since this contract does not implement
@@ -154,10 +155,10 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     bytes memory,
     address receiver,
     uint256 amount,
-    uint64,
+    uint64 remoteChainSelector,
     bytes memory extraData
-  ) external override onlyOffRamp {
-    _consumeOffRampRateLimit(amount);
+  ) external override onlyOffRamp(remoteChainSelector) {
+    _consumeInboundRateLimit(remoteChainSelector, amount);
     (bytes memory sourceData, bytes memory offchainTokenData) = abi.decode(extraData, (bytes, bytes));
     SourceTokenDataPayload memory sourceTokenData = abi.decode(sourceData, (SourceTokenDataPayload));
     MessageAndAttestation memory msgAndAttestation = abi.decode(offchainTokenData, (MessageAndAttestation));

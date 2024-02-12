@@ -8,7 +8,12 @@ contract TokenPoolHelper is TokenPool {
   event ReleaseOrMint(address indexed recipient, uint256 amount);
   event AssertionPassed();
 
-  constructor(IERC20 token, address[] memory allowlist, address armProxy) TokenPool(token, allowlist, armProxy) {}
+  constructor(
+    IERC20 token,
+    address[] memory allowlist,
+    address armProxy,
+    address router
+  ) TokenPool(token, allowlist, armProxy, router) {}
 
   function lockOrBurn(
     address,
@@ -24,4 +29,8 @@ contract TokenPoolHelper is TokenPool {
   function releaseOrMint(bytes memory, address receiver, uint256 amount, uint64, bytes memory) external override {
     emit ReleaseOrMint(receiver, amount);
   }
+
+  function onlyOnRampModifier(uint64 remoteChainSelector) external onlyOnRamp(remoteChainSelector) {}
+
+  function onlyOffRampModifier(uint64 remoteChainSelector) external onlyOffRamp(remoteChainSelector) {}
 }

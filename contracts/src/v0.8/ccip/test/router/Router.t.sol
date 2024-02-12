@@ -411,12 +411,14 @@ contract Router_applyRampUpdates is RouterSetup {
     );
   }
 
+  /// forge-config: default.fuzz.runs = 32
+  /// forge-config: ccip.fuzz.runs = 32
   function testFuzz_OffRampUpdates(Router.OffRamp[] memory offRamps) public {
     // Test adding offRamps
     s_sourceRouter.applyRampUpdates(new Router.OnRamp[](0), new Router.OffRamp[](0), offRamps);
 
     // There is no uniqueness guarantee on fuzz input, offRamps will not emit in case of a duplicate,
-    // hence cannot assert on number of offRamps event emissions, we need to use isOffRamp
+    // hence cannot assert on number of offRamps event emissions, we need to use isOffRa
     for (uint256 i = 0; i < offRamps.length; ++i) {
       assertTrue(s_sourceRouter.isOffRamp(offRamps[i].sourceChainSelector, offRamps[i].offRamp));
     }

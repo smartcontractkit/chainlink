@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 import {ITokenMessenger} from "../../pools/USDC/ITokenMessenger.sol";
-import {IMessageTransmitter} from "../../pools/USDC/IMessageTransmitter.sol";
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
 // This contract mocks both the ITokenMessenger and IMessageTransmitter

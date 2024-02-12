@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "./BaseTest.t.sol";
 import "../pools/BurnMintTokenPool.sol";
 import "../pools/LockReleaseTokenPool.sol";
 import "../libraries/Client.sol";
 import {BurnMintERC677} from "../../shared/token/ERC677/BurnMintERC677.sol";
 import {MaybeRevertingBurnMintTokenPool} from "./helpers/MaybeRevertingBurnMintTokenPool.sol";
+import "./router/RouterSetup.t.sol";
 
-contract TokenSetup is BaseTest {
+contract TokenSetup is RouterSetup {
   address[] internal s_sourceTokens;
   address[] internal s_destTokens;
 
@@ -21,19 +21,25 @@ contract TokenSetup is BaseTest {
   IPool internal s_destFeeTokenPool;
 
   function setUp() public virtual override {
-    BaseTest.setUp();
+    RouterSetup.setUp();
 
     // Source tokens & pools
     if (s_sourceTokens.length == 0 && s_sourcePools.length == 0) {
       BurnMintERC677 sourceLink = new BurnMintERC677("sLINK", "sLNK", 18, 0);
       deal(address(sourceLink), OWNER, type(uint256).max);
       s_sourceTokens.push(address(sourceLink));
-      s_sourcePools.push(address(new LockReleaseTokenPool(sourceLink, new address[](0), address(s_mockARM), true)));
+      s_sourcePools.push(
+        address(
+          new LockReleaseTokenPool(sourceLink, new address[](0), address(s_mockARM), true, address(s_sourceRouter))
+        )
+      );
 
       BurnMintERC677 sourceETH = new BurnMintERC677("sETH", "sETH", 18, 0);
       deal(address(sourceETH), OWNER, 2 ** 128);
       s_sourceTokens.push(address(sourceETH));
-      s_sourcePools.push(address(new BurnMintTokenPool(sourceETH, new address[](0), address(s_mockARM))));
+      s_sourcePools.push(
+        address(new BurnMintTokenPool(sourceETH, new address[](0), address(s_mockARM), address(s_sourceRouter)))
+      );
       sourceETH.grantMintAndBurnRoles(s_sourcePools[1]);
     }
 
@@ -44,13 +50,19 @@ contract TokenSetup is BaseTest {
       BurnMintERC677 destLink = new BurnMintERC677("dLINK", "dLNK", 18, 0);
       deal(address(destLink), OWNER, type(uint256).max);
       s_destTokens.push(address(destLink));
-      s_destPools.push(address(new LockReleaseTokenPool(destLink, new address[](0), address(s_mockARM), true)));
+      s_destPools.push(
+        address(new LockReleaseTokenPool(destLink, new address[](0), address(s_mockARM), true, address(s_destRouter)))
+      );
 
       BurnMintERC677 destEth = new BurnMintERC677("dETH", "dETH", 18, 0);
       deal(address(destEth), OWNER, 2 ** 128);
       s_destTokens.push(address(destEth));
 
-      s_destPools.push(address(new MaybeRevertingBurnMintTokenPool(destEth, new address[](0), address(s_mockARM))));
+      s_destPools.push(
+        address(
+          new MaybeRevertingBurnMintTokenPool(destEth, new address[](0), address(s_mockARM), address(s_destRouter))
+        )
+      );
       destEth.grantMintAndBurnRoles(s_destPools[1]);
 
       // Float the lockRelease pool with funds

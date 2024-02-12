@@ -207,9 +207,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     return i_armProxy;
   }
 
-  /// @notice Return the configured onramp for specific a destination chain.
-  /// @param destChainSelector The destination chain Id to get the onRamp for.
-  /// @return The address of the onRamp.
+  /// @inheritdoc IRouter
   function getOnRamp(uint64 destChainSelector) external view returns (address) {
     return s_onRamps[destChainSelector];
   }
@@ -227,6 +225,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     return offRamps;
   }
 
+  /// @inheritdoc IRouter
   function isOffRamp(uint64 sourceChainSelector, address offRamp) public view returns (bool) {
     // We have to encode the sourceChainSelector and offRamp into a uint256 to use as a key in the set.
     return s_chainSelectorAndOffRamps.contains(_mergeChainSelectorAndOffRamp(sourceChainSelector, offRamp));

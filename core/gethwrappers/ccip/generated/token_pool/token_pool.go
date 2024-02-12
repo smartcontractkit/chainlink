@@ -44,14 +44,15 @@ type RateLimiterTokenBucket struct {
 	Rate        *big.Int
 }
 
-type TokenPoolRampUpdate struct {
-	Ramp              common.Address
-	Allowed           bool
-	RateLimiterConfig RateLimiterConfig
+type TokenPoolChainUpdate struct {
+	RemoteChainSelector       uint64
+	Allowed                   bool
+	OutboundRateLimiterConfig RateLimiterConfig
+	InboundRateLimiterConfig  RateLimiterConfig
 }
 
 var TokenPoolMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"AllowListNotEnabled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BadARMSignal\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ramp\",\"type\":\"address\"}],\"name\":\"NonExistentRamp\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PermissionsError\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ramp\",\"type\":\"address\"}],\"name\":\"RampAlreadyExists\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"SenderNotAllowed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddressNotAllowed\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"AllowListAdd\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"AllowListRemove\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Burned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Locked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Minted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"offRamp\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"indexed\":false,\"internalType\":\"structRateLimiter.Config\",\"name\":\"rateLimiterConfig\",\"type\":\"tuple\"}],\"name\":\"OffRampAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"offRamp\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"indexed\":false,\"internalType\":\"structRateLimiter.Config\",\"name\":\"rateLimiterConfig\",\"type\":\"tuple\"}],\"name\":\"OffRampConfigured\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"offRamp\",\"type\":\"address\"}],\"name\":\"OffRampRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"onRamp\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"indexed\":false,\"internalType\":\"structRateLimiter.Config\",\"name\":\"rateLimiterConfig\",\"type\":\"tuple\"}],\"name\":\"OnRampAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"onRamp\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"indexed\":false,\"internalType\":\"structRateLimiter.Config\",\"name\":\"rateLimiterConfig\",\"type\":\"tuple\"}],\"name\":\"OnRampConfigured\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"onRamp\",\"type\":\"address\"}],\"name\":\"OnRampRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Released\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"removes\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"adds\",\"type\":\"address[]\"}],\"name\":\"applyAllowListUpdates\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"ramp\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"allowed\",\"type\":\"bool\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"rateLimiterConfig\",\"type\":\"tuple\"}],\"internalType\":\"structTokenPool.RampUpdate[]\",\"name\":\"onRamps\",\"type\":\"tuple[]\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"ramp\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"allowed\",\"type\":\"bool\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"rateLimiterConfig\",\"type\":\"tuple\"}],\"internalType\":\"structTokenPool.RampUpdate[]\",\"name\":\"offRamps\",\"type\":\"tuple[]\"}],\"name\":\"applyRampUpdates\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"offRamp\",\"type\":\"address\"}],\"name\":\"currentOffRampRateLimiterState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"tokens\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"lastUpdated\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.TokenBucket\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"onRamp\",\"type\":\"address\"}],\"name\":\"currentOnRampRateLimiterState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"tokens\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"lastUpdated\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.TokenBucket\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllowList\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllowListEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getArmProxy\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"armProxy\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOffRamps\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOnRamps\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getToken\",\"outputs\":[{\"internalType\":\"contractIERC20\",\"name\":\"token\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"offRamp\",\"type\":\"address\"}],\"name\":\"isOffRamp\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"onRamp\",\"type\":\"address\"}],\"name\":\"isOnRamp\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"originalSender\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"receiver\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"destChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"extraArgs\",\"type\":\"bytes\"}],\"name\":\"lockOrBurn\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"originalSender\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"releaseOrMint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"offRamp\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"config\",\"type\":\"tuple\"}],\"name\":\"setOffRampRateLimiterConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"onRamp\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"config\",\"type\":\"tuple\"}],\"name\":\"setOnRampRateLimiterConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"AllowListNotEnabled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BadARMSignal\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"caller\",\"type\":\"address\"}],\"name\":\"CallerIsNotARampOnRouter\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"chainSelector\",\"type\":\"uint64\"}],\"name\":\"ChainAlreadyExists\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"}],\"name\":\"ChainNotAllowed\",\"type\":\"error\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"config\",\"type\":\"tuple\"}],\"name\":\"DisabledNonZeroRateLimit\",\"type\":\"error\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"rateLimiterConfig\",\"type\":\"tuple\"}],\"name\":\"InvalidRatelimitRate\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"}],\"name\":\"NonExistentChain\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RateLimitMustBeDisabled\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"SenderNotAllowed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddressNotAllowed\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"AllowListAdd\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"AllowListRemove\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Burned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"indexed\":false,\"internalType\":\"structRateLimiter.Config\",\"name\":\"outboundRateLimiterConfig\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"indexed\":false,\"internalType\":\"structRateLimiter.Config\",\"name\":\"inboundRateLimiterConfig\",\"type\":\"tuple\"}],\"name\":\"ChainAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"indexed\":false,\"internalType\":\"structRateLimiter.Config\",\"name\":\"outboundRateLimiterConfig\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"indexed\":false,\"internalType\":\"structRateLimiter.Config\",\"name\":\"inboundRateLimiterConfig\",\"type\":\"tuple\"}],\"name\":\"ChainConfigured\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"}],\"name\":\"ChainRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Locked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Minted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Released\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldRouter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newRouter\",\"type\":\"address\"}],\"name\":\"RouterUpdated\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"removes\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"adds\",\"type\":\"address[]\"}],\"name\":\"applyAllowListUpdates\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bool\",\"name\":\"allowed\",\"type\":\"bool\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"outboundRateLimiterConfig\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"inboundRateLimiterConfig\",\"type\":\"tuple\"}],\"internalType\":\"structTokenPool.ChainUpdate[]\",\"name\":\"chains\",\"type\":\"tuple[]\"}],\"name\":\"applyChainUpdates\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllowList\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllowListEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getArmProxy\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"armProxy\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"}],\"name\":\"getCurrentInboundRateLimiterState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"tokens\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"lastUpdated\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.TokenBucket\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"}],\"name\":\"getCurrentOutboundRateLimiterState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint128\",\"name\":\"tokens\",\"type\":\"uint128\"},{\"internalType\":\"uint32\",\"name\":\"lastUpdated\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.TokenBucket\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRouter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"router\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSupportedChains\",\"outputs\":[{\"internalType\":\"uint64[]\",\"name\":\"\",\"type\":\"uint64[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getToken\",\"outputs\":[{\"internalType\":\"contractIERC20\",\"name\":\"token\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"}],\"name\":\"isSupportedChain\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"originalSender\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"receiver\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"extraArgs\",\"type\":\"bytes\"}],\"name\":\"lockOrBurn\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"originalSender\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"releaseOrMint\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"remoteChainSelector\",\"type\":\"uint64\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"outboundConfig\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"bool\",\"name\":\"isEnabled\",\"type\":\"bool\"},{\"internalType\":\"uint128\",\"name\":\"capacity\",\"type\":\"uint128\"},{\"internalType\":\"uint128\",\"name\":\"rate\",\"type\":\"uint128\"}],\"internalType\":\"structRateLimiter.Config\",\"name\":\"inboundConfig\",\"type\":\"tuple\"}],\"name\":\"setChainRateLimiterConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newRouter\",\"type\":\"address\"}],\"name\":\"setRouter\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 var TokenPoolABI = TokenPoolMetaData.ABI
@@ -172,50 +173,6 @@ func (_TokenPool *TokenPoolTransactorRaw) Transact(opts *bind.TransactOpts, meth
 	return _TokenPool.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_TokenPool *TokenPoolCaller) CurrentOffRampRateLimiterState(opts *bind.CallOpts, offRamp common.Address) (RateLimiterTokenBucket, error) {
-	var out []interface{}
-	err := _TokenPool.contract.Call(opts, &out, "currentOffRampRateLimiterState", offRamp)
-
-	if err != nil {
-		return *new(RateLimiterTokenBucket), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(RateLimiterTokenBucket)).(*RateLimiterTokenBucket)
-
-	return out0, err
-
-}
-
-func (_TokenPool *TokenPoolSession) CurrentOffRampRateLimiterState(offRamp common.Address) (RateLimiterTokenBucket, error) {
-	return _TokenPool.Contract.CurrentOffRampRateLimiterState(&_TokenPool.CallOpts, offRamp)
-}
-
-func (_TokenPool *TokenPoolCallerSession) CurrentOffRampRateLimiterState(offRamp common.Address) (RateLimiterTokenBucket, error) {
-	return _TokenPool.Contract.CurrentOffRampRateLimiterState(&_TokenPool.CallOpts, offRamp)
-}
-
-func (_TokenPool *TokenPoolCaller) CurrentOnRampRateLimiterState(opts *bind.CallOpts, onRamp common.Address) (RateLimiterTokenBucket, error) {
-	var out []interface{}
-	err := _TokenPool.contract.Call(opts, &out, "currentOnRampRateLimiterState", onRamp)
-
-	if err != nil {
-		return *new(RateLimiterTokenBucket), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(RateLimiterTokenBucket)).(*RateLimiterTokenBucket)
-
-	return out0, err
-
-}
-
-func (_TokenPool *TokenPoolSession) CurrentOnRampRateLimiterState(onRamp common.Address) (RateLimiterTokenBucket, error) {
-	return _TokenPool.Contract.CurrentOnRampRateLimiterState(&_TokenPool.CallOpts, onRamp)
-}
-
-func (_TokenPool *TokenPoolCallerSession) CurrentOnRampRateLimiterState(onRamp common.Address) (RateLimiterTokenBucket, error) {
-	return _TokenPool.Contract.CurrentOnRampRateLimiterState(&_TokenPool.CallOpts, onRamp)
-}
-
 func (_TokenPool *TokenPoolCaller) GetAllowList(opts *bind.CallOpts) ([]common.Address, error) {
 	var out []interface{}
 	err := _TokenPool.contract.Call(opts, &out, "getAllowList")
@@ -282,48 +239,92 @@ func (_TokenPool *TokenPoolCallerSession) GetArmProxy() (common.Address, error) 
 	return _TokenPool.Contract.GetArmProxy(&_TokenPool.CallOpts)
 }
 
-func (_TokenPool *TokenPoolCaller) GetOffRamps(opts *bind.CallOpts) ([]common.Address, error) {
+func (_TokenPool *TokenPoolCaller) GetCurrentInboundRateLimiterState(opts *bind.CallOpts, remoteChainSelector uint64) (RateLimiterTokenBucket, error) {
 	var out []interface{}
-	err := _TokenPool.contract.Call(opts, &out, "getOffRamps")
+	err := _TokenPool.contract.Call(opts, &out, "getCurrentInboundRateLimiterState", remoteChainSelector)
 
 	if err != nil {
-		return *new([]common.Address), err
+		return *new(RateLimiterTokenBucket), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	out0 := *abi.ConvertType(out[0], new(RateLimiterTokenBucket)).(*RateLimiterTokenBucket)
 
 	return out0, err
 
 }
 
-func (_TokenPool *TokenPoolSession) GetOffRamps() ([]common.Address, error) {
-	return _TokenPool.Contract.GetOffRamps(&_TokenPool.CallOpts)
+func (_TokenPool *TokenPoolSession) GetCurrentInboundRateLimiterState(remoteChainSelector uint64) (RateLimiterTokenBucket, error) {
+	return _TokenPool.Contract.GetCurrentInboundRateLimiterState(&_TokenPool.CallOpts, remoteChainSelector)
 }
 
-func (_TokenPool *TokenPoolCallerSession) GetOffRamps() ([]common.Address, error) {
-	return _TokenPool.Contract.GetOffRamps(&_TokenPool.CallOpts)
+func (_TokenPool *TokenPoolCallerSession) GetCurrentInboundRateLimiterState(remoteChainSelector uint64) (RateLimiterTokenBucket, error) {
+	return _TokenPool.Contract.GetCurrentInboundRateLimiterState(&_TokenPool.CallOpts, remoteChainSelector)
 }
 
-func (_TokenPool *TokenPoolCaller) GetOnRamps(opts *bind.CallOpts) ([]common.Address, error) {
+func (_TokenPool *TokenPoolCaller) GetCurrentOutboundRateLimiterState(opts *bind.CallOpts, remoteChainSelector uint64) (RateLimiterTokenBucket, error) {
 	var out []interface{}
-	err := _TokenPool.contract.Call(opts, &out, "getOnRamps")
+	err := _TokenPool.contract.Call(opts, &out, "getCurrentOutboundRateLimiterState", remoteChainSelector)
 
 	if err != nil {
-		return *new([]common.Address), err
+		return *new(RateLimiterTokenBucket), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+	out0 := *abi.ConvertType(out[0], new(RateLimiterTokenBucket)).(*RateLimiterTokenBucket)
 
 	return out0, err
 
 }
 
-func (_TokenPool *TokenPoolSession) GetOnRamps() ([]common.Address, error) {
-	return _TokenPool.Contract.GetOnRamps(&_TokenPool.CallOpts)
+func (_TokenPool *TokenPoolSession) GetCurrentOutboundRateLimiterState(remoteChainSelector uint64) (RateLimiterTokenBucket, error) {
+	return _TokenPool.Contract.GetCurrentOutboundRateLimiterState(&_TokenPool.CallOpts, remoteChainSelector)
 }
 
-func (_TokenPool *TokenPoolCallerSession) GetOnRamps() ([]common.Address, error) {
-	return _TokenPool.Contract.GetOnRamps(&_TokenPool.CallOpts)
+func (_TokenPool *TokenPoolCallerSession) GetCurrentOutboundRateLimiterState(remoteChainSelector uint64) (RateLimiterTokenBucket, error) {
+	return _TokenPool.Contract.GetCurrentOutboundRateLimiterState(&_TokenPool.CallOpts, remoteChainSelector)
+}
+
+func (_TokenPool *TokenPoolCaller) GetRouter(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _TokenPool.contract.Call(opts, &out, "getRouter")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_TokenPool *TokenPoolSession) GetRouter() (common.Address, error) {
+	return _TokenPool.Contract.GetRouter(&_TokenPool.CallOpts)
+}
+
+func (_TokenPool *TokenPoolCallerSession) GetRouter() (common.Address, error) {
+	return _TokenPool.Contract.GetRouter(&_TokenPool.CallOpts)
+}
+
+func (_TokenPool *TokenPoolCaller) GetSupportedChains(opts *bind.CallOpts) ([]uint64, error) {
+	var out []interface{}
+	err := _TokenPool.contract.Call(opts, &out, "getSupportedChains")
+
+	if err != nil {
+		return *new([]uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]uint64)).(*[]uint64)
+
+	return out0, err
+
+}
+
+func (_TokenPool *TokenPoolSession) GetSupportedChains() ([]uint64, error) {
+	return _TokenPool.Contract.GetSupportedChains(&_TokenPool.CallOpts)
+}
+
+func (_TokenPool *TokenPoolCallerSession) GetSupportedChains() ([]uint64, error) {
+	return _TokenPool.Contract.GetSupportedChains(&_TokenPool.CallOpts)
 }
 
 func (_TokenPool *TokenPoolCaller) GetToken(opts *bind.CallOpts) (common.Address, error) {
@@ -348,9 +349,9 @@ func (_TokenPool *TokenPoolCallerSession) GetToken() (common.Address, error) {
 	return _TokenPool.Contract.GetToken(&_TokenPool.CallOpts)
 }
 
-func (_TokenPool *TokenPoolCaller) IsOffRamp(opts *bind.CallOpts, offRamp common.Address) (bool, error) {
+func (_TokenPool *TokenPoolCaller) IsSupportedChain(opts *bind.CallOpts, remoteChainSelector uint64) (bool, error) {
 	var out []interface{}
-	err := _TokenPool.contract.Call(opts, &out, "isOffRamp", offRamp)
+	err := _TokenPool.contract.Call(opts, &out, "isSupportedChain", remoteChainSelector)
 
 	if err != nil {
 		return *new(bool), err
@@ -362,34 +363,12 @@ func (_TokenPool *TokenPoolCaller) IsOffRamp(opts *bind.CallOpts, offRamp common
 
 }
 
-func (_TokenPool *TokenPoolSession) IsOffRamp(offRamp common.Address) (bool, error) {
-	return _TokenPool.Contract.IsOffRamp(&_TokenPool.CallOpts, offRamp)
+func (_TokenPool *TokenPoolSession) IsSupportedChain(remoteChainSelector uint64) (bool, error) {
+	return _TokenPool.Contract.IsSupportedChain(&_TokenPool.CallOpts, remoteChainSelector)
 }
 
-func (_TokenPool *TokenPoolCallerSession) IsOffRamp(offRamp common.Address) (bool, error) {
-	return _TokenPool.Contract.IsOffRamp(&_TokenPool.CallOpts, offRamp)
-}
-
-func (_TokenPool *TokenPoolCaller) IsOnRamp(opts *bind.CallOpts, onRamp common.Address) (bool, error) {
-	var out []interface{}
-	err := _TokenPool.contract.Call(opts, &out, "isOnRamp", onRamp)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-func (_TokenPool *TokenPoolSession) IsOnRamp(onRamp common.Address) (bool, error) {
-	return _TokenPool.Contract.IsOnRamp(&_TokenPool.CallOpts, onRamp)
-}
-
-func (_TokenPool *TokenPoolCallerSession) IsOnRamp(onRamp common.Address) (bool, error) {
-	return _TokenPool.Contract.IsOnRamp(&_TokenPool.CallOpts, onRamp)
+func (_TokenPool *TokenPoolCallerSession) IsSupportedChain(remoteChainSelector uint64) (bool, error) {
+	return _TokenPool.Contract.IsSupportedChain(&_TokenPool.CallOpts, remoteChainSelector)
 }
 
 func (_TokenPool *TokenPoolCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
@@ -460,64 +439,64 @@ func (_TokenPool *TokenPoolTransactorSession) ApplyAllowListUpdates(removes []co
 	return _TokenPool.Contract.ApplyAllowListUpdates(&_TokenPool.TransactOpts, removes, adds)
 }
 
-func (_TokenPool *TokenPoolTransactor) ApplyRampUpdates(opts *bind.TransactOpts, onRamps []TokenPoolRampUpdate, offRamps []TokenPoolRampUpdate) (*types.Transaction, error) {
-	return _TokenPool.contract.Transact(opts, "applyRampUpdates", onRamps, offRamps)
+func (_TokenPool *TokenPoolTransactor) ApplyChainUpdates(opts *bind.TransactOpts, chains []TokenPoolChainUpdate) (*types.Transaction, error) {
+	return _TokenPool.contract.Transact(opts, "applyChainUpdates", chains)
 }
 
-func (_TokenPool *TokenPoolSession) ApplyRampUpdates(onRamps []TokenPoolRampUpdate, offRamps []TokenPoolRampUpdate) (*types.Transaction, error) {
-	return _TokenPool.Contract.ApplyRampUpdates(&_TokenPool.TransactOpts, onRamps, offRamps)
+func (_TokenPool *TokenPoolSession) ApplyChainUpdates(chains []TokenPoolChainUpdate) (*types.Transaction, error) {
+	return _TokenPool.Contract.ApplyChainUpdates(&_TokenPool.TransactOpts, chains)
 }
 
-func (_TokenPool *TokenPoolTransactorSession) ApplyRampUpdates(onRamps []TokenPoolRampUpdate, offRamps []TokenPoolRampUpdate) (*types.Transaction, error) {
-	return _TokenPool.Contract.ApplyRampUpdates(&_TokenPool.TransactOpts, onRamps, offRamps)
+func (_TokenPool *TokenPoolTransactorSession) ApplyChainUpdates(chains []TokenPoolChainUpdate) (*types.Transaction, error) {
+	return _TokenPool.Contract.ApplyChainUpdates(&_TokenPool.TransactOpts, chains)
 }
 
-func (_TokenPool *TokenPoolTransactor) LockOrBurn(opts *bind.TransactOpts, originalSender common.Address, receiver []byte, amount *big.Int, destChainSelector uint64, extraArgs []byte) (*types.Transaction, error) {
-	return _TokenPool.contract.Transact(opts, "lockOrBurn", originalSender, receiver, amount, destChainSelector, extraArgs)
+func (_TokenPool *TokenPoolTransactor) LockOrBurn(opts *bind.TransactOpts, originalSender common.Address, receiver []byte, amount *big.Int, remoteChainSelector uint64, extraArgs []byte) (*types.Transaction, error) {
+	return _TokenPool.contract.Transact(opts, "lockOrBurn", originalSender, receiver, amount, remoteChainSelector, extraArgs)
 }
 
-func (_TokenPool *TokenPoolSession) LockOrBurn(originalSender common.Address, receiver []byte, amount *big.Int, destChainSelector uint64, extraArgs []byte) (*types.Transaction, error) {
-	return _TokenPool.Contract.LockOrBurn(&_TokenPool.TransactOpts, originalSender, receiver, amount, destChainSelector, extraArgs)
+func (_TokenPool *TokenPoolSession) LockOrBurn(originalSender common.Address, receiver []byte, amount *big.Int, remoteChainSelector uint64, extraArgs []byte) (*types.Transaction, error) {
+	return _TokenPool.Contract.LockOrBurn(&_TokenPool.TransactOpts, originalSender, receiver, amount, remoteChainSelector, extraArgs)
 }
 
-func (_TokenPool *TokenPoolTransactorSession) LockOrBurn(originalSender common.Address, receiver []byte, amount *big.Int, destChainSelector uint64, extraArgs []byte) (*types.Transaction, error) {
-	return _TokenPool.Contract.LockOrBurn(&_TokenPool.TransactOpts, originalSender, receiver, amount, destChainSelector, extraArgs)
+func (_TokenPool *TokenPoolTransactorSession) LockOrBurn(originalSender common.Address, receiver []byte, amount *big.Int, remoteChainSelector uint64, extraArgs []byte) (*types.Transaction, error) {
+	return _TokenPool.Contract.LockOrBurn(&_TokenPool.TransactOpts, originalSender, receiver, amount, remoteChainSelector, extraArgs)
 }
 
-func (_TokenPool *TokenPoolTransactor) ReleaseOrMint(opts *bind.TransactOpts, originalSender []byte, receiver common.Address, amount *big.Int, sourceChainSelector uint64, extraData []byte) (*types.Transaction, error) {
-	return _TokenPool.contract.Transact(opts, "releaseOrMint", originalSender, receiver, amount, sourceChainSelector, extraData)
+func (_TokenPool *TokenPoolTransactor) ReleaseOrMint(opts *bind.TransactOpts, originalSender []byte, receiver common.Address, amount *big.Int, remoteChainSelector uint64, extraData []byte) (*types.Transaction, error) {
+	return _TokenPool.contract.Transact(opts, "releaseOrMint", originalSender, receiver, amount, remoteChainSelector, extraData)
 }
 
-func (_TokenPool *TokenPoolSession) ReleaseOrMint(originalSender []byte, receiver common.Address, amount *big.Int, sourceChainSelector uint64, extraData []byte) (*types.Transaction, error) {
-	return _TokenPool.Contract.ReleaseOrMint(&_TokenPool.TransactOpts, originalSender, receiver, amount, sourceChainSelector, extraData)
+func (_TokenPool *TokenPoolSession) ReleaseOrMint(originalSender []byte, receiver common.Address, amount *big.Int, remoteChainSelector uint64, extraData []byte) (*types.Transaction, error) {
+	return _TokenPool.Contract.ReleaseOrMint(&_TokenPool.TransactOpts, originalSender, receiver, amount, remoteChainSelector, extraData)
 }
 
-func (_TokenPool *TokenPoolTransactorSession) ReleaseOrMint(originalSender []byte, receiver common.Address, amount *big.Int, sourceChainSelector uint64, extraData []byte) (*types.Transaction, error) {
-	return _TokenPool.Contract.ReleaseOrMint(&_TokenPool.TransactOpts, originalSender, receiver, amount, sourceChainSelector, extraData)
+func (_TokenPool *TokenPoolTransactorSession) ReleaseOrMint(originalSender []byte, receiver common.Address, amount *big.Int, remoteChainSelector uint64, extraData []byte) (*types.Transaction, error) {
+	return _TokenPool.Contract.ReleaseOrMint(&_TokenPool.TransactOpts, originalSender, receiver, amount, remoteChainSelector, extraData)
 }
 
-func (_TokenPool *TokenPoolTransactor) SetOffRampRateLimiterConfig(opts *bind.TransactOpts, offRamp common.Address, config RateLimiterConfig) (*types.Transaction, error) {
-	return _TokenPool.contract.Transact(opts, "setOffRampRateLimiterConfig", offRamp, config)
+func (_TokenPool *TokenPoolTransactor) SetChainRateLimiterConfig(opts *bind.TransactOpts, remoteChainSelector uint64, outboundConfig RateLimiterConfig, inboundConfig RateLimiterConfig) (*types.Transaction, error) {
+	return _TokenPool.contract.Transact(opts, "setChainRateLimiterConfig", remoteChainSelector, outboundConfig, inboundConfig)
 }
 
-func (_TokenPool *TokenPoolSession) SetOffRampRateLimiterConfig(offRamp common.Address, config RateLimiterConfig) (*types.Transaction, error) {
-	return _TokenPool.Contract.SetOffRampRateLimiterConfig(&_TokenPool.TransactOpts, offRamp, config)
+func (_TokenPool *TokenPoolSession) SetChainRateLimiterConfig(remoteChainSelector uint64, outboundConfig RateLimiterConfig, inboundConfig RateLimiterConfig) (*types.Transaction, error) {
+	return _TokenPool.Contract.SetChainRateLimiterConfig(&_TokenPool.TransactOpts, remoteChainSelector, outboundConfig, inboundConfig)
 }
 
-func (_TokenPool *TokenPoolTransactorSession) SetOffRampRateLimiterConfig(offRamp common.Address, config RateLimiterConfig) (*types.Transaction, error) {
-	return _TokenPool.Contract.SetOffRampRateLimiterConfig(&_TokenPool.TransactOpts, offRamp, config)
+func (_TokenPool *TokenPoolTransactorSession) SetChainRateLimiterConfig(remoteChainSelector uint64, outboundConfig RateLimiterConfig, inboundConfig RateLimiterConfig) (*types.Transaction, error) {
+	return _TokenPool.Contract.SetChainRateLimiterConfig(&_TokenPool.TransactOpts, remoteChainSelector, outboundConfig, inboundConfig)
 }
 
-func (_TokenPool *TokenPoolTransactor) SetOnRampRateLimiterConfig(opts *bind.TransactOpts, onRamp common.Address, config RateLimiterConfig) (*types.Transaction, error) {
-	return _TokenPool.contract.Transact(opts, "setOnRampRateLimiterConfig", onRamp, config)
+func (_TokenPool *TokenPoolTransactor) SetRouter(opts *bind.TransactOpts, newRouter common.Address) (*types.Transaction, error) {
+	return _TokenPool.contract.Transact(opts, "setRouter", newRouter)
 }
 
-func (_TokenPool *TokenPoolSession) SetOnRampRateLimiterConfig(onRamp common.Address, config RateLimiterConfig) (*types.Transaction, error) {
-	return _TokenPool.Contract.SetOnRampRateLimiterConfig(&_TokenPool.TransactOpts, onRamp, config)
+func (_TokenPool *TokenPoolSession) SetRouter(newRouter common.Address) (*types.Transaction, error) {
+	return _TokenPool.Contract.SetRouter(&_TokenPool.TransactOpts, newRouter)
 }
 
-func (_TokenPool *TokenPoolTransactorSession) SetOnRampRateLimiterConfig(onRamp common.Address, config RateLimiterConfig) (*types.Transaction, error) {
-	return _TokenPool.Contract.SetOnRampRateLimiterConfig(&_TokenPool.TransactOpts, onRamp, config)
+func (_TokenPool *TokenPoolTransactorSession) SetRouter(newRouter common.Address) (*types.Transaction, error) {
+	return _TokenPool.Contract.SetRouter(&_TokenPool.TransactOpts, newRouter)
 }
 
 func (_TokenPool *TokenPoolTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
@@ -894,6 +873,361 @@ func (_TokenPool *TokenPoolFilterer) ParseBurned(log types.Log) (*TokenPoolBurne
 	return event, nil
 }
 
+type TokenPoolChainAddedIterator struct {
+	Event *TokenPoolChainAdded
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *TokenPoolChainAddedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TokenPoolChainAdded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(TokenPoolChainAdded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *TokenPoolChainAddedIterator) Error() error {
+	return it.fail
+}
+
+func (it *TokenPoolChainAddedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type TokenPoolChainAdded struct {
+	RemoteChainSelector       uint64
+	OutboundRateLimiterConfig RateLimiterConfig
+	InboundRateLimiterConfig  RateLimiterConfig
+	Raw                       types.Log
+}
+
+func (_TokenPool *TokenPoolFilterer) FilterChainAdded(opts *bind.FilterOpts) (*TokenPoolChainAddedIterator, error) {
+
+	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "ChainAdded")
+	if err != nil {
+		return nil, err
+	}
+	return &TokenPoolChainAddedIterator{contract: _TokenPool.contract, event: "ChainAdded", logs: logs, sub: sub}, nil
+}
+
+func (_TokenPool *TokenPoolFilterer) WatchChainAdded(opts *bind.WatchOpts, sink chan<- *TokenPoolChainAdded) (event.Subscription, error) {
+
+	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "ChainAdded")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(TokenPoolChainAdded)
+				if err := _TokenPool.contract.UnpackLog(event, "ChainAdded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_TokenPool *TokenPoolFilterer) ParseChainAdded(log types.Log) (*TokenPoolChainAdded, error) {
+	event := new(TokenPoolChainAdded)
+	if err := _TokenPool.contract.UnpackLog(event, "ChainAdded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type TokenPoolChainConfiguredIterator struct {
+	Event *TokenPoolChainConfigured
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *TokenPoolChainConfiguredIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TokenPoolChainConfigured)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(TokenPoolChainConfigured)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *TokenPoolChainConfiguredIterator) Error() error {
+	return it.fail
+}
+
+func (it *TokenPoolChainConfiguredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type TokenPoolChainConfigured struct {
+	RemoteChainSelector       uint64
+	OutboundRateLimiterConfig RateLimiterConfig
+	InboundRateLimiterConfig  RateLimiterConfig
+	Raw                       types.Log
+}
+
+func (_TokenPool *TokenPoolFilterer) FilterChainConfigured(opts *bind.FilterOpts) (*TokenPoolChainConfiguredIterator, error) {
+
+	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "ChainConfigured")
+	if err != nil {
+		return nil, err
+	}
+	return &TokenPoolChainConfiguredIterator{contract: _TokenPool.contract, event: "ChainConfigured", logs: logs, sub: sub}, nil
+}
+
+func (_TokenPool *TokenPoolFilterer) WatchChainConfigured(opts *bind.WatchOpts, sink chan<- *TokenPoolChainConfigured) (event.Subscription, error) {
+
+	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "ChainConfigured")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(TokenPoolChainConfigured)
+				if err := _TokenPool.contract.UnpackLog(event, "ChainConfigured", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_TokenPool *TokenPoolFilterer) ParseChainConfigured(log types.Log) (*TokenPoolChainConfigured, error) {
+	event := new(TokenPoolChainConfigured)
+	if err := _TokenPool.contract.UnpackLog(event, "ChainConfigured", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type TokenPoolChainRemovedIterator struct {
+	Event *TokenPoolChainRemoved
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *TokenPoolChainRemovedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TokenPoolChainRemoved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(TokenPoolChainRemoved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *TokenPoolChainRemovedIterator) Error() error {
+	return it.fail
+}
+
+func (it *TokenPoolChainRemovedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type TokenPoolChainRemoved struct {
+	RemoteChainSelector uint64
+	Raw                 types.Log
+}
+
+func (_TokenPool *TokenPoolFilterer) FilterChainRemoved(opts *bind.FilterOpts) (*TokenPoolChainRemovedIterator, error) {
+
+	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "ChainRemoved")
+	if err != nil {
+		return nil, err
+	}
+	return &TokenPoolChainRemovedIterator{contract: _TokenPool.contract, event: "ChainRemoved", logs: logs, sub: sub}, nil
+}
+
+func (_TokenPool *TokenPoolFilterer) WatchChainRemoved(opts *bind.WatchOpts, sink chan<- *TokenPoolChainRemoved) (event.Subscription, error) {
+
+	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "ChainRemoved")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(TokenPoolChainRemoved)
+				if err := _TokenPool.contract.UnpackLog(event, "ChainRemoved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_TokenPool *TokenPoolFilterer) ParseChainRemoved(log types.Log) (*TokenPoolChainRemoved, error) {
+	event := new(TokenPoolChainRemoved)
+	if err := _TokenPool.contract.UnpackLog(event, "ChainRemoved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type TokenPoolLockedIterator struct {
 	Event *TokenPoolLocked
 
@@ -1153,712 +1487,6 @@ func (_TokenPool *TokenPoolFilterer) WatchMinted(opts *bind.WatchOpts, sink chan
 func (_TokenPool *TokenPoolFilterer) ParseMinted(log types.Log) (*TokenPoolMinted, error) {
 	event := new(TokenPoolMinted)
 	if err := _TokenPool.contract.UnpackLog(event, "Minted", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type TokenPoolOffRampAddedIterator struct {
-	Event *TokenPoolOffRampAdded
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *TokenPoolOffRampAddedIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TokenPoolOffRampAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(TokenPoolOffRampAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *TokenPoolOffRampAddedIterator) Error() error {
-	return it.fail
-}
-
-func (it *TokenPoolOffRampAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type TokenPoolOffRampAdded struct {
-	OffRamp           common.Address
-	RateLimiterConfig RateLimiterConfig
-	Raw               types.Log
-}
-
-func (_TokenPool *TokenPoolFilterer) FilterOffRampAdded(opts *bind.FilterOpts) (*TokenPoolOffRampAddedIterator, error) {
-
-	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "OffRampAdded")
-	if err != nil {
-		return nil, err
-	}
-	return &TokenPoolOffRampAddedIterator{contract: _TokenPool.contract, event: "OffRampAdded", logs: logs, sub: sub}, nil
-}
-
-func (_TokenPool *TokenPoolFilterer) WatchOffRampAdded(opts *bind.WatchOpts, sink chan<- *TokenPoolOffRampAdded) (event.Subscription, error) {
-
-	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "OffRampAdded")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(TokenPoolOffRampAdded)
-				if err := _TokenPool.contract.UnpackLog(event, "OffRampAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_TokenPool *TokenPoolFilterer) ParseOffRampAdded(log types.Log) (*TokenPoolOffRampAdded, error) {
-	event := new(TokenPoolOffRampAdded)
-	if err := _TokenPool.contract.UnpackLog(event, "OffRampAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type TokenPoolOffRampConfiguredIterator struct {
-	Event *TokenPoolOffRampConfigured
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *TokenPoolOffRampConfiguredIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TokenPoolOffRampConfigured)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(TokenPoolOffRampConfigured)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *TokenPoolOffRampConfiguredIterator) Error() error {
-	return it.fail
-}
-
-func (it *TokenPoolOffRampConfiguredIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type TokenPoolOffRampConfigured struct {
-	OffRamp           common.Address
-	RateLimiterConfig RateLimiterConfig
-	Raw               types.Log
-}
-
-func (_TokenPool *TokenPoolFilterer) FilterOffRampConfigured(opts *bind.FilterOpts) (*TokenPoolOffRampConfiguredIterator, error) {
-
-	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "OffRampConfigured")
-	if err != nil {
-		return nil, err
-	}
-	return &TokenPoolOffRampConfiguredIterator{contract: _TokenPool.contract, event: "OffRampConfigured", logs: logs, sub: sub}, nil
-}
-
-func (_TokenPool *TokenPoolFilterer) WatchOffRampConfigured(opts *bind.WatchOpts, sink chan<- *TokenPoolOffRampConfigured) (event.Subscription, error) {
-
-	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "OffRampConfigured")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(TokenPoolOffRampConfigured)
-				if err := _TokenPool.contract.UnpackLog(event, "OffRampConfigured", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_TokenPool *TokenPoolFilterer) ParseOffRampConfigured(log types.Log) (*TokenPoolOffRampConfigured, error) {
-	event := new(TokenPoolOffRampConfigured)
-	if err := _TokenPool.contract.UnpackLog(event, "OffRampConfigured", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type TokenPoolOffRampRemovedIterator struct {
-	Event *TokenPoolOffRampRemoved
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *TokenPoolOffRampRemovedIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TokenPoolOffRampRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(TokenPoolOffRampRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *TokenPoolOffRampRemovedIterator) Error() error {
-	return it.fail
-}
-
-func (it *TokenPoolOffRampRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type TokenPoolOffRampRemoved struct {
-	OffRamp common.Address
-	Raw     types.Log
-}
-
-func (_TokenPool *TokenPoolFilterer) FilterOffRampRemoved(opts *bind.FilterOpts) (*TokenPoolOffRampRemovedIterator, error) {
-
-	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "OffRampRemoved")
-	if err != nil {
-		return nil, err
-	}
-	return &TokenPoolOffRampRemovedIterator{contract: _TokenPool.contract, event: "OffRampRemoved", logs: logs, sub: sub}, nil
-}
-
-func (_TokenPool *TokenPoolFilterer) WatchOffRampRemoved(opts *bind.WatchOpts, sink chan<- *TokenPoolOffRampRemoved) (event.Subscription, error) {
-
-	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "OffRampRemoved")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(TokenPoolOffRampRemoved)
-				if err := _TokenPool.contract.UnpackLog(event, "OffRampRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_TokenPool *TokenPoolFilterer) ParseOffRampRemoved(log types.Log) (*TokenPoolOffRampRemoved, error) {
-	event := new(TokenPoolOffRampRemoved)
-	if err := _TokenPool.contract.UnpackLog(event, "OffRampRemoved", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type TokenPoolOnRampAddedIterator struct {
-	Event *TokenPoolOnRampAdded
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *TokenPoolOnRampAddedIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TokenPoolOnRampAdded)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(TokenPoolOnRampAdded)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *TokenPoolOnRampAddedIterator) Error() error {
-	return it.fail
-}
-
-func (it *TokenPoolOnRampAddedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type TokenPoolOnRampAdded struct {
-	OnRamp            common.Address
-	RateLimiterConfig RateLimiterConfig
-	Raw               types.Log
-}
-
-func (_TokenPool *TokenPoolFilterer) FilterOnRampAdded(opts *bind.FilterOpts) (*TokenPoolOnRampAddedIterator, error) {
-
-	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "OnRampAdded")
-	if err != nil {
-		return nil, err
-	}
-	return &TokenPoolOnRampAddedIterator{contract: _TokenPool.contract, event: "OnRampAdded", logs: logs, sub: sub}, nil
-}
-
-func (_TokenPool *TokenPoolFilterer) WatchOnRampAdded(opts *bind.WatchOpts, sink chan<- *TokenPoolOnRampAdded) (event.Subscription, error) {
-
-	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "OnRampAdded")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(TokenPoolOnRampAdded)
-				if err := _TokenPool.contract.UnpackLog(event, "OnRampAdded", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_TokenPool *TokenPoolFilterer) ParseOnRampAdded(log types.Log) (*TokenPoolOnRampAdded, error) {
-	event := new(TokenPoolOnRampAdded)
-	if err := _TokenPool.contract.UnpackLog(event, "OnRampAdded", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type TokenPoolOnRampConfiguredIterator struct {
-	Event *TokenPoolOnRampConfigured
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *TokenPoolOnRampConfiguredIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TokenPoolOnRampConfigured)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(TokenPoolOnRampConfigured)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *TokenPoolOnRampConfiguredIterator) Error() error {
-	return it.fail
-}
-
-func (it *TokenPoolOnRampConfiguredIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type TokenPoolOnRampConfigured struct {
-	OnRamp            common.Address
-	RateLimiterConfig RateLimiterConfig
-	Raw               types.Log
-}
-
-func (_TokenPool *TokenPoolFilterer) FilterOnRampConfigured(opts *bind.FilterOpts) (*TokenPoolOnRampConfiguredIterator, error) {
-
-	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "OnRampConfigured")
-	if err != nil {
-		return nil, err
-	}
-	return &TokenPoolOnRampConfiguredIterator{contract: _TokenPool.contract, event: "OnRampConfigured", logs: logs, sub: sub}, nil
-}
-
-func (_TokenPool *TokenPoolFilterer) WatchOnRampConfigured(opts *bind.WatchOpts, sink chan<- *TokenPoolOnRampConfigured) (event.Subscription, error) {
-
-	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "OnRampConfigured")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(TokenPoolOnRampConfigured)
-				if err := _TokenPool.contract.UnpackLog(event, "OnRampConfigured", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_TokenPool *TokenPoolFilterer) ParseOnRampConfigured(log types.Log) (*TokenPoolOnRampConfigured, error) {
-	event := new(TokenPoolOnRampConfigured)
-	if err := _TokenPool.contract.UnpackLog(event, "OnRampConfigured", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type TokenPoolOnRampRemovedIterator struct {
-	Event *TokenPoolOnRampRemoved
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *TokenPoolOnRampRemovedIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(TokenPoolOnRampRemoved)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(TokenPoolOnRampRemoved)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *TokenPoolOnRampRemovedIterator) Error() error {
-	return it.fail
-}
-
-func (it *TokenPoolOnRampRemovedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type TokenPoolOnRampRemoved struct {
-	OnRamp common.Address
-	Raw    types.Log
-}
-
-func (_TokenPool *TokenPoolFilterer) FilterOnRampRemoved(opts *bind.FilterOpts) (*TokenPoolOnRampRemovedIterator, error) {
-
-	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "OnRampRemoved")
-	if err != nil {
-		return nil, err
-	}
-	return &TokenPoolOnRampRemovedIterator{contract: _TokenPool.contract, event: "OnRampRemoved", logs: logs, sub: sub}, nil
-}
-
-func (_TokenPool *TokenPoolFilterer) WatchOnRampRemoved(opts *bind.WatchOpts, sink chan<- *TokenPoolOnRampRemoved) (event.Subscription, error) {
-
-	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "OnRampRemoved")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(TokenPoolOnRampRemoved)
-				if err := _TokenPool.contract.UnpackLog(event, "OnRampRemoved", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_TokenPool *TokenPoolFilterer) ParseOnRampRemoved(log types.Log) (*TokenPoolOnRampRemoved, error) {
-	event := new(TokenPoolOnRampRemoved)
-	if err := _TokenPool.contract.UnpackLog(event, "OnRampRemoved", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2274,6 +1902,124 @@ func (_TokenPool *TokenPoolFilterer) ParseReleased(log types.Log) (*TokenPoolRel
 	return event, nil
 }
 
+type TokenPoolRouterUpdatedIterator struct {
+	Event *TokenPoolRouterUpdated
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *TokenPoolRouterUpdatedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TokenPoolRouterUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(TokenPoolRouterUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *TokenPoolRouterUpdatedIterator) Error() error {
+	return it.fail
+}
+
+func (it *TokenPoolRouterUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type TokenPoolRouterUpdated struct {
+	OldRouter common.Address
+	NewRouter common.Address
+	Raw       types.Log
+}
+
+func (_TokenPool *TokenPoolFilterer) FilterRouterUpdated(opts *bind.FilterOpts) (*TokenPoolRouterUpdatedIterator, error) {
+
+	logs, sub, err := _TokenPool.contract.FilterLogs(opts, "RouterUpdated")
+	if err != nil {
+		return nil, err
+	}
+	return &TokenPoolRouterUpdatedIterator{contract: _TokenPool.contract, event: "RouterUpdated", logs: logs, sub: sub}, nil
+}
+
+func (_TokenPool *TokenPoolFilterer) WatchRouterUpdated(opts *bind.WatchOpts, sink chan<- *TokenPoolRouterUpdated) (event.Subscription, error) {
+
+	logs, sub, err := _TokenPool.contract.WatchLogs(opts, "RouterUpdated")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(TokenPoolRouterUpdated)
+				if err := _TokenPool.contract.UnpackLog(event, "RouterUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_TokenPool *TokenPoolFilterer) ParseRouterUpdated(log types.Log) (*TokenPoolRouterUpdated, error) {
+	event := new(TokenPoolRouterUpdated)
+	if err := _TokenPool.contract.UnpackLog(event, "RouterUpdated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 func (_TokenPool *TokenPool) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
 	case _TokenPool.abi.Events["AllowListAdd"].ID:
@@ -2282,28 +2028,24 @@ func (_TokenPool *TokenPool) ParseLog(log types.Log) (generated.AbigenLog, error
 		return _TokenPool.ParseAllowListRemove(log)
 	case _TokenPool.abi.Events["Burned"].ID:
 		return _TokenPool.ParseBurned(log)
+	case _TokenPool.abi.Events["ChainAdded"].ID:
+		return _TokenPool.ParseChainAdded(log)
+	case _TokenPool.abi.Events["ChainConfigured"].ID:
+		return _TokenPool.ParseChainConfigured(log)
+	case _TokenPool.abi.Events["ChainRemoved"].ID:
+		return _TokenPool.ParseChainRemoved(log)
 	case _TokenPool.abi.Events["Locked"].ID:
 		return _TokenPool.ParseLocked(log)
 	case _TokenPool.abi.Events["Minted"].ID:
 		return _TokenPool.ParseMinted(log)
-	case _TokenPool.abi.Events["OffRampAdded"].ID:
-		return _TokenPool.ParseOffRampAdded(log)
-	case _TokenPool.abi.Events["OffRampConfigured"].ID:
-		return _TokenPool.ParseOffRampConfigured(log)
-	case _TokenPool.abi.Events["OffRampRemoved"].ID:
-		return _TokenPool.ParseOffRampRemoved(log)
-	case _TokenPool.abi.Events["OnRampAdded"].ID:
-		return _TokenPool.ParseOnRampAdded(log)
-	case _TokenPool.abi.Events["OnRampConfigured"].ID:
-		return _TokenPool.ParseOnRampConfigured(log)
-	case _TokenPool.abi.Events["OnRampRemoved"].ID:
-		return _TokenPool.ParseOnRampRemoved(log)
 	case _TokenPool.abi.Events["OwnershipTransferRequested"].ID:
 		return _TokenPool.ParseOwnershipTransferRequested(log)
 	case _TokenPool.abi.Events["OwnershipTransferred"].ID:
 		return _TokenPool.ParseOwnershipTransferred(log)
 	case _TokenPool.abi.Events["Released"].ID:
 		return _TokenPool.ParseReleased(log)
+	case _TokenPool.abi.Events["RouterUpdated"].ID:
+		return _TokenPool.ParseRouterUpdated(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
@@ -2322,36 +2064,24 @@ func (TokenPoolBurned) Topic() common.Hash {
 	return common.HexToHash("0x696de425f79f4a40bc6d2122ca50507f0efbeabbff86a84871b7196ab8ea8df7")
 }
 
+func (TokenPoolChainAdded) Topic() common.Hash {
+	return common.HexToHash("0x0f135cbb9afa12a8bf3bbd071c117bcca4ddeca6160ef7f33d012a81b9c0c471")
+}
+
+func (TokenPoolChainConfigured) Topic() common.Hash {
+	return common.HexToHash("0x0350d63aa5f270e01729d00d627eeb8f3429772b1818c016c66a588a864f912b")
+}
+
+func (TokenPoolChainRemoved) Topic() common.Hash {
+	return common.HexToHash("0x5204aec90a3c794d8e90fded8b46ae9c7c552803e7e832e0c1d358396d859916")
+}
+
 func (TokenPoolLocked) Topic() common.Hash {
 	return common.HexToHash("0x9f1ec8c880f76798e7b793325d625e9b60e4082a553c98f42b6cda368dd60008")
 }
 
 func (TokenPoolMinted) Topic() common.Hash {
 	return common.HexToHash("0x9d228d69b5fdb8d273a2336f8fb8612d039631024ea9bf09c424a9503aa078f0")
-}
-
-func (TokenPoolOffRampAdded) Topic() common.Hash {
-	return common.HexToHash("0x395b7374909d2b54e5796f53c898ebf41d767c86c78ea86519acf2b805852d88")
-}
-
-func (TokenPoolOffRampConfigured) Topic() common.Hash {
-	return common.HexToHash("0xb3ba339cfbb8ef80d7a29ce5493051cb90e64fcfa85d7124efc1adfa4c68399f")
-}
-
-func (TokenPoolOffRampRemoved) Topic() common.Hash {
-	return common.HexToHash("0xcf91daec21e3510e2f2aea4b09d08c235d5c6844980be709f282ef591dbf420c")
-}
-
-func (TokenPoolOnRampAdded) Topic() common.Hash {
-	return common.HexToHash("0x0b594bb0555ff7b252e0c789ccc9d8903fec294172064308727d570505cee1ac")
-}
-
-func (TokenPoolOnRampConfigured) Topic() common.Hash {
-	return common.HexToHash("0x578db78e348076074dbff64a94073a83e9a65aa6766b8c75fdc89282b0e30ed6")
-}
-
-func (TokenPoolOnRampRemoved) Topic() common.Hash {
-	return common.HexToHash("0x7fd064821314ad863a0714a3f1229375ace6b6427ed5544b7b2ba1c47b1b5294")
 }
 
 func (TokenPoolOwnershipTransferRequested) Topic() common.Hash {
@@ -2366,30 +2096,32 @@ func (TokenPoolReleased) Topic() common.Hash {
 	return common.HexToHash("0x2d87480f50083e2b2759522a8fdda59802650a8055e609a7772cf70c07748f52")
 }
 
+func (TokenPoolRouterUpdated) Topic() common.Hash {
+	return common.HexToHash("0x02dc5c233404867c793b749c6d644beb2277536d18a7e7974d3f238e4c6f1684")
+}
+
 func (_TokenPool *TokenPool) Address() common.Address {
 	return _TokenPool.address
 }
 
 type TokenPoolInterface interface {
-	CurrentOffRampRateLimiterState(opts *bind.CallOpts, offRamp common.Address) (RateLimiterTokenBucket, error)
-
-	CurrentOnRampRateLimiterState(opts *bind.CallOpts, onRamp common.Address) (RateLimiterTokenBucket, error)
-
 	GetAllowList(opts *bind.CallOpts) ([]common.Address, error)
 
 	GetAllowListEnabled(opts *bind.CallOpts) (bool, error)
 
 	GetArmProxy(opts *bind.CallOpts) (common.Address, error)
 
-	GetOffRamps(opts *bind.CallOpts) ([]common.Address, error)
+	GetCurrentInboundRateLimiterState(opts *bind.CallOpts, remoteChainSelector uint64) (RateLimiterTokenBucket, error)
 
-	GetOnRamps(opts *bind.CallOpts) ([]common.Address, error)
+	GetCurrentOutboundRateLimiterState(opts *bind.CallOpts, remoteChainSelector uint64) (RateLimiterTokenBucket, error)
+
+	GetRouter(opts *bind.CallOpts) (common.Address, error)
+
+	GetSupportedChains(opts *bind.CallOpts) ([]uint64, error)
 
 	GetToken(opts *bind.CallOpts) (common.Address, error)
 
-	IsOffRamp(opts *bind.CallOpts, offRamp common.Address) (bool, error)
-
-	IsOnRamp(opts *bind.CallOpts, onRamp common.Address) (bool, error)
+	IsSupportedChain(opts *bind.CallOpts, remoteChainSelector uint64) (bool, error)
 
 	Owner(opts *bind.CallOpts) (common.Address, error)
 
@@ -2399,15 +2131,15 @@ type TokenPoolInterface interface {
 
 	ApplyAllowListUpdates(opts *bind.TransactOpts, removes []common.Address, adds []common.Address) (*types.Transaction, error)
 
-	ApplyRampUpdates(opts *bind.TransactOpts, onRamps []TokenPoolRampUpdate, offRamps []TokenPoolRampUpdate) (*types.Transaction, error)
+	ApplyChainUpdates(opts *bind.TransactOpts, chains []TokenPoolChainUpdate) (*types.Transaction, error)
 
-	LockOrBurn(opts *bind.TransactOpts, originalSender common.Address, receiver []byte, amount *big.Int, destChainSelector uint64, extraArgs []byte) (*types.Transaction, error)
+	LockOrBurn(opts *bind.TransactOpts, originalSender common.Address, receiver []byte, amount *big.Int, remoteChainSelector uint64, extraArgs []byte) (*types.Transaction, error)
 
-	ReleaseOrMint(opts *bind.TransactOpts, originalSender []byte, receiver common.Address, amount *big.Int, sourceChainSelector uint64, extraData []byte) (*types.Transaction, error)
+	ReleaseOrMint(opts *bind.TransactOpts, originalSender []byte, receiver common.Address, amount *big.Int, remoteChainSelector uint64, extraData []byte) (*types.Transaction, error)
 
-	SetOffRampRateLimiterConfig(opts *bind.TransactOpts, offRamp common.Address, config RateLimiterConfig) (*types.Transaction, error)
+	SetChainRateLimiterConfig(opts *bind.TransactOpts, remoteChainSelector uint64, outboundConfig RateLimiterConfig, inboundConfig RateLimiterConfig) (*types.Transaction, error)
 
-	SetOnRampRateLimiterConfig(opts *bind.TransactOpts, onRamp common.Address, config RateLimiterConfig) (*types.Transaction, error)
+	SetRouter(opts *bind.TransactOpts, newRouter common.Address) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
@@ -2429,6 +2161,24 @@ type TokenPoolInterface interface {
 
 	ParseBurned(log types.Log) (*TokenPoolBurned, error)
 
+	FilterChainAdded(opts *bind.FilterOpts) (*TokenPoolChainAddedIterator, error)
+
+	WatchChainAdded(opts *bind.WatchOpts, sink chan<- *TokenPoolChainAdded) (event.Subscription, error)
+
+	ParseChainAdded(log types.Log) (*TokenPoolChainAdded, error)
+
+	FilterChainConfigured(opts *bind.FilterOpts) (*TokenPoolChainConfiguredIterator, error)
+
+	WatchChainConfigured(opts *bind.WatchOpts, sink chan<- *TokenPoolChainConfigured) (event.Subscription, error)
+
+	ParseChainConfigured(log types.Log) (*TokenPoolChainConfigured, error)
+
+	FilterChainRemoved(opts *bind.FilterOpts) (*TokenPoolChainRemovedIterator, error)
+
+	WatchChainRemoved(opts *bind.WatchOpts, sink chan<- *TokenPoolChainRemoved) (event.Subscription, error)
+
+	ParseChainRemoved(log types.Log) (*TokenPoolChainRemoved, error)
+
 	FilterLocked(opts *bind.FilterOpts, sender []common.Address) (*TokenPoolLockedIterator, error)
 
 	WatchLocked(opts *bind.WatchOpts, sink chan<- *TokenPoolLocked, sender []common.Address) (event.Subscription, error)
@@ -2440,42 +2190,6 @@ type TokenPoolInterface interface {
 	WatchMinted(opts *bind.WatchOpts, sink chan<- *TokenPoolMinted, sender []common.Address, recipient []common.Address) (event.Subscription, error)
 
 	ParseMinted(log types.Log) (*TokenPoolMinted, error)
-
-	FilterOffRampAdded(opts *bind.FilterOpts) (*TokenPoolOffRampAddedIterator, error)
-
-	WatchOffRampAdded(opts *bind.WatchOpts, sink chan<- *TokenPoolOffRampAdded) (event.Subscription, error)
-
-	ParseOffRampAdded(log types.Log) (*TokenPoolOffRampAdded, error)
-
-	FilterOffRampConfigured(opts *bind.FilterOpts) (*TokenPoolOffRampConfiguredIterator, error)
-
-	WatchOffRampConfigured(opts *bind.WatchOpts, sink chan<- *TokenPoolOffRampConfigured) (event.Subscription, error)
-
-	ParseOffRampConfigured(log types.Log) (*TokenPoolOffRampConfigured, error)
-
-	FilterOffRampRemoved(opts *bind.FilterOpts) (*TokenPoolOffRampRemovedIterator, error)
-
-	WatchOffRampRemoved(opts *bind.WatchOpts, sink chan<- *TokenPoolOffRampRemoved) (event.Subscription, error)
-
-	ParseOffRampRemoved(log types.Log) (*TokenPoolOffRampRemoved, error)
-
-	FilterOnRampAdded(opts *bind.FilterOpts) (*TokenPoolOnRampAddedIterator, error)
-
-	WatchOnRampAdded(opts *bind.WatchOpts, sink chan<- *TokenPoolOnRampAdded) (event.Subscription, error)
-
-	ParseOnRampAdded(log types.Log) (*TokenPoolOnRampAdded, error)
-
-	FilterOnRampConfigured(opts *bind.FilterOpts) (*TokenPoolOnRampConfiguredIterator, error)
-
-	WatchOnRampConfigured(opts *bind.WatchOpts, sink chan<- *TokenPoolOnRampConfigured) (event.Subscription, error)
-
-	ParseOnRampConfigured(log types.Log) (*TokenPoolOnRampConfigured, error)
-
-	FilterOnRampRemoved(opts *bind.FilterOpts) (*TokenPoolOnRampRemovedIterator, error)
-
-	WatchOnRampRemoved(opts *bind.WatchOpts, sink chan<- *TokenPoolOnRampRemoved) (event.Subscription, error)
-
-	ParseOnRampRemoved(log types.Log) (*TokenPoolOnRampRemoved, error)
 
 	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*TokenPoolOwnershipTransferRequestedIterator, error)
 
@@ -2494,6 +2208,12 @@ type TokenPoolInterface interface {
 	WatchReleased(opts *bind.WatchOpts, sink chan<- *TokenPoolReleased, sender []common.Address, recipient []common.Address) (event.Subscription, error)
 
 	ParseReleased(log types.Log) (*TokenPoolReleased, error)
+
+	FilterRouterUpdated(opts *bind.FilterOpts) (*TokenPoolRouterUpdatedIterator, error)
+
+	WatchRouterUpdated(opts *bind.WatchOpts, sink chan<- *TokenPoolRouterUpdated) (event.Subscription, error)
+
+	ParseRouterUpdated(log types.Log) (*TokenPoolRouterUpdated, error)
 
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 

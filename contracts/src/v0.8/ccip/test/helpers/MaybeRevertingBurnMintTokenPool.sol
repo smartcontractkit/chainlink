@@ -11,8 +11,9 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
   constructor(
     IBurnMintERC20 token,
     address[] memory allowlist,
-    address armProxy
-  ) BurnMintTokenPool(token, allowlist, armProxy) {}
+    address armProxy,
+    address router
+  ) BurnMintTokenPool(token, allowlist, armProxy, router) {}
 
   function setShouldRevert(bytes calldata revertReason) external {
     s_revertReason = revertReason;
@@ -26,16 +27,24 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     address originalSender,
     bytes calldata,
     uint256 amount,
-    uint64,
+    uint64 remoteChainSelector,
     bytes calldata
-  ) external virtual override onlyOnRamp checkAllowList(originalSender) whenHealthy returns (bytes memory) {
+  )
+    external
+    virtual
+    override
+    onlyOnRamp(remoteChainSelector)
+    checkAllowList(originalSender)
+    whenHealthy
+    returns (bytes memory)
+  {
     bytes memory revertReason = s_revertReason;
     if (revertReason.length != 0) {
       assembly {
         revert(add(32, revertReason), mload(revertReason))
       }
     }
-    _consumeOnRampRateLimit(amount);
+    _consumeOutboundRateLimit(remoteChainSelector, amount);
     IBurnMintERC20(address(i_token)).burn(amount);
     emit Burned(msg.sender, amount);
     return s_sourceTokenData;
@@ -46,16 +55,16 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     bytes memory,
     address receiver,
     uint256 amount,
-    uint64,
+    uint64 remoteChainSelector,
     bytes memory
-  ) external virtual override whenHealthy onlyOffRamp {
+  ) external virtual override whenHealthy onlyOffRamp(remoteChainSelector) {
     bytes memory revertReason = s_revertReason;
     if (revertReason.length != 0) {
       assembly {
         revert(add(32, revertReason), mload(revertReason))
       }
     }
-    _consumeOffRampRateLimit(amount);
+    _consumeInboundRateLimit(remoteChainSelector, amount);
     IBurnMintERC20(address(i_token)).mint(receiver, amount);
     emit Minted(msg.sender, receiver, amount);
   }

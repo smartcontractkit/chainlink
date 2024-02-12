@@ -140,11 +140,11 @@ contract AggregateTokenLimiter_setRateLimiterConfig is AggregateTokenLimiterSetu
     assertEq(s_config.rate, bucket.rate);
     assertEq(s_config.capacity, bucket.capacity);
 
-    s_config = RateLimiter.Config({
-      isEnabled: !bucket.isEnabled,
-      rate: uint128(bucket.rate * 2),
-      capacity: bucket.capacity * 8
-    });
+    if (bucket.isEnabled) {
+      s_config = RateLimiter.Config({isEnabled: false, rate: 0, capacity: 0});
+    } else {
+      s_config = RateLimiter.Config({isEnabled: true, rate: 100, capacity: 200});
+    }
 
     vm.expectEmit();
     emit ConfigChanged(s_config);

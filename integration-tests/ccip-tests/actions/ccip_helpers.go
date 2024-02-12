@@ -515,6 +515,45 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 			}
 		}
 	}
+	if ccipModule.WrappedNative == common.HexToAddress("0x0") {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("wrapped native contract address is not provided in lane config")
+		}
+		weth9addr, err := cd.DeployWrappedNative()
+		if err != nil {
+			return fmt.Errorf("deploying wrapped native shouldn't fail %w", err)
+		}
+		aggregator, err := cd.DeployMockAggregator(18, WrappedNativeToUSD)
+		if err != nil {
+			return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
+		}
+		ccipModule.PriceAggregators[weth9addr.Hex()] = aggregator
+		err = ccipModule.ChainClient.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("waiting for deploying wrapped native shouldn't fail %w", err)
+		}
+		ccipModule.WrappedNative = *weth9addr
+	}
+
+	if ccipModule.Router == nil {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("router contract address is not provided in lane config")
+		}
+		ccipModule.Router, err = cd.DeployRouter(ccipModule.WrappedNative, *ccipModule.ARMContract)
+		if err != nil {
+			return fmt.Errorf("deploying router shouldn't fail %w", err)
+		}
+		err = ccipModule.ChainClient.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("error in waiting for router deployment %w", err)
+		}
+	} else {
+		r, err := cd.NewRouter(ccipModule.Router.EthAddress)
+		if err != nil {
+			return fmt.Errorf("getting new router contract shouldn't fail %w", err)
+		}
+		ccipModule.Router = r
+	}
 	// if usdc deployment ,look for token transmitter and token messenger
 	if ccipModule.USDCDeployment {
 		// if existing deployment, no need to deploy new USDC contracts, it should be considered as a generic erc20 token
@@ -660,7 +699,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 				if ccipModule.TokenTransmitter == nil {
 					return fmt.Errorf("TokenTransmitter contract address is not provided")
 				}
-				usdcPool, err := cd.DeployUSDCTokenPoolContract(token.Address(), *ccipModule.TokenMessenger, *ccipModule.ARMContract)
+				usdcPool, err := cd.DeployUSDCTokenPoolContract(token.Address(), *ccipModule.TokenMessenger, *ccipModule.ARMContract, ccipModule.Router.Instance.Address())
 				if err != nil {
 					return fmt.Errorf("deploying bridge Token pool(usdc) shouldn't fail %w", err)
 				}
@@ -668,7 +707,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 				ccipModule.BridgeTokenPools = append(ccipModule.BridgeTokenPools, usdcPool)
 			} else {
 				// deploy lock release token pool in case of non-usdc deployment
-				btp, err := cd.DeployLockReleaseTokenPoolContract(token.Address(), *ccipModule.ARMContract)
+				btp, err := cd.DeployLockReleaseTokenPoolContract(token.Address(), *ccipModule.ARMContract, ccipModule.Router.Instance.Address())
 				if err != nil {
 					return fmt.Errorf("deploying bridge Token pool(lock&release) shouldn't fail %w", err)
 				}
@@ -692,45 +731,6 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		ccipModule.BridgeTokenPools = pools
 	}
 
-	if ccipModule.WrappedNative == common.HexToAddress("0x0") {
-		if ccipModule.ExistingDeployment {
-			return fmt.Errorf("wrapped native contract address is not provided in lane config")
-		}
-		weth9addr, err := cd.DeployWrappedNative()
-		if err != nil {
-			return fmt.Errorf("deploying wrapped native shouldn't fail %w", err)
-		}
-		aggregator, err := cd.DeployMockAggregator(18, WrappedNativeToUSD)
-		if err != nil {
-			return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
-		}
-		ccipModule.PriceAggregators[weth9addr.Hex()] = aggregator
-		err = ccipModule.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("waiting for deploying wrapped native shouldn't fail %w", err)
-		}
-		ccipModule.WrappedNative = *weth9addr
-	}
-
-	if ccipModule.Router == nil {
-		if ccipModule.ExistingDeployment {
-			return fmt.Errorf("router contract address is not provided in lane config")
-		}
-		ccipModule.Router, err = cd.DeployRouter(ccipModule.WrappedNative, *ccipModule.ARMContract)
-		if err != nil {
-			return fmt.Errorf("deploying router shouldn't fail %w", err)
-		}
-		err = ccipModule.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("error in waiting for router deployment %w", err)
-		}
-	} else {
-		r, err := cd.NewRouter(ccipModule.Router.EthAddress)
-		if err != nil {
-			return fmt.Errorf("getting new router contract shouldn't fail %w", err)
-		}
-		ccipModule.Router = r
-	}
 	if ccipModule.PriceRegistry == nil {
 		if ccipModule.ExistingDeployment {
 			return fmt.Errorf("price registry contract address is not provided in lane config")
@@ -847,7 +847,7 @@ func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, 
 		ChainClient: chainClient,
 		Deployer:    cd,
 		RateLimiterConfig: contracts.RateLimiterConfig{
-			Rate:     contracts.HundredCoins,
+			Rate:     contracts.FiftyCoins,
 			Capacity: contracts.HundredCoins,
 		},
 		ExistingDeployment: existingDeployment,
@@ -865,6 +865,7 @@ type SourceCCIPModule struct {
 	Sender                     common.Address
 	TransferAmount             []*big.Int
 	DestinationChainId         uint64
+	DestChainSelector          uint64
 	DestNetworkName            string
 	OnRamp                     *contracts.OnRamp
 	SrcStartBlock              uint64
@@ -954,10 +955,6 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	if err != nil {
 		return fmt.Errorf("getting chain selector shouldn't fail %w", err)
 	}
-	destChainSelector, err := chainselectors.SelectorFromChainId(sourceCCIP.DestinationChainId)
-	if err != nil {
-		return fmt.Errorf("getting chain selector shouldn't fail %w", err)
-	}
 
 	if sourceCCIP.OnRamp == nil {
 		if sourceCCIP.Common.ExistingDeployment {
@@ -972,7 +969,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		}
 		sourceCCIP.OnRamp, err = contractDeployer.DeployOnRamp(
 			sourceChainSelector,
-			destChainSelector,
+			sourceCCIP.DestChainSelector,
 			tokensAndPools,
 			*sourceCCIP.Common.ARMContract,
 			sourceCCIP.Common.Router.EthAddress,
@@ -1008,7 +1005,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		}
 
 		// update source Router with OnRamp address
-		err = sourceCCIP.Common.Router.SetOnRamp(destChainSelector, sourceCCIP.OnRamp.EthAddress)
+		err = sourceCCIP.Common.Router.SetOnRamp(sourceCCIP.DestChainSelector, sourceCCIP.OnRamp.EthAddress)
 		if err != nil {
 			return fmt.Errorf("setting onramp on the router shouldn't fail %w", err)
 		}
@@ -1018,24 +1015,6 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		if err != nil {
 			return err
 		}
-
-		err = sourceCCIP.Common.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("waiting for events shouldn't fail %w", err)
-		}
-
-		// update native pool with onRamp address
-		for _, pool := range sourceCCIP.Common.BridgeTokenPools {
-			err = pool.SetOnRamp(sourceCCIP.OnRamp.EthAddress)
-			if err != nil {
-				return fmt.Errorf("setting OnRamp on the bridge token pool shouldn't fail %w", err)
-			}
-		}
-
-		err = sourceCCIP.Common.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("waiting for events shouldn't fail %w", err)
-		}
 	} else {
 		sourceCCIP.OnRamp, err = contractDeployer.NewOnRamp(sourceCCIP.OnRamp.EthAddress)
 		if err != nil {
@@ -1043,6 +1022,17 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		}
 	}
 
+	// set remote chain on the pools
+	for _, pool := range sourceCCIP.Common.BridgeTokenPools {
+		err = pool.SetRemoteChainOnPool(sourceCCIP.DestChainSelector)
+		if err != nil {
+			return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+		}
+	}
+	err = sourceCCIP.Common.ChainClient.WaitForEvents()
+	if err != nil {
+		return fmt.Errorf("waiting for events shouldn't fail %w", err)
+	}
 	return nil
 }
 
@@ -1302,10 +1292,16 @@ func DefaultSourceCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMCl
 	if len(transferAmount) > 0 && len(transferAmount) > len(cmn.BridgeTokens) {
 		transferAmount = transferAmount[:len(cmn.BridgeTokens)]
 	}
+
+	destChainSelector, err := chainselectors.SelectorFromChainId(destChainId)
+	if err != nil {
+		return nil, fmt.Errorf("failed getting the chain selector: %w", err)
+	}
 	source := &SourceCCIPModule{
 		Common:                   cmn,
 		TransferAmount:           transferAmount,
 		DestinationChainId:       destChainId,
+		DestChainSelector:        destChainSelector,
 		DestNetworkName:          destChain,
 		Sender:                   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
 		CCIPSendRequestedWatcher: &sync.Map{},
@@ -1317,6 +1313,7 @@ func DefaultSourceCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMCl
 type DestCCIPModule struct {
 	Common                  *CCIPCommon
 	SourceChainId           uint64
+	SourceChainSelector     uint64
 	SourceNetworkName       string
 	CommitStore             *contracts.CommitStore
 	ReceiverDapp            *contracts.ReceiverDapp
@@ -1374,10 +1371,6 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	contractDeployer := destCCIP.Common.Deployer
 	log.Info().Msg("Deploying destination chain specific contracts")
 	destCCIP.LoadContracts(lane)
-	sourceChainSelector, err := chainselectors.SelectorFromChainId(destCCIP.SourceChainId)
-	if err != nil {
-		return fmt.Errorf("failed to get chain selector for source chain id %d: %w", destCCIP.SourceChainId, err)
-	}
 	destChainSelector, err := chainselectors.SelectorFromChainId(destCCIP.Common.ChainClient.GetChainID().Uint64())
 	if err != nil {
 		return fmt.Errorf("failed to get chain selector for destination chain id %d: %w", destCCIP.Common.ChainClient.GetChainID().Uint64(), err)
@@ -1389,7 +1382,9 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		}
 		// commitStore responsible for validating the transfer message
 		destCCIP.CommitStore, err = contractDeployer.DeployCommitStore(
-			sourceChainSelector, destChainSelector, sourceCCIP.OnRamp.EthAddress,
+			destCCIP.SourceChainSelector,
+			destChainSelector,
+			sourceCCIP.OnRamp.EthAddress,
 			*destCCIP.Common.ARMContract,
 		)
 		if err != nil {
@@ -1421,8 +1416,10 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			return fmt.Errorf("offramp address not provided in lane config")
 		}
 		destCCIP.OffRamp, err = contractDeployer.DeployOffRamp(
-			sourceChainSelector, destChainSelector,
-			destCCIP.CommitStore.EthAddress, sourceCCIP.OnRamp.EthAddress,
+			destCCIP.SourceChainSelector,
+			destChainSelector,
+			destCCIP.CommitStore.EthAddress,
+			sourceCCIP.OnRamp.EthAddress,
 			[]common.Address{}, []common.Address{}, destCCIP.Common.RateLimiterConfig, *destCCIP.Common.ARMContract)
 		if err != nil {
 			return fmt.Errorf("deploying offramp shouldn't fail %w", err)
@@ -1433,7 +1430,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		}
 
 		// apply offramp updates
-		_, err = destCCIP.Common.Router.AddOffRamp(destCCIP.OffRamp.EthAddress, sourceChainSelector)
+		_, err = destCCIP.Common.Router.AddOffRamp(destCCIP.OffRamp.EthAddress, destCCIP.SourceChainSelector)
 		if err != nil {
 			return fmt.Errorf("setting offramp as fee updater shouldn't fail %w", err)
 		}
@@ -1447,14 +1444,6 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			return fmt.Errorf("waiting for events on destination contract shouldn't fail %w", err)
 		}
 
-		// update pools with offRamp id
-		for _, pool := range destCCIP.Common.BridgeTokenPools {
-			err = pool.SetOffRamp(destCCIP.OffRamp.EthAddress)
-			if err != nil {
-				return fmt.Errorf("setting offramp on the bridge token pool shouldn't fail %w", err)
-			}
-		}
-
 		err = destCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
 			return fmt.Errorf("waiting for events on destination contract shouldn't fail %w", err)
@@ -1463,6 +1452,14 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		destCCIP.OffRamp, err = contractDeployer.NewOffRamp(destCCIP.OffRamp.EthAddress)
 		if err != nil {
 			return fmt.Errorf("getting new offramp shouldn't fail %w", err)
+		}
+	}
+
+	// update pools with remote chain
+	for _, pool := range destCCIP.Common.BridgeTokenPools {
+		err = pool.SetRemoteChainOnPool(destCCIP.SourceChainSelector)
+		if err != nil {
+			return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
 		}
 	}
 	if destCCIP.ReceiverDapp == nil {
@@ -1773,9 +1770,15 @@ func DefaultDestinationCCIPModule(logger zerolog.Logger, chainClient blockchain.
 	if err != nil {
 		return nil, err
 	}
+
+	sourceChainSelector, err := chainselectors.SelectorFromChainId(sourceChainId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain selector for source chain id %d: %w", sourceChainId, err)
+	}
 	return &DestCCIPModule{
 		Common:                  cmn,
 		SourceChainId:           sourceChainId,
+		SourceChainSelector:     sourceChainSelector,
 		SourceNetworkName:       sourceChain,
 		NextSeqNumToCommit:      atomic.NewUint64(1),
 		ReportBlessedWatcher:    &sync.Map{},

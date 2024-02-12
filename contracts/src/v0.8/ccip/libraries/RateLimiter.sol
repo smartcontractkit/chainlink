@@ -15,6 +15,9 @@ library RateLimiter {
   error TokenRateLimitReached(uint256 minWaitInSeconds, uint256 available, address tokenAddress);
   error AggregateValueMaxCapacityExceeded(uint256 capacity, uint256 requested);
   error AggregateValueRateLimitReached(uint256 minWaitInSeconds, uint256 available);
+  error InvalidRatelimitRate(Config rateLimiterConfig);
+  error DisabledNonZeroRateLimit(Config config);
+  error RateLimitMustBeDisabled();
 
   event TokensConsumed(uint256 tokens);
   event ConfigChanged(Config config);
@@ -112,6 +115,22 @@ library RateLimiter {
     s_bucket.rate = config.rate;
 
     emit ConfigChanged(config);
+  }
+
+  /// @notice Validates the token bucket config
+  function _validateTokenBucketConfig(Config memory config, bool mustBeDisabled) internal pure {
+    if (config.isEnabled) {
+      if (config.rate >= config.capacity || config.rate == 0) {
+        revert InvalidRatelimitRate(config);
+      }
+      if (mustBeDisabled) {
+        revert RateLimitMustBeDisabled();
+      }
+    } else {
+      if (config.rate != 0 || config.capacity != 0) {
+        revert DisabledNonZeroRateLimit(config);
+      }
+    }
   }
 
   /// @notice Calculate refilled tokens

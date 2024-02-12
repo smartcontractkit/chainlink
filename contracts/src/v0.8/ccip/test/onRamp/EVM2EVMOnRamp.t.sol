@@ -37,7 +37,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
       staticConfig,
       dynamicConfig,
       tokensAndPools,
-      rateLimiterConfig(),
+      getOutboundRateLimiterConfig(),
       s_feeTokenConfigArgs,
       s_tokenTransferFeeConfigArgs,
       getNopsAndWeights()
@@ -478,7 +478,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     vm.expectRevert(
       abi.encodeWithSelector(
         RateLimiter.AggregateValueMaxCapacityExceeded.selector,
-        rateLimiterConfig().capacity,
+        getOutboundRateLimiterConfig().capacity,
         (message.tokenAmounts[0].amount * s_sourceTokenPrices[0]) / 1e18
       )
     );
@@ -549,10 +549,10 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
   function testInvalidChainSelectorReverts() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
-    uint64 wrongChainId = DEST_CHAIN_ID + 1;
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.InvalidChainSelector.selector, wrongChainId));
+    uint64 wrongChainSelector = DEST_CHAIN_ID + 1;
+    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.InvalidChainSelector.selector, wrongChainSelector));
 
-    s_onRamp.forwardFromRouter(wrongChainId, message, 1, OWNER);
+    s_onRamp.forwardFromRouter(wrongChainSelector, message, 1, OWNER);
   }
 
   function testSourceTokenDataTooLargeReverts() public {
@@ -562,7 +562,8 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     MaybeRevertingBurnMintTokenPool newPool = new MaybeRevertingBurnMintTokenPool(
       BurnMintERC677(sourceETH),
       new address[](0),
-      address(s_mockARM)
+      address(s_mockARM),
+      address(s_sourceRouter)
     );
     // Allow Pool to burn/mint Eth
     BurnMintERC677(sourceETH).grantMintAndBurnRoles(address(newPool));
@@ -591,9 +592,14 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     s_onRamp.applyPoolUpdates(removePool, addPool);
 
     // Whitelist OnRamp in TokenPool
-    TokenPool.RampUpdate[] memory onRamps = new TokenPool.RampUpdate[](1);
-    onRamps[0] = TokenPool.RampUpdate({ramp: address(s_onRamp), allowed: true, rateLimiterConfig: rateLimiterConfig()});
-    newPool.applyRampUpdates(onRamps, new TokenPool.RampUpdate[](0));
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
+    chainUpdates[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: DEST_CHAIN_ID,
+      allowed: true,
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+    });
+    newPool.applyChainUpdates(chainUpdates);
 
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(address(sourceETH), 1000);
 
@@ -627,7 +633,7 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
       }),
       generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
       getTokensAndPools(s_sourceTokens, getCastedSourcePools()),
-      rateLimiterConfig(),
+      getOutboundRateLimiterConfig(),
       s_feeTokenConfigArgs,
       s_tokenTransferFeeConfigArgs,
       getNopsAndWeights()
@@ -637,10 +643,6 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
     s_metadataHash = keccak256(
       abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_ID, DEST_CHAIN_ID, address(s_onRamp))
     );
-
-    TokenPool.RampUpdate[] memory onRamps = new TokenPool.RampUpdate[](1);
-    onRamps[0] = TokenPool.RampUpdate({ramp: address(s_onRamp), allowed: true, rateLimiterConfig: rateLimiterConfig()});
-    LockReleaseTokenPool(address(s_sourcePools[0])).applyRampUpdates(onRamps, new TokenPool.RampUpdate[](0));
 
     changePrank(address(s_sourceRouter));
   }
@@ -714,12 +716,24 @@ contract EVM2EVMOnRamp_getFeeSetup is EVM2EVMOnRampSetup {
     // Add additional pool addresses for test tokens to mark them as supported
     Internal.PoolUpdate[] memory newRamps = new Internal.PoolUpdate[](2);
     address wrappedNativePool = address(
-      new LockReleaseTokenPool(IERC20(s_sourceRouter.getWrappedNative()), new address[](0), address(s_mockARM), true)
+      new LockReleaseTokenPool(
+        IERC20(s_sourceRouter.getWrappedNative()),
+        new address[](0),
+        address(s_mockARM),
+        true,
+        address(s_sourceRouter)
+      )
     );
     newRamps[0] = Internal.PoolUpdate({token: s_sourceRouter.getWrappedNative(), pool: wrappedNativePool});
 
     address customPool = address(
-      new LockReleaseTokenPool(IERC20(CUSTOM_TOKEN), new address[](0), address(s_mockARM), true)
+      new LockReleaseTokenPool(
+        IERC20(CUSTOM_TOKEN),
+        new address[](0),
+        address(s_mockARM),
+        true,
+        address(s_sourceRouter)
+      )
     );
     newRamps[1] = Internal.PoolUpdate({token: CUSTOM_TOKEN, pool: customPool});
     s_onRamp.applyPoolUpdates(new Internal.PoolUpdate[](0), newRamps);

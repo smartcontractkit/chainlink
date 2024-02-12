@@ -303,8 +303,8 @@ func TestIntegration_CCIP(t *testing.T) {
 				// enable the newly deployed contracts
 				newConfigBlock := ccipTH.Dest.Chain.Blockchain().CurrentBlock().Number.Int64()
 				ccipTH.EnableOnRamp(t)
-				ccipTH.EnableOffRamp(t)
 				ccipTH.EnableCommitStore(t)
+				ccipTH.EnableOffRamp(t)
 				srcStartBlock := ccipTH.Source.Chain.Blockchain().CurrentBlock().Number.Uint64()
 
 				// send a number of requests, the requests should not be delivered yet as the previous contracts are not configured

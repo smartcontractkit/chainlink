@@ -19,10 +19,18 @@ abstract contract BurnMintTokenPoolAbstract is TokenPool {
     address originalSender,
     bytes calldata,
     uint256 amount,
-    uint64,
+    uint64 remoteChainSelector,
     bytes calldata
-  ) external virtual override onlyOnRamp checkAllowList(originalSender) whenHealthy returns (bytes memory) {
-    _consumeOnRampRateLimit(amount);
+  )
+    external
+    virtual
+    override
+    onlyOnRamp(remoteChainSelector)
+    checkAllowList(originalSender)
+    whenHealthy
+    returns (bytes memory)
+  {
+    _consumeOutboundRateLimit(remoteChainSelector, amount);
     _burn(amount);
     emit Burned(msg.sender, amount);
     return "";
@@ -37,10 +45,10 @@ abstract contract BurnMintTokenPoolAbstract is TokenPool {
     bytes memory,
     address receiver,
     uint256 amount,
-    uint64,
+    uint64 remoteChainSelector,
     bytes memory
-  ) external virtual override whenHealthy onlyOffRamp {
-    _consumeOffRampRateLimit(amount);
+  ) external virtual override whenHealthy onlyOffRamp(remoteChainSelector) {
+    _consumeInboundRateLimit(remoteChainSelector, amount);
     IBurnMintERC20(address(i_token)).mint(receiver, amount);
     emit Minted(msg.sender, receiver, amount);
   }

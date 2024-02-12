@@ -54,28 +54,40 @@ contract USDCTokenPoolSetup is BaseTest {
     s_mockUSDCTransmitter = new MockUSDCTransmitter(0, DEST_DOMAIN_IDENTIFIER);
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
 
-    s_usdcTokenPool = new USDCTokenPoolHelper(s_mockUSDC, s_token, new address[](0), address(s_mockARM));
+    s_usdcTokenPool = new USDCTokenPoolHelper(
+      s_mockUSDC,
+      s_token,
+      new address[](0),
+      address(s_mockARM),
+      address(s_router)
+    );
     linkToken.grantMintAndBurnRoles(address(s_mockUSDC));
 
     s_allowedList.push(USER_1);
-    s_usdcTokenPoolWithAllowList = new USDCTokenPoolHelper(s_mockUSDC, s_token, s_allowedList, address(s_mockARM));
+    s_usdcTokenPoolWithAllowList = new USDCTokenPoolHelper(
+      s_mockUSDC,
+      s_token,
+      s_allowedList,
+      address(s_mockARM),
+      address(s_router)
+    );
 
-    TokenPool.RampUpdate[] memory onRamps = new TokenPool.RampUpdate[](1);
-    onRamps[0] = TokenPool.RampUpdate({
-      ramp: s_routerAllowedOnRamp,
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](2);
+    chainUpdates[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: SOURCE_CHAIN_ID,
       allowed: true,
-      rateLimiterConfig: rateLimiterConfig()
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+    });
+    chainUpdates[1] = TokenPool.ChainUpdate({
+      remoteChainSelector: DEST_CHAIN_ID,
+      allowed: true,
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
     });
 
-    TokenPool.RampUpdate[] memory offRamps = new TokenPool.RampUpdate[](1);
-    offRamps[0] = TokenPool.RampUpdate({
-      ramp: s_routerAllowedOffRamp,
-      allowed: true,
-      rateLimiterConfig: rateLimiterConfig()
-    });
-
-    s_usdcTokenPool.applyRampUpdates(onRamps, offRamps);
-    s_usdcTokenPoolWithAllowList.applyRampUpdates(onRamps, offRamps);
+    s_usdcTokenPool.applyChainUpdates(chainUpdates);
+    s_usdcTokenPoolWithAllowList.applyChainUpdates(chainUpdates);
 
     USDCTokenPool.DomainUpdate[] memory domains = new USDCTokenPool.DomainUpdate[](1);
     domains[0] = USDCTokenPool.DomainUpdate({
@@ -173,7 +185,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
   function testFuzz_LockOrBurnSuccess(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(destinationReceiver != bytes32(0));
-    amount = bound(amount, 1, rateLimiterConfig().capacity);
+    amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
     s_token.transfer(address(s_usdcTokenPool), amount);
     changePrank(s_routerAllowedOnRamp);
 
@@ -210,7 +222,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
   function testFuzz_LockOrBurnWithAllowListSuccess(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(destinationReceiver != bytes32(0));
-    amount = bound(amount, 1, rateLimiterConfig().capacity);
+    amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
     s_token.transfer(address(s_usdcTokenPoolWithAllowList), amount);
     changePrank(s_routerAllowedOnRamp);
 
@@ -245,20 +257,34 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
   // Reverts
   function testUnknownDomainReverts() public {
+    uint64 wrongDomain = DEST_CHAIN_ID + 1;
+    // We need to setup the wrong chainSelector so it reaches the domain check
+    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
+    onRampUpdates[0] = Router.OnRamp({destChainSelector: wrongDomain, onRamp: s_routerAllowedOnRamp});
+    s_router.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), new Router.OffRamp[](0));
+
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
+    chainUpdates[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: wrongDomain,
+      allowed: true,
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+    });
+
+    s_usdcTokenPool.applyChainUpdates(chainUpdates);
+
     uint256 amount = 1000;
     changePrank(s_routerAllowedOnRamp);
     deal(address(s_token), s_routerAllowedOnRamp, amount);
     s_token.approve(address(s_usdcTokenPool), amount);
-
-    uint64 wrongDomain = DEST_CHAIN_ID + 1;
 
     vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.UnknownDomain.selector, wrongDomain));
 
     s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(address(0)), amount, wrongDomain, bytes(""));
   }
 
-  function testPermissionsErrorReverts() public {
-    vm.expectRevert(TokenPool.PermissionsError.selector);
+  function testCallerIsNotARampOnRouterReverts() public {
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.CallerIsNotARampOnRouter.selector, OWNER));
 
     s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(address(0)), 0, DEST_CHAIN_ID, bytes(""));
   }
@@ -276,7 +302,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
   event Minted(address indexed sender, address indexed recipient, uint256 amount);
 
   function testFuzz_ReleaseOrMintSuccess(address recipient, uint256 amount) public {
-    amount = bound(amount, 0, rateLimiterConfig().capacity);
+    amount = bound(amount, 0, getInboundRateLimiterConfig().capacity);
 
     USDCMessage memory usdcMessage = USDCMessage({
       version: 0,
@@ -367,7 +393,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
   }
 
   function testTokenMaxCapacityExceededReverts() public {
-    uint256 capacity = rateLimiterConfig().capacity;
+    uint256 capacity = getInboundRateLimiterConfig().capacity;
     uint256 amount = 10 * capacity;
     address recipient = address(1);
     changePrank(s_routerAllowedOffRamp);

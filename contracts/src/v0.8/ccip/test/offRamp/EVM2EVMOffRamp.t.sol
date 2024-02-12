@@ -39,7 +39,7 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
       emit PoolAdded(address(sourceTokens[i]), address(castedPools[i]));
     }
 
-    s_offRamp = new EVM2EVMOffRampHelper(staticConfig, sourceTokens, castedPools, rateLimiterConfig());
+    s_offRamp = new EVM2EVMOffRampHelper(staticConfig, sourceTokens, castedPools, getInboundRateLimiterConfig());
 
     s_offRamp.setOCR2Config(
       s_valid_signers,
@@ -96,14 +96,20 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
       }),
       wrongTokens,
       pools,
-      rateLimiterConfig()
+      getInboundRateLimiterConfig()
     );
   }
 
   function testZeroOnRampAddressReverts() public {
     IPool[] memory pools = new IPool[](2);
     pools[0] = IPool(s_sourcePools[0]);
-    pools[1] = new LockReleaseTokenPool(IERC20(s_sourceTokens[1]), new address[](0), address(s_mockARM), true);
+    pools[1] = new LockReleaseTokenPool(
+      IERC20(s_sourceTokens[1]),
+      new address[](0),
+      address(s_mockARM),
+      true,
+      address(s_destRouter)
+    );
 
     vm.expectRevert(EVM2EVMOffRamp.ZeroAddressNotAllowed.selector);
 
@@ -140,7 +146,7 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
       }),
       getCastedSourceTokens(),
       getCastedDestinationPools(),
-      rateLimiterConfig()
+      getInboundRateLimiterConfig()
     );
   }
 }
@@ -1301,7 +1307,9 @@ contract EVM2EVMOffRamp_applyPoolUpdates is EVM2EVMOffRampSetup {
     Internal.PoolUpdate[] memory adds = new Internal.PoolUpdate[](1);
     adds[0] = Internal.PoolUpdate({
       token: address(1),
-      pool: address(new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true))
+      pool: address(
+        new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true, address(s_destRouter))
+      )
     });
 
     vm.expectEmit();
@@ -1333,11 +1341,15 @@ contract EVM2EVMOffRamp_applyPoolUpdates is EVM2EVMOffRampSetup {
     Internal.PoolUpdate[] memory adds = new Internal.PoolUpdate[](2);
     adds[0] = Internal.PoolUpdate({
       token: address(1),
-      pool: address(new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true))
+      pool: address(
+        new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true, address(s_destRouter))
+      )
     });
     adds[1] = Internal.PoolUpdate({
       token: address(1),
-      pool: address(new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true))
+      pool: address(
+        new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true, address(s_destRouter))
+      )
     });
 
     vm.expectRevert(EVM2EVMOffRamp.PoolAlreadyAdded.selector);
@@ -1364,7 +1376,9 @@ contract EVM2EVMOffRamp_applyPoolUpdates is EVM2EVMOffRampSetup {
     Internal.PoolUpdate[] memory removes = new Internal.PoolUpdate[](1);
     removes[0] = Internal.PoolUpdate({
       token: address(1),
-      pool: address(new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true))
+      pool: address(
+        new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true, address(s_destRouter))
+      )
     });
 
     vm.expectRevert(EVM2EVMOffRamp.PoolDoesNotExist.selector);
@@ -1376,14 +1390,24 @@ contract EVM2EVMOffRamp_applyPoolUpdates is EVM2EVMOffRampSetup {
     Internal.PoolUpdate[] memory adds = new Internal.PoolUpdate[](1);
     adds[0] = Internal.PoolUpdate({
       token: address(1),
-      pool: address(new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true))
+      pool: address(
+        new LockReleaseTokenPool(IERC20(address(1)), new address[](0), address(s_mockARM), true, address(s_destRouter))
+      )
     });
     s_offRamp.applyPoolUpdates(new Internal.PoolUpdate[](0), adds);
 
     Internal.PoolUpdate[] memory removes = new Internal.PoolUpdate[](1);
     removes[0] = Internal.PoolUpdate({
       token: address(1),
-      pool: address(new LockReleaseTokenPool(IERC20(address(1000)), new address[](0), address(s_mockARM), true))
+      pool: address(
+        new LockReleaseTokenPool(
+          IERC20(address(1000)),
+          new address[](0),
+          address(s_mockARM),
+          true,
+          address(s_destRouter)
+        )
+      )
     });
 
     vm.expectRevert(EVM2EVMOffRamp.TokenPoolMismatch.selector);

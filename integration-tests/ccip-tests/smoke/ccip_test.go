@@ -141,8 +141,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			require.NoError(t, err)
 			tc.lane.Logger.Info().Interface("rate limit", prevRLOnRamp).Msg("Initial OnRamp rate limiter state")
 
-			prevOnRampRLTokenPool, err := src.Common.BridgeTokenPools[0].PoolInterface.CurrentOnRampRateLimiterState(nil,
-				src.OnRamp.EthAddress)
+			prevOnRampRLTokenPool, err := src.Common.BridgeTokenPools[0].PoolInterface.GetCurrentOutboundRateLimiterState(nil, tc.lane.Source.DestinationChainId) // TODO RENS maybe?
 			require.NoError(t, err)
 			tc.lane.Logger.Info().
 				Interface("rate limit", prevOnRampRLTokenPool).
@@ -158,7 +157,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				require.GreaterOrEqual(t, rlOffRamp.Capacity.Cmp(prevRLOnRamp.Capacity), 0, "OffRamp Aggregated capacity should be greater than or equal to OnRamp Aggregated capacity")
 			}
 
-			prevOffRampRLTokenPool, err := tc.lane.Dest.Common.BridgeTokenPools[0].PoolInterface.CurrentOffRampRateLimiterState(nil, tc.lane.Dest.OffRamp.EthAddress)
+			prevOffRampRLTokenPool, err := tc.lane.Dest.Common.BridgeTokenPools[0].PoolInterface.GetCurrentInboundRateLimiterState(nil, tc.lane.Dest.SourceChainId) // TODO RENS maybe?
 			require.NoError(t, err)
 			tc.lane.Logger.Info().
 				Interface("rate limit", prevOffRampRLTokenPool).
@@ -183,7 +182,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 					require.NoError(t, src.Common.ChainClient.WaitForEvents(), "waiting for events")
 				}
 				if TokenPoolRateLimitChanged {
-					require.NoError(t, src.Common.BridgeTokenPools[0].SetOnRampRateLimit(src.OnRamp.EthAddress,
+					require.NoError(t, src.Common.BridgeTokenPools[0].SetRemoteChainRateLimits(src.DestChainSelector,
 						token_pool.RateLimiterConfig{
 							Capacity:  prevOnRampRLTokenPool.Capacity,
 							IsEnabled: prevOnRampRLTokenPool.IsEnabled,
@@ -289,8 +288,8 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				if prevOnRampRLTokenPool.Capacity.Cmp(TokenPoolRateLimitCapacity) != 0 ||
 					prevOnRampRLTokenPool.Rate.Cmp(TokenPoolRateLimitRate) != 0 ||
 					!prevOnRampRLTokenPool.IsEnabled {
-					require.NoError(t, src.Common.BridgeTokenPools[0].SetOnRampRateLimit(
-						src.OnRamp.EthAddress,
+					require.NoError(t, src.Common.BridgeTokenPools[0].SetRemoteChainRateLimits(
+						src.DestChainSelector,
 						token_pool.RateLimiterConfig{
 							IsEnabled: true,
 							Capacity:  TokenPoolRateLimitCapacity,
@@ -305,8 +304,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				TokenPoolRateLimitRate = prevOnRampRLTokenPool.Rate
 			}
 
-			rlOnPool, err := src.Common.BridgeTokenPools[0].PoolInterface.CurrentOnRampRateLimiterState(nil,
-				src.OnRamp.EthAddress)
+			rlOnPool, err := src.Common.BridgeTokenPools[0].PoolInterface.GetCurrentOutboundRateLimiterState(nil, src.DestChainSelector)
 			require.NoError(t, err)
 			require.True(t, rlOnPool.IsEnabled, "Token Pool rate limiter should be enabled")
 

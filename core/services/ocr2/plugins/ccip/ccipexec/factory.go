@@ -85,6 +85,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 			destWrappedNative:        destWrappedNative,
 			onchainConfig:            rf.config.offRampReader.OnchainConfig(),
 			offRampReader:            rf.config.offRampReader,
+			tokenPoolBatchedReader:   rf.config.tokenPoolBatchedReader,
 			inflightReports:          newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
 			snoozedRoots:             cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
 			metricsCollector:         rf.config.metricsCollector,

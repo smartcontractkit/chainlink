@@ -23,8 +23,9 @@ contract BurnFromMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   constructor(
     IBurnMintERC20 token,
     address[] memory allowlist,
-    address armProxy
-  ) TokenPool(token, allowlist, armProxy) {
+    address armProxy,
+    address router
+  ) TokenPool(token, allowlist, armProxy, router) {
     // Some tokens allow burning from the sender without approval, but not all do.
     // To be safe, we approve the pool to burn from the pool.
     token.safeIncreaseAllowance(address(this), type(uint256).max);

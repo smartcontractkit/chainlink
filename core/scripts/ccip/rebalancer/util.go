@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	router2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l1_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l2_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
@@ -57,8 +58,11 @@ func deployUniverse(
 	// required by the token pool.
 	l1Arm, l1ArmProxy := deployArm(l1Transactor, l1Client, l1ChainID)
 
+	l1RouterAddress, _, _, err := router2.DeployRouter(l1Transactor, l1Client, common.Address{}, l1ArmProxy.Address())
+	helpers.PanicErr(err)
+
 	// deploy token pool targeting l1TokenAddress
-	l1TokenPool, l1Rebalancer := deployTokenPoolAndRebalancer(l1Transactor, l1Client, l1TokenAddress, l1ArmProxy.Address(), l1ChainID)
+	l1TokenPool, l1Rebalancer := deployTokenPoolAndRebalancer(l1Transactor, l1Client, l1TokenAddress, l1ArmProxy.Address(), l1ChainID, l1RouterAddress)
 
 	// deploy the L1 bridge adapter to point to the token address
 	_, tx, _, err := arbitrum_l1_bridge_adapter.DeployArbitrumL1BridgeAdapter(
@@ -75,8 +79,11 @@ func deployUniverse(
 	// required by the token pool.
 	l2Arm, l2ArmProxy := deployArm(l2Transactor, l2Client, l2ChainID)
 
+	l2RouterAddress, _, _, err := router2.DeployRouter(l2Transactor, l2Client, common.Address{}, l2ArmProxy.Address())
+	helpers.PanicErr(err)
+
 	// deploy token pool targeting l2TokenAddress
-	l2TokenPool, l2Rebalancer := deployTokenPoolAndRebalancer(l2Transactor, l2Client, l2TokenAddress, l2ArmProxy.Address(), l2ChainID)
+	l2TokenPool, l2Rebalancer := deployTokenPoolAndRebalancer(l2Transactor, l2Client, l2TokenAddress, l2ArmProxy.Address(), l2ChainID, l2RouterAddress)
 
 	// deploy the L2 bridge adapter to point to the token address
 	_, tx, _, err = arbitrum_l2_bridge_adapter.DeployArbitrumL2BridgeAdapter(
@@ -179,6 +186,7 @@ func deployTokenPoolAndRebalancer(
 	tokenAddress,
 	armProxyAddress common.Address,
 	chainID uint64,
+	router common.Address,
 ) (*lock_release_token_pool.LockReleaseTokenPool, *rebalancer.Rebalancer) {
 	_, tx, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
 		transactor,
@@ -187,6 +195,7 @@ func deployTokenPoolAndRebalancer(
 		[]common.Address{},
 		armProxyAddress,
 		true,
+		router,
 	)
 	helpers.PanicErr(err)
 	tokenPoolAddress := helpers.ConfirmContractDeployed(context.Background(), client, tx, int64(chainID))

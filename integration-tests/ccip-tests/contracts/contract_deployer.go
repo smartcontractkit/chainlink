@@ -22,13 +22,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
@@ -303,7 +304,7 @@ func (e *CCIPContractsDeployer) NewUSDCTokenPoolContract(addr common.Address) (
 	}, err
 }
 
-func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, tokenMessenger, armProxy common.Address) (
+func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, tokenMessenger, armProxy common.Address, router common.Address) (
 	*TokenPool,
 	error,
 ) {
@@ -319,7 +320,9 @@ func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, to
 			tokenMessenger,
 			token,
 			[]common.Address{},
-			armProxy)
+			armProxy,
+			router,
+		)
 	})
 
 	if err != nil {
@@ -328,7 +331,7 @@ func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, to
 	return e.NewUSDCTokenPoolContract(*address)
 }
 
-func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr string, armProxy common.Address) (
+func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr string, armProxy common.Address, router common.Address) (
 	*TokenPool,
 	error,
 ) {
@@ -344,7 +347,8 @@ func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr str
 			token,
 			[]common.Address{},
 			armProxy,
-			true)
+			true,
+			router)
 	})
 
 	if err != nil {
@@ -649,7 +653,7 @@ func (e *CCIPContractsDeployer) DeployOffRamp(sourceChainSelector, destChainSele
 				ChainSelector:       destChainSelector,
 				SourceChainSelector: sourceChainSelector,
 				OnRamp:              onRamp,
-				PrevOffRamp:         common.HexToAddress(""),
+				PrevOffRamp:         common.Address{},
 				ArmProxy:            armProxy,
 			},
 			sourceToken,

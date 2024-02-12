@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/mock_l2_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
@@ -650,9 +651,13 @@ func deployContracts(
 		require.NoError(t, err, "failed to deploy ARMProxyContract contract")
 		backend.Commit()
 
+		routerAddress, _, _, err := router.DeployRouter(owner, backend, wethAddress, armProxyAddress)
+		require.NoError(t, err, "failed to deploy Router contract")
+		backend.Commit()
+
 		// deploy lock/release pool targeting the weth9 contract
 		lockReleasePoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
-			owner, backend, wethAddress, []common.Address{}, armProxyAddress, true)
+			owner, backend, wethAddress, []common.Address{}, armProxyAddress, true, routerAddress)
 		require.NoError(t, err, "failed to deploy LockReleaseTokenPool contract")
 		backend.Commit()
 		lockReleasePool, err := lock_release_token_pool.NewLockReleaseTokenPool(lockReleasePoolAddress, backend)

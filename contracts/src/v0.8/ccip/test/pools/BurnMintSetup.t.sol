@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "../BaseTest.t.sol";
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
+import {Router} from "../../Router.sol";
+import {RouterSetup} from "../router/RouterSetup.t.sol";
 
-contract BurnMintSetup is BaseTest {
+contract BurnMintSetup is RouterSetup {
   event Transfer(address indexed from, address indexed to, uint256 value);
   event TokensConsumed(uint256 tokens);
   event Burned(address indexed sender, uint256 amount);
@@ -16,21 +17,26 @@ contract BurnMintSetup is BaseTest {
   address internal s_burnMintOnRamp = makeAddr("burn_mint_onRamp");
 
   function setUp() public virtual override {
-    BaseTest.setUp();
+    RouterSetup.setUp();
 
     s_burnMintERC677 = new BurnMintERC677("Chainlink Token", "LINK", 18, 0);
   }
 
-  function applyRampUpdates(address pool) internal {
-    TokenPool.RampUpdate[] memory offRamps = new TokenPool.RampUpdate[](1);
-    offRamps[0] = TokenPool.RampUpdate({
-      ramp: s_burnMintOffRamp,
+  function _applyChainUpdates(address pool) internal {
+    TokenPool.ChainUpdate[] memory chains = new TokenPool.ChainUpdate[](1);
+    chains[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: DEST_CHAIN_ID,
       allowed: true,
-      rateLimiterConfig: rateLimiterConfig()
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
     });
 
-    TokenPool.RampUpdate[] memory onRamps = new TokenPool.RampUpdate[](1);
-    onRamps[0] = TokenPool.RampUpdate({ramp: s_burnMintOnRamp, allowed: true, rateLimiterConfig: rateLimiterConfig()});
-    BurnMintTokenPool(pool).applyRampUpdates(onRamps, offRamps);
+    BurnMintTokenPool(pool).applyChainUpdates(chains);
+
+    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
+    onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_ID, onRamp: s_burnMintOnRamp});
+    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](1);
+    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: DEST_CHAIN_ID, offRamp: s_burnMintOffRamp});
+    s_sourceRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
 }

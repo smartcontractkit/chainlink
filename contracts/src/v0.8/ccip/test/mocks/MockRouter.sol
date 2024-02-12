@@ -104,8 +104,18 @@ contract MockCCIPRouter is IRouter, IRouterClient {
     return new address[](0);
   }
 
-  /// @notice Returns 0 as the fee is not suppoprted in this mock contract.
+  /// @notice Returns 0 as the fee is not supported in this mock contract.
   function getFee(uint64, Client.EVM2AnyMessage memory) external pure returns (uint256 fee) {
     return 0;
+  }
+
+  /// @notice Always returns address(1234567890)
+  function getOnRamp(uint64 /* destChainSelector */) external pure returns (address onRampAddress) {
+    return address(1234567890);
+  }
+
+  /// @notice Always returns true
+  function isOffRamp(uint64 /* sourceChainSelector */, address /* offRamp */) external pure returns (bool) {
+    return true;
   }
 }

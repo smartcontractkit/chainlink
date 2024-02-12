@@ -202,6 +202,10 @@ func NewEvmCall(abi AbiPackerUnpacker, methodName string, contractAddress common
 	}
 }
 
+func (c EvmCall) MethodName() string {
+	return c.methodName
+}
+
 type DataAndErr struct {
 	Outputs []any
 	Err     error

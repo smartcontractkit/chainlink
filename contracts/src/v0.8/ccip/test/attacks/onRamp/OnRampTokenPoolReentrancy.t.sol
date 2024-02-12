@@ -12,10 +12,10 @@ import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 /// @title OnRampTokenPoolReentrancy
 /// Attempts to perform a reentrancy exploit on Onramp with a malicious TokenPool
 contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
-  FacadeClient s_facadeClient;
-  ReentrantMaliciousTokenPool s_maliciousTokenPool;
-  IERC20 s_sourceToken;
-  IERC20 s_feeToken;
+  FacadeClient internal s_facadeClient;
+  ReentrantMaliciousTokenPool internal s_maliciousTokenPool;
+  IERC20 internal s_sourceToken;
+  IERC20 internal s_feeToken;
 
   function setUp() public virtual override {
     EVM2EVMOnRampSetup.setUp();
@@ -25,7 +25,12 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
 
     s_facadeClient = new FacadeClient(address(s_sourceRouter), DEST_CHAIN_ID, s_sourceToken, s_feeToken);
 
-    s_maliciousTokenPool = new ReentrantMaliciousTokenPool(address(s_facadeClient), s_sourceToken, address(s_mockARM));
+    s_maliciousTokenPool = new ReentrantMaliciousTokenPool(
+      address(s_facadeClient),
+      s_sourceToken,
+      address(s_mockARM),
+      address(s_sourceRouter)
+    );
 
     Internal.PoolUpdate[] memory removes = new Internal.PoolUpdate[](1);
     removes[0].token = address(s_sourceToken);

@@ -29,7 +29,7 @@ contract RebalancerSetup is RebalancerBaseTest {
     RebalancerBaseTest.setUp();
 
     s_bridgeAdapter = new MockL1BridgeAdapter(s_l1Token);
-    s_lockReleaseTokenPool = new LockReleaseTokenPool(s_l1Token, new address[](0), address(1), true);
+    s_lockReleaseTokenPool = new LockReleaseTokenPool(s_l1Token, new address[](0), address(1), true, address(123));
     s_rebalancer = new Rebalancer(s_l1Token, i_localChainSelector, s_lockReleaseTokenPool);
 
     s_lockReleaseTokenPool.setRebalancer(address(s_rebalancer));

@@ -12,10 +12,10 @@ contract BurnFromMintTokenPoolSetup is BurnMintSetup {
   function setUp() public virtual override {
     BurnMintSetup.setUp();
 
-    s_pool = new BurnFromMintTokenPool(s_burnMintERC677, new address[](0), address(s_mockARM));
+    s_pool = new BurnFromMintTokenPool(s_burnMintERC677, new address[](0), address(s_mockARM), address(s_sourceRouter));
     s_burnMintERC677.grantMintAndBurnRoles(address(s_pool));
 
-    applyRampUpdates(address(s_pool));
+    _applyChainUpdates(address(s_pool));
   }
 }
 
@@ -48,7 +48,7 @@ contract BurnFromMintTokenPool_lockOrBurn is BurnFromMintTokenPoolSetup {
     bytes4 expectedSignature = bytes4(keccak256("burnFrom(address,uint256)"));
     vm.expectCall(address(s_burnMintERC677), abi.encodeWithSelector(expectedSignature, address(s_pool), burnAmount));
 
-    s_pool.lockOrBurn(OWNER, bytes(""), burnAmount, 0, bytes(""));
+    s_pool.lockOrBurn(OWNER, bytes(""), burnAmount, DEST_CHAIN_ID, bytes(""));
 
     assertEq(s_burnMintERC677.balanceOf(address(s_pool)), 0);
   }
@@ -60,15 +60,14 @@ contract BurnFromMintTokenPool_lockOrBurn is BurnFromMintTokenPoolSetup {
     vm.startPrank(s_burnMintOnRamp);
 
     vm.expectRevert(EVM2EVMOnRamp.BadARMSignal.selector);
-    s_pool.lockOrBurn(OWNER, bytes(""), 1e5, 0, bytes(""));
+    s_pool.lockOrBurn(OWNER, bytes(""), 1e5, DEST_CHAIN_ID, bytes(""));
 
     assertEq(s_burnMintERC677.balanceOf(address(s_pool)), before);
   }
 
-  function testPermissionsErrorReverts() public {
-    vm.startPrank(STRANGER);
-
-    vm.expectRevert(TokenPool.PermissionsError.selector);
-    s_pool.lockOrBurn(OWNER, bytes(""), 1, 0, bytes(""));
+  function testChainNotAllowedReverts() public {
+    uint64 wrongChainSelector = 8838833;
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, wrongChainSelector));
+    s_pool.releaseOrMint(bytes(""), OWNER, 1, wrongChainSelector, bytes(""));
   }
 }

@@ -3,10 +3,9 @@ pragma solidity 0.8.19;
 
 import {Internal} from "../../libraries/Internal.sol";
 import {TokenSetup} from "../TokenSetup.t.sol";
-import {RouterSetup} from "../router/RouterSetup.t.sol";
 import {PriceRegistry} from "../../PriceRegistry.sol";
 
-contract PriceRegistrySetup is TokenSetup, RouterSetup {
+contract PriceRegistrySetup is TokenSetup {
   uint112 internal constant USD_PER_GAS = 1e6; // 0.001 gwei
   uint112 internal constant USD_PER_DATA_AVAILABILITY_GAS = 1e9; // 1 gwei
 
@@ -25,9 +24,8 @@ contract PriceRegistrySetup is TokenSetup, RouterSetup {
   address[] internal s_destFeeTokens;
   uint224[] internal s_destTokenPrices;
 
-  function setUp() public virtual override(TokenSetup, RouterSetup) {
+  function setUp() public virtual override {
     TokenSetup.setUp();
-    RouterSetup.setUp();
 
     s_weth = s_sourceRouter.getWrappedNative();
 

@@ -13,7 +13,6 @@ import {Router} from "../../Router.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {TokenSetup} from "../TokenSetup.t.sol";
-import {RouterSetup} from "../router/RouterSetup.t.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
@@ -48,6 +47,17 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     s_reverting_receiver = new MaybeRevertMessageReceiver(true);
 
     deployOffRamp(s_mockCommitStore, s_destRouter, address(0));
+
+    TokenPool.ChainUpdate[] memory offRamps = new TokenPool.ChainUpdate[](1);
+    offRamps[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: SOURCE_CHAIN_ID,
+      allowed: true,
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+    });
+
+    LockReleaseTokenPool(address(s_destPools[0])).applyChainUpdates(offRamps);
+    LockReleaseTokenPool(address(s_destPools[1])).applyChainUpdates(offRamps);
   }
 
   function deployOffRamp(ICommitStore commitStore, Router router, address prevOffRamp) internal {
@@ -62,7 +72,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
       }),
       getCastedSourceTokens(),
       getCastedDestinationPools(),
-      rateLimiterConfig()
+      getInboundRateLimiterConfig()
     );
     s_offRamp.setOCR2Config(
       s_valid_signers,
@@ -78,16 +88,6 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_ID, offRamp: address(s_offRamp)});
     offRampUpdates[1] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_ID, offRamp: address(prevOffRamp)});
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
-
-    TokenPool.RampUpdate[] memory offRamps = new TokenPool.RampUpdate[](1);
-    offRamps[0] = TokenPool.RampUpdate({
-      ramp: address(s_offRamp),
-      allowed: true,
-      rateLimiterConfig: rateLimiterConfig()
-    });
-
-    LockReleaseTokenPool(address(s_destPools[0])).applyRampUpdates(new TokenPool.RampUpdate[](0), offRamps);
-    LockReleaseTokenPool(address(s_destPools[1])).applyRampUpdates(new TokenPool.RampUpdate[](0), offRamps);
   }
 
   function _convertToGeneralMessage(

@@ -189,7 +189,7 @@ contract RateLimiter_consume is RateLimiterSetup {
     assertEq(s_config.capacity, rateLimiter.tokens);
     assertEq(s_config.isEnabled, rateLimiter.isEnabled);
 
-    RateLimiter.Config memory disableConfig = RateLimiter.Config({isEnabled: false, rate: 5, capacity: 100});
+    RateLimiter.Config memory disableConfig = RateLimiter.Config({isEnabled: false, rate: 0, capacity: 0});
 
     s_helper.setTokenBucketConfig(disableConfig);
 
@@ -202,12 +202,13 @@ contract RateLimiter_consume is RateLimiterSetup {
 
     s_helper.setTokenBucketConfig(s_config);
 
+    vm.expectRevert(abi.encodeWithSelector(RateLimiter.AggregateValueRateLimitReached.selector, 10, 0));
     s_helper.consume(requestTokens, address(0));
 
     rateLimiter = s_helper.getRateLimiter();
     assertEq(s_config.rate, rateLimiter.rate);
     assertEq(s_config.capacity, rateLimiter.capacity);
-    assertEq(s_config.capacity - requestTokens, rateLimiter.tokens);
+    assertEq(0, rateLimiter.tokens);
     assertEq(s_config.isEnabled, rateLimiter.isEnabled);
   }
 
