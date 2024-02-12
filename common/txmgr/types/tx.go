@@ -187,7 +187,7 @@ func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() stri
 }
 
 func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) PrettyPrint() string {
-	return fmt.Sprintf("txAttempt: { ID:%v, TxID:%v, TxFee:%v, FeeLimit: %v, TxHash: %v, CreatedAt: %v, BroadcastBefore: %v, TxType:%d } ",
+	return fmt.Sprintf("txAttempt: { attemptID:%v, txID:%v, TxFee:%v, FeeLimit: %v, TxHash: %v, CreatedAt: %v, BroadcastBefore: %v, TxType:%d } ",
 		a.ID, a.TxID, a.TxFee, a.ChainSpecificFeeLimit, a.Hash, a.CreatedAt, a.BroadcastBeforeBlockNum, a.TxType)
 }
 
@@ -245,7 +245,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetError() error {
 }
 
 func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) PrettyPrint() string {
-	return fmt.Sprintf("tx: { ID:%v, Sequence: %v, FromAddress: %v, ToAddress: %v, Value: %v, FeeLimit: %v, Error: %v, BroadcastAt: %v, InitialBroadcastAt: %v, CreatedAt: %v, State: %v } ",
+	return fmt.Sprintf("tx: { txID:%v, Sequence: %v, FromAddress: %v, ToAddress: %v, Value: %v, FeeLimit: %v, Error: %v, BroadcastAt: %v, InitialBroadcastAt: %v, CreatedAt: %v, State: %v } ",
 		e.ID, e.Sequence, e.FromAddress, e.ToAddress, e.Value, e.FeeLimit, e.Error, e.BroadcastAt, e.InitialBroadcastAt, e.CreatedAt, e.State)
 }
 

@@ -44,8 +44,7 @@ func NewOptimisticTxm(
 	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
 	txStore := NewTxStore(db, lggr, dbConfig)
 	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
-	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
-	chainID := txmClient.ConfiguredChainID()
+	chainID := client.ConfiguredChainID()
 	sequenceSyncer := optimistictxm.NewSequenceSyncer(lggr, txStore, client)
 
 	bcfg := optimistictxm.BroadcasterConfig{
