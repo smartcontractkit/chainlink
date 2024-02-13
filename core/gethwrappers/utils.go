@@ -44,11 +44,10 @@ func GetProjectRoot() (rootPath string) {
 			err)
 	}
 	for root != "/" { // Walk up path to find dir containing go.mod
-		if _, err := os.Stat(filepath.Join(root, "go.mod")); os.IsNotExist(err) {
-			root = filepath.Dir(root)
-		} else {
+		if _, err := os.Stat(filepath.Join(root, "go.mod")); !os.IsNotExist(err) {
 			return root
 		}
+		root = filepath.Dir(root)
 	}
 	Exit("could not find project root", nil)
 	panic("can't get here")
