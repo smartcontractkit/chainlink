@@ -22,7 +22,7 @@ Ensure the following fields are provided in your `.env` file:
 - `KEEPER_REGISTRY_ADDRESS`: Address of the Registry where your upkeep is registered. Refer to the [Supported Networks](https://docs.chain.link/chainlink-automation/overview/supported-networks#configurations) doc for addresses.
  
  For example
- ![Example_ENV_file](/images/env_file_example.png "Example .ENV file")
+ ![Example_ENV_file](/core/scripts/chaincli/images/env_file_example.png "Example .ENV file")
 
 #### Optional Fields (StreamsLookup)
 
@@ -104,12 +104,12 @@ Execute the following command based on your upkeep type:
 - Insufficient check gas
   - There is a limit of 10_000_000 (as per Automation v2) on the amount of gas that can be used to "simulate" your checkUpkeep function.
   - To diagnose if your upkeep is running out of check gas you will need to enable the Tenderly options above and then open the simulation link once you run the script
-  - ![Insufficient Check Gas](/images/insufficient_check_gas.png "Open the Tenderly simulation and switch to debug mode")
-  - ![Out of Gas](/images/tenderly_out_of_check_gas.png "Tenderly shows checkUpkeeps has consumed all available gas and is now out of gas")   
+  - ![Insufficient Check Gas](/core/scripts/chaincli/images/insufficient_check_gas.png "Open the Tenderly simulation and switch to debug mode")
+  - ![Out of Gas](/core/scripts/chaincli/images/tenderly_out_of_check_gas.png "Tenderly shows checkUpkeeps has consumed all available gas and is now out of gas")   
   - You will need to adjust your checkUpkeep to consume less gas than the limit
 - Insufficient perform gas
   - Your upkeep's perform transaction uses more gas than you specified
-  - ![Insufficient Perform Gas](/images/insufficient_perform_gas.png "Insufficient perform gas")
+  - ![Insufficient Perform Gas](/core/scripts/chaincli/images/insufficient_perform_gas.png "Insufficient perform gas")
   - Use the Automation [app](https://automation.chain.link/) and increase the gas limit of your upkeep
   - The maximum supported perform gas is 5_000_000
 
