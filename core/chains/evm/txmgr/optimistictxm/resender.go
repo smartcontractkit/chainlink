@@ -158,6 +158,7 @@ func (r *Resender) ResendUnconfirmed() error {
 	ctx, cancel := context.WithTimeout(r.ctx, batchSendTransactionTimeout)
 	defer cancel()
 	broadcastTime, successfulBroadcastIDs, err := batchSendTransactions(ctx, r.lggr, r.client, allAttempts, int(r.config.RPCDefaultBatchSize))
+	batchSendTransactions(ctx, r.lggr, r.client, allAttempts, int(r.config.RPCDefaultBatchSize))
 
 	if len(successfulBroadcastIDs) > 0 {
 		if updateErr := r.txStore.UpdateBroadcastAtsForUnconfirmed(r.ctx, broadcastTime, successfulBroadcastIDs); updateErr != nil {
@@ -256,13 +257,15 @@ func batchSendTransactions(
 		if err := client.BatchCallContextAll(ctx, reqs[i:j]); err != nil {
 			return broadcastTime, successfulBroadcastIDs, fmt.Errorf("failed to batch send transactions: %w", err)
 		}
+		lggr.Debugw("Batch requests", reqs)
 		for k, req := range reqs[i:j] {
 			lggr.Debugw("Batch tx", "result", req.Result, "error", req.Error)
 			if req.Result.(*common.Hash).String() == attempts[k+i].Hash.String() {
 				lggr.Debugw("Sent transaction attempt.", "tx", attempts[k+i].Tx.PrettyPrint(), "attempt", attempts[i].PrettyPrint(), "err", req.Error)
 			} else {
-				return broadcastTime, successfulBroadcastIDs,
-					fmt.Errorf("request response and attempt hash were different. reqHash: %s , attemptHash: %s", req.Result.(*common.Hash).String(), attempts[i].Hash.String())
+				lggr.Errorf("request response and attempt hash were different. reqHash: %s , attemptHash: %s", req.Result.(*common.Hash).String(), attempts[i].Hash.String())
+				//return broadcastTime, successfulBroadcastIDs,
+				//	fmt.Errorf("request response and attempt hash were different. reqHash: %s , attemptHash: %s", req.Result.(*common.Hash).String(), attempts[i].Hash.String())
 			}
 		}
 		successfulBroadcastIDs = append(successfulBroadcastIDs, ethTxIDs[i:j]...)
