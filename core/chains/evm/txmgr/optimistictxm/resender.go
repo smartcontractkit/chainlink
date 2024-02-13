@@ -102,11 +102,9 @@ func (r *Resender) runLoop() {
 		case <-r.ctx.Done():
 			return
 		case <-ticker.C:
-			start := time.Now()
 			if err := r.ResendUnconfirmed(); err != nil {
 				r.lggr.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
-			r.lggr.Debug("resendUnconfirmed duration: ", time.Since(start))
 		}
 	}
 }
@@ -179,7 +177,7 @@ func (r *Resender) bumpAttempt(ctx context.Context, tx Tx, marketAttempt TxAttem
 	var err error
 	bumpedAttempt := marketAttempt
 
-	bumpingCycles := int(time.Since(*tx.BroadcastAt) / r.config.BumpAfterThreshold / time.Nanosecond)
+	bumpingCycles := int(time.Since(*tx.InitialBroadcastAt) / r.config.BumpAfterThreshold / time.Nanosecond)
 	bumpingCycles = min(bumpingCycles, r.config.MaxBumpCycles) // Don't bump more than MaxBumpCycles
 
 	var i int
@@ -257,16 +255,8 @@ func batchSendTransactions(
 		if err := client.BatchCallContextAll(ctx, reqs[i:j]); err != nil {
 			return broadcastTime, successfulBroadcastIDs, fmt.Errorf("failed to batch send transactions: %w", err)
 		}
-		lggr.Debugw("Batch requests", reqs)
 		for k, req := range reqs[i:j] {
-			lggr.Debugw("Batch tx", "result", req.Result, "error", req.Error)
-			if req.Result.(*common.Hash).String() == attempts[k+i].Hash.String() {
-				lggr.Debugw("Sent transaction attempt.", "tx", attempts[k+i].Tx.PrettyPrint(), "attempt", attempts[i].PrettyPrint(), "err", req.Error)
-			} else {
-				lggr.Errorf("request response and attempt hash were different. reqHash: %s , attemptHash: %s", req.Result.(*common.Hash).String(), attempts[i].Hash.String())
-				//return broadcastTime, successfulBroadcastIDs,
-				//	fmt.Errorf("request response and attempt hash were different. reqHash: %s , attemptHash: %s", req.Result.(*common.Hash).String(), attempts[i].Hash.String())
-			}
+			lggr.Debugw("Sent transaction attempt.", "tx", attempts[k+i].Tx.PrettyPrint(), "attempt", attempts[i].PrettyPrint(), "err", req.Error)
 		}
 		successfulBroadcastIDs = append(successfulBroadcastIDs, ethTxIDs[i:j]...)
 	}

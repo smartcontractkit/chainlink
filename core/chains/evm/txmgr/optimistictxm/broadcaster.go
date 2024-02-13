@@ -192,9 +192,7 @@ func (b *Broadcaster) monitorTxs(addr common.Address, triggerCh chan struct{}) {
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(b.config.FallbackPollInterval))
 
-		start := time.Now()
 		err := b.ProcessUnstartedTxs(ctx, addr)
-		b.lggr.Debug("ProcessUnstartedTxs duration: ", time.Since(start))
 		if err != nil {
 			// On errors we implement exponential backoff retries. This
 			// handles intermittent connectivity, remote RPC races, timing issues etc
@@ -328,6 +326,10 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx Tx) error {
 		return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
 	}
 	err = b.client.SendTransaction(ctx, signedTx)
+	timeStamp := time.Now()
+	tx.InitialBroadcastAt = &timeStamp
+	tx.BroadcastAt = &timeStamp
+
 	lgr.Infow("Sent transaction", "tx", tx.PrettyPrint(), "attempt", attempt.PrettyPrint(), "error", err)
 
 	if err != nil {
@@ -336,15 +338,11 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx Tx) error {
 			err = multierr.Combine(e, err)
 			return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
 		}
-		lgr.Criticalw(err.Error(), "attempt", attempt)
+		lgr.Warnw(err.Error(), "attempt", attempt)
 		if nextSequence <= (*tx.Sequence).Uint64() {
 			return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
 		}
 	}
-
-	timeStamp := time.Now()
-	tx.InitialBroadcastAt = &timeStamp
-	tx.BroadcastAt = &timeStamp
 
 	err = b.txStore.UpdateTxInProgressToUnconfirmed(ctx, &tx)
 	if err != nil {

@@ -56,7 +56,7 @@ func NewOptimisticTxm(
 
 	rcfg := optimistictxm.ResenderConfig{
 		//BumpAfterThreshold:  time.Duration(fCfg.BumpThreshold()) * blockTime, // Polygon
-		BumpAfterThreshold:  blockTime, // Set inclusion to 1 block to force bumping 
+		BumpAfterThreshold:  blockTime * 2, // Set inclusion to 2 blocks 
 		MaxBumpCycles:       5,
 		MaxInFlight:         txConfig.MaxInFlight(),
 		ResendInterval:      blockTime,
