@@ -5,4 +5,4 @@ postgres 13.3
 helm 3.10.3
 zig 0.10.1
 golangci-lint 1.55.2
-protoc 23.2
+protoc 25.1
