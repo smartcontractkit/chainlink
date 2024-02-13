@@ -144,12 +144,12 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
 	lggr := r.lggr.Named("PluginProvider").Named(rargs.ExternalJobID.String())
 
-	configWatcher, err := newConfigProvider(r.lggr, r.chain, types.NewRelayOpts(rargs))
+	configWatcher, err := newStandardConfigProvider(r.lggr, r.chain, types.NewRelayOpts(rargs))
 	if err != nil {
 		return nil, err
 	}
 
-	transmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{})
+	transmitter, err := newOnChainContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
