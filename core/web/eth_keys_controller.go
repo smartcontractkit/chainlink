@@ -270,7 +270,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("invalid address: %s, must be hex address", keyID))
 		return
 	}
-	address := common.HexToAddress((keyID))
+	address := common.HexToAddress(keyID)
 
 	cid := c.Query("evmChainID")
 	chain, ok := ekc.getChain(c, cid)

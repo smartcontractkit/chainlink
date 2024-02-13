@@ -44,6 +44,7 @@ const (
 	StreamJobType                  string = "stream"
 	VRFJobType                     string = "vrf"
 	WebhookJobType                 string = "webhook"
+	WorkflowJobType                string = "workflow"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -241,6 +242,16 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 		l.Panicw("Expected at least one task to be final", "tasks", trrs)
 	}
 	return fr
+}
+
+// Terminals returns all terminal task run results
+func (trrs TaskRunResults) Terminals() (terminals []TaskRunResult) {
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			terminals = append(terminals, trr)
+		}
+	}
+	return
 }
 
 // GetNextTaskOf returns the task with the next id or nil if it does not exist

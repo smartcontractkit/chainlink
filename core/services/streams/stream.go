@@ -101,14 +101,9 @@ func (s *stream) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRu
 // extract any desired type that matches a particular pipeline run output.
 // Returns error on parse errors: if results are wrong type
 func ExtractBigInt(trrs pipeline.TaskRunResults) (*big.Int, error) {
-	var finaltrrs []pipeline.TaskRunResult
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
-	for _, trr := range trrs {
-		if trr.IsTerminal() {
-			finaltrrs = append(finaltrrs, trr)
-		}
-	}
+	finaltrrs := trrs.Terminals()
 
 	if len(finaltrrs) != 1 {
 		return nil, fmt.Errorf("invalid number of results, expected: 1, got: %d", len(finaltrrs))
