@@ -1,11 +1,10 @@
 package evm
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	pkgerrors "github.com/pkg/errors"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -17,7 +16,7 @@ import (
 
 func newMercuryConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (commontypes.ConfigProvider, error) {
 	if !common.IsHexAddress(opts.ContractID) {
-		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
+		return nil, errors.New("invalid contractID, expected hex address")
 	}
 
 	aggregatorAddress := common.HexToAddress(opts.ContractID)
