@@ -123,7 +123,10 @@ func testTransition(t *testing.T, rpc *mockNodeClient[types.ID, Head], transitio
 }
 
 func TestNodeState_String(t *testing.T) {
-	for _, ns := range allNodeStates {
-		assert.NotContains(t, ns.String(), strconv.FormatInt(int64(ns), 10), "Expected node state to have readable name")
-	}
+	t.Run("Ensure all states are meaningful when converted to string", func(t *testing.T) {
+		for _, ns := range allNodeStates {
+			// ensure that string representation is not nodeState(%d)
+			assert.NotContains(t, ns.String(), strconv.FormatInt(int64(ns), 10), "Expected node state to have readable name")
+		}
+	})
 }
