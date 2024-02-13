@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
+
+package loop;
+
+import "values/pb/values.proto";
+import "google/protobuf/empty.proto";
+
+service BaseCapability {
+  rpc Info (google.protobuf.Empty) returns (CapabilityInfoReply) {}
+}
+
+enum CapabilityType {
+  CAPABILITY_TYPE_UNKNOWN = 0;
+  CAPABILITY_TYPE_TRIGGER = 1;
+  CAPABILITY_TYPE_ACTION = 2;
+  CAPABILITY_TYPE_CONSENSUS = 3;
+  CAPABILITY_TYPE_TARGET = 4;
+}
+
+message CapabilityInfoReply {
+  string id = 1; 
+  CapabilityType capability_type = 2;
+  string description = 3;
+  string version = 4;
+}
+
+message RequestMetadata {
+  string workflow_id = 1;
+  string workflow_execution_id = 2;
+}
+
+message CapabilityRequest {
+  RequestMetadata metadata = 1;
+  values.Value config = 2;
+  values.Value inputs = 3;
+}
+
+message RegisterTriggerRequest {
+  uint32 callback_id = 1;
+  CapabilityRequest capability_request = 2;
+}
+
+message UnregisterTriggerRequest {
+  CapabilityRequest capability_request = 1;
+}
+
+service TriggerExecutable {
+  rpc RegisterTrigger (RegisterTriggerRequest) returns (google.protobuf.Empty) {}
+  rpc UnregisterTrigger (UnregisterTriggerRequest) returns (google.protobuf.Empty) {}
+}
+
+message CapabilityResponse {
+  values.Value value = 1;
+  string error = 2;
+}
+
+service Callback {
+  rpc SendResponse(CapabilityResponse) returns (google.protobuf.Empty) {}
+  rpc CloseCallback(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+message RegistrationMetadata {
+  string workflow_id = 1;
+}
+
+message RegisterToWorkflowRequest {
+  RegistrationMetadata metadata = 1;
+  values.Value config = 2;
+}
+
+message UnregisterFromWorkflowRequest {
+  RegistrationMetadata metadata = 1;
+  values.Value config = 2;
+}
+
+message ExecuteRequest {
+  uint32 callback_id = 1;
+  CapabilityRequest capability_request = 2;
+}
+
+service CallbackExecutable {
+  rpc RegisterToWorkflow (RegisterToWorkflowRequest) returns (google.protobuf.Empty) {}
+  rpc UnregisterFromWorkflow (UnregisterFromWorkflowRequest) returns (google.protobuf.Empty) {}
+  rpc Execute (ExecuteRequest) returns (google.protobuf.Empty) {}
+}
