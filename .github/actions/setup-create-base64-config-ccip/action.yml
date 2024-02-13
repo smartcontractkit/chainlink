@@ -1,0 +1,92 @@
+name: Create Base64 Config for CCIP Tests
+description: A composite action that creates a base64-encoded config to be used by ccip integration tests
+
+inputs:
+  runId:
+    description: The run id
+  testLogCollect:
+    description: Whether to always collect logs, even for passing tests
+    default: "false"
+  selectedNetworks:
+    description: The networks to run tests against 
+  chainlinkImage:
+    description: The chainlink image to use
+    default: "public.ecr.aws/chainlink/chainlink"
+  chainlinkVersion:
+    description: The git commit sha to use for the image tag
+  lokiEndpoint:
+    description: Loki push endpoint
+  lokiTenantId:
+    description: Loki tenant id
+  lokiBasicAuth:
+    description: Loki basic auth
+  logstreamLogTargets:
+    description: Where to send logs (e.g. file, loki)
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Base64 TOML override
+      shell: bash
+      id: base64-config-override
+      env:
+        RUN_ID: ${{ inputs.runId }}
+        TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}
+        CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+        CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+        LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
+        LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
+        LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
+        LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
+      run: |
+        echo ::add-mask::$CHAINLINK_IMAGE        
+        function convert_to_toml_array() {
+          local IFS=','
+          local input_array=($1)
+          local toml_array_format="["
+
+          for element in "${input_array[@]}"; do
+              toml_array_format+="\"$element\","
+          done
+
+          toml_array_format="${toml_array_format%,}]"
+          echo "$toml_array_format"
+        }
+             
+        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
+
+        if [ -n "$TEST_LOG_COLLECT" ]; then
+          test_log_collect=true
+        else
+          test_log_collect=false
+        fi              
+
+        cat << EOF > config.toml
+        [CCIP]
+        [CCIP.Env]
+        [CCIP.Env.Chainlink]
+        [CCIP.Env.Chainlink.Common]
+        [CCIP.Env.Chainlink.Common.ChainlinkImage]
+        image="$CHAINLINK_IMAGE"
+        version="$CHAINLINK_VERSION"
+        
+        [CCIP.Env.Logging]
+        test_log_collect=$test_log_collect
+        run_id="$RUN_ID"
+
+        [CCIP.Env.Logging.LogStream]
+        log_targets=$log_targets
+
+        [CCIP.Env.Logging.Loki]
+        tenant_id="$LOKI_TENANT_ID"
+        endpoint="$LOKI_ENDPOINT"
+        basic_auth="$LOKI_BASIC_AUTH"
+        
+        [CCIP.Env.Logging.Grafana]
+        base_url="$GRAFANA_URL"
+        dasboard_url="$GRAFANA_DASHBOARD_URL"
+        EOF
+        
+        BASE64_CCIP_SECRETS_CONFIG=$(cat config.toml | base64 -w 0)
+        echo ::add-mask::$BASE64_CCIP_SECRETS_CONFIG
+        echo "BASE64_CCIP_SECRETS_CONFIG=$BASE64_CCIP_SECRETS_CONFIG" >> $GITHUB_ENV

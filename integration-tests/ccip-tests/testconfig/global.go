@@ -23,6 +23,9 @@ import (
 )
 
 const (
+	OVERIDECONFIG = "BASE64_CCIP_CONFIG_OVERRIDE"
+
+	SECRETSCONFIG             = "BASE64_CCIP_SECRETS_CONFIG"
 	ErrReadConfig             = "failed to read TOML config"
 	ErrUnmarshalConfig        = "failed to unmarshal TOML config"
 	Load               string = "load"
@@ -47,7 +50,6 @@ func GlobalTestConfig() *Config {
 
 // GenericConfig is an interface for all product based config types to implement
 type GenericConfig interface {
-	ReadSecrets() error
 	Validate() error
 	ApplyOverrides(from interface{}) error
 }
@@ -70,9 +72,23 @@ func (c *Config) TOMLString() string {
 	return buf.String()
 }
 
+func DecodeConfig(rawConfig string) (*Config, error) {
+	c := &Config{}
+	d, err := base64.StdEncoding.DecodeString(rawConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrReadConfig)
+	}
+	err = toml.Unmarshal(d, c)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrUnmarshalConfig)
+	}
+	return c, nil
+}
+
 func NewConfig() (*Config, error) {
 	cfg := &Config{}
-	override := &Config{}
+	var override *Config
+	var secrets *Config
 	// load config from default file
 	err := config.DecodeTOML(bytes.NewReader(DefaultConfig), cfg)
 	if err != nil {
@@ -80,16 +96,12 @@ func NewConfig() (*Config, error) {
 	}
 
 	// load config from env var if specified
-	rawConfig, _ := osutil.GetEnv("BASE64_TEST_CONFIG_OVERRIDE")
+	rawConfig, _ := osutil.GetEnv(OVERIDECONFIG)
 	if rawConfig != "" {
-		log.Info().Msg("Found BASE64_TEST_CONFIG_OVERRIDE env var, overriding default config")
-		d, err := base64.StdEncoding.DecodeString(rawConfig)
+		log.Info().Msgf("Found %s env var, overriding default config", OVERIDECONFIG)
+		override, err = DecodeConfig(rawConfig)
 		if err != nil {
-			return nil, errors.Wrap(err, ErrReadConfig)
-		}
-		err = toml.Unmarshal(d, &override)
-		if err != nil {
-			return nil, errors.Wrap(err, ErrUnmarshalConfig)
+			return nil, fmt.Errorf("failed to decode override config: %w", err)
 		}
 		log.Info().Interface("override", override).Msg("Applied overrides")
 	}
@@ -109,9 +121,23 @@ func NewConfig() (*Config, error) {
 	}
 	// read secrets for all products
 	if cfg.CCIP != nil {
-		err = cfg.CCIP.ReadSecrets()
-		if err != nil {
-			return nil, err
+		// load config from env var if specified for secrets
+		secretRawConfig, _ := osutil.GetEnv(SECRETSCONFIG)
+		if secretRawConfig != "" {
+			log.Info().Msgf("Found %s env var, applying secrets", SECRETSCONFIG)
+			secrets, err = DecodeConfig(secretRawConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode secrets config: %w", err)
+			}
+			if secrets != nil {
+				// apply secrets for all products
+				if secrets.CCIP != nil {
+					err = cfg.CCIP.ApplyOverrides(secrets.CCIP)
+					if err != nil {
+						return nil, fmt.Errorf("failed to apply secrets: %w", err)
+					}
+				}
+			}
 		}
 		// validate all products
 		err = cfg.CCIP.Validate()
@@ -131,10 +157,6 @@ type Common struct {
 	Chainlink *Chainlink               `toml:",omitempty"`
 	Network   *ctfconfig.NetworkConfig `toml:",omitempty"`
 	Logging   *ctfconfig.LoggingConfig `toml:"Logging"`
-}
-
-func (p *Common) ReadSecrets() error {
-	return p.Chainlink.ReadSecrets()
 }
 
 func (p *Common) ApplyOverrides(from *Common) error {
@@ -172,13 +194,17 @@ func (p *Common) Validate() error {
 	return p.Chainlink.Validate()
 }
 
-func (p *Common) EVMNetworks() ([]blockchain.EVMNetwork, error) {
+func (p *Common) EVMNetworks() ([]blockchain.EVMNetwork, []string, error) {
 	p.Network.UpperCaseNetworkNames()
 	err := p.Network.Default()
 	if err != nil {
-		return nil, fmt.Errorf("error reading default network config %w", err)
+		return nil, p.Network.SelectedNetworks, fmt.Errorf("error reading default network config %w", err)
 	}
-	return networks.MustSetNetworks(*p.Network), nil
+	evmNetworks := networks.MustSetNetworks(*p.Network)
+	if len(p.Network.SelectedNetworks) != len(evmNetworks) {
+		return nil, p.Network.SelectedNetworks, fmt.Errorf("selected networks %v do not match evm networks %v", p.Network.SelectedNetworks, evmNetworks)
+	}
+	return evmNetworks, p.Network.SelectedNetworks, nil
 }
 
 func (p *Common) GetLoggingConfig() *ctfconfig.LoggingConfig {
@@ -254,6 +280,10 @@ func (c *Chainlink) ApplyOverrides(from *Chainlink) {
 			} else {
 				c.Nodes = append(c.Nodes, node)
 			}
+		}
+	}
+	if len(c.Nodes) > 0 {
+		for i := range c.Nodes {
 			c.Nodes[i].Merge(c.Common)
 		}
 	}
@@ -280,54 +310,12 @@ func (c *Chainlink) ApplyOverrides(from *Chainlink) {
 	}
 }
 
-// TODO change this later to directly reading from toml instead of reading from env vars
-func (c *Chainlink) ReadSecrets() error {
-	image, _ := osutil.GetEnv("CHAINLINK_IMAGE")
-	tag, _ := osutil.GetEnv("CHAINLINK_VERSION")
-	if image != "" && tag != "" {
-		c.Common.ChainlinkImage = &ctfconfig.ChainlinkImageConfig{
-			Image:   &image,
-			Version: &tag,
-		}
-	}
-
-	upgradeImage, _ := osutil.GetEnv("UPGRADE_IMAGE")
-	upgradeTag, _ := osutil.GetEnv("UPGRADE_VERSION")
-	if upgradeImage != "" && upgradeTag != "" {
-		c.Common.ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
-			Image:   &upgradeImage,
-			Version: &upgradeTag,
-		}
-	}
-
-	for i := range c.Nodes {
-		image, _ := osutil.GetEnv(fmt.Sprintf("CHAINLINK_IMAGE-%d", i+1))
-		tag, _ := osutil.GetEnv(fmt.Sprintf("CHAINLINK_VERSION-%d", i+1))
-		if image != "" && tag != "" {
-			c.Nodes[i].ChainlinkImage = &ctfconfig.ChainlinkImageConfig{
-				Image:   &image,
-				Version: &tag,
-			}
-		} else {
-			c.Nodes[i].ChainlinkImage = c.Common.ChainlinkImage
-		}
-		upgradeImage, _ := osutil.GetEnv(fmt.Sprintf("UPGRADE_IMAGE-%d", i+1))
-		upgradeTag, _ := osutil.GetEnv(fmt.Sprintf("UPGRADE_VERSION-%d", i+1))
-		if upgradeImage != "" && upgradeTag != "" {
-			c.Nodes[i].ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
-				Image:   &upgradeImage,
-				Version: &upgradeTag,
-			}
-		} else {
-			c.Nodes[i].ChainlinkUpgradeImage = c.Common.ChainlinkUpgradeImage
-		}
-	}
-	return nil
-}
-
 func (c *Chainlink) Validate() error {
 	if c.Common == nil {
 		return errors.New("common config can't be empty")
+	}
+	if c.Common.ChainlinkImage == nil {
+		return errors.New("chainlink image can't be empty")
 	}
 	if err := c.Common.ChainlinkImage.Validate(); err != nil {
 		return err
@@ -342,6 +330,17 @@ func (c *Chainlink) Validate() error {
 		noOfNodes := pointer.GetInt(c.NoOfNodes)
 		if noOfNodes != len(c.Nodes) {
 			return errors.New("chainlink config is invalid, NoOfNodes and Nodes length mismatch")
+		}
+		for _, node := range c.Nodes {
+			if node.ChainlinkImage == nil {
+				return fmt.Errorf("node %s: chainlink image can't be empty", node.Name)
+			}
+			if err := node.ChainlinkImage.Validate(); err != nil {
+				return fmt.Errorf("node %s: %w", node.Name, err)
+			}
+			if node.DBImage == "" || node.DBTag == "" {
+				return fmt.Errorf("node %s: must provide db image and tag", node.Name)
+			}
 		}
 	}
 	return nil
