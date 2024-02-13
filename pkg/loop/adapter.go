@@ -2,7 +2,6 @@ package loop
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -47,7 +46,7 @@ func (r *RelayerAdapter) NewLLOProvider(ctx context.Context, rargs types.RelayAr
 }
 
 func (r *RelayerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
-	return nil, fmt.Errorf("unexpected call to NewPluginProvider: did you forget to wrap RelayerAdapter in a relayerServerAdapter?")
+	return r.Relayer.NewPluginProvider(rargs, pargs)
 }
 
 func (r *RelayerAdapter) Start(ctx context.Context) error {
