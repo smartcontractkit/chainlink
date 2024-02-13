@@ -11,9 +11,11 @@ import {Internal} from "../../libraries/Internal.sol";
 
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {ERC165Checker} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
 contract MockCCIPRouter is IRouter, IRouterClient {
   using SafeERC20 for IERC20;
+  using ERC165Checker for address;
 
   error InvalidAddress(bytes encodedAddress);
   error InvalidExtraArgsTag();
@@ -29,6 +31,10 @@ contract MockCCIPRouter is IRouter, IRouterClient {
     uint256 gasLimit,
     address receiver
   ) external returns (bool success, bytes memory retData, uint256 gasUsed) {
+    // Only send through the router if the receiver is a contract and implements the IAny2EVMMessageReceiver interface.
+    if (receiver.code.length == 0 || !receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId))
+      return (true, "", 0);
+
     return _routeMessage(message, gasForCallExactCheck, gasLimit, receiver);
   }
 
