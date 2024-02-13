@@ -298,6 +298,12 @@ affinity:
 networkPolicies:
   enabled: true
 
+rbac:
+  createRoleBinding: true
+  # This assumes that a separate cluster role already exists with this name.
+  clusterRoleName: "crib-poweruser"
+  roleBindingGroupName: "eks-sso:crib-poweruser"
+
 # Configure the default network policy.
 networkPolicyDefault:
   ingress:

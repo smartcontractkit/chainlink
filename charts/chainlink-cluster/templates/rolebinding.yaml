@@ -1,0 +1,14 @@
+{{- if .Values.rbac.createRoleBinding }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: crib-rolebinding
+subjects:
+- kind: Group
+  name: {{ .Values.rbac.roleBindingGroupName }}
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: {{ .Values.rbac.clusterRoleName }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
