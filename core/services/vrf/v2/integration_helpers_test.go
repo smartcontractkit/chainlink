@@ -1767,7 +1767,7 @@ func testReplayOldRequestsOnStartUp(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, sendingKey)
 
@@ -1808,7 +1808,7 @@ func testReplayOldRequestsOnStartUp(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 
 	// Start a new app and create VRF job using the same VRF key created above
