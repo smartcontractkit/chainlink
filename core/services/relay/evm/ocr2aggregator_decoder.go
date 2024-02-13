@@ -1,9 +1,10 @@
 package evm
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -34,7 +35,7 @@ func (d *ocr2AggregatorLogDecoder) Decode(rawLog []byte) (ocrtypes.ContractConfi
 	unpacked := new(ocr2aggregator.OCR2AggregatorConfigSet)
 	err := d.abi.UnpackIntoInterface(unpacked, d.eventName, rawLog)
 	if err != nil {
-		return ocrtypes.ContractConfig{}, errors.Wrap(err, "failed to unpack log data")
+		return ocrtypes.ContractConfig{}, fmt.Errorf("failed to unpack log data: %w", err)
 	}
 
 	var transmitAccounts []ocrtypes.Account
