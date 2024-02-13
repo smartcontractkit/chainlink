@@ -70,7 +70,7 @@ build_post_hook() {
   # COPY NATIVE LIBRARIES HERE
   local -r wasmvm_lib_path=$(_get_wasmvm_lib_path "$platform" "$arch")
   mkdir -p "$lib_path"
-  cp -r "tmp/${platform}_${arch}/"* "$lib_path/"
+  cp "$wasmvm_lib_path" "$lib_path"
 }
 
 "$@"
