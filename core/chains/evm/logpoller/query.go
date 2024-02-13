@@ -146,6 +146,10 @@ func (q *queryArgs) withLogsPerBlock(logsPerBlock *ubig.Big) *queryArgs {
 	return q.withCustomArg("logs_per_block", logsPerBlock)
 }
 
+func (q *queryArgs) withMaxLogsKept(maxLogsKept *ubig.Big) *queryArgs {
+	return q.withCustomArg("max_logs_kept", maxLogsKept)
+}
+
 func (q *queryArgs) withCustomHashArg(name string, arg common.Hash) *queryArgs {
 	return q.withCustomArg(name, arg.Bytes())
 }

@@ -499,9 +499,10 @@ func TestLogPollerFilters(t *testing.T) {
 		Topic2:    types.HashArray{topicA},
 		Topic4:    types.HashArray{topicC, topicD},
 	}, {
-		Name:         "10 logs per block rate limit",
+		Name:         "10 lpb rate limit, 1M max logs",
 		Addresses:    types.AddressArray{address},
 		EventSigs:    types.HashArray{event1},
+		MaxLogsKept:  ubig.NewI(1000000),
 		LogsPerBlock: ubig.NewI(10),
 	}, { // ensure that the UNIQUE CONSTRAINT isn't too strict (should only error if all fields are identical)
 		Name:      "duplicate of filter by topic4",

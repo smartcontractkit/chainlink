@@ -159,8 +159,9 @@ type Filter struct {
 	Topic2       evmtypes.HashArray // list of possible values for topic2
 	Topic3       evmtypes.HashArray // list of possible values for topic3
 	Topic4       evmtypes.HashArray // list of possible values for topic4
-	Retention    time.Duration
-	LogsPerBlock *ubig.Big // rate limit ( maximum # of logs per block to save to db )
+	Retention    time.Duration      // maximum amount of time to retain logs
+	MaxLogsKept  *ubig.Big          // maximum number of logs to retain
+	LogsPerBlock *ubig.Big          // rate limit ( maximum # of logs per block to save to db )
 }
 
 // FilterName is a suggested convenience function for clients to construct unique filter names

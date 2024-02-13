@@ -101,6 +101,7 @@ func (o *DbORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 	args, err := newQueryArgs(o.chainID).
 		withCustomArg("name", filter.Name).
 		withRetention(filter.Retention).
+		withMaxLogsKept(filter.MaxLogsKept).
 		withLogsPerBlock(filter.LogsPerBlock).
 		withAddressArray(filter.Addresses).
 		withEventSigArray(filter.EventSigs).
@@ -121,14 +122,14 @@ func (o *DbORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 	}
 	query := fmt.Sprintf(`
 		INSERT INTO evm.log_poller_filters
-	  		(name, evm_chain_id, retention, logs_per_block, created_at, address, event %s)
+	  		(name, evm_chain_id, retention, max_logs_kept, logs_per_block, created_at, address, event %s)
 		SELECT * FROM
-			(SELECT :name, :evm_chain_id ::::NUMERIC, :retention ::::BIGINT, :logs_per_block ::::NUMERIC, NOW()) x,
+			(SELECT :name, :evm_chain_id ::::NUMERIC, :retention ::::BIGINT, :max_logs_kept ::::NUMERIC, :logs_per_block ::::NUMERIC, NOW()) x,
 			(SELECT unnest(:address_array ::::BYTEA[]) addr) a,
 			(SELECT unnest(:event_sig_array ::::BYTEA[]) ev) e
 			%s
 		ON CONFLICT  (hash_record_extended((name, evm_chain_id, address, event, topic2, topic3, topic4), 0))
-		DO UPDATE SET retention=:retention ::::BIGINT, logs_per_block=:logs_per_block ::::NUMERIC`,
+		DO UPDATE SET retention=:retention ::::BIGINT, max_logs_kept=:max_logs_kept ::::NUMERIC, logs_per_block=:logs_per_block ::::NUMERIC`,
 		topicsColumns.String(),
 		topicsSql.String())
 	return o.q.WithOpts(qopts...).ExecQNamed(query, args)
@@ -151,7 +152,8 @@ func (o *DbORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
 			ARRAY_AGG(DISTINCT topic3 ORDER BY topic3) FILTER(WHERE topic3 IS NOT NULL) AS topic3,
 			ARRAY_AGG(DISTINCT topic4 ORDER BY topic4) FILTER(WHERE topic4 IS NOT NULL) AS topic4,
 			MAX(logs_per_block) AS logs_per_block,
-			MAX(retention) AS retention
+			MAX(retention) AS retention,
+			MAX(max_logs_kept) AS max_logs_kept
 		FROM evm.log_poller_filters WHERE evm_chain_id = $1
 		GROUP BY name`, ubig.New(o.chainID))
 	filters := make(map[string]Filter)
