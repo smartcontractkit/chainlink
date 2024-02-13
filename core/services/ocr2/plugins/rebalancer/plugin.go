@@ -85,9 +85,17 @@ func (p *Plugin) Observation(ctx context.Context, outcomeCtx ocr3types.OutcomeCo
 		return ocrtypes.Observation{}, fmt.Errorf("load pending transfers: %w", err)
 	}
 
-	p.lggr.Infow("finished observing", "networkLiquidities", networkLiquidities, "pendingTransfers", pendingTransfers)
+	edges, err := p.liquidityGraph.GetEdges()
+	if err != nil {
+		return ocrtypes.Observation{}, fmt.Errorf("get edges: %w", err)
+	}
 
-	return models.NewObservation(networkLiquidities, pendingTransfers).Encode(), nil
+	p.lggr.Infow("finished observing",
+		"networkLiquidities", networkLiquidities,
+		"pendingTransfers", pendingTransfers,
+		"edges", edges)
+
+	return models.NewObservation(networkLiquidities, pendingTransfers, edges).Encode(), nil
 }
 
 func (p *Plugin) ValidateObservation(outctx ocr3types.OutcomeContext, query ocrtypes.Query, ao ocrtypes.AttributedObservation) error {
@@ -111,6 +119,7 @@ func (p *Plugin) Outcome(outctx ocr3types.OutcomeContext, query ocrtypes.Query, 
 	lggr := p.lggr.With("seqNr", outctx.SeqNr)
 	lggr.Infow("in outcome", "seqNr", outctx.SeqNr, "numObs", len(aos))
 
+	// Gather all the observations.
 	observations := make([]models.Observation, 0, len(aos))
 	for _, encodedObs := range aos {
 		obs, err := models.DecodeObservation(encodedObs.Observation)
@@ -120,16 +129,29 @@ func (p *Plugin) Outcome(outctx ocr3types.OutcomeContext, query ocrtypes.Query, 
 		observations = append(observations, obs)
 	}
 
+	// Come to a consensus based on the observations of all the different nodes.
 	medianLiquidityPerChain := p.computeMedianLiquidityPerChain(observations)
-
+	graphEdges := p.computeGraphEdgesConsensus(observations)
 	pendingTransfers, err := p.computePendingTransfersConsensus(observations)
 	if err != nil {
 		return ocr3types.Outcome{}, fmt.Errorf("compute pending transfers consensus: %w", err)
 	}
 
-	lggr.Infow("finished computing outcome", "medianLiquidityPerChain", medianLiquidityPerChain, "pendingTransfers", pendingTransfers)
+	// Compute a new graph with the median liquidities and the edges of the quorum of nodes.
+	g, err := p.computeMedianGraph(graphEdges, medianLiquidityPerChain)
+	if err != nil {
+		return nil, fmt.Errorf("compute median graph: %w", err)
+	}
 
-	return models.NewObservation(medianLiquidityPerChain, pendingTransfers).Encode(), nil
+	lggr.Infow("computing transfers to reach balance", "pendingTransfers", pendingTransfers, "liquidityGraph", g)
+	transfersToReachBalance, err := p.liquidityRebalancer.ComputeTransfersToBalance(g, pendingTransfers)
+	if err != nil {
+		return nil, fmt.Errorf("compute transfers to reach balance: %w", err)
+	}
+
+	lggr.Infow("finished computing outcome", "medianLiquidityPerChain",
+		medianLiquidityPerChain, "pendingTransfers", pendingTransfers)
+	return models.NewOutcome(transfersToReachBalance, pendingTransfers).Encode(), nil
 }
 
 func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[models.ReportMetadata], error) {
@@ -139,33 +161,14 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 	lggr := p.lggr.With("seqNr", seqNr)
 	lggr.Infow("in reports", "seqNr", seqNr)
 
-	obs, err := models.DecodeObservation(outcome)
+	decodedOutcome, err := models.DecodeOutcome(outcome)
 	if err != nil {
 		return nil, fmt.Errorf("decode outcome: %w", err)
 	}
 
-	lggr.Infow("computing transfers to reach balance",
-		"pendingTransfers", obs.PendingTransfers,
-		"liquidityGraph", p.liquidityGraph,
-		"liquidityPerChain", obs.LiquidityPerChain)
-
-	// compute a new graph with the median liquidities.
-	g, err := p.computeMedianGraph(obs.LiquidityPerChain)
-	if err != nil {
-		return nil, fmt.Errorf("compute median graph: %w", err)
-	}
-	if g.IsEmpty() {
-		return nil, fmt.Errorf("liquidity graph is empty, can't generate reports")
-	}
-
-	transfersToReachBalance, err := p.liquidityRebalancer.ComputeTransfersToBalance(g, obs.PendingTransfers)
-	if err != nil {
-		return nil, fmt.Errorf("compute transfers to reach balance: %w", err)
-	}
-
 	// group transfers by source chain
 	transfersBySourceNet := make(map[models.NetworkSelector][]models.Transfer)
-	for _, tr := range transfersToReachBalance {
+	for _, tr := range decodedOutcome.TransfersToReachBalance {
 		transfersBySourceNet[tr.From] = append(transfersBySourceNet[tr.From], tr)
 	}
 
@@ -404,42 +407,36 @@ func (p *Plugin) computePendingTransfersConsensus(observations []models.Observat
 	return quorumEvents, nil
 }
 
-// computeMedianGraph computes a graph with the provided median liquidities per chain.
-// The nodes in the resulting graph are copied from the plugin node. Meaning that different
-// plugin instances might have different graph.
-func (p *Plugin) computeMedianGraph(medianLiquidities []models.NetworkLiquidity) (liquiditygraph.LiquidityGraph, error) {
-	g := liquiditygraph.NewGraph()
+func (p *Plugin) computeGraphEdgesConsensus(observations []models.Observation) []models.Edge {
+	counts := make(map[models.Edge]int)
+	for _, obs := range observations {
+		for _, edge := range obs.Edges {
+			counts[edge]++
+		}
+	}
+
+	var quorumEdges []models.Edge
+	for edge, count := range counts {
+		if count >= p.f+1 {
+			quorumEdges = append(quorumEdges, edge)
+		}
+	}
+
+	return quorumEdges
+}
+
+// computeMedianGraph computes a graph with the provided median liquidities per chain and edges that quorum agreed on.
+func (p *Plugin) computeMedianGraph(
+	edges []models.Edge, medianLiquidities []models.NetworkLiquidity) (liquiditygraph.LiquidityGraph, error) {
+
+	g, err := liquiditygraph.NewGraphFromEdges(edges)
+	if err != nil {
+		return nil, fmt.Errorf("new graph from edges: %w", err)
+	}
 
 	for _, medianLiq := range medianLiquidities {
-		sourceNetwork := medianLiq.Network
-
-		neighbors, exists := p.liquidityGraph.GetNeighbors(sourceNetwork)
-		if !exists {
-			p.lggr.Warnw("neighbors not found for network", "network", sourceNetwork)
-			continue
-		}
-
-		switch g.HasNetwork(sourceNetwork) {
-		case true: // was already added to the graph, as a neighbor of another network that was processed first.
-			if !g.SetLiquidity(sourceNetwork, medianLiq.Liquidity) {
-				return nil, fmt.Errorf("graph set liquidity %s network %d", medianLiq.Liquidity, sourceNetwork)
-			}
-		case false: // seen for first time
-			if !g.AddNetwork(sourceNetwork, medianLiq.Liquidity) {
-				return nil, fmt.Errorf("graph add network liquidity %s network %d", medianLiq.Liquidity, sourceNetwork)
-			}
-		}
-
-		for _, destNetwork := range neighbors {
-			if !g.HasNetwork(destNetwork) {
-				if !g.AddNetwork(destNetwork, big.NewInt(0)) {
-					return nil, fmt.Errorf("graph add dest network %d unexpectedly returned false", destNetwork)
-				}
-			}
-
-			if err := g.AddConnection(sourceNetwork, destNetwork); err != nil {
-				return nil, fmt.Errorf("graph add connection %d->%d: %w", sourceNetwork, destNetwork, err)
-			}
+		if !g.SetLiquidity(medianLiq.Network, medianLiq.Liquidity) {
+			p.lggr.Errorw("median liquidity on network not found on edges quorum", "net", medianLiq.Network)
 		}
 	}
 

@@ -25,12 +25,14 @@ func NewNetworkLiquidity(chain NetworkSelector, liq *big.Int) NetworkLiquidity {
 type Observation struct {
 	LiquidityPerChain []NetworkLiquidity
 	PendingTransfers  []PendingTransfer
+	Edges             []Edge
 }
 
-func NewObservation(liqPerChain []NetworkLiquidity, pendingTransfers []PendingTransfer) Observation {
+func NewObservation(liqPerChain []NetworkLiquidity, pendingTransfers []PendingTransfer, edges []Edge) Observation {
 	return Observation{
 		LiquidityPerChain: liqPerChain,
 		PendingTransfers:  pendingTransfers,
+		Edges:             edges,
 	}
 }
 
@@ -46,4 +48,30 @@ func DecodeObservation(b []byte) (Observation, error) {
 	var obs Observation
 	err := json.Unmarshal(b, &obs)
 	return obs, err
+}
+
+type Outcome struct {
+	TransfersToReachBalance []Transfer
+	PendingTransfers        []PendingTransfer
+}
+
+func NewOutcome(transfersToReachBalance []Transfer, pendingTransfers []PendingTransfer) Outcome {
+	return Outcome{
+		TransfersToReachBalance: transfersToReachBalance,
+		PendingTransfers:        pendingTransfers,
+	}
+}
+
+func (o Outcome) Encode() []byte {
+	b, err := json.Marshal(o)
+	if err != nil {
+		panic(fmt.Errorf("outcome %#v encoding unexpected internal error: %w", o, err))
+	}
+	return b
+}
+
+func DecodeOutcome(b []byte) (Outcome, error) {
+	var decodedOutcome Outcome
+	err := json.Unmarshal(b, &decodedOutcome)
+	return decodedOutcome, err
 }
