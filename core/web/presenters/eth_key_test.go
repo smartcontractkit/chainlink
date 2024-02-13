@@ -55,7 +55,7 @@ func TestETHKeyResource(t *testing.T) {
 	{
 		"data":{
 		   "type":"eTHKeys",
-		   "id":"%s",
+		   "id":"42/%s",
 		   "attributes":{
 			  "address":"%s",
 			  "evmChainID":"42",
@@ -84,7 +84,7 @@ func TestETHKeyResource(t *testing.T) {
 	{
 		"data": {
 			"type":"eTHKeys",
-			"id":"%s",
+			"id":"42/%s",
 			"attributes":{
 				"address":"%s",
 			  	"evmChainID":"42",

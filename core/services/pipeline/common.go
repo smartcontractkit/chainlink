@@ -44,6 +44,7 @@ const (
 	StreamJobType                  string = "stream"
 	VRFJobType                     string = "vrf"
 	WebhookJobType                 string = "webhook"
+	WorkflowJobType                string = "workflow"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore

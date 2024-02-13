@@ -54,8 +54,8 @@ func CreateAndFundSendingKeys(
 		if response.StatusCode != 200 {
 			return nil, fmt.Errorf("error creating transaction key - response code, err %d", response.StatusCode)
 		}
-		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.ID)
-		err = actions.FundAddress(client, newTxKey.Data.ID, big.NewFloat(chainlinkNodeFunding))
+		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.Attributes.Address)
+		err = actions.FundAddress(client, newTxKey.Data.Attributes.Address, big.NewFloat(chainlinkNodeFunding))
 		if err != nil {
 			return nil, err
 		}

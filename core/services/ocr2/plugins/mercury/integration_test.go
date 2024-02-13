@@ -128,6 +128,10 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 func TestIntegration_MercuryV1(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV1(t)
+}
+
+func integration_MercuryV1(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -466,6 +470,10 @@ func TestIntegration_MercuryV1(t *testing.T) {
 func TestIntegration_MercuryV2(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV2(t)
+}
+
+func integration_MercuryV2(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -736,6 +744,10 @@ func TestIntegration_MercuryV2(t *testing.T) {
 func TestIntegration_MercuryV3(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV3(t)
+}
+
+func integration_MercuryV3(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
