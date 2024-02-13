@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -196,24 +197,43 @@ func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 }
 
 func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	// These deletes are bounded by reorg depth, so they are
-	// fast and should not slow down the log readers.
 	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
+		// As long as LogPoller is the only writer to these tables, we don't need to worry about having stale latest block.
+		// There is a single go routine for each chain, so we can get the latest block and safely apply it
+		// as the upper bound for the delete queries using default transaction isolation level.
+		latestBlock, err := o.SelectLatestBlock(pg.WithQueryer(tx))
+		if err != nil {
+			o.lggr.Warnw("Cant get latest block for DeleteLogsAndBlocksAfter", "err", err)
+			return err
+		}
+
 		args, err := newQueryArgs(o.chainID).
 			withStartBlock(start).
+			withEndBlock(latestBlock.BlockNumber).
 			toArgs()
 		if err != nil {
 			o.lggr.Error("Cant build args for DeleteLogsAndBlocksAfter queries", "err", err)
 			return err
 		}
 
-		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		// Applying upper bound filter is critical for Postgres performance
+		// because it allows the planner to properly estimate the number of rows to be scanned.
+		// If not applied, these queries can become very slow, because after some critical number
+		// of logs, Postgres will try to scan all the logs in the index by block_number.
+		// Latency without upper bound filter can be orders of magnitude higher for large number of logs.
+		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks 
+       						WHERE evm_chain_id = :evm_chain_id
+       						AND block_number >= :start_block
+       						AND block_number <= :end_block`, args)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
 			return err
 		}
 
-		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		_, err = tx.NamedExec(`DELETE FROM evm.logs 
+       						WHERE evm_chain_id = :evm_chain_id 
+       						AND block_number >= :start_block
+       						AND block_number <= :end_block`, args)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
 			return err
