@@ -170,6 +170,7 @@ func CreateVRFV2Job(
 		Address:               vrfJobSpecConfig.CoordinatorAddress,
 		EstimateGasMultiplier: vrfJobSpecConfig.EstimateGasMultiplier,
 		FromAddress:           vrfJobSpecConfig.FromAddresses[0],
+		SimulationBlock:       vrfJobSpecConfig.SimulationBlock,
 	}
 	ost, err := os.String()
 	if err != nil {

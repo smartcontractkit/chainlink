@@ -66,4 +66,5 @@ type VRFJobSpecConfig struct {
 	PollPeriod                    time.Duration
 	RequestTimeout                time.Duration
 	VRFOwnerConfig                *VRFOwnerConfig
+	SimulationBlock               *string
 }
