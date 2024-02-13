@@ -5,7 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
@@ -13,24 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
-
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -221,12 +217,14 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 
 	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", rargs.ContractID),
-		chain.Client(),
-		chain.LogPoller(),
-		contractAddress,
-		// TODO: Does ocr2keeper need to support config contract? DF-19182
-		nil,
-		OCR2AggregatorLogDecoder,
+		CPConfig{
+			chain.Client(),
+			chain.LogPoller(),
+			contractAddress,
+			// TODO: Does ocr2keeper need to support config contract? DF-19182
+			nil,
+			OCR2AggregatorLogDecoder,
+		},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create config poller")

@@ -1,10 +1,10 @@
 package evm
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -16,7 +16,7 @@ import (
 
 func newStandardConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
-		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
+		return nil, errors.New("invalid contractID, expected hex address")
 	}
 
 	aggregatorAddress := common.HexToAddress(opts.ContractID)
@@ -36,11 +36,13 @@ func newContractConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *
 	}
 	cp, err = NewConfigPoller(
 		lggr,
-		chain.Client(),
-		chain.LogPoller(),
-		aggregatorAddress,
-		relayConfig.ConfigContractAddress,
-		ld,
+		CPConfig{
+			chain.Client(),
+			chain.LogPoller(),
+			aggregatorAddress,
+			relayConfig.ConfigContractAddress,
+			ld,
+		},
 	)
 	if err != nil {
 		return nil, err

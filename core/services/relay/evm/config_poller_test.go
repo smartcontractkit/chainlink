@@ -94,7 +94,7 @@ func TestConfigPoller(t *testing.T) {
 	}
 
 	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, nil, ld)
+		cp, err := NewConfigPoller(lggr, CPConfig{ethClient, lp, ocrAddress, nil, ld})
 		require.NoError(t, err)
 
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -103,7 +103,7 @@ func TestConfigPoller(t *testing.T) {
 	})
 
 	t.Run("happy path (with config store)", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr, ld)
+		cp, err := NewConfigPoller(lggr, CPConfig{ethClient, lp, ocrAddress, &configStoreContractAddr, ld})
 		require.NoError(t, err)
 		// Should have no config to begin with.
 		_, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))

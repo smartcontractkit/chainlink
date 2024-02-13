@@ -144,12 +144,14 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs c
 	contractAddress := common.HexToAddress(rargs.ContractID)
 	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", rargs.ContractID),
-		chain.Client(),
-		chain.LogPoller(),
-		contractAddress,
-		// TODO: Does ocr2vrf need to support config contract? DF-19182
-		nil,
-		OCR2AggregatorLogDecoder,
+		CPConfig{
+			chain.Client(),
+			chain.LogPoller(),
+			contractAddress,
+			// TODO: Does ocr2vrf need to support config contract? DF-19182
+			nil,
+			OCR2AggregatorLogDecoder,
+		},
 	)
 	if err != nil {
 		return nil, err

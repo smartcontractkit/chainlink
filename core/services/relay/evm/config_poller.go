@@ -63,8 +63,16 @@ func configPollerFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
 }
 
-func NewConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (evmRelayTypes.ConfigPoller, error) {
-	return newConfigPoller(lggr, client, destChainPoller, aggregatorContractAddr, configStoreAddr, ld)
+type CPConfig struct {
+	Client                    client.Client
+	DestinationChainPoller    logpoller.LogPoller
+	AggregatorContractAddress common.Address
+	ConfigStoreAddress        *common.Address
+	LogDecoder                LogDecoder
+}
+
+func NewConfigPoller(lggr logger.Logger, cfg CPConfig) (evmRelayTypes.ConfigPoller, error) {
+	return newConfigPoller(lggr, cfg.Client, cfg.DestinationChainPoller, cfg.AggregatorContractAddress, cfg.ConfigStoreAddress, cfg.LogDecoder)
 }
 
 func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (*configPoller, error) {
