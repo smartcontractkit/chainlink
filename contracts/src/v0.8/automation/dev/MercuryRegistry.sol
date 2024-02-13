@@ -144,6 +144,14 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     return (filteredValues.length > 0, performData);
   }
 
+  function checkErrorHandler(
+    uint32 errCode,
+    bytes memory extraData
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function, just return true and extraData
+    return (true, extraData);
+  }
+
   // Use deviated off-chain values to update on-chain state.
   function performUpkeep(bytes calldata performData) external override {
     (bytes[] memory values /* bytes memory lookupData */, ) = abi.decode(performData, (bytes[], bytes));

@@ -130,6 +130,14 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
     return (true, performData);
   }
 
+  function checkErrorHandler(
+    uint32 errCode,
+    bytes memory extraData
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function, just return true and extraData
+    return (true, extraData);
+  }
+
   function getBlockNumber() internal view returns (uint256) {
     if (useArbitrumBlockNum) {
       return ARB_SYS.arbBlockNumber();

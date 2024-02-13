@@ -45,6 +45,14 @@ contract VerifiableLoadStreamsLookupUpkeep is VerifiableLoadBase, StreamsLookupC
     revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, timeParam, abi.encode(upkeepId));
   }
 
+  function checkErrorHandler(
+    uint32 errCode,
+    bytes memory extraData
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function, just return true and extraData
+    return (true, extraData);
+  }
+
   function performUpkeep(bytes calldata performData) external {
     uint256 startGas = gasleft();
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));

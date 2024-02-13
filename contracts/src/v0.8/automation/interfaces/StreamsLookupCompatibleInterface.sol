@@ -17,4 +17,17 @@ interface StreamsLookupCompatibleInterface {
     bytes[] memory values,
     bytes memory extraData
   ) external view returns (bool upkeepNeeded, bytes memory performData);
+
+  /**
+   * @dev this is a new, optional function in v2.1. It is meant to surface streams lookup errors.
+   * @param errCode an uint value that represents the streams lookup error code.
+   * @param extraData context data from streams lookup process.
+   * @return upkeepNeeded boolean to indicate whether the keeper should call performUpkeep or not.
+   * @return performData bytes that the keeper should call performUpkeep with, if
+   * upkeep is needed. If you would like to encode data to decode later, try `abi.encode`.
+   */
+  function checkErrorHandler(
+    uint32 errCode,
+    bytes memory extraData
+  ) external view returns (bool upkeepNeeded, bytes memory performData);
 }
