@@ -125,6 +125,28 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 	return
 }
 
+func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
+	lggr := r.lggr.Named("PluginProvider").Named(rargs.ExternalJobID.String())
+
+	configWatcher, err := newConfigProvider(r.lggr, r.chain, types.NewRelayOpts(rargs))
+	if err != nil {
+		return nil, err
+	}
+
+	transmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{})
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPluginProvider(
+		r.chainReader,
+		r.codec,
+		transmitter,
+		configWatcher,
+		lggr,
+	), nil
+}
+
 func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {
 	lggr := r.lggr.Named("MercuryProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
