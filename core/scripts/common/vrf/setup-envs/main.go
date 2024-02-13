@@ -94,6 +94,7 @@ func main() {
 		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
 	deployVRFOwner := flag.Bool("deploy-vrfv2-owner", true, "whether to deploy VRF owner contracts")
 	useTestCoordinator := flag.Bool("use-test-coordinator", true, "whether to use test coordinator contract or use the normal one")
+	simulationBlock := flag.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
@@ -103,6 +104,10 @@ func main() {
 		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2` and `v2plus` are supported", *vrfVersion))
 	}
 	fmt.Println("Using VRF Version:", *vrfVersion)
+
+	if *simulationBlock != "pending" && *simulationBlock != "latest" {
+		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+	}
 
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
@@ -229,6 +234,7 @@ func main() {
 				*deployVRFOwner,
 				coordinatorJobSpecConfig,
 				*useTestCoordinator,
+				*simulationBlock,
 			)
 		case "v2plus":
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
@@ -263,6 +269,7 @@ func main() {
 				nodesMap,
 				uint64(*maxGasPriceGwei),
 				coordinatorJobSpecConfig,
+				*simulationBlock,
 			)
 		}
 

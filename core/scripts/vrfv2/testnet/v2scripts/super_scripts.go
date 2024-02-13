@@ -60,6 +60,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", true, "whether to deploy VRF owner contracts")
 	useTestCoordinator := deployCmd.Bool("use-test-coordinator", true, "whether to use test coordinator")
+	simulationBlock := deployCmd.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLink.String(), "fallback wei/link ratio")
@@ -82,6 +83,10 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	reqsForTier3 := deployCmd.Int64("reqs-for-tier-3", constants.ReqsForTier3, "requests for tier 3")
 	reqsForTier4 := deployCmd.Int64("reqs-for-tier-4", constants.ReqsForTier4, "requests for tier 4")
 	reqsForTier5 := deployCmd.Int64("reqs-for-tier-5", constants.ReqsForTier5, "requests for tier 5")
+
+	if *simulationBlock != "pending" && *simulationBlock != "latest" {
+		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+	}
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
@@ -162,6 +167,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		*deployVRFOwner,
 		coordinatorJobSpecConfig,
 		*useTestCoordinator,
+		*simulationBlock,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -181,6 +187,7 @@ func VRFV2DeployUniverse(
 	deployVRFOwner bool,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
 	useTestCoordinator bool,
+	simulationBlock string,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -347,6 +354,7 @@ func VRFV2DeployUniverse(
 		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
 		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
@@ -355,6 +363,7 @@ func VRFV2DeployUniverse(
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
+		simulationBlock,
 	)
 	if deployVRFOwner {
 		formattedVrfPrimaryJobSpec = strings.Replace(formattedVrfPrimaryJobSpec,
@@ -378,6 +387,7 @@ func VRFV2DeployUniverse(
 		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
 		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
@@ -386,6 +396,7 @@ func VRFV2DeployUniverse(
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
+		simulationBlock,
 	)
 	if deployVRFOwner {
 		formattedVrfBackupJobSpec = strings.Replace(formattedVrfBackupJobSpec,

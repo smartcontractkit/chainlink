@@ -68,7 +68,6 @@ func TestETHCallTask(t *testing.T) {
 			nil, // inputs
 			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) { // setupClientMocks
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
-				//[]byte("baz quux")
 				ethClient.
 					On("CallContext",
 						mock.Anything,
@@ -108,7 +107,6 @@ func TestETHCallTask(t *testing.T) {
 			nil,
 			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) { // setupClientMocks
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
-				//[]byte("baz quux")
 				ethClient.
 					On("CallContext",
 						mock.Anything,
@@ -147,7 +145,6 @@ func TestETHCallTask(t *testing.T) {
 			nil,
 			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) { // setupClientMocks
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
-				//[]byte("baz quux")
 				ethClient.
 					On("CallContext",
 						mock.Anything,
@@ -187,7 +184,6 @@ func TestETHCallTask(t *testing.T) {
 			func(ethClient *evmclimocks.Client, config *pipelinemocks.Config) { // setupClientMocks
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				fromAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
-				//[]byte("baz quux")
 				ethClient.
 					On("CallContext",
 						mock.Anything,

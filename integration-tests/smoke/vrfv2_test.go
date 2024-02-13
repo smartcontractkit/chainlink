@@ -866,3 +866,89 @@ func TestVRFV2WithBHS(t *testing.T) {
 		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
 	})
 }
+
+func TestVRFV2PendingBlockSimulation(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.VRFv2)
+	require.NoError(t, err, "Error getting config")
+
+	config.VRFv2.General.VRFJobSimulationBlock = ptr.Ptr[string]("pending")
+	useVRFOwner := false
+	useTestCoordinator := false
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(network).
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err, "error creating test env")
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
+	require.NoError(t, err)
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	require.NoError(t, err)
+
+	// register proving key against oracle address (sending key) in order to test oracleWithdraw
+	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
+
+	numberOfTxKeysToCreate := 1
+	vrfv2Contracts, subIDs, vrfv2KeyData, nodesMap, err := vrfv2.SetupVRFV2Environment(
+		env,
+		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
+		&config,
+		useVRFOwner,
+		useTestCoordinator,
+		linkToken,
+		mockETHLinkFeed,
+		defaultWalletAddress,
+		numberOfTxKeysToCreate,
+		1,
+		1,
+		l,
+	)
+	require.NoError(t, err, "error setting up VRF v2 env")
+
+	subID := subIDs[0]
+
+	subscription, err := vrfv2Contracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
+	require.NoError(t, err, "error getting subscription information")
+
+	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.CoordinatorV2)
+
+	jobRunsBeforeTest, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+	require.NoError(t, err, "error reading job runs")
+
+	// test and assert
+	randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
+		l,
+		vrfv2Contracts.VRFV2Consumer[0],
+		vrfv2Contracts.CoordinatorV2,
+		subID,
+		vrfv2KeyData,
+		*config.VRFv2.General.MinimumConfirmations,
+		*config.VRFv2.General.CallbackGasLimit,
+		*config.VRFv2.General.NumberOfWords,
+		*config.VRFv2.General.RandomnessRequestCountPerRequest,
+		*config.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
+		config.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+	)
+	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+	jobRuns, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+	require.NoError(t, err, "error reading job runs")
+	require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
+
+	status, err := vrfv2Contracts.VRFV2Consumer[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+	require.NoError(t, err, "error getting rand request status")
+	require.True(t, status.Fulfilled)
+	l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+}
