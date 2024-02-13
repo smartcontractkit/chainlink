@@ -718,7 +718,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Fin
 				oldestBlocksBehind = blockNum - *oldestBlockNum
 			}
 		} else {
-			logger.Sugared(lggr).AssumptionViolationf("Expected tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
+			logger.Sugared(lggr).AssumptionViolationw("Expected tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 		}
 		lggr.Infow(fmt.Sprintf("Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, label.NodeConnectivityProblemWarning), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
 	}
@@ -861,6 +861,20 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// Confirmer: The gas price was bumped too high. This transaction attempt cannot be accepted.
 		// Best thing we can do is to re-send the previous attempt at the old
 		// price and discard this bumped version.
+		// If there is no previous attempt, we will create a new transaction attempt to replace this high fee version.
+		if len(etx.TxAttempts) == 1 {
+			replacementAttempt, _, _, _, err := ec.NewTxAttempt(ctx, etx, ec.lggr)
+			if err != nil {
+				return fmt.Errorf("could not create new transaction attempt for transaction exceeding fee cap: %w", err)
+			}
+
+			if err := ec.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
+				return fmt.Errorf("saveReplacementInProgressAttempt failed: %w", err)
+			}
+
+			return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
+		}
+
 		fallthrough
 	case client.Fatal:
 		// WARNING: This should never happen!
