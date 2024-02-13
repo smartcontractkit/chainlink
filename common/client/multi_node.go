@@ -394,6 +394,10 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			// main node is used at the end for the return value
 			continue
 		}
+
+		if n.State() != nodeStateAlive {
+			continue
+		}
 		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
 		go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
@@ -555,6 +559,10 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	for _, n := range all {
 		if n == main {
 			// main node is used at the end for the return value
+			continue
+		}
+
+		if n.State() != nodeStateAlive {
 			continue
 		}
 		// Parallel send to all other nodes with ignored return value
