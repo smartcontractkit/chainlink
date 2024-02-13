@@ -1781,7 +1781,7 @@ func testReplayOldRequestsOnStartUp(
 	// Create VRF Key, register it to coordinator and export
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	registerProvingKeyHelper(t, uni, coordinator, vrfkey)
+	registerProvingKeyHelper(t, uni, coordinator, vrfkey, &defaultMaxGasPrice)
 	keyHash := vrfkey.PublicKey.MustHash()
 
 	encodedVrfKey, err := app.GetKeyStore().VRF().Export(vrfkey.ID(), testutils.Password)
