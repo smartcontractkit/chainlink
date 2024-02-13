@@ -16,7 +16,15 @@ type Service interface {
 
 // ServiceCtx is the same as Service, but Start method receives a context.
 type ServiceCtx interface {
+	// Start starts the service.
+	// Start should not block; any long-running operations should be started in a goroutine.
+	// The context passed to Start should be used to cancel the startup process.
+	// Do not use the passed context object after the Start method returns.
 	Start(context.Context) error
+
+	// Close stops the service and releases any resources it holds.
+	// Close should block until the goroutines spawned by the service returned.
+	// The system will call Close only if the Start method completed without an error and will never attempt to restart a service after it has been closed.
 	Close() error
 }
 
