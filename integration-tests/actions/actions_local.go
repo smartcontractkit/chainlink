@@ -2,8 +2,6 @@
 package actions
 
 import (
-	"fmt"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
@@ -13,9 +11,6 @@ func UpgradeChainlinkNodeVersionsLocal(
 	newImage, newVersion string,
 	nodes ...*test_env.ClNode,
 ) error {
-	if newImage == "" && newVersion == "" {
-		return fmt.Errorf("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")
-	}
 	for _, node := range nodes {
 		if err := node.UpgradeVersion(newImage, newVersion); err != nil {
 			return err

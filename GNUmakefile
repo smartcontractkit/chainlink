@@ -42,12 +42,15 @@ godoc: ## Install and run godoc
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
+.PHONY: chainlink
 chainlink: ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
+.PHONY: chainlink-dev
 chainlink-dev: ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
+.PHONY: chainlink-test
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
@@ -58,6 +61,11 @@ chainlink-local-start:
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
+
+.PHONY: install-mercury-loop
+install-mercury-loop: ## Build & install the chainlink-medianpoc binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-mercury
+
 
 .PHONY: docker ## Build the chainlink docker image
 docker:

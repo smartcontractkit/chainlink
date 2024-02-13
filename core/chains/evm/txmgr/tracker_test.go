@@ -49,6 +49,7 @@ func containsID(txes []*txmgr.Tx, id int64) bool {
 }
 
 func TestEvmTracker_Initialization(t *testing.T) {
+	t.Skip("BCI-2638 tracker disabled")
 	t.Parallel()
 
 	tracker, _, _, _ := newTestEvmTrackerSetup(t)
@@ -65,6 +66,7 @@ func TestEvmTracker_Initialization(t *testing.T) {
 }
 
 func TestEvmTracker_AddressTracking(t *testing.T) {
+	t.Skip("BCI-2638 tracker disabled")
 	t.Parallel()
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
@@ -94,6 +96,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 	})
 
 	t.Run("stop tracking finalized tx", func(t *testing.T) {
+		t.Skip("BCI-2638 tracker disabled")
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
@@ -118,6 +121,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 }
 
 func TestEvmTracker_ExceedingTTL(t *testing.T) {
+	t.Skip("BCI-2638 tracker disabled")
 	t.Parallel()
 
 	t.Run("confirmed but unfinalized transaction still tracked", func(t *testing.T) {

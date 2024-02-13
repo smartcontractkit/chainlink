@@ -31,22 +31,38 @@ func TestMessage_Validate(t *testing.T) {
 	// missing message ID
 	msg.Body.MessageId = ""
 	require.Error(t, msg.Validate())
+	// message ID ending with null bytes
+	msg.Body.MessageId = "myid\x00\x00"
+	require.Error(t, msg.Validate())
 	msg.Body.MessageId = "abcd"
+	require.NoError(t, msg.Validate())
 
 	// missing DON ID
 	msg.Body.DonId = ""
 	require.Error(t, msg.Validate())
+	// DON ID ending with null bytes
+	msg.Body.DonId = "mydon\x00\x00"
+	require.Error(t, msg.Validate())
 	msg.Body.DonId = "donA"
+	require.NoError(t, msg.Validate())
 
-	// method too long
+	// method name too long
 	msg.Body.Method = string(bytes.Repeat([]byte("a"), api.MessageMethodMaxLen+1))
 	require.Error(t, msg.Validate())
+	// empty method name
+	msg.Body.Method = ""
+	require.Error(t, msg.Validate())
+	// method name ending with null bytes
+	msg.Body.Method = "method\x00"
+	require.Error(t, msg.Validate())
 	msg.Body.Method = "request"
+	require.NoError(t, msg.Validate())
 
 	// incorrect receiver
 	msg.Body.Receiver = "blah"
 	require.Error(t, msg.Validate())
 	msg.Body.Receiver = "0x0000000000000000000000000000000000000000"
+	require.NoError(t, msg.Validate())
 
 	// invalid signature
 	msg.Signature = "0x00"

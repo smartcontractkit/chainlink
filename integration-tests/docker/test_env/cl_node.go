@@ -163,16 +163,10 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 
 // UpgradeVersion restarts the cl node with new image and version
 func (n *ClNode) UpgradeVersion(newImage, newVersion string) error {
-	if newVersion == "" {
-		return fmt.Errorf("new version is empty")
-	}
-	if newImage == "" {
-		newImage = os.Getenv("CHAINLINK_IMAGE")
-	}
 	n.l.Info().
 		Str("Name", n.ContainerName).
-		Str("Old Image", os.Getenv("CHAINLINK_IMAGE")).
-		Str("Old Version", os.Getenv("CHAINLINK_VERSION")).
+		Str("Old Image", newImage).
+		Str("Old Version", newVersion).
 		Str("New Image", newImage).
 		Str("New Version", newVersion).
 		Msg("Upgrading Chainlink Node")
@@ -440,6 +434,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 		AlwaysPullImage: n.AlwaysPullImage,
 		Image:           fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
 		ExposedPorts:    []string{"6688/tcp"},
+		Env:             n.ContainerEnvs,
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
 			"-s", secretsPath,

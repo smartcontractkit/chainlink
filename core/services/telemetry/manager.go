@@ -18,13 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
-//// Client encapsulates all the functionality needed to
-//// send telemetry to the ingress server using wsrpc
-//type Client interface {
-//	services.ServiceCtx
-//	Send(context.Context, synchronization.TelemPayload)
-//}
-
 type Manager struct {
 	services.StateMachine
 	bufferSize                  uint
@@ -38,32 +31,6 @@ type Manager struct {
 	uniConn                     bool
 	useBatchSend                bool
 	MonitoringEndpointGenerator MonitoringEndpointGenerator
-
-	//legacyMode means that we are sending all telemetry to a single endpoint.
-	//In order for this to be set as true, we need to have no endpoints defined with TelemetryIngress.URL and TelemetryIngress.ServerPubKey set.
-	//This mode will be supported until we completely switch to TelemetryIngress.Endpoints in config.toml
-	legacyMode bool
-}
-
-type legacyEndpointConfig struct {
-	Url    *url.URL
-	PubKey string
-}
-
-func (l *legacyEndpointConfig) Network() string {
-	return "-"
-}
-
-func (l *legacyEndpointConfig) ChainID() string {
-	return "-"
-}
-
-func (l *legacyEndpointConfig) ServerPubKey() string {
-	return l.PubKey
-}
-
-func (l *legacyEndpointConfig) URL() *url.URL {
-	return l.Url
 }
 
 type telemetryEndpoint struct {
@@ -87,30 +54,12 @@ func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr logg
 		sendTimeout:  cfg.SendTimeout(),
 		uniConn:      cfg.UniConn(),
 		useBatchSend: cfg.UseBatchSend(),
-		legacyMode:   false,
 	}
 	for _, e := range cfg.Endpoints() {
 		if err := m.addEndpoint(e); err != nil {
 			m.lggr.Error(err)
 		}
 	}
-
-	if len(cfg.Endpoints()) == 0 && cfg.URL() != nil && cfg.ServerPubKey() != "" {
-		m.lggr.Error(`TelemetryIngress.URL and TelemetryIngress.ServerPubKey will be removed in a future version, please switch to TelemetryIngress.Endpoints:
-			[[TelemetryIngress.Endpoints]]
-			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
-			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
-			URL = '...'
-			ServerPubKey = '...'`)
-		m.legacyMode = true
-		if err := m.addEndpoint(&legacyEndpointConfig{
-			Url:    cfg.URL(),
-			PubKey: cfg.ServerPubKey(),
-		}); err != nil {
-			m.lggr.Error(err)
-		}
-	}
-
 	return m
 }
 
@@ -165,11 +114,11 @@ func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contract
 }
 
 func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
-	if e.Network() == "" && !m.legacyMode {
+	if e.Network() == "" {
 		return errors.New("cannot add telemetry endpoint, network cannot be empty")
 	}
 
-	if e.ChainID() == "" && !m.legacyMode {
+	if e.ChainID() == "" {
 		return errors.New("cannot add telemetry endpoint, chainID cannot be empty")
 	}
 
@@ -205,11 +154,6 @@ func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
 }
 
 func (m *Manager) getEndpoint(network string, chainID string) (*telemetryEndpoint, bool) {
-	//in legacy mode we send telemetry to a single endpoint
-	if m.legacyMode && len(m.endpoints) == 1 {
-		return m.endpoints[0], true
-	}
-
 	for _, e := range m.endpoints {
 		if e.Network == strings.ToUpper(network) && e.ChainID == strings.ToUpper(chainID) {
 			return e, true
