@@ -2,18 +2,25 @@
 
 Use this script to debug and diagnose possible issues with registered upkeeps in Automation v2 registries. The script can debug custom logic upkeeps, log-trigger upkeeps, and upkeeps that use StreamsLookup.
 
-### Setup
+## Setup
 
 Before starting, you will need:
 
-1. A registered [upkeep](https://docs.chain.link/chainlink-automation/overview/getting-started)
-1. Git clone the chainlink [repo](https://github.com/smartcontractkit/chainlink)
-1. A working [Go](https://go.dev/doc/install) installation
-1. Change directory to `core/scripts/chaincli` and create a `.env` file based on the example `.env.debugging.example`
+- A registered [upkeep](https://docs.chain.link/chainlink-automation/overview/getting-started)
+- A working [Go](https://go.dev/doc/install) installation
 
-### Configuration in `.env` File
+1. Clone the chainlink [repo](https://github.com/smartcontractkit/chainlink) and navigate to the `core/scripts/chaincli`
+    directory:
+    ```
+    git clone https://github.com/smartcontractkit/chainlink.git && cd chainlink/core/scripts/chaincli
+    ```
+1. Create a `.env` file based on the example `.env.debugging.example`:
 
-#### Mandatory Fields
+    ```
+    cp .env.debugging.example .env
+    ```
+
+## Configuration
 
 Fill in the values for these mandatory fields in your `.env` file:
 
@@ -23,7 +30,7 @@ Fill in the values for these mandatory fields in your `.env` file:
  For example
  ![Example_ENV_file](/core/scripts/chaincli/images/env_file_example.png "Example .ENV file")
 
-#### Optional Fields (StreamsLookup)
+#### StreamsLookup (optional)
 
 If your targeted upkeep involves StreamsLookup, please provide the following details. If you are using Data Streams v0.3 (which is likely), only provide the `DATA_STREAMS_URL`. Ignore `DATA_STREAMS_LEGACY_URL`.
 
@@ -31,9 +38,9 @@ If your targeted upkeep involves StreamsLookup, please provide the following det
 - `DATA_STREAMS_KEY`
 - `DATA_STREAMS_URL`
 
-#### Optional Fields (Tenderly Integration)
+#### Tenderly integration (optional)
 
-For detailed transaction simulation logs, set up Tenderly credentials. Refer to the [Tenderly Documentation](https://docs.tenderly.co/other/platform-access/how-to-generate-api-access-tokens) to learn how to create an API key, account name, and project name.
+For detailed transaction simulation logs, set up Tenderly credentials. Refer to the [Tenderly documentation](https://docs.tenderly.co/other/platform-access/how-to-generate-api-access-tokens) to learn how to create an API key, account name, and project name on Tenderly.
 
 - `TENDERLY_KEY`
 - `TENDERLY_ACCOUNT_NAME`
@@ -43,11 +50,12 @@ For detailed transaction simulation logs, set up Tenderly credentials. Refer to 
 
 Execute the following command based on your upkeep type:
 
-- For custom logic, if a block number is given we use that block, otherwise we use the latest block:
+- For custom logic: 
 
     ```bash
     go run main.go keeper debug UPKEEP_ID [OPTIONAL BLOCK_NUMBER]
     ```
+    If you don't specify a block number, the debugging script uses the latest block.
 
 - For log trigger upkeep:
 
@@ -55,9 +63,9 @@ Execute the following command based on your upkeep type:
     go run main.go keeper debug UPKEEP_ID TX_HASH LOG_INDEX
     ```
 
-### Checks Performed by the Debugging Script
+### What the debugging script checks
 
-1. **Fetch and Sanity Check Upkeep:**
+1. The script runs these basic checks on all upkeeps:
     - Verify upkeep status: active, paused, or canceled
     - Check upkeep balance
 
@@ -76,7 +84,7 @@ Execute the following command based on your upkeep type:
 
     - Simulate `performUpkeep`
 
-### Examples
+#### Examples
 - Eligible and log trigger based and using mercury lookup v0.3:
 
     ```bash
