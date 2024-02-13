@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
-var blockTime time.Duration = 2 * time.Second
+var blockTime time.Duration = 12 * time.Second
 
 func NewOptimisticTxm(
 	db *sqlx.DB,

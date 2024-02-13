@@ -179,7 +179,7 @@ func (r *Resender) bumpAttempt(ctx context.Context, tx Tx, marketAttempt TxAttem
 	var err error
 	bumpedAttempt := marketAttempt
 
-	bumpingCycles := int(time.Since(*tx.BroadcastAt) / r.config.BumpAfterThreshold / time.Nanosecond)
+	bumpingCycles := int(time.Since(*tx.InitialBroadcastAt) / r.config.BumpAfterThreshold / time.Nanosecond)
 	bumpingCycles = min(bumpingCycles, r.config.MaxBumpCycles) // Don't bump more than MaxBumpCycles
 
 	var i int
@@ -257,7 +257,7 @@ func batchSendTransactions(
 		if err := client.BatchCallContextAll(ctx, reqs[i:j]); err != nil {
 			return broadcastTime, successfulBroadcastIDs, fmt.Errorf("failed to batch send transactions: %w", err)
 		}
-		lggr.Debugw("Batch requests", reqs)
+		lggr.Debug("Batch requests", reqs)
 		for k, req := range reqs[i:j] {
 			lggr.Debugw("Batch tx", "result", req.Result, "error", req.Error)
 			if req.Result.(*common.Hash).String() == attempts[k+i].Hash.String() {

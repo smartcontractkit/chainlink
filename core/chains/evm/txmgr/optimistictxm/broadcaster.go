@@ -328,6 +328,10 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx Tx) error {
 		return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
 	}
 	err = b.client.SendTransaction(ctx, signedTx)
+	timeStamp := time.Now()
+	tx.InitialBroadcastAt = &timeStamp
+	tx.BroadcastAt = &timeStamp
+
 	lgr.Infow("Sent transaction", "tx", tx.PrettyPrint(), "attempt", attempt.PrettyPrint(), "error", err)
 
 	if err != nil {
@@ -341,10 +345,6 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx Tx) error {
 			return fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
 		}
 	}
-
-	timeStamp := time.Now()
-	tx.InitialBroadcastAt = &timeStamp
-	tx.BroadcastAt = &timeStamp
 
 	err = b.txStore.UpdateTxInProgressToUnconfirmed(ctx, &tx)
 	if err != nil {
