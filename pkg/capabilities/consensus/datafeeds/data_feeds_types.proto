@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+option go_package = "pkg/capabilities/consensus/datafeeds";
+
+package datafeeds_types;
+
+message DataFeedsOutcomeMetadata {
+  map<string, DataFeedsMercuryReportInfo> feedInfo = 1;
+}
+
+message DataFeedsMercuryReportInfo {
+  uint32 timestamp = 1;
+  double price = 2;
+}

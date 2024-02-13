@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+option go_package = "pkg/capabilities/consensus/types";
+
+package consensus_types;
+
+import "pkg/values/pb/values.proto";
+
+// per-workflow aggregation outcome
+message AggregationOutcome {
+  values.Value encodableOutcome = 1; // passed to encoders
+  bytes metadata = 2; // internal to the aggregator
+  bool shouldReport = 3;
+}
