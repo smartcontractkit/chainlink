@@ -14,7 +14,7 @@ import (
 )
 
 type ReaperTxStore interface {
-	ReapTxs(context.Context, time.Time, evmtypes.Nonce, *big.Int) error
+	ReapTxs(context.Context, time.Time, evmtypes.Nonce, *big.Int) (int64, error)
 }
 
 type ReaperClient interface {
@@ -33,7 +33,6 @@ type Reaper struct {
 	ks      KeyStore
 	config  ReaperConfig
 	chainID *big.Int
-	trigger chan struct{}
 	chStop  services.StopChan
 	chDone  chan struct{}
 }
@@ -46,7 +45,6 @@ func NewReaper(lggr logger.Logger, txStore ReaperTxStore, config ReaperConfig, c
 		ks:      ks,
 		config:  config,
 		chainID: chainID,
-		trigger: make(chan struct{}, 1),
 		chStop:  make(services.StopChan),
 		chDone:  make(chan struct{}),
 	}
@@ -75,19 +73,9 @@ func (r *Reaper) runLoop() {
 		case <-r.chStop:
 			return
 		case <-ticker.C:
-			r.work()
-			ticker.Reset(utils.WithJitter(r.config.ReaperInterval))
-		case <-r.trigger:
-			r.work()
+			r.ReapTxs()
 			ticker.Reset(utils.WithJitter(r.config.ReaperInterval))
 		}
-	}
-}
-
-func (r *Reaper) work() {
-	err := r.ReapTxs()
-	if err != nil {
-		r.lggr.Error("unable to reap old txs: ", err)
 	}
 }
 
@@ -116,9 +104,11 @@ func (r *Reaper) ReapTxs() error {
 			r.lggr.Errorw("Error occurred while fetching sequence for address. Skipping reaping.", "address", address, "err", err)
 			continue
 		}
-		if err := r.txStore.ReapTxs(ctx, timeThreshold, nonce, r.chainID); err != nil {
+		rows, err := r.txStore.ReapTxs(ctx, timeThreshold, nonce, r.chainID)
+		if err != nil {
 			return err
 		}
+		r.lggr.Debugf("Reaped %d transactions from address: %v", rows, address)
 	}
 
 	r.lggr.Debugf("ReapTxs completed in %v", time.Since(mark))
