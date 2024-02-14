@@ -45,18 +45,20 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
   uint8 internal constant UPKEEP_VERSION_BASE = 3;
 
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_400; // Used only in maxPayment estimation, and in capping overheads during actual payment.
-  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
-  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
+  // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation 
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Fixed gas overhead for conditional upkeeps
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_400; // Fixed gas overhead for log upkeeps
+  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation during simiulation. Value scales with f
+  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Per perform data byte overhead
+  // TODO - re-adjust
+  uint256 internal constant TRANSMIT_CALLDATA_BYTES_OVERHEAD = 100; // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
 
+  // Next block of constants are used in actual payment calculation. We calculate the exact gas used within the 
+  // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
+  // to account for gas used in payment processing.
   // TODO re-adjust overheads
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_100; // Used in actual payment. Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_200; // Used in actual payment. overhead per upkeep performed
-
-  // TODO - 100 is just a placeholder, this needs to be measured & tested
-  uint256 internal constant MINIMUM_TRANSMIT_PAYLOAD_SIZE_BYTES = 100; // The minimum additional bytes overhead to add to max perform data size when estimating transmit costs
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_100; // Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_200; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
@@ -652,7 +654,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   function _getMaxL1Fee(HotVars memory hotVars) internal view returns (uint256) {
     return
       hotVars.gasCeilingMultiplier *
-      hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize + MINIMUM_TRANSMIT_PAYLOAD_SIZE_BYTES);
+      hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD);
   }
 
   /**
