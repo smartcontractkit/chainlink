@@ -166,11 +166,13 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 			if err = json.Unmarshal(responseBody, &m); err != nil {
 				c.lggr.Warnf("at block %s upkeep %s failed to unmarshal body to MercuryV02Response for feed %s: %v", sl.Time.String(), sl.UpkeepId.String(), sl.Feeds[index], err)
 				state = encoding.MercuryUnmarshalError
+				errCode = encoding.ErrCodeEncodingError
 				return err
 			}
 			if blobBytes, err = hexutil.Decode(m.ChainlinkBlob); err != nil {
 				c.lggr.Warnf("at block %s upkeep %s failed to decode chainlinkBlob %s for feed %s: %v", sl.Time.String(), sl.UpkeepId.String(), m.ChainlinkBlob, sl.Feeds[index], err)
 				state = encoding.InvalidMercuryResponse
+				errCode = encoding.ErrCodeEncodingError
 				return err
 			}
 			ch <- mercury.MercuryData{

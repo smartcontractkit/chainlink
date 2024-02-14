@@ -191,6 +191,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Warnf("at timestamp %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.Time.String(), sl.UpkeepId.String(), err)
 				retryable = false
 				state = encoding.MercuryUnmarshalError
+				errCode = encoding.ErrCodeEncodingError
 				return err
 			}
 
@@ -214,6 +215,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 					c.lggr.Warnf("at timestamp %s upkeep %s failed to decode reportBlob %s: %v", sl.Time.String(), sl.UpkeepId.String(), rsp.FullReport, err)
 					retryable = false
 					state = encoding.InvalidMercuryResponse
+					errCode = encoding.ErrCodeEncodingError
 					return err
 				}
 				reportBytes = append(reportBytes, b)

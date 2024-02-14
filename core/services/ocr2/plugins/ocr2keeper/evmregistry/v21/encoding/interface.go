@@ -54,6 +54,7 @@ const (
 	ErrCodeMercuryError        ErrCode = 808500
 	ErrCodeBadRequest          ErrCode = 800400
 	ErrCodeUnauthorized        ErrCode = 800401
+	ErrCodeEncodingError       ErrCode = 808600
 	ErrCodeStreamLookupTimeout ErrCode = 808603
 )
 
