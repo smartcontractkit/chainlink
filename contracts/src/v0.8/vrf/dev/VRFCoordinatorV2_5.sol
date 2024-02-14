@@ -122,12 +122,13 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert NoSuchProvingKey(kh);
     }
     delete s_provingKeys[kh];
-    for (uint256 i = 0; i < s_provingKeyHashes.length; i++) {
+    uint256 s_provingKeyHashesLength = s_provingKeyHashes.length;
+    for (uint256 i = 0; i < s_provingKeyHashesLength; ++i) {
       if (s_provingKeyHashes[i] == kh) {
-        bytes32 last = s_provingKeyHashes[s_provingKeyHashes.length - 1];
         // Copy last element and overwrite kh to be deleted with it
-        s_provingKeyHashes[i] = last;
+        s_provingKeyHashes[i] = s_provingKeyHashes[s_provingKeyHashesLength - 1];
         s_provingKeyHashes.pop();
+        break;
       }
     }
     emit ProvingKeyDeregistered(kh, key.maxGas);
@@ -241,17 +242,19 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    */
   function requestRandomWords(
     VRFV2PlusClient.RandomWordsRequest calldata req
-  ) external override nonReentrant returns (uint256) {
+  ) external override nonReentrant returns (uint256 requestId) {
     // Input validation using the subscription storage.
-    if (s_subscriptionConfigs[req.subId].owner == address(0)) {
+    uint256 subId = req.subId;
+    if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][req.subId];
-    if (currentNonce == 0) {
-      revert InvalidConsumer(req.subId, msg.sender);
+    mapping(uint256 => uint64) storage nonces = s_consumers[msg.sender];
+    uint64 nonce = nonces[subId];
+    if (nonce == 0) {
+      revert InvalidConsumer(subId, msg.sender);
     }
     // Input validation using the config storage word.
     if (
@@ -273,19 +276,20 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (req.numWords > MAX_NUM_WORDS) {
       revert NumWordsTooBig(req.numWords, MAX_NUM_WORDS);
     }
+
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
-    uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = _computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
+    ++nonce;
+    uint256 preSeed;
+    (requestId, preSeed) = _computeRequestId(req.keyHash, msg.sender, subId, nonce);
 
-    VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
-    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
+    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(_fromBytes(req.extraArgs));
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
         ChainSpecificUtil._getBlockNumber(),
-        req.subId,
+        subId,
         req.callbackGasLimit,
         req.numWords,
         msg.sender,
@@ -296,14 +300,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       req.keyHash,
       requestId,
       preSeed,
-      req.subId,
+      subId,
       req.requestConfirmations,
       req.callbackGasLimit,
       req.numWords,
       extraArgsBytes,
       msg.sender
     );
-    s_consumers[msg.sender][req.subId] = nonce;
+    nonces[subId] = nonce;
 
     return requestId;
   }
@@ -437,54 +441,63 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     Proof memory proof,
     RequestCommitment memory rc,
     bool onlyPremium
-  ) external nonReentrant returns (uint96) {
+  ) external nonReentrant returns (uint96 payment) {
     uint256 startGas = gasleft();
     Output memory output = _getRandomnessFromProof(proof, rc);
     uint256 gasPrice = _getValidatedGasPrice(onlyPremium, output.provingKey.maxGas);
 
-    uint256[] memory randomWords = new uint256[](rc.numWords);
-    for (uint256 i = 0; i < rc.numWords; i++) {
-      randomWords[i] = uint256(keccak256(abi.encode(output.randomness, i)));
-    }
-
-    delete s_requestCommitments[output.requestId];
-    bool success = _deliverRandomness(output.requestId, rc, randomWords);
-
-    // Increment the req count for the subscription.
+    uint256[] memory randomWords;
+    uint256 randomness = output.randomness;
     // stack too deep error
     {
-      s_subscriptions[rc.subId].reqCount = s_subscriptions[rc.subId].reqCount + 1;
+      uint256 numWords = rc.numWords;
+      randomWords = new uint256[](numWords);
+      for (uint256 i = 0; i < numWords; ++i) {
+        randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
+      }
     }
 
-    bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
+    uint256 requestId = output.requestId;
+    delete s_requestCommitments[requestId];
+    bool success = _deliverRandomness(requestId, rc, randomWords);
 
-    // We want to charge users exactly for how much gas they use in their callback.
-    // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-    // decrement the subscription balance and increment the oracles withdrawable balance.
-    uint96 payment = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+    // Increment the req count for the subscription.
+    uint256 subId = rc.subId;
+    ++s_subscriptions[subId].reqCount;
 
-    _chargePayment(payment, nativePayment, rc.subId);
+    // stack too deep error
+    {
+      bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
+
+      // We want to charge users exactly for how much gas they use in their callback.
+      // The gasAfterPaymentCalculation is meant to cover these additional operations where we
+      // decrement the subscription balance and increment the oracles withdrawable balance.
+      payment = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+
+      _chargePayment(payment, nativePayment, subId);
+    }
 
     // Include payment in the event for tracking costs.
-    emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, success, onlyPremium);
+    emit RandomWordsFulfilled(requestId, randomness, subId, payment, success, onlyPremium);
 
     return payment;
   }
 
   function _chargePayment(uint96 payment, bool nativePayment, uint256 subId) internal {
+    Subscription storage subcription = s_subscriptions[subId];
     if (nativePayment) {
-      uint96 prevBal = s_subscriptions[subId].nativeBalance;
+      uint96 prevBal = subcription.nativeBalance;
       if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].nativeBalance = prevBal - payment;
+      subcription.nativeBalance = prevBal - payment;
       s_withdrawableNative += payment;
     } else {
-      uint96 prevBal = s_subscriptions[subId].balance;
+      uint96 prevBal = subcription.balance;
       if (prevBal < payment) {
         revert InsufficientBalance();
       }
-      s_subscriptions[subId].balance = prevBal - payment;
+      subcription.balance = prevBal - payment;
       s_withdrawableTokens += payment;
     }
   }
@@ -552,14 +565,12 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     return uint96(payment);
   }
 
-  function _getFeedData() private view returns (int256) {
+  function _getFeedData() private view returns (int256 weiPerUnitLink) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
-    bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
-    int256 weiPerUnitLink;
     (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
+    if (stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
     return weiPerUnitLink;
@@ -569,15 +580,16 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @inheritdoc IVRFSubscriptionV2Plus
    */
   function pendingRequestExists(uint256 subId) public view override returns (bool) {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
-    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
-        (uint256 reqId, ) = _computeRequestId(
-          s_provingKeyHashes[j],
-          subConfig.consumers[i],
-          subId,
-          s_consumers[subConfig.consumers[i]][subId]
-        );
+    address[] storage consumers = s_subscriptionConfigs[subId].consumers;
+    uint256 consumersLength = consumers.length;
+    if (consumersLength == 0) {
+      return false;
+    }
+    uint256 provingKeyHashesLength = s_provingKeyHashes.length;
+    for (uint256 i = 0; i < consumersLength; ++i) {
+      address consumer = consumers[i];
+      for (uint256 j = 0; j < provingKeyHashesLength; ++j) {
+        (uint256 reqId, ) = _computeRequestId(s_provingKeyHashes[j], consumer, subId, s_consumers[consumer][subId]);
         if (s_requestCommitments[reqId] != 0) {
           return true;
         }
@@ -599,7 +611,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // Note bounded by MAX_CONSUMERS
     address[] memory consumers = s_subscriptionConfigs[subId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
-    for (uint256 i = 0; i < consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; ++i) {
       if (consumers[i] == consumer) {
         address last = consumers[lastConsumerIndex];
         // Storage write to preserve last element
@@ -657,7 +669,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   function _isTargetRegistered(address target) internal view returns (bool) {
-    for (uint256 i = 0; i < s_migrationTargets.length; i++) {
+    uint256 migrationTargetsLength = s_migrationTargets.length;
+    for (uint256 i = 0; i < migrationTargetsLength; ++i) {
       if (s_migrationTargets[i] == target) {
         return true;
       }
@@ -675,10 +688,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function deregisterMigratableCoordinator(address target) external onlyOwner {
     uint256 nTargets = s_migrationTargets.length;
-    for (uint256 i = 0; i < nTargets; i++) {
+    for (uint256 i = 0; i < nTargets; ++i) {
       if (s_migrationTargets[i] == target) {
         s_migrationTargets[i] = s_migrationTargets[nTargets - 1];
-        s_migrationTargets[nTargets - 1] = target;
         s_migrationTargets.pop();
         emit CoordinatorDeregistered(target);
         return;
@@ -718,7 +730,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // despite the fact that we follow best practices this is still probably safest
     // to prevent any re-entrancy possibilities.
     s_config.reentrancyLock = true;
-    for (uint256 i = 0; i < consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; ++i) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);
     }
     s_config.reentrancyLock = false;
