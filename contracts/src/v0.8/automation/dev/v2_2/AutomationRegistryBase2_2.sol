@@ -603,10 +603,10 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     HotVars memory hotVars,
     uint256 gasLimit,
     uint256 gasOverhead,
+    uint256 l1CostWei,
     uint256 fastGasWei,
     uint256 linkNative,
-    bool isExecution,
-    uint256 l1CostWei
+    bool isExecution
   ) internal view returns (uint96, uint96) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
@@ -624,7 +624,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   }
 
   /**
-   * @dev calculates the max LINK payment for an upkeep
+   * @dev calculates the max LINK payment for an upkeep. Called during checkUpkeep simulation and assumes
+   * maximum gas overhead, L1 overhead
    */
   function _getMaxLinkPayment(
     HotVars memory hotVars,
@@ -655,10 +656,10 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       hotVars,
       performGas,
       maxGasOverhead,
+      maxL1Fee,
       fastGasWei,
       linkNative,
-      false, //isExecution
-      maxL1Fee
+      false //isExecution
     );
 
     return reimbursement + premium;
@@ -894,16 +895,17 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       hotVars,
       upkeepTransmitInfo.gasUsed,
       gasOverhead,
+      l1Fee,
       fastGasWei,
       linkNative,
-      true,
-      l1Fee
+      true // isExecution
     );
 
     uint96 balance = s_upkeep[upkeepId].balance;
     uint96 payment = gasReimbursement + premium;
 
-    // this shouldn't happen, but in rare cases, we charge the full balance in case the user can't cover the amount owed
+    // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
+    // can't cover the amount owed
     if (balance < gasReimbursement) {
       payment = balance;
       gasReimbursement = balance;
