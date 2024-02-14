@@ -20,7 +20,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
 
   /**
    * @notice versions:
-   * AutomationRegistry 2.2.0: moves chain-spicific integration code into a separate module
+   * AutomationRegistry 2.2.0: moves chain-specific integration code into a separate module
    * KeeperRegistry 2.1.0:     introduces support for log triggers
    *                           removes the need for "wrapped perform data"
    * KeeperRegistry 2.0.2:     pass revert bytes as performData when target contract reverts
@@ -48,7 +48,6 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     AutomationRegistryLogicB2_2 logicA
   )
     AutomationRegistryBase2_2(
-      logicA.getMode(),
       logicA.getLinkAddress(),
       logicA.getLinkNativeFeedAddress(),
       logicA.getFastGasFeedAddress(),
@@ -88,13 +87,18 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
     uint32 epoch = uint32(epochAndRound >> 8);
 
-    _handleReport(hotVars, report, gasOverhead, epoch);
+    _handleReport(hotVars, report, gasOverhead);
+
+    if (epoch > hotVars.latestEpoch) {
+      s_hotVars.latestEpoch = epoch;
+    }
   }
 
-  function _handleReport(HotVars memory hotVars, Report memory report, uint256 gasOverhead, uint32 epoch) private {
+  function _handleReport(HotVars memory hotVars, Report memory report, uint256 gasOverhead) private {
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     uint16 numUpkeepsPassedChecks;
 
+    uint256 blocknumber = hotVars.chainModule.blockNumber();
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
       upkeepTransmitInfo[i].triggerType = _getTriggerType(report.upkeepIds[i]);
@@ -109,6 +113,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       );
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
+        blocknumber,
         report.triggers[i],
         upkeepTransmitInfo[i],
         hotVars
@@ -131,7 +136,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
       // Store last perform block number / deduping key for upkeep
-      _updateTriggerMarker(report.upkeepIds[i], upkeepTransmitInfo[i]);
+      _updateTriggerMarker(report.upkeepIds[i], blocknumber, upkeepTransmitInfo[i]);
     }
     // No upkeeps to be performed in this report
     if (numUpkeepsPassedChecks == 0) {
@@ -141,7 +146,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes, which is approximated to be reportLength
     // Rest of msg.data is accounted for in accounting overheads
-    // NOTE in process of changing acounting, so pre-emptively changed reportLength to msg.data.length
+    // NOTE in process of changing accounting, so pre-emptively changed reportLength to msg.data.length
     gasOverhead =
       (gasOverhead - gasleft() + 16 * msg.data.length) +
       ACCOUNTING_FIXED_GAS_OVERHEAD +
@@ -187,10 +192,6 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     // record payments
     s_transmitters[msg.sender].balance += totalReimbursement;
     s_hotVars.totalPremium += totalPremium;
-
-    if (epoch > hotVars.latestEpoch) {
-      s_hotVars.latestEpoch = epoch;
-    }
   }
 
   /**
@@ -320,7 +321,8 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       reentrancyGuard: s_hotVars.reentrancyGuard,
       totalPremium: totalPremium,
       latestEpoch: 0, // DON restarts epoch
-      reorgProtectionEnabled: onchainConfig.reorgProtectionEnabled
+      reorgProtectionEnabled: onchainConfig.reorgProtectionEnabled,
+      chainModule: onchainConfig.chainModule
     });
 
     s_storage = Storage({
@@ -341,7 +343,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
-    s_storage.latestConfigBlockNumber = uint32(_blockNum());
+    s_storage.latestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
     s_storage.configCount += 1;
 
     bytes memory onchainConfigBytes = abi.encode(onchainConfig);
