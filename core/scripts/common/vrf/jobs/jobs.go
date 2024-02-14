@@ -28,7 +28,7 @@ estimate_gas [type=estimategaslimit
               to="%s"
               multiplier="%f"
               data="$(vrf.output)"
-              block=%s]
+              block="%s"]
 simulate     [type=ethcall
               from="%s"
               to="%s"
@@ -37,7 +37,7 @@ simulate     [type=ethcall
               extractRevertReason=true
               contract="%s"
               data="$(vrf.output)"
-              block=%s]
+              block="%s"]
 decode_log->vrf->estimate_gas->simulate
 """`
 
@@ -69,7 +69,7 @@ estimate_gas            [type=estimategaslimit
 						 to="%s"
 						 multiplier="%f"
 						 data="$(generate_proof.output)"
-						 block=%s]
+						 block="%s"]
 simulate_fulfillment    [type=ethcall
 						 from="%s"
                          to="%s"
@@ -78,7 +78,7 @@ simulate_fulfillment    [type=ethcall
 		                 extractRevertReason=true
 		                 contract="%s"
 		                 data="$(generate_proof.output)"
-						 block=%s]
+						 block="%s"]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 """
 `

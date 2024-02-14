@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -146,19 +146,17 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-		registryMock.MockCallContextMatchedResponse(
+		registryMock.MockMatchedResponse(
 			"checkUpkeep",
-			func(args map[string]interface{}) bool {
-				gasPrice := args["gasPrice"].(*hexutil.Big)
-				gas := args["gas"].(hexutil.Uint64)
-				return gasPrice == nil &&
-					gas == 0
+			func(callArgs ethereum.CallMsg) bool {
+				return callArgs.GasPrice == nil &&
+					callArgs.Gas == 0
 			},
 			checkUpkeepResponse,
 		)
-		registryMock.MockCallContextMatchedResponse(
+		registryMock.MockMatchedResponse(
 			"performUpkeep",
-			func(args map[string]interface{}) bool { return true },
+			func(callArgs ethereum.CallMsg) bool { return true },
 			checkPerformResponse,
 		)
 
@@ -193,19 +191,17 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-			registryMock.MockCallContextMatchedResponse(
+			registryMock.MockMatchedResponse(
 				"checkUpkeep",
-				func(args map[string]interface{}) bool {
-					gasPrice := args["gasPrice"].(*hexutil.Big)
-					gas := args["gas"].(hexutil.Uint64)
-					return gasPrice == nil &&
-						gas == 0
+				func(callArgs ethereum.CallMsg) bool {
+					return callArgs.GasPrice == nil &&
+						callArgs.Gas == 0
 				},
 				checkUpkeepResponse,
 			)
-			registryMock.MockCallContextMatchedResponse(
+			registryMock.MockMatchedResponse(
 				"performUpkeep",
-				func(args map[string]interface{}) bool { return true },
+				func(callArgs ethereum.CallMsg) bool { return true },
 				checkPerformResponse,
 			)
 
@@ -241,19 +237,17 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		require.NoError(t, err)
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-		registryMock.MockCallContextMatchedResponse(
+		registryMock.MockMatchedResponse(
 			"checkUpkeep",
-			func(args map[string]interface{}) bool {
-				gasPrice := args["gasPrice"].(*hexutil.Big)
-				gas := args["gas"].(hexutil.Uint64)
-				return gasPrice == nil &&
-					gas == 0
+			func(callArgs ethereum.CallMsg) bool {
+				return callArgs.GasPrice == nil &&
+					callArgs.Gas == 0
 			},
 			checkUpkeepResponse,
 		)
-		registryMock.MockCallContextMatchedResponse(
+		registryMock.MockMatchedResponse(
 			"performUpkeep",
-			func(args map[string]interface{}) bool { return true },
+			func(callArgs ethereum.CallMsg) bool { return true },
 			checkPerformResponse,
 		)
 
@@ -302,10 +296,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-		registryMock.MockCallContextResponse("checkUpkeep", checkUpkeepResponse)
-		registryMock.MockCallContextMatchedResponse(
+		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
+		registryMock.MockMatchedResponse(
 			"performUpkeep",
-			func(args map[string]interface{}) bool { return true },
+			func(callArgs ethereum.CallMsg) bool { return true },
 			checkPerformResponse,
 		)
 		// turn falls somewhere between 20-39 (blockCountPerTurn=20)
@@ -333,7 +327,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	var wasCalled atomic.Bool
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
-	registryMock.MockCallContextRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
+	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
 		wasCalled.Store(true)
 	})
 

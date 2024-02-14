@@ -403,6 +403,25 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 	return res, nil
 }
 
+func (c *SimulatedBackendClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	// Expected error is
+	// type JsonError struct {
+	//	Code    int         `json:"code"`
+	//	Message string      `json:"message"`
+	//	Data    interface{} `json:"data,omitempty"`
+	//}
+	res, err := c.b.PendingCallContract(ctx, msg)
+	if err != nil {
+		dataErr := revertError{}
+		if errors.Is(err, &dataErr) {
+			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
+		}
+		// Generic revert, no data
+		return nil, &JsonError{Data: []byte{}, Message: err.Error(), Code: 3}
+	}
+	return res, nil
+}
+
 // CodeAt gets the code associated with an account as of a specified block.
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	return c.b.CodeAt(ctx, account, blockNumber)
@@ -707,28 +726,6 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 
 	if value, ok := params["value"].(*big.Int); ok {
 		callMsg.Value = value
-	}
-
-	switch gas := params["gas"].(type) {
-	case nil:
-		// This parameter is not required so nil is acceptable
-	case uint64:
-		callMsg.Gas = gas
-	case hexutil.Uint64:
-		callMsg.Gas = uint64(gas)
-	default:
-		panic("unexpected type of 'gas' parameter; try hexutil.Uint64, or uint64")
-	}
-
-	switch gasPrice := params["gasPrice"].(type) {
-	case nil:
-		// This parameter is not required so nil is acceptable
-	case *big.Int:
-		callMsg.GasPrice = gasPrice
-	case *hexutil.Big:
-		callMsg.GasPrice = gasPrice.ToInt()
-	default:
-		panic("unexpected type of 'gasPrice' parameter; try *big.Int, or *hexutil.Big")
 	}
 
 	return callMsg

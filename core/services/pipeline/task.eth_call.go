@@ -3,10 +3,11 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -118,29 +119,31 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		}
 	}
 
-	args := map[string]interface{}{
-		"from":                 common.Address(from),
-		"to":                   (*common.Address)(&contractAddr),
-		"input":                hexutil.Bytes([]byte(data)),
-		"gas":                  hexutil.Uint64(uint64(selectedGas)),
-		"gasPrice":             (*hexutil.Big)(gasPrice.BigInt()),
-		"maxFeePerGas":         (*hexutil.Big)(gasFeeCap.BigInt()),
-		"maxPriorityFeePerGas": (*hexutil.Big)(gasTipCap.BigInt()),
+	call := ethereum.CallMsg{
+		To:        (*common.Address)(&contractAddr),
+		From:      (common.Address)(from),
+		Data:      []byte(data),
+		Gas:       uint64(selectedGas),
+		GasPrice:  gasPrice.BigInt(),
+		GasTipCap: gasTipCap.BigInt(),
+		GasFeeCap: gasFeeCap.BigInt(),
 	}
 
-	selectedBlock, err := selectBlock(string(block))
-	if err != nil {
-		return Result{Error: err}, runInfo
-	}
-
-	lggr = lggr.With("gas", uint64(selectedGas)).
-		With("gasPrice", gasPrice.BigInt()).
-		With("gasTipCap", gasTipCap.BigInt()).
-		With("gasFeeCap", gasFeeCap.BigInt())
+	lggr = lggr.With("gas", call.Gas).
+		With("gasPrice", call.GasPrice).
+		With("gasTipCap", call.GasTipCap).
+		With("gasFeeCap", call.GasFeeCap)
 
 	start := time.Now()
-	var resp hexutil.Bytes
-	err = chain.Client().CallContext(ctx, &resp, "eth_call", args, selectedBlock)
+
+	var resp []byte
+	blockStr := block.String()
+	if blockStr == "" || strings.ToLower(blockStr) == "latest" {
+		resp, err = chain.Client().CallContract(ctx, call, nil)
+	} else if strings.ToLower(blockStr) == "pending" {
+		resp, err = chain.Client().PendingCallContract(ctx, call)
+	}
+
 	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
@@ -158,5 +161,5 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	}
 
 	promETHCallTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
-	return Result{Value: []byte(resp)}, runInfo
+	return Result{Value: resp}, runInfo
 }

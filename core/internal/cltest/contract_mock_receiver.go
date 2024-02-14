@@ -35,7 +35,7 @@ type contractMockReceiver struct {
 	address common.Address
 }
 
-func (receiver contractMockReceiver) MockCallContractResponse(funcName string, responseArgs ...interface{}) *mock.Call {
+func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs ...interface{}) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
@@ -55,7 +55,7 @@ func (receiver contractMockReceiver) MockCallContractResponse(funcName string, r
 		Return(encoded, nil)
 }
 
-func (receiver contractMockReceiver) MockCallContextResponse(funcName string, responseArgs ...interface{}) *mock.Call {
+func (receiver contractMockReceiver) MockMatchedResponse(funcName string, matcher func(callArgs ethereum.CallMsg) bool, responseArgs ...interface{}) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
@@ -65,55 +65,18 @@ func (receiver contractMockReceiver) MockCallContextResponse(funcName string, re
 
 	return receiver.ethMock.
 		On(
-			"CallContext",
+			"CallContract",
 			mock.Anything,
-			mock.Anything,
-			"eth_call",
-			mock.MatchedBy(func(args map[string]interface{}) bool {
-				to := args["to"].(*common.Address)
-				data := args["input"].(hexutil.Bytes)
-				return *to == receiver.address &&
-					hexutil.Encode(data)[0:funcSigLength] == funcSig
+			mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
+				return *callArgs.To == receiver.address &&
+					hexutil.Encode(callArgs.Data)[0:funcSigLength] == funcSig &&
+					matcher(callArgs)
 			}),
 			mock.Anything).
-		Return(nil).Run(func(args mock.Arguments) {
-		resp := args.Get(1).(*hexutil.Bytes)
-		*resp = encoded
-	})
-
+		Return(encoded, nil)
 }
 
-func (receiver contractMockReceiver) MockCallContextMatchedResponse(funcName string, matcher func(args map[string]interface{}) bool, responseArgs ...interface{}) *mock.Call {
-	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
-	if len(funcSig) != funcSigLength {
-		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
-	}
-
-	encoded := receiver.mustEncodeResponse(funcName, responseArgs...)
-
-	// TODO: ALL CALLER MATCHER FUNCTIONS SHOULD BE CHANGED
-
-	return receiver.ethMock.
-		On(
-			"CallContext",
-			mock.Anything,
-			mock.Anything,
-			"eth_call",
-			mock.MatchedBy(func(args map[string]interface{}) bool {
-				to := args["to"].(*common.Address)
-				data := args["input"].(hexutil.Bytes)
-				return *to == receiver.address &&
-					hexutil.Encode(data)[0:funcSigLength] == funcSig &&
-					matcher(args)
-			}),
-			mock.Anything).
-		Return(nil).Run(func(args mock.Arguments) {
-		resp := args.Get(1).(*hexutil.Bytes)
-		*resp = encoded
-	})
-}
-
-func (receiver contractMockReceiver) MockCallContextRevertResponse(funcName string) *mock.Call {
+func (receiver contractMockReceiver) MockRevertResponse(funcName string) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != funcSigLength {
 		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
@@ -121,19 +84,14 @@ func (receiver contractMockReceiver) MockCallContextRevertResponse(funcName stri
 
 	return receiver.ethMock.
 		On(
-			"CallContext",
+			"CallContract",
 			mock.Anything,
-			mock.Anything,
-			"eth_call",
-			mock.MatchedBy(func(args map[string]interface{}) bool {
-				to := args["to"].(*common.Address)
-				data := args["input"].(hexutil.Bytes)
-				return *to == receiver.address &&
-					hexutil.Encode(data)[0:funcSigLength] == funcSig
+			mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
+				return *callArgs.To == receiver.address &&
+					hexutil.Encode(callArgs.Data)[0:funcSigLength] == funcSig
 			}),
 			mock.Anything).
-		Return(errors.New("revert"))
-
+		Return(nil, errors.New("revert"))
 }
 
 func (receiver contractMockReceiver) mustEncodeResponse(funcName string, responseArgs ...interface{}) []byte {
