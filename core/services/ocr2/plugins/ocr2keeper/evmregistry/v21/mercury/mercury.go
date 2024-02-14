@@ -26,7 +26,8 @@ const (
 	BlockNumber              = "blockNumber" // valid for v0.2
 	Timestamp                = "timestamp"   // valid for v0.3
 	totalFastPluginRetries   = 5
-	totalMediumPluginRetries = 10
+	totalMediumPluginRetries = totalFastPluginRetries + 1
+	RetryIntervalTimeout     = time.Duration(-1)
 )
 
 var GenerateHMACFn = func(method string, path string, body []byte, clientId string, secret string, ts int64) string {
@@ -45,8 +46,7 @@ var GenerateHMACFn = func(method string, path string, body []byte, clientId stri
 }
 
 // CalculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
-var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvider) time.Duration {
-	var retryInterval time.Duration
+var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
 	var retries int
 	totalAttempts, ok := mercuryConfig.GetPluginRetry(prk)
 	if ok {
@@ -55,9 +55,9 @@ var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvide
 			retryInterval = 1 * time.Second
 		} else if retries < totalMediumPluginRetries {
 			retryInterval = 5 * time.Second
+		} else {
+			retryInterval = RetryIntervalTimeout
 		}
-		// if the core node has retried totalMediumPluginRetries times, do not set retry interval and plugin will use
-		// the default interval
 	} else {
 		retryInterval = 1 * time.Second
 	}
