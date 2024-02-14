@@ -117,15 +117,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
       upkeepTransmitInfo[i].triggerType = _getTriggerType(report.upkeepIds[i]);
-      upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
-        hotVars,
-        upkeepTransmitInfo[i].triggerType,
-        uint32(report.gasLimits[i]),
-        report.fastGasWei,
-        report.linkNative,
-        l1Fee,
-        true
-      );
+
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
         blocknumber,

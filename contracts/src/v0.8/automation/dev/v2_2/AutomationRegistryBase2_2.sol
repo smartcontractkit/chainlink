@@ -402,7 +402,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   struct UpkeepTransmitInfo {
     Upkeep upkeep;
     bool earlyChecksPassed;
-    uint96 maxLinkPayment;
     bool performSuccess;
     Trigger triggerType;
     uint256 gasUsed;
@@ -636,7 +635,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     uint256 l1CostWei,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (uint96) {
-    
+
     uint256 gasOverhead;
     if (triggerType == Trigger.CONDITION) {
       gasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
@@ -764,11 +763,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
       emit CancelledUpkeepReport(upkeepId, rawTrigger);
-      return (false, dedupID);
-    }
-    if (transmitInfo.upkeep.balance < transmitInfo.maxLinkPayment) {
-      // Can happen due to fluctuations in gas / link prices
-      emit InsufficientFundsUpkeepReport(upkeepId, rawTrigger);
       return (false, dedupID);
     }
     return (true, dedupID);
