@@ -636,7 +636,22 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     uint256 l1CostWei,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (uint96) {
-    uint256 gasOverhead = _getMaxGasOverhead(triggerType, hotVars.f);
+    
+    uint256 gasOverhead;
+    if (triggerType == Trigger.CONDITION) {
+      gasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
+    } else if (triggerType == Trigger.LOG) {
+      gasOverhead = REGISTRY_LOG_OVERHEAD;
+    } else {
+      revert InvalidTriggerType();
+    }
+    uint256 maxCalldataSize = s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD;
+    (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
+    gasOverhead += 
+      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * ( hotVars.f + 1)) +
+      ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
+      chainModuleFixedOverhead;
+
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       performGas,
@@ -654,28 +669,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     return
       hotVars.gasCeilingMultiplier *
       hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD);
-  }
-
-  /**
-   * @dev returns the max gas overhead that can be charged for an upkeep
-   */
-  function _getMaxGasOverhead(Trigger triggerType, uint8 f) internal view returns (uint256) {
-    // performData causes additional overhead in report length and memory operations
-    uint256 baseOverhead;
-    if (triggerType == Trigger.CONDITION) {
-      baseOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
-    } else if (triggerType == Trigger.LOG) {
-      baseOverhead = REGISTRY_LOG_OVERHEAD;
-    } else {
-      revert InvalidTriggerType();
-    }
-    uint256 maxCalldataSize = s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD;
-    (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
-    return
-      baseOverhead +
-      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) +
-      ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
-      chainModuleFixedOverhead;
   }
 
   /**
