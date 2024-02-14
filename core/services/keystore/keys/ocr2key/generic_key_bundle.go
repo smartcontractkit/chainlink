@@ -18,6 +18,7 @@ import (
 type (
 	keyring interface {
 		ocrtypes.OnchainKeyring
+		OCR3SignerVerifier
 		Marshal() ([]byte, error)
 		Unmarshal(in []byte) error
 	}
@@ -92,8 +93,16 @@ func (kb *keyBundle[K]) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.R
 	return kb.keyring.Sign(reportCtx, report)
 }
 
+func (kb *keyBundle[K]) Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
+	return kb.keyring.Sign3(digest, seqNr, r)
+}
+
 func (kb *keyBundle[K]) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	return kb.keyring.Verify(publicKey, reportCtx, report, signature)
+}
+
+func (kb *keyBundle[K]) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
+	return kb.keyring.Verify3(publicKey, cd, seqNr, r, signature)
 }
 
 // OnChainPublicKey returns public component of the keypair used on chain

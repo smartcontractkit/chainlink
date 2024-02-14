@@ -440,18 +440,17 @@ func (c *coordinator) ReportBlocks(
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
-		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit >= c.coordinatorConfig.BlockGasOverhead {
-			_, redeemRandomnessRequested := redeemRandomnessBlocksRequested[block]
-			blocks = append(blocks, ocr2vrftypes.Block{
-				Hash:              blockhashesMapping[block.blockNumber],
-				Height:            block.blockNumber,
-				ConfirmationDelay: block.confDelay,
-				ShouldStore:       redeemRandomnessRequested,
-			})
-			currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
-		} else {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < c.coordinatorConfig.BlockGasOverhead {
 			break
 		}
+		_, redeemRandomnessRequested := redeemRandomnessBlocksRequested[block]
+		blocks = append(blocks, ocr2vrftypes.Block{
+			Hash:              blockhashesMapping[block.blockNumber],
+			Height:            block.blockNumber,
+			ConfirmationDelay: block.confDelay,
+			ShouldStore:       redeemRandomnessRequested,
+		})
+		currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
 	}
 
 	c.lggr.Tracew("got elligible blocks", "blocks", blocks)
