@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
@@ -311,6 +312,17 @@ func (s *SendError) IsTimeout() bool {
 	return errors.Is(s.err, context.DeadlineExceeded)
 }
 
+// IsCanceled indicates if the error was caused by an context cancellation
+func (s *SendError) IsCanceled() bool {
+	if s == nil {
+		return false
+	}
+	if s.err == nil {
+		return false
+	}
+	return errors.Is(s.err, context.Canceled)
+}
+
 func NewFatalSendError(e error) *SendError {
 	if e == nil {
 		return nil
@@ -475,6 +487,10 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		lggr.Errorw("timeout while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
+	if sendError.IsCanceled() {
+		lggr.Errorw("context was canceled while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
 	if sendError.IsTxFeeExceedsCap() {
 		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"etx", tx,
@@ -485,16 +501,4 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 	}
 	lggr.Errorw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
-}
-
-// ClassifySendOnlyError handles SendOnly nodes error codes. In that case, we don't assume there is another transaction that will be correctly
-// priced.
-func ClassifySendOnlyError(err error) commonclient.SendTxReturnCode {
-	sendError := NewSendError(err)
-	if sendError == nil || sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() || sendError.IsTransactionAlreadyInMempool() {
-		// Nonce too low or transaction known errors are expected since
-		// the primary SendTransaction may well have succeeded already
-		return commonclient.Successful
-	}
-	return commonclient.Fatal
 }
