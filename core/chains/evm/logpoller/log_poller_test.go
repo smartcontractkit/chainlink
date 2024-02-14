@@ -106,7 +106,7 @@ func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("Only for local load testing and query analysis")
 	_, db := heavyweight.FullTestDBV2(t, nil)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	chainID := big.NewInt(137)
 
 	o := logpoller.NewORM(big.NewInt(137), db, logger.Test(t))
@@ -127,31 +127,30 @@ func TestPopulateLoadedDB(t *testing.T) {
 	require.NoError(t, o.InsertBlock(ctx, common.HexToHash("0x10"), 1000000, time.Now(), 0))
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err1 := o.SelectLogsDataWordRange(ctx, address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		lgs, err1 := o.SelectLogsDataWordRange(ctx, address1, event1, 0, logpoller.EvmWord(50000), logpoller.EvmWord(50020), 0)
 		require.NoError(t, err1)
 		// 10 since every other log is for address1
-		assert.Equal(t, 10, len(lgs))
+		require.Equal(t, 10, len(lgs))
 	}()
 
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err1 := o.SelectIndexedLogs(ctx, address2, event1, 1, []common.Hash{logpoller.EvmWord(500000), logpoller.EvmWord(500020)}, 0)
+		lgs, err1 := o.SelectIndexedLogs(ctx, address2, event1, 1, []common.Hash{logpoller.EvmWord(50000), logpoller.EvmWord(50020)}, 0)
 		require.NoError(t, err1)
-		assert.Equal(t, 2, len(lgs))
+		require.Equal(t, 2, len(lgs))
 	}()
 
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err1 := o.SelectIndexedLogsTopicRange(ctx, address1, event1, 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		lgs, err1 := o.SelectIndexedLogsTopicRange(ctx, address1, event1, 1, logpoller.EvmWord(50000), logpoller.EvmWord(50020), 0)
 		require.NoError(t, err1)
-		assert.Equal(t, 10, len(lgs))
+		require.Equal(t, 10, len(lgs))
 	}()
 }
 
 func TestLogPoller_Integration(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
-	ctx := context.Background()
 
 	require.NoError(t, th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}, 0}))
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)

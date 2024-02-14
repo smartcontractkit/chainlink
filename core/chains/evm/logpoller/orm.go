@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"math/big"
 	"time"
 
@@ -66,13 +67,20 @@ type DbORM struct {
 var _ ORM = &DbORM{}
 
 // NewORM creates a DbORM scoped to chainID.
-func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger) *DbORM {
+func NewORM(chainID *big.Int, db sqlutil.Queryer, lggr logger.Logger) *DbORM {
 	return &DbORM{
 		chainID: chainID,
 		db:      db,
 		lggr:    lggr,
 	}
 }
+
+func (o *DbORM) Transaction(ctx context.Context, fn func(*DbORM) error) (err error) {
+	return sqlutil.Transact(ctx, o.new, o.db, nil, fn)
+}
+
+// new returns a NewORM like o, but backed by q.
+func (o *DbORM) new(q sqlutil.Queryer) *DbORM { return NewORM(o.chainID, q, o.lggr) }
 
 // InsertBlock is idempotent to support replays.
 func (o *DbORM) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
@@ -81,9 +89,7 @@ func (o *DbORM) InsertBlock(ctx context.Context, blockHash common.Hash, blockNum
 			ON CONFLICT DO NOTHING`
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	// TODO: Why do we get a transaction failure?? Not using a transaction..
-	// TODO: Maybe because the previous transaction failed for SelectLatestLogByEventSigWithConfs
-	_, err := o.db.ExecContext(ctx, query, o.chainID.String(), blockHash, blockNumber, blockTimestamp, finalizedBlock)
+	_, err := o.db.ExecContext(ctx, query, ubig.New(o.chainID), blockHash.Bytes(), blockNumber, blockTimestamp, finalizedBlock)
 	return err
 }
 
@@ -106,7 +112,7 @@ func (o *DbORM) InsertFilter(ctx context.Context, filter Filter) (err error) {
 
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	_, err = o.db.ExecContext(ctx, query, filter.Name, o.chainID.String(), filter.Retention, concatBytes(filter.Addresses), concatBytes(filter.EventSigs))
+	_, err = o.db.ExecContext(ctx, query, filter.Name, ubig.New(o.chainID), filter.Retention, concatBytes(filter.Addresses), concatBytes(filter.EventSigs))
 	return err
 }
 
@@ -123,31 +129,20 @@ func (o *DbORM) DeleteFilter(ctx context.Context, name string) error {
 
 // LoadFilters returns all filters for this chain
 func (o *DbORM) LoadFilters(ctx context.Context) (map[string]Filter, error) {
-	rows := make([]Filter, 0)
-
 	query := `SELECT name,
 			ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses, 
 			ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs,
 			MAX(retention) AS retention
 		FROM evm.log_poller_filters WHERE evm_chain_id = $1
 		GROUP BY name`
-
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
+	var rows []Filter
 	err := o.db.SelectContext(ctx, &rows, query, ubig.New(o.chainID))
-	/*
-		err := q.Select(&rows, `SELECT name,
-				ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses,
-				ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs,
-				MAX(retention) AS retention
-			FROM evm.log_poller_filters WHERE evm_chain_id = $1
-			GROUP BY name`, ubig.New(o.chainID))
-	*/
 	filters := make(map[string]Filter)
 	for _, filter := range rows {
 		filters[filter.Name] = filter
 	}
-
 	return filters, err
 }
 
@@ -155,7 +150,7 @@ func (o *DbORM) SelectBlockByHash(ctx context.Context, hash common.Hash) (*LogPo
 	var b LogPollerBlock
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE block_hash = $1 AND evm_chain_id = $2`, hash, ubig.New(o.chainID)); err != nil {
+	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE block_hash = $1 AND evm_chain_id = $2`, hash.Bytes(), ubig.New(o.chainID)); err != nil {
 		return nil, err
 	}
 	return &b, nil
@@ -175,7 +170,7 @@ func (o *DbORM) SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error) 
 	var b LogPollerBlock
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`, o.chainID.String()); err != nil {
+	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`, ubig.New(o.chainID)); err != nil {
 		return nil, err
 	}
 	return &b, nil
@@ -189,12 +184,12 @@ func (o *DbORM) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig
 			AND address = $3
 			AND block_number <= %s
 			ORDER BY (block_number, log_index) DESC LIMIT 1`,
-		nestedBlockNumberQuery(confs, o.chainID.String()))
+		nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 	var l Log
 
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.GetContext(ctx, &l, query, o.chainID.String(), eventSig, address); err != nil {
+	if err := o.db.GetContext(ctx, &l, query, ubig.New(o.chainID), eventSig.Bytes(), address); err != nil {
 		return nil, err
 	}
 	return &l, nil
@@ -213,33 +208,14 @@ func (o *DbORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 	// fast and should not slow down the log readers.
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-
-	// TODO: Is Transact working?? Why are tests failing
-	performInsert := func(tx *sqlx.Tx) error {
-		args, err := newQueryArgs(o.chainID).
-			withStartBlock(start).
-			toArgs()
+	return o.Transaction(ctx, func(orm *DbORM) error {
+		_, err := o.db.ExecContext(ctx, `DELETE FROM evm.logs WHERE block_number >= $1 AND evm_chain_id = $2`, start, ubig.New(o.chainID))
 		if err != nil {
-			o.lggr.Error("Cant build args for DeleteLogsAndBlocksAfter queries", "err", err)
 			return err
 		}
-
-		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
-		if err != nil {
-			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
-			return err
-		}
-
-		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
-		if err != nil {
-			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
-			return err
-		}
-		return nil
-	}
-	return sqlutil.Transact[*sqlx.Tx](ctx, func(q sqlutil.Queryer) *sqlx.Tx {
-		return q.(*sqlx.Tx)
-	}, o.db, nil, performInsert)
+		_, err = o.db.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks WHERE block_number >= $1 AND evm_chain_id = $2`, start, ubig.New(o.chainID))
+		return err
+	})
 }
 
 type Exp struct {
@@ -274,12 +250,9 @@ func (o *DbORM) InsertLogs(ctx context.Context, logs []Log) error {
 
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	performInsert := func(tx *sqlx.Tx) error {
-		return o.insertLogsWithinTx(ctx, logs, tx)
-	}
-	return sqlutil.Transact[*sqlx.Tx](ctx, func(q sqlutil.Queryer) *sqlx.Tx {
-		return q.(*sqlx.Tx)
-	}, o.db, nil, performInsert)
+	return o.Transaction(ctx, func(orm *DbORM) error {
+		return o.insertLogsWithinTx(ctx, logs, orm.db.(*sqlx.Tx))
+	})
 }
 
 func (o *DbORM) InsertLogsWithBlock(ctx context.Context, logs []Log, block LogPollerBlock) error {
@@ -295,15 +268,22 @@ func (o *DbORM) InsertLogsWithBlock(ctx context.Context, logs []Log, block LogPo
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	// Block and logs goes with the same TX to ensure atomicity
-	performInsert := func(tx *sqlx.Tx) error {
-		if err := o.InsertBlock(ctx, block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber); err != nil {
+	return o.Transaction(ctx, func(orm *DbORM) error {
+		if err := o.insertBlockWithinTx(ctx, orm.db.(*sqlx.Tx), block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber); err != nil {
 			return err
 		}
-		return o.insertLogsWithinTx(ctx, logs, tx)
-	}
-	return sqlutil.Transact[*sqlx.Tx](ctx, func(q sqlutil.Queryer) *sqlx.Tx {
-		return q.(*sqlx.Tx)
-	}, o.db, nil, performInsert)
+		return o.insertLogsWithinTx(ctx, logs, orm.db.(*sqlx.Tx))
+	})
+}
+
+func (o *DbORM) insertBlockWithinTx(ctx context.Context, tx *sqlx.Tx, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
+	query := `INSERT INTO evm.log_poller_blocks (evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at)
+			VALUES ($1, $2, $3, $4, $5, NOW())
+			ON CONFLICT DO NOTHING`
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+	_, err := tx.ExecContext(ctx, query, ubig.New(o.chainID), blockHash.Bytes(), blockNumber, blockTimestamp, finalizedBlock)
+	return err
 }
 
 func (o *DbORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx *sqlx.Tx) error {
@@ -354,7 +334,7 @@ func (o *DbORM) SelectLogsByBlockRange(ctx context.Context, start, end int64) ([
         	WHERE evm_chain_id = $1
         	AND block_number >= $2 
         	AND block_number <= $3 
-        	ORDER BY (block_number, log_index, created_at)`, o.chainID.String(), start, end)
+        	ORDER BY (block_number, log_index, created_at)`, ubig.New(o.chainID), start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +353,7 @@ func (o *DbORM) SelectLogs(ctx context.Context, start, end int64, address common
 			AND event_sig = $3  
 			AND block_number >= $4 
 			AND block_number <= $5
-			ORDER BY (block_number, log_index)`, o.chainID.String(), address, eventSig, start, end)
+			ORDER BY (block_number, log_index)`, ubig.New(o.chainID), address, eventSig.Bytes(), start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -390,12 +370,12 @@ func (o *DbORM) SelectLogsCreatedAfter(ctx context.Context, address common.Addre
 				AND block_timestamp > $4
 				AND block_number <= %s
 				ORDER BY (block_number, log_index)`,
-		nestedBlockNumberQuery(confs, o.chainID.String()))
+		nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, eventSig, after); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, eventSig.Bytes(), after); err != nil {
 		return nil, err
 	}
 	return logs, nil
@@ -412,7 +392,7 @@ func (o *DbORM) SelectLogsWithSigs(ctx context.Context, start, end int64, addres
 				AND address = $2
 				AND event_sig = ANY($3)
 				AND block_number BETWEEN $4 AND $5
-				ORDER BY (block_number, log_index)`, o.chainID.String(), address, concatBytes(eventSigs), start, end)
+				ORDER BY (block_number, log_index)`, ubig.New(o.chainID), address, concatBytes(eventSigs), start, end)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -428,7 +408,7 @@ func (o *DbORM) GetBlocksRange(ctx context.Context, start int64, end int64) ([]L
 			WHERE block_number >= $1 
 			AND block_number <= $2
 			AND evm_chain_id = $3
-			ORDER BY block_number ASC`, start, end, o.chainID.String())
+			ORDER BY block_number ASC`, start, end, ubig.New(o.chainID))
 	if err != nil {
 		return nil, err
 	}
@@ -448,12 +428,12 @@ func (o *DbORM) SelectLatestLogEventSigsAddrsWithConfs(ctx context.Context, from
 				AND block_number <= %s
 			GROUP BY event_sig, address
 		)
-		ORDER BY block_number ASC`, nestedBlockNumberQuery(confs, o.chainID.String()))
+		ORDER BY block_number ASC`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), concatBytes(eventSigs), concatBytes(addresses), fromBlock); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), concatBytes(eventSigs), concatBytes(addresses), fromBlock); err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
 	}
 	return logs, nil
@@ -467,29 +447,29 @@ func (o *DbORM) SelectLatestBlockByEventSigsAddrsWithConfs(ctx context.Context, 
 			AND event_sig = ANY($2) 
 			AND address = ANY($3) 
 			AND block_number > $4 
-			AND block_number <= %s`, nestedBlockNumberQuery(confs, o.chainID.String()))
+			AND block_number <= %s`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 	var blockNumber int64
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.GetContext(ctx, &blockNumber, query, o.chainID.String(), concatBytes(eventSigs), concatBytes(addresses), fromBlock); err != nil {
+	if err := o.db.GetContext(ctx, &blockNumber, query, ubig.New(o.chainID), concatBytes(eventSigs), concatBytes(addresses), fromBlock); err != nil {
 		return 0, err
 	}
 	return blockNumber, nil
 }
 
 func (o *DbORM) SelectLogsDataWordRange(ctx context.Context, address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations) ([]Log, error) {
-	query := fmt.Sprintf(`SELECT * FROM evm.logs 
-			WHERE evm_chain_id = $1
-			AND address = $2 
-			AND event_sig = $3
-			AND substring(data from 32*$4+1 for 32) >= $5
-			AND substring(data from 32*$4+1 for 32) <= $6
-			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, o.chainID.String()))
+	query := fmt.Sprintf(`SELECT * FROM evm.logs
+		WHERE evm_chain_id = $1
+		AND address = $2
+		AND event_sig = $3
+		AND substring(data from 32*$4+1 for 32) >= $5
+		AND substring(data from 32*$4+1 for 32) <= $6
+		AND block_number <= %s
+		ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, eventSig, wordIndex, wordValueMin, wordValueMax); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes(), wordValueMax.Bytes()); err != nil {
 		return nil, err
 	}
 	return logs, nil
@@ -503,11 +483,11 @@ func (o *DbORM) SelectLogsDataWordGreaterThan(ctx context.Context, address commo
 			AND event_sig = $3
 			AND substring(data from 32*$4+1 for 32) >= $5
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, o.chainID.String()))
+			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, eventSig, wordIndex, wordValueMin); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes()); err != nil {
 		return nil, err
 	}
 	return logs, nil
@@ -522,17 +502,22 @@ func (o *DbORM) SelectLogsDataWordBetween(ctx context.Context, address common.Ad
 			AND substring(data from 32*$4+1 for 32) <= $5
 			AND substring(data from 32*$6+1 for 32) >= $5
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, o.chainID.String()))
+			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, eventSig, wordIndexMin, wordValue, wordIndexMax); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, eventSig.Bytes(), wordIndexMin, wordValue.Bytes(), wordIndexMax); err != nil {
 		return nil, err
 	}
 	return logs, nil
 }
 
 func (o *DbORM) SelectIndexedLogsTopicGreaterThan(ctx context.Context, address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs Confirmations) ([]Log, error) {
+	topicIndex, err := UseTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	query := fmt.Sprintf(`
 		SELECT * FROM evm.logs
 			WHERE evm_chain_id = $1
@@ -540,17 +525,22 @@ func (o *DbORM) SelectIndexedLogsTopicGreaterThan(ctx context.Context, address c
 			AND event_sig = $3
 			AND topics[$4] >= $5
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, o.chainID.String()))
+			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, eventSig, topicIndex, topicValueMin); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, eventSig.Bytes(), topicIndex, topicValueMin.Bytes()); err != nil {
 		return nil, err
 	}
 	return logs, nil
 }
 
 func (o *DbORM) SelectIndexedLogsTopicRange(ctx context.Context, address common.Address, eventSig common.Hash, topicIndex int, topicValueMin, topicValueMax common.Hash, confs Confirmations) ([]Log, error) {
+	topicIndex, err := UseTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	query := fmt.Sprintf(`
 			SELECT * FROM evm.logs 
 				WHERE evm_chain_id = $1
@@ -559,17 +549,23 @@ func (o *DbORM) SelectIndexedLogsTopicRange(ctx context.Context, address common.
 				AND topics[$4] >= $5
 				AND topics[$4] <= $6
 				AND block_number <= %s
-			ORDER BY (evm.logs.block_number, evm.logs.log_index)`, nestedBlockNumberQuery(confs, o.chainID.String()))
+			ORDER BY (evm.logs.block_number, evm.logs.log_index)`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
+
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, eventSig, topicIndex, topicValueMin, topicValueMax); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, eventSig.Bytes(), topicIndex, topicValueMin.Bytes(), topicValueMax.Bytes()); err != nil {
 		return nil, err
 	}
 	return logs, nil
 }
 
 func (o *DbORM) SelectIndexedLogs(ctx context.Context, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, confs Confirmations) ([]Log, error) {
+	topicIndex, err := UseTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	query := fmt.Sprintf(`
 		SELECT * FROM evm.logs 
 			WHERE evm_chain_id = $1
@@ -577,11 +573,12 @@ func (o *DbORM) SelectIndexedLogs(ctx context.Context, address common.Address, e
 			AND event_sig = $3
 			AND topics[$4] = ANY($5)
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, o.chainID.String()))
+			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
+
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, eventSig, topicIndex, concatBytes(topicValues)); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, eventSig.Bytes(), topicIndex, concatBytes(topicValues)); err != nil {
 		return nil, err
 	}
 	return logs, nil
@@ -589,10 +586,16 @@ func (o *DbORM) SelectIndexedLogs(ctx context.Context, address common.Address, e
 
 // SelectIndexedLogsByBlockRange finds the indexed logs in a given block range.
 func (o *DbORM) SelectIndexedLogsByBlockRange(ctx context.Context, start, end int64, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash) ([]Log, error) {
+	topicIndex, err := UseTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	err := o.db.SelectContext(ctx, &logs, `
+
+	err = o.db.SelectContext(ctx, &logs, `
 		SELECT * FROM evm.logs 
 				WHERE evm_chain_id = $1 
 				AND address = $2
@@ -601,7 +604,7 @@ func (o *DbORM) SelectIndexedLogsByBlockRange(ctx context.Context, start, end in
 				AND block_number >= $6
 				AND block_number <= $7
 				ORDER BY (block_number, log_index)`,
-		o.chainID.String(), address, eventSig, topicIndex, concatBytes(topicValues), start, end)
+		ubig.New(o.chainID), address, eventSig.Bytes(), topicIndex, concatBytes(topicValues), start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -609,6 +612,11 @@ func (o *DbORM) SelectIndexedLogsByBlockRange(ctx context.Context, start, end in
 }
 
 func (o *DbORM) SelectIndexedLogsCreatedAfter(ctx context.Context, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations) ([]Log, error) {
+	topicIndex, err := UseTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
 	query := fmt.Sprintf(`
 		SELECT * FROM evm.logs 
 			WHERE evm_chain_id = $1
@@ -617,12 +625,12 @@ func (o *DbORM) SelectIndexedLogsCreatedAfter(ctx context.Context, address commo
 			AND topics[$4] = ANY($5)
 			AND block_timestamp > $6
 			AND block_number <= %s
-			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, o.chainID.String()))
+			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery(confs, ubig.New(o.chainID)))
 
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, eventSig, topicIndex, concatBytes(topicValues), after); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, eventSig.Bytes(), topicIndex, concatBytes(topicValues), after); err != nil {
 		return nil, err
 	}
 	return logs, nil
@@ -638,7 +646,7 @@ func (o *DbORM) SelectIndexedLogsByTxHash(ctx context.Context, address common.Ad
 			AND address = $2
 			AND event_sig = $3			  
 			AND tx_hash = $4
-			ORDER BY (block_number, log_index)`, o.chainID.String(), address, eventSig, txHash)
+			ORDER BY (block_number, log_index)`, ubig.New(o.chainID), address, eventSig.Bytes(), txHash.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -647,7 +655,12 @@ func (o *DbORM) SelectIndexedLogsByTxHash(ctx context.Context, address common.Ad
 
 // SelectIndexedLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index both logs should be inside the block range and have the minimum number of confirmations
 func (o *DbORM) SelectIndexedLogsWithSigsExcluding(ctx context.Context, sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs Confirmations) ([]Log, error) {
-	nestedQuery := nestedBlockNumberQuery(confs, o.chainID.String())
+	topicIndex, err := UseTopicIndex(topicIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	nestedQuery := nestedBlockNumberQuery(confs, ubig.New(o.chainID))
 	query := fmt.Sprintf(`
 		SELECT * FROM   evm.logs
 		WHERE   evm_chain_id = $1
@@ -666,21 +679,22 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(ctx context.Context, sigA, si
 	    AND 	   b.block_number BETWEEN $5 AND $6
 		AND		   b.block_number <= %s
 		ORDER BY block_number,log_index ASC`, nestedQuery, nestedQuery)
+
 	var logs []Log
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err := o.db.SelectContext(ctx, &logs, query, o.chainID.String(), address, sigA, sigB, startBlock, endBlock, topicIndex); err != nil {
+	if err := o.db.SelectContext(ctx, &logs, query, ubig.New(o.chainID), address, sigA.Bytes(), sigB.Bytes(), startBlock, endBlock, topicIndex); err != nil {
 		return nil, err
 	}
 	return logs, nil
 }
 
-func nestedBlockNumberQuery(confs Confirmations, chainID string) string {
+func nestedBlockNumberQuery(confs Confirmations, chainID *ubig.Big) string {
 	if confs == Finalized {
 		return fmt.Sprintf(`
 				(SELECT finalized_block_number 
 				FROM evm.log_poller_blocks 
-				WHERE evm_chain_id = %s 
+				WHERE evm_chain_id = %v 
 				ORDER BY block_number DESC LIMIT 1) `, chainID)
 	}
 	// Intentionally wrap with greatest() function and don't return negative block numbers when :confs > :block_number
@@ -688,7 +702,28 @@ func nestedBlockNumberQuery(confs Confirmations, chainID string) string {
 	return fmt.Sprintf(`
 			(SELECT greatest(block_number - %d, 0) 
 			FROM evm.log_poller_blocks 	
-			WHERE evm_chain_id = %s 
+			WHERE evm_chain_id = %v 
 			ORDER BY block_number DESC LIMIT 1) `, confs, chainID)
 
+}
+
+func UseTopicIndex(index int) (int, error) {
+	// Only topicIndex 1 through 3 is valid. 0 is the event sig and only 4 total topics are allowed
+	if !(index == 1 || index == 2 || index == 3) {
+		return 0, fmt.Errorf("invalid index for topic: %d", index)
+	}
+	// Add 1 since postgresql arrays are 1-indexed.
+	return index + 1, nil
+}
+
+type bytesProducer interface {
+	Bytes() []byte
+}
+
+func concatBytes[T bytesProducer](byteSlice []T) pq.ByteaArray {
+	var output [][]byte
+	for _, b := range byteSlice {
+		output = append(output, b.Bytes())
+	}
+	return output
 }

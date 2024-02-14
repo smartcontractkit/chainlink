@@ -1,5 +1,7 @@
 package logpoller
 
+/*
+
 import (
 	"errors"
 	"fmt"
@@ -142,3 +144,5 @@ func (q *queryArgs) toArgs() (map[string]interface{}, error) {
 	}
 	return q.args, nil
 }
+
+*/

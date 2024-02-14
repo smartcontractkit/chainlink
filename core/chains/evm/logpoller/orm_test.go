@@ -633,28 +633,28 @@ func TestORM_DataWords(t *testing.T) {
 	// Outside range should fail.
 	lgs, err := o1.SelectLogsDataWordRange(ctx, addr, eventSig, 0, logpoller.EvmWord(2), logpoller.EvmWord(2), 0)
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(lgs))
+	require.Equal(t, 0, len(lgs))
 
 	// Range including log should succeed
 	lgs, err = o1.SelectLogsDataWordRange(ctx, addr, eventSig, 0, logpoller.EvmWord(1), logpoller.EvmWord(2), 0)
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(lgs))
+	require.Equal(t, 1, len(lgs))
 
 	// Range only covering log should succeed
 	lgs, err = o1.SelectLogsDataWordRange(ctx, addr, eventSig, 0, logpoller.EvmWord(1), logpoller.EvmWord(1), 0)
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(lgs))
+	require.Equal(t, 1, len(lgs))
 
 	// Cannot query for unconfirmed second log.
 	lgs, err = o1.SelectLogsDataWordRange(ctx, addr, eventSig, 1, logpoller.EvmWord(3), logpoller.EvmWord(3), 0)
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(lgs))
+	require.Equal(t, 0, len(lgs))
 	// Confirm it, then can query.
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x2"), 2, time.Now(), 0))
 	lgs, err = o1.SelectLogsDataWordRange(ctx, addr, eventSig, 1, logpoller.EvmWord(3), logpoller.EvmWord(3), 0)
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(lgs))
-	assert.Equal(t, lgs[0].Data, append(logpoller.EvmWord(2).Bytes(), logpoller.EvmWord(3).Bytes()...))
+	require.Equal(t, 1, len(lgs))
+	require.Equal(t, lgs[0].Data, append(logpoller.EvmWord(2).Bytes(), logpoller.EvmWord(3).Bytes()...))
 
 	// Check greater than 1 yields both logs.
 	lgs, err = o1.SelectLogsDataWordGreaterThan(ctx, addr, eventSig, 0, logpoller.EvmWord(1), 0)
@@ -852,8 +852,10 @@ func BenchmarkLogs(b *testing.B) {
 	require.NoError(b, o.InsertLogs(ctx, lgs))
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		_, err := o.SelectLogsDataWordRange(ctx, addr, EmitterABI.Events["Log1"].ID, 0, logpoller.EvmWord(8000), logpoller.EvmWord(8002), 0)
+		lgs, err := o.SelectLogsDataWordRange(ctx, addr, EmitterABI.Events["Log1"].ID, 0, logpoller.EvmWord(8000), logpoller.EvmWord(8002), 0)
 		require.NoError(b, err)
+		// TODO: Why is SelectLogsDataWordRange not returning any logs?!
+		fmt.Println("len logs:", len(lgs))
 	}
 }
 
@@ -1393,7 +1395,6 @@ func TestInsertLogsWithBlock(t *testing.T) {
 
 			logs, logsErr := o.SelectLogs(ctx, 0, math.MaxInt, address, event)
 			block, blockErr := o.SelectLatestBlock(ctx)
-			fmt.Println("block: ", block.BlockNumber, "blockErr: ", blockErr)
 
 			if tt.shouldRollback {
 				assert.Error(t, insertError)

@@ -1,5 +1,6 @@
 package logpoller
 
+/*
 import (
 	"math/big"
 	"testing"
@@ -81,3 +82,5 @@ func newEmptyArgs() *queryArgs {
 		err:  []error{},
 	}
 }
+
+*/
