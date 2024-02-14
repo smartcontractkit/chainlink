@@ -68,6 +68,7 @@ var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvide
 type MercuryData struct {
 	Index     int
 	Error     error
+	ErrCode   encoding.ErrCode
 	Retryable bool
 	Bytes     [][]byte
 	State     encoding.PipelineExecutionState
@@ -86,7 +87,7 @@ type HttpClient interface {
 }
 
 type MercuryClient interface {
-	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error)
+	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, encoding.ErrCode, error)
 }
 
 type StreamsLookupError struct {

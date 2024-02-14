@@ -1,6 +1,8 @@
 package encoding
 
 import (
+	"net/http"
+
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -43,16 +45,34 @@ const (
 	UpkeepNotAuthorized    PipelineExecutionState = 9
 )
 
+// ErrCode is used for invoking an error handler with a specific error code
 type ErrCode uint32
 
 const (
-	StatusOK                  ErrCode = 800200
-	StatusPartielContent      ErrCode = 800206
-	StatusMercuryError        ErrCode = 808500
-	StatusBadRequest          ErrCode = 800400
-	StatusUnauthorized        ErrCode = 800401
-	StatusStreamLookupTimeout ErrCode = 808603
+	ErrCodeNil                 ErrCode = 0
+	ErrCodePartielContent      ErrCode = 800206
+	ErrCodeMercuryError        ErrCode = 808500
+	ErrCodeBadRequest          ErrCode = 800400
+	ErrCodeUnauthorized        ErrCode = 800401
+	ErrCodeStreamLookupTimeout ErrCode = 808603
 )
+
+func HttpToErrCode(statusCode int) ErrCode {
+	switch statusCode {
+	case http.StatusOK:
+		return ErrCodeNil
+	case http.StatusPartialContent:
+		return ErrCodePartielContent
+	case http.StatusBadRequest:
+		return ErrCodeBadRequest
+	case http.StatusUnauthorized:
+		return ErrCodeUnauthorized
+	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return ErrCodeMercuryError
+	default:
+		return 0
+	}
+}
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 

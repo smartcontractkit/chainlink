@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -240,13 +238,13 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 }
 
 func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) ([][]byte, error) {
-	state, reason, values, retryable, retryInterval, err := encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0*time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", lookup.FeedParamKey, lookup.TimeParamKey, lookup.Feeds)
+	state, reason, values, retryable, retryInterval, errCode, err := encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0*time.Second, encoding.ErrCodeNil, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", lookup.FeedParamKey, lookup.TimeParamKey, lookup.Feeds)
 	pluginRetryKey := generatePluginRetryKey(checkResults[i].WorkID, lookup.Block)
 
 	if lookup.IsMercuryV02() {
-		state, reason, values, retryable, retryInterval, err = s.v02Client.DoRequest(ctx, lookup, pluginRetryKey)
+		state, reason, values, retryable, retryInterval, errCode, err = s.v02Client.DoRequest(ctx, lookup, pluginRetryKey)
 	} else if lookup.IsMercuryV03() {
-		state, reason, values, retryable, retryInterval, err = s.v03Client.DoRequest(ctx, lookup, pluginRetryKey)
+		state, reason, values, retryable, retryInterval, errCode, err = s.v03Client.DoRequest(ctx, lookup, pluginRetryKey)
 	}
 
 	if err != nil {
@@ -262,10 +260,9 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 		upkeepType := core.GetUpkeepType(checkResults[i].UpkeepID)
 		switch upkeepType {
 		case types.LogTrigger:
-			if retryTimeout && state == encoding.MercuryFlakyFailure {
-				errCode := buildErrCode(err)
+			if retryTimeout && errCode > encoding.ErrCodeNil {
 				s.lggr.Debugf("at block %d upkeep %s requested time %s doMercuryRequest err: %s, errCode: %d", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error(), errCode)
-				// TODO: prepare for error handler
+				// TODO: prepare for error handler, make sure to pass errCode
 			}
 		default:
 		}
@@ -352,28 +349,4 @@ func (s *streams) Close() error {
 		s.threadCtrl.Close()
 		return nil
 	})
-}
-
-func buildErrCode(err error) encoding.ErrCode {
-	if err == nil {
-		return 0
-	}
-
-	errStr := err.Error()
-	baseCode, serr := strconv.Atoi(errStr)
-	if serr != nil {
-		if strings.Contains(errStr, "unauthorized upkeep") {
-			return encoding.StatusUnauthorized
-		}
-		if strings.Contains(errStr, "invalid format") {
-			return encoding.StatusBadRequest
-		}
-		return 0
-	}
-
-	errcode, err := strconv.Atoi(fmt.Sprintf("800%d", baseCode))
-	if err != nil {
-		return 0
-	}
-	return encoding.ErrCode(errcode)
 }
