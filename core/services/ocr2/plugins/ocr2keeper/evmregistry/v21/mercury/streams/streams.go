@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
@@ -251,6 +252,19 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 		checkResults[i].RetryInterval = retryInterval
 		checkResults[i].PipelineExecutionState = uint8(state)
 		checkResults[i].IneligibilityReason = uint8(reason)
+		retryTimeout := retryInterval == mercury.RetryIntervalTimeout
+		if retryTimeout {
+			// in case of retry timeout, setting retryable to false
+			checkResults[i].Retryable = false
+		}
+		upkeepType := core.GetUpkeepType(checkResults[i].UpkeepID)
+		switch state {
+		case encoding.MercuryFlakyFailure:
+			if retryTimeout && upkeepType == types.LogTrigger && retryable {
+				// TODO: prepare for error handler
+			}
+		default:
+		}
 		return nil, err
 	}
 
