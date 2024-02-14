@@ -332,7 +332,7 @@ func TestORM(t *testing.T) {
 	// With no blocks, should be an error
 	_, err = o1.SelectLatestLogByEventSigWithConfs(ctx, topic, common.HexToAddress("0x1234"), 0)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	require.True(t, errors.Is(err, sql.ErrNoRows))
 	// With block 10, only 0 confs should work
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1234"), 10, time.Now(), 0))
 	log, err := o1.SelectLatestLogByEventSigWithConfs(ctx, topic, common.HexToAddress("0x1234"), 0)
@@ -1393,6 +1393,7 @@ func TestInsertLogsWithBlock(t *testing.T) {
 
 			logs, logsErr := o.SelectLogs(ctx, 0, math.MaxInt, address, event)
 			block, blockErr := o.SelectLatestBlock(ctx)
+			fmt.Println("block: ", block.BlockNumber, "blockErr: ", blockErr)
 
 			if tt.shouldRollback {
 				assert.Error(t, insertError)
