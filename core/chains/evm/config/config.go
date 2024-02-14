@@ -60,8 +60,6 @@ type OCR2 interface {
 
 type OCR2Automation interface {
 	GasLimit() uint32
-	FastExecLogsHigh() uint32
-	NumOfLogUpkeeps() uint32
 }
 
 type HeadTracker interface {

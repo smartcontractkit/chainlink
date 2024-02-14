@@ -128,13 +128,12 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 
 	finalityDepth := client.Config().EVM().FinalityDepth()
 
-	numOfLogUpkeeps := cfgWatcher.chain.Config().EVM().OCR2().Automation().NumOfLogUpkeeps()
-	fastExecLogsHigh := cfgWatcher.chain.Config().EVM().OCR2().Automation().FastExecLogsHigh()
-
 	orm := upkeepstate.NewORM(client.ID(), r.db, r.lggr, r.dbCfg)
 	scanner := upkeepstate.NewPerformedEventsScanner(r.lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepStateStore = upkeepstate.NewUpkeepStateStore(orm, r.lggr, scanner)
 
+	numOfLogUpkeeps := uint32(5)
+	fastExecLogsHigh := uint32(10)
 	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth, numOfLogUpkeeps, fastExecLogsHigh)
 	services.logEventProvider = logProvider
 	services.logRecoverer = logRecoverer
