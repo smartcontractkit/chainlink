@@ -122,13 +122,22 @@ contract Rebalancer is IRebalancer, OCR3Base {
   /// @notice Transfers liquidity to another chain.
   /// @dev This function is a public version of the internal _rebalanceLiquidity function.
   /// to allow the owner to also initiate a rebalancing when needed.
-  function rebalanceLiquidity(uint64 chainSelector, uint256 amount) external onlyOwner {
-    _rebalanceLiquidity(chainSelector, amount, type(uint64).max);
+  function rebalanceLiquidity(
+    uint64 chainSelector,
+    uint256 amount,
+    bytes calldata bridgeSpecificPayload
+  ) external onlyOwner {
+    _rebalanceLiquidity(chainSelector, amount, type(uint64).max, bridgeSpecificPayload);
   }
 
   /// @notice Transfers liquidity to another chain.
   /// @dev Called by both the owner and the DON.
-  function _rebalanceLiquidity(uint64 chainSelector, uint256 amount, uint64 ocrSeqNum) internal {
+  function _rebalanceLiquidity(
+    uint64 chainSelector,
+    uint256 amount,
+    uint64 ocrSeqNum,
+    bytes memory bridgeSpecificPayload
+  ) internal {
     uint256 currentBalance = getLiquidity();
     if (currentBalance < amount) {
       revert InsufficientLiquidity(amount, currentBalance);
@@ -150,7 +159,8 @@ contract Rebalancer is IRebalancer, OCR3Base {
       address(i_localToken),
       remoteLiqManager.remoteToken,
       remoteLiqManager.remoteRebalancer,
-      amount
+      amount,
+      bridgeSpecificPayload
     );
 
     emit LiquidityTransferred(
@@ -200,7 +210,8 @@ contract Rebalancer is IRebalancer, OCR3Base {
       _rebalanceLiquidity(
         instructions.sendLiquidityParams[i].remoteChainSelector,
         instructions.sendLiquidityParams[i].amount,
-        ocrSeqNum
+        ocrSeqNum,
+        instructions.sendLiquidityParams[i].bridgeData
       );
     }
 

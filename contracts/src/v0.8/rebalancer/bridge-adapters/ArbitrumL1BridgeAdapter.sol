@@ -46,15 +46,12 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
   IL1GatewayRouter internal immutable i_l1GatewayRouter;
   IOutbox internal immutable i_l1Outbox;
 
-  // TODO not static?
-  uint256 public constant MAX_GAS = 100_000;
-  uint256 public constant GAS_PRICE_BID = 300_000_000;
-  uint256 public constant MAX_SUBMISSION_COST = 8e14;
-
   // Nonce to use for L2 deposits to allow for better tracking offchain.
+  // TODO: increment and emit event w/ nonce
   uint64 private s_nonce = 0;
 
   error NoGatewayForToken(address token);
+  error Unimplemented();
 
   constructor(IL1GatewayRouter l1GatewayRouter, IOutbox l1Outbox) {
     if (address(l1GatewayRouter) == address(0) || address(l1Outbox) == address(0)) {
@@ -64,12 +61,21 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
     i_l1Outbox = l1Outbox;
   }
 
+  /// @dev these are parameters provided by the caller of the sendERC20 function
+  /// @dev these must be determined offchain.
+  struct SendERC20Params {
+    uint256 gasLimit;
+    uint256 maxSubmissionCost;
+    uint256 maxFeePerGas;
+  }
+
   /// @inheritdoc IBridgeAdapter
   function sendERC20(
     address localToken,
     address /* remoteToken */,
     address recipient,
-    uint256 amount
+    uint256 amount,
+    bytes calldata bridgeSpecificPayload
   ) external payable override returns (bytes memory) {
     // receive the token transfer from the msg.sender
     IERC20(localToken).safeTransferFrom(msg.sender, address(this), amount);
@@ -84,12 +90,15 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
     // approve the gateway to transfer the token amount sent to the adapter
     IERC20(localToken).safeApprove(gateway, amount);
 
-    uint256 wantedNativeFeeCoin = getBridgeFeeInNative();
-    if (msg.value < wantedNativeFeeCoin) {
-      revert InsufficientEthValue(wantedNativeFeeCoin, msg.value);
+    SendERC20Params memory params = abi.decode(bridgeSpecificPayload, (SendERC20Params));
+
+    uint256 expectedMsgValue = (params.gasLimit * params.maxFeePerGas) + params.maxSubmissionCost;
+    if (msg.value < expectedMsgValue) {
+      revert MsgValueDoesNotMatchAmount(msg.value, expectedMsgValue);
     }
 
     // TODO: return data bombs?
+    // TODO: increment nonce and emit event
     // The router will route the call to the gateway that we approved
     // above. The gateway will then transfer the tokens to the L2.
     return
@@ -98,14 +107,20 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
         recipient,
         recipient,
         amount,
-        MAX_GAS,
-        GAS_PRICE_BID,
-        abi.encode(MAX_SUBMISSION_COST, bytes(""))
+        params.gasLimit,
+        params.maxFeePerGas,
+        abi.encode(params.maxSubmissionCost, bytes(""))
       );
   }
 
-  function getBridgeFeeInNative() public pure returns (uint256) {
-    return MAX_SUBMISSION_COST + MAX_GAS * GAS_PRICE_BID;
+  /// @dev This function is so that we can easily abi-encode the arbitrum-specific
+  /// @dev payload for the sendERC20 function.
+  function exposeSendERC20Params(SendERC20Params memory params) public pure {}
+
+  /// @dev fees have to be determined offchain for arbitrum
+  /// @dev therefore revert here to discourage usage
+  function getBridgeFeeInNative() public pure override returns (uint256) {
+    revert Unimplemented();
   }
 
   /// @param proof Merkle proof of message inclusion in send root
@@ -118,6 +133,8 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
   struct ArbitrumFinalizationPayload {
     bytes32[] proof;
     uint256 index;
+    address l2Sender;
+    address to;
     uint256 l2Block;
     uint256 l1Block;
     uint256 l2Timestamp;
@@ -125,20 +142,22 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
     bytes data;
   }
 
+  /// @dev This function is so that we can easily abi-encode the arbitrum-specific
+  /// @dev payload for the finalizeWithdrawERC20 function.
+  function exposeArbitrumFinalizationPayload(ArbitrumFinalizationPayload memory payload) public pure {}
+
   /// @notice Finalize an L2 -> L1 transfer.
-  /// @param remoteSender sender if original message (i.e., caller of ArbSys.sendTxToL1)
-  /// @param localReceiver destination address for L1 contract call
   function finalizeWithdrawERC20(
-    address remoteSender,
-    address localReceiver,
+    address /* remoteSender */,
+    address /* localReceiver */,
     bytes calldata arbitrumFinalizationPayload
   ) external {
     ArbitrumFinalizationPayload memory payload = abi.decode(arbitrumFinalizationPayload, (ArbitrumFinalizationPayload));
     i_l1Outbox.executeTransaction(
       payload.proof,
       payload.index,
-      remoteSender,
-      localReceiver,
+      payload.l2Sender,
+      payload.to,
       payload.l2Block,
       payload.l1Block,
       payload.l2Timestamp,
