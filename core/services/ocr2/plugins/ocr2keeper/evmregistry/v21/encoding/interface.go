@@ -43,6 +43,17 @@ const (
 	UpkeepNotAuthorized    PipelineExecutionState = 9
 )
 
+type ErrCode uint32
+
+const (
+	StatusOK                  ErrCode = 800200
+	StatusPartielContent      ErrCode = 800206
+	StatusMercuryError        ErrCode = 808500
+	StatusBadRequest          ErrCode = 800400
+	StatusUnauthorized        ErrCode = 800401
+	StatusStreamLookupTimeout ErrCode = 808603
+)
+
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 
 type Packer interface {
