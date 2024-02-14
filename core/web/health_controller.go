@@ -125,12 +125,12 @@ func (hc *HealthController) Health(c *gin.Context) {
 func writeTextTo(w io.Writer, checks []presenters.Check) error {
 	slices.SortFunc(checks, presenters.CmpCheckName)
 	for _, ch := range checks {
-		status := "?"
+		status := "?  "
 		switch ch.Status {
 		case HealthStatusPassing:
-			status = "-"
+			status = "ok "
 		case HealthStatusFailing:
-			status = "!"
+			status = "!  "
 		}
 		if _, err := fmt.Fprintf(w, "%s%s\n", status, ch.Name); err != nil {
 			return err

@@ -1346,3 +1346,24 @@ func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
 	AssertLinkBalance(t, uni.linkContract, uni.neil.From, linkBalanceBeforeCancel.Add(linkBalanceBeforeCancel, linkAmount))
 	AssertNativeBalance(t, uni.backend, uni.neil.From, nativeBalanceBeforeCancel.Add(nativeBalanceBeforeCancel, nativeAmount))
 }
+
+func TestVRFV2PlusIntegration_ReplayOldRequestsOnStartUp(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+
+	testReplayOldRequestsOnStartUp(
+		t,
+		ownerKey,
+		uni.coordinatorV2UniverseCommon,
+		uni.vrfConsumers[0],
+		uni.consumerContracts[0],
+		uni.consumerContractAddresses[0],
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		nil,
+		vrfcommon.V2Plus,
+		false,
+	)
+}
