@@ -26,4 +26,9 @@ contract ScrollModule is ChainModuleBase {
     bytes memory txCallData = new bytes(4 * dataSize);
     return SCROLL_ORACLE.getL1Fee(bytes.concat(txCallData, SCROLL_L1_FEE_DATA_PADDING));
   }
+
+  function getGasOverhead() external view override returns (uint256, uint256) {
+    // TODO: Calculate
+    return (0, 0);
+  }
 }

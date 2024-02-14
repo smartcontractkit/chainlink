@@ -22,4 +22,8 @@ contract ChainModuleBase is IChainModule {
   function getMaxL1Fee(uint256) external view virtual returns (uint256) {
     return 0;
   }
+
+  function getGasOverhead() external view returns (uint256, uint256) {
+    return (0, 0);
+  }
 }

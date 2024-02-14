@@ -508,7 +508,6 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
         hotVars,
         triggerType,
         gasLimit,
-        s_storage.maxPerformDataSize,
         fastGasWei,
         linkNative,
         _getMaxL1Fee(hotVars),

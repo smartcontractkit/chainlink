@@ -45,7 +45,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
   uint8 internal constant UPKEEP_VERSION_BASE = 3;
 
-  // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation 
+  // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Fixed gas overhead for conditional upkeeps
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_400; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation during simiulation. Value scales with f
@@ -53,7 +53,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   // TODO - re-adjust
   uint256 internal constant TRANSMIT_CALLDATA_BYTES_OVERHEAD = 100; // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
 
-  // Next block of constants are used in actual payment calculation. We calculate the exact gas used within the 
+  // Next block of constants are used in actual payment calculation. We calculate the exact gas used within the
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
   // to account for gas used in payment processing.
   // TODO re-adjust overheads
@@ -631,13 +631,12 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     HotVars memory hotVars,
     Trigger triggerType,
     uint32 performGas,
-    uint32 performDataLength,
     uint256 fastGasWei,
     uint256 linkNative,
     uint256 l1CostWei,
     bool isExecution // Whether this is an actual perform execution or just a simulation
   ) internal view returns (uint96) {
-    uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
+    uint256 gasOverhead = _getMaxGasOverhead(triggerType, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       performGas,
@@ -660,7 +659,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   /**
    * @dev returns the max gas overhead that can be charged for an upkeep
    */
-  function _getMaxGasOverhead(Trigger triggerType, uint32 performDataLength, uint8 f) internal pure returns (uint256) {
+  function _getMaxGasOverhead(Trigger triggerType, uint8 f) internal view returns (uint256) {
     // performData causes additional overhead in report length and memory operations
     uint256 baseOverhead;
     if (triggerType == Trigger.CONDITION) {
@@ -670,10 +669,13 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     } else {
       revert InvalidTriggerType();
     }
+    uint256 maxCalldataSize = s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD;
+    (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
     return
       baseOverhead +
       (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) +
-      (REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD * performDataLength);
+      ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
+      chainModuleFixedOverhead;
   }
 
   /**

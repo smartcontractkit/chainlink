@@ -121,7 +121,6 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
         hotVars,
         upkeepTransmitInfo[i].triggerType,
         uint32(report.gasLimits[i]),
-        uint32(report.performDatas[i].length),
         report.fastGasWei,
         report.linkNative,
         l1Fee,
