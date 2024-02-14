@@ -858,21 +858,20 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
 	case client.ExceedsMaxFee:
-		// Confirmer: The gas price was bumped too high. This transaction attempt cannot be accepted.
-		// Best thing we can do is to re-send the previous attempt at the old
-		// price and discard this bumped version.
-		// If there is no previous attempt, we will create a new transaction attempt to replace this high fee version.
-		if len(etx.TxAttempts) == 1 {
-			replacementAttempt, _, _, _, err := ec.NewTxAttempt(ctx, etx, ec.lggr)
-			if err != nil {
-				return fmt.Errorf("could not create new transaction attempt for transaction exceeding fee cap: %w", err)
-			}
-
-			if err := ec.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
-				return fmt.Errorf("saveReplacementInProgressAttempt failed: %w", err)
-			}
-
-			return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
+		// Confirmer: Note it is not guaranteed that all nodes share the same tx fee cap.
+		// So it is very likely that this attempt was successful on another node since
+		// it was already successfully broadcasted. So we assume it is successful and
+		// warn the operator that the RPC node is misconfigured.
+		// This failure scenario is a strong indication that the RPC node
+		// is misconfigured. This is a critical error and should be resolved by the
+		// node operator.
+		// If there is only one RPC node, or all RPC nodes have the same
+		// configured cap, this transaction will get stuck and keep repeating
+		// forever until the issue is resolved.
+		if len(etx.TxAttempts) <= 1 {
+			lggr.Criticalw(`RPC node rejected this tx as outside Fee Cap but it implies that it was successful on another node previously`, "attempt", attempt)
+			timeout := ec.dbConfig.DefaultQueryTimeout()
+			return ec.txStore.SaveSentAttempt(ctx, timeout, &attempt, now)
 		}
 
 		fallthrough
