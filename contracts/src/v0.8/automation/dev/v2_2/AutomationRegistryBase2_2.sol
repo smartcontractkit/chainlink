@@ -631,43 +631,37 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     Trigger triggerType,
     uint32 performGas,
     uint256 fastGasWei,
-    uint256 linkNative,
-    uint256 l1CostWei,
-    bool isExecution // Whether this is an actual perform execution or just a simulation
+    uint256 linkNative
   ) internal view returns (uint96) {
-
-    uint256 gasOverhead;
+    uint256 maxGasOverhead;
     if (triggerType == Trigger.CONDITION) {
-      gasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
+      maxGasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
     } else if (triggerType == Trigger.LOG) {
-      gasOverhead = REGISTRY_LOG_OVERHEAD;
+      maxGasOverhead = REGISTRY_LOG_OVERHEAD;
     } else {
       revert InvalidTriggerType();
     }
     uint256 maxCalldataSize = s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD;
     (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
-    gasOverhead += 
-      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * ( hotVars.f + 1)) +
+    maxGasOverhead +=
+      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
       ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
       chainModuleFixedOverhead;
+
+    uint256 maxL1Fee = hotVars.gasCeilingMultiplier *
+      hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD);
 
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
       performGas,
-      gasOverhead,
+      maxGasOverhead,
       fastGasWei,
       linkNative,
-      isExecution,
-      l1CostWei
+      false, //isExecution
+      maxL1Fee
     );
 
     return reimbursement + premium;
-  }
-
-  function _getMaxL1Fee(HotVars memory hotVars) internal view returns (uint256) {
-    return
-      hotVars.gasCeilingMultiplier *
-      hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD);
   }
 
   /**

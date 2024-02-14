@@ -285,8 +285,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     return REGISTRY_PER_SIGNER_GAS_OVERHEAD;
   }
 
-  function getMinimumTransmitPayloadSize() external pure returns (uint256) {
-    return MINIMUM_TRANSMIT_PAYLOAD_SIZE_BYTES;
+  function getTransmitCalldataBytesOverhead() external pure returns (uint256) {
+    return TRANSMIT_CALLDATA_BYTES_OVERHEAD;
   }
 
   function getCancellationDelay() external pure returns (uint256) {
@@ -503,16 +503,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return
-      _getMaxLinkPayment(
-        hotVars,
-        triggerType,
-        gasLimit,
-        fastGasWei,
-        linkNative,
-        _getMaxL1Fee(hotVars),
-        false
-      );
+    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkNative);
   }
 
   /**
