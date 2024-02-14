@@ -868,7 +868,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// If there is only one RPC node, or all RPC nodes have the same
 		// configured cap, this transaction will get stuck and keep repeating
 		// forever until the issue is resolved.
-		lggr.Criticalw(`RPC node rejected this tx as outside Fee Cap but it implies that it was successful on another node previously`, "attempt", attempt)
+		lggr.Criticalw(`RPC node rejected this tx as outside Fee Cap but it may have been accepted by another Node`, "attempt", attempt)
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveSentAttempt(ctx, timeout, &attempt, now)
 	case client.Fatal:
