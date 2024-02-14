@@ -25,4 +25,8 @@ contract MockChainModule is IChainModule {
   function getMaxL1Fee(uint256 dataSize) external view returns (uint256) {
     return 0;
   }
+
+  function getGasOverhead() external view returns (uint256, uint256) {
+    return (0, 0);
+  }
 }

@@ -163,7 +163,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
           (reimbursement, premium) = _postPerformPayment(
             hotVars,
             report.upkeepIds[i],
-            upkeepTransmitInfo[i],
+            upkeepTransmitInfo[i].gasUsed,
             report.fastGasWei,
             report.linkNative,
             gasOverhead,

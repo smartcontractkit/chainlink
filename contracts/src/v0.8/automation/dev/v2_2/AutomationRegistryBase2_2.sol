@@ -885,7 +885,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   function _postPerformPayment(
     HotVars memory hotVars,
     uint256 upkeepId,
-    UpkeepTransmitInfo memory upkeepTransmitInfo,
+    uint256 gasUsed,
     uint256 fastGasWei,
     uint256 linkNative,
     uint256 gasOverhead,
@@ -893,7 +893,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   ) internal returns (uint96 gasReimbursement, uint96 premium) {
     (gasReimbursement, premium) = _calculatePaymentAmount(
       hotVars,
-      upkeepTransmitInfo.gasUsed,
+      gasUsed,
       gasOverhead,
       l1Fee,
       fastGasWei,
