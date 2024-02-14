@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "../BaseTest.t.sol";
+import {BaseTest} from "../BaseTest.t.sol";
 import {Router} from "../../Router.sol";
 import {WETH9} from "../WETH9.sol";
 import {Client} from "../../libraries/Client.sol";

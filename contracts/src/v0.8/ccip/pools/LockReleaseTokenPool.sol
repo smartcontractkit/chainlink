@@ -21,7 +21,6 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   error LiquidityNotAccepted();
   error Unauthorized(address caller);
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "LockReleaseTokenPool 1.4.0-dev";
 
   /// @dev The unique lock release pool flag to signal through EIP 165.

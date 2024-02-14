@@ -9,7 +9,6 @@ import {EVM2EVMOnRamp} from "../onRamp/EVM2EVMOnRamp.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract SelfFundedPingPong is PingPongDemo {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "SelfFundedPingPong 1.2.0";
 
   event Funded();

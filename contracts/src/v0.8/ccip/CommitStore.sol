@@ -56,7 +56,6 @@ contract CommitStore is ICommitStore, ITypeAndVersion, OCR2Base {
   }
 
   // STATIC CONFIG
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "CommitStore 1.2.0";
   // Chain ID of this chain
   uint64 internal immutable i_chainSelector;

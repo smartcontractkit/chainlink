@@ -158,8 +158,8 @@ devDependencies:
     specifier: ^4.0.0
     version: 4.0.0
   solhint-plugin-chainlink-solidity:
-    specifier: git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.0
-    version: github.com/smartcontractkit/chainlink-solhint-rules/cfc50b32f95b730304a50deb2e27e88d87115874
+    specifier: git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.1
+    version: github.com/smartcontractkit/chainlink-solhint-rules/1b4c0c2663fcd983589d4f33a2e73908624ed43c
   solhint-plugin-prettier:
     specifier: ^0.1.0
     version: 0.1.0(prettier-plugin-solidity@1.2.0)(prettier@3.1.1)
@@ -5371,6 +5371,7 @@ packages:
       is-hex-prefixed: 1.0.0
       strip-hex-prefix: 1.0.0
     dev: true
+    bundledDependencies: false
 
   /eventemitter3@4.0.4:
     resolution: {integrity: sha512-rlaVLnVxtxvoyLsQQFBx53YmXHDxRIzzTLbdfxqi4yocpSjAxXwkU0cScM5JgSKMqEhrZpnvQ2D9gjylR0AimQ==}
@@ -12371,8 +12372,8 @@ packages:
       ethereumjs-util: 6.2.1
     dev: true
 
-  github.com/smartcontractkit/chainlink-solhint-rules/cfc50b32f95b730304a50deb2e27e88d87115874:
-    resolution: {tarball: https://codeload.github.com/smartcontractkit/chainlink-solhint-rules/tar.gz/cfc50b32f95b730304a50deb2e27e88d87115874}
+  github.com/smartcontractkit/chainlink-solhint-rules/1b4c0c2663fcd983589d4f33a2e73908624ed43c:
+    resolution: {tarball: https://codeload.github.com/smartcontractkit/chainlink-solhint-rules/tar.gz/1b4c0c2663fcd983589d4f33a2e73908624ed43c}
     name: '@chainlink/solhint-plugin-chainlink-solidity'
     version: 1.2.0
     dev: true

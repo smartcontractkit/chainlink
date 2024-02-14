@@ -96,7 +96,6 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   }
 
   // STATIC CONFIG
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "EVM2EVMOffRamp 1.4.0-dev";
   /// @dev Commit store address on the destination chain
   address internal immutable i_commitStore;
@@ -510,6 +509,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       (address token, ) = s_poolsBySourceToken.at(i);
       sourceTokens[i] = IERC20(token);
     }
+    return sourceTokens;
   }
 
   /// @notice Get a token pool by its source token
@@ -545,6 +545,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       (address token, ) = s_poolsByDestToken.at(i);
       destTokens[i] = IERC20(token);
     }
+    return destTokens;
   }
 
   /// @notice Adds and removed token pools.

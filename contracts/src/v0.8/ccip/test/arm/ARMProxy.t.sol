@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "./ARMSetup.t.sol";
-import {ARMProxy} from "../../ARMProxy.sol";
 import {IARM} from "../../interfaces/IARM.sol";
+
+import {ARMSetup} from "./ARMSetup.t.sol";
+import {MockARM} from "../mocks/MockARM.sol";
+import {ARMProxy} from "../../ARMProxy.sol";
+import {ARM} from "../../ARM.sol";
 
 contract ARMProxyTest is ARMSetup {
   event ARMSet(address arm);
 
-  ARMProxy s_armProxy;
+  ARMProxy internal s_armProxy;
 
   function setUp() public virtual override {
     ARMSetup.setUp();

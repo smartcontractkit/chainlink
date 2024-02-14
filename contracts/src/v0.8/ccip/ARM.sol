@@ -7,9 +7,9 @@ import {IARM} from "./interfaces/IARM.sol";
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
 /// @dev This contract is owned by RMN, if changing, please notify the RMN maintainers.
+// solhint-disable chainlink-solidity/explicit-returns
 contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
   // STATIC CONFIG
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ARM 1.0.0";
 
   uint256 private constant MAX_NUM_VOTERS = 128;

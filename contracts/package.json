@@ -19,7 +19,7 @@
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@1.2.1 latest",
     "lint:ccip": "solhint --config ./src/v0.8/ccip/.solhint.json --ignore-path .ccip-solhint-ignore --max-warnings 0 \"./src/v0.8/ccip/**/*.sol\"",
-    "solhint": "solhint --max-warnings 39 \"./src/v0.8/**/*.sol\""
+    "solhint": "solhint --max-warnings 18 \"./src/v0.8/**/*.sol\""
   },
   "files": [
     "src/v0.8/ccip/**/*.sol",
@@ -95,7 +95,7 @@
     "prettier-plugin-solidity": "1.2.0",
     "rlp": "^2.2.7",
     "solhint": "^4.0.0",
-    "solhint-plugin-chainlink-solidity": "git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.0",
+    "solhint-plugin-chainlink-solidity": "git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.1",
     "solhint-plugin-prettier": "^0.1.0",
     "solidity-coverage": "^0.8.5",
     "ts-node": "^10.9.2",

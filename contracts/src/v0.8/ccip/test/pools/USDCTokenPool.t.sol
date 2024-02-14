@@ -2,11 +2,13 @@
 pragma solidity 0.8.19;
 
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
+import {IPool} from "../../interfaces/pools/IPool.sol";
 
-import "../BaseTest.t.sol";
-import "../mocks/MockUSDCTransmitter.sol";
+import {BaseTest} from "../BaseTest.t.sol";
+import {MockUSDCTransmitter} from "../mocks/MockUSDCTransmitter.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {Router} from "../../Router.sol";
+import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {MockUSDCTokenMessenger} from "../mocks/MockUSDCTokenMessenger.sol";
@@ -74,13 +76,13 @@ contract USDCTokenPoolSetup is BaseTest {
 
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](2);
     chainUpdates[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: SOURCE_CHAIN_ID,
+      remoteChainSelector: SOURCE_CHAIN_SELECTOR,
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
     });
     chainUpdates[1] = TokenPool.ChainUpdate({
-      remoteChainSelector: DEST_CHAIN_ID,
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -91,7 +93,7 @@ contract USDCTokenPoolSetup is BaseTest {
 
     USDCTokenPool.DomainUpdate[] memory domains = new USDCTokenPool.DomainUpdate[](1);
     domains[0] = USDCTokenPool.DomainUpdate({
-      destChainSelector: DEST_CHAIN_ID,
+      destChainSelector: DEST_CHAIN_SELECTOR,
       domainIdentifier: 9999,
       allowedCaller: keccak256("allowedCaller"),
       enabled: true
@@ -105,11 +107,11 @@ contract USDCTokenPoolSetup is BaseTest {
     s_router = new Router(address(s_token), address(s_mockARM));
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
-    onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_ID, onRamp: s_routerAllowedOnRamp});
+    onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_SELECTOR, onRamp: s_routerAllowedOnRamp});
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](1);
     address[] memory offRamps = new address[](1);
     offRamps[0] = s_routerAllowedOffRamp;
-    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_ID, offRamp: offRamps[0]});
+    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: offRamps[0]});
 
     s_router.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
@@ -152,7 +154,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     s_token.transfer(address(s_usdcTokenPool), amount);
     changePrank(s_routerAllowedOnRamp);
 
-    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_ID);
+    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_SELECTOR);
 
     vm.expectEmit();
     emit TokensConsumed(amount);
@@ -176,7 +178,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
       OWNER,
       abi.encodePacked(receiver),
       amount,
-      DEST_CHAIN_ID,
+      DEST_CHAIN_SELECTOR,
       bytes("")
     );
     uint64 nonce = abi.decode(encodedNonce, (uint64));
@@ -189,7 +191,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     s_token.transfer(address(s_usdcTokenPool), amount);
     changePrank(s_routerAllowedOnRamp);
 
-    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_ID);
+    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_SELECTOR);
 
     vm.expectEmit();
     emit TokensConsumed(amount);
@@ -213,7 +215,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
       OWNER,
       abi.encodePacked(destinationReceiver),
       amount,
-      DEST_CHAIN_ID,
+      DEST_CHAIN_SELECTOR,
       bytes("")
     );
     uint64 nonce = abi.decode(encodedNonce, (uint64));
@@ -226,7 +228,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     s_token.transfer(address(s_usdcTokenPoolWithAllowList), amount);
     changePrank(s_routerAllowedOnRamp);
 
-    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPoolWithAllowList.getDomain(DEST_CHAIN_ID);
+    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPoolWithAllowList.getDomain(DEST_CHAIN_SELECTOR);
 
     vm.expectEmit();
     emit TokensConsumed(amount);
@@ -248,7 +250,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
       s_allowedList[0],
       abi.encodePacked(destinationReceiver),
       amount,
-      DEST_CHAIN_ID,
+      DEST_CHAIN_SELECTOR,
       bytes("")
     );
     uint64 nonce = abi.decode(encodedNonce, (uint64));
@@ -257,7 +259,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
   // Reverts
   function testUnknownDomainReverts() public {
-    uint64 wrongDomain = DEST_CHAIN_ID + 1;
+    uint64 wrongDomain = DEST_CHAIN_SELECTOR + 1;
     // We need to setup the wrong chainSelector so it reaches the domain check
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
     onRampUpdates[0] = Router.OnRamp({destChainSelector: wrongDomain, onRamp: s_routerAllowedOnRamp});
@@ -286,7 +288,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
   function testCallerIsNotARampOnRouterReverts() public {
     vm.expectRevert(abi.encodeWithSelector(TokenPool.CallerIsNotARampOnRouter.selector, OWNER));
 
-    s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(address(0)), 0, DEST_CHAIN_ID, bytes(""));
+    s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(address(0)), 0, DEST_CHAIN_SELECTOR, bytes(""));
   }
 
   function testLockOrBurnWithAllowListReverts() public {
@@ -294,7 +296,13 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
     vm.expectRevert(abi.encodeWithSelector(SenderNotAllowed.selector, STRANGER));
 
-    s_usdcTokenPoolWithAllowList.lockOrBurn(STRANGER, abi.encodePacked(address(0)), 1000, DEST_CHAIN_ID, bytes(""));
+    s_usdcTokenPoolWithAllowList.lockOrBurn(
+      STRANGER,
+      abi.encodePacked(address(0)),
+      1000,
+      DEST_CHAIN_SELECTOR,
+      bytes("")
+    );
   }
 }
 
@@ -334,7 +342,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     );
 
     changePrank(s_routerAllowedOffRamp);
-    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), recipient, amount, SOURCE_CHAIN_ID, extraData);
+    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), recipient, amount, SOURCE_CHAIN_SELECTOR, extraData);
   }
 
   // https://etherscan.io/tx/0xac9f501fe0b76df1f07a22e1db30929fd12524bc7068d74012dff948632f0883
@@ -357,7 +365,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     );
 
     changePrank(s_routerAllowedOffRamp);
-    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), OWNER, 100, SOURCE_CHAIN_ID, extraData);
+    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), OWNER, 100, SOURCE_CHAIN_SELECTOR, extraData);
   }
 
   // Reverts
@@ -389,7 +397,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     vm.expectRevert(USDCTokenPool.UnlockingUSDCFailed.selector);
 
-    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), OWNER, amount, SOURCE_CHAIN_ID, extraData);
+    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), OWNER, amount, SOURCE_CHAIN_SELECTOR, extraData);
   }
 
   function testTokenMaxCapacityExceededReverts() public {
@@ -406,7 +414,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       abi.encodeWithSelector(RateLimiter.TokenMaxCapacityExceeded.selector, capacity, amount, address(s_token))
     );
 
-    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), recipient, amount, SOURCE_CHAIN_ID, extraData);
+    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), recipient, amount, SOURCE_CHAIN_SELECTOR, extraData);
   }
 }
 

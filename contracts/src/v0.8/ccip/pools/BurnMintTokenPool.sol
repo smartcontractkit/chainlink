@@ -13,7 +13,6 @@ import {BurnMintTokenPoolAbstract} from "./BurnMintTokenPoolAbstract.sol";
 /// The only way to change whitelisting mode is to deploy a new pool.
 /// If that is expected, please make sure the token's burner/minter roles are adjustable.
 contract BurnMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "BurnMintTokenPool 1.4.0-dev";
 
   constructor(
