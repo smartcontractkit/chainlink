@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -137,6 +138,10 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 
 func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context, blockNumber uint64, calls []EvmCall) ([]DataAndErr, error) {
 	lim := c.batchSizeLimit
+	// Limit the batch size to the number of calls
+	if uint(len(calls)) < lim {
+		lim = uint(len(calls))
+	}
 	for {
 		results, err := c.batchCallLimit(ctx, blockNumber, calls, lim)
 		if err == nil {
@@ -144,7 +149,7 @@ func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context
 		}
 
 		if lim <= 1 {
-			return nil, err
+			return nil, errors.Wrapf(err, "calls %+v", EVMCallsToString(calls))
 		}
 
 		newLim := lim / c.backOffMultiplier
@@ -204,6 +209,18 @@ func NewEvmCall(abi AbiPackerUnpacker, methodName string, contractAddress common
 
 func (c EvmCall) MethodName() string {
 	return c.methodName
+}
+
+func (c EvmCall) String() string {
+	return fmt.Sprintf("%s: %s(%+v)", c.contractAddress.String(), c.methodName, c.args)
+}
+
+func EVMCallsToString(calls []EvmCall) string {
+	callString := ""
+	for _, call := range calls {
+		callString += fmt.Sprintf("%s\n", call.String())
+	}
+	return callString
 }
 
 type DataAndErr struct {
