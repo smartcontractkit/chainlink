@@ -728,6 +728,28 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 		callMsg.Value = value
 	}
 
+	switch gas := params["gas"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
+	case uint64:
+		callMsg.Gas = gas
+	case hexutil.Uint64:
+		callMsg.Gas = uint64(gas)
+	default:
+		panic("unexpected type of 'gas' parameter; try hexutil.Uint64, or uint64")
+	}
+
+	switch gasPrice := params["gasPrice"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
+	case *big.Int:
+		callMsg.GasPrice = gasPrice
+	case *hexutil.Big:
+		callMsg.GasPrice = gasPrice.ToInt()
+	default:
+		panic("unexpected type of 'gasPrice' parameter; try *big.Int, or *hexutil.Big")
+	}
+
 	return callMsg
 }
 
