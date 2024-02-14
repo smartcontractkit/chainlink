@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	automation2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/pb/automation"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -30,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
-	goabi "github.com/umbracle/ethgo/abi"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -150,33 +151,31 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	services.conditionalUpkeepProvider = evm.NewUpkeepProvider(al, blockSubscriber, client.LogPoller())
 
 	go func() {
-		var digest ocrtypes.ConfigDigest
+		var configDigest ocrtypes.ConfigDigest
 		ctx := context.Background()
 		for {
-			changeBlock, configDigest, err := cfgWatcher.configPoller.LatestConfigDetails(ctx)
+			changeBlock, newConfigDigest, err := cfgWatcher.configPoller.LatestConfigDetails(ctx)
 			if err != nil {
+				r.lggr.Infow("error fetching latest config details", "error", err.Error())
+			} else if newConfigDigest.String() != configDigest.String() {
+				r.lggr.Infow("fetched updated config digest")
 
-			}
-			if configDigest != digest {
 				contractConfig, err := cfgWatcher.configPoller.LatestConfig(ctx, changeBlock)
 				if err != nil {
-
+					r.lggr.Infow("error fetching latest config", "error", err.Error())
 				}
 
-				configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-
-				type gaConfig struct {
-					numOfLogUpkeeps  uint32
-					fastExecLogsHigh uint32
+				onchainConfigProto := automation2.OnchainConfigProto{}
+				if err := proto.Unmarshal(contractConfig.OnchainConfig, &onchainConfigProto); err != nil {
+					r.lggr.Infow("error unmarshalling on chain config", "error", err.Error())
 				}
-				var gac gaConfig
-				if err := goabi.DecodeStruct(configType, contractConfig.OnchainConfig, &gac); err != nil {
 
-				}
+				r.lggr.Infow("got on chain config", "checkGasLimit", onchainConfigProto.CheckGasLimit, "maxPerformGas", onchainConfigProto.MaxPerformGas)
 
 				// set the values on the log poller
+				configDigest = newConfigDigest
+				r.lggr.Infow("updating local config digest")
 
-				digest = configDigest
 			}
 			<-time.After(30 * time.Second)
 		}
