@@ -197,8 +197,6 @@ func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
 }
 
 func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	// These deletes are bounded by reorg depth, so they are
-	// fast and should not slow down the log readers.
 	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
 		args, err := newQueryArgs(o.chainID).
 			withStartBlock(start).
@@ -208,13 +206,24 @@ func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
 			return err
 		}
 
-		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		// Applying upper bound filter is critical for Postgres performance (especially for evm.logs table)
+		// because it allows the planner to properly estimate the number of rows to be scanned.
+		// If not applied, these queries can become very slow. After some critical number
+		// of logs, Postgres will try to scan all the logs in the index by block_number.
+		// Latency without upper bound filter can be orders of magnitude higher for large number of logs.
+		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks 
+       						WHERE evm_chain_id = :evm_chain_id
+       						AND block_number >= :start_block
+       						AND block_number <= (SELECT MAX(block_number) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id)`, args)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
 			return err
 		}
 
-		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		_, err = tx.NamedExec(`DELETE FROM evm.logs 
+       						WHERE evm_chain_id = :evm_chain_id 
+       						AND block_number >= :start_block
+       						AND block_number <= (SELECT MAX(block_number) FROM evm.logs WHERE evm_chain_id = :evm_chain_id)`, args)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
 			return err
