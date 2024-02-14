@@ -332,11 +332,6 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindN
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrAddressNotFound)
 	}
 
-	// ensure that the address is not already busy with a transaction in progress
-	if as.inprogress != nil {
-		return fmt.Errorf("find_next_unstarted_transaction_from_address: address %s is already busy with a transaction in progress", fromAddress)
-	}
-
 	etx, err := as.PeekNextUnstartedTx()
 	if err != nil || etx == nil {
 		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", err)
@@ -505,18 +500,28 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
 	}
 
-	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		return tx.TxAttempts != nil && len(tx.TxAttempts) > 0
+	}
+	txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return true
 	}
 	states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
 	attempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		attempts = append(attempts, as.FetchTxAttempts(states, filter)...)
+		attempts = append(attempts, as.FetchTxAttempts(states, txFilter, txAttemptFilter)...)
 	}
+	// TODO: FINISH THIS
 	// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
 	sort.SliceStable(attempts, func(i, j int) bool {
+		/*
+			if attempts[i].TxID == attempts[j].TxID {
+				// sort by gas_price DESC
+			}
+		*/
+
 		return attempts[i].TxID < attempts[j].TxID
 	})
 
@@ -588,20 +593,18 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return attempts, fmt.Errorf("find_tx_attempts_requiring_receipt_fetch: %w", ErrInvalidChainID)
 	}
 
-	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if tx.TxAttempts != nil && len(tx.TxAttempts) > 0 {
-			attempt := tx.TxAttempts[0]
-			return attempt.State != txmgrtypes.TxAttemptInsufficientFunds
-		}
-
-		return false
+	txFilterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return tx.TxAttempts != nil && len(tx.TxAttempts) > 0
+	}
+	txAttemptFilterFn := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return attempt.State != txmgrtypes.TxAttemptInsufficientFunds
 	}
 	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
 	attempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		attempts = append(attempts, as.FetchTxAttempts(states, filterFn)...)
+		attempts = append(attempts, as.FetchTxAttempts(states, txFilterFn, txAttemptFilterFn)...)
 	}
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
 	sort.Slice(attempts, func(i, j int) bool {
@@ -1088,22 +1091,17 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return nil, fmt.Errorf("find_tx_attempts_requiring_resend: %w", ErrAddressNotFound)
 	}
 
-	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
 			return false
 		}
-		attempt := tx.TxAttempts[0]
-		if attempt.State == txmgrtypes.TxAttemptInProgress {
-			return false
-		}
-		if tx.BroadcastAt.After(olderThan) {
-			return false
-		}
-
-		return false
+		return tx.BroadcastAt.Before(olderThan) || tx.BroadcastAt.Equal(olderThan)
+	}
+	txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return attempt.State != txmgrtypes.TxAttemptInProgress
 	}
 	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
-	attempts := as.FetchTxAttempts(states, filter)
+	attempts := as.FetchTxAttempts(states, txFilter, txAttemptFilter)
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
 	sort.Slice(attempts, func(i, j int) bool {
 		return (*attempts[i].Tx.Sequence).Int64() < (*attempts[j].Tx.Sequence).Int64()
@@ -1285,15 +1283,14 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetIn
 		return nil, fmt.Errorf("get_in_progress_tx_attempts: %w", ErrAddressNotFound)
 	}
 
-	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
-			return false
-		}
-		attempt := tx.TxAttempts[0]
+	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return tx.TxAttempts != nil && len(tx.TxAttempts) > 0
+	}
+	txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		return attempt.State == txmgrtypes.TxAttemptInProgress
 	}
 	states := []txmgrtypes.TxState{TxConfirmed, TxConfirmedMissingReceipt, TxUnconfirmed}
-	attempts := as.FetchTxAttempts(states, filter)
+	attempts := as.FetchTxAttempts(states, txFilter, txAttemptFilter)
 
 	// deep copy the attempts
 	var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -1567,27 +1564,32 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxF
 		return false, fmt.Errorf("is_tx_finalized: %w", ErrInvalidChainID)
 	}
 
-	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		if tx.ID != txID {
 			return false
 		}
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
-			return false
-		}
-		attempt := tx.TxAttempts[0]
-		if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
-			return false
-		}
-		if attempt.Receipts[0].GetBlockNumber() == nil {
-			return false
+
+		for _, attempt := range tx.TxAttempts {
+			if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+				continue
+			}
+			// there can only be one receipt per attempt
+			if attempt.Receipts[0].GetBlockNumber() == nil {
+				continue
+			}
+
+			return attempt.Receipts[0].GetBlockNumber().Int64() <= (blockHeight - int64(tx.MinConfirmations.Uint32))
 		}
 
-		return attempt.Receipts[0].GetBlockNumber().Int64() <= (blockHeight - int64(tx.MinConfirmations.Uint32))
+		return false
+	}
+	txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return attempt.Receipts != nil && len(attempt.Receipts) > 0
 	}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		txas := as.FetchTxAttempts(nil, fn, txID)
+		txas := as.FetchTxAttempts(nil, txFilter, txAttemptFilter, txID)
 		if len(txas) > 0 {
 			return true, nil
 		}
