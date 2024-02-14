@@ -630,9 +630,10 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   function _getMaxLinkPayment(
     HotVars memory hotVars,
     Trigger triggerType,
-    uint32 performGas
+    uint32 performGas,
+    uint256 fastGasWei,
+    uint256 linkNative
   ) internal view returns (uint96) {
-     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
     uint256 maxGasOverhead;
     if (triggerType == Trigger.CONDITION) {
       maxGasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
