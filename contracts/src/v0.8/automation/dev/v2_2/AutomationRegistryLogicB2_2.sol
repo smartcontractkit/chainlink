@@ -6,6 +6,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
+import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   using Address for address;
@@ -16,15 +17,12 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    * @dev see AutomationRegistry master contract for constructor description
    */
   constructor(
-    Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
-  )
-    AutomationRegistryBase2_2(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress)
-  {}
+  ) AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -119,7 +117,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     Upkeep memory upkeep = s_upkeep[id];
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber > _blockNum()) revert UpkeepNotCanceled();
+    if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
     s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
     s_upkeep[id].balance = 0;
@@ -172,6 +170,14 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   // ================================================================
   // |                   OWNER / MANAGER ACTIONS                    |
   // ================================================================
+
+  /**
+   * @notice sets the chain specific module
+   */
+  function setChainSpecificModule(IChainModule newModule) external onlyOwner {
+    s_hotVars.chainModule = newModule;
+    emit ChainSpecificModuleUpdated(address(newModule));
+  }
 
   /**
    * @notice sets the privilege config for an upkeep
@@ -281,10 +287,6 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
 
   function getCancellationDelay() external pure returns (uint256) {
     return CANCELLATION_DELAY;
-  }
-
-  function getMode() external view returns (Mode) {
-    return i_mode;
   }
 
   function getLinkAddress() external view returns (address) {
@@ -449,6 +451,13 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
+  }
+
+  /**
+   * @notice get the chain module
+   */
+  function getChainModule() external view returns (IChainModule chainModule) {
+    return s_hotVars.chainModule;
   }
 
   /**
