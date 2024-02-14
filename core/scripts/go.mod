@@ -13,6 +13,7 @@ require (
 	github.com/google/uuid v1.4.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.4.0
+	github.com/jonboulle/clockwork v0.4.0
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/montanaflynn/stats v0.7.1
 	github.com/olekukonko/tablewriter v0.0.5
