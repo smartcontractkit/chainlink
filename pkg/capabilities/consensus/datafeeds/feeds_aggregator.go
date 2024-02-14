@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
+const OutputFieldName = "mercury_reports"
+
 type aggregatorConfig struct {
 	Feeds map[mercury.FeedID]feedConfig
 }
@@ -84,7 +86,7 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		}
 	}
 
-	needUpdate := []mercury.FeedID{}
+	reportsNeedingUpdate := []any{} // [][]byte
 	for feedID, previousReportInfo := range currentState.FeedInfo {
 		feedID := mercury.FeedID(feedID)
 		latestReport, ok := latestReportPerFeed[feedID]
@@ -97,7 +99,7 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 			deviation(previousReportInfo.Price, latestReport.Info.Price) > config.Deviation.InexactFloat64() {
 			previousReportInfo.Timestamp = latestReport.Info.Timestamp
 			previousReportInfo.Price = latestReport.Info.Price
-			needUpdate = append(needUpdate, feedID)
+			reportsNeedingUpdate = append(reportsNeedingUpdate, latestReport.FullReport)
 		}
 	}
 
@@ -106,10 +108,19 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		return nil, err
 	}
 
+	wrappedReportsNeedingUpdates, err := values.NewMap(map[string]any{OutputFieldName: reportsNeedingUpdate})
+	if err != nil {
+		return nil, err
+	}
+	reportsProto, err := wrappedReportsNeedingUpdates.Proto()
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.AggregationOutcome{
-		// TODO(KS-35): set EncodableOutcome
-		Metadata:     marshalledState,
-		ShouldReport: len(needUpdate) > 0,
+		EncodableOutcome: reportsProto.GetMapValue(),
+		Metadata:         marshalledState,
+		ShouldReport:     len(reportsNeedingUpdate) > 0,
 	}, nil
 }
 

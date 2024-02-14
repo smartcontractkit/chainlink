@@ -18,9 +18,10 @@ import (
 )
 
 var (
-	feedIdA    = mercury.FeedID("0x0001013ebd4ed3f5889fb5a8a52b42675c60c1a8c42bc79eaa72dcd922ac4292")
-	deviationA = decimal.NewFromFloat(0.1)
-	heartbeatA = 60
+	feedIdA            = mercury.FeedID("0x0001013ebd4ed3f5889fb5a8a52b42675c60c1a8c42bc79eaa72dcd922ac4292")
+	deviationA         = decimal.NewFromFloat(0.1)
+	heartbeatA         = 60
+	mercuryFullReportA = []byte("report")
 )
 
 func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
@@ -34,10 +35,10 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, outcome.ShouldReport)
 
+	// validate metadata
 	newState := &datafeeds.DataFeedsOutcomeMetadata{}
 	err = proto.Unmarshal(outcome.Metadata, newState)
 	require.NoError(t, err)
-
 	require.Equal(t, 1, len(newState.FeedInfo))
 	_, ok := newState.FeedInfo[feedIdA.String()]
 	require.True(t, ok)
@@ -51,7 +52,7 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 					Timestamp: 1,
 					Price:     1.0,
 				},
-				FullReport: []byte("report"),
+				FullReport: mercuryFullReportA,
 			},
 		},
 	}
@@ -60,13 +61,28 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, outcome.ShouldReport)
 
+	// validate metadata
 	err = proto.Unmarshal(outcome.Metadata, newState)
 	require.NoError(t, err)
-
 	require.Equal(t, 1, len(newState.FeedInfo))
 	_, ok = newState.FeedInfo[feedIdA.String()]
 	require.True(t, ok)
 	require.Equal(t, 1.0, newState.FeedInfo[feedIdA.String()].Price)
+
+	// validate encodable outcome
+	val, err := values.FromMapValueProto(outcome.EncodableOutcome)
+	require.NoError(t, err)
+	topLevelMap, err := val.Unwrap()
+	require.NoError(t, err)
+	mm, ok := topLevelMap.(map[string]any)
+	require.True(t, ok)
+	mercuryReports := mm[datafeeds.OutputFieldName]
+	reportList, ok := mercuryReports.([]any)
+	require.True(t, ok)
+	require.Equal(t, 1, len(reportList))
+	reportBytes, ok := reportList[0].([]byte)
+	require.True(t, ok)
+	require.Equal(t, string(mercuryFullReportA), string(reportBytes))
 }
 
 func TestDataFeedsAggregator_ParseConfig(t *testing.T) {
