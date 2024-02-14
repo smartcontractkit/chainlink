@@ -200,8 +200,8 @@ func (c *General) Validate() error {
 	if c.MinimumConfirmations == nil {
 		return errors.New("minimum_confirmations must be set to a non-negative value")
 	}
-	if c.SubscriptionFundingAmountLink == nil || *c.SubscriptionFundingAmountLink == 0 {
-		return errors.New("subscription_funding_amount_link must be set to a positive value")
+	if c.SubscriptionFundingAmountLink == nil || *c.SubscriptionFundingAmountLink < 0 {
+		return errors.New("subscription_funding_amount_link must be set to non-negative value")
 	}
 	if c.NumberOfWords == nil || *c.NumberOfWords == 0 {
 		return errors.New("number_of_words must be set to a positive value")
