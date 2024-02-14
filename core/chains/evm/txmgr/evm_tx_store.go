@@ -1989,16 +1989,23 @@ id < (
 	return
 }
 
-func (o *evmTxStore) ReapTxs(ctx context.Context, timeThreshold time.Time, nonce evmtypes.Nonce, chainID *big.Int) error {
+func (o *evmTxStore) ReapTxs(ctx context.Context, timeThreshold time.Time, nonce evmtypes.Nonce, chainID *big.Int) (int64, error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	_, err := qq.Exec(`
+	res, err := qq.Exec(`
 	DELETE FROM evm.txes
 	WHERE created_at < $1 AND broadcast_at < $1 AND state = 'confirmed' AND nonce < $2 AND evm_chain_id = $3`, timeThreshold, nonce.Int64(), chainID.String())
-	return pkgerrors.Wrap(err, "ReapTxs failed to delete old txs")
+	if err != nil {
+		return 0, pkgerrors.Wrap(err, "ReapTxs failed to delete old txs")
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return 0, pkgerrors.Wrap(err, "ReapTxs failed to get rows affected")
+	}
+	return rowsAffected, pkgerrors.Wrap(err, "ReapTxs failed to delete old txs")
 }
 
 func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
