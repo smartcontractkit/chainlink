@@ -11,13 +11,14 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	coreutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name GatewayConnector --output ./mocks/ --case=underscore
@@ -168,7 +169,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 }
 
 func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
-	redialBackoff := utils.NewRedialBackoff()
+	redialBackoff := coreutils.NewRedialBackoff()
 	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
 
@@ -182,7 +183,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 			<-closeCh
 			c.lggr.Infow("connection closed", "url", gatewayState.url)
 			// reset backoff
-			redialBackoff = utils.NewRedialBackoff()
+			redialBackoff = coreutils.NewRedialBackoff()
 		}
 		select {
 		case <-c.shutdownCh:

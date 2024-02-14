@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Script to run Connector outside of the core node.
