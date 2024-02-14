@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts-ccip",
-  "version": "1.2.1",
+  "version": "1.4.0",
   "description": "Chainlink CCIP smart contracts",
   "author": "Chainlink devs",
   "license": "BUSL-1.1",
@@ -24,6 +24,7 @@
   "files": [
     "src/v0.8/ccip/**/*.sol",
     "!src/v0.8/ccip/test/**/*",
+    "src/v0.8/ccip/test/mocks/**/*",
     "src/v0.8/shared/access/ConfirmedOwner.sol",
     "src/v0.8/shared/access/ConfirmedOwnerWithProposal.sol",
     "src/v0.8/shared/access/OwnerIsCreator.sol",
