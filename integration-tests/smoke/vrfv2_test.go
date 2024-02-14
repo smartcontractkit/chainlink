@@ -541,7 +541,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		require.Equal(t, numberOfTxKeysToCreate+1, len(fulfillmentTxFromAddresses))
 		var txKeyAddresses []string
 		for _, txKey := range txKeys.Data {
-			txKeyAddresses = append(txKeyAddresses, txKey.ID)
+			txKeyAddresses = append(txKeyAddresses, txKey.Attributes.Address)
 		}
 		less := func(a, b string) bool { return a < b }
 		equalIgnoreOrder := cmp.Diff(txKeyAddresses, fulfillmentTxFromAddresses, cmpopts.SortSlices(less)) == ""
