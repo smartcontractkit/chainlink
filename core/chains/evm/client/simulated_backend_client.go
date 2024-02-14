@@ -568,7 +568,7 @@ func (c *SimulatedBackendClient) ethGetBlockByNumber(ctx context.Context, result
 }
 func (c *SimulatedBackendClient) ethEstimateGas(ctx context.Context, result interface{}, args ...interface{}) error {
 	if len(args) != 2 {
-		return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_call", len(args))
+		return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_estimateGas", len(args))
 	}
 
 	params, ok := args[0].(map[string]interface{})
