@@ -501,9 +501,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    * @param gasLimit the gas to calculate payment for
    */
   function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
-    HotVars memory hotVars = s_hotVars;
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkNative);
+    return _getMaxLinkPayment(s_hotVars, triggerType, gasLimit);
   }
 
   /**
