@@ -4,13 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	"go.uber.org/multierr"
 
@@ -145,10 +141,6 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	}
 
 	routerContractAddress := common.HexToAddress(args.ContractID)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get contract ABI JSON")
-	}
 
 	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), lggr)
 	if err != nil {
@@ -159,7 +151,7 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	offchainConfigDigester := functionsRelay.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64())
 	logPollerWrapper.SubscribeToUpdates("FunctionsOffchainConfigDigester", offchainConfigDigester)
 
-	return newConfigWatcher(lggr, routerContractAddress, contractABI, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
+	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
 func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
@@ -222,7 +214,7 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.R
 
 	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
 		configWatcher.chain.Client(),
-		configWatcher.contractABI,
+		OCR2AggregatorTransmissionContractABI,
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,

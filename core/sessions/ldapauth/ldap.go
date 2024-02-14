@@ -124,16 +124,14 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
 		return tx.Get(&foundLocalAdminUser, sql, email)
 	})
-	if checkErr != nil {
-		// If error is not nil, there was either an issue or no local users found
-		if !errors.Is(checkErr, sql.ErrNoRows) {
-			// If the error is not that no local user was found, log and exit
-			l.lggr.Errorf("error searching users table: %v", checkErr)
-			return sessions.User{}, errors.New("error Finding user")
-		}
-	} else {
-		// Error was nil, local user found. Return
+	if checkErr == nil {
 		return foundLocalAdminUser, nil
+	}
+	// If error is not nil, there was either an issue or no local users found
+	if !errors.Is(checkErr, sql.ErrNoRows) {
+		// If the error is not that no local user was found, log and exit
+		l.lggr.Errorf("error searching users table: %v", checkErr)
+		return sessions.User{}, errors.New("error Finding user")
 	}
 
 	// First query for user "is active" property if defined

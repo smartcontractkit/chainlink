@@ -673,11 +673,10 @@ func getJsonNumberValue(value json.Number) (interface{}, error) {
 		}
 	} else {
 		f, err := value.Float64()
-		if err == nil {
-			result = f
-		} else {
+		if err != nil {
 			return nil, pkgerrors.Errorf("failed to parse json.Value: %v", err)
 		}
+		result = f
 	}
 
 	return result, nil

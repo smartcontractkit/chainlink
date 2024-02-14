@@ -208,6 +208,15 @@ func (c TestConfig) GetConfigurationName() string {
 	return c.ConfigurationName
 }
 
+func (c *TestConfig) AsBase64() (string, error) {
+	content, err := toml.Marshal(*c)
+	if err != nil {
+		return "", errors.Wrapf(err, "error marshaling test config")
+	}
+
+	return base64.StdEncoding.EncodeToString(content), nil
+}
+
 type Common struct {
 	ChainlinkNodeFunding *float64 `toml:"chainlink_node_funding"`
 }
