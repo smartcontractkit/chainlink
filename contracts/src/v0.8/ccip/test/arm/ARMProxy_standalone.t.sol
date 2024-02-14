@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {ARMProxy} from "../../ARMProxy.sol";
 
 contract ARMProxyStandaloneTest is Test {
   event ARMSet(address arm);
 
-  address constant EMPTY_ADDRESS = address(0x1);
-  address constant OWNER_ADDRESS = 0xC0ffeeEeC0fFeeeEc0ffeEeEc0ffEEEEC0FfEEee;
-  address constant MOCK_ARM_ADDRESS = 0x1337133713371337133713371337133713371337;
+  address internal constant EMPTY_ADDRESS = address(0x1);
+  address internal constant OWNER_ADDRESS = 0xC0ffeeEeC0fFeeeEc0ffeEeEc0ffEEEEC0FfEEee;
+  address internal constant MOCK_ARM_ADDRESS = 0x1337133713371337133713371337133713371337;
 
-  ARMProxy s_armProxy;
+  ARMProxy internal s_armProxy;
 
   function setUp() public virtual {
     // needed so that the extcodesize check in ARMProxy.fallback doesn't revert

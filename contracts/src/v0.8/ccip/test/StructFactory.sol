@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {IPool} from "../interfaces/pools/IPool.sol";
+
 import {ARM} from "../ARM.sol";
-import "../offRamp/EVM2EVMOffRamp.sol";
-import "../onRamp/EVM2EVMOnRamp.sol";
+import {EVM2EVMOffRamp} from "../offRamp/EVM2EVMOffRamp.sol";
+import {EVM2EVMOnRamp} from "../onRamp/EVM2EVMOnRamp.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {Internal} from "../libraries/Internal.sol";
 
@@ -78,8 +80,8 @@ contract StructFactory {
   uint8 internal constant WEIGHT_40 = 40;
 
   // Message info
-  uint64 internal constant SOURCE_CHAIN_ID = 1;
-  uint64 internal constant DEST_CHAIN_ID = 2;
+  uint64 internal constant SOURCE_CHAIN_SELECTOR = 1;
+  uint64 internal constant DEST_CHAIN_SELECTOR = 2;
   uint64 internal constant GAS_LIMIT = 200_000;
 
   // Timing

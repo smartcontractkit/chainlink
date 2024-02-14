@@ -704,14 +704,14 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 	}
 	lggr.Infow("Building execution report", "observations", observedMessages, "merkleRoot", hexutil.Encode(commitReport.MerkleRoot[:]), "report", commitReport)
 
-	sendReqsInRoot, leaves, tree, err := getProofData(ctx, r.onRampReader, commitReport.Interval)
+	sendReqsInRoot, _, tree, err := getProofData(ctx, r.onRampReader, commitReport.Interval)
 	if err != nil {
 		return nil, err
 	}
 
 	// cap messages which fits MaxExecutionReportLength (after serialized)
 	capped := sort.Search(len(observedMessages), func(i int) bool {
-		report, err2 := buildExecutionReportForMessages(sendReqsInRoot, leaves, tree, commitReport.Interval, observedMessages[:i+1])
+		report, err2 := buildExecutionReportForMessages(sendReqsInRoot, tree, commitReport.Interval, observedMessages[:i+1])
 		if err2 != nil {
 			r.lggr.Errorw("build execution report", "err", err2)
 			return false
@@ -724,11 +724,8 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 		}
 		return len(encoded) > MaxExecutionReportLength
 	})
-	if err != nil {
-		return nil, err
-	}
 
-	execReport, err := buildExecutionReportForMessages(sendReqsInRoot, leaves, tree, commitReport.Interval, observedMessages[:capped])
+	execReport, err := buildExecutionReportForMessages(sendReqsInRoot, tree, commitReport.Interval, observedMessages[:capped])
 	if err != nil {
 		return nil, err
 	}

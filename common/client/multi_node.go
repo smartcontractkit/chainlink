@@ -3,7 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -26,6 +28,11 @@ var (
 		Name: "multi_node_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
 	}, []string{"network", "chainId", "state"})
+	// PromMultiNodeInvariantViolations reports violation of our assumptions
+	PromMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multi_node_invariant_violations",
+		Help: "The number of invariant violations",
+	}, []string{"network", "chainId", "invariant"})
 	ErroringNodeError = fmt.Errorf("no live nodes available")
 )
 
@@ -94,6 +101,7 @@ type multiNode[
 	leaseTicker         *time.Ticker
 	chainFamily         string
 	reportInterval      time.Duration
+	sendTxSoftTimeout   time.Duration // defines max waiting time from first response til responses evaluation
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
@@ -101,7 +109,7 @@ type multiNode[
 	chStop services.StopChan
 	wg     sync.WaitGroup
 
-	sendOnlyErrorParser func(err error) SendTxReturnCode
+	classifySendTxError func(tx TX, err error) SendTxReturnCode
 }
 
 func NewMultiNode[
@@ -127,13 +135,16 @@ func NewMultiNode[
 	chainID CHAIN_ID,
 	chainType config.ChainType,
 	chainFamily string,
-	sendOnlyErrorParser func(err error) SendTxReturnCode,
+	classifySendTxError func(tx TX, err error) SendTxReturnCode,
+	sendTxSoftTimeout time.Duration,
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT] {
 	nodeSelector := newNodeSelector(selectionMode, nodes)
-
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
 	const reportInterval = 6500 * time.Millisecond
+	if sendTxSoftTimeout == 0 {
+		sendTxSoftTimeout = QueryTimeout / 2
+	}
 	c := &multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]{
 		nodes:               nodes,
 		sendonlys:           sendonlys,
@@ -146,8 +157,9 @@ func NewMultiNode[
 		chStop:              make(services.StopChan),
 		leaseDuration:       leaseDuration,
 		chainFamily:         chainFamily,
-		sendOnlyErrorParser: sendOnlyErrorParser,
+		classifySendTxError: classifySendTxError,
 		reportInterval:      reportInterval,
+		sendTxSoftTimeout:   sendTxSoftTimeout,
 	}
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
@@ -394,6 +406,10 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			// main node is used at the end for the return value
 			continue
 		}
+
+		if n.State() != nodeStateAlive {
+			continue
+		}
 		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
 		go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
@@ -545,45 +561,200 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return n.RPC().SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
 }
 
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SendTransaction(ctx context.Context, tx TX) error {
-	main, nodeError := c.selectNode()
-	var all []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
-	for _, n := range c.nodes {
-		all = append(all, n)
+type sendTxResult struct {
+	Err        error
+	ResultCode SendTxReturnCode
+}
+
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) broadcastTxAsync(ctx context.Context,
+	n SendOnlyNode[CHAIN_ID, RPC_CLIENT], tx TX) sendTxResult {
+	txErr := n.RPC().SendTransaction(ctx, tx)
+	c.lggr.Debugw("Node sent transaction", "name", n.String(), "tx", tx, "err", txErr)
+	resultCode := c.classifySendTxError(tx, txErr)
+	if !slices.Contains(sendTxSuccessfulCodes, resultCode) {
+		c.lggr.Warnw("RPC returned error", "name", n.String(), "tx", tx, "err", txErr)
 	}
-	all = append(all, c.sendonlys...)
-	for _, n := range all {
-		if n == main {
-			// main node is used at the end for the return value
-			continue
+
+	return sendTxResult{Err: txErr, ResultCode: resultCode}
+}
+
+// collectTxResults - refer to SendTransaction comment for implementation details,
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) collectTxResults(ctx context.Context, tx TX, healthyNodesNum int, txResults <-chan sendTxResult) error {
+	if healthyNodesNum == 0 {
+		return ErroringNodeError
+	}
+	// combine context and stop channel to ensure we stop, when signal received
+	ctx, cancel := c.chStop.Ctx(ctx)
+	defer cancel()
+	requiredResults := int(math.Ceil(float64(healthyNodesNum) * sendTxQuorum))
+	errorsByCode := map[SendTxReturnCode][]error{}
+	var softTimeoutChan <-chan time.Time
+	var resultsCount int
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			c.lggr.Debugw("Failed to collect of the results before context was done", "tx", tx, "errorsByCode", errorsByCode)
+			return ctx.Err()
+		case result := <-txResults:
+			errorsByCode[result.ResultCode] = append(errorsByCode[result.ResultCode], result.Err)
+			resultsCount++
+			if slices.Contains(sendTxSuccessfulCodes, result.ResultCode) || resultsCount >= requiredResults {
+				break loop
+			}
+		case <-softTimeoutChan:
+			c.lggr.Debugw("Send Tx soft timeout expired - returning responses we've collected so far", "tx", tx, "resultsCount", resultsCount, "requiredResults", requiredResults)
+			break loop
 		}
-		// Parallel send to all other nodes with ignored return value
-		// Async - we do not want to block the main thread with secondary nodes
-		// in case they are unreliable/slow.
-		// It is purely a "best effort" send.
-		// Resource is not unbounded because the default context has a timeout.
-		ok := c.IfNotStopped(func() {
-			// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
+
+		if softTimeoutChan == nil {
+			tm := time.NewTimer(c.sendTxSoftTimeout)
+			softTimeoutChan = tm.C
+			// we are fine with stopping timer at the end of function
+			//nolint
+			defer tm.Stop()
+		}
+	}
+
+	// ignore critical error as it's reported in reportSendTxAnomalies
+	result, _ := aggregateTxResults(errorsByCode)
+	return result
+
+}
+
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
+	defer c.wg.Done()
+	resultsByCode := map[SendTxReturnCode][]error{}
+	// txResults eventually will be closed
+	for txResult := range txResults {
+		resultsByCode[txResult.ResultCode] = append(resultsByCode[txResult.ResultCode], txResult.Err)
+	}
+
+	_, criticalErr := aggregateTxResults(resultsByCode)
+	if criticalErr != nil {
+		c.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
+		c.SvcErrBuffer.Append(criticalErr)
+		PromMultiNodeInvariantViolations.WithLabelValues(c.chainFamily, c.chainID.String(), criticalErr.Error()).Inc()
+	}
+}
+
+func aggregateTxResults(resultsByCode map[SendTxReturnCode][]error) (txResult error, err error) {
+	severeErrors, hasSevereErrors := findFirstIn(resultsByCode, sendTxSevereErrors)
+	successResults, hasSuccess := findFirstIn(resultsByCode, sendTxSuccessfulCodes)
+	if hasSuccess {
+		// We assume that primary node would never report false positive txResult for a transaction.
+		// Thus, if such case occurs it's probably due to misconfiguration or a bug and requires manual intervention.
+		if hasSevereErrors {
+			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error"
+			// return success, since at least 1 node has accepted our broadcasted Tx, and thus it can now be included onchain
+			return successResults[0], fmt.Errorf(errMsg)
+		}
+
+		// other errors are temporary - we are safe to return success
+		return successResults[0], nil
+	}
+
+	if hasSevereErrors {
+		return severeErrors[0], nil
+	}
+
+	// return temporary error
+	for _, result := range resultsByCode {
+		return result[0], nil
+	}
+
+	err = fmt.Errorf("expected at least one response on SendTransaction")
+	return err, err
+}
+
+const sendTxQuorum = 0.7
+
+// SendTransaction - broadcasts transaction to all the send-only and primary nodes regardless of their health.
+// A returned nil or error does not guarantee that the transaction will or won't be included. Additional checks must be
+// performed to determine the final state.
+//
+// Send-only nodes' results are ignored as they tend to return false-positive responses. Broadcast to them is necessary
+// to speed up the propagation of TX in the network.
+//
+// Handling of primary nodes' results consists of collection and aggregation.
+// In the collection step, we gather as many results as possible while minimizing waiting time. This operation succeeds
+// on one of the following conditions:
+// * Received at least one success
+// * Received at least one result and `sendTxSoftTimeout` expired
+// * Received results from the sufficient number of nodes defined by sendTxQuorum.
+// The aggregation is based on the following conditions:
+// * If there is at least one success - returns success
+// * If there is at least one terminal error - returns terminal error
+// * If there is both success and terminal error - returns success and reports invariant violation
+// * Otherwise, returns any (effectively random) of the errors.
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SendTransaction(ctx context.Context, tx TX) error {
+	if len(c.nodes) == 0 {
+		return ErroringNodeError
+	}
+
+	healthyNodesNum := 0
+	txResults := make(chan sendTxResult, len(c.nodes))
+	// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
+	ok := c.IfNotStopped(func() {
+		// fire-n-forget, as sendOnlyNodes can not be trusted with result reporting
+		for _, n := range c.sendonlys {
+			if n.State() != nodeStateAlive {
+				continue
+			}
 			c.wg.Add(1)
 			go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
 				defer c.wg.Done()
-
-				txErr := n.RPC().SendTransaction(ctx, tx)
-				c.lggr.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", txErr)
-				sendOnlyError := c.sendOnlyErrorParser(txErr)
-				if sendOnlyError != Successful {
-					c.lggr.Warnw("RPC returned error", "name", n.String(), "tx", tx, "err", txErr)
-				}
+				c.broadcastTxAsync(ctx, n, tx)
 			}(n)
-		})
-		if !ok {
-			c.lggr.Debug("Cannot send transaction on sendonly node; MultiNode is stopped", "node", n.String())
+		}
+
+		var primaryBroadcastWg sync.WaitGroup
+		txResultsToReport := make(chan sendTxResult, len(c.nodes))
+		for _, n := range c.nodes {
+			if n.State() != nodeStateAlive {
+				continue
+			}
+
+			healthyNodesNum++
+			primaryBroadcastWg.Add(1)
+			go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
+				defer primaryBroadcastWg.Done()
+				result := c.broadcastTxAsync(ctx, n, tx)
+				// both channels are sufficiently buffered, so we won't be locked
+				txResultsToReport <- result
+				txResults <- result
+			}(n)
+		}
+
+		c.wg.Add(1)
+		go func() {
+			// wait for primary nodes to finish the broadcast before closing the channel
+			primaryBroadcastWg.Wait()
+			close(txResultsToReport)
+			close(txResults)
+			c.wg.Done()
+		}()
+
+		c.wg.Add(1)
+		go c.reportSendTxAnomalies(tx, txResultsToReport)
+
+	})
+	if !ok {
+		return fmt.Errorf("aborted while broadcasting tx - multiNode is stopped: %w", context.Canceled)
+	}
+
+	return c.collectTxResults(ctx, tx, healthyNodesNum, txResults)
+}
+
+// findFirstIn - returns first existing value for the slice of keys
+func findFirstIn[K comparable, V any](set map[K]V, keys []K) (V, bool) {
+	for _, k := range keys {
+		if v, ok := set[k]; ok {
+			return v, true
 		}
 	}
-	if nodeError != nil {
-		return nodeError
-	}
-	return main.RPC().SendTransaction(ctx, tx)
+	var v V
+	return v, false
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SequenceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (s SEQ, err error) {

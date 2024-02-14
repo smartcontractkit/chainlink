@@ -2,6 +2,7 @@ package ccipexec
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -23,6 +24,11 @@ func getProofData(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
+	if err1 := validateSendRequests(sendReqs, interval); err1 != nil {
+		return nil, nil, nil, err1
+	}
+
 	leaves = make([][32]byte, 0, len(sendReqs))
 	for _, req := range sendReqs {
 		leaves = append(leaves, req.Data.Hash)
@@ -34,9 +40,33 @@ func getProofData(
 	return sendReqs, leaves, tree, nil
 }
 
+func validateSendRequests(sendReqs []ccipdata.Event[internal.EVM2EVMMessage], interval ccipdata.CommitStoreInterval) error {
+	if len(sendReqs) == 0 {
+		return fmt.Errorf("could not find any requests in the provided interval %v", interval)
+	}
+
+	gotInterval := ccipdata.CommitStoreInterval{
+		Min: sendReqs[0].Data.SequenceNumber,
+		Max: sendReqs[0].Data.SequenceNumber,
+	}
+
+	for _, req := range sendReqs[1:] {
+		if req.Data.SequenceNumber < gotInterval.Min {
+			gotInterval.Min = req.Data.SequenceNumber
+		}
+		if req.Data.SequenceNumber > gotInterval.Max {
+			gotInterval.Max = req.Data.SequenceNumber
+		}
+	}
+
+	if (gotInterval.Min != interval.Min) || (gotInterval.Max != interval.Max) {
+		return fmt.Errorf("interval %v is not the expected %v", gotInterval, interval)
+	}
+	return nil
+}
+
 func buildExecutionReportForMessages(
 	msgsInRoot []ccipdata.Event[internal.EVM2EVMMessage],
-	leaves [][32]byte,
 	tree *merklemulti.Tree[[32]byte],
 	commitInterval ccipdata.CommitStoreInterval,
 	observedMessages []ccip.ObservedMessage,
@@ -50,6 +80,11 @@ func buildExecutionReportForMessages(
 			continue
 		}
 		innerIdx := int(observedMessage.SeqNr - commitInterval.Min)
+		if innerIdx >= len(msgsInRoot) || innerIdx < 0 {
+			return ccipdata.ExecReport{}, fmt.Errorf("invalid inneridx SeqNr=%d IntervalMin=%d msgsInRoot=%d",
+				observedMessage.SeqNr, commitInterval.Min, len(msgsInRoot))
+		}
+
 		messages = append(messages, msgsInRoot[innerIdx].Data)
 		offchainTokenData = append(offchainTokenData, observedMessage.TokenData)
 		innerIdxs = append(innerIdxs, innerIdx)

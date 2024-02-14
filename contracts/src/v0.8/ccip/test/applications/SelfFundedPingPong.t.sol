@@ -24,7 +24,7 @@ contract SelfFundedPingPongDappSetup is EVM2EVMOnRampSetup {
 
     s_feeToken = IERC20(s_sourceTokens[0]);
     s_pingPong = new SelfFundedPingPong(address(s_sourceRouter), s_feeToken, s_roundTripsBeforeFunding);
-    s_pingPong.setCounterpart(DEST_CHAIN_ID, i_pongContract);
+    s_pingPong.setCounterpart(DEST_CHAIN_SELECTOR, i_pongContract);
 
     uint256 fundingAmount = 5e18;
 
@@ -45,7 +45,7 @@ contract SelfFundedPingPong_ccipReceive is SelfFundedPingPongDappSetup {
   function test_FundingSuccess() public {
     Client.Any2EVMMessage memory message = Client.Any2EVMMessage({
       messageId: bytes32("a"),
-      sourceChainSelector: DEST_CHAIN_ID,
+      sourceChainSelector: DEST_CHAIN_SELECTOR,
       sender: abi.encode(i_pongContract),
       data: "",
       destTokenAmounts: new Client.EVMTokenAmount[](0)
@@ -80,7 +80,7 @@ contract SelfFundedPingPong_ccipReceive is SelfFundedPingPongDappSetup {
     vm.startPrank(address(s_sourceRouter));
     Client.Any2EVMMessage memory message = Client.Any2EVMMessage({
       messageId: bytes32("a"),
-      sourceChainSelector: DEST_CHAIN_ID,
+      sourceChainSelector: DEST_CHAIN_SELECTOR,
       sender: abi.encode(i_pongContract),
       data: abi.encode(countIncrBeforeFunding),
       destTokenAmounts: new Client.EVMTokenAmount[](0)

@@ -29,7 +29,7 @@ contract E2E is EVM2EVMOnRampSetup, CommitStoreSetup, EVM2EVMOffRampSetup {
     messages[1] = sendRequest(2);
     messages[2] = sendRequest(3);
 
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_ID, _generateTokenMessage());
+    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, _generateTokenMessage());
     // Asserts that the tokens have been sent and the fee has been paid.
     assertEq(balance0Pre - messages.length * (i_tokenAmount0 + expectedFee), token0.balanceOf(OWNER));
     assertEq(balance1Pre - messages.length * i_tokenAmount1, token1.balanceOf(OWNER));
@@ -102,7 +102,7 @@ contract E2E is EVM2EVMOnRampSetup, CommitStoreSetup, EVM2EVMOffRampSetup {
 
   function sendRequest(uint64 expectedSeqNum) public returns (Internal.EVM2EVMMessage memory) {
     Client.EVM2AnyMessage memory message = _generateTokenMessage();
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_ID, message);
+    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message);
 
     IERC20(s_sourceTokens[0]).approve(address(s_sourceRouter), i_tokenAmount0 + expectedFee);
     IERC20(s_sourceTokens[1]).approve(address(s_sourceRouter), i_tokenAmount1);
@@ -120,7 +120,7 @@ contract E2E is EVM2EVMOnRampSetup, CommitStoreSetup, EVM2EVMOffRampSetup {
     emit CCIPSendRequested(geEvent);
 
     vm.resumeGasMetering();
-    s_sourceRouter.ccipSend(DEST_CHAIN_ID, message);
+    s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);
     vm.pauseGasMetering();
 
     return geEvent;

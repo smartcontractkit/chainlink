@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "../BaseTest.t.sol";
+import {BaseTest} from "../BaseTest.t.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
+import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
+import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {BurnMintSetup} from "./BurnMintSetup.t.sol";
 
@@ -47,7 +49,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
     bytes4 expectedSignature = bytes4(keccak256("burn(uint256)"));
     vm.expectCall(address(s_burnMintERC677), abi.encodeWithSelector(expectedSignature, burnAmount));
 
-    s_pool.lockOrBurn(OWNER, bytes(""), burnAmount, DEST_CHAIN_ID, bytes(""));
+    s_pool.lockOrBurn(OWNER, bytes(""), burnAmount, DEST_CHAIN_SELECTOR, bytes(""));
 
     assertEq(s_burnMintERC677.balanceOf(address(s_pool)), 0);
   }
@@ -59,7 +61,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
     vm.startPrank(s_burnMintOnRamp);
 
     vm.expectRevert(EVM2EVMOnRamp.BadARMSignal.selector);
-    s_pool.lockOrBurn(OWNER, bytes(""), 1e5, DEST_CHAIN_ID, bytes(""));
+    s_pool.lockOrBurn(OWNER, bytes(""), 1e5, DEST_CHAIN_SELECTOR, bytes(""));
 
     assertEq(s_burnMintERC677.balanceOf(address(s_pool)), before);
   }
@@ -77,7 +79,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
     vm.startPrank(s_burnMintOffRamp);
     vm.expectEmit();
     emit Transfer(address(0), OWNER, amount);
-    s_pool.releaseOrMint(bytes(""), OWNER, amount, DEST_CHAIN_ID, bytes(""));
+    s_pool.releaseOrMint(bytes(""), OWNER, amount, DEST_CHAIN_SELECTOR, bytes(""));
     assertEq(s_burnMintERC677.balanceOf(OWNER), amount);
   }
 
@@ -87,7 +89,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
     uint256 before = s_burnMintERC677.balanceOf(OWNER);
     vm.startPrank(s_burnMintOffRamp);
     vm.expectRevert(EVM2EVMOffRamp.BadARMSignal.selector);
-    s_pool.releaseOrMint(bytes(""), OWNER, 1e5, DEST_CHAIN_ID, bytes(""));
+    s_pool.releaseOrMint(bytes(""), OWNER, 1e5, DEST_CHAIN_SELECTOR, bytes(""));
     assertEq(s_burnMintERC677.balanceOf(OWNER), before);
   }
 

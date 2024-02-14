@@ -59,6 +59,31 @@ func TestGraph(t *testing.T) {
 	assert.True(t, g.IsEmpty())
 }
 
+func TestNewGraphFromEdges(t *testing.T) {
+	var edges []models.Edge
+	g, err := liquiditygraph.NewGraphFromEdges(edges)
+	assert.NoError(t, err)
+	assert.True(t, g.IsEmpty())
+
+	edges = append(edges, models.NewEdge(models.NetworkSelector(1), models.NetworkSelector(2)))
+	g, err = liquiditygraph.NewGraphFromEdges(edges)
+	assert.NoError(t, err)
+	assert.False(t, g.IsEmpty())
+	neibs, ok := g.GetNeighbors(models.NetworkSelector(1))
+	assert.True(t, ok)
+	assert.Len(t, neibs, 1)
+	assert.Equal(t, models.NetworkSelector(2), neibs[0])
+
+	edges = append(edges, models.NewEdge(models.NetworkSelector(1), models.NetworkSelector(3)))
+	g, err = liquiditygraph.NewGraphFromEdges(edges)
+	assert.NoError(t, err)
+	neibs, ok = g.GetNeighbors(models.NetworkSelector(1))
+	assert.True(t, ok)
+	assert.Len(t, neibs, 2)
+	assert.Equal(t, models.NetworkSelector(2), neibs[0])
+	assert.Equal(t, models.NetworkSelector(3), neibs[1])
+}
+
 func TestGraphThreadSafety(t *testing.T) {
 	const numWorkers = 50
 	const numNetworks = 30

@@ -23,7 +23,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
     s_sourceToken = IERC20(s_sourceTokens[0]);
     s_feeToken = IERC20(s_sourceTokens[0]);
 
-    s_facadeClient = new FacadeClient(address(s_sourceRouter), DEST_CHAIN_ID, s_sourceToken, s_feeToken);
+    s_facadeClient = new FacadeClient(address(s_sourceRouter), DEST_CHAIN_SELECTOR, s_sourceToken, s_feeToken);
 
     s_maliciousTokenPool = new ReentrantMaliciousTokenPool(
       address(s_facadeClient),
@@ -76,7 +76,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
       feeToken: address(s_feeToken)
     });
 
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_ID, message1);
+    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message1);
     assertGt(expectedFee, 0);
 
     // Outcome of a successful exploit:

@@ -50,7 +50,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
 
     TokenPool.ChainUpdate[] memory offRamps = new TokenPool.ChainUpdate[](1);
     offRamps[0] = TokenPool.ChainUpdate({
-      remoteChainSelector: SOURCE_CHAIN_ID,
+      remoteChainSelector: SOURCE_CHAIN_SELECTOR,
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -64,8 +64,8 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     s_offRamp = new EVM2EVMOffRampHelper(
       EVM2EVMOffRamp.StaticConfig({
         commitStore: address(commitStore),
-        chainSelector: DEST_CHAIN_ID,
-        sourceChainSelector: SOURCE_CHAIN_ID,
+        chainSelector: DEST_CHAIN_SELECTOR,
+        sourceChainSelector: SOURCE_CHAIN_SELECTOR,
         onRamp: ON_RAMP_ADDRESS,
         prevOffRamp: prevOffRamp,
         armProxy: address(s_mockARM)
@@ -85,8 +85,8 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2);
-    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_ID, offRamp: address(s_offRamp)});
-    offRampUpdates[1] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_ID, offRamp: address(prevOffRamp)});
+    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: address(s_offRamp)});
+    offRampUpdates[1] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: address(prevOffRamp)});
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
 
@@ -140,7 +140,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
       nonce: sequenceNumber,
       gasLimit: GAS_LIMIT,
       strict: false,
-      sourceChainSelector: SOURCE_CHAIN_ID,
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
       receiver: address(s_receiver),
       data: data,
       tokenAmounts: tokenAmounts,
@@ -151,7 +151,9 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     });
     message.messageId = Internal._hash(
       message,
-      keccak256(abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_ID, DEST_CHAIN_ID, ON_RAMP_ADDRESS))
+      keccak256(
+        abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, ON_RAMP_ADDRESS)
+      )
     );
 
     return message;

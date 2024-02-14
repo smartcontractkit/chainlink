@@ -40,7 +40,8 @@ contract ArbitrumL2BridgeAdapter is IBridgeAdapter {
     address localToken,
     address remoteToken,
     address recipient,
-    uint256 amount
+    uint256 amount,
+    bytes calldata /* bridgeSpecificPayload */
   ) external payable override returns (bytes memory) {
     if (msg.value != 0) {
       revert MsgShouldNotContainValue(msg.value);

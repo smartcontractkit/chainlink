@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "../BaseTest.t.sol";
-import {ARM} from "../../ARM.sol";
 import {IARM} from "../../interfaces/IARM.sol";
+
+import {BaseTest} from "../BaseTest.t.sol";
+import {ARM} from "../../ARM.sol";
 
 contract ARMSetup is BaseTest {
   function makeTaggedRootsInclusive(uint256 from, uint256 to) internal pure returns (IARM.TaggedRoot[] memory) {

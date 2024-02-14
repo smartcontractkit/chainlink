@@ -26,7 +26,8 @@ contract MockL1BridgeAdapter is IBridgeAdapter, ILiquidityContainer {
     address localToken,
     address /* remoteToken */,
     address /* receiver */,
-    uint256 amount
+    uint256 amount,
+    bytes calldata /* bridgeSpecificPayload */
   ) external payable override returns (bytes memory) {
     IERC20(localToken).transferFrom(msg.sender, address(this), amount);
     return "";
@@ -71,7 +72,8 @@ contract MockL2BridgeAdapter is IBridgeAdapter {
     address localToken,
     address /* remoteToken */,
     address /* recipient */,
-    uint256 amount
+    uint256 amount,
+    bytes calldata /* bridgeSpecificPayload */
   ) external payable override returns (bytes memory) {
     IERC20(localToken).transferFrom(msg.sender, address(this), amount);
     return "";

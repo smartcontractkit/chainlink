@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "forge-std/Test.sol";
-import "./mocks/MockARM.sol";
-import "./StructFactory.sol";
+import {Test, stdError} from "forge-std/Test.sol";
+import {MockARM} from "./mocks/MockARM.sol";
+import {StructFactory} from "./StructFactory.sol";
 
 contract BaseTest is Test, StructFactory {
   bool private s_baseTestInitialized;
@@ -18,6 +18,8 @@ contract BaseTest is Test, StructFactory {
     // Set the sender to OWNER permanently
     vm.startPrank(OWNER);
     deal(OWNER, 1e20);
+    vm.label(OWNER, "Owner");
+    vm.label(STRANGER, "Stranger");
 
     // Set the block time to a constant known value
     vm.warp(BLOCK_TIME);

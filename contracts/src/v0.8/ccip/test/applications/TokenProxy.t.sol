@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import {EVM2EVMOnRampSetup} from "../onRamp/EVM2EVMOnRampSetup.t.sol";
@@ -45,8 +45,8 @@ contract TokenProxy_getFee is TokenProxySetup {
       extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 0}))
     });
 
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_ID, message);
-    uint256 actualFee = s_tokenProxy.getFee(DEST_CHAIN_ID, message);
+    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message);
+    uint256 actualFee = s_tokenProxy.getFee(DEST_CHAIN_SELECTOR, message);
     assertEq(expectedFee, actualFee);
   }
 
@@ -63,7 +63,7 @@ contract TokenProxy_getFee is TokenProxySetup {
 
     vm.expectRevert(TokenProxy.InvalidToken.selector);
 
-    s_tokenProxy.getFee(DEST_CHAIN_ID, message);
+    s_tokenProxy.getFee(DEST_CHAIN_SELECTOR, message);
   }
 
   function testGetFeeNoDataAllowedReverts() public {
@@ -80,7 +80,7 @@ contract TokenProxy_getFee is TokenProxySetup {
 
     vm.expectRevert(TokenProxy.NoDataAllowed.selector);
 
-    s_tokenProxy.getFee(DEST_CHAIN_ID, message);
+    s_tokenProxy.getFee(DEST_CHAIN_SELECTOR, message);
   }
 
   function testGetFeeGasShouldBeZeroReverts() public {
@@ -97,7 +97,7 @@ contract TokenProxy_getFee is TokenProxySetup {
 
     vm.expectRevert(TokenProxy.GasShouldBeZero.selector);
 
-    s_tokenProxy.getFee(DEST_CHAIN_ID, message);
+    s_tokenProxy.getFee(DEST_CHAIN_SELECTOR, message);
   }
 }
 
@@ -111,7 +111,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     message.tokenAmounts = tokens;
     message.extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 0}));
 
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_ID, message);
+    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message);
 
     s_feeToken.approve(address(s_tokenProxy), expectedFee);
 
@@ -123,7 +123,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     emit CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
-    s_tokenProxy.ccipSend(DEST_CHAIN_ID, message);
+    s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
   function testCcipSendNativeSuccess() public {
@@ -136,7 +136,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     message.feeToken = address(0);
     message.extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 0}));
 
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_ID, message);
+    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message);
 
     Internal.EVM2EVMMessage memory msgEvent = _messageToEvent(message, 1, 1, expectedFee, OWNER);
     msgEvent.sender = address(s_tokenProxy);
@@ -147,7 +147,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     emit CCIPSendRequested(msgEvent);
 
     vm.resumeGasMetering();
-    s_tokenProxy.ccipSend{value: expectedFee}(DEST_CHAIN_ID, message);
+    s_tokenProxy.ccipSend{value: expectedFee}(DEST_CHAIN_SELECTOR, message);
   }
 
   // Reverts
@@ -165,7 +165,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
 
     vm.expectRevert("ERC20: insufficient allowance");
 
-    s_tokenProxy.ccipSend(DEST_CHAIN_ID, message);
+    s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
   function testCcipSendInvalidTokenReverts() public {
@@ -178,7 +178,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
 
     vm.expectRevert(TokenProxy.InvalidToken.selector);
 
-    s_tokenProxy.ccipSend(DEST_CHAIN_ID, message);
+    s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
   function testCcipSendNoDataAllowedReverts() public {
@@ -192,7 +192,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
 
     vm.expectRevert(TokenProxy.NoDataAllowed.selector);
 
-    s_tokenProxy.ccipSend(DEST_CHAIN_ID, message);
+    s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
   function testCcipSendGasShouldBeZeroReverts() public {
@@ -205,6 +205,6 @@ contract TokenProxy_ccipSend is TokenProxySetup {
 
     vm.expectRevert(TokenProxy.GasShouldBeZero.selector);
 
-    s_tokenProxy.ccipSend(DEST_CHAIN_ID, message);
+    s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 }

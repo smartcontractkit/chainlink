@@ -67,7 +67,8 @@ contract PriceRegistrySetup is TokenSetup {
     }
 
     Internal.PriceUpdates memory priceUpdates = getPriceUpdatesStruct(pricedTokens, tokenPrices);
-    priceUpdates.gasPriceUpdates = getSingleGasPriceUpdateStruct(DEST_CHAIN_ID, PACKED_USD_PER_GAS).gasPriceUpdates;
+    priceUpdates.gasPriceUpdates = getSingleGasPriceUpdateStruct(DEST_CHAIN_SELECTOR, PACKED_USD_PER_GAS)
+      .gasPriceUpdates;
 
     s_encodedInitialPriceUpdates = abi.encode(priceUpdates);
     address[] memory priceUpdaters = new address[](0);
@@ -253,7 +254,10 @@ contract PriceRegistry_updatePrices is PriceRegistrySetup {
       tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
       gasPriceUpdates: new Internal.GasPriceUpdate[](1)
     });
-    update.gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: DEST_CHAIN_ID, usdPerUnitGas: 2000e18});
+    update.gasPriceUpdates[0] = Internal.GasPriceUpdate({
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      usdPerUnitGas: 2000e18
+    });
 
     vm.expectEmit();
     emit UsdPerUnitGasUpdated(
@@ -264,7 +268,10 @@ contract PriceRegistry_updatePrices is PriceRegistrySetup {
 
     s_priceRegistry.updatePrices(update);
 
-    assertEq(s_priceRegistry.getDestinationChainGasPrice(DEST_CHAIN_ID).value, update.gasPriceUpdates[0].usdPerUnitGas);
+    assertEq(
+      s_priceRegistry.getDestinationChainGasPrice(DEST_CHAIN_SELECTOR).value,
+      update.gasPriceUpdates[0].usdPerUnitGas
+    );
   }
 
   function testUpdateMultiplePricesSuccess() public {
@@ -274,8 +281,8 @@ contract PriceRegistry_updatePrices is PriceRegistrySetup {
     tokenPriceUpdates[2] = Internal.TokenPriceUpdate({sourceToken: address(12345), usdPerToken: 1e18});
 
     Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](3);
-    gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: DEST_CHAIN_ID, usdPerUnitGas: 2e6});
-    gasPriceUpdates[1] = Internal.GasPriceUpdate({destChainSelector: SOURCE_CHAIN_ID, usdPerUnitGas: 2000e18});
+    gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: DEST_CHAIN_SELECTOR, usdPerUnitGas: 2e6});
+    gasPriceUpdates[1] = Internal.GasPriceUpdate({destChainSelector: SOURCE_CHAIN_SELECTOR, usdPerUnitGas: 2000e18});
     gasPriceUpdates[2] = Internal.GasPriceUpdate({destChainSelector: 12345, usdPerUnitGas: 1e18});
 
     Internal.PriceUpdates memory update = Internal.PriceUpdates({
@@ -365,7 +372,10 @@ contract PriceRegistry_convertTokenAmount is PriceRegistrySetup {
     tokenPriceUpdates[1] = Internal.TokenPriceUpdate({sourceToken: linkToken, usdPerToken: usdPerLinkToken});
 
     Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
-    gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: DEST_CHAIN_ID, usdPerUnitGas: usdPerUnitGas});
+    gasPriceUpdates[0] = Internal.GasPriceUpdate({
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      usdPerUnitGas: usdPerUnitGas
+    });
 
     Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
       tokenPriceUpdates: tokenPriceUpdates,
@@ -435,7 +445,10 @@ contract PriceRegistry_convertTokenAmount is PriceRegistrySetup {
 
 contract PriceRegistry_getTokenAndGasPrices is PriceRegistrySetup {
   function testGetFeeTokenAndGasPricesSuccess() public {
-    (uint224 feeTokenPrice, uint224 gasPrice) = s_priceRegistry.getTokenAndGasPrices(s_sourceFeeToken, DEST_CHAIN_ID);
+    (uint224 feeTokenPrice, uint224 gasPrice) = s_priceRegistry.getTokenAndGasPrices(
+      s_sourceFeeToken,
+      DEST_CHAIN_SELECTOR
+    );
 
     Internal.PriceUpdates memory priceUpdates = abi.decode(s_encodedInitialPriceUpdates, (Internal.PriceUpdates));
 
@@ -460,15 +473,17 @@ contract PriceRegistry_getTokenAndGasPrices is PriceRegistrySetup {
   }
 
   function testUnsupportedChainReverts() public {
-    vm.expectRevert(abi.encodeWithSelector(PriceRegistry.ChainNotSupported.selector, DEST_CHAIN_ID + 1));
-    s_priceRegistry.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_ID + 1);
+    vm.expectRevert(abi.encodeWithSelector(PriceRegistry.ChainNotSupported.selector, DEST_CHAIN_SELECTOR + 1));
+    s_priceRegistry.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR + 1);
   }
 
   function testStaleGasPriceReverts() public {
     uint256 diff = TWELVE_HOURS + 1;
     vm.warp(block.timestamp + diff);
-    vm.expectRevert(abi.encodeWithSelector(PriceRegistry.StaleGasPrice.selector, DEST_CHAIN_ID, TWELVE_HOURS, diff));
-    s_priceRegistry.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_ID);
+    vm.expectRevert(
+      abi.encodeWithSelector(PriceRegistry.StaleGasPrice.selector, DEST_CHAIN_SELECTOR, TWELVE_HOURS, diff)
+    );
+    s_priceRegistry.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR);
   }
 
   function testStaleTokenPriceReverts() public {
@@ -476,7 +491,10 @@ contract PriceRegistry_getTokenAndGasPrices is PriceRegistrySetup {
     vm.warp(block.timestamp + diff);
 
     Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
-    gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: DEST_CHAIN_ID, usdPerUnitGas: PACKED_USD_PER_GAS});
+    gasPriceUpdates[0] = Internal.GasPriceUpdate({
+      destChainSelector: DEST_CHAIN_SELECTOR,
+      usdPerUnitGas: PACKED_USD_PER_GAS
+    });
 
     Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
       tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
@@ -487,6 +505,6 @@ contract PriceRegistry_getTokenAndGasPrices is PriceRegistrySetup {
     vm.expectRevert(
       abi.encodeWithSelector(PriceRegistry.StaleTokenPrice.selector, s_sourceTokens[0], TWELVE_HOURS, diff)
     );
-    s_priceRegistry.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_ID);
+    s_priceRegistry.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR);
   }
 }

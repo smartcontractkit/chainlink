@@ -7,6 +7,7 @@ interface IRebalancer {
   struct SendLiquidityParams {
     uint256 amount;
     uint64 remoteChainSelector;
+    bytes bridgeData;
   }
 
   struct ReceiveLiquidityParams {

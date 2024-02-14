@@ -45,7 +45,6 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     address offRamp;
   }
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "Router 1.2.0";
   // We limit return data to a selector plus 4 words. This is to avoid
   // malicious contracts from returning large amounts of data and causing

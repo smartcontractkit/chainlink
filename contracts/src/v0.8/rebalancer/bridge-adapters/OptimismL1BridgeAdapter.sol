@@ -37,7 +37,8 @@ contract OptimismL1BridgeAdapter is IBridgeAdapter {
     address localToken,
     address remoteToken,
     address recipient,
-    uint256 amount
+    uint256 amount,
+    bytes calldata /* bridgeSpecificPayload */
   ) external payable override returns (bytes memory) {
     IERC20(localToken).safeTransferFrom(msg.sender, address(this), amount);
 

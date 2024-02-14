@@ -69,7 +69,7 @@ contract Rebalancer_rebalanceLiquidity is RebalancerSetup {
       amount
     );
 
-    s_rebalancer.rebalanceLiquidity(i_remoteChainSelector, amount);
+    s_rebalancer.rebalanceLiquidity(i_remoteChainSelector, amount, bytes(""));
 
     assertEq(s_l1Token.balanceOf(address(s_rebalancer)), 0);
     assertEq(s_l1Token.balanceOf(address(s_bridgeAdapter)), amount);
@@ -111,19 +111,19 @@ contract Rebalancer_rebalanceLiquidity is RebalancerSetup {
 
     deal(address(s_l1Token), address(s_bridgeAdapter), amount);
 
-    s_rebalancer.rebalanceLiquidity(i_remoteChainSelector, amount);
+    s_rebalancer.rebalanceLiquidity(i_remoteChainSelector, amount, bytes(""));
 
     assertEq(s_l1Token.balanceOf(address(s_bridgeAdapter)), 0);
     assertEq(s_l1Token.balanceOf(address(mockRemoteBridgeAdapter)), amount);
     assertEq(s_l1Token.allowance(address(s_rebalancer), address(s_bridgeAdapter)), 0);
 
-    mockRemoteRebalancer.rebalanceLiquidity(i_localChainSelector, amount);
+    mockRemoteRebalancer.rebalanceLiquidity(i_localChainSelector, amount, bytes(""));
 
     assertEq(s_l1Token.balanceOf(address(s_bridgeAdapter)), amount);
     assertEq(s_l1Token.balanceOf(address(mockRemoteBridgeAdapter)), 0);
 
     // Assert partial rebalancing works correctly
-    s_rebalancer.rebalanceLiquidity(i_remoteChainSelector, amount / 2);
+    s_rebalancer.rebalanceLiquidity(i_remoteChainSelector, amount / 2, bytes(""));
 
     assertEq(s_l1Token.balanceOf(address(s_bridgeAdapter)), amount / 2);
     assertEq(s_l1Token.balanceOf(address(mockRemoteBridgeAdapter)), amount / 2);
@@ -136,7 +136,7 @@ contract Rebalancer_rebalanceLiquidity is RebalancerSetup {
 
     vm.expectRevert(abi.encodeWithSelector(Rebalancer.InsufficientLiquidity.selector, amount, 0));
 
-    s_rebalancer.rebalanceLiquidity(0, amount);
+    s_rebalancer.rebalanceLiquidity(0, amount, bytes(""));
   }
 
   function test_InvalidRemoteChainReverts() external {
@@ -145,6 +145,6 @@ contract Rebalancer_rebalanceLiquidity is RebalancerSetup {
 
     vm.expectRevert(abi.encodeWithSelector(Rebalancer.InvalidRemoteChain.selector, i_remoteChainSelector));
 
-    s_rebalancer.rebalanceLiquidity(i_remoteChainSelector, amount);
+    s_rebalancer.rebalanceLiquidity(i_remoteChainSelector, amount, bytes(""));
   }
 }

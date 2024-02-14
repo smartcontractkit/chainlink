@@ -16,11 +16,13 @@ interface IBridgeAdapter {
   /// @param remoteToken The address of the remote ERC-20 token.
   /// @param recipient The address of the recipient on the remote chain.
   /// @param amount The amount of the local token to send.
+  /// @param bridgeSpecificPayload The payload of the cross-chain transfer. Bridge-specific.
   function sendERC20(
     address localToken,
     address remoteToken,
     address recipient,
-    uint256 amount
+    uint256 amount,
+    bytes calldata bridgeSpecificPayload
   ) external payable returns (bytes memory);
 
   /// @notice Get the bridging fee in native currency. This fee must be provided upon sending tokens via

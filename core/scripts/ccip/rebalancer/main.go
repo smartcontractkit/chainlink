@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -8,13 +9,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/arb"
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/multienv"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l1_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l2_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 )
 
@@ -200,6 +206,123 @@ func main() {
 			)
 			fmt.Println()
 		}
+	case "arb-finalize-l1":
+		cmd := flag.NewFlagSet("arb-finalize-l1", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2TxHash := cmd.String("l2-tx-hash", "", "L2 Tx Hash")
+		l1BridgeAdapterAddress := cmd.String("l1-bridge-adapter-address", "", "L1 Bridge Adapter Address")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "l2-chain-id", "l2-tx-hash", "l1-bridge-adapter-address")
+
+		env := multienv.New(false, false)
+
+		arb.FinalizeL1(
+			env,
+			*l1ChainID,
+			*l2ChainID,
+			common.HexToAddress(*l1BridgeAdapterAddress),
+			common.HexToHash(*l2TxHash))
+	case "deploy-arb-l1-adapter":
+		cmd := flag.NewFlagSet("deploy-arb-l1-adapter", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id")
+
+		env := multienv.New(false, false)
+		l1GatewayRouter := arb.ArbitrumContracts[*l1ChainID]["L1GatewayRouter"]
+		l1Outbox := arb.ArbitrumContracts[*l1ChainID]["L1Outbox"]
+		l2Client := env.Clients[*l1ChainID]
+		_, tx, _, err := arbitrum_l1_bridge_adapter.DeployArbitrumL1BridgeAdapter(env.Transactors[*l1ChainID], l2Client, l1GatewayRouter, l1Outbox)
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), l2Client, tx, int64(*l1ChainID))
+	case "deploy-arb-l2-adapter":
+		cmd := flag.NewFlagSet("deploy-arb-l2-adapter", flag.ExitOnError)
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "l2-chain-id")
+
+		env := multienv.New(false, false)
+		l2GatewayRouter := arb.ArbitrumContracts[*l2ChainID]["L2GatewayRouter"]
+		l2Client := env.Clients[*l2ChainID]
+		_, tx, _, err := arbitrum_l2_bridge_adapter.DeployArbitrumL2BridgeAdapter(env.Transactors[*l2ChainID], l2Client, l2GatewayRouter)
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), l2Client, tx, int64(*l2ChainID))
+	case "arb-withdraw-from-l2":
+		cmd := flag.NewFlagSet("arb-withdraw-from-l2", flag.ExitOnError)
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2BridgeAdapterAddress := cmd.String("l2-bridge-adapter-address", "", "L2 Bridge Adapter Address")
+		amount := cmd.String("amount", "1", "Amount")
+		l1ToAddress := cmd.String("l1-to-address", "", "L1 Address")
+		l2TokenAddress := cmd.String("l2-token-address", "", "Token Address")
+		l1TokenAddress := cmd.String("l1-token-address", "", "L1 Token Address")
+
+		helpers.ParseArgs(cmd, os.Args[2:],
+			"l2-chain-id", "l2-bridge-adapter-address", "l1-to-address", "l2-token-address", "l1-token-address")
+
+		env := multienv.New(false, false)
+		arb.WithdrawFromL2(
+			env,
+			*l2ChainID,
+			common.HexToAddress(*l2BridgeAdapterAddress),
+			decimal.RequireFromString(*amount).BigInt(),
+			common.HexToAddress(*l1ToAddress),
+			common.HexToAddress(*l2TokenAddress),
+			common.HexToAddress(*l1TokenAddress),
+		)
+	case "arb-send-to-l2":
+		cmd := flag.NewFlagSet("arb-send-to-l2", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l1BridgeAdapterAddress := cmd.String("l1-bridge-adapter-address", "", "L1 Bridge Adapter Address")
+		amount := cmd.String("amount", "1", "Amount")
+		l2ToAddress := cmd.String("l2-to-address", "", "L2 Address")
+		l1TokenAddress := cmd.String("l1-token-address", "", "L1 Token Address")
+
+		helpers.ParseArgs(cmd, os.Args[2:],
+			"l1-chain-id", "l2-chain-id", "l1-bridge-adapter-address", "l2-to-address", "l1-token-address")
+
+		env := multienv.New(false, false)
+		arb.SendToL2(
+			env,
+			*l1ChainID,
+			*l2ChainID,
+			common.HexToAddress(*l1BridgeAdapterAddress),
+			common.HexToAddress(*l1TokenAddress),
+			common.HexToAddress(*l2ToAddress),
+			decimal.RequireFromString(*amount).BigInt(),
+		)
+	case "deposit-weth":
+		cmd := flag.NewFlagSet("deposit-weth", flag.ExitOnError)
+		chainID := cmd.Uint64("chain-id", 0, "Chain ID")
+		amount := cmd.String("amount", "1000000000000000000", "Amount")
+		wethAddress := cmd.String("weth-address", "", "WETH Address")
+		helpers.ParseArgs(cmd, os.Args[2:], "chain-id")
+
+		env := multienv.New(false, false)
+		weth, err := weth9.NewWETH9(common.HexToAddress(*wethAddress), env.Clients[*chainID])
+		helpers.PanicErr(err)
+
+		tx, err := weth.Deposit(&bind.TransactOpts{
+			From:   env.Transactors[*chainID].From,
+			Signer: env.Transactors[*chainID].Signer,
+			Value:  decimal.RequireFromString(*amount).BigInt(),
+		})
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), env.Clients[*chainID], tx, int64(*chainID))
+	case "transfer-weth":
+		cmd := flag.NewFlagSet("transfer-weth", flag.ExitOnError)
+		chainID := cmd.Uint64("chain-id", 0, "Chain ID")
+		amount := cmd.String("amount", "1000000000000000000", "Amount")
+		wethAddress := cmd.String("weth-address", "", "WETH Address")
+		toAddress := cmd.String("to-address", "", "To Address")
+		helpers.ParseArgs(cmd, os.Args[2:], "chain-id", "weth-address", "to-address")
+
+		env := multienv.New(false, false)
+		weth, err := weth9.NewWETH9(common.HexToAddress(*wethAddress), env.Clients[*chainID])
+		helpers.PanicErr(err)
+
+		tx, err := weth.Transfer(env.Transactors[*chainID], common.HexToAddress(*toAddress), decimal.RequireFromString(*amount).BigInt())
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), env.Clients[*chainID], tx, int64(*chainID))
 	}
 }
 

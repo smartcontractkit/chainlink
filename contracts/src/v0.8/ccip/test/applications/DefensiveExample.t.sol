@@ -1,8 +1,11 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../onRamp/EVM2EVMOnRampSetup.t.sol";
+import {EVM2EVMOnRampSetup} from "../onRamp/EVM2EVMOnRampSetup.t.sol";
 import {DefensiveExample} from "../../applications/DefensiveExample.sol";
+import {Client} from "../../libraries/Client.sol";
+
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract DefensiveExampleTest is EVM2EVMOnRampSetup {
   event MessageFailed(bytes32 indexed messageId, bytes reason);

@@ -1,18 +1,30 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import "../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import "./EVM2EVMOffRampSetup.t.sol";
-import "../../Router.sol";
-import {CallWithExactGas} from "../../../shared/call/CallWithExactGas.sol";
-import "../helpers/receivers/ConformingReceiver.sol";
-import "../helpers/receivers/MaybeRevertMessageReceiverNo165.sol";
-import "../helpers/receivers/ReentrancyAbuser.sol";
+import {IPool} from "../../interfaces/pools/IPool.sol";
+import {ICommitStore} from "../../interfaces/ICommitStore.sol";
+
+import {EVM2EVMOffRampSetup} from "./EVM2EVMOffRampSetup.t.sol";
+import {OCR2Base} from "../ocr/OCR2Base.t.sol";
+import {OCR2BaseNoChecks} from "../ocr/OCR2BaseNoChecks.t.sol";
+import {Router} from "../../Router.sol";
 import {ARM} from "../../ARM.sol";
-import "../../offRamp/EVM2EVMOffRamp.sol";
-import "../mocks/MockCommitStore.sol";
-import "../ocr/OCR2Base.t.sol";
+import {RateLimiter} from "../../libraries/RateLimiter.sol";
+import {Internal} from "../../libraries/Internal.sol";
+import {Client} from "../../libraries/Client.sol";
+import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
+import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
+
+import {MockCommitStore} from "../mocks/MockCommitStore.sol";
+import {CallWithExactGas} from "../../../shared/call/CallWithExactGas.sol";
+import {ConformingReceiver} from "../helpers/receivers/ConformingReceiver.sol";
+import {MaybeRevertMessageReceiverNo165} from "../helpers/receivers/MaybeRevertMessageReceiverNo165.sol";
+import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
+import {ReentrancyAbuser} from "../helpers/receivers/ReentrancyAbuser.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
+import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
+
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
   event ConfigSet(EVM2EVMOffRamp.StaticConfig staticConfig, EVM2EVMOffRamp.DynamicConfig dynamicConfig);
@@ -21,8 +33,8 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
   function testConstructorSuccess() public {
     EVM2EVMOffRamp.StaticConfig memory staticConfig = EVM2EVMOffRamp.StaticConfig({
       commitStore: address(s_mockCommitStore),
-      chainSelector: DEST_CHAIN_ID,
-      sourceChainSelector: SOURCE_CHAIN_ID,
+      chainSelector: DEST_CHAIN_SELECTOR,
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
       onRamp: ON_RAMP_ADDRESS,
       prevOffRamp: address(0),
       armProxy: address(s_mockARM)
@@ -88,8 +100,8 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
     s_offRamp = new EVM2EVMOffRampHelper(
       EVM2EVMOffRamp.StaticConfig({
         commitStore: address(s_mockCommitStore),
-        chainSelector: DEST_CHAIN_ID,
-        sourceChainSelector: SOURCE_CHAIN_ID,
+        chainSelector: DEST_CHAIN_SELECTOR,
+        sourceChainSelector: SOURCE_CHAIN_SELECTOR,
         onRamp: ON_RAMP_ADDRESS,
         prevOffRamp: address(0),
         armProxy: address(s_mockARM)
@@ -118,8 +130,8 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
     s_offRamp = new EVM2EVMOffRampHelper(
       EVM2EVMOffRamp.StaticConfig({
         commitStore: address(s_mockCommitStore),
-        chainSelector: DEST_CHAIN_ID,
-        sourceChainSelector: SOURCE_CHAIN_ID,
+        chainSelector: DEST_CHAIN_SELECTOR,
+        sourceChainSelector: SOURCE_CHAIN_SELECTOR,
         onRamp: ZERO_ADDRESS,
         prevOffRamp: address(0),
         armProxy: address(s_mockARM)
@@ -138,8 +150,8 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
     s_offRamp = new EVM2EVMOffRampHelper(
       EVM2EVMOffRamp.StaticConfig({
         commitStore: address(s_mockCommitStore),
-        chainSelector: DEST_CHAIN_ID,
-        sourceChainSelector: SOURCE_CHAIN_ID,
+        chainSelector: DEST_CHAIN_SELECTOR,
+        sourceChainSelector: SOURCE_CHAIN_SELECTOR,
         onRamp: ON_RAMP_ADDRESS,
         prevOffRamp: address(0),
         armProxy: address(s_mockARM)
@@ -227,7 +239,9 @@ contract EVM2EVMOffRamp_metadataHash is EVM2EVMOffRampSetup {
     bytes32 h = s_offRamp.metadataHash();
     assertEq(
       h,
-      keccak256(abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_ID, DEST_CHAIN_ID, ON_RAMP_ADDRESS))
+      keccak256(
+        abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, ON_RAMP_ADDRESS)
+      )
     );
   }
 }
@@ -528,10 +542,10 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
 
   function testInvalidSourceChainReverts() public {
     Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages();
-    messages[0].sourceChainSelector = SOURCE_CHAIN_ID + 1;
+    messages[0].sourceChainSelector = SOURCE_CHAIN_SELECTOR + 1;
     messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
 
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.InvalidSourceChain.selector, SOURCE_CHAIN_ID + 1));
+    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.InvalidSourceChain.selector, SOURCE_CHAIN_SELECTOR + 1));
     s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
   }
 
@@ -795,7 +809,7 @@ contract EVM2EVMOffRamp_executeSingleMessage is EVM2EVMOffRampSetup {
         abi.encode(message.sender),
         message.receiver,
         message.tokenAmounts[0].amount,
-        SOURCE_CHAIN_ID,
+        SOURCE_CHAIN_SELECTOR,
         abi.encode(message.sourceTokenData[0], offchainTokenData[0])
       )
     );
@@ -1218,7 +1232,7 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
         originalSender,
         OWNER,
         srcTokenAmounts[0].amount,
-        SOURCE_CHAIN_ID,
+        SOURCE_CHAIN_SELECTOR,
         abi.encode(sourceTokenData[0], offchainTokenData[0])
       )
     );

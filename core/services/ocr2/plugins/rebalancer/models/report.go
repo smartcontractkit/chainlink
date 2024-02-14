@@ -114,6 +114,7 @@ func (r ReportMetadata) ToLiquidityInstructions() (rebalancer_report_encoder.IRe
 			sendInstructions = append(sendInstructions, rebalancer_report_encoder.IRebalancerSendLiquidityParams{
 				Amount:              tr.Amount,
 				RemoteChainSelector: uint64(tr.To),
+				BridgeData:          tr.BridgeData,
 			})
 		} else if r.NetworkID == tr.To {
 			receiveInstructions = append(receiveInstructions, rebalancer_report_encoder.IRebalancerReceiveLiquidityParams{

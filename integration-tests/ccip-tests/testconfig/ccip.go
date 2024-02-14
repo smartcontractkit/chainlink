@@ -132,11 +132,6 @@ func (c *CCIPTestConfig) ApplyOverrides(fromCfg *CCIPTestConfig) error {
 	return nil
 }
 
-func (c *CCIPTestConfig) ReadSecrets() error {
-	// no secrets to read
-	return nil
-}
-
 func (c *CCIPTestConfig) Validate() error {
 	if c.PhaseTimeout != nil && (c.PhaseTimeout.Duration().Minutes() < 1 || c.PhaseTimeout.Duration().Minutes() > 50) {
 		return errors.Errorf("phase timeout should be between 1 and 50 minutes")
@@ -198,19 +193,6 @@ type CCIP struct {
 	Env         *Common                    `toml:",omitempty"`
 	Deployments *CCIPContractConfig        `toml:",omitempty"`
 	Groups      map[string]*CCIPTestConfig `toml:",omitempty"`
-}
-
-func (c *CCIP) ReadSecrets() error {
-	err := c.Env.ReadSecrets()
-	if err != nil {
-		return err
-	}
-	for _, grp := range c.Groups {
-		if err := grp.ReadSecrets(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *CCIP) Validate() error {

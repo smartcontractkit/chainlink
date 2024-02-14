@@ -114,3 +114,15 @@ const (
 func (t Transfer) String() string {
 	return fmt.Sprintf("%v->%v %s", t.From, t.To, t.Amount.String())
 }
+
+type Edge struct {
+	Source NetworkSelector
+	Dest   NetworkSelector
+}
+
+func NewEdge(source, dest NetworkSelector) Edge {
+	return Edge{
+		Source: source,
+		Dest:   dest,
+	}
+}

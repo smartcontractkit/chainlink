@@ -20,7 +20,7 @@ contract PingPongDappSetup is EVM2EVMOnRampSetup {
 
     s_feeToken = IERC20(s_sourceTokens[0]);
     s_pingPong = new PingPongDemo(address(s_sourceRouter), s_feeToken);
-    s_pingPong.setCounterpart(DEST_CHAIN_ID, i_pongContract);
+    s_pingPong.setCounterpart(DEST_CHAIN_SELECTOR, i_pongContract);
 
     uint256 fundingAmount = 1e18;
 
@@ -45,12 +45,12 @@ contract PingPong_startPingPong is PingPongDappSetup {
       extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 2e5}))
     });
 
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_ID, sentMessage);
+    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, sentMessage);
 
     Internal.EVM2EVMMessage memory message = Internal.EVM2EVMMessage({
       sequenceNumber: 1,
       feeTokenAmount: expectedFee,
-      sourceChainSelector: SOURCE_CHAIN_ID,
+      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
       sender: address(s_pingPong),
       receiver: i_pongContract,
       nonce: 1,
@@ -83,7 +83,7 @@ contract PingPong_ccipReceive is PingPongDappSetup {
 
     Client.Any2EVMMessage memory message = Client.Any2EVMMessage({
       messageId: bytes32("a"),
-      sourceChainSelector: DEST_CHAIN_ID,
+      sourceChainSelector: DEST_CHAIN_SELECTOR,
       sender: abi.encode(i_pongContract),
       data: abi.encode(pingPongNumber),
       destTokenAmounts: tokenAmounts

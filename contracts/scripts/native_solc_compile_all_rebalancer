@@ -41,3 +41,15 @@ compileContract rebalancer/bridge-adapters/OptimismL2BridgeAdapter.sol
 compileContract rebalancer/test/mocks/NoOpOCR3.sol
 compileContract rebalancer/test/mocks/MockBridgeAdapter.sol
 compileContract rebalancer/test/helpers/RebalancerReportEncoder.sol
+
+# Arbitrum helpers
+compileContract rebalancer/interfaces/arbitrum/IArbSys.sol
+compileContract rebalancer/interfaces/arbitrum/INodeInterface.sol
+compileContract rebalancer/interfaces/arbitrum/IL2ArbitrumGateway.sol
+compileContract rebalancer/interfaces/arbitrum/IL2ArbitrumMessenger.sol
+compileContract rebalancer/interfaces/arbitrum/IArbRollupCore.sol
+compileContract rebalancer/interfaces/arbitrum/IArbitrumL1GatewayRouter.sol
+compileContract rebalancer/interfaces/arbitrum/IArbitrumInbox.sol
+compileContract rebalancer/interfaces/arbitrum/IArbitrumGatewayRouter.sol
+compileContract rebalancer/interfaces/arbitrum/IArbitrumTokenGateway.sol
+compileContract rebalancer/interfaces/arbitrum/IAbstractArbitrumTokenGateway.sol

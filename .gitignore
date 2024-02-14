@@ -59,6 +59,7 @@ core/cmd/vrfkey1
 integration-tests/**/logs/
 integration-tests/**/tmp_*
 integration-tests/**/testconfig/override/**.env
+integration-tests/**/secrets.toml
 tests-*.xml
 *.test
 tmp-manifest-*.yaml
