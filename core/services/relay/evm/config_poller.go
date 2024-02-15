@@ -124,7 +124,7 @@ func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, cp.aggregatorContractAddr, 1)
+	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(cp.ld.EventSig(), cp.aggregatorContractAddr, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			if cp.isConfigStoreAvailable() {
@@ -145,7 +145,7 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 
 // LatestConfig returns the latest config from the logs on a certain block
 func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, cp.aggregatorContractAddr)
+	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), cp.ld.EventSig(), cp.aggregatorContractAddr)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
