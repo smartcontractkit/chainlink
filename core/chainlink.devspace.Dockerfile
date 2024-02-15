@@ -38,7 +38,7 @@ FROM golang:1.21-bullseye
 
 ARG CHAINLINK_USER=chainlink
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl patchelf
+RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \

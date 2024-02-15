@@ -18,9 +18,12 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 COPY ./chainlink /usr/local/bin/
 # Copy native libs if cgo is enabled
 COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
+
+# Temp fix to patch correctly link the libwasmvm.so
 COPY ./tools/bin/ldd_fix /usr/local/bin/ldd_fix
 RUN chmod +x /usr/local/bin/ldd_fix
 RUN /usr/local/bin/ldd_fix
+RUN apt-get remove -y patchelf
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \

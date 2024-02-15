@@ -1,4 +1,7 @@
 #!/bin/bash
+# This script is used as a temp fix the ldd linking of cosm lib for binary
+# Currently there is an issue with the go linker not working with zig
+# https://github.com/ziglang/zig/issues/18922
 
 chainlink_path="/usr/local/bin/chainlink"
 libs_path="/usr/local/bin/libs"
