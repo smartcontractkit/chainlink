@@ -114,8 +114,6 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 		return nil, fmt.Errorf("batch call context: %w", err)
 	}
 
-	c.lggr.Infow("batch call", "calls", EVMCallsToString(calls), "blockNumber", blockNumber, "packedOutputs", packedOutputs)
-
 	results := make([]DataAndErr, len(calls))
 	for i, call := range calls {
 		if rpcBatchCalls[i].Error != nil {
@@ -123,6 +121,9 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 			continue
 		}
 
+		if packedOutputs[i] == "" {
+			return nil, fmt.Errorf("%s: RPC did not properly set any output and also did not set an error", call)
+		}
 		b, err := hexutil.Decode(packedOutputs[i])
 		if err != nil {
 			return nil, fmt.Errorf("decode result %s: packedOutputs %s: %w", call, packedOutputs[i], err)
