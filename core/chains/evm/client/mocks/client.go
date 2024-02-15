@@ -585,6 +585,36 @@ func (_m *Client) NodeStates() map[string]string {
 	return r0
 }
 
+// PendingCallContract provides a mock function with given fields: ctx, msg
+func (_m *Client) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	ret := _m.Called(ctx, msg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PendingCallContract")
+	}
+
+	var r0 []byte
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.CallMsg) ([]byte, error)); ok {
+		return rf(ctx, msg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.CallMsg) []byte); ok {
+		r0 = rf(ctx, msg)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ethereum.CallMsg) error); ok {
+		r1 = rf(ctx, msg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // PendingCodeAt provides a mock function with given fields: ctx, account
 func (_m *Client) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
 	ret := _m.Called(ctx, account)

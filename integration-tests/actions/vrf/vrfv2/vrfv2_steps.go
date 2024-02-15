@@ -170,6 +170,7 @@ func CreateVRFV2Job(
 		Address:               vrfJobSpecConfig.CoordinatorAddress,
 		EstimateGasMultiplier: vrfJobSpecConfig.EstimateGasMultiplier,
 		FromAddress:           vrfJobSpecConfig.FromAddresses[0],
+		SimulationBlock:       vrfJobSpecConfig.SimulationBlock,
 	}
 	ost, err := os.String()
 	if err != nil {
@@ -394,6 +395,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Conf
 		BatchFulfillmentGasMultiplier: *vrfv2Config.VRFJobBatchFulfillmentGasMultiplier,
 		PollPeriod:                    vrfv2Config.VRFJobPollPeriod.Duration,
 		RequestTimeout:                vrfv2Config.VRFJobRequestTimeout.Duration,
+		SimulationBlock:               vrfv2Config.VRFJobSimulationBlock,
 		VRFOwnerConfig:                vrfOwnerConfig,
 	}
 

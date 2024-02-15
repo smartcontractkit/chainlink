@@ -87,6 +87,7 @@ func main() {
 	subscriptionBalanceNativeWeiString := flag.String("subscription-balance-native", constants.SubscriptionBalanceNativeWei, "amount to fund subscription with native token (Wei)")
 
 	minConfs := flag.Int("min-confs", constants.MinConfs, "minimum confirmations")
+	nativeOnly := flag.Bool("native-only", false, "if true, link and link feed are not set up. Only used in v2 plus")
 	linkAddress := flag.String("link-address", "", "address of link token")
 	linkEthAddress := flag.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := flag.String("bhs-address", "", "address of BHS contract")
@@ -104,6 +105,7 @@ func main() {
 	flatFeeLinkDiscountPPM := flag.Int64("flat-fee-link-discount-ppm", 100, "fulfillment flat fee discount for LINK payment denominated in native ppm")
 	nativePremiumPercentage := flag.Int64("native-premium-percentage", 1, "premium percentage for native payment")
 	linkPremiumPercentage := flag.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
+	simulationBlock := flag.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
@@ -113,6 +115,10 @@ func main() {
 		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2` and `v2plus` are supported", *vrfVersion))
 	}
 	fmt.Println("Using VRF Version:", *vrfVersion)
+
+	if *simulationBlock != "pending" && *simulationBlock != "latest" {
+		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+	}
 
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
@@ -247,6 +253,7 @@ func main() {
 				coordinatorJobSpecConfig,
 				bhsJobSpecConfig,
 				*useTestCoordinator,
+				*simulationBlock,
 			)
 		case "v2plus":
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
@@ -281,10 +288,12 @@ func main() {
 				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2Plus,
+				*nativeOnly,
 				nodesMap,
 				provingKeyMaxGasPrice.Uint64(),
 				coordinatorJobSpecConfig,
 				bhsJobSpecConfig,
+				*simulationBlock,
 			)
 		}
 
