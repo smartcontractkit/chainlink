@@ -83,6 +83,7 @@ func main() {
 	subscriptionBalanceNativeWeiString := flag.String("subscription-balance-native", constants.SubscriptionBalanceNativeWei, "amount to fund subscription with native token (Wei)")
 
 	minConfs := flag.Int("min-confs", constants.MinConfs, "minimum confirmations")
+	nativeOnly := flag.Bool("native-only", false, "if true, link and link feed are not set up. Only used in v2 plus")
 	linkAddress := flag.String("link-address", "", "address of link token")
 	linkEthAddress := flag.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := flag.String("bhs-address", "", "address of BHS contract")
@@ -93,6 +94,7 @@ func main() {
 		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
 	deployVRFOwner := flag.Bool("deploy-vrfv2-owner", true, "whether to deploy VRF owner contracts")
 	useTestCoordinator := flag.Bool("use-test-coordinator", true, "whether to use test coordinator contract or use the normal one")
+	simulationBlock := flag.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
@@ -102,6 +104,10 @@ func main() {
 		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2` and `v2plus` are supported", *vrfVersion))
 	}
 	fmt.Println("Using VRF Version:", *vrfVersion)
+
+	if *simulationBlock != "pending" && *simulationBlock != "latest" {
+		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+	}
 
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
@@ -228,6 +234,7 @@ func main() {
 				*deployVRFOwner,
 				coordinatorJobSpecConfig,
 				*useTestCoordinator,
+				*simulationBlock,
 			)
 		case "v2plus":
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
@@ -257,9 +264,12 @@ func main() {
 				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2Plus,
+				*batchFulfillmentEnabled,
+				*nativeOnly,
 				nodesMap,
 				uint64(*maxGasPriceGwei),
 				coordinatorJobSpecConfig,
+				*simulationBlock,
 			)
 		}
 
