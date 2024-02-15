@@ -14,6 +14,7 @@ contract OptimismModule is ChainModuleBase {
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
   function getCurrentL1Fee() external view override returns (uint256) {
+    // TODO: Verify this is accruate calcualtion with appropriate padding
     return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(msg.data, OP_L1_DATA_FEE_PADDING));
   }
 
@@ -21,6 +22,7 @@ contract OptimismModule is ChainModuleBase {
     // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have all non zero-bytes.
     // Instead of setting bytes to non-zero, we initialize 'new bytes' of length 4*dataSize to cover for zero bytes.
     bytes memory txCallData = new bytes(4 * dataSize);
+    // TODO: Verify this is an accurate estimate
     return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(txCallData, OP_L1_DATA_FEE_PADDING));
   }
 

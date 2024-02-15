@@ -34,6 +34,7 @@ contract ArbitrumModule is ChainModuleBase {
 
   function getMaxL1Fee(uint256 dataSize) external view override returns (uint256) {
     (, uint256 perL1CalldataUnit, , , , ) = ARB_GAS.getPricesInWei();
+    // TODO: Verify this is an accurate estimate
     return perL1CalldataUnit * dataSize * 16;
   }
 
