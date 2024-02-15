@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
 func TestCommitConfig(t *testing.T) {
@@ -23,7 +24,7 @@ func TestCommitConfig(t *testing.T) {
 			cfg: CommitPluginJobSpecConfig{
 				SourceStartBlock:       222,
 				DestStartBlock:         333,
-				OffRamp:                common.HexToAddress("0x123"),
+				OffRamp:                ccipcalc.HexToAddress("0x123"),
 				TokenPricesUSDPipeline: `merge [type=merge left="{}" right="{\"0xC79b96044906550A5652BCf20a6EA02f139B9Ae5\":\"1000000000000000000\"}"];`,
 				PriceGetterConfig: &DynamicPriceGetterConfig{
 					AggregatorPrices: map[common.Address]AggregatorPriceConfig{
@@ -51,7 +52,7 @@ func TestCommitConfig(t *testing.T) {
 			cfg: CommitPluginJobSpecConfig{
 				SourceStartBlock:       222,
 				DestStartBlock:         333,
-				OffRamp:                common.HexToAddress("0x123"),
+				OffRamp:                ccipcalc.HexToAddress("0x123"),
 				TokenPricesUSDPipeline: `merge [type=merge left="{}" right="{\"0xC79b96044906550A5652BCf20a6EA02f139B9Ae5\":\"1000000000000000000\"}"];`,
 				PriceGetterConfig: &DynamicPriceGetterConfig{
 					AggregatorPrices: map[common.Address]AggregatorPriceConfig{
@@ -79,7 +80,7 @@ func TestCommitConfig(t *testing.T) {
 			cfg: CommitPluginJobSpecConfig{
 				SourceStartBlock:       222,
 				DestStartBlock:         333,
-				OffRamp:                common.HexToAddress("0x123"),
+				OffRamp:                ccipcalc.HexToAddress("0x123"),
 				TokenPricesUSDPipeline: `merge [type=merge left="{}" right="{\"0xC79b96044906550A5652BCf20a6EA02f139B9Ae5\":\"1000000000000000000\"}"];`,
 				PriceGetterConfig: &DynamicPriceGetterConfig{
 					AggregatorPrices: map[common.Address]AggregatorPriceConfig{

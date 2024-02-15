@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
@@ -102,16 +104,21 @@ func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp l
 	}, nil
 }
 
-func (p *PriceRegistry) GetTokenPrices(ctx context.Context, wantedTokens []common.Address) ([]ccipdata.TokenPriceUpdate, error) {
-	tps, err := p.priceRegistry.GetTokenPrices(&bind.CallOpts{Context: ctx}, wantedTokens)
+func (p *PriceRegistry) GetTokenPrices(ctx context.Context, wantedTokens []cciptypes.Address) ([]cciptypes.TokenPriceUpdate, error) {
+	evmAddrs, err := ccipcalc.GenericAddrsToEvm(wantedTokens...)
 	if err != nil {
 		return nil, err
 	}
-	var tpu []ccipdata.TokenPriceUpdate
+
+	tps, err := p.priceRegistry.GetTokenPrices(&bind.CallOpts{Context: ctx}, evmAddrs)
+	if err != nil {
+		return nil, err
+	}
+	var tpu []cciptypes.TokenPriceUpdate
 	for i, tp := range tps {
-		tpu = append(tpu, ccipdata.TokenPriceUpdate{
-			TokenPrice: ccipdata.TokenPrice{
-				Token: wantedTokens[i],
+		tpu = append(tpu, cciptypes.TokenPriceUpdate{
+			TokenPrice: cciptypes.TokenPrice{
+				Token: cciptypes.Address(evmAddrs[i].String()),
 				Value: tp.Value,
 			},
 			TimestampUnixSec: big.NewInt(int64(tp.Timestamp)),
@@ -120,26 +127,26 @@ func (p *PriceRegistry) GetTokenPrices(ctx context.Context, wantedTokens []commo
 	return tpu, nil
 }
 
-func (p *PriceRegistry) Address() common.Address {
-	return p.address
+func (p *PriceRegistry) Address() cciptypes.Address {
+	return cciptypes.Address(p.address.String())
 }
 
-func (p *PriceRegistry) GetFeeTokens(ctx context.Context) ([]common.Address, error) {
+func (p *PriceRegistry) GetFeeTokens(ctx context.Context) ([]cciptypes.Address, error) {
 	feeTokens, err := p.feeTokensCache.Get(ctx, func(ctx context.Context) ([]common.Address, error) {
 		return p.priceRegistry.GetFeeTokens(&bind.CallOpts{Context: ctx})
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("get fee tokens: %w", err)
 	}
-	return feeTokens, nil
+
+	return ccipcalc.EvmAddrsToGeneric(feeTokens...), nil
 }
 
 func (p *PriceRegistry) Close() error {
 	return logpollerutil.UnregisterLpFilters(p.lp, p.filters)
 }
 
-func (p *PriceRegistry) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.TokenPriceUpdate], error) {
+func (p *PriceRegistry) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]cciptypes.TokenPriceUpdateWithTxMeta, error) {
 	logs, err := p.lp.LogsCreatedAfter(
 		p.tokenUpdated,
 		p.address,
@@ -151,26 +158,38 @@ func (p *PriceRegistry) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts
 		return nil, err
 	}
 
-	return ccipdata.ParseLogs[ccipdata.TokenPriceUpdate](
+	parsedLogs, err := ccipdata.ParseLogs[cciptypes.TokenPriceUpdate](
 		logs,
 		p.lggr,
-		func(log types.Log) (*ccipdata.TokenPriceUpdate, error) {
-			tp, err := p.priceRegistry.ParseUsdPerTokenUpdated(log)
-			if err != nil {
-				return nil, err
+		func(log types.Log) (*cciptypes.TokenPriceUpdate, error) {
+			tp, err1 := p.priceRegistry.ParseUsdPerTokenUpdated(log)
+			if err1 != nil {
+				return nil, err1
 			}
-			return &ccipdata.TokenPriceUpdate{
-				TokenPrice: ccipdata.TokenPrice{
-					Token: tp.Token,
+			return &cciptypes.TokenPriceUpdate{
+				TokenPrice: cciptypes.TokenPrice{
+					Token: cciptypes.Address(tp.Token.String()),
 					Value: tp.Value,
 				},
 				TimestampUnixSec: tp.Timestamp,
 			}, nil
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]cciptypes.TokenPriceUpdateWithTxMeta, 0, len(parsedLogs))
+	for _, log := range parsedLogs {
+		res = append(res, cciptypes.TokenPriceUpdateWithTxMeta{
+			TxMeta:           log.TxMeta,
+			TokenPriceUpdate: log.Data,
+		})
+	}
+	return res, nil
 }
 
-func (p *PriceRegistry) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.GasPriceUpdate], error) {
+func (p *PriceRegistry) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confs int) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
 	logs, err := p.lp.IndexedLogsCreatedAfter(
 		p.gasUpdated,
 		p.address,
@@ -184,16 +203,16 @@ func (p *PriceRegistry) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chai
 		return nil, err
 	}
 
-	return ccipdata.ParseLogs[ccipdata.GasPriceUpdate](
+	parsedLogs, err := ccipdata.ParseLogs[cciptypes.GasPriceUpdate](
 		logs,
 		p.lggr,
-		func(log types.Log) (*ccipdata.GasPriceUpdate, error) {
-			p, err := p.priceRegistry.ParseUsdPerUnitGasUpdated(log)
-			if err != nil {
-				return nil, err
+		func(log types.Log) (*cciptypes.GasPriceUpdate, error) {
+			p, err1 := p.priceRegistry.ParseUsdPerUnitGasUpdated(log)
+			if err1 != nil {
+				return nil, err1
 			}
-			return &ccipdata.GasPriceUpdate{
-				GasPrice: ccipdata.GasPrice{
+			return &cciptypes.GasPriceUpdate{
+				GasPrice: cciptypes.GasPrice{
 					DestChainSelector: p.DestChain,
 					Value:             p.Value,
 				},
@@ -201,12 +220,29 @@ func (p *PriceRegistry) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chai
 			}, nil
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]cciptypes.GasPriceUpdateWithTxMeta, 0, len(parsedLogs))
+	for _, log := range parsedLogs {
+		res = append(res, cciptypes.GasPriceUpdateWithTxMeta{
+			TxMeta:         log.TxMeta,
+			GasPriceUpdate: log.Data,
+		})
+	}
+	return res, nil
 }
 
-func (p *PriceRegistry) GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error) {
+func (p *PriceRegistry) GetTokensDecimals(ctx context.Context, tokenAddresses []cciptypes.Address) ([]uint8, error) {
+	evmAddrs, err := ccipcalc.GenericAddrsToEvm(tokenAddresses...)
+	if err != nil {
+		return nil, err
+	}
+
 	found := make(map[common.Address]bool)
-	tokenDecimals := make([]uint8, len(tokenAddresses))
-	for i, tokenAddress := range tokenAddresses {
+	tokenDecimals := make([]uint8, len(evmAddrs))
+	for i, tokenAddress := range evmAddrs {
 		if v, ok := p.tokenDecimalsCache.Load(tokenAddress); ok {
 			if decimals, isUint8 := v.(uint8); isUint8 {
 				tokenDecimals[i] = decimals
@@ -216,12 +252,12 @@ func (p *PriceRegistry) GetTokensDecimals(ctx context.Context, tokenAddresses []
 			}
 		}
 	}
-	if len(found) == len(tokenAddresses) {
+	if len(found) == len(evmAddrs) {
 		return tokenDecimals, nil
 	}
 
-	evmCalls := make([]rpclib.EvmCall, 0, len(tokenAddresses))
-	for _, tokenAddress := range tokenAddresses {
+	evmCalls := make([]rpclib.EvmCall, 0, len(evmAddrs))
+	for _, tokenAddress := range evmAddrs {
 		if !found[tokenAddress] {
 			evmCalls = append(evmCalls, rpclib.NewEvmCall(abiERC20, "decimals", tokenAddress))
 		}
@@ -245,7 +281,7 @@ func (p *PriceRegistry) GetTokensDecimals(ctx context.Context, tokenAddresses []
 	}
 
 	j := 0
-	for i, tokenAddress := range tokenAddresses {
+	for i, tokenAddress := range evmAddrs {
 		if !found[tokenAddress] {
 			tokenDecimals[i] = decimals[j]
 			p.tokenDecimalsCache.Store(tokenAddress, tokenDecimals[i])

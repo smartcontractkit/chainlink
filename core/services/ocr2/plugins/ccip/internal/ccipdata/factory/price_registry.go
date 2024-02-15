@@ -3,38 +3,44 @@ package factory
 import (
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
 // NewPriceRegistryReader determines the appropriate version of the price registry and returns a reader for it.
-func NewPriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress common.Address, lp logpoller.LogPoller, cl client.Client) (ccipdata.PriceRegistryReader, error) {
+func NewPriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client) (ccipdata.PriceRegistryReader, error) {
 	return initOrClosePriceRegistryReader(lggr, versionFinder, priceRegistryAddress, lp, cl, false)
 }
 
-func ClosePriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress common.Address, lp logpoller.LogPoller, cl client.Client) error {
+func ClosePriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client) error {
 	_, err := initOrClosePriceRegistryReader(lggr, versionFinder, priceRegistryAddress, lp, cl, true)
 	return err
 }
 
-func initOrClosePriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress common.Address, lp logpoller.LogPoller, cl client.Client, closeReader bool) (ccipdata.PriceRegistryReader, error) {
+func initOrClosePriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client, closeReader bool) (ccipdata.PriceRegistryReader, error) {
 	registerFilters := !closeReader
-	contractType, version, err := versionFinder.TypeAndVersion(priceRegistryAddress, cl)
 
+	priceRegistryEvmAddr, err := ccipcalc.GenericAddrToEvm(priceRegistryAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	contractType, version, err := versionFinder.TypeAndVersion(priceRegistryAddress, cl)
 	isV1_0_0 := (err != nil && strings.Contains(err.Error(), "execution reverted")) ||
 		(contractType == ccipconfig.PriceRegistry && version.String() == ccipdata.V1_0_0)
 	if isV1_0_0 {
-		lggr.Infof("Assuming %v is 1.0.0 price registry, got %v", priceRegistryAddress.String(), err)
+		lggr.Infof("Assuming %v is 1.0.0 price registry, got %v", priceRegistryEvmAddr, err)
 		// Unfortunately the v1 price registry doesn't have a method to get the version so assume if it reverts its v1.
-		pr, err2 := v1_0_0.NewPriceRegistry(lggr, priceRegistryAddress, lp, cl, registerFilters)
+		pr, err2 := v1_0_0.NewPriceRegistry(lggr, priceRegistryEvmAddr, lp, cl, registerFilters)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -52,7 +58,7 @@ func initOrClosePriceRegistryReader(lggr logger.Logger, versionFinder VersionFin
 	}
 	switch version.String() {
 	case ccipdata.V1_2_0:
-		pr, err := v1_2_0.NewPriceRegistry(lggr, priceRegistryAddress, lp, cl, registerFilters)
+		pr, err := v1_2_0.NewPriceRegistry(lggr, priceRegistryEvmAddr, lp, cl, registerFilters)
 		if err != nil {
 			return nil, err
 		}

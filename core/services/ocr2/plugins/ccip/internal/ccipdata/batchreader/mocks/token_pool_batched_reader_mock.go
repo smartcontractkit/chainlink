@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	common "github.com/ethereum/go-ethereum/common"
-	ccipdata "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-
 	context "context"
+
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -17,27 +16,27 @@ type TokenPoolBatchedReader struct {
 }
 
 // GetInboundTokenPoolRateLimits provides a mock function with given fields: ctx, tokenPoolReaders
-func (_m *TokenPoolBatchedReader) GetInboundTokenPoolRateLimits(ctx context.Context, tokenPoolReaders []common.Address) ([]ccipdata.TokenBucketRateLimit, error) {
+func (_m *TokenPoolBatchedReader) GetInboundTokenPoolRateLimits(ctx context.Context, tokenPoolReaders []cciptypes.Address) ([]cciptypes.TokenBucketRateLimit, error) {
 	ret := _m.Called(ctx, tokenPoolReaders)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetInboundTokenPoolRateLimits")
 	}
 
-	var r0 []ccipdata.TokenBucketRateLimit
+	var r0 []cciptypes.TokenBucketRateLimit
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) ([]ccipdata.TokenBucketRateLimit, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) ([]cciptypes.TokenBucketRateLimit, error)); ok {
 		return rf(ctx, tokenPoolReaders)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) []ccipdata.TokenBucketRateLimit); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) []cciptypes.TokenBucketRateLimit); ok {
 		r0 = rf(ctx, tokenPoolReaders)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccipdata.TokenBucketRateLimit)
+			r0 = ret.Get(0).([]cciptypes.TokenBucketRateLimit)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []common.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []cciptypes.Address) error); ok {
 		r1 = rf(ctx, tokenPoolReaders)
 	} else {
 		r1 = ret.Error(1)

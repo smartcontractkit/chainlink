@@ -16,7 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
@@ -144,33 +145,33 @@ type OnRamp struct {
 	filters                    []logpoller.Filter
 }
 
-func (o *OnRamp) Address() (common.Address, error) {
-	return o.onRamp.Address(), nil
+func (o *OnRamp) Address() (cciptypes.Address, error) {
+	return ccipcalc.EvmAddrToGeneric(o.onRamp.Address()), nil
 }
 
-func (o *OnRamp) GetDynamicConfig() (ccipdata.OnRampDynamicConfig, error) {
+func (o *OnRamp) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
 	if o.onRamp == nil {
-		return ccipdata.OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
+		return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
 	}
 	config, err := o.onRamp.GetDynamicConfig(&bind.CallOpts{})
 	if err != nil {
-		return ccipdata.OnRampDynamicConfig{}, fmt.Errorf("get dynamic config: %w", err)
+		return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("get dynamic config: %w", err)
 	}
-	return ccipdata.OnRampDynamicConfig{
-		Router:                            config.Router,
+	return cciptypes.OnRampDynamicConfig{
+		Router:                            ccipcalc.EvmAddrToGeneric(config.Router),
 		MaxNumberOfTokensPerMsg:           config.MaxNumberOfTokensPerMsg,
 		DestGasOverhead:                   config.DestGasOverhead,
 		DestGasPerPayloadByte:             config.DestGasPerPayloadByte,
 		DestDataAvailabilityOverheadGas:   config.DestDataAvailabilityOverheadGas,
 		DestGasPerDataAvailabilityByte:    config.DestGasPerDataAvailabilityByte,
 		DestDataAvailabilityMultiplierBps: config.DestDataAvailabilityMultiplierBps,
-		PriceRegistry:                     config.PriceRegistry,
+		PriceRegistry:                     ccipcalc.EvmAddrToGeneric(config.PriceRegistry),
 		MaxDataBytes:                      config.MaxDataBytes,
 		MaxPerMsgGasLimit:                 config.MaxPerMsgGasLimit,
 	}, nil
 }
 
-func (o *OnRamp) logToMessage(log types.Log) (*internal.EVM2EVMMessage, error) {
+func (o *OnRamp) logToMessage(log types.Log) (*cciptypes.EVM2EVMMessage, error) {
 	msg, err := o.onRamp.ParseCCIPSendRequested(log)
 	if err != nil {
 		return nil, err
@@ -179,24 +180,24 @@ func (o *OnRamp) logToMessage(log types.Log) (*internal.EVM2EVMMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	tokensAndAmounts := make([]internal.TokenAmount, len(msg.Message.TokenAmounts))
+	tokensAndAmounts := make([]cciptypes.TokenAmount, len(msg.Message.TokenAmounts))
 	for i, tokenAndAmount := range msg.Message.TokenAmounts {
-		tokensAndAmounts[i] = internal.TokenAmount{
-			Token:  tokenAndAmount.Token,
+		tokensAndAmounts[i] = cciptypes.TokenAmount{
+			Token:  ccipcalc.EvmAddrToGeneric(tokenAndAmount.Token),
 			Amount: tokenAndAmount.Amount,
 		}
 	}
 
-	return &internal.EVM2EVMMessage{
+	return &cciptypes.EVM2EVMMessage{
 		SequenceNumber:      msg.Message.SequenceNumber,
 		GasLimit:            msg.Message.GasLimit,
 		Nonce:               msg.Message.Nonce,
-		MessageId:           msg.Message.MessageId,
+		MessageID:           msg.Message.MessageId,
 		SourceChainSelector: msg.Message.SourceChainSelector,
-		Sender:              msg.Message.Sender,
-		Receiver:            msg.Message.Receiver,
+		Sender:              ccipcalc.EvmAddrToGeneric(msg.Message.Sender),
+		Receiver:            ccipcalc.EvmAddrToGeneric(msg.Message.Receiver),
 		Strict:              msg.Message.Strict,
-		FeeToken:            msg.Message.FeeToken,
+		FeeToken:            ccipcalc.EvmAddrToGeneric(msg.Message.FeeToken),
 		FeeTokenAmount:      msg.Message.FeeTokenAmount,
 		Data:                msg.Message.Data,
 		TokenAmounts:        tokensAndAmounts,
@@ -205,7 +206,7 @@ func (o *OnRamp) logToMessage(log types.Log) (*internal.EVM2EVMMessage, error) {
 	}, nil
 }
 
-func (o *OnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
+func (o *OnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
 	logs, err := o.lp.LogsDataWordRange(
 		o.sendRequestedEventSig,
 		o.address,
@@ -217,15 +218,28 @@ func (o *OnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, s
 	if err != nil {
 		return nil, err
 	}
-	return ccipdata.ParseLogs[internal.EVM2EVMMessage](logs, o.lggr, o.logToMessage)
+
+	parsedLogs, err := ccipdata.ParseLogs[cciptypes.EVM2EVMMessage](logs, o.lggr, o.logToMessage)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]cciptypes.EVM2EVMMessageWithTxMeta, 0, len(logs))
+	for _, log := range parsedLogs {
+		res = append(res, cciptypes.EVM2EVMMessageWithTxMeta{
+			TxMeta:         log.TxMeta,
+			EVM2EVMMessage: log.Data,
+		})
+	}
+	return res, nil
 }
 
-func (o *OnRamp) RouterAddress() (common.Address, error) {
+func (o *OnRamp) RouterAddress() (cciptypes.Address, error) {
 	config, err := o.onRamp.GetDynamicConfig(nil)
 	if err != nil {
-		return common.Address{}, err
+		return "", err
 	}
-	return config.Router, nil
+	return ccipcalc.EvmAddrToGeneric(config.Router), nil
 }
 
 func (o *OnRamp) Close(qopts ...pg.QOpt) error {

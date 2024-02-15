@@ -15,27 +15,27 @@ type MockGasPriceEstimatorCommit struct {
 }
 
 // DenoteInUSD provides a mock function with given fields: p, wrappedNativePrice
-func (_m *MockGasPriceEstimatorCommit) DenoteInUSD(p GasPrice, wrappedNativePrice *big.Int) (GasPrice, error) {
+func (_m *MockGasPriceEstimatorCommit) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
 	ret := _m.Called(p, wrappedNativePrice)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DenoteInUSD")
 	}
 
-	var r0 GasPrice
+	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(GasPrice, *big.Int) (GasPrice, error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) (*big.Int, error)); ok {
 		return rf(p, wrappedNativePrice)
 	}
-	if rf, ok := ret.Get(0).(func(GasPrice, *big.Int) GasPrice); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) *big.Int); ok {
 		r0 = rf(p, wrappedNativePrice)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(GasPrice)
+			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(GasPrice, *big.Int) error); ok {
+	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int) error); ok {
 		r1 = rf(p, wrappedNativePrice)
 	} else {
 		r1 = ret.Error(1)
@@ -45,7 +45,7 @@ func (_m *MockGasPriceEstimatorCommit) DenoteInUSD(p GasPrice, wrappedNativePric
 }
 
 // Deviates provides a mock function with given fields: p1, p2
-func (_m *MockGasPriceEstimatorCommit) Deviates(p1 GasPrice, p2 GasPrice) (bool, error) {
+func (_m *MockGasPriceEstimatorCommit) Deviates(p1 *big.Int, p2 *big.Int) (bool, error) {
 	ret := _m.Called(p1, p2)
 
 	if len(ret) == 0 {
@@ -54,16 +54,16 @@ func (_m *MockGasPriceEstimatorCommit) Deviates(p1 GasPrice, p2 GasPrice) (bool,
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(GasPrice, GasPrice) (bool, error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) (bool, error)); ok {
 		return rf(p1, p2)
 	}
-	if rf, ok := ret.Get(0).(func(GasPrice, GasPrice) bool); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) bool); ok {
 		r0 = rf(p1, p2)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(GasPrice, GasPrice) error); ok {
+	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int) error); ok {
 		r1 = rf(p1, p2)
 	} else {
 		r1 = ret.Error(1)
@@ -73,23 +73,23 @@ func (_m *MockGasPriceEstimatorCommit) Deviates(p1 GasPrice, p2 GasPrice) (bool,
 }
 
 // GetGasPrice provides a mock function with given fields: ctx
-func (_m *MockGasPriceEstimatorCommit) GetGasPrice(ctx context.Context) (GasPrice, error) {
+func (_m *MockGasPriceEstimatorCommit) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetGasPrice")
 	}
 
-	var r0 GasPrice
+	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (GasPrice, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (*big.Int, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) GasPrice); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) *big.Int); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(GasPrice)
+			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
@@ -103,51 +103,33 @@ func (_m *MockGasPriceEstimatorCommit) GetGasPrice(ctx context.Context) (GasPric
 }
 
 // Median provides a mock function with given fields: gasPrices
-func (_m *MockGasPriceEstimatorCommit) Median(gasPrices []GasPrice) (GasPrice, error) {
+func (_m *MockGasPriceEstimatorCommit) Median(gasPrices []*big.Int) (*big.Int, error) {
 	ret := _m.Called(gasPrices)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Median")
 	}
 
-	var r0 GasPrice
+	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]GasPrice) (GasPrice, error)); ok {
+	if rf, ok := ret.Get(0).(func([]*big.Int) (*big.Int, error)); ok {
 		return rf(gasPrices)
 	}
-	if rf, ok := ret.Get(0).(func([]GasPrice) GasPrice); ok {
+	if rf, ok := ret.Get(0).(func([]*big.Int) *big.Int); ok {
 		r0 = rf(gasPrices)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(GasPrice)
+			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]GasPrice) error); ok {
+	if rf, ok := ret.Get(1).(func([]*big.Int) error); ok {
 		r1 = rf(gasPrices)
 	} else {
 		r1 = ret.Error(1)
 	}
 
 	return r0, r1
-}
-
-// String provides a mock function with given fields: p
-func (_m *MockGasPriceEstimatorCommit) String(p GasPrice) string {
-	ret := _m.Called(p)
-
-	if len(ret) == 0 {
-		panic("no return value specified for String")
-	}
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func(GasPrice) string); ok {
-		r0 = rf(p)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
 }
 
 // NewMockGasPriceEstimatorCommit creates a new instance of MockGasPriceEstimatorCommit. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

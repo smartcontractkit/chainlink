@@ -6,9 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 )
 
 type msgResult struct {
@@ -19,24 +17,24 @@ type msgResult struct {
 
 type Worker interface {
 	// AddJobsFromMsgs will include the provided msgs for background processing.
-	AddJobsFromMsgs(ctx context.Context, msgs []internal.EVM2EVMOnRampCCIPSendRequestedWithMeta)
+	AddJobsFromMsgs(ctx context.Context, msgs []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta)
 
 	// GetMsgTokenData returns the token data for the provided msg. If data are not ready it keeps waiting
 	// until they get ready. Important: Make sure to pass a proper context with timeout.
-	GetMsgTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([][]byte, error)
+	GetMsgTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([][]byte, error)
 
-	GetReaders() map[common.Address]Reader
+	GetReaders() map[cciptypes.Address]Reader
 }
 
 type BackgroundWorker struct {
-	tokenDataReaders map[common.Address]Reader
+	tokenDataReaders map[cciptypes.Address]Reader
 	numWorkers       int
-	jobsChan         chan internal.EVM2EVMOnRampCCIPSendRequestedWithMeta
+	jobsChan         chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta
 	resultsCache     *resultsCache
 	timeoutDur       time.Duration
 }
 
-func (w *BackgroundWorker) AddJobsFromMsgs(ctx context.Context, msgs []internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) {
+func (w *BackgroundWorker) AddJobsFromMsgs(ctx context.Context, msgs []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) {
 	go func() {
 		for _, msg := range msgs {
 			select {
@@ -51,11 +49,11 @@ func (w *BackgroundWorker) AddJobsFromMsgs(ctx context.Context, msgs []internal.
 	}()
 }
 
-func (w *BackgroundWorker) GetReaders() map[common.Address]Reader {
+func (w *BackgroundWorker) GetReaders() map[cciptypes.Address]Reader {
 	return w.tokenDataReaders
 }
 
-func (w *BackgroundWorker) GetMsgTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([][]byte, error) {
+func (w *BackgroundWorker) GetMsgTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([][]byte, error) {
 	res, err := w.getMsgTokenData(ctx, msg.SequenceNumber)
 	if err != nil {
 		return nil, err
@@ -77,7 +75,7 @@ func (w *BackgroundWorker) GetMsgTokenData(ctx context.Context, msg internal.EVM
 
 func NewBackgroundWorker(
 	ctx context.Context,
-	tokenDataReaders map[common.Address]Reader,
+	tokenDataReaders map[cciptypes.Address]Reader,
 	numWorkers int,
 	timeoutDur time.Duration,
 	expirationDur time.Duration,
@@ -89,7 +87,7 @@ func NewBackgroundWorker(
 	w := &BackgroundWorker{
 		tokenDataReaders: tokenDataReaders,
 		numWorkers:       numWorkers,
-		jobsChan:         make(chan internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, numWorkers*100),
+		jobsChan:         make(chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numWorkers*100),
 		resultsCache:     newResultsCache(ctx, expirationDur, expirationDur/2),
 		timeoutDur:       timeoutDur,
 	}
@@ -113,7 +111,7 @@ func (w *BackgroundWorker) spawnWorkers(ctx context.Context) {
 	}
 }
 
-func (w *BackgroundWorker) workOnMsg(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) {
+func (w *BackgroundWorker) workOnMsg(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) {
 	results := make([]msgResult, 0, len(msg.TokenAmounts))
 
 	cachedTokenData := make(map[int]msgResult) // tokenAmount index -> token data
