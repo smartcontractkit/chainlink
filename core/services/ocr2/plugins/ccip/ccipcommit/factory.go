@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -52,7 +54,7 @@ func (rf *CommitReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr com
 		}
 	}
 
-	destPriceRegistryReader, err := rf.config.priceRegistryProvider.NewPriceRegistryReader(context.Background(), newPriceRegAddr)
+	destPriceRegistryReader, err := rf.config.priceRegistryProvider.NewPriceRegistryReader(context.Background(), cciptypes.Address(newPriceRegAddr.String()))
 	if err != nil {
 		return fmt.Errorf("init dynamic price registry: %w", err)
 	}
@@ -67,7 +69,12 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
-	if err = rf.UpdateDynamicReaders(destPriceReg); err != nil {
+
+	priceRegEvmAddr, err := ccipcalc.GenericAddrToEvm(destPriceReg)
+	if err != nil {
+		return nil, types.ReportingPluginInfo{}, err
+	}
+	if err = rf.UpdateDynamicReaders(priceRegEvmAddr); err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
 

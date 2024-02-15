@@ -1,7 +1,6 @@
 package ccipcommit
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -10,13 +9,13 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -57,7 +56,7 @@ type CommitPluginStaticConfig struct {
 	// Source
 	onRampReader        ccipdata.OnRampReader
 	sourceChainSelector uint64
-	sourceNative        common.Address
+	sourceNative        cciptypes.Address
 	// Dest
 	offRamp               ccipdata.OffRampReader
 	commitStore           ccipdata.CommitStoreReader
@@ -73,12 +72,12 @@ type CommitReportingPlugin struct {
 	// Source
 	onRampReader        ccipdata.OnRampReader
 	sourceChainSelector uint64
-	sourceNative        common.Address
+	sourceNative        cciptypes.Address
 	gasPriceEstimator   prices.GasPriceEstimatorCommit
 	// Dest
 	commitStoreReader       ccipdata.CommitStoreReader
 	destPriceRegistryReader ccipdata.PriceRegistryReader
-	offchainConfig          ccipdata.CommitOffchainConfig
+	offchainConfig          cciptypes.CommitOffchainConfig
 	offRampReader           ccipdata.OffRampReader
 	F                       int
 	// Offchain
@@ -140,7 +139,7 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 	// Even if all values are empty we still want to communicate our observation
 	// with the other nodes, therefore, we always return the observed values.
 	return ccip.CommitObservation{
-		Interval: ccipdata.CommitStoreInterval{
+		Interval: cciptypes.CommitStoreInterval{
 			Min: minSeqNr,
 			Max: maxSeqNr,
 		},
@@ -149,26 +148,26 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 	}.Marshal()
 }
 
-func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Context, lggr logger.Logger) (uint64, uint64, []common.Hash, error) {
+func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Context, lggr logger.Logger) (uint64, uint64, []cciptypes.Hash, error) {
 	nextInflightMin, _, err := r.nextMinSeqNum(ctx, lggr)
 	if err != nil {
-		return 0, 0, []common.Hash{}, err
+		return 0, 0, []cciptypes.Hash{}, err
 	}
 
 	msgRequests, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, nextInflightMin, nextInflightMin+OnRampMessagesScanLimit, true)
 	if err != nil {
-		return 0, 0, []common.Hash{}, err
+		return 0, 0, []cciptypes.Hash{}, err
 	}
 	if len(msgRequests) == 0 {
 		lggr.Infow("No new requests", "minSeqNr", nextInflightMin)
-		return 0, 0, []common.Hash{}, nil
+		return 0, 0, []cciptypes.Hash{}, nil
 	}
 
-	messageIDs := make([]common.Hash, 0, len(msgRequests))
+	messageIDs := make([]cciptypes.Hash, 0, len(msgRequests))
 	seqNrs := make([]uint64, 0, len(msgRequests))
 	for _, msgReq := range msgRequests {
-		seqNrs = append(seqNrs, msgReq.Data.SequenceNumber)
-		messageIDs = append(messageIDs, common.Hash(msgReq.Data.MessageId))
+		seqNrs = append(seqNrs, msgReq.SequenceNumber)
+		messageIDs = append(messageIDs, msgReq.MessageID)
 	}
 
 	minSeqNr := seqNrs[0]
@@ -179,7 +178,7 @@ func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Conte
 		lggr.Warnf("Missing sequence number range [%d-%d]", nextInflightMin, minSeqNr)
 	}
 	if !ccipcalc.ContiguousReqs(lggr, minSeqNr, maxSeqNr, seqNrs) {
-		return 0, 0, []common.Hash{}, errors.New("unexpected gap in seq nums")
+		return 0, 0, []cciptypes.Hash{}, errors.New("unexpected gap in seq nums")
 	}
 	return minSeqNr, maxSeqNr, messageIDs, nil
 }
@@ -215,12 +214,12 @@ func (r *CommitReportingPlugin) nextMinSeqNum(ctx context.Context, lggr logger.L
 func (r *CommitReportingPlugin) generatePriceUpdates(
 	ctx context.Context,
 	lggr logger.Logger,
-	destTokens []common.Address,
-) (sourceGasPriceUSD prices.GasPrice, tokenPricesUSD map[common.Address]*big.Int, err error) {
+	destTokens []cciptypes.Address,
+) (sourceGasPriceUSD *big.Int, tokenPricesUSD map[cciptypes.Address]*big.Int, err error) {
 	// Include wrapped native in our token query as way to identify the source native USD price.
 	// notice USD is in 1e18 scale, i.e. $1 = 1e18
-	queryTokens := ccipcommon.FlattenUniqueSlice([]common.Address{r.sourceNative}, destTokens)
-	sort.Slice(queryTokens, func(i, j int) bool { return queryTokens[i].String() < queryTokens[j].String() }) // make the query deterministic
+	queryTokens := ccipcommon.FlattenUniqueSlice([]cciptypes.Address{r.sourceNative}, destTokens)
+	sort.Slice(queryTokens, func(i, j int) bool { return queryTokens[i] < queryTokens[j] }) // make the query deterministic
 
 	rawTokenPricesUSD, err := r.priceGetter.TokenPricesUSD(ctx, queryTokens)
 	if err != nil {
@@ -245,7 +244,7 @@ func (r *CommitReportingPlugin) generatePriceUpdates(
 		return nil, nil, fmt.Errorf("get tokens decimals: %w", err)
 	}
 
-	tokenPricesUSD = make(map[common.Address]*big.Int, len(rawTokenPricesUSD))
+	tokenPricesUSD = make(map[cciptypes.Address]*big.Int, len(rawTokenPricesUSD))
 	for i, token := range destTokens {
 		tokenPricesUSD[token] = calculateUsdPer1e18TokenAmount(rawTokenPricesUSD[token], destTokensDecimals[i])
 	}
@@ -277,7 +276,7 @@ func calculateUsdPer1e18TokenAmount(price *big.Int, decimals uint8) *big.Int {
 
 // Gets the latest token price updates based on logs within the heartbeat
 // The updates returned by this function are guaranteed to not contain nil values.
-func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, now time.Time, checkInflight bool) (map[common.Address]update, error) {
+func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, now time.Time, checkInflight bool) (map[cciptypes.Address]update, error) {
 	tokenPriceUpdates, err := r.destPriceRegistryReader.GetTokenPriceUpdatesCreatedAfter(
 		ctx,
 		now.Add(-r.offchainConfig.TokenPriceHeartBeat),
@@ -287,9 +286,9 @@ func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, 
 		return nil, err
 	}
 
-	latestUpdates := make(map[common.Address]update)
+	latestUpdates := make(map[cciptypes.Address]update)
 	for _, tokenUpdate := range tokenPriceUpdates {
-		priceUpdate := tokenUpdate.Data
+		priceUpdate := tokenUpdate.TokenPriceUpdate
 		// Ordered by ascending timestamps
 		timestamp := time.Unix(priceUpdate.TimestampUnixSec.Int64(), 0)
 		if priceUpdate.Value != nil && !timestamp.Before(latestUpdates[priceUpdate.Token].timestamp) {
@@ -344,11 +343,11 @@ func (r *CommitReportingPlugin) getLatestGasPriceUpdate(ctx context.Context, now
 
 	for _, priceUpdate := range gasPriceUpdates {
 		// Ordered by ascending timestamps
-		timestamp := time.Unix(priceUpdate.Data.TimestampUnixSec.Int64(), 0)
+		timestamp := time.Unix(priceUpdate.GasPriceUpdate.TimestampUnixSec.Int64(), 0)
 		if !timestamp.Before(gasUpdate.timestamp) {
 			gasUpdate = update{
 				timestamp: timestamp,
-				value:     priceUpdate.Data.Value,
+				value:     priceUpdate.Value,
 			}
 		}
 	}
@@ -374,7 +373,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 		return false, nil, err
 	}
 
-	var intervals []ccipdata.CommitStoreInterval
+	var intervals []cciptypes.CommitStoreInterval
 	for _, obs := range validObservations {
 		intervals = append(intervals, obs.Interval)
 	}
@@ -427,7 +426,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 // validateObservations validates the given observations.
 // An observation is rejected if any of its gas price or token price is nil. With current CommitObservation implementation, prices
 // are checked to ensure no nil values before adding to Observation, hence an observation that contains nil values comes from a faulty node.
-func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []common.Address, f int, observations []ccip.CommitObservation) (validObs []ccip.CommitObservation, err error) {
+func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []cciptypes.Address, f int, observations []ccip.CommitObservation) (validObs []ccip.CommitObservation, err error) {
 	for _, obs := range observations {
 		// If gas price is reported as nil, the observation is faulty, skip the observation.
 		if obs.SourceGasPriceUSD == nil {
@@ -445,11 +444,11 @@ func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []
 		skipObservation := false
 		for token, price := range obs.TokenPricesUSD {
 			if price == nil {
-				lggr.Warnw("Nil value in observed TokenPricesUSD", "token", token.Hex())
+				lggr.Warnw("Nil value in observed TokenPricesUSD", "token", token)
 				skipObservation = true
 			}
 			if !slices.Contains(destTokens, token) {
-				lggr.Warnw("Unsupported token in observed TokenPricesUSD", "token", token.Hex())
+				lggr.Warnw("Unsupported token in observed TokenPricesUSD", "token", token)
 				skipObservation = true
 			}
 		}
@@ -477,7 +476,7 @@ func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []
 // we'll either have f+1 parsed honest values here, 2f+1 parsed values with f adversarial values or somewhere
 // in between.
 // rangeLimit is the maximum range of the interval. If the interval is larger than this, it will be truncated. Zero means no limit.
-func calculateIntervalConsensus(intervals []ccipdata.CommitStoreInterval, f int, rangeLimit uint64) (ccipdata.CommitStoreInterval, error) {
+func calculateIntervalConsensus(intervals []cciptypes.CommitStoreInterval, f int, rangeLimit uint64) (cciptypes.CommitStoreInterval, error) {
 	// To understand min/max selection here, we need to consider an adversary that controls f values
 	// and is intentionally trying to stall the protocol or influence the value returned. For simplicity
 	// consider f=1 and n=4 nodes. In that case adversary may try to bias the min or max high/low.
@@ -497,7 +496,7 @@ func calculateIntervalConsensus(intervals []ccipdata.CommitStoreInterval, f int,
 	// The only way a report could have a minSeqNum of 0 is when there are no messages to report
 	// and the report is potentially still valid for gas fee updates.
 	if minSeqNum == 0 {
-		return ccipdata.CommitStoreInterval{Min: 0, Max: 0}, nil
+		return cciptypes.CommitStoreInterval{Min: 0, Max: 0}, nil
 	}
 	// Consider a similar example to the sorted_mins one above except where they are maxes.
 	// We choose the more "conservative" sorted_maxes[f] so:
@@ -516,7 +515,7 @@ func calculateIntervalConsensus(intervals []ccipdata.CommitStoreInterval, f int,
 	if maxSeqNum < minSeqNum {
 		// If the consensus report is invalid for onchain acceptance, we do not vote for it as
 		// an early termination step.
-		return ccipdata.CommitStoreInterval{}, errors.New("max seq num smaller than min")
+		return cciptypes.CommitStoreInterval{}, errors.New("max seq num smaller than min")
 	}
 
 	// If the range is too large, truncate it.
@@ -524,7 +523,7 @@ func calculateIntervalConsensus(intervals []ccipdata.CommitStoreInterval, f int,
 		maxSeqNum = minSeqNum + rangeLimit - 1
 	}
 
-	return ccipdata.CommitStoreInterval{
+	return cciptypes.CommitStoreInterval{
 		Min: minSeqNum,
 		Max: maxSeqNum,
 	}, nil
@@ -532,9 +531,9 @@ func calculateIntervalConsensus(intervals []ccipdata.CommitStoreInterval, f int,
 
 // Note priceUpdates must be deterministic.
 // The provided latestTokenPrices should not contain nil values.
-func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.CommitObservation, latestGasPrice update, latestTokenPrices map[common.Address]update) ([]ccipdata.TokenPrice, []ccipdata.GasPrice, error) {
-	priceObservations := make(map[common.Address][]*big.Int)
-	var sourceGasObservations []prices.GasPrice
+func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.CommitObservation, latestGasPrice update, latestTokenPrices map[cciptypes.Address]update) ([]cciptypes.TokenPrice, []cciptypes.GasPrice, error) {
+	priceObservations := make(map[cciptypes.Address][]*big.Int)
+	var sourceGasObservations []*big.Int
 
 	for _, obs := range observations {
 		sourceGasObservations = append(sourceGasObservations, obs.SourceGasPriceUSD)
@@ -544,7 +543,7 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.Commit
 		}
 	}
 
-	var tokenPriceUpdates []ccipdata.TokenPrice
+	var tokenPriceUpdates []cciptypes.TokenPrice
 	for token, tokenPriceObservations := range priceObservations {
 		medianPrice := ccipcalc.BigIntSortedMiddle(tokenPriceObservations)
 
@@ -559,7 +558,7 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.Commit
 			}
 		}
 
-		tokenPriceUpdates = append(tokenPriceUpdates, ccipdata.TokenPrice{
+		tokenPriceUpdates = append(tokenPriceUpdates, cciptypes.TokenPrice{
 			Token: token,
 			Value: medianPrice,
 		})
@@ -567,7 +566,7 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.Commit
 
 	// Determinism required.
 	sort.Slice(tokenPriceUpdates, func(i, j int) bool {
-		return bytes.Compare(tokenPriceUpdates[i].Token[:], tokenPriceUpdates[j].Token[:]) == -1
+		return tokenPriceUpdates[i].Token < tokenPriceUpdates[j].Token
 	})
 
 	newGasPrice, err := r.gasPriceEstimator.Median(sourceGasObservations) // Compute the median price
@@ -576,7 +575,7 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.Commit
 	}
 	destChainSelector := r.sourceChainSelector // Assuming plugin lane is A->B, we write to B the gas price of A
 
-	var gasPrices []ccipdata.GasPrice
+	var gasPrices []cciptypes.GasPrice
 	// Default to updating so that we update if there are no prior updates.
 	shouldUpdate := true
 	if latestGasPrice.value != nil {
@@ -591,17 +590,17 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []ccip.Commit
 	}
 	if shouldUpdate {
 		// Although onchain interface accepts multi gas updates, we only do 1 gas price per report for now.
-		gasPrices = append(gasPrices, ccipdata.GasPrice{DestChainSelector: destChainSelector, Value: newGasPrice})
+		gasPrices = append(gasPrices, cciptypes.GasPrice{DestChainSelector: destChainSelector, Value: newGasPrice})
 	}
 
 	return tokenPriceUpdates, gasPrices, nil
 }
 
 // buildReport assumes there is at least one message in reqs.
-func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Logger, interval ccipdata.CommitStoreInterval, gasPrices []ccipdata.GasPrice, tokenPrices []ccipdata.TokenPrice) (ccipdata.CommitStoreReport, error) {
+func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Logger, interval cciptypes.CommitStoreInterval, gasPrices []cciptypes.GasPrice, tokenPrices []cciptypes.TokenPrice) (cciptypes.CommitStoreReport, error) {
 	// If no messages are needed only include fee updates
 	if interval.Min == 0 {
-		return ccipdata.CommitStoreReport{
+		return cciptypes.CommitStoreReport{
 			TokenPrices: tokenPrices,
 			GasPrices:   gasPrices,
 			MerkleRoot:  [32]byte{},
@@ -613,30 +612,30 @@ func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Log
 	// and the contract's seq num is auto-incrementing.
 	sendRequests, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, interval.Min, interval.Max, true)
 	if err != nil {
-		return ccipdata.CommitStoreReport{}, err
+		return cciptypes.CommitStoreReport{}, err
 	}
 	if len(sendRequests) == 0 {
 		lggr.Warn("No messages found in interval",
 			"minSeqNr", interval.Min,
 			"maxSeqNr", interval.Max)
-		return ccipdata.CommitStoreReport{}, fmt.Errorf("tried building a tree without leaves")
+		return cciptypes.CommitStoreReport{}, fmt.Errorf("tried building a tree without leaves")
 	}
 
 	leaves := make([][32]byte, 0, len(sendRequests))
 	var seqNrs []uint64
 	for _, req := range sendRequests {
-		leaves = append(leaves, req.Data.Hash)
-		seqNrs = append(seqNrs, req.Data.SequenceNumber)
+		leaves = append(leaves, req.Hash)
+		seqNrs = append(seqNrs, req.SequenceNumber)
 	}
 	if !ccipcalc.ContiguousReqs(lggr, interval.Min, interval.Max, seqNrs) {
-		return ccipdata.CommitStoreReport{}, errors.Errorf("do not have full range [%v, %v] have %v", interval.Min, interval.Max, seqNrs)
+		return cciptypes.CommitStoreReport{}, errors.Errorf("do not have full range [%v, %v] have %v", interval.Min, interval.Max, seqNrs)
 	}
 	tree, err := merklemulti.NewTree(hashlib.NewKeccakCtx(), leaves)
 	if err != nil {
-		return ccipdata.CommitStoreReport{}, err
+		return cciptypes.CommitStoreReport{}, err
 	}
 
-	return ccipdata.CommitStoreReport{
+	return cciptypes.CommitStoreReport{
 		GasPrices:   gasPrices,
 		TokenPrices: tokenPrices,
 		MerkleRoot:  tree.Root(),
@@ -709,7 +708,7 @@ func (r *CommitReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context
 // If there is no merkle root but there is a gas update, only this gas update is used for staleness checks.
 // If only price updates are included, the price updates are used to check for staleness
 // If nothing is included the report is always considered stale.
-func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.Logger, report ccipdata.CommitStoreReport, checkInflight bool, reportTimestamp types.ReportTimestamp) bool {
+func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.Logger, report cciptypes.CommitStoreReport, checkInflight bool, reportTimestamp types.ReportTimestamp) bool {
 	// If there is a merkle root, ignore all other staleness checks and only check for sequence number staleness
 	if report.MerkleRoot != [32]byte{} {
 		return r.isStaleMerkleRoot(ctx, lggr, report.Interval, checkInflight)
@@ -748,7 +747,7 @@ func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.L
 	return lastPriceEpochAndRound >= thisEpochAndRound
 }
 
-func (r *CommitReportingPlugin) isStaleMerkleRoot(ctx context.Context, lggr logger.Logger, reportInterval ccipdata.CommitStoreInterval, checkInflight bool) bool {
+func (r *CommitReportingPlugin) isStaleMerkleRoot(ctx context.Context, lggr logger.Logger, reportInterval cciptypes.CommitStoreInterval, checkInflight bool) bool {
 	nextInflightMin, nextOnChainMin, err := r.nextMinSeqNum(ctx, lggr)
 	if err != nil {
 		// Assume it's a transient issue getting the last report and try again on the next round
@@ -775,7 +774,7 @@ func (r *CommitReportingPlugin) isStaleMerkleRoot(ctx context.Context, lggr logg
 	return false
 }
 
-func (r *CommitReportingPlugin) isStaleGasPrice(ctx context.Context, lggr logger.Logger, gasPrice ccipdata.GasPrice, checkInflight bool) bool {
+func (r *CommitReportingPlugin) isStaleGasPrice(ctx context.Context, lggr logger.Logger, gasPrice cciptypes.GasPrice, checkInflight bool) bool {
 	latestGasPrice, err := r.getLatestGasPriceUpdate(ctx, time.Now(), checkInflight)
 	if err != nil {
 		lggr.Errorw("Report is stale because getLatestGasPriceUpdate failed", "err", err)
@@ -801,7 +800,7 @@ func (r *CommitReportingPlugin) isStaleGasPrice(ctx context.Context, lggr logger
 	return false
 }
 
-func (r *CommitReportingPlugin) isStaleTokenPrices(ctx context.Context, lggr logger.Logger, priceUpdates []ccipdata.TokenPrice, checkInflight bool) bool {
+func (r *CommitReportingPlugin) isStaleTokenPrices(ctx context.Context, lggr logger.Logger, priceUpdates []cciptypes.TokenPrice, checkInflight bool) bool {
 	// getting the last price updates without including inflight is like querying
 	// current prices onchain, but uses logpoller's data to save on the RPC requests
 	latestTokenPriceUpdates, err := r.getLatestTokenPriceUpdates(ctx, time.Now(), checkInflight)

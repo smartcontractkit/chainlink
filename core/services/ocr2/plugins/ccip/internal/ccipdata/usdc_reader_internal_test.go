@@ -41,7 +41,7 @@ func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 			{LogIndex: ccipLogIndex + 1, Data: []byte("1")},
 		}, nil)
 
-		usdcMessageData, err := u.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash)
+		usdcMessageData, err := u.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash.String())
 		assert.NoError(t, err)
 		assert.Equal(t, expectedPostParse, hexutil.Encode(usdcMessageData))
 		lp.AssertExpectations(t)
@@ -57,7 +57,7 @@ func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 			mock.Anything,
 		).Return([]logpoller.Log{}, nil)
 
-		usdcMessageData, err := u.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash)
+		usdcMessageData, err := u.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash.String())
 		assert.Errorf(t, err, fmt.Sprintf("no USDC message found prior to log index %d in tx %s", ccipLogIndex, txHash.Hex()))
 		assert.Nil(t, usdcMessageData)
 

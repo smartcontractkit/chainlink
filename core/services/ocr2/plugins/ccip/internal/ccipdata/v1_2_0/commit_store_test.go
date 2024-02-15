@@ -13,24 +13,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 func TestCommitReportEncoding(t *testing.T) {
 	t.Parallel()
-	report := ccipdata.CommitStoreReport{
-		TokenPrices: []ccipdata.TokenPrice{
+	report := cciptypes.CommitStoreReport{
+		TokenPrices: []cciptypes.TokenPrice{
 			{
-				Token: utils.RandomAddress(),
+				Token: cciptypes.Address(utils.RandomAddress().String()),
 				Value: big.NewInt(9e18),
 			},
 			{
-				Token: utils.RandomAddress(),
+				Token: cciptypes.Address(utils.RandomAddress().String()),
 				Value: big.NewInt(1e18),
 			},
 		},
-		GasPrices: []ccipdata.GasPrice{
+		GasPrices: []cciptypes.GasPrice{
 			{
 				DestChainSelector: rand.Uint64(),
 				Value:             big.NewInt(2000e9),
@@ -41,7 +41,7 @@ func TestCommitReportEncoding(t *testing.T) {
 			},
 		},
 		MerkleRoot: [32]byte{123},
-		Interval:   ccipdata.CommitStoreInterval{Min: 1, Max: 10},
+		Interval:   cciptypes.CommitStoreInterval{Min: 1, Max: 10},
 	}
 
 	c, err := NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t), nil)

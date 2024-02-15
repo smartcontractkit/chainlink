@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
@@ -25,7 +25,7 @@ func NewExecGasPriceEstimator(estimator gas.EvmFeeEstimator, maxGasPrice *big.In
 	}
 }
 
-func (g ExecGasPriceEstimator) GetGasPrice(ctx context.Context) (GasPrice, error) {
+func (g ExecGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	gasPriceWei, _, err := g.estimator.GetFee(ctx, nil, 0, assets.NewWei(g.maxGasPrice))
 	if err != nil {
 		return nil, err
@@ -42,24 +42,19 @@ func (g ExecGasPriceEstimator) GetGasPrice(ctx context.Context) (GasPrice, error
 	return gasPrice, nil
 }
 
-func (g ExecGasPriceEstimator) DenoteInUSD(p GasPrice, wrappedNativePrice *big.Int) (GasPrice, error) {
+func (g ExecGasPriceEstimator) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
 	return ccipcalc.CalculateUsdPerUnitGas(p, wrappedNativePrice), nil
 }
 
-func (g ExecGasPriceEstimator) Median(gasPrices []GasPrice) (GasPrice, error) {
-	var prices []*big.Int
-	for _, p := range gasPrices {
-		prices = append(prices, p)
-	}
-
-	return ccipcalc.BigIntSortedMiddle(prices), nil
+func (g ExecGasPriceEstimator) Median(gasPrices []*big.Int) (*big.Int, error) {
+	return ccipcalc.BigIntSortedMiddle(gasPrices), nil
 }
 
-func (g ExecGasPriceEstimator) Deviates(p1 GasPrice, p2 GasPrice) (bool, error) {
+func (g ExecGasPriceEstimator) Deviates(p1 *big.Int, p2 *big.Int) (bool, error) {
 	return ccipcalc.Deviates(p1, p2, g.deviationPPB), nil
 }
 
-func (g ExecGasPriceEstimator) EstimateMsgCostUSD(p GasPrice, wrappedNativePrice *big.Int, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
+func (g ExecGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
 	execGasAmount := new(big.Int).Add(big.NewInt(feeBoostingOverheadGas), msg.GasLimit)
 	execGasAmount = new(big.Int).Add(execGasAmount, new(big.Int).Mul(big.NewInt(int64(len(msg.Data))), big.NewInt(execGasPerPayloadByte)))
 	execGasAmount = new(big.Int).Add(execGasAmount, new(big.Int).Mul(big.NewInt(int64(len(msg.TokenAmounts))), big.NewInt(execGasPerToken)))
@@ -67,9 +62,4 @@ func (g ExecGasPriceEstimator) EstimateMsgCostUSD(p GasPrice, wrappedNativePrice
 	execGasCost := new(big.Int).Mul(execGasAmount, p)
 
 	return ccipcalc.CalculateUsdPerUnitGas(execGasCost, wrappedNativePrice), nil
-}
-
-func (g ExecGasPriceEstimator) String(p GasPrice) string {
-	var pi *big.Int = p
-	return pi.String()
 }

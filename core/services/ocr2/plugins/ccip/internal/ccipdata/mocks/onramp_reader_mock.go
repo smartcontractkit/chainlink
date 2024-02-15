@@ -3,12 +3,9 @@
 package mocks
 
 import (
-	common "github.com/ethereum/go-ethereum/common"
-	ccipdata "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-
 	context "context"
 
-	internal "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -19,24 +16,22 @@ type OnRampReader struct {
 }
 
 // Address provides a mock function with given fields:
-func (_m *OnRampReader) Address() (common.Address, error) {
+func (_m *OnRampReader) Address() (cciptypes.Address, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Address")
 	}
 
-	var r0 common.Address
+	var r0 cciptypes.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (common.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func() (cciptypes.Address, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() common.Address); ok {
+	if rf, ok := ret.Get(0).(func() cciptypes.Address); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
+		r0 = ret.Get(0).(cciptypes.Address)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {
@@ -49,22 +44,22 @@ func (_m *OnRampReader) Address() (common.Address, error) {
 }
 
 // GetDynamicConfig provides a mock function with given fields:
-func (_m *OnRampReader) GetDynamicConfig() (ccipdata.OnRampDynamicConfig, error) {
+func (_m *OnRampReader) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDynamicConfig")
 	}
 
-	var r0 ccipdata.OnRampDynamicConfig
+	var r0 cciptypes.OnRampDynamicConfig
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (ccipdata.OnRampDynamicConfig, error)); ok {
+	if rf, ok := ret.Get(0).(func() (cciptypes.OnRampDynamicConfig, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() ccipdata.OnRampDynamicConfig); ok {
+	if rf, ok := ret.Get(0).(func() cciptypes.OnRampDynamicConfig); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(ccipdata.OnRampDynamicConfig)
+		r0 = ret.Get(0).(cciptypes.OnRampDynamicConfig)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {
@@ -77,23 +72,23 @@ func (_m *OnRampReader) GetDynamicConfig() (ccipdata.OnRampDynamicConfig, error)
 }
 
 // GetSendRequestsBetweenSeqNums provides a mock function with given fields: ctx, seqNumMin, seqNumMax, finalized
-func (_m *OnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, finalized bool) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
+func (_m *OnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, finalized bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
 	ret := _m.Called(ctx, seqNumMin, seqNumMax, finalized)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetSendRequestsBetweenSeqNums")
 	}
 
-	var r0 []ccipdata.Event[internal.EVM2EVMMessage]
+	var r0 []cciptypes.EVM2EVMMessageWithTxMeta
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) ([]ccipdata.Event[internal.EVM2EVMMessage], error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error)); ok {
 		return rf(ctx, seqNumMin, seqNumMax, finalized)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) []ccipdata.Event[internal.EVM2EVMMessage]); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) []cciptypes.EVM2EVMMessageWithTxMeta); ok {
 		r0 = rf(ctx, seqNumMin, seqNumMax, finalized)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccipdata.Event[internal.EVM2EVMMessage])
+			r0 = ret.Get(0).([]cciptypes.EVM2EVMMessageWithTxMeta)
 		}
 	}
 
@@ -107,24 +102,22 @@ func (_m *OnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNu
 }
 
 // RouterAddress provides a mock function with given fields:
-func (_m *OnRampReader) RouterAddress() (common.Address, error) {
+func (_m *OnRampReader) RouterAddress() (cciptypes.Address, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for RouterAddress")
 	}
 
-	var r0 common.Address
+	var r0 cciptypes.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (common.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func() (cciptypes.Address, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() common.Address); ok {
+	if rf, ok := ret.Get(0).(func() cciptypes.Address); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
+		r0 = ret.Get(0).(cciptypes.Address)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {

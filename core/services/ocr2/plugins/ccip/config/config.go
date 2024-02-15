@@ -10,14 +10,15 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 // CommitPluginJobSpecConfig contains the plugin specific variables for the ccip.CCIPCommit plugin.
 type CommitPluginJobSpecConfig struct {
-	SourceStartBlock, DestStartBlock uint64         // Only for first time job add.
-	OffRamp                          common.Address `json:"offRamp"`
+	SourceStartBlock, DestStartBlock uint64            // Only for first time job add.
+	OffRamp                          cciptypes.Address `json:"offRamp"`
 	// TokenPricesUSDPipeline should contain a token price pipeline for the following tokens:
 	//		The SOURCE chain wrapped native
 	// 		The DESTINATION supported tokens (including fee tokens) as defined in destination OffRamp and PriceRegistry.
@@ -83,7 +84,7 @@ func (c *DynamicPriceGetterConfig) Validate() error {
 	if c.AggregatorPrices != nil && c.StaticPrices != nil {
 		for tk := range c.AggregatorPrices {
 			if _, exists := c.StaticPrices[tk]; exists {
-				return fmt.Errorf("token %s defined in both aggregator and static price rules", tk.Hex())
+				return fmt.Errorf("token %s defined in both aggregator and static price rules", tk)
 			}
 		}
 	}

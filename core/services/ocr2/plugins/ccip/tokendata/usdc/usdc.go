@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/http"
@@ -121,7 +121,7 @@ func NewUSDCTokenDataReaderWithHttpClient(origin TokenDataReader, httpClient htt
 	}
 }
 
-func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) (messageAndAttestation []byte, err error) {
+func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) (messageAndAttestation []byte, err error) {
 	if tokenIndex < 0 || tokenIndex >= len(msg.TokenAmounts) {
 		return nil, fmt.Errorf("token index out of bounds")
 	}
@@ -136,7 +136,7 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg internal.EVM2EV
 		return []byte{}, errors.Wrap(err, "failed getting the USDC message body")
 	}
 
-	s.lggr.Infow("Calling attestation API", "messageBodyHash", hexutil.Encode(messageBody[:]), "messageID", hexutil.Encode(msg.MessageId[:]))
+	s.lggr.Infow("Calling attestation API", "messageBodyHash", hexutil.Encode(messageBody[:]), "messageID", hexutil.Encode(msg.MessageID[:]))
 
 	// The attestation API expects the hash of the message body
 	attestationResp, err := s.callAttestationApi(ctx, utils.Keccak256Fixed(messageBody))
@@ -173,12 +173,12 @@ func encodeMessageAndAttestation(messageBody []byte, attestation string) ([]byte
 	})
 }
 
-func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([]byte, error) {
+func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([]byte, error) {
 	parsedMsgBody, err := s.usdcReader.GetLastUSDCMessagePriorToLogIndexInTx(ctx, int64(msg.LogIndex), msg.TxHash)
 	if err != nil {
 		return []byte{}, err
 	}
-	s.lggr.Infow("Got USDC message body", "messageBody", hexutil.Encode(parsedMsgBody), "messageID", hexutil.Encode(msg.MessageId[:]))
+	s.lggr.Infow("Got USDC message body", "messageBody", hexutil.Encode(parsedMsgBody), "messageID", hexutil.Encode(msg.MessageID[:]))
 	return parsedMsgBody, nil
 }
 

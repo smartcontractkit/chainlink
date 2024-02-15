@@ -11,6 +11,7 @@ import (
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
@@ -19,13 +20,13 @@ import (
 func TestOffRamp(t *testing.T) {
 	for _, versionStr := range []string{ccipdata.V1_0_0, ccipdata.V1_2_0} {
 		lggr := logger.TestLogger(t)
-		addr := utils.RandomAddress()
+		addr := cciptypes.Address(utils.RandomAddress().String())
 		lp := mocks2.NewLogPoller(t)
 
 		expFilterNames := []string{
-			logpoller.FilterName(v1_0_0.EXEC_EXECUTION_STATE_CHANGES, addr.String()),
-			logpoller.FilterName(v1_0_0.EXEC_TOKEN_POOL_ADDED, addr.String()),
-			logpoller.FilterName(v1_0_0.EXEC_TOKEN_POOL_REMOVED, addr.String()),
+			logpoller.FilterName(v1_0_0.EXEC_EXECUTION_STATE_CHANGES, addr),
+			logpoller.FilterName(v1_0_0.EXEC_TOKEN_POOL_ADDED, addr),
+			logpoller.FilterName(v1_0_0.EXEC_TOKEN_POOL_REMOVED, addr),
 		}
 		versionFinder := newMockVersionFinder(ccipconfig.EVM2EVMOffRamp, *semver.MustParse(versionStr), nil)
 

@@ -7,14 +7,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 )
 
 // InflightInternalExecutionReport serves the same purpose as InflightCommitReport
 // see the comment on that struct for context.
 type InflightInternalExecutionReport struct {
 	createdAt time.Time
-	messages  []internal.EVM2EVMMessage
+	messages  []cciptypes.EVM2EVMMessage
 }
 
 // inflightExecReportsContainer holds existing inflight reports.
@@ -62,7 +62,7 @@ func (container *inflightExecReportsContainer) expire(lggr logger.Logger) {
 	container.reports = stillInFlight
 }
 
-func (container *inflightExecReportsContainer) add(lggr logger.Logger, messages []internal.EVM2EVMMessage) error {
+func (container *inflightExecReportsContainer) add(lggr logger.Logger, messages []cciptypes.EVM2EVMMessage) error {
 	container.locker.Lock()
 	defer container.locker.Unlock()
 
