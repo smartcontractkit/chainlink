@@ -1205,12 +1205,11 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
 
-	// test still works when qopts is cancelled
-	// but context object is not
+	// test canceled ctx
 	ctx, cancel = context.WithCancel(testutils.Context(t))
 	cancel()
 	_, err = th.LogPoller.GetBlocksRange(ctx, blockNums)
-	require.NoError(t, err)
+	require.Equal(t, err, context.Canceled)
 }
 
 func TestGetReplayFromBlock(t *testing.T) {
