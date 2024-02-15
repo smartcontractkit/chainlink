@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
@@ -208,6 +209,7 @@ func CreateVRFV2Job(
 		Address:               vrfJobSpecConfig.CoordinatorAddress,
 		EstimateGasMultiplier: vrfJobSpecConfig.EstimateGasMultiplier,
 		FromAddress:           vrfJobSpecConfig.FromAddresses[0],
+		SimulationBlock:       vrfJobSpecConfig.SimulationBlock,
 	}
 	ost, err := os.String()
 	if err != nil {
@@ -297,6 +299,180 @@ func SetupVRFV2Environment(
 	l zerolog.Logger,
 ) (*VRFV2Contracts, []uint64, *VRFV2Data, error) {
 	l.Info().Msg("Starting VRFV2 environment setup")
+	vrfv2Config := vrfv2TestConfig.GetVRFv2Config().General
+
+	vrfContracts, subIDs, err := SetupContracts(
+		env,
+		linkToken,
+		mockNativeLINKFeed,
+		numberOfConsumers,
+		useVRFOwner,
+		useTestCoordinator,
+		vrfv2Config,
+		numberOfSubToCreate,
+		l,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	var nodesMap = make(map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode)
+	for i, nodeType := range nodesToCreate {
+		nodesMap[nodeType] = &vrfcommon.VRFNode{
+			CLNode: env.ClCluster.Nodes[i],
+		}
+	}
+	l.Info().Str("Node URL", nodesMap[vrfcommon.VRF].CLNode.API.URL()).Msg("Creating VRF Key on the Node")
+	vrfKey, err := nodesMap[vrfcommon.VRF].CLNode.API.MustCreateVRFKey()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2Key, err)
+	}
+	pubKeyCompressed := vrfKey.Data.ID
+	l.Info().
+		Str("Node URL", nodesMap[vrfcommon.VRF].CLNode.API.URL()).
+		Str("Keyhash", vrfKey.Data.Attributes.Hash).
+		Str("VRF Compressed Key", vrfKey.Data.Attributes.Compressed).
+		Str("VRF Uncompressed Key", vrfKey.Data.Attributes.Uncompressed).
+		Msg("VRF Key created on the Node")
+
+	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address()).Msg("Registering Proving Key")
+	provingKey, err := VRFV2RegisterProvingKey(vrfKey, registerProvingKeyAgainstAddress, vrfContracts.CoordinatorV2)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRegisteringProvingKey, err)
+	}
+	keyHash, err := vrfContracts.CoordinatorV2.HashOfKey(context.Background(), provingKey)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrCreatingProvingKeyHash, err)
+	}
+
+	chainID := env.EVMClient.GetChainID()
+	vrfTXKeyAddressStrings, vrfTXKeyAddresses, err := vrfcommon.CreateFundAndGetSendingKeys(
+		env.EVMClient,
+		nodesMap[vrfcommon.VRF],
+		*vrfv2TestConfig.GetCommonConfig().ChainlinkNodeFunding,
+		numberOfTxKeysToCreate,
+		chainID,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	nodesMap[vrfcommon.VRF].TXKeyAddressStrings = vrfTXKeyAddressStrings
+
+	var vrfOwnerConfig *vrfcommon.VRFOwnerConfig
+	if useVRFOwner {
+		err := setupVRFOwnerContract(env, vrfContracts, vrfTXKeyAddressStrings, vrfTXKeyAddresses, l)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		vrfOwnerConfig = &vrfcommon.VRFOwnerConfig{
+			OwnerAddress: vrfContracts.VRFOwner.Address(),
+			UseVRFOwner:  useVRFOwner,
+		}
+	} else {
+		vrfOwnerConfig = &vrfcommon.VRFOwnerConfig{
+			OwnerAddress: "",
+			UseVRFOwner:  useVRFOwner,
+		}
+	}
+
+	g := errgroup.Group{}
+	if vrfNode, exists := nodesMap[vrfcommon.VRF]; exists {
+		g.Go(func() error {
+			err := setupVRFNode(vrfContracts, chainID, vrfv2Config, pubKeyCompressed, vrfOwnerConfig, l, vrfNode)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+
+	if bhsNode, exists := nodesMap[vrfcommon.BHS]; exists {
+		g.Go(func() error {
+			err := vrfcommon.SetupBHSNode(
+				env,
+				vrfv2TestConfig.GetVRFv2Config().General,
+				numberOfTxKeysToCreate,
+				chainID,
+				vrfContracts.CoordinatorV2.Address(),
+				vrfContracts.BHS.Address(),
+				*vrfv2TestConfig.GetCommonConfig().ChainlinkNodeFunding,
+				l,
+				bhsNode,
+			)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("VRF node setup ended up with an error: %w", err)
+	}
+
+	vrfKeyData := vrfcommon.VRFKeyData{
+		VRFKey:            vrfKey,
+		EncodedProvingKey: provingKey,
+		KeyHash:           keyHash,
+	}
+
+	l.Info().Msg("VRFV2 environment setup is finished")
+	return vrfContracts, subIDs, &vrfKeyData, nodesMap, nil
+}
+
+func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Config *testconfig.General, pubKeyCompressed string, vrfOwnerConfig *vrfcommon.VRFOwnerConfig, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
+	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
+		ForwardingAllowed:             *vrfv2Config.VRFJobForwardingAllowed,
+		CoordinatorAddress:            contracts.CoordinatorV2.Address(),
+		FromAddresses:                 vrfNode.TXKeyAddressStrings,
+		EVMChainID:                    chainID.String(),
+		MinIncomingConfirmations:      int(*vrfv2Config.MinimumConfirmations),
+		PublicKey:                     pubKeyCompressed,
+		EstimateGasMultiplier:         *vrfv2Config.VRFJobEstimateGasMultiplier,
+		BatchFulfillmentEnabled:       *vrfv2Config.VRFJobBatchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: *vrfv2Config.VRFJobBatchFulfillmentGasMultiplier,
+		PollPeriod:                    vrfv2Config.VRFJobPollPeriod.Duration,
+		RequestTimeout:                vrfv2Config.VRFJobRequestTimeout.Duration,
+		SimulationBlock:               vrfv2Config.VRFJobSimulationBlock,
+		VRFOwnerConfig:                vrfOwnerConfig,
+	}
+
+	l.Info().Msg("Creating VRFV2 Job")
+	vrfV2job, err := CreateVRFV2Job(
+		vrfNode.CLNode.API,
+		vrfJobSpecConfig,
+	)
+	if err != nil {
+		return fmt.Errorf("%s, err %w", ErrCreateVRFV2Jobs, err)
+	}
+	vrfNode.Job = vrfV2job
+
+	// this part is here because VRFv2 can work with only a specific key
+	// [[EVM.KeySpecific]]
+	//	Key = '...'
+	nodeConfig := node.NewConfig(vrfNode.CLNode.NodeConfig,
+		node.WithLogPollInterval(1*time.Second),
+		node.WithVRFv2EVMEstimator(vrfNode.TXKeyAddressStrings, *vrfv2Config.CLNodeMaxGasPriceGWei),
+	)
+	l.Info().Msg("Restarting Node with new sending key PriceMax configuration")
+	err = vrfNode.CLNode.Restart(nodeConfig)
+	if err != nil {
+		return fmt.Errorf("%s, err %w", vrfcommon.ErrRestartCLNode, err)
+	}
+	return nil
+}
+
+func SetupContracts(
+	env *test_env.CLClusterTestEnv,
+	linkToken contracts.LinkToken,
+	mockNativeLINKFeed contracts.MockETHLINKFeed,
+	numberOfConsumers int,
+	useVRFOwner bool,
+	useTestCoordinator bool,
+	vrfv2Config *testconfig.General,
+	numberOfSubToCreate int,
+	l zerolog.Logger,
+) (*vrfcommon.VRFContracts, []uint64, error) {
 	l.Info().Msg("Deploying VRFV2 contracts")
 	vrfv2Contracts, err := DeployVRFV2Contracts(
 		env,
