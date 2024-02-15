@@ -88,11 +88,15 @@ let registryConditionalOverhead: BigNumber
 let registryLogOverhead: BigNumber
 let registryPerSignerGasOverhead: BigNumber
 let registryPerPerformByteGasOverhead: BigNumber
+let registryTransmitCalldataBytesOverhead: BigNumber
 let cancellationDelay: number
 
 // This is the margin for gas that we test for. Gas charged should always be greater
 // than total gas used in tx but should not increase beyond this margin
-const gasCalculationMargin = BigNumber.from(8000)
+const gasCalculationMargin = BigNumber.from(5000)
+// This is the margin for gas overhead estimation in checkUpkeep. The estimated gas
+// overhead should be larger than actual gas overhead but should not increase beyond this margin
+const gasEstimationMargin = BigNumber.from(5000)
 
 const linkEth = BigNumber.from(5000000000000000) // 1 Link = 0.005 Eth
 const gasWei = BigNumber.from(1000000000) // 1 gwei
@@ -122,7 +126,6 @@ const maxPerformDataSize = BigNumber.from(1000)
 const maxRevertDataSize = BigNumber.from(1000)
 const maxPerformGas = BigNumber.from(5000000)
 const minUpkeepSpend = BigNumber.from(0)
-const transmitCalldataBytesOverhead = BigNumber.from(100)
 const f = 1
 const offchainVersion = 1
 const offchainBytes = '0x'
@@ -599,7 +602,7 @@ describe('AutomationRegistry2_2', () => {
       .add(
         registryPerPerformByteGasOverhead
           .add(chainModuleOverheads.chainModulePerByteOverhead)
-          .mul(maxPerformDataSize.add(transmitCalldataBytesOverhead)),
+          .mul(maxPerformDataSize.add(registryTransmitCalldataBytesOverhead)),
       )
       .add(chainModuleOverheads.chainModuleFixedOverhead) // 0
 
@@ -608,7 +611,7 @@ describe('AutomationRegistry2_2', () => {
       .add(
         registryPerPerformByteGasOverhead
           .add(chainModuleOverheads.chainModulePerByteOverhead)
-          .mul(maxPerformDataSize.add(transmitCalldataBytesOverhead)),
+          .mul(maxPerformDataSize.add(registryTransmitCalldataBytesOverhead)),
       )
       .add(chainModuleOverheads.chainModuleFixedOverhead)
 
@@ -969,6 +972,8 @@ describe('AutomationRegistry2_2', () => {
     registryPerSignerGasOverhead = await registry.getPerSignerGasOverhead()
     registryPerPerformByteGasOverhead =
       await registry.getPerPerformByteGasOverhead()
+    registryTransmitCalldataBytesOverhead =
+      await registry.getTransmitCalldataBytesOverhead()
     cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
     await registry.connect(owner).setConfig(...baseConfig)
@@ -1916,9 +1921,26 @@ describe('AutomationRegistry2_2', () => {
                     const chargedGasOverhead =
                       upkeepPerformedLog.args.gasOverhead
                     const actualGasOverhead = receipt.gasUsed.sub(upkeepGasUsed)
+                    const estimatedGasOverhead = registryConditionalOverhead
+                      .add(
+                        registryPerSignerGasOverhead.mul(
+                          BigNumber.from(newF + 1),
+                        ),
+                      )
+                      .add(
+                        registryPerPerformByteGasOverhead
+                          .add(chainModuleOverheads.chainModulePerByteOverhead)
+                          .mul(
+                            BigNumber.from(performData.length).add(
+                              registryTransmitCalldataBytesOverhead,
+                            ),
+                          ),
+                      )
+                      .add(chainModuleOverheads.chainModuleFixedOverhead)
 
                     assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
                     assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
+                    assert.isTrue(actualGasOverhead.gt(BigNumber.from('0')))
 
                     console.log(
                       'Gas Benchmarking conditional upkeeps:',
@@ -1930,46 +1952,27 @@ describe('AutomationRegistry2_2', () => {
                       performData.length / 2 - 1,
                       'sig verification ( f =',
                       newF,
-                      '): calculated overhead: ',
+                      '): estimated overhead: ',
+                      estimatedGasOverhead.toString(),
+                      ' charged overhead: ',
                       chargedGasOverhead.toString(),
                       ' actual overhead: ',
                       actualGasOverhead.toString(),
-                      ' margin over gasUsed: ',
+                      ' calculation margin over gasUsed: ',
                       chargedGasOverhead.sub(actualGasOverhead).toString(),
+                      ' estimation margin over gasUsed: ',
+                      estimatedGasOverhead.sub(actualGasOverhead).toString(),
                     )
 
-                    // Overhead should not get capped
-                    const gasOverheadCap = registryConditionalOverhead
-                      .add(
-                        registryPerSignerGasOverhead.mul(
-                          BigNumber.from(newF + 1),
-                        ),
-                      )
-                      .add(
-                        registryPerPerformByteGasOverhead
-                          .add(chainModuleOverheads.chainModulePerByteOverhead)
-                          .mul(
-                            BigNumber.from(performData.length).add(
-                              transmitCalldataBytesOverhead,
-                            ),
-                          ),
-                      )
-                      .add(chainModuleOverheads.chainModuleFixedOverhead)
-
-                    const gasCapMinusOverhead =
-                      gasOverheadCap.sub(chargedGasOverhead)
-                    assert.isTrue(
-                      gasCapMinusOverhead.gt(BigNumber.from(0)),
-                      'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD by at least ' +
-                        gasCapMinusOverhead.toString(),
-                    )
-                    // total gas charged should be greater than tx gas but within gasCalculationMargin
+                    // The actual gas overhead should be less than charged gas overhead, but not by a lot
+                    // The charged gas overhead is controlled by ACCOUNTING_FIXED_GAS_OVERHEAD and
+                    // ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD, and their correct values should be set to
+                    // satisfy constraints in multiple places
                     assert.isTrue(
                       chargedGasOverhead.gt(actualGasOverhead),
-                      'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD) by at least ' +
+                      'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD) by at least ' +
                         actualGasOverhead.sub(chargedGasOverhead).toString(),
                     )
-
                     assert.isTrue(
                       chargedGasOverhead
                         .sub(actualGasOverhead)
@@ -1979,6 +1982,27 @@ describe('AutomationRegistry2_2', () => {
                         chargedGasOverhead
                           .sub(chargedGasOverhead)
                           .sub(gasCalculationMargin)
+                          .toString()
+
+                    // The estimated overhead during checkUpkeep should be close to the actual overhead in transaction
+                    // It should be greater than the actual overhead but not by a lot
+                    // The estimated overhead is controlled by variables
+                    // REGISTRY_CONDITIONAL_OVERHEAD, REGISTRY_LOG_OVERHEAD, REGISTRY_PER_SIGNER_GAS_OVERHEAD
+                    // REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD and TRANSMIT_CALLDATA_BYTES_OVERHEAD
+                    assert.isTrue(
+                      estimatedGasOverhead.gt(actualGasOverhead),
+                      'Gas overhead estimated in check upkeep is too low, increase estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD/TRANSMIT_CALLDATA_BYTES_OVERHEAD) by at least ' +
+                        estimatedGasOverhead.sub(chargedGasOverhead).toString(),
+                    )
+                    assert.isTrue(
+                      estimatedGasOverhead
+                        .sub(actualGasOverhead)
+                        .lt(gasEstimationMargin),
+                    ),
+                      'Gas overhead estimated is too high, decrease estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD/TRANSMIT_CALLDATA_BYTES_OVERHEAD)  by at least ' +
+                        estimatedGasOverhead
+                          .sub(actualGasOverhead)
+                          .sub(gasEstimationMargin)
                           .toString()
                   }
                 }
@@ -2055,7 +2079,7 @@ describe('AutomationRegistry2_2', () => {
                     .add(chainModuleOverheads.chainModulePerByteOverhead)
                     .mul(
                       BigNumber.from(performData.length).add(
-                        transmitCalldataBytesOverhead,
+                        registryTransmitCalldataBytesOverhead,
                       ),
                     ),
                 )
@@ -2402,7 +2426,11 @@ describe('AutomationRegistry2_2', () => {
                 .add(
                   registryPerPerformByteGasOverhead
                     .add(chainModuleOverheads.chainModulePerByteOverhead)
-                    .mul(maxPerformDataSize.add(transmitCalldataBytesOverhead)),
+                    .mul(
+                      maxPerformDataSize.add(
+                        registryTransmitCalldataBytesOverhead,
+                      ),
+                    ),
                 )
                 .add(chainModuleOverheads.chainModuleFixedOverhead)
               const gasLogOverheadCap = registryLogOverhead
@@ -2410,7 +2438,11 @@ describe('AutomationRegistry2_2', () => {
                 .add(
                   registryPerPerformByteGasOverhead
                     .add(chainModuleOverheads.chainModulePerByteOverhead)
-                    .mul(maxPerformDataSize.add(transmitCalldataBytesOverhead)),
+                    .mul(
+                      maxPerformDataSize.add(
+                        registryTransmitCalldataBytesOverhead,
+                      ),
+                    ),
                 )
                 .add(chainModuleOverheads.chainModuleFixedOverhead)
 
@@ -3290,11 +3322,18 @@ describe('AutomationRegistry2_2', () => {
   })
 
   describe('#getMaxPaymentForGas', () => {
-    const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
-    const l1CostWeiArb = arbL1PriceinWei
-      .mul(16)
-      .mul(maxPerformDataSize.add(transmitCalldataBytesOverhead))
-    const l1CostWeiOpt = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
+    let arbL1PriceinWei: BigNumber
+    let l1CostWeiArb: BigNumber
+    let l1CostWeiOpt: BigNumber
+
+    beforeEach(async () => {
+      arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
+      l1CostWeiArb = arbL1PriceinWei
+        .mul(16)
+        .mul(maxPerformDataSize.add(registryTransmitCalldataBytesOverhead))
+      l1CostWeiOpt = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
+    })
+
     itMaybe('calculates the max fee appropriately', async () => {
       await verifyMaxPayment(registry, chainModuleBase)
     })
@@ -3315,7 +3354,7 @@ describe('AutomationRegistry2_2', () => {
           .add(registryPerSignerGasOverhead.mul(f + 1))
           .add(
             maxPerformDataSize
-              .add(transmitCalldataBytesOverhead)
+              .add(registryTransmitCalldataBytesOverhead)
               .mul(
                 registryPerPerformByteGasOverhead.add(
                   chainModuleOverheads.chainModulePerByteOverhead,
@@ -3383,7 +3422,7 @@ describe('AutomationRegistry2_2', () => {
           .add(registryPerSignerGasOverhead.mul(f + 1))
           .add(
             maxPerformDataSize
-              .add(transmitCalldataBytesOverhead)
+              .add(registryTransmitCalldataBytesOverhead)
               .mul(
                 registryPerPerformByteGasOverhead.add(
                   chainModuleOverheads.chainModulePerByteOverhead,

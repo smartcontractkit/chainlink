@@ -46,18 +46,24 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   uint8 internal constant UPKEEP_VERSION_BASE = 3;
 
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Fixed gas overhead for conditional upkeeps
+  // These values are calibrated using hardhat tests which simulates various cases and verifies that
+  // the variables result in accurate estimation
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 55_000; // Fixed gas overhead for conditional upkeeps
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_400; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Value scales with f
-  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Per perform data byte overhead
-  // TODO - re-adjust
-  uint256 internal constant TRANSMIT_CALLDATA_BYTES_OVERHEAD = 100; // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
+  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 16; // Per perform data byte overhead
+  // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
+  // This includes overhead for all struct encoding as well as report signatures
+  // This is calculated for f=10 which is the maximum f we can have
+  // TODO: Consider splitting this into per signer (64) and base (with f=1: 1060)
+  uint256 internal constant TRANSMIT_CALLDATA_BYTES_OVERHEAD = 1636;
 
   // Next block of constants are used in actual payment calculation. We calculate the exact gas used within the
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
-  // to account for gas used in payment processing.
+  // to account for gas used in payment processing. These values are calibrated using hardhat tests which simulates various cases and verifies that
+  // the variables result in accurate estimation
   // TODO re-adjust overheads
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 26_500; // Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 22_500; // Fixed overhead per tx
   uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 6_000; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
