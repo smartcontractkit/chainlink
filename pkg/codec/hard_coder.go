@@ -106,6 +106,10 @@ func hardCodeManyHook(from reflect.Value, to reflect.Value) (any, error) {
 		to = to.Elem()
 	}
 
+	for from.Kind() == reflect.Pointer {
+		from = from.Elem()
+	}
+
 	switch to.Kind() {
 	case reflect.Slice, reflect.Array:
 		switch from.Kind() {

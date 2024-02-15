@@ -64,7 +64,7 @@ func (m *modifierCodec) Encode(ctx context.Context, item any, itemType string) (
 	rItem := reflect.ValueOf(item)
 	rOffChainItem := reflect.ValueOf(offChainItem)
 
-	// If the item is not a pointer, make it one so that it can be modified by convert.
+	// If the item is not a pointer, make it one so that it can be modified by Convert.
 	// Eg: if rOffChainItem is a slice, it'll be nil and can't have elements set.
 	if rOffChainItem.Kind() != reflect.Pointer {
 		rItem = addr(rItem)
@@ -72,7 +72,7 @@ func (m *modifierCodec) Encode(ctx context.Context, item any, itemType string) (
 		offChainItem = rOffChainItem.Interface()
 	}
 
-	if err = convert(rItem, rOffChainItem, m.hook); err != nil {
+	if err = Convert(rItem, rOffChainItem, m.hook); err != nil {
 		return nil, err
 	}
 
@@ -106,19 +106,25 @@ func (m *modifierCodec) Decode(ctx context.Context, raw []byte, into any, itemTy
 		return err
 	}
 
-	return convert(reflect.ValueOf(offChain), rInto, m.hook)
+	return Convert(reflect.ValueOf(offChain), rInto, m.hook)
 }
 
 func (m *modifierCodec) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
 	return m.codec.GetMaxDecodingSize(ctx, n, itemType)
 }
 
-func convert(from, to reflect.Value, hook mapstructure.DecodeHookFunc) error {
+// Convert uses mapstructure and the hook provided to convert from into to.
+// Note that the use of mapstructure is avoided if to and from are the same type, and are both pointers,
+// or if to is a pointer to the type from is.  In those cases, to is simply set to from, or to point to it.
+// Arrays and slices are converted by converting each element using mapstructure.
+func Convert(from, to reflect.Value, hook mapstructure.DecodeHookFunc) error {
 	if from.Type() == to.Type() && from.Kind() == reflect.Pointer {
 		// Types are the same, just copy the element.
 		//  The variable itself may not be addressable
 		to.Elem().Set(from.Elem())
 		return nil
+	} else if to.Kind() == reflect.Pointer && to.Type().Elem() == from.Type() {
+		to.Elem().Set(from)
 	}
 
 	switch from.Kind() {
@@ -129,13 +135,16 @@ func convert(from, to reflect.Value, hook mapstructure.DecodeHookFunc) error {
 		// Pointers can be decoded directly with mapstructure if they are not a pointer to one of these kinds.
 		// If they are, use recursion to set the pointer's elements the same.
 		case reflect.Array, reflect.Slice, reflect.Pointer:
-			return convert(iFrom, reflect.Indirect(to), hook)
+			if to.Elem().Kind() == reflect.Pointer {
+				to = reflect.Indirect(to)
+			}
+			return Convert(iFrom, to, hook)
 		default:
 			return decodeWithHook(from.Interface(), to.Interface(), hook)
 		}
 	case reflect.Array, reflect.Slice:
 		switch to.Kind() {
-		// Arrays and slices can't be encoded to a map, so convert each element individually.
+		// Arrays and slices can't be encoded to a map, so Convert each element individually.
 		case reflect.Array:
 			if from.Len() != to.Len() {
 				return types.ErrSliceWrongLen
@@ -147,9 +156,9 @@ func convert(from, to reflect.Value, hook mapstructure.DecodeHookFunc) error {
 			to.Set(reflect.MakeSlice(to.Type(), length, length))
 			return convertSliceOrArray(from, to, hook)
 		case reflect.Pointer:
-			return convert(from, reflect.Indirect(to), hook)
+			return Convert(from, reflect.Indirect(to), hook)
 		default:
-			return fmt.Errorf("%w: cannot convert the kind %v", types.ErrInvalidType, to.Kind())
+			return fmt.Errorf("%w: cannot Convert the kind %v", types.ErrInvalidType, to.Kind())
 		}
 	default:
 		return decodeWithHook(from.Interface(), to.Interface(), hook)
@@ -160,13 +169,13 @@ func convertSliceOrArray(from, to reflect.Value, hook mapstructure.DecodeHookFun
 	switch from.Kind() {
 	case reflect.Array, reflect.Slice:
 		for i := 0; i < from.Len(); i++ {
-			if err := convert(addr(from.Index(i)), addr(to.Index(i)), hook); err != nil {
+			if err := Convert(addr(from.Index(i)), addr(to.Index(i)), hook); err != nil {
 				return err
 			}
 		}
 		return nil
 	default:
-		return fmt.Errorf("%w: expected array or slice to convert got kind %s", types.ErrInvalidType, from.Kind())
+		return fmt.Errorf("%w: expected array or slice to Convert got kind %s", types.ErrInvalidType, from.Kind())
 	}
 }
 
@@ -177,7 +186,11 @@ func decodeWithHook(input, output any, hook mapstructure.DecodeHookFunc) error {
 		Squash:     true,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", types.ErrInvalidType, err)
 	}
-	return decoder.Decode(input)
+
+	if err = decoder.Decode(input); err != nil {
+		return fmt.Errorf("%w: %w", types.ErrInvalidType, err)
+	}
+	return nil
 }

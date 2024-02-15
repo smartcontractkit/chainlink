@@ -1,0 +1,137 @@
+package binary
+
+import (
+    "fmt"
+    "reflect"
+    "math/big"
+
+    "github.com/smartcontractkit/chainlink-common/pkg/types"
+    "github.com/smartcontractkit/chainlink-common/pkg/codec/encodings"
+)
+
+{{ range . }}
+type Int{{.}} struct{encoder}
+
+var _ encodings.TypeCodec = &Int{{.}}{}
+
+func (i *Int{{.}}) Encode(value any, into []byte) ([]byte, error) {
+    v, ok := value.(int{{.}})
+    if !ok {
+        return nil, fmt.Errorf("%w: %T is not an int{{.}}", types.ErrInvalidType, value)
+    }
+
+    {{- if eq . 8 }}
+    return append(into, byte(v)), nil
+    {{- else }}
+    return i.encoder.AppendUint{{.}}(into, uint{{.}}(v)), nil
+    {{- end }}
+}
+
+func (i *Int{{.}}) Decode(encoded []byte) (any, []byte, error) {
+    {{- if eq . 8 }}
+    ui, remaining, err := encodings.SafeDecode[uint8](encoded, 1, func (encoded []byte ) byte { return encoded[0] } )
+    return int{{.}}(ui), remaining, err
+    {{- else }}
+    ui, remaining, err := encodings.SafeDecode[uint{{.}}](encoded, {{div . 8}}, i.encoder.Uint{{.}})
+    return int{{.}}(ui), remaining, err
+    {{- end }}
+}
+
+func (*Int{{.}}) GetType() reflect.Type {
+    return reflect.TypeOf(int{{.}}(0))
+}
+
+func (*Int{{.}}) Size(int) (int, error) {
+    return {{div . 8}}, nil
+}
+
+func (*Int{{.}}) FixedSize() (int, error) {
+    return {{div . 8}}, nil
+}
+
+func (e *endianEncoder) Int{{.}}() encodings.TypeCodec {
+	return &Int{{.}}{encoder: e.encoder}
+}
+
+type Uint{{.}} struct{encoder}
+
+var _ encodings.TypeCodec = &Uint{{.}}{}
+
+func (i *Uint{{.}}) Encode(value any, into []byte) ([]byte, error) {
+    v, ok := value.(uint{{.}})
+    if !ok {
+        return nil, fmt.Errorf("%w: %T is not an uint{{.}}", types.ErrInvalidType, value)
+    }
+
+    {{- if eq . 8 }}
+    return append(into, v), nil
+    {{- else }}
+    return i.encoder.AppendUint{{.}}(into, v), nil
+    {{- end }}
+}
+
+func (i *Uint{{.}}) Decode(encoded []byte) (any, []byte, error) {
+    {{- if eq . 8 }}
+    return encodings.SafeDecode[uint8](encoded, 1, func (encoded []byte ) byte { return encoded[0] } )
+    {{- else }}
+    return encodings.SafeDecode[uint{{.}}](encoded, {{div . 8}}, i.encoder.Uint{{.}})
+    {{- end }}
+}
+
+func (*Uint{{.}}) GetType() reflect.Type {
+    return reflect.TypeOf(uint{{.}}(0))
+}
+
+func (*Uint{{.}}) Size(int) (int, error) {
+    return {{div . 8}}, nil
+}
+
+func (*Uint{{.}}) FixedSize() (int, error) {
+    return {{div . 8}}, nil
+}
+
+func (e *endianEncoder) Uint{{.}}() encodings.TypeCodec {
+	return &Uint{{.}}{encoder: e.encoder}
+}
+
+{{ end }}
+
+func (e *endianEncoder) Int(bytes uint) (encodings.TypeCodec, error) {
+    switch bytes {
+    {{- range . }}
+    case {{ div . 8 }}:
+        return &intCodec{
+            codec: &Int{{ . }}{encoder: e.encoder},
+            toInt: func(v any) int { return int(v.(int{{ . }})) },
+            fromInt: func(v int)any { return int{{ . }}(v) },
+        }, nil
+    {{- end }}
+    default:
+       c, err := NewBigInt(bytes, true, e.bigIntEncoder)
+       return &intCodec{
+         codec: c,
+         toInt: func(v any) int { return int(v.(*big.Int).Int64()) },
+         fromInt: func(v int)any { return big.NewInt(int64(v)) },
+     }, err
+    }
+}
+
+func (e *endianEncoder) Uint(bytes uint) (encodings.TypeCodec, error) {
+    switch bytes {
+    {{- range . }}
+    case {{ div . 8 }}:
+        return &uintCodec{
+            codec: &Uint{{ . }}{encoder: e.encoder},
+            toUint: func(v any) uint { return uint(v.(uint{{ . }})) },
+            fromUint: func(v uint)any { return uint{{ . }}(v) },
+        }, nil
+    {{- end }}
+    default:
+        c, err := NewBigInt(bytes, false, e.bigIntEncoder)
+        return &uintCodec{
+           codec: c,
+           toUint: func(v any) uint { return uint(v.(*big.Int).Uint64()) },
+           fromUint: func(v uint)any { return new(big.Int).SetUint64(uint64(v)) },
+       }, err
+    }
+}

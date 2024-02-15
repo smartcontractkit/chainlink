@@ -333,7 +333,7 @@ func RunCodecInterfaceTests(t *testing.T, tester CodecInterfaceTester) {
 			},
 		},
 		{
-			name: "Encode allows nil field to be encoded, either as empty encoding or with prefix",
+			name: "Encode does not panic on nil field",
 			test: func(t *testing.T) {
 				ctx := tests.Context(t)
 				cr := tester.GetCodec(t)
@@ -351,15 +351,25 @@ func RunCodecInterfaceTests(t *testing.T, tester CodecInterfaceTester) {
 				_, _ = cr.Encode(ctx, nilArgs, TestItemType)
 			},
 		},
+		{
+			name: "Encode returns an error if the item isn't compatible",
+			test: func(t *testing.T) {
+				ctx := tests.Context(t)
+				cr := tester.GetCodec(t)
+				notTestStruct := &MidLevelTestStruct{}
+				_, err := cr.Encode(ctx, notTestStruct, TestItemType)
+				assert.True(t, errors.Is(err, types.ErrInvalidType))
+			},
+		},
 	}
 	runTests(t, tester, tests)
 }
 
-// RunChainReaderWithStrictArgsInterfaceTest is meant to be used by codecs that don't pad
+// RunCodecWithStrictArgsInterfaceTest is meant to be used by codecs that don't pad
 // They can assure that the right argument size is verified.
 // Padding makes that harder/impossible to verify for come codecs.
 // However, the extra verification is nice to have when possible.
-func RunChainReaderWithStrictArgsInterfaceTest(t *testing.T, tester CodecInterfaceTester) {
+func RunCodecWithStrictArgsInterfaceTest(t *testing.T, tester CodecInterfaceTester) {
 	RunCodecInterfaceTests(t, tester)
 
 	tests := []testcase{
