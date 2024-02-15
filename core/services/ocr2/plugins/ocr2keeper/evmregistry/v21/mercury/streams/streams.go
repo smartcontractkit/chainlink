@@ -286,11 +286,11 @@ func (s *streams) handleErrCode(result *ocr2keepers.CheckResult, errCode encodin
 			return nil, err
 		}
 	case types.ConditionTrigger:
-		// switch errCode {
-		// case encoding.ErrCodePartialContent, encoding.ErrCodeDataStreamsError, encoding.ErrCodeBadRequest, encoding.ErrCodeUnauthorized, encoding.ErrCodeEncodingError:
-		// default:
-		// 	return nil, err // TODO: encomment this line once we have error handler
-		// }
+		switch errCode {
+		case encoding.ErrCodePartialContent, encoding.ErrCodeDataStreamsError, encoding.ErrCodeBadRequest, encoding.ErrCodeUnauthorized, encoding.ErrCodeEncodingError:
+		default:
+			return nil, err
+		}
 	default:
 		return nil, err
 	}
