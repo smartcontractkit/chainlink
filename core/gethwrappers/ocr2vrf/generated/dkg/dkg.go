@@ -57,7 +57,7 @@ func DeployDKG(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Ad
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &DKG{DKGCaller: DKGCaller{contract: contract}, DKGTransactor: DKGTransactor{contract: contract}, DKGFilterer: DKGFilterer{contract: contract}}, nil
+	return address, tx, &DKG{address: address, abi: *parsed, DKGCaller: DKGCaller{contract: contract}, DKGTransactor: DKGTransactor{contract: contract}, DKGFilterer: DKGFilterer{contract: contract}}, nil
 }
 
 type DKG struct {

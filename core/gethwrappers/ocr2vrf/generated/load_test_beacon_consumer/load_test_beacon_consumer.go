@@ -52,7 +52,7 @@ func DeployLoadTestBeaconVRFConsumer(auth *bind.TransactOpts, backend bind.Contr
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &LoadTestBeaconVRFConsumer{LoadTestBeaconVRFConsumerCaller: LoadTestBeaconVRFConsumerCaller{contract: contract}, LoadTestBeaconVRFConsumerTransactor: LoadTestBeaconVRFConsumerTransactor{contract: contract}, LoadTestBeaconVRFConsumerFilterer: LoadTestBeaconVRFConsumerFilterer{contract: contract}}, nil
+	return address, tx, &LoadTestBeaconVRFConsumer{address: address, abi: *parsed, LoadTestBeaconVRFConsumerCaller: LoadTestBeaconVRFConsumerCaller{contract: contract}, LoadTestBeaconVRFConsumerTransactor: LoadTestBeaconVRFConsumerTransactor{contract: contract}, LoadTestBeaconVRFConsumerFilterer: LoadTestBeaconVRFConsumerFilterer{contract: contract}}, nil
 }
 
 type LoadTestBeaconVRFConsumer struct {
