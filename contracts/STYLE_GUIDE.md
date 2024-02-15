@@ -239,12 +239,10 @@ Here are some examples of what this should look like:
 
 ```solidity
 contract AccessControlledFoo is Foo {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "AccessControlledFoo 1.0.0";
 }
 
 contract OffchainAggregator is ITypeAndVersion {
-   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
    string public constant override typeAndVersion = "OffchainAggregator 1.0.0";
   
     function getData() public returns(uint256) {
@@ -256,8 +254,6 @@ contract OffchainAggregator is ITypeAndVersion {
 contract SuperDuperAggregator is ITypeAndVersion {
     /// This is a new contract that has not been released yet, so we
     /// add a `-dev` suffix to the typeAndVersion.
-	
-    // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
     string public constant override typeAndVersion = "SuperDuperAggregator 1.1.0-dev";
 
     function getData() public returns(uint256) {
@@ -389,3 +385,26 @@ rule: `custom-errors`
 Interfaces should be named `IFoo` instead of `FooInterface`. This follows the patterns of popular [libraries like OpenZeppelin’s](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L9). 
 
 rule: `tbd`
+
+## Structs
+
+Structs should be constructed with named arguments. This prevents accidental assignment to the wrong field and makes the code more readable.
+
+```solidity
+// Good
+function setConfig(uint64 _foo, uint64 _bar, uint64 _baz) external {
+  config = Config({
+    foo: _foo,
+    bar: _bar,
+    baz: _baz
+  });
+}
+
+// Bad
+function setConfig(uint64 _foo, uint64 _bar, uint64 _baz) external {
+  config = Config(_foo, _bar, _baz);
+}
+```
+
+rule: `tbd`
+
