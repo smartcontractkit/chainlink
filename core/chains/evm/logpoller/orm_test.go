@@ -1453,7 +1453,7 @@ func TestInsertLogsInTx(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// clean all logs and blocks between test cases
-			defer func() { _ = o.DeleteLogsAndBlocksAfter(ctx, 0) }()
+			defer func() { _, _ = db.Exec("truncate evm.logs") }()
 
 			insertErr := o.InsertLogs(ctx, tt.logs)
 			logsFromDb, err := o.SelectLogs(ctx, 0, math.MaxInt, address, event)

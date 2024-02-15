@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
+	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -32,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FunctionsServicesConfig struct {
@@ -100,7 +100,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 
 	var s4Storage s4.Storage
 	if pluginConfig.S4Constraints != nil {
-		s4Storage = s4.NewStorage(conf.Logger, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock())
+		s4Storage = s4.NewStorage(conf.Logger, *pluginConfig.S4Constraints, s4ORM, clockwork.NewRealClock())
 	}
 
 	offchainTransmitter := functions.NewOffchainTransmitter(DefaultOffchainTransmitterChannelSize)
@@ -202,7 +202,7 @@ func NewConnector(pluginConfig *config.PluginConfig, ethKeystore keystore.Eth, c
 	if err != nil {
 		return nil, err
 	}
-	connector, err := connector.NewGatewayConnector(pluginConfig.GatewayConnectorConfig, handler, handler, utils.NewRealClock(), lggr)
+	connector, err := connector.NewGatewayConnector(pluginConfig.GatewayConnectorConfig, handler, handler, clockwork.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err
 	}

@@ -304,12 +304,11 @@ func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, 
 	expiredRequests := 0
 	for _, detectedEvent := range detectedEvents.detectedEventsOrdered {
 		expirationTime := time.Now().Add(-time.Second * time.Duration(l.logPollerCacheDurationSec))
-		if detectedEvent.timeDetected.Before(expirationTime) {
-			delete(detectedEvents.isPreviouslyDetected, detectedEvent.requestId)
-			expiredRequests++
-		} else {
+		if !detectedEvent.timeDetected.Before(expirationTime) {
 			break
 		}
+		delete(detectedEvents.isPreviouslyDetected, detectedEvent.requestId)
+		expiredRequests++
 	}
 	detectedEvents.detectedEventsOrdered = detectedEvents.detectedEventsOrdered[expiredRequests:]
 	l.lggr.Debugw("filterPreviouslyDetectedEvents: done", "filterType", filterType, "nLogs", len(logs), "nFilteredLogs", len(filteredLogs), "nExpiredRequests", expiredRequests, "previouslyDetectedCacheSize", len(detectedEvents.detectedEventsOrdered))
