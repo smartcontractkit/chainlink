@@ -196,6 +196,11 @@ func (nc *NullClient) CallContract(ctx context.Context, msg ethereum.CallMsg, bl
 	return nil, nil
 }
 
+func (nc *NullClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	nc.lggr.Debug("PendingCallContract")
+	return nil, nil
+}
+
 func (nc *NullClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	nc.lggr.Debug("CodeAt")
 	return nil, nil

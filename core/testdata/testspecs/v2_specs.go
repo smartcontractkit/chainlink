@@ -376,6 +376,7 @@ estimate_gas            [type=estimategaslimit
                          to="%s"
                          multiplier="1.1"
                          data="$(generate_proof.output)"
+						 block="latest"
 ]
 simulate_fulfillment    [type=ethcall
                          to="%s"
@@ -384,6 +385,7 @@ simulate_fulfillment    [type=ethcall
 		                 extractRevertReason=true
 		                 contract="%s"
 		                 data="$(generate_proof.output)"
+						 block="latest"
 ]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
