@@ -61,6 +61,9 @@ type coordinator struct {
 	typeAndVersion string
 }
 
+const FUNCTIONS_COORDINATOR_VERSION_1 = "Functions Coordinator v1"
+const FUNCTIONS_COORDINATOR_VERSION_2 = "Functions Coordinator v2"
+
 const logPollerCacheDurationSecDefault = 300
 const pastBlocksToPollDefault = 50
 const maxLogsToProcess = 1000
@@ -406,7 +409,7 @@ func (l *logPollerWrapper) registerFilters(coordinator coordinator) error {
 		return nil
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
 		return l.logPoller.RegisterFilter(
 			logpoller.Filter{
 				Name: filterName(coordinator.address, "1"),
@@ -418,7 +421,7 @@ func (l *logPollerWrapper) registerFilters(coordinator coordinator) error {
 			})
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
 		return l.logPoller.RegisterFilter(
 			logpoller.Filter{
 				Name: filterName(coordinator.address, "2"),
@@ -435,20 +438,20 @@ func (l *logPollerWrapper) registerFilters(coordinator coordinator) error {
 }
 
 func oracleRequestLogTopic(coordinator coordinator) (common.Hash, error) {
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
 		return functions_coordinator_1_1_0.FunctionsCoordinator110OracleRequest{}.Topic(), nil
 	}
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
 		return functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), nil
 	}
 	return common.Hash{}, errors.Errorf("OracleRequestLogTopic: Unsupported Coordinator version %s", coordinator.typeAndVersion)
 }
 
 func oracleResponseLogTopic(coordinator coordinator) (common.Hash, error) {
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
 		return functions_coordinator_1_1_0.FunctionsCoordinator110OracleResponse{}.Topic(), nil
 	}
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
 		return functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), nil
 	}
 	return common.Hash{}, errors.Errorf("OracleResponseLogTopic: Unsupported Coordinator version %s", coordinator.typeAndVersion)
@@ -471,7 +474,7 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 		)
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
 		parsingContract, err := functions_coordinator_1_1_0.NewFunctionsCoordinator110(coordinator.address, l.client)
 		if err != nil {
 			return nil, errors.Errorf("LogsToRequests: creating a contract instance for parsing failed")
@@ -533,7 +536,7 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 		return requests, nil
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator.address, l.client)
 		if err != nil {
 			return nil, errors.Errorf("LogsToRequests: creating a contract instance for parsing failed")
@@ -603,7 +606,7 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 func (l *logPollerWrapper) logsToResponses(coordinator coordinator, responseLogs []logpoller.Log) ([]evmRelayTypes.OracleResponse, error) {
 	var responses []evmRelayTypes.OracleResponse
 
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v1") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
 		parsingContract, err := functions_coordinator_1_1_0.NewFunctionsCoordinator110(coordinator.address, l.client)
 		if err != nil {
 			return nil, errors.Errorf("LogsToResponses: creating a contract instance for parsing failed")
@@ -622,7 +625,7 @@ func (l *logPollerWrapper) logsToResponses(coordinator coordinator, responseLogs
 		return responses, nil
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, "Functions Coordinator v2") {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator.address, l.client)
 		if err != nil {
 			return nil, errors.Errorf("LogsToResponses: creating a contract instance for parsing failed")

@@ -119,6 +119,9 @@ export const coordinatorConfig: CoordinatorConfig = {
   fallbackUsdPerUnitLink: 1500000000,
   fallbackUsdPerUnitLinkDecimals: 8,
 }
+const linkEthRate = '5021530000000000'
+const linkUsdRate = '1500000000'
+
 export const accessControlMockPublicKey = ethers.utils.getAddress(
   '0x32237412cC0321f56422d206e505dB4B3871AF5c',
 )
@@ -244,9 +247,6 @@ export function getSetupFactory(): () => {
   })
 
   beforeEach(async () => {
-    const linkEthRate = BigNumber.from(5021530000000000)
-    const linkUsdRate = BigNumber.from(1500000000)
-
     // Deploy
     const linkToken = await factories.linkTokenFactory
       .connect(roles.defaultAccount)
@@ -254,12 +254,12 @@ export function getSetupFactory(): () => {
 
     const mockLinkEth = await factories.mockAggregatorV3Factory.deploy(
       0,
-      linkEthRate,
+      BigNumber.from(linkEthRate),
     )
 
     const mockLinkUsd = await factories.mockAggregatorV3Factory.deploy(
       0,
-      linkUsdRate,
+      BigNumber.from(linkUsdRate),
     )
 
     const router = await factories.functionsRouterFactory
