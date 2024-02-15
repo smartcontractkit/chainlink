@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	WorkflowIDFieldName          = "__workflow_id"
-	WorkflowExecutionIDFieldName = "__workflow_execution_id"
+	WorkflowIDFieldName  = "INTERNAL_workflow_id"
+	ExecutionIDFieldName = "INTERNAL_execution_id"
 )
 
 type Aggregator interface {
@@ -35,6 +35,6 @@ func AppendWorkflowIDs(outcome *AggregationOutcome, workflowID string, workflowE
 	if err != nil {
 		return nil, err
 	}
-	outcome.EncodableOutcome.Fields[WorkflowExecutionIDFieldName] = protoWEID
+	outcome.EncodableOutcome.Fields[ExecutionIDFieldName] = protoWEID
 	return outcome, nil
 }
