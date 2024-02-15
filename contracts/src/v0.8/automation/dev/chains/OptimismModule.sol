@@ -24,7 +24,7 @@ contract OptimismModule is ChainModuleBase {
     return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(txCallData, OP_L1_DATA_FEE_PADDING));
   }
 
-  function getGasOverhead() external view override returns (uint256, uint256) {
+  function getGasOverhead() external view override returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) {
     // TODO: Calculate
     return (0, 0);
   }

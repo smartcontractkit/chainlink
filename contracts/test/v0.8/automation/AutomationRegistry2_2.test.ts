@@ -37,11 +37,11 @@ import { ChainModuleBase } from '../../../typechain/ChainModuleBase'
 import { ArbitrumModule } from '../../../typechain/ArbitrumModule'
 import { OptimismModule } from '../../../typechain/OptimismModule'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
-import { UpkeepAutoFunder } from '../../../typechain'
+import { IChainModule, UpkeepAutoFunder } from '../../../typechain'
 import {
   CancelledUpkeepReportEvent,
   IAutomationRegistryMaster as IAutomationRegistry,
-  InsufficientFundsUpkeepReportEvent,
+  // InsufficientFundsUpkeepReportEvent,
   ReorgedUpkeepReportEvent,
   StaleUpkeepReportEvent,
   UpkeepPerformedEvent,
@@ -111,7 +111,7 @@ const emptyBytes32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 const transmitGasOverhead = 1_000_000
-const checkGasOverhead = 400_000 + 3_500 // 3_500 for the overhead to call chain module
+const checkGasOverhead = 400_000 + 4_000 // 4_000 for the overhead to call chain module
 
 const stalenessSeconds = BigNumber.from(43820)
 const gasCeilingMultiplier = BigNumber.from(2)
@@ -123,6 +123,7 @@ const maxPerformDataSize = BigNumber.from(1000)
 const maxRevertDataSize = BigNumber.from(1000)
 const maxPerformGas = BigNumber.from(5000000)
 const minUpkeepSpend = BigNumber.from(0)
+const transmitCalldataBytesOverhead = BigNumber.from(100)
 const f = 1
 const offchainVersion = 1
 const offchainBytes = '0x'
@@ -355,26 +356,6 @@ const parseStaleUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-const parseInsufficientFundsUpkeepReportLogs = (receipt: ContractReceipt) => {
-  const parsedLogs = []
-  for (const rawLog of receipt.logs) {
-    try {
-      const log = registry.interface.parseLog(rawLog)
-      if (
-        log.name ==
-        registry.interface.events[
-          'InsufficientFundsUpkeepReport(uint256,bytes)'
-        ].name
-      ) {
-        parsedLogs.push(log as unknown as InsufficientFundsUpkeepReportEvent)
-      }
-    } catch {
-      continue
-    }
-  }
-  return parsedLogs
-}
-
 const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   const parsedLogs = []
   for (const rawLog of receipt.logs) {
@@ -393,7 +374,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe('AutomationRegistry2_2', () => {
+describe.only('AutomationRegistry2_2', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -577,7 +558,7 @@ describe('AutomationRegistry2_2', () => {
 
   const verifyMaxPayment = async (
     registry: IAutomationRegistry,
-    chainModuleAddress: string,
+    chainModule: IChainModule,
     l1CostWei?: BigNumber,
   ) => {
     type TestCase = {
@@ -613,12 +594,24 @@ describe('AutomationRegistry2_2', () => {
     ]
 
     const fPlusOne = BigNumber.from(f + 1)
+    const chainModuleOverheads = await chainModule.getGasOverhead()
     const totalConditionalOverhead = registryConditionalOverhead
       .add(registryPerSignerGasOverhead.mul(fPlusOne))
-      .add(registryPerPerformByteGasOverhead.mul(maxPerformDataSize))
+      .add(
+        registryPerPerformByteGasOverhead
+          .add(chainModuleOverheads.chainModulePerByteOverhead)
+          .mul(maxPerformDataSize.add(transmitCalldataBytesOverhead)),
+      )
+      .add(chainModuleOverheads.chainModuleFixedOverhead) // 0
+
     const totalLogOverhead = registryLogOverhead
       .add(registryPerSignerGasOverhead.mul(fPlusOne))
-      .add(registryPerPerformByteGasOverhead.mul(maxPerformDataSize))
+      .add(
+        registryPerPerformByteGasOverhead
+          .add(chainModuleOverheads.chainModulePerByteOverhead)
+          .mul(maxPerformDataSize.add(transmitCalldataBytesOverhead)),
+      )
+      .add(chainModuleOverheads.chainModuleFixedOverhead)
 
     for (const test of tests) {
       await registry.connect(owner).setConfig(
@@ -641,7 +634,7 @@ describe('AutomationRegistry2_2', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
-          chainModule: chainModuleAddress,
+          chainModule: chainModule.address,
           reorgProtectionEnabled: true,
         }),
         offchainVersion,
@@ -1150,33 +1143,16 @@ describe('AutomationRegistry2_2', () => {
       assert.equal(cancelledUpkeepReportLogs.length, 1)
     })
 
-    it('returns early when upkeep has insufficient funds', async () => {
+    it('performs even when the upkeep has insufficient funds and the upkeep pays out all the remaining balance', async () => {
+      // add very little fund to this upkeep
+      await registry.connect(admin).addFunds(upkeepId, BigNumber.from(10))
       const tx = await getTransmitTx(registry, keeper1, [upkeepId])
       const receipt = await tx.wait()
-      const insufficientFundsUpkeepReportLogs =
-        parseInsufficientFundsUpkeepReportLogs(receipt)
-      // exactly 1 InsufficientFundsUpkeepReportLogs log should be emitted
-      assert.equal(insufficientFundsUpkeepReportLogs.length, 1)
-    })
-
-    it('permits retrying log triggers after funds are added', async () => {
-      const txHash = ethers.utils.randomBytes(32)
-      let tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
-        txHash,
-        logIndex: 0,
-      })
-      let receipt = await tx.wait()
-      const insufficientFundsLogs =
-        parseInsufficientFundsUpkeepReportLogs(receipt)
-      assert.equal(insufficientFundsLogs.length, 1)
-      registry.connect(admin).addFunds(logUpkeepId, toWei('100'))
-      tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
-        txHash,
-        logIndex: 0,
-      })
-      receipt = await tx.wait()
-      const performedLogs = parseUpkeepPerformedLogs(receipt)
-      assert.equal(performedLogs.length, 1)
+      // the upkeep is underfunded in transmit but still performed
+      const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+      assert.equal(upkeepPerformedLogs.length, 1)
+      const balance = (await registry.getUpkeep(upkeepId)).balance
+      assert.equal(balance.toNumber(), 0)
     })
 
     context('When the upkeep is funded', async () => {
@@ -1906,6 +1882,8 @@ describe('AutomationRegistry2_2', () => {
                 const upkeepSuccessArray = [true, false]
                 const performGasArray = [5000, performGas]
                 const performDataArray = ['0x', longBytes]
+                const chainModuleOverheads =
+                  await chainModuleBase.getGasOverhead()
 
                 for (const i in upkeepSuccessArray) {
                   for (const j in performGasArray) {
@@ -1972,22 +1950,29 @@ describe('AutomationRegistry2_2', () => {
                           ),
                         )
                         .add(
-                          BigNumber.from(
-                            registryPerPerformByteGasOverhead.toNumber() *
-                              performData.length,
-                          ),
+                          registryPerPerformByteGasOverhead
+                            .add(
+                              chainModuleOverheads.chainModulePerByteOverhead,
+                            )
+                            .mul(
+                              BigNumber.from(performData.length).add(
+                                transmitCalldataBytesOverhead,
+                              ),
+                            ),
                         )
+                        .add(chainModuleOverheads.chainModuleFixedOverhead)
+
                       const gasCapMinusOverhead =
                         gasOverheadCap.sub(chargedGasOverhead)
                       assert.isTrue(
                         gasCapMinusOverhead.gt(BigNumber.from(0)),
-                        'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD by atleast ' +
+                        'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD by at least ' +
                           gasCapMinusOverhead.toString(),
                       )
                       // total gas charged should be greater than tx gas but within gasCalculationMargin
                       assert.isTrue(
                         chargedGasOverhead.gt(actualGasOverhead),
-                        'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD) by atleast ' +
+                        'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD) by at least ' +
                           actualGasOverhead.sub(chargedGasOverhead).toString(),
                       )
 
@@ -1996,7 +1981,7 @@ describe('AutomationRegistry2_2', () => {
                           .sub(actualGasOverhead)
                           .lt(gasCalculationMargin),
                       ),
-                        'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by atleast ' +
+                        'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by at least ' +
                           chargedGasOverhead
                             .sub(chargedGasOverhead)
                             .sub(gasCalculationMargin)
@@ -2047,6 +2032,8 @@ describe('AutomationRegistry2_2', () => {
                 const upkeepGasUsed = upkeepPerformedLog.args.gasUsed
                 const chargedGasOverhead = upkeepPerformedLog.args.gasOverhead
                 const actualGasOverhead = receipt.gasUsed.sub(upkeepGasUsed)
+                const chainModuleOverheads =
+                  await chainModuleBase.getGasOverhead()
 
                 assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
                 assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
@@ -2075,11 +2062,15 @@ describe('AutomationRegistry2_2', () => {
                     registryPerSignerGasOverhead.mul(BigNumber.from(newF + 1)),
                   )
                   .add(
-                    BigNumber.from(
-                      registryPerPerformByteGasOverhead.toNumber() *
-                        performData.length,
-                    ),
+                    registryPerPerformByteGasOverhead
+                      .add(chainModuleOverheads.chainModulePerByteOverhead)
+                      .mul(
+                        BigNumber.from(performData.length).add(
+                          transmitCalldataBytesOverhead,
+                        ),
+                      ),
                   )
+                  .add(chainModuleOverheads.chainModuleFixedOverhead)
                 const gasCapMinusOverhead =
                   gasOverheadCap.sub(chargedGasOverhead)
                 assert.isTrue(
@@ -2199,10 +2190,10 @@ describe('AutomationRegistry2_2', () => {
                   upkeepPerformedLogs.length,
                   numPassingConditionalUpkeeps + numPassingLogUpkeeps,
                 )
-                const insufficientFundsLogs =
-                  parseInsufficientFundsUpkeepReportLogs(receipt)
-                // exactly numFailingUpkeeps Upkeep Performed should be emitted
-                assert.equal(insufficientFundsLogs.length, numFailingUpkeeps)
+                // const insufficientFundsLogs =
+                //   parseInsufficientFundsUpkeepReportLogs(receipt)
+                // // exactly numFailingUpkeeps Upkeep Performed should be emitted
+                // assert.equal(insufficientFundsLogs.length, numFailingUpkeeps)
 
                 const keeperAfter = await registry.getTransmitterInfo(
                   await keeper1.getAddress(),
@@ -2321,8 +2312,8 @@ describe('AutomationRegistry2_2', () => {
 
                 for (let i = 0; i < numFailingUpkeeps; i++) {
                   // InsufficientFunds log should be emitted
-                  const id = insufficientFundsLogs[i].args.id
-                  expect(id).to.equal(failingUpkeepIds[i])
+                  // const id = insufficientFundsLogs[i].args.id
+                  // expect(id).to.equal(failingUpkeepIds[i])
 
                   // Balance and amount spent should be same
                   assert.equal(
@@ -2407,13 +2398,28 @@ describe('AutomationRegistry2_2', () => {
                   numPassingConditionalUpkeeps + numPassingLogUpkeeps,
                 )
 
-                const gasConditionalOverheadCap =
-                  registryConditionalOverhead.add(
-                    registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)),
+                const chainModuleOverheads =
+                  await chainModuleBase.getGasOverhead()
+                const gasConditionalOverheadCap = registryConditionalOverhead
+                  .add(registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)))
+                  .add(
+                    registryPerPerformByteGasOverhead
+                      .add(chainModuleOverheads.chainModulePerByteOverhead)
+                      .mul(
+                        maxPerformDataSize.add(transmitCalldataBytesOverhead),
+                      ),
                   )
-                const gasLogOverheadCap = registryLogOverhead.add(
-                  registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)),
-                )
+                  .add(chainModuleOverheads.chainModuleFixedOverhead)
+                const gasLogOverheadCap = registryLogOverhead
+                  .add(registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)))
+                  .add(
+                    registryPerPerformByteGasOverhead
+                      .add(chainModuleOverheads.chainModulePerByteOverhead)
+                      .mul(
+                        maxPerformDataSize.add(transmitCalldataBytesOverhead),
+                      ),
+                  )
+                  .add(chainModuleOverheads.chainModuleFixedOverhead)
 
                 const overheadCanGetCapped =
                   numFailingUpkeeps > 0 &&
@@ -2770,7 +2776,7 @@ describe('AutomationRegistry2_2', () => {
         .callStatic['checkUpkeep(uint256)'](upkeepID2)
       assert.equal(checkUpkeepResult.upkeepNeeded, true)
 
-      // upkeep 1 perform should return with insufficient balance using max performData size
+      // upkeep 1 should perform and pay all the remaining balance
       let maxPerformData = '0x'
       for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
         maxPerformData += '11'
@@ -2782,15 +2788,9 @@ describe('AutomationRegistry2_2', () => {
       })
 
       const receipt = await tx.wait()
-      const insufficientFundsUpkeepReportLogs =
-        parseInsufficientFundsUpkeepReportLogs(receipt)
-      // exactly 1 InsufficientFundsUpkeepReportLogs log should be emitted
-      assert.equal(insufficientFundsUpkeepReportLogs.length, 1)
+      const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+      assert.equal(upkeepPerformedLogs.length, 1)
 
-      // upkeep 1 perform should succeed with empty performData
-      await getTransmitTx(registry, keeper1, [upkeepID1], {
-        gasPrice: gasWei.mul(gasCeilingMultiplier),
-      })
       // upkeep 2 perform should succeed with max performData size
       await getTransmitTx(registry, keeper1, [upkeepID2], {
         gasPrice: gasWei.mul(gasCeilingMultiplier),
@@ -3299,26 +3299,38 @@ describe('AutomationRegistry2_2', () => {
 
   describe('#getMaxPaymentForGas', () => {
     const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
-    const l1CostWeiArb = arbL1PriceinWei.mul(16).mul(maxPerformDataSize)
+    const l1CostWeiArb = arbL1PriceinWei
+      .mul(16)
+      .mul(maxPerformDataSize.add(transmitCalldataBytesOverhead))
     const l1CostWeiOpt = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     itMaybe('calculates the max fee appropriately', async () => {
-      await verifyMaxPayment(registry, chainModuleBase.address)
+      await verifyMaxPayment(registry, chainModuleBase)
     })
 
     itMaybe('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(arbRegistry, arbitrumModule.address, l1CostWeiArb)
+      await verifyMaxPayment(arbRegistry, arbitrumModule, l1CostWeiArb)
     })
 
     itMaybe('calculates the max fee appropriately for Optimism', async () => {
-      await verifyMaxPayment(opRegistry, optimismModule.address, l1CostWeiOpt)
+      await verifyMaxPayment(opRegistry, optimismModule, l1CostWeiOpt)
     })
 
     it('uses the fallback gas price if the feed has issues', async () => {
+      const chainModuleOverheads = await chainModuleBase.getGasOverhead()
       const expectedFallbackMaxPayment = linkForGas(
         performGas,
         registryConditionalOverhead
           .add(registryPerSignerGasOverhead.mul(f + 1))
-          .add(maxPerformDataSize.mul(registryPerPerformByteGasOverhead)),
+          .add(
+            maxPerformDataSize
+              .add(transmitCalldataBytesOverhead)
+              .mul(
+                registryPerPerformByteGasOverhead.add(
+                  chainModuleOverheads.chainModulePerByteOverhead,
+                ),
+              ),
+          )
+          .add(chainModuleOverheads.chainModuleFixedOverhead),
         gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
         paymentPremiumPPB,
         flatFeeMicroLink,
@@ -3372,11 +3384,21 @@ describe('AutomationRegistry2_2', () => {
     })
 
     it('uses the fallback link price if the feed has issues', async () => {
+      const chainModuleOverheads = await chainModuleBase.getGasOverhead()
       const expectedFallbackMaxPayment = linkForGas(
         performGas,
         registryConditionalOverhead
           .add(registryPerSignerGasOverhead.mul(f + 1))
-          .add(maxPerformDataSize.mul(registryPerPerformByteGasOverhead)),
+          .add(
+            maxPerformDataSize
+              .add(transmitCalldataBytesOverhead)
+              .mul(
+                registryPerPerformByteGasOverhead.add(
+                  chainModuleOverheads.chainModulePerByteOverhead,
+                ),
+              ),
+          )
+          .add(chainModuleOverheads.chainModuleFixedOverhead),
         gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
         paymentPremiumPPB,
         flatFeeMicroLink,

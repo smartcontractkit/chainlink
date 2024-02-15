@@ -23,7 +23,7 @@ contract ChainModuleBase is IChainModule {
     return 0;
   }
 
-  function getGasOverhead() external view virtual returns (uint256, uint256) {
+  function getGasOverhead() external view virtual returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) {
     return (0, 0);
   }
 }

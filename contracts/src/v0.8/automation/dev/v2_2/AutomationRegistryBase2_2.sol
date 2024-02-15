@@ -57,8 +57,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
   // to account for gas used in payment processing.
   // TODO re-adjust overheads
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_100; // Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_200; // Overhead per upkeep performed in batch
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 26_500; // Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 6_000; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
@@ -110,7 +110,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
-  error InsufficientFunds();
   error InvalidDataLength();
   error InvalidTrigger();
   error InvalidPayee();
@@ -448,7 +447,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   event DedupKeyAdded(bytes32 indexed dedupKey);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
   event OwnerFundsWithdrawn(uint96 amount);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);

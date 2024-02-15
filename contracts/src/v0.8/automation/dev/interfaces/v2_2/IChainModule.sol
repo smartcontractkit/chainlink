@@ -17,10 +17,10 @@ interface IChainModule {
   // L2 chains which don't have L1 fee component. Return value in wei.
   function getMaxL1Fee(uint256 dataSize) external view returns (uint256);
 
-  // Returns an upper bound on execution gas cost for one invocation of blockNumber(), 
-  // one invocation of blockHash() and one invocation of getCurrentL1Fee(). 
+  // Returns an upper bound on execution gas cost for one invocation of blockNumber(),
+  // one invocation of blockHash() and one invocation of getCurrentL1Fee().
   // Returns two values, first value indicates a fixed cost and the second value is
-  // the cost per msg.data byte (As some chain module's getCurrentL1Fee execution cost 
+  // the cost per msg.data byte (As some chain module's getCurrentL1Fee execution cost
   // scales with calldata size)
-  function getGasOverhead() external view returns (uint256, uint256);
+  function getGasOverhead() external view returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead);
 }

@@ -37,7 +37,7 @@ contract ArbitrumModule is ChainModuleBase {
     return perL1CalldataUnit * dataSize * 16;
   }
 
-  function getGasOverhead() external view override returns (uint256, uint256) {
+  function getGasOverhead() external view override returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) {
     // TODO: Calculate
     return (0, 0);
   }
