@@ -61,8 +61,12 @@ type coordinator struct {
 	typeAndVersion string
 }
 
-const FUNCTIONS_COORDINATOR_VERSION_1 = "Functions Coordinator v1"
-const FUNCTIONS_COORDINATOR_VERSION_2 = "Functions Coordinator v2"
+const FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING = "Functions Coordinator v1"
+const FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING = "Functions Coordinator v2"
+
+type Functions_Coordinator interface {
+	*functions_coordinator_1_1_0.FunctionsCoordinator110 | *functions_coordinator.FunctionsCoordinator
+}
 
 const logPollerCacheDurationSecDefault = 300
 const pastBlocksToPollDefault = 50
@@ -409,7 +413,7 @@ func (l *logPollerWrapper) registerFilters(coordinator coordinator) error {
 		return nil
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING) {
 		return l.logPoller.RegisterFilter(
 			logpoller.Filter{
 				Name: filterName(coordinator.address, "1"),
@@ -421,7 +425,7 @@ func (l *logPollerWrapper) registerFilters(coordinator coordinator) error {
 			})
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING) {
 		return l.logPoller.RegisterFilter(
 			logpoller.Filter{
 				Name: filterName(coordinator.address, "2"),
@@ -438,20 +442,20 @@ func (l *logPollerWrapper) registerFilters(coordinator coordinator) error {
 }
 
 func oracleRequestLogTopic(coordinator coordinator) (common.Hash, error) {
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING) {
 		return functions_coordinator_1_1_0.FunctionsCoordinator110OracleRequest{}.Topic(), nil
 	}
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING) {
 		return functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), nil
 	}
 	return common.Hash{}, errors.Errorf("OracleRequestLogTopic: Unsupported Coordinator version %s", coordinator.typeAndVersion)
 }
 
 func oracleResponseLogTopic(coordinator coordinator) (common.Hash, error) {
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING) {
 		return functions_coordinator_1_1_0.FunctionsCoordinator110OracleResponse{}.Topic(), nil
 	}
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING) {
 		return functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), nil
 	}
 	return common.Hash{}, errors.Errorf("OracleResponseLogTopic: Unsupported Coordinator version %s", coordinator.typeAndVersion)
@@ -474,10 +478,24 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 		)
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
+	commitmentABI := abi.Arguments{
+		{Type: bytes32Type}, // RequestId
+		{Type: addressType}, // Coordinator
+		{Type: uint96Type},  // EstimatedTotalCostJuels
+		{Type: addressType}, // Client
+		{Type: uint64Type},  // SubscriptionId
+		{Type: uint32Type},  // CallbackGasLimit
+		{Type: uint72Type},  // AdminFee
+		{Type: uint72Type},  // DonFee
+		{Type: uint40Type},  // GasOverheadBeforeCallback
+		{Type: uint40Type},  // GasOverheadAfterCallback
+		{Type: uint32Type},  // TimeoutTimestamp
+	}
+
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING) {
 		parsingContract, err := functions_coordinator_1_1_0.NewFunctionsCoordinator110(coordinator.address, l.client)
 		if err != nil {
-			return nil, errors.Errorf("LogsToRequests: creating a contract instance for parsing failed")
+			return nil, errors.Errorf("LogsToRequests: creating a contract instance for NewFunctionsCoordinator110 parsing failed")
 		}
 
 		for _, log := range requestLogs {
@@ -488,19 +506,6 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				continue
 			}
 
-			commitmentABI := abi.Arguments{
-				{Type: bytes32Type}, // RequestId
-				{Type: addressType}, // Coordinator
-				{Type: uint96Type},  // EstimatedTotalCostJuels
-				{Type: addressType}, // Client
-				{Type: uint64Type},  // SubscriptionId
-				{Type: uint32Type},  // CallbackGasLimit
-				{Type: uint72Type},  // AdminFee
-				{Type: uint72Type},  // DonFee
-				{Type: uint40Type},  // GasOverheadBeforeCallback
-				{Type: uint40Type},  // GasOverheadAfterCallback
-				{Type: uint32Type},  // TimeoutTimestamp
-			}
 			commitmentBytes, err := commitmentABI.Pack(
 				oracleRequest.Commitment.RequestId,
 				oracleRequest.Commitment.Coordinator,
@@ -536,10 +541,10 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 		return requests, nil
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING) {
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator.address, l.client)
 		if err != nil {
-			return nil, errors.Errorf("LogsToRequests: creating a contract instance for parsing failed")
+			return nil, errors.Errorf("LogsToRequests: creating a contract instance for NewFunctionsCoordinator parsing failed")
 		}
 
 		for _, log := range requestLogs {
@@ -550,20 +555,11 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				continue
 			}
 
-			commitmentABI := abi.Arguments{
-				{Type: bytes32Type}, // RequestId
-				{Type: addressType}, // Coordinator
-				{Type: uint96Type},  // EstimatedTotalCostJuels
-				{Type: addressType}, // Client
-				{Type: uint64Type},  // SubscriptionId
-				{Type: uint32Type},  // CallbackGasLimit
-				{Type: uint72Type},  // AdminFee
-				{Type: uint72Type},  // DonFee
-				{Type: uint40Type},  // GasOverheadBeforeCallback
-				{Type: uint40Type},  // GasOverheadAfterCallback
-				{Type: uint32Type},  // TimeoutTimestamp
-				{Type: uint72Type},  // OperationFee
+			addedFields := abi.Arguments{
+				{Type: uint72Type},
 			}
+			commitmentABI = append(commitmentABI, addedFields...)
+
 			commitmentBytes, err := commitmentABI.Pack(
 				oracleRequest.Commitment.RequestId,
 				oracleRequest.Commitment.Coordinator,
@@ -606,7 +602,7 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 func (l *logPollerWrapper) logsToResponses(coordinator coordinator, responseLogs []logpoller.Log) ([]evmRelayTypes.OracleResponse, error) {
 	var responses []evmRelayTypes.OracleResponse
 
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING) {
 		parsingContract, err := functions_coordinator_1_1_0.NewFunctionsCoordinator110(coordinator.address, l.client)
 		if err != nil {
 			return nil, errors.Errorf("LogsToResponses: creating a contract instance for parsing failed")
@@ -625,7 +621,7 @@ func (l *logPollerWrapper) logsToResponses(coordinator coordinator, responseLogs
 		return responses, nil
 	}
 
-	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2) {
+	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING) {
 		parsingContract, err := functions_coordinator.NewFunctionsCoordinator(coordinator.address, l.client)
 		if err != nil {
 			return nil, errors.Errorf("LogsToResponses: creating a contract instance for parsing failed")
