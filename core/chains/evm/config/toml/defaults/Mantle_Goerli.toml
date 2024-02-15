@@ -1,4 +1,4 @@
-ChainID = '5003'
+ChainID = '5001'
 FinalityDepth = 200
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '0'
