@@ -33,6 +33,7 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 	pipelineRunner types.PipelineRunnerService,
 	telemetry types.TelemetryService,
 	errorLog types.ErrorLog,
+	capRegistry types.CapabilitiesRegistry,
 ) (types.OCR3ReportingPluginFactory, error) {
 	cc := o.NewClientConn("ReportingPluginServiceFactory", func(ctx context.Context) (id uint32, deps internal.Resources, err error) {
 		providerID, providerRes, err := o.Serve("PluginProvider", proxy.NewProxy(grpcProvider))
@@ -65,6 +66,14 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 		}
 		deps.Add(errorLogRes)
 
+		capRegistryID, capRegistryRes, err := o.ServeNew("CapRegistry", func(s *grpc.Server) {
+			pb.RegisterCapabilitiesRegistryServer(s, internal.NewCapabilitiesRegistryServer(o.BrokerExt, capRegistry))
+		})
+		if err != nil {
+			return 0, nil, err
+		}
+		deps.Add(capRegistryRes)
+
 		reply, err := o.reportingPluginService.NewReportingPluginFactory(ctx, &pb.NewReportingPluginFactoryRequest{
 			ReportingPluginServiceConfig: &pb.ReportingPluginServiceConfig{
 				ProviderType:  config.ProviderType,
@@ -77,6 +86,7 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 			ErrorLogID:       errorLogID,
 			PipelineRunnerID: pipelineRunnerID,
 			TelemetryID:      telemetryID,
+			CapRegistryID:    capRegistryID,
 		})
 		if err != nil {
 			return 0, nil, err
@@ -126,6 +136,14 @@ func (m reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Cont
 	telemetryRes := internal.Resource{Closer: telemetryConn, Name: "Telemetry"}
 	telemetry := internal.NewTelemetryServiceClient(telemetryConn)
 
+	capRegistryConn, err := m.Dial(request.CapRegistryID)
+	if err != nil {
+		m.CloseAll(errorLogRes, providerRes, pipelineRunnerRes, telemetryRes)
+		return nil, internal.ErrConnDial{Name: "CapabilitiesRegistry", ID: request.CapRegistryID, Err: err}
+	}
+	capRegistryRes := internal.Resource{Closer: capRegistryConn, Name: "CapabilitiesRegistry"}
+	capRegistry := internal.NewCapabilitiesRegistryClient(capRegistryConn, m.BrokerExt)
+
 	config := types.ReportingPluginServiceConfig{
 		ProviderType:  request.ReportingPluginServiceConfig.ProviderType,
 		PluginConfig:  request.ReportingPluginServiceConfig.PluginConfig,
@@ -134,16 +152,16 @@ func (m reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Cont
 		TelemetryType: request.ReportingPluginServiceConfig.TelemetryType,
 	}
 
-	factory, err := m.impl.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetry, errorLog)
+	factory, err := m.impl.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetry, errorLog, capRegistry)
 	if err != nil {
-		m.CloseAll(providerRes, errorLogRes, pipelineRunnerRes, telemetryRes)
+		m.CloseAll(providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, capRegistryRes)
 		return nil, err
 	}
 
 	id, _, err := m.ServeNew("ReportingPluginProvider", func(s *grpc.Server) {
 		pb.RegisterServiceServer(s, &internal.ServiceServer{Srv: factory})
 		ocr3pb.RegisterReportingPluginFactoryServer(s, newReportingPluginFactoryServer(factory, m.BrokerExt))
-	}, providerRes, errorLogRes, pipelineRunnerRes, telemetryRes)
+	}, providerRes, errorLogRes, pipelineRunnerRes, telemetryRes, capRegistryRes)
 	if err != nil {
 		return nil, err
 	}

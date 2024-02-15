@@ -21,7 +21,7 @@ func (s OCR3StaticReportingPluginWithMedianProvider) ConnToProvider(conn grpc.Cl
 	return StaticMedianProvider{}
 }
 
-func (s OCR3StaticReportingPluginWithMedianProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog) (types.OCR3ReportingPluginFactory, error) {
+func (s OCR3StaticReportingPluginWithMedianProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.MedianProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog, capRegistry types.CapabilitiesRegistry) (types.OCR3ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
 	if err != nil {
@@ -175,7 +175,7 @@ func (s OCR3StaticReportingPluginWithPluginProvider) ConnToProvider(conn grpc.Cl
 	return StaticPluginProvider{}
 }
 
-func (s OCR3StaticReportingPluginWithPluginProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.PluginProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog) (types.OCR3ReportingPluginFactory, error) {
+func (s OCR3StaticReportingPluginWithPluginProvider) NewReportingPluginFactory(ctx context.Context, config types.ReportingPluginServiceConfig, provider types.PluginProvider, pipelineRunner types.PipelineRunnerService, telemetry types.TelemetryClient, errorLog types.ErrorLog, capRegistry types.CapabilitiesRegistry) (types.OCR3ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
 	if err != nil {

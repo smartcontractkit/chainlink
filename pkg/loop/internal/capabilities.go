@@ -17,6 +17,42 @@ import (
 	valuespb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 )
 
+type ActionCapabilityClient struct {
+	*callbackExecutableClient
+	*baseCapabilityClient
+}
+
+func NewActionCapabilityClient(brokerExt *BrokerExt, conn *grpc.ClientConn) capabilities.ActionCapability {
+	return &ActionCapabilityClient{
+		callbackExecutableClient: newCallbackExecutableClient(brokerExt, conn),
+		baseCapabilityClient:     newBaseCapabilityClient(brokerExt, conn),
+	}
+}
+
+type ConsensusCapabilityClient struct {
+	*callbackExecutableClient
+	*baseCapabilityClient
+}
+
+func NewConsensusCapabilityClient(brokerExt *BrokerExt, conn *grpc.ClientConn) capabilities.ConsensusCapability {
+	return &ConsensusCapabilityClient{
+		callbackExecutableClient: newCallbackExecutableClient(brokerExt, conn),
+		baseCapabilityClient:     newBaseCapabilityClient(brokerExt, conn),
+	}
+}
+
+type TargetCapabilityClient struct {
+	*callbackExecutableClient
+	*baseCapabilityClient
+}
+
+func NewTargetCapabilityClient(brokerExt *BrokerExt, conn *grpc.ClientConn) capabilities.TargetCapability {
+	return &TargetCapabilityClient{
+		callbackExecutableClient: newCallbackExecutableClient(brokerExt, conn),
+		baseCapabilityClient:     newBaseCapabilityClient(brokerExt, conn),
+	}
+}
+
 type TriggerCapabilityClient struct {
 	*triggerExecutableClient
 	*baseCapabilityClient

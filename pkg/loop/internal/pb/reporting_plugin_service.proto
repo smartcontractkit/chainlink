@@ -23,6 +23,7 @@ message NewReportingPluginFactoryRequest {
   uint32 pipelineRunnerID = 3;
   uint32 telemetryID = 4;
   ReportingPluginServiceConfig ReportingPluginServiceConfig = 5;
+  uint32 capRegistryID = 6;
 }
 
 // NewReportingPluginFactoryReply has return arguments for [github.com/smartcontractkit/chainlink-common/pkg/loop/reporting_plugins/LOOPPService.NewReportingPluginFactory].

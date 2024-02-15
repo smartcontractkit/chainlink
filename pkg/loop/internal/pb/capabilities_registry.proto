@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
+
+package loop;
+
+import "google/protobuf/empty.proto";
+
+service CapabilitiesRegistry {
+  rpc Get (GetRequest) returns (GetReply) {}
+  rpc GetTrigger (GetTriggerRequest) returns (GetTriggerReply) {}
+  rpc GetAction (GetActionRequest) returns (GetActionReply) {}
+  rpc GetConsensus (GetConsensusRequest) returns (GetConsensusReply) {}
+  rpc GetTarget (GetTargetRequest) returns (GetTargetReply) {}
+  rpc List (google.protobuf.Empty) returns (ListReply) {}
+  rpc Add (AddRequest) returns (google.protobuf.Empty) {}
+}
+
+enum ExecuteAPIType {
+  EXECUTE_API_TYPE_UNKNOWN = 0;
+  EXECUTE_API_TYPE_TRIGGER = 1;
+  EXECUTE_API_TYPE_CALLBACK = 2;
+}
+
+// Get has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.Get].
+message GetRequest {
+  string id = 1;
+}
+
+// GetReply has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.Get], expressed as a capabilityID (this is a GRPC connectionID internal to go-hashicorp-plugin) and type indicating client wrapper that we need to use on the client side.
+message GetReply {
+  uint32 capabilityID = 1;
+  ExecuteAPIType type = 2;
+}
+
+// GetTrigger has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.GetTrigger].
+message GetTriggerRequest {
+  string id = 1;
+}
+
+// GetTriggerReply has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.GetTrigger], expressed as a capabilityID (this is a GRPC connectionID internal to go-hashicorp-plugin).
+message GetTriggerReply {
+  uint32 capabilityID = 1;
+}
+
+// GetAction has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.GetAction].
+message GetActionRequest {
+  string id = 1;
+}
+
+// GetActionReply has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.GetTrigger], expressed as a capabilityID (this is a GRPC connectionID internal to go-hashicorp-plugin).
+message GetActionReply {
+  uint32 capabilityID = 1;
+}
+
+// GetConsensus has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.GetConsensus].
+message GetConsensusRequest {
+  string id = 1;
+}
+
+// GetConsensusReply has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.GetTrigger], expressed as a capabilityID (this is a GRPC connectionID internal to go-hashicorp-plugin).
+message GetConsensusReply {
+  uint32 capabilityID = 1;
+}
+
+// GetTarget has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.GetTarget].
+message GetTargetRequest {
+  string id = 1;
+}
+
+
+// ListReply has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.List], expressed as a capabilityID (this is a GRPC connectionID internal to go-hashicorp-plugin).
+message ListReply {
+  repeated uint32 capabilityID = 1;
+}
+
+// GetTargetReply has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.GetTrigger], expressed as a capabilityID (this is a GRPC connectionID internal to go-hashicorp-plugin).
+message GetTargetReply {
+  uint32 capabilityID = 1;
+}
+
+// Add has arguments for [github.com/smartcontractkit/chainlink-common/pkg/types.CapabilitiesRegistry.Add].
+message AddRequest {
+  uint32 capabilityID = 1;
+  ExecuteAPIType type = 2;
+}

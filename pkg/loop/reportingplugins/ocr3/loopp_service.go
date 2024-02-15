@@ -28,13 +28,14 @@ func NewLOOPPService(
 	pipelineRunner types.PipelineRunnerService,
 	telemetryService types.TelemetryService,
 	errorLog types.ErrorLog,
+	capRegistry types.CapabilitiesRegistry,
 ) *LOOPPService {
 	newService := func(ctx context.Context, instance any) (types.OCR3ReportingPluginFactory, error) {
 		plug, ok := instance.(types.OCR3ReportingPluginClient)
 		if !ok {
 			return nil, fmt.Errorf("expected OCR3ReportingPluginClient but got %T", instance)
 		}
-		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog)
+		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog, capRegistry)
 	}
 
 	stopCh := make(chan struct{})

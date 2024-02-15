@@ -42,7 +42,7 @@ func TestLOOPPService(t *testing.T) {
 	for _, ts := range tests {
 		looppSvc := NewLOOPPService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
 			return NewHelperProcessCommand(ts.Plugin)
-		}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
+		}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{}, types.CapabilitiesRegistry(nil))
 		hook := looppSvc.XXXTestHook()
 		servicetest.Run(t, looppSvc)
 
@@ -79,7 +79,7 @@ func TestLOOPPService_recovery(t *testing.T) {
 			Limit:   int(limit.Add(1)),
 		}
 		return h.New()
-	}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
+	}, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{}, types.CapabilitiesRegistry(nil))
 	servicetest.Run(t, looppSvc)
 
 	test.OCR3ReportingPluginFactory(t, looppSvc)

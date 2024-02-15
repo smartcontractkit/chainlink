@@ -31,11 +31,11 @@ type ReportingPluginServer[T PluginProvider] interface {
 }
 
 type OCR3ReportingPluginClient interface {
-	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryService, errorLog ErrorLog) (OCR3ReportingPluginFactory, error)
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, grpcProvider grpc.ClientConnInterface, pipelineRunner PipelineRunnerService, telemetry TelemetryService, errorLog ErrorLog, capRegistry CapabilitiesRegistry) (OCR3ReportingPluginFactory, error)
 }
 
 type OCR3ReportingPluginServer[T PluginProvider] interface {
-	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, provider T, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog) (OCR3ReportingPluginFactory, error)
+	NewReportingPluginFactory(ctx context.Context, config ReportingPluginServiceConfig, provider T, pipelineRunner PipelineRunnerService, telemetry TelemetryClient, errorLog ErrorLog, capRegistry CapabilitiesRegistry) (OCR3ReportingPluginFactory, error)
 }
 
 type ReportingPluginFactory interface {
