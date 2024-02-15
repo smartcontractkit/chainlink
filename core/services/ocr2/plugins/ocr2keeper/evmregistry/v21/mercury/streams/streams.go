@@ -257,11 +257,10 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 			// in case of retry timeout, setting retryable to false
 			checkResults[i].Retryable = false
 		}
-		errValues, eCodeErr := s.handleErrCode(&checkResults[i], errCode, err)
+		_, eCodeErr := s.handleErrCode(&checkResults[i], errCode, err)
 		if eCodeErr != nil {
 			return nil, eCodeErr
 		}
-		values = errValues // TODO: revisit this line once we have error handler
 		s.lggr.Debugf("at block %d upkeep %s requested time %s doMercuryRequest err: %s, errCode: %d", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error(), errCode)
 		return nil, err // TODO: remove this line once we have error handler
 	}
