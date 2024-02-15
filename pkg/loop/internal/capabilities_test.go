@@ -286,5 +286,4 @@ func Test_Capabilities(t *testing.T) {
 		_, isOpen := <-ch
 		assert.False(t, isOpen)
 	})
-
 }
