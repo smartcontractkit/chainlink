@@ -1010,6 +1010,9 @@ func LogRandomnessRequestedEvent(
 		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
 		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
 		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
+		Str("TX Hash", randomWordsRequestedEvent.Raw.TxHash.String()).
+		Uint64("BlockNumber", randomWordsRequestedEvent.Raw.BlockNumber).
+		Str("BlockHash", randomWordsRequestedEvent.Raw.BlockHash.String()).
 		Msg("RandomnessRequested Event")
 }
 
@@ -1024,6 +1027,8 @@ func LogRandomWordsFulfilledEvent(
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
 		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
 		Bool("Success", randomWordsFulfilledEvent.Success).
+		Uint64("BlockNumber", randomWordsFulfilledEvent.Raw.BlockNumber).
+		Str("BlockHash", randomWordsFulfilledEvent.Raw.BlockHash.String()).
 		Msg("RandomWordsFulfilled Event (TX metadata)")
 }
 

@@ -505,7 +505,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	flatFeeLinkDiscountPPM := deployCmd.Int64("flat-fee-link-discount-ppm", 100, "fulfillment flat fee discount for LINK payment denominated in native ppm")
 	nativePremiumPercentage := deployCmd.Int64("native-premium-percentage", 1, "premium percentage for native payment")
 	linkPremiumPercentage := deployCmd.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
-	gasLaneMaxGas := deployCmd.Int64("gas-lane-max-gas", 1e12, "gas lane max gas price")
+	provingKeyMaxGasPriceString := deployCmd.String("proving-key-max-gas-price", "1e12", "gas lane max gas price")
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
@@ -515,6 +515,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
 	subscriptionBalanceNativeWei := decimal.RequireFromString(*subscriptionBalanceNativeWeiString).BigInt()
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
+	provingKeyMaxGasPrice := decimal.RequireFromString(*provingKeyMaxGasPriceString).BigInt()
 
 	var vrfPrimaryNodeSendingKeys []string
 	if len(*vrfPrimaryNodeSendingKeysString) > 0 {
@@ -581,7 +582,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		contractAddresses,
 		coordinatorConfig,
 		nodesMap,
-		uint64(*gasLaneMaxGas),
+		provingKeyMaxGasPrice.Uint64(),
 		coordinatorJobSpecConfig,
 		bhsJobSpecConfig,
 	)
@@ -600,7 +601,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2Plus,
 	nodesMap map[string]model.Node,
-	gasLaneMaxGas uint64,
+	provingKeyMaxGasPrice uint64,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
 	bhsJobSpecConfig model.BHSJobSpecConfig,
 ) model.JobSpecs {
@@ -687,7 +688,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, gasLaneMaxGas)
+		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, provingKeyMaxGasPrice)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		registerdKeyHash, err2 := coordinator.SProvingKeyHashes(nil, big.NewInt(0))
@@ -822,7 +823,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		"\nVRF Subscription LINK Balance:", *subscriptionBalanceJuels,
 		"\nVRF Subscription Native Balance:", *subscriptionBalanceNativeWei,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --native-payment-enabled true --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
+		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --native-payment-enabled=true --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
 		"\nRetrieve Request Status: ",
 		fmt.Sprintf("go run . eoa-load-test-read-metrics --consumer-address=%s", consumerAddress),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",

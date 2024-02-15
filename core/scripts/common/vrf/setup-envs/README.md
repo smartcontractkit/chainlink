@@ -84,6 +84,11 @@ go run . \
 --poll-period="5s" \
 --request-timeout="30m0s" \
 --min-confs=3 \
+--proving-key-max-gas-price="1e12" \
+--flat-fee-native-ppm=500 \
+--flat-fee-link-discount-ppm=100 \
+--native-premium-percentage=1 \
+--link-premium-percentage=1 \
 --bhs-job-wait-blocks=30 \
 --bhs-job-look-back-blocks=200 \
 --bhs-job-poll-period="1s" \

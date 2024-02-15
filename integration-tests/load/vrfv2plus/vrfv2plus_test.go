@@ -326,11 +326,16 @@ func teardown(
 	//set report data for Slack notification
 	testReporter.SetReportData(
 		testType,
-		metrics.RequestCount,
-		metrics.FulfilmentCount,
-		metrics.AverageFulfillmentInMillions,
-		metrics.SlowestFulfillment,
-		metrics.FastestFulfillment,
+		testreporters.VRFLoadTestMetrics{
+			RequestCount:                         metrics.RequestCount,
+			FulfilmentCount:                      metrics.FulfilmentCount,
+			AverageFulfillmentInMillions:         metrics.AverageFulfillmentInMillions,
+			SlowestFulfillment:                   metrics.SlowestFulfillment,
+			FastestFulfillment:                   metrics.FastestFulfillment,
+			AverageResponseTimeInSecondsMillions: metrics.AverageResponseTimeInSecondsMillions,
+			SlowestResponseTimeInSeconds:         metrics.SlowestResponseTimeInSeconds,
+			FastestResponseTimeInSeconds:         metrics.FastestResponseTimeInSeconds,
+		},
 		testConfig,
 	)
 
