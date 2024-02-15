@@ -51,6 +51,8 @@ flowchart LR
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr
+  chainlink-data-streams --> chain-selectors
+  click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
   chainlink-data-streams --> chainlink-common
   chainlink-data-streams --> libocr
   chainlink-feeds --> chainlink-common
