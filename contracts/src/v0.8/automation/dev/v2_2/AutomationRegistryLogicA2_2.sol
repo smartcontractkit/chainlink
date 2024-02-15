@@ -26,11 +26,11 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     AutomationRegistryLogicB2_2 logicB
   )
     AutomationRegistryBase2_2(
-      logicB.getMode(),
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
       logicB.getFastGasFeedAddress(),
-      logicB.getAutomationForwarderLogic()
+      logicB.getAutomationForwarderLogic(),
+      logicB.getAllowedReadOnlyAddress()
     )
     Chainable(address(logicB))
   {}
@@ -49,7 +49,6 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes memory triggerData
   )
     public
-    cannotExecute
     returns (
       bool upkeepNeeded,
       bytes memory performData,
@@ -60,6 +59,8 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       uint256 linkNative
     )
   {
+    _preventExecution();
+
     Trigger triggerType = _getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
@@ -172,7 +173,6 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes calldata extraData
   )
     external
-    cannotExecute
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
     bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
@@ -190,9 +190,10 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bytes memory payload
   )
     public
-    cannotExecute
     returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
   {
+    _preventExecution();
+
     Upkeep memory upkeep = s_upkeep[id];
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
@@ -285,10 +286,10 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bool canceled = upkeep.maxValidBlocknumber != UINT32_MAX;
     bool isOwner = msg.sender == owner();
 
-    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > _blockNum())) revert CannotCancel();
+    uint256 height = s_hotVars.chainModule.blockNumber();
+    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > height)) revert CannotCancel();
     if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
-    uint256 height = _blockNum();
     if (!isOwner) {
       height = height + CANCELLATION_DELAY;
     }

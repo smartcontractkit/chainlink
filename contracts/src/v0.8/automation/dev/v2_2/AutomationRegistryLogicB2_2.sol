@@ -6,6 +6,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
+import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   using Address for address;
@@ -16,12 +17,12 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    * @dev see AutomationRegistry master contract for constructor description
    */
   constructor(
-    Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
-    address automationForwarderLogic
-  ) AutomationRegistryBase2_2(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic) {}
+    address automationForwarderLogic,
+    address allowedReadOnlyAddress
+  ) AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -116,7 +117,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     Upkeep memory upkeep = s_upkeep[id];
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber > _blockNum()) revert UpkeepNotCanceled();
+    if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
     s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
     s_upkeep[id].balance = 0;
@@ -169,6 +170,14 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   // ================================================================
   // |                   OWNER / MANAGER ACTIONS                    |
   // ================================================================
+
+  /**
+   * @notice sets the chain specific module
+   */
+  function setChainSpecificModule(IChainModule newModule) external onlyOwner {
+    s_hotVars.chainModule = newModule;
+    emit ChainSpecificModuleUpdated(address(newModule));
+  }
 
   /**
    * @notice sets the privilege config for an upkeep
@@ -280,10 +289,6 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     return CANCELLATION_DELAY;
   }
 
-  function getMode() external view returns (Mode) {
-    return i_mode;
-  }
-
   function getLinkAddress() external view returns (address) {
     return address(i_link);
   }
@@ -298,6 +303,10 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
 
   function getAutomationForwarderLogic() external view returns (address) {
     return i_automationForwarderLogic;
+  }
+
+  function getAllowedReadOnlyAddress() external view returns (address) {
+    return i_allowedReadOnlyAddress;
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
@@ -397,13 +406,14 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
 
   /**
    * @notice read the current state of the registry
+   * @dev this function is deprecated
    */
   function getState()
     external
     view
     returns (
       State memory state,
-      OnchainConfig memory config,
+      OnchainConfigLegacy memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f
@@ -422,7 +432,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       paused: s_hotVars.paused
     });
 
-    config = OnchainConfig({
+    config = OnchainConfigLegacy({
       paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
       flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
       checkGasLimit: s_storage.checkGasLimit,
@@ -437,11 +447,24 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
-      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
-      reorgProtectionEnabled: s_hotVars.reorgProtectionEnabled
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
+  }
+
+  /**
+   * @notice get the chain module
+   */
+  function getChainModule() external view returns (IChainModule chainModule) {
+    return s_hotVars.chainModule;
+  }
+
+  /**
+   * @notice if this registry has reorg protection enabled
+   */
+  function getReorgProtectionEnabled() external view returns (bool reorgProtectionEnabled) {
+    return s_hotVars.reorgProtectionEnabled;
   }
 
   /**

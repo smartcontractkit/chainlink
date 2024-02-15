@@ -4,7 +4,7 @@ chainlink_node_funding = 0.1
 
 [VRFv2Plus]
 [VRFv2Plus.General]
-max_gas_price_gwei = 10
+cl_node_max_gas_price_gwei = 10
 link_native_feed_response = 1000000000000000000
 minimum_confirmations = 3
 subscription_billing_type = "LINK_AND_NATIVE"
@@ -37,6 +37,23 @@ wrapper_consumer_funding_amount_link = 10
 subscription_funding_amount_native=1
 fulfillment_flat_fee_link_ppm=500
 fulfillment_flat_fee_native_ppm=500
+fulfillment_flat_fee_link_discount_ppm=100
+native_premium_percentage=1
+link_premium_percentage=1
+
+# VRF Job config
+vrf_job_forwarding_allowed = false
+vrf_job_estimate_gas_multiplier = 1.0
+vrf_job_batch_fulfillment_enabled = false
+vrf_job_batch_fulfillment_gas_multiplier = 1.15
+vrf_job_poll_period = "1s"
+vrf_job_request_timeout = "24h"
+
+# BHS Job config
+bhs_job_wait_blocks = 30
+bhs_job_lookback_blocks = 250
+bhs_job_poll_period = "1s"
+bhs_job_run_timeout = "24h"
 
 # load test specific config
 [Load.VRFv2Plus]

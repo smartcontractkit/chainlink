@@ -147,11 +147,10 @@ func getContractName(fileNode *ast.File) string {
 				if len(n.Name) < 3 {
 					return true
 				}
-				if n.Name[len(n.Name)-3:] == "ABI" {
-					contractName = n.Name[:len(n.Name)-3]
-				} else {
+				if n.Name[len(n.Name)-3:] != "ABI" {
 					return true
 				}
+				contractName = n.Name[:len(n.Name)-3]
 			}
 		}
 		return false

@@ -210,6 +210,7 @@ type MockGasFeed interface {
 
 type BlockHashStore interface {
 	Address() string
+	GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error)
 }
 
 type Staking interface {
@@ -386,6 +387,7 @@ type MercuryVerifierProxy interface {
 
 type MercuryFeeManager interface {
 	Address() common.Address
+	UpdateSubscriberDiscount(subscriber common.Address, feedId [32]byte, token common.Address, discount uint64) (*types.Transaction, error)
 }
 
 type MercuryRewardManager interface {

@@ -38,10 +38,11 @@ jobs:
     steps:      
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: ${{ inputs.network }} VRFV2 Plus Performance Test
         continue-on-error: true
       - name: Checkout code
@@ -67,7 +68,7 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY                
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
         with:
           test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 24h -run TestVRFV2PlusPerformance/vrfv2plus_performance_test ./load/vrfv2plus
           test_download_vendor_packages_command: cd ./integration-tests && go mod download

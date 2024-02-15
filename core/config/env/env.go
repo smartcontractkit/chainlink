@@ -25,6 +25,7 @@ var (
 // LOOPP commands and vars
 var (
 	MedianPlugin   = NewPlugin("median")
+	MercuryPlugin  = NewPlugin("mercury")
 	SolanaPlugin   = NewPlugin("solana")
 	StarknetPlugin = NewPlugin("starknet")
 	// PrometheusDiscoveryHostName is the externally accessible hostname

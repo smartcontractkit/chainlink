@@ -3,10 +3,6 @@ pragma solidity 0.8.19;
 
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import {ExecutionPrevention} from "../../ExecutionPrevention.sol";
-import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {StreamsLookupCompatibleInterface} from "../../interfaces/StreamsLookupCompatibleInterface.sol";
 import {ILogAutomation, Log} from "../../interfaces/ILogAutomation.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
@@ -15,13 +11,14 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
+import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
  * AutomationRegistry and AutomationRegistryLogic
  * @dev all errors, events, and internal functions should live here
  */
-abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPrevention {
+abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -47,28 +44,21 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    */
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
   uint8 internal constant UPKEEP_VERSION_BASE = 3;
-  // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
-  bytes internal constant L1_FEE_DATA_PADDING =
-    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_400; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 27_500; // Used in actual payment. Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_100; // Used in actual payment. Fixed overhead per tx
   uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_000; // Used in actual payment. overhead per upkeep performed
-
-  OVM_GasPriceOracle internal constant OPTIMISM_ORACLE = OVM_GasPriceOracle(0x420000000000000000000000000000000000000F);
-  ArbGasInfo internal constant ARB_NITRO_ORACLE = ArbGasInfo(0x000000000000000000000000000000000000006C);
-  ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_200; // Used in actual payment. overhead per upkeep performed
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
-  Mode internal immutable i_mode;
   address internal immutable i_automationForwarderLogic;
+  address internal immutable i_allowedReadOnlyAddress;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -138,6 +128,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
   error OnlyPausedUpkeep();
+  error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
   error PaymentGreaterThanAllLINK();
@@ -161,12 +152,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     BIDIRECTIONAL
   }
 
-  enum Mode {
-    DEFAULT,
-    ARBITRUM,
-    OPTIMISM
-  }
-
   enum Trigger {
     CONDITION,
     LOG
@@ -186,7 +171,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   }
 
   /**
-   * @notice OnchainConfig of the registry
+   * @notice OnchainConfigLegacy of the registry
    * @dev only used in params and return values
    * @member paymentPremiumPPB payment premium rate oracles receive on top of
    * being reimbursed for gas, measured in parts per billion
@@ -208,6 +193,51 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    * @member transcoder address of the transcoder contract
    * @member registrars addresses of the registrar contracts
    * @member upkeepPrivilegeManager address which can set privilege for upkeeps
+   */
+  struct OnchainConfigLegacy {
+    uint32 paymentPremiumPPB;
+    uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
+    uint32 checkGasLimit;
+    uint24 stalenessSeconds;
+    uint16 gasCeilingMultiplier;
+    uint96 minUpkeepSpend;
+    uint32 maxPerformGas;
+    uint32 maxCheckDataSize;
+    uint32 maxPerformDataSize;
+    uint32 maxRevertDataSize;
+    uint256 fallbackGasPrice;
+    uint256 fallbackLinkPrice;
+    address transcoder;
+    address[] registrars;
+    address upkeepPrivilegeManager;
+  }
+
+  /**
+   * @notice OnchainConfig of the registry
+   * @dev used only in setConfig()
+   * @member paymentPremiumPPB payment premium rate oracles receive on top of
+   * being reimbursed for gas, measured in parts per billion
+   * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
+   * priced in MicroLink; can be used in conjunction with or independently of
+   * paymentPremiumPPB
+   * @member checkGasLimit gas limit when checking for upkeep
+   * @member stalenessSeconds number of seconds that is allowed for feed data to
+   * be stale before switching to the fallback pricing
+   * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
+   * when calculating the payment ceiling for keepers
+   * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
+   * @member maxPerformGas max performGas allowed for an upkeep on this registry
+   * @member maxCheckDataSize max length of checkData bytes
+   * @member maxPerformDataSize max length of performData bytes
+   * @member maxRevertDataSize max length of revertData bytes
+   * @member fallbackGasPrice gas price used if the gas price feed is stale
+   * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
+   * @member transcoder address of the transcoder contract
+   * @member registrars addresses of the registrar contracts
+   * @member upkeepPrivilegeManager address which can set privilege for upkeeps
+   * @member reorgProtectionEnabled if this registry enables re-org protection checks
+   * @member chainSpecificModule the chain specific module
+   * @member chainModule the chain specific module
    * @member reorgProtectionEnabled if this registry will enable re-org protection checks
    */
   struct OnchainConfig {
@@ -226,6 +256,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     address transcoder;
     address[] registrars;
     address upkeepPrivilegeManager;
+    IChainModule chainModule;
     bool reorgProtectionEnabled;
   }
 
@@ -319,6 +350,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     bool paused; //                  │ pause switch for all upkeeps in the registry
     bool reentrancyGuard; // ────────╯ guard against reentrancy
     bool reorgProtectionEnabled; //    if this registry should enable re-org protection mechanism
+    IChainModule chainModule; //       the interface of chain specific module
   }
 
   /// @dev Config + State storage struct which is not on hot transmit path
@@ -409,6 +441,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event ChainSpecificModuleUpdated(address newModule);
   event DedupKeyAdded(bytes32 indexed dedupKey);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
@@ -445,23 +478,24 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   event Unpaused(address account);
 
   /**
-   * @param mode the contract mode of default, Arbitrum, or Optimism
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
+   * @param automationForwarderLogic the address of automation forwarder logic
+   * @param allowedReadOnlyAddress the address of the allowed read only address
    */
   constructor(
-    Mode mode,
     address link,
     address linkNativeFeed,
     address fastGasFeed,
-    address automationForwarderLogic
+    address automationForwarderLogic,
+    address allowedReadOnlyAddress
   ) ConfirmedOwner(msg.sender) {
-    i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
+    i_allowedReadOnlyAddress = allowedReadOnlyAddress;
   }
 
   // ================================================================
@@ -513,8 +547,9 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    */
   function _createID(Trigger triggerType) internal view returns (uint256) {
     bytes1 empty;
+    IChainModule chainModule = s_hotVars.chainModule;
     bytes memory idBytes = abi.encodePacked(
-      keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce))
+      keccak256(abi.encode(chainModule.blockHash((chainModule.blockNumber() - 1)), address(this), s_storage.nonce))
     );
     for (uint256 idx = 4; idx < 15; idx++) {
       idBytes[idx] = empty;
@@ -578,30 +613,11 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     }
 
     uint256 l1CostWei = 0;
-    if (i_mode == Mode.OPTIMISM) {
-      bytes memory txCallData = new bytes(0);
-      if (isExecution) {
-        txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
-      } else {
-        // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
-        // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
-        // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
-        txCallData = new bytes(4 * s_storage.maxPerformDataSize);
-      }
-      l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
-    } else if (i_mode == Mode.ARBITRUM) {
-      if (isExecution) {
-        l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
-      } else {
-        // fee is 4 per 0 byte, 16 per non-zero byte - we assume all non-zero and
-        // max data size to calculate max payment
-        (, uint256 perL1CalldataUnit, , , , ) = ARB_NITRO_ORACLE.getPricesInWei();
-        l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
-      }
-    }
-    // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
-    if (!isExecution) {
-      l1CostWei = hotVars.gasCeilingMultiplier * l1CostWei;
+    if (isExecution) {
+      l1CostWei = hotVars.chainModule.getCurrentL1Fee();
+    } else {
+      // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
+      l1CostWei = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize);
     }
     // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
     l1CostWei = l1CostWei / numBatchedUpkeeps;
@@ -734,21 +750,23 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    */
   function _prePerformChecks(
     uint256 upkeepId,
+    uint256 blocknumber,
     bytes memory rawTrigger,
     UpkeepTransmitInfo memory transmitInfo,
     HotVars memory hotVars
   ) internal returns (bool, bytes32) {
     bytes32 dedupID;
     if (transmitInfo.triggerType == Trigger.CONDITION) {
-      if (!_validateConditionalTrigger(upkeepId, rawTrigger, transmitInfo, hotVars)) return (false, dedupID);
+      if (!_validateConditionalTrigger(upkeepId, blocknumber, rawTrigger, transmitInfo, hotVars))
+        return (false, dedupID);
     } else if (transmitInfo.triggerType == Trigger.LOG) {
       bool valid;
-      (valid, dedupID) = _validateLogTrigger(upkeepId, rawTrigger, hotVars);
+      (valid, dedupID) = _validateLogTrigger(upkeepId, blocknumber, rawTrigger, hotVars);
       if (!valid) return (false, dedupID);
     } else {
       revert InvalidTriggerType();
     }
-    if (transmitInfo.upkeep.maxValidBlocknumber <= _blockNum()) {
+    if (transmitInfo.upkeep.maxValidBlocknumber <= blocknumber) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
       emit CancelledUpkeepReport(upkeepId, rawTrigger);
@@ -767,6 +785,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    */
   function _validateConditionalTrigger(
     uint256 upkeepId,
+    uint256 blocknumber,
     bytes memory rawTrigger,
     UpkeepTransmitInfo memory transmitInfo,
     HotVars memory hotVars
@@ -779,8 +798,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     }
     if (
       (hotVars.reorgProtectionEnabled &&
-        (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
-      trigger.blockNum >= _blockNum()
+        (trigger.blockHash != bytes32("") && hotVars.chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
+      trigger.blockNum >= blocknumber
     ) {
       // There are two cases of reorged report
       // 1. trigger block number is in future: this is an edge case during extreme deep reorgs of chain
@@ -796,6 +815,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
 
   function _validateLogTrigger(
     uint256 upkeepId,
+    uint256 blocknumber,
     bytes memory rawTrigger,
     HotVars memory hotVars
   ) internal returns (bool, bytes32) {
@@ -803,8 +823,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (
       (hotVars.reorgProtectionEnabled &&
-        (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash)) ||
-      trigger.blockNum >= _blockNum()
+        (trigger.blockHash != bytes32("") && hotVars.chainModule.blockHash(trigger.blockNum) != trigger.blockHash)) ||
+      trigger.blockNum >= blocknumber
     ) {
       // Reorg protection is same as conditional trigger upkeeps
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);
@@ -849,9 +869,13 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
    * @dev updates a storage marker for this upkeep to prevent duplicate and out of order performances
    * @dev for conditional triggers we set the latest block number, for log triggers we store a dedupID
    */
-  function _updateTriggerMarker(uint256 upkeepID, UpkeepTransmitInfo memory upkeepTransmitInfo) internal {
+  function _updateTriggerMarker(
+    uint256 upkeepID,
+    uint256 blocknumber,
+    UpkeepTransmitInfo memory upkeepTransmitInfo
+  ) internal {
     if (upkeepTransmitInfo.triggerType == Trigger.CONDITION) {
-      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(_blockNum());
+      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(blocknumber);
     } else if (upkeepTransmitInfo.triggerType == Trigger.LOG) {
       s_dedupKeys[upkeepTransmitInfo.dedupID] = true;
       emit DedupKeyAdded(upkeepTransmitInfo.dedupID);
@@ -926,34 +950,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
   }
 
   /**
-   * @dev returns the current block number in a chain agnostic manner
-   */
-  function _blockNum() internal view returns (uint256) {
-    if (i_mode == Mode.ARBITRUM) {
-      return ARB_SYS.arbBlockNumber();
-    } else {
-      return block.number;
-    }
-  }
-
-  /**
-   * @dev returns the blockhash of the provided block number in a chain agnostic manner
-   * @param n the blocknumber to retrieve the blockhash for
-   * @return blockhash the blockhash of block number n, or 0 if n is out queryable of range
-   */
-  function _blockHash(uint256 n) internal view returns (bytes32) {
-    if (i_mode == Mode.ARBITRUM) {
-      uint256 blockNum = ARB_SYS.arbBlockNumber();
-      if (n >= blockNum || blockNum - n > 256) {
-        return "";
-      }
-      return ARB_SYS.arbBlockHash(n);
-    } else {
-      return blockhash(n);
-    }
-  }
-
-  /**
    * @dev replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
    */
   modifier nonReentrant() {
@@ -961,5 +957,14 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner, ExecutionPreventi
     s_hotVars.reentrancyGuard = true;
     _;
     s_hotVars.reentrancyGuard = false;
+  }
+
+  /**
+   * @notice only allows a pre-configured address to initiate offchain read
+   */
+  function _preventExecution() internal view {
+    if (tx.origin != i_allowedReadOnlyAddress) {
+      revert OnlySimulatedBackend();
+    }
   }
 }
