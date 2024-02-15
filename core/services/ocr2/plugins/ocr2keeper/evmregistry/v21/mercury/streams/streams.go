@@ -257,22 +257,46 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 			// in case of retry timeout, setting retryable to false
 			checkResults[i].Retryable = false
 		}
-		upkeepType := core.GetUpkeepType(checkResults[i].UpkeepID)
-		switch upkeepType {
-		case types.LogTrigger:
-			if retryTimeout && errCode > encoding.ErrCodeNil {
-				s.lggr.Debugf("at block %d upkeep %s requested time %s doMercuryRequest err: %s, errCode: %d", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error(), errCode)
-				// TODO: prepare for error handler, make sure to pass errCode
-			}
-		default:
+		errValues, eCodeErr := s.handleErrCode(&checkResults[i], errCode, err)
+		if eCodeErr != nil {
+			return nil, eCodeErr
 		}
-		return nil, err
+		values = errValues // TODO: revisit this line once we have error handler
+		s.lggr.Debugf("at block %d upkeep %s requested time %s doMercuryRequest err: %s, errCode: %d", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error(), errCode)
+		return nil, err // TODO: remove this line once we have error handler
 	}
 
 	for j, v := range values {
 		s.lggr.Infof("at block %d upkeep %s requested time %s doMercuryRequest values[%d]: %s", lookup.Block, lookup.UpkeepId, lookup.Time, j, hexutil.Encode(v))
 	}
 	return values, nil
+}
+
+// TODO: complete this function for preparing values for error handler
+func (s *streams) handleErrCode(result *ocr2keepers.CheckResult, errCode encoding.ErrCode, err error) ([][]byte, error) {
+	upkeepType := core.GetUpkeepType(result.UpkeepID)
+	switch upkeepType {
+	case types.LogTrigger:
+		switch errCode {
+		case encoding.ErrCodePartialContent, encoding.ErrCodeDataStreamsError:
+			if result.RetryInterval != mercury.RetryIntervalTimeout {
+				return nil, err
+			}
+		case encoding.ErrCodeBadRequest, encoding.ErrCodeUnauthorized, encoding.ErrCodeEncodingError:
+		default:
+			return nil, err
+		}
+	case types.ConditionTrigger:
+		// switch errCode {
+		// case encoding.ErrCodePartialContent, encoding.ErrCodeDataStreamsError, encoding.ErrCodeBadRequest, encoding.ErrCodeUnauthorized, encoding.ErrCodeEncodingError:
+		// default:
+		// 	return nil, err // TODO: encomment this line once we have error handler
+		// }
+	default:
+		return nil, err
+	}
+	// TODO: prepare values for error handler
+	return [][]byte{}, nil
 }
 
 // AllowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
