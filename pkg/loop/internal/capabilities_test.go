@@ -104,6 +104,7 @@ func newCapabilityPlugin(t *testing.T, capability capabilities.BaseCapability) (
 
 	client, _ := plugin.TestPluginGRPCConn(
 		t,
+		false,
 		map[string]plugin.Plugin{
 			pluginName: &capabilityPlugin{
 				brokerCfg: BrokerConfig{
