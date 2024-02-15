@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
@@ -237,13 +238,13 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 }
 
 func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) ([][]byte, error) {
-	state, reason, values, retryable, retryInterval, err := encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0*time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", lookup.FeedParamKey, lookup.TimeParamKey, lookup.Feeds)
+	state, reason, values, retryable, retryInterval, errCode, err := encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0*time.Second, encoding.ErrCodeNil, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", lookup.FeedParamKey, lookup.TimeParamKey, lookup.Feeds)
 	pluginRetryKey := generatePluginRetryKey(checkResults[i].WorkID, lookup.Block)
 
 	if lookup.IsMercuryV02() {
-		state, reason, values, retryable, retryInterval, err = s.v02Client.DoRequest(ctx, lookup, pluginRetryKey)
+		state, reason, values, retryable, retryInterval, errCode, err = s.v02Client.DoRequest(ctx, lookup, pluginRetryKey)
 	} else if lookup.IsMercuryV03() {
-		state, reason, values, retryable, retryInterval, err = s.v03Client.DoRequest(ctx, lookup, pluginRetryKey)
+		state, reason, values, retryable, retryInterval, errCode, err = s.v03Client.DoRequest(ctx, lookup, pluginRetryKey)
 	}
 
 	if err != nil {
@@ -251,13 +252,50 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 		checkResults[i].RetryInterval = retryInterval
 		checkResults[i].PipelineExecutionState = uint8(state)
 		checkResults[i].IneligibilityReason = uint8(reason)
-		return nil, err
+		retryTimeout := retryInterval == mercury.RetryIntervalTimeout
+		if retryTimeout {
+			// in case of retry timeout, setting retryable to false
+			checkResults[i].Retryable = false
+		}
+		_, eCodeErr := s.handleErrCode(&checkResults[i], errCode, err)
+		if eCodeErr != nil {
+			return nil, eCodeErr
+		}
+		s.lggr.Debugf("at block %d upkeep %s requested time %s doMercuryRequest err: %s, errCode: %d", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error(), errCode)
+		return nil, err // TODO: remove this line once we have error handler
 	}
 
 	for j, v := range values {
 		s.lggr.Infof("at block %d upkeep %s requested time %s doMercuryRequest values[%d]: %s", lookup.Block, lookup.UpkeepId, lookup.Time, j, hexutil.Encode(v))
 	}
 	return values, nil
+}
+
+// TODO: complete this function for preparing values for error handler
+func (s *streams) handleErrCode(result *ocr2keepers.CheckResult, errCode encoding.ErrCode, err error) ([][]byte, error) {
+	upkeepType := core.GetUpkeepType(result.UpkeepID)
+	switch upkeepType {
+	case types.LogTrigger:
+		switch errCode {
+		case encoding.ErrCodePartialContent, encoding.ErrCodeDataStreamsError:
+			if result.RetryInterval != mercury.RetryIntervalTimeout {
+				return nil, err
+			}
+		case encoding.ErrCodeBadRequest, encoding.ErrCodeUnauthorized, encoding.ErrCodeEncodingError:
+		default:
+			return nil, err
+		}
+	case types.ConditionTrigger:
+		// switch errCode {
+		// case encoding.ErrCodePartialContent, encoding.ErrCodeDataStreamsError, encoding.ErrCodeBadRequest, encoding.ErrCodeUnauthorized, encoding.ErrCodeEncodingError:
+		// default:
+		// 	return nil, err // TODO: encomment this line once we have error handler
+		// }
+	default:
+		return nil, err
+	}
+	// TODO: prepare values for error handler
+	return [][]byte{}, nil
 }
 
 // AllowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if

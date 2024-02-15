@@ -5,12 +5,15 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 )
 
@@ -239,4 +242,78 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 			assert.Equal(t, test.State, state)
 		})
 	}
+}
+
+func Test_CalculateRetryConfigFn(t *testing.T) {
+	tests := []struct {
+		name     string
+		times    int
+		expected time.Duration
+	}{
+		{
+			name:     "first retry",
+			times:    1,
+			expected: 1 * time.Second,
+		},
+		{
+			name:     "second retry",
+			times:    2,
+			expected: 1 * time.Second,
+		},
+		{
+			name:     "fifth retry",
+			times:    5,
+			expected: 1 * time.Second,
+		},
+		{
+			name:     "sixth retry",
+			times:    6,
+			expected: 5 * time.Second,
+		},
+		{
+			name:     "timeout",
+			times:    totalMediumPluginRetries + 1,
+			expected: RetryIntervalTimeout,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := newMercuryConfigMock()
+			var result time.Duration
+			for i := 0; i < tc.times; i++ {
+				result = CalculateRetryConfigFn("prk", cfg)
+			}
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+type mercuryConfigMock struct {
+	pluginRetryCache *cache.Cache
+}
+
+func newMercuryConfigMock() *mercuryConfigMock {
+	return &mercuryConfigMock{
+		pluginRetryCache: cache.New(10*time.Second, time.Minute),
+	}
+}
+
+func (c *mercuryConfigMock) Credentials() *types.MercuryCredentials {
+	return nil
+}
+
+func (c *mercuryConfigMock) IsUpkeepAllowed(k string) (interface{}, bool) {
+	return nil, false
+}
+
+func (c *mercuryConfigMock) SetUpkeepAllowed(k string, v interface{}, d time.Duration) {
+}
+
+func (c *mercuryConfigMock) GetPluginRetry(k string) (interface{}, bool) {
+	return c.pluginRetryCache.Get(k)
+}
+
+func (c *mercuryConfigMock) SetPluginRetry(k string, v interface{}, d time.Duration) {
+	c.pluginRetryCache.Set(k, v, d)
 }

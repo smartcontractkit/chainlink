@@ -26,7 +26,8 @@ const (
 	BlockNumber              = "blockNumber" // valid for v0.2
 	Timestamp                = "timestamp"   // valid for v0.3
 	totalFastPluginRetries   = 5
-	totalMediumPluginRetries = 10
+	totalMediumPluginRetries = totalFastPluginRetries + 1
+	RetryIntervalTimeout     = time.Duration(-1)
 )
 
 var GenerateHMACFn = func(method string, path string, body []byte, clientId string, secret string, ts int64) string {
@@ -45,8 +46,7 @@ var GenerateHMACFn = func(method string, path string, body []byte, clientId stri
 }
 
 // CalculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
-var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvider) time.Duration {
-	var retryInterval time.Duration
+var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
 	var retries int
 	totalAttempts, ok := mercuryConfig.GetPluginRetry(prk)
 	if ok {
@@ -55,9 +55,9 @@ var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvide
 			retryInterval = 1 * time.Second
 		} else if retries < totalMediumPluginRetries {
 			retryInterval = 5 * time.Second
+		} else {
+			retryInterval = RetryIntervalTimeout
 		}
-		// if the core node has retried totalMediumPluginRetries times, do not set retry interval and plugin will use
-		// the default interval
 	} else {
 		retryInterval = 1 * time.Second
 	}
@@ -68,6 +68,7 @@ var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvide
 type MercuryData struct {
 	Index     int
 	Error     error
+	ErrCode   encoding.ErrCode
 	Retryable bool
 	Bytes     [][]byte
 	State     encoding.PipelineExecutionState
@@ -86,7 +87,17 @@ type HttpClient interface {
 }
 
 type MercuryClient interface {
-	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, error)
+	// DoRequest makes a data stream request, it manages retries and returns the following:
+	// state: the state of the pipeline execution, used by our components.
+	// upkeepFailureReason: the reason for the upkeep failure, used by our components.
+	// data: the data returned from the data stream.
+	// retryable: whether the request is retryable.
+	// retryInterval: the interval to wait before retrying the request, or RetryIntervalTimeout if no more retries are allowed.
+	// errCode: the error code of the request, to be passed to the user's error handler if applicable.
+	// error: the raw error that occurred during the request.
+	//
+	// Exploratory: consider to merge state/failureReason/errCode into a single object
+	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, encoding.ErrCode, error)
 }
 
 type StreamsLookupError struct {

@@ -109,6 +109,7 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 		expectedValues        [][]byte
 		expectedRetryable     bool
 		expectedRetryInterval time.Duration
+		expectedErrCode       encoding.ErrCode
 		expectedError         error
 		state                 encoding.PipelineExecutionState
 		reason                encoding.UpkeepFailureReason
@@ -163,13 +164,14 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 			}
 			c.httpClient = hc
 
-			state, reason, values, retryable, retryInterval, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, tt.pluginRetryKey)
+			state, reason, values, retryable, retryInterval, errCode, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, tt.pluginRetryKey)
 
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
 			assert.Equal(t, tt.expectedRetryInterval, retryInterval)
 			assert.Equal(t, tt.state, state)
 			assert.Equal(t, tt.reason, reason)
+			assert.Equal(t, tt.expectedErrCode, errCode)
 			if tt.expectedError != nil {
 				assert.Equal(t, tt.expectedError.Error(), reqErr.Error())
 			}
