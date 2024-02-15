@@ -130,6 +130,10 @@ func (c *chainClient) CallContract(ctx context.Context, msg ethereum.CallMsg, bl
 	return c.multiNode.CallContract(ctx, msg, blockNumber)
 }
 
+func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	return c.multiNode.PendingCallContract(ctx, msg)
+}
+
 // TODO-1663: change this to actual ChainID() call once client.go is deprecated.
 func (c *chainClient) ChainID() (*big.Int, error) {
 	//return c.multiNode.ChainID(ctx), nil
