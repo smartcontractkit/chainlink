@@ -16,7 +16,7 @@ contract ScrollModule is ChainModuleBase {
   IScrollL1GasPriceOracle private constant SCROLL_ORACLE = IScrollL1GasPriceOracle(SCROLL_ORACLE_ADDR);
 
   function getCurrentL1Fee() external view override returns (uint256) {
-    // TODO: Verify this is accruate calcualtion with appropriate padding
+    // TODO: Verify this is accurate calculation with appropriate padding
     return SCROLL_ORACLE.getL1Fee(bytes.concat(msg.data, SCROLL_L1_FEE_DATA_PADDING));
   }
 

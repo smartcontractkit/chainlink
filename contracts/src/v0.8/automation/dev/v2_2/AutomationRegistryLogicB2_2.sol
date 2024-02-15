@@ -172,15 +172,6 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   // ================================================================
 
   /**
-   * @notice sets the chain specific module
-   */
-  // TODO: this can be cleaned up since it can be set in setConfig
-  function setChainSpecificModule(IChainModule newModule) external onlyOwner {
-    s_hotVars.chainModule = newModule;
-    emit ChainSpecificModuleUpdated(address(newModule));
-  }
-
-  /**
    * @notice sets the privilege config for an upkeep
    */
   function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {

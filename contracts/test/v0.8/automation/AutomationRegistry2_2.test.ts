@@ -41,7 +41,6 @@ import { IChainModule, UpkeepAutoFunder } from '../../../typechain'
 import {
   CancelledUpkeepReportEvent,
   IAutomationRegistryMaster as IAutomationRegistry,
-  // InsufficientFundsUpkeepReportEvent,
   ReorgedUpkeepReportEvent,
   StaleUpkeepReportEvent,
   UpkeepPerformedEvent,
@@ -2158,6 +2157,14 @@ describe('AutomationRegistry2_2', () => {
                 }),
               )
 
+              // cancel upkeeps so they will fail in the transmit process
+              // must call the cancel upkeep as the owner to avoid the CANCELLATION_DELAY
+              for (let ldx = 0; ldx < failingUpkeepIds.length; ldx++) {
+                await registry
+                  .connect(owner)
+                  .cancelUpkeep(failingUpkeepIds[ldx])
+              }
+
               const tx = await getTransmitTx(
                 registry,
                 keeper1,
@@ -2173,10 +2180,10 @@ describe('AutomationRegistry2_2', () => {
                 upkeepPerformedLogs.length,
                 numPassingConditionalUpkeeps + numPassingLogUpkeeps,
               )
-              // const insufficientFundsLogs =
-              //   parseInsufficientFundsUpkeepReportLogs(receipt)
-              // // exactly numFailingUpkeeps Upkeep Performed should be emitted
-              // assert.equal(insufficientFundsLogs.length, numFailingUpkeeps)
+              const cancelledUpkeepReportLogs =
+                parseCancelledUpkeepReportLogs(receipt)
+              // exactly numFailingUpkeeps Upkeep Performed should be emitted
+              assert.equal(cancelledUpkeepReportLogs.length, numFailingUpkeeps)
 
               const keeperAfter = await registry.getTransmitterInfo(
                 await keeper1.getAddress(),
@@ -2293,9 +2300,9 @@ describe('AutomationRegistry2_2', () => {
               }
 
               for (let i = 0; i < numFailingUpkeeps; i++) {
-                // InsufficientFunds log should be emitted
-                // const id = insufficientFundsLogs[i].args.id
-                // expect(id).to.equal(failingUpkeepIds[i])
+                // CancelledUpkeep log should be emitted
+                const id = cancelledUpkeepReportLogs[i].args.id
+                expect(id).to.equal(failingUpkeepIds[i])
 
                 // Balance and amount spent should be same
                 assert.equal(
@@ -2362,6 +2369,14 @@ describe('AutomationRegistry2_2', () => {
 
               await tx.wait()
 
+              // cancel upkeeps so they will fail in the transmit process
+              // must call the cancel upkeep as the owner to avoid the CANCELLATION_DELAY
+              for (let ldx = 0; ldx < failingUpkeepIds.length; ldx++) {
+                await registry
+                  .connect(owner)
+                  .cancelUpkeep(failingUpkeepIds[ldx])
+              }
+
               // Do the actual thing
 
               tx = await getTransmitTx(
@@ -2383,7 +2398,7 @@ describe('AutomationRegistry2_2', () => {
               const chainModuleOverheads =
                 await chainModuleBase.getGasOverhead()
               const gasConditionalOverheadCap = registryConditionalOverhead
-                .add(registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)))
+                //.add(registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)))
                 .add(
                   registryPerPerformByteGasOverhead
                     .add(chainModuleOverheads.chainModulePerByteOverhead)
@@ -2391,7 +2406,7 @@ describe('AutomationRegistry2_2', () => {
                 )
                 .add(chainModuleOverheads.chainModuleFixedOverhead)
               const gasLogOverheadCap = registryLogOverhead
-                .add(registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)))
+                //.add(registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)))
                 .add(
                   registryPerPerformByteGasOverhead
                     .add(chainModuleOverheads.chainModulePerByteOverhead)
@@ -2495,7 +2510,7 @@ describe('AutomationRegistry2_2', () => {
                 netGasUsedPlusOverhead.sub(receipt.gasUsed).toString(),
               )
 
-              // If overheads dont get capped then total gas charged should be greater than tx gas
+              // If overheads don't get capped then total gas charged should be greater than tx gas
               // We don't check whether the net is within gasMargin as the margin changes with numFailedUpkeeps
               // Which is ok, as long as individual gas overhead is capped
               if (!overheadsGotCapped) {

@@ -14,7 +14,7 @@ contract OptimismModule is ChainModuleBase {
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
   function getCurrentL1Fee() external view override returns (uint256) {
-    // TODO: Verify this is accruate calcualtion with appropriate padding
+    // TODO: Verify this is accurate calculation with appropriate padding
     return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(msg.data, OP_L1_DATA_FEE_PADDING));
   }
 
