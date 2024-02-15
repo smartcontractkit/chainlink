@@ -156,7 +156,6 @@ func (r *Resender) ResendUnconfirmed() error {
 	ctx, cancel := context.WithTimeout(r.ctx, batchSendTransactionTimeout)
 	defer cancel()
 	broadcastTime, successfulBroadcastIDs, err := batchSendTransactions(ctx, r.lggr, r.client, allAttempts, int(r.config.RPCDefaultBatchSize))
-	batchSendTransactions(ctx, r.lggr, r.client, allAttempts, int(r.config.RPCDefaultBatchSize))
 
 	if len(successfulBroadcastIDs) > 0 {
 		if updateErr := r.txStore.UpdateBroadcastAtsForUnconfirmed(r.ctx, broadcastTime, successfulBroadcastIDs); updateErr != nil {
