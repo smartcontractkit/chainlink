@@ -123,9 +123,9 @@ jobs:
           - name: ""
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
-          # - name: (plugins)
-          #   dockerfile: plugins/chainlink.Dockerfile
-          #   tag-suffix: -plugins
+          - name: (plugins)
+            dockerfile: plugins/chainlink.Dockerfile
+            tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, enforce-ctf-version]
