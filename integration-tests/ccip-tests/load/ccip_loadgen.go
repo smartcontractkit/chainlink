@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
@@ -110,6 +112,19 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 
 	sourceCCIP.Common.ChainClient.ParallelTransactions(false)
 	destCCIP.Common.ChainClient.ParallelTransactions(false)
+	// close all header subscriptions for dest chains
+	queuedEvents := destCCIP.Common.ChainClient.GetHeaderSubscriptions()
+	for subName := range queuedEvents {
+		destCCIP.Common.ChainClient.DeleteHeaderEventSubscription(subName)
+	}
+	// close all header subscriptions for source chains except for finalized header
+	queuedEvents = sourceCCIP.Common.ChainClient.GetHeaderSubscriptions()
+	for subName := range queuedEvents {
+		if subName == blockchain.FinalizedHeaderKey {
+			continue
+		}
+		sourceCCIP.Common.ChainClient.DeleteHeaderEventSubscription(subName)
+	}
 }
 
 func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.RequestStat) {

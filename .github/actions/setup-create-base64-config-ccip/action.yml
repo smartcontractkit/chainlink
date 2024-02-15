@@ -38,6 +38,8 @@ runs:
         LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
         LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
         LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
+        GRAFANA_URL: ${{ inputs.grafanaUrl }}
+        GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
       run: |
         echo ::add-mask::$CHAINLINK_IMAGE        
         function convert_to_toml_array() {

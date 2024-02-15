@@ -9,7 +9,7 @@ Here lives the integration tests for ccip, utilizing our [chainlink-testing-fram
 In order to run the tests the first step is to set up the test inputs. Here are the steps to set your test input -
 1. Default test input - set via TOML - If no specific input is set; the tests will run with default inputs mentioned in [default.toml](./testconfig/tomls/default.toml). 
 Please refer to [default.toml](./testconfig/tomls/default.toml) for the list of parameters that can be set through TOML. We do not recommend changing this file.
-2. Overriding the default input - If you want to run your test with different test input, you can override the default inputs. For that you need to set an env var `BASE64_TEST_CONFIG_OVERRIDE` containing the base64 encoded TOML file content with updated test input parameters. 
+2. Overriding the default input - If you want to run your test with different test input, you can override the default inputs. For that you need to set an env var `BASE64_CCIP_CONFIG_OVERRIDE` containing the base64 encoded TOML file content with updated test input parameters. 
     For example, if you want to override the `Network` input in test and want to run your test on `avalanche testnet` and `arbitrum goerli` network, you need to -
    1. create a TOML file with the following content:
         ```toml

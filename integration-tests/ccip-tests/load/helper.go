@@ -101,7 +101,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 		if lane.TestEnv != nil && lane.TestEnv.K8Env != nil && lane.TestEnv.K8Env.Cfg != nil {
 			namespace = lane.TestEnv.K8Env.Cfg.Namespace
 		}
-
+		lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 		loadRunner, err := wasp.NewGenerator(&wasp.Config{
 			T:                     l.TestCfg.Test,
 			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
@@ -113,7 +113,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			Gun:                   ccipLoad,
 			Logger:                ccipLoad.Lane.Logger,
 			SharedData:            l.TestCfg.TestGroupInput.MsgType,
-			LokiConfig:            wasp.NewEnvLokiConfig(),
+			LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 			Labels: map[string]string{
 				"test_group":   "load",
 				"cluster":      "sdlc",
@@ -243,7 +243,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 			}
 			multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.RequestPerUnitTime[0], allLabels)
 			require.NoError(l.t, err)
-
+			lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 			loadRunner, err := wasp.NewGenerator(&wasp.Config{
 				T:                     l.TestCfg.Test,
 				GenName:               fmt.Sprintf("Source %s", source),
@@ -254,7 +254,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 				CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
 				Gun:                   multiCallGen,
 				Logger:                multiCallGen.logger,
-				LokiConfig:            wasp.NewEnvLokiConfig(),
+				LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 				Labels:                allLabels,
 				FailOnErr:             true,
 			})

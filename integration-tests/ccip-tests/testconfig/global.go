@@ -159,28 +159,6 @@ type Common struct {
 	Logging   *ctfconfig.LoggingConfig `toml:"Logging"`
 }
 
-func (p *Common) ApplyOverrides(from *Common) error {
-	if from == nil {
-		return nil
-	}
-	if from.EnvUser != "" {
-		p.EnvUser = from.EnvUser
-	}
-	if from.TTL != nil {
-		p.TTL = from.TTL
-	}
-	if from.Network != nil {
-		p.Network = from.Network
-	}
-	if from.Chainlink != nil {
-		if p.Chainlink == nil {
-			p.Chainlink = &Chainlink{}
-		}
-		p.Chainlink.ApplyOverrides(from.Chainlink)
-	}
-	return nil
-}
-
 func (p *Common) Validate() error {
 	if err := p.Logging.Validate(); err != nil {
 		return fmt.Errorf("error validating logging config %w", err)
@@ -263,53 +241,6 @@ type Chainlink struct {
 	Nodes      []*Node  `toml:",omitempty"` // to be mentioned only if diff nodes follow diff configs; not required if all nodes follow CommonConfig
 }
 
-func (c *Chainlink) ApplyOverrides(from *Chainlink) {
-	if from == nil {
-		return
-	}
-	if from.NoOfNodes != nil {
-		c.NoOfNodes = from.NoOfNodes
-	}
-	if from.Common != nil {
-		c.Common.ApplyOverrides(from.Common)
-	}
-	if from.Nodes != nil {
-		for i, node := range from.Nodes {
-			if len(c.Nodes) > i {
-				c.Nodes[i].ApplyOverrides(node)
-			} else {
-				c.Nodes = append(c.Nodes, node)
-			}
-		}
-	}
-	if len(c.Nodes) > 0 {
-		for i := range c.Nodes {
-			c.Nodes[i].Merge(c.Common)
-		}
-	}
-	if from.NodeMemory != "" {
-		c.NodeMemory = from.NodeMemory
-	}
-	if from.NodeCPU != "" {
-		c.NodeCPU = from.NodeCPU
-	}
-	if from.DBMemory != "" {
-		c.DBMemory = from.DBMemory
-	}
-	if from.DBCPU != "" {
-		c.DBCPU = from.DBCPU
-	}
-	if from.DBArgs != nil {
-		c.DBArgs = from.DBArgs
-	}
-	if from.DBCapacity != "" {
-		c.DBCapacity = from.DBCapacity
-	}
-	if from.IsStateful != nil {
-		c.IsStateful = from.IsStateful
-	}
-}
-
 func (c *Chainlink) Validate() error {
 	if c.Common == nil {
 		return errors.New("common config can't be empty")
@@ -331,7 +262,10 @@ func (c *Chainlink) Validate() error {
 		if noOfNodes != len(c.Nodes) {
 			return errors.New("chainlink config is invalid, NoOfNodes and Nodes length mismatch")
 		}
-		for _, node := range c.Nodes {
+		for i := range c.Nodes {
+			// merge common config with node specific config
+			c.Nodes[i].Merge(c.Common)
+			node := c.Nodes[i]
 			if node.ChainlinkImage == nil {
 				return fmt.Errorf("node %s: chainlink image can't be empty", node.Name)
 			}
@@ -414,63 +348,6 @@ func (n *Node) Merge(from *Node) {
 		for k, v := range from.ChainConfigTOMLByChain {
 			if _, ok := n.ChainConfigTOMLByChain[k]; !ok {
 				n.ChainConfigTOMLByChain[k] = v
-			}
-		}
-	}
-}
-
-func (n *Node) ApplyOverrides(from *Node) {
-	if from == nil {
-		return
-	}
-	if n == nil {
-		return
-	}
-	if from.Name != "" {
-		n.Name = from.Name
-	}
-	if from.ChainlinkImage != nil {
-		if n.ChainlinkImage == nil {
-			n.ChainlinkImage = from.ChainlinkImage
-		} else {
-			if from.ChainlinkImage.Image != nil {
-				n.ChainlinkImage.Image = from.ChainlinkImage.Image
-			}
-			if from.ChainlinkImage.Version != nil {
-				n.ChainlinkImage.Version = from.ChainlinkImage.Version
-			}
-		}
-	}
-	if from.ChainlinkUpgradeImage != nil {
-		if n.ChainlinkUpgradeImage == nil {
-			n.ChainlinkUpgradeImage = from.ChainlinkUpgradeImage
-		} else {
-			if from.ChainlinkUpgradeImage.Image != nil {
-				n.ChainlinkUpgradeImage.Image = from.ChainlinkUpgradeImage.Image
-			}
-			if from.ChainlinkUpgradeImage.Version != nil {
-				n.ChainlinkUpgradeImage.Version = from.ChainlinkUpgradeImage.Version
-			}
-		}
-	}
-	if from.DBImage != "" {
-		n.DBImage = from.DBImage
-	}
-	if from.DBTag != "" {
-		n.DBTag = from.DBTag
-	}
-	if from.BaseConfigTOML != "" {
-		n.BaseConfigTOML = from.BaseConfigTOML
-	}
-	if from.CommonChainConfigTOML != "" {
-		n.CommonChainConfigTOML = from.CommonChainConfigTOML
-	}
-	if from.ChainConfigTOMLByChain != nil {
-		if n.ChainConfigTOMLByChain == nil {
-			n.ChainConfigTOMLByChain = from.ChainConfigTOMLByChain
-		} else {
-			for chainID, cfg := range from.ChainConfigTOMLByChain {
-				n.ChainConfigTOMLByChain[chainID] = cfg
 			}
 		}
 	}

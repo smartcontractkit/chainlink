@@ -1021,17 +1021,18 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 			return fmt.Errorf("getting new onramp contractshouldn't fail %w", err)
 		}
 	}
-
-	// set remote chain on the pools
-	for _, pool := range sourceCCIP.Common.BridgeTokenPools {
-		err = pool.SetRemoteChainOnPool(sourceCCIP.DestChainSelector)
-		if err != nil {
-			return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+	if !sourceCCIP.Common.ExistingDeployment {
+		// set remote chain on the pools
+		for _, pool := range sourceCCIP.Common.BridgeTokenPools {
+			err = pool.SetRemoteChainOnPool(sourceCCIP.DestChainSelector)
+			if err != nil {
+				return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+			}
 		}
-	}
-	err = sourceCCIP.Common.ChainClient.WaitForEvents()
-	if err != nil {
-		return fmt.Errorf("waiting for events shouldn't fail %w", err)
+		err = sourceCCIP.Common.ChainClient.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("waiting for events shouldn't fail %w", err)
+		}
 	}
 	return nil
 }
@@ -1454,12 +1455,13 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			return fmt.Errorf("getting new offramp shouldn't fail %w", err)
 		}
 	}
-
-	// update pools with remote chain
-	for _, pool := range destCCIP.Common.BridgeTokenPools {
-		err = pool.SetRemoteChainOnPool(destCCIP.SourceChainSelector)
-		if err != nil {
-			return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+	if !destCCIP.Common.ExistingDeployment {
+		// update pools with remote chain
+		for _, pool := range destCCIP.Common.BridgeTokenPools {
+			err = pool.SetRemoteChainOnPool(destCCIP.SourceChainSelector)
+			if err != nil {
+				return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+			}
 		}
 	}
 	if destCCIP.ReceiverDapp == nil {

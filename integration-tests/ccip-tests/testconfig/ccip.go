@@ -1,7 +1,11 @@
 package testconfig
 
 import (
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
@@ -36,100 +40,6 @@ type CCIPTestConfig struct {
 	MaxNoOfLanes               int                `toml:",omitempty"`
 	ChaosDuration              *config.Duration   `toml:",omitempty"`
 	USDCMockDeployment         *bool              `toml:",omitempty"`
-}
-
-func (c *CCIPTestConfig) ApplyOverrides(fromCfg *CCIPTestConfig) error {
-	if fromCfg == nil {
-		return nil
-	}
-	if fromCfg.BiDirectionalLane != nil {
-		c.BiDirectionalLane = fromCfg.BiDirectionalLane
-	}
-	if fromCfg.KeepEnvAlive != nil {
-		c.KeepEnvAlive = fromCfg.KeepEnvAlive
-	}
-	if fromCfg.NoOfCommitNodes > 0 && fromCfg.NoOfCommitNodes != c.NoOfCommitNodes {
-		c.NoOfCommitNodes = fromCfg.NoOfCommitNodes
-	}
-	if fromCfg.MsgType != "" {
-		c.MsgType = fromCfg.MsgType
-	}
-	if fromCfg.PhaseTimeout != nil {
-		c.PhaseTimeout = fromCfg.PhaseTimeout
-	}
-	if fromCfg.TestDuration != nil {
-		c.TestDuration = fromCfg.TestDuration
-	}
-	if fromCfg.LocalCluster != nil {
-		c.LocalCluster = fromCfg.LocalCluster
-	}
-	if fromCfg.DestGasLimit != nil {
-		c.DestGasLimit = fromCfg.DestGasLimit
-	}
-	if fromCfg.ExistingDeployment != nil {
-		c.ExistingDeployment = fromCfg.ExistingDeployment
-	}
-	if fromCfg.ExistingEnv != "" {
-		c.ExistingEnv = fromCfg.ExistingEnv
-	}
-	if fromCfg.ReuseContracts != nil {
-		c.ReuseContracts = fromCfg.ReuseContracts
-	}
-
-	if fromCfg.NodeFunding != 0 {
-		c.NodeFunding = fromCfg.NodeFunding
-	}
-	if len(fromCfg.RequestPerUnitTime) != 0 {
-		c.RequestPerUnitTime = fromCfg.RequestPerUnitTime
-	}
-	if fromCfg.TimeUnit != nil {
-		c.TimeUnit = fromCfg.TimeUnit
-	}
-	if len(fromCfg.StepDuration) != 0 {
-		c.StepDuration = fromCfg.StepDuration
-	}
-	if fromCfg.WaitBetweenChaosDuringLoad != nil {
-		c.WaitBetweenChaosDuringLoad = fromCfg.WaitBetweenChaosDuringLoad
-	}
-	if fromCfg.ChaosDuration != nil {
-		c.ChaosDuration = fromCfg.ChaosDuration
-	}
-	if len(fromCfg.NetworkPairs) != 0 {
-		c.NetworkPairs = fromCfg.NetworkPairs
-	}
-	if fromCfg.NoOfNetworks != 0 {
-		c.NoOfNetworks = fromCfg.NoOfNetworks
-	}
-	if fromCfg.NoOfRoutersPerPair != 0 {
-		c.NoOfRoutersPerPair = fromCfg.NoOfRoutersPerPair
-	}
-	if fromCfg.Blockscout {
-		c.Blockscout = fromCfg.Blockscout
-	}
-	if fromCfg.NoOfTokensPerChain != 0 {
-		c.NoOfTokensPerChain = fromCfg.NoOfTokensPerChain
-	}
-	if fromCfg.NoOfTokensInMsg != 0 {
-		c.NoOfTokensInMsg = fromCfg.NoOfTokensInMsg
-	}
-	if fromCfg.MaxNoOfLanes != 0 {
-		c.MaxNoOfLanes = fromCfg.MaxNoOfLanes
-	}
-	if fromCfg.AmountPerToken != 0 {
-		c.AmountPerToken = fromCfg.AmountPerToken
-	}
-	if fromCfg.MulticallInOneTx != nil {
-		c.MulticallInOneTx = fromCfg.MulticallInOneTx
-	}
-	if fromCfg.NoOfSendsInMulticall != 0 {
-		c.NoOfSendsInMulticall = fromCfg.NoOfSendsInMulticall
-	}
-
-	if fromCfg.USDCMockDeployment != nil {
-		c.USDCMockDeployment = fromCfg.USDCMockDeployment
-	}
-
-	return nil
 }
 
 func (c *CCIPTestConfig) Validate() error {
@@ -172,16 +82,6 @@ type CCIPContractConfig struct {
 	Data string `toml:",omitempty"`
 }
 
-func (c *CCIPContractConfig) ApplyOverrides(from *CCIPContractConfig) error {
-	if from == nil {
-		return nil
-	}
-	if from.Data != "" {
-		c.Data = from.Data
-	}
-	return nil
-}
-
 func (c *CCIPContractConfig) ContractsData() []byte {
 	if c == nil || c.Data == "" {
 		return nil
@@ -212,36 +112,13 @@ func (c *CCIP) Validate() error {
 }
 
 func (c *CCIP) ApplyOverrides(fromCfg *CCIP) error {
-	if c.Env == nil {
-		if fromCfg.Env != nil {
-			c.Env = fromCfg.Env
-		}
-	} else {
-		if err := c.Env.ApplyOverrides(fromCfg.Env); err != nil {
-			return err
-		}
+	if fromCfg == nil {
+		return nil
 	}
-	if c.Deployments == nil {
-		if fromCfg.Deployments != nil {
-			c.Deployments = fromCfg.Deployments
-		}
-	} else {
-		if err := c.Deployments.ApplyOverrides(fromCfg.Deployments); err != nil {
-			return err
-		}
+	logBytes, err := toml.Marshal(fromCfg)
+	if err != nil {
+		return err
 	}
-	if len(fromCfg.Groups) != 0 {
-		for name, grp := range fromCfg.Groups {
-			if c.Groups == nil {
-				c.Groups = map[string]*CCIPTestConfig{}
-			}
-			if _, ok := c.Groups[name]; !ok {
-				c.Groups[name] = &CCIPTestConfig{}
-			}
-			if err := c.Groups[name].ApplyOverrides(grp); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	lggr := zerolog.Logger{}
+	return ctfconfig.BytesToAnyTomlStruct(lggr, "", "", c, logBytes)
 }

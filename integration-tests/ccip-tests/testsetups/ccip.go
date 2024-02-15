@@ -243,6 +243,11 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 	if !exists {
 		t.Fatalf("group config for %s does not exist", tType)
 	}
+	if tType == testconfig.Load {
+		if testCfg.CCIP.Env.Logging == nil || testCfg.CCIP.Env.Logging.Loki == nil {
+			t.Fatal("loki config is required to be set for load test")
+		}
+	}
 	ccipTestConfig := &CCIPTestConfig{
 		Test:                t,
 		EnvInput:            testCfg.CCIP.Env,
