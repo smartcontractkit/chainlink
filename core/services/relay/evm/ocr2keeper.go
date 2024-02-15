@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	automation2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/pb/automation"
+	goabi "github.com/umbracle/ethgo/abi"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -30,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -164,12 +162,26 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 					r.lggr.Infow("error fetching latest config", "error", err.Error())
 				}
 
-				onchainConfigProto := automation2.OnchainConfigProto{}
-				if err := proto.Unmarshal(contractConfig.OnchainConfig, &onchainConfigProto); err != nil {
-					r.lggr.Infow("error unmarshalling on chain config", "error", err.Error())
-				}
+				//onchainConfigProto := automation2.OnchainConfigProto{}
+				//if err := proto.Unmarshal(contractConfig.OnchainConfig, &onchainConfigProto); err != nil {
+				//	r.lggr.Infow("error unmarshalling on chain config", "error", err.Error())
+				//} else {
+				//	r.lggr.Infow("got on chain config", "checkGasLimit", onchainConfigProto.CheckGasLimit, "maxPerformGas", onchainConfigProto.MaxPerformGas)
+				//}
 
-				r.lggr.Infow("got on chain config", "checkGasLimit", onchainConfigProto.CheckGasLimit, "maxPerformGas", onchainConfigProto.MaxPerformGas)
+				onchainConfig := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint32 maxRevertDataSize, uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address[] registrars,address upkeepPrivilegeManager)")
+				var m map[string]interface{}
+				if err := goabi.DecodeStruct(onchainConfig, contractConfig.OnchainConfig, &m); err != nil {
+					r.lggr.Infow("error decoding struct of on chain config", "error", err.Error())
+				} else {
+					r.lggr.Infow("got on chain config from struct", "keys", len(m))
+					var res []interface{}
+					for k, v := range m {
+						res = append(res, k)
+						res = append(res, v)
+					}
+					r.lggr.Infow("got on chain config from struct keys and values", res...)
+				}
 
 				// set the values on the log poller
 				configDigest = newConfigDigest
