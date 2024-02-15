@@ -227,12 +227,7 @@ func (p *PriceRegistry) GetTokensDecimals(ctx context.Context, tokenAddresses []
 		}
 	}
 
-	latestBlock, err := p.lp.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("get latest block: %w", err)
-	}
-
-	results, err := p.evmBatchCaller.BatchCall(ctx, uint64(latestBlock.BlockNumber), evmCalls)
+	results, err := p.evmBatchCaller.BatchCall(ctx, 0, evmCalls)
 	if err != nil {
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}
