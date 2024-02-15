@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	goabi "github.com/umbracle/ethgo/abi"
+	automation2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/pb/automation"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -162,26 +163,26 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 					r.lggr.Infow("error fetching latest config", "error", err.Error())
 				}
 
-				//onchainConfigProto := automation2.OnchainConfigProto{}
-				//if err := proto.Unmarshal(contractConfig.OnchainConfig, &onchainConfigProto); err != nil {
-				//	r.lggr.Infow("error unmarshalling on chain config", "error", err.Error())
-				//} else {
-				//	r.lggr.Infow("got on chain config", "checkGasLimit", onchainConfigProto.CheckGasLimit, "maxPerformGas", onchainConfigProto.MaxPerformGas)
-				//}
-
-				type Tuple struct {
-					CheckGasLimit uint32
-					checkGasLimit uint32
-					MaxPerformGas uint32
-					maxPerformGas uint32
+				offchainConfigProto := automation2.OffchainConfigProto{}
+				if err := proto.Unmarshal(contractConfig.OffchainConfig, &offchainConfigProto); err != nil {
+					r.lggr.Infow("error unmarshalling off chain config", "error", err.Error())
 				}
 
-				onchainConfig := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint32 maxRevertDataSize, uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address[] registrars,address upkeepPrivilegeManager)")
-				m := Tuple{}
-				if err := goabi.DecodeStruct(onchainConfig, contractConfig.OnchainConfig, &m); err != nil {
-					r.lggr.Infow("error decoding struct of on chain config", "error", err.Error())
+				type OffchainConfig struct {
+					PerformLockoutWindow int64  `json:"performLockoutWindow"`
+					TargetProbability    string `json:"targetProbability"`
+					TargetInRounds       int    `json:"targetInRounds"`
+					MinConfirmations     int    `json:"minConfirmations"`
+					GasLimitPerReport    uint32 `json:"gasLimitPerReport"`
+					GasOverheadPerUpkeep uint32 `json:"gasOverheadPerUpkeep"`
+					MaxUpkeepBatchSize   int    `json:"maxUpkeepBatchSize"`
+				}
+
+				var config OffchainConfig
+				if err := json.Unmarshal(offchainConfigProto.ReportingPluginConfig, &config); err != nil {
+					r.lggr.Infow("error unmarshalling on chain config", "error", err.Error())
 				} else {
-					r.lggr.Infow("got on chain config", "CheckGasLimit", m.CheckGasLimit, "checkGasLimit", m.checkGasLimit, "MaxPerformGas", m.MaxPerformGas, "maxPerformGas", m.maxPerformGas)
+					r.lggr.Infow("sucessfully unmarshalled offchain config", "TargetProbability", config.TargetProbability, "MinConfirmations", config.MinConfirmations, "PerformLockoutWindow", config.PerformLockoutWindow, "GasLimitPerReport", config.GasLimitPerReport, "GasOverheadPerUpkeep", config.GasOverheadPerUpkeep)
 				}
 
 				// set the values on the log poller

@@ -1,0 +1,8 @@
+syntax="proto3";
+
+package automation;
+option go_package = ".;automation";
+
+message OffchainConfigProto {
+  bytes reporting_plugin_config = 34;
+}
