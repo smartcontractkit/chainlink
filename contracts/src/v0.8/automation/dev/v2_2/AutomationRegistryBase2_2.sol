@@ -48,7 +48,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Fixed gas overhead for conditional upkeeps
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_400; // Fixed gas overhead for log upkeeps
-  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation during simiulation. Value scales with f
+  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Value scales with f
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Per perform data byte overhead
   // TODO - re-adjust
   uint256 internal constant TRANSMIT_CALLDATA_BYTES_OVERHEAD = 100; // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
@@ -392,7 +392,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @dev This struct is used to maintain run time information about an upkeep in transmit function
    * @member upkeep the upkeep struct
    * @member earlyChecksPassed whether the upkeep passed early checks before perform
-   * @member maxLinkPayment the max amount this upkeep could pay for work
    * @member performSuccess whether the perform was successful
    * @member triggerType the type of trigger
    * @member gasUsed gasUsed by this upkeep in perform
@@ -447,6 +446,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   event DedupKeyAdded(bytes32 indexed dedupKey);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
   event OwnerFundsWithdrawn(uint96 amount);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
@@ -593,6 +593,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param gasOverhead the amount of gas overhead
+   * @param l1CostWei the amount to be charged for L1 fee in wei
    * @param fastGasWei the fast gas price
    * @param linkNative the exchange ratio between LINK and Native token
    * @param isExecution if this is triggered by a perform upkeep function
@@ -623,7 +624,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
 
   /**
    * @dev calculates the max LINK payment for an upkeep. Called during checkUpkeep simulation and assumes
-   * maximum gas overhead, L1 overhead
+   * maximum gas overhead, L1 fee
    */
   function _getMaxLinkPayment(
     HotVars memory hotVars,
