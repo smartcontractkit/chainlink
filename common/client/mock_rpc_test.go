@@ -426,6 +426,36 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 	return r0, r1
 }
 
+// PendingCallContract provides a mock function with given fields: ctx, msg
+func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD]) PendingCallContract(ctx context.Context, msg interface{}) ([]byte, error) {
+	ret := _m.Called(ctx, msg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PendingCallContract")
+	}
+
+	var r0 []byte
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, interface{}) ([]byte, error)); ok {
+		return rf(ctx, msg)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, interface{}) []byte); ok {
+		r0 = rf(ctx, msg)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, interface{}) error); ok {
+		r1 = rf(ctx, msg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // PendingSequenceAt provides a mock function with given fields: ctx, addr
 func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD]) PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error) {
 	ret := _m.Called(ctx, addr)

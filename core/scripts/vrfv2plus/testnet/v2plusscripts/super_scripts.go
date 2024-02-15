@@ -472,6 +472,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
 	// required flags
+	nativeOnly := deployCmd.Bool("native-only", false, "if true, link and link feed are not set up")
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := deployCmd.String("bhs-address", "", "address of BHS contract")
@@ -486,6 +487,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	estimateGasMultiplier := deployCmd.Float64("estimate-gas-multiplier", 1.1, "")
 	pollPeriod := deployCmd.String("poll-period", "300ms", "")
 	requestTimeout := deployCmd.String("request-timeout", "30m0s", "")
+	simulationBlock := deployCmd.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
@@ -506,6 +508,19 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
 	)
+
+	if *nativeOnly {
+		if *linkAddress != "" || *linkEthAddress != "" {
+			panic("native-only flag is set, but link address or link eth address is provided")
+		}
+		if *subscriptionBalanceJuelsString != "0" {
+			panic("native-only flag is set, but link subscription balance is provided")
+		}
+	}
+
+	if *simulationBlock != "pending" && *simulationBlock != "latest" {
+		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+	}
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
@@ -569,9 +584,12 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
+		*batchFulfillmentEnabled,
+		*nativeOnly,
 		nodesMap,
 		uint64(*gasLaneMaxGas),
 		coordinatorJobSpecConfig,
+		*simulationBlock,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -587,9 +605,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2Plus,
+	batchFulfillmentEnabled bool,
+	nativeOnly bool,
 	nodesMap map[string]model.Node,
 	gasLaneMaxGas uint64,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
+	simulationBlock string,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -618,12 +639,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		helpers.PanicErr(err)
 	}
 
-	if len(contractAddresses.LinkAddress) == 0 {
+	if !nativeOnly && len(contractAddresses.LinkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
 		contractAddresses.LinkAddress = helpers.DeployLinkToken(e).String()
 	}
 
-	if len(contractAddresses.LinkEthAddress) == 0 {
+	if !nativeOnly && len(contractAddresses.LinkEthAddress) == 0 {
 		fmt.Println("\nDeploying LINK/ETH Feed...")
 		contractAddresses.LinkEthAddress = helpers.DeployLinkEthFeed(e, contractAddresses.LinkAddress, coordinatorConfig.FallbackWeiPerUnitLink).String()
 	}
@@ -728,6 +749,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
 		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
@@ -736,6 +758,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
+		simulationBlock,
 	)
 
 	formattedVrfV2PlusBackupJobSpec := fmt.Sprintf(
@@ -752,6 +775,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
 		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
@@ -760,6 +784,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
+		simulationBlock,
 	)
 
 	formattedBHSJobSpec := fmt.Sprintf(
