@@ -22,5 +22,8 @@ interface IChainModule {
   // Returns two values, first value indicates a fixed cost and the second value is
   // the cost per msg.data byte (As some chain module's getCurrentL1Fee execution cost
   // scales with calldata size)
-  function getGasOverhead() external view returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead);
+  function getGasOverhead()
+    external
+    view
+    returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead);
 }
