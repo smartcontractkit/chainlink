@@ -735,6 +735,8 @@ func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress
 	err = a.LoadRegistrar(registrarAddress)
 	require.NoError(t, err, "Error loading registrar contract")
 
-	a.AddJobsAndSetConfig(t)
+	err = a.SetConfigOnRegistry()
+	require.NoError(t, err, "Error setting config on registry")
+	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
 
 }
