@@ -25,6 +25,17 @@ jobs:
         # as we add more fuzz tests, we should take into consideration increasing this timelapse, so we can have enough coverage.
         # We are timing out after ~10mins in case the tests hang. (Current CI duration is ~7m, modify if needed)
         run: cd fuzz && timeout 10m ./fuzz_all_native.py --ci --seconds 360
+
+      - name: Log Fuzz Tests Failing Inputs
+        if: failure()
+        run: find . -type f|fgrep '/testdata/fuzz/'|while read f; do echo $f; cat $f; done
+
+      - name: Upload Fuzz Tests Failing Inputs
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: failing-fuzz-inputs
+          path: '**/testdata/fuzz/**'
       
       - name: Upload Go test results
         if: always()
