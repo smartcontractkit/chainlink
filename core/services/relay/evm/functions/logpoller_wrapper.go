@@ -478,20 +478,6 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 		)
 	}
 
-	commitmentABI := abi.Arguments{
-		{Type: bytes32Type}, // RequestId
-		{Type: addressType}, // Coordinator
-		{Type: uint96Type},  // EstimatedTotalCostJuels
-		{Type: addressType}, // Client
-		{Type: uint64Type},  // SubscriptionId
-		{Type: uint32Type},  // CallbackGasLimit
-		{Type: uint72Type},  // AdminFee
-		{Type: uint72Type},  // DonFee
-		{Type: uint40Type},  // GasOverheadBeforeCallback
-		{Type: uint40Type},  // GasOverheadAfterCallback
-		{Type: uint32Type},  // TimeoutTimestamp
-	}
-
 	if strings.Contains(coordinator.typeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING) {
 		parsingContract, err := functions_coordinator_1_1_0.NewFunctionsCoordinator110(coordinator.address, l.client)
 		if err != nil {
@@ -506,7 +492,21 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				continue
 			}
 
-			commitmentBytes, err := commitmentABI.Pack(
+			commitmentABIV1 := abi.Arguments{
+				{Type: bytes32Type}, // RequestId
+				{Type: addressType}, // Coordinator
+				{Type: uint96Type},  // EstimatedTotalCostJuels
+				{Type: addressType}, // Client
+				{Type: uint64Type},  // SubscriptionId
+				{Type: uint32Type},  // CallbackGasLimit
+				{Type: uint72Type},  // AdminFee
+				{Type: uint72Type},  // DonFee
+				{Type: uint40Type},  // GasOverheadBeforeCallback
+				{Type: uint40Type},  // GasOverheadAfterCallback
+				{Type: uint32Type},  // TimeoutTimestamp
+			}
+
+			commitmentBytesV1, err := commitmentABIV1.Pack(
 				oracleRequest.Commitment.RequestId,
 				oracleRequest.Commitment.Coordinator,
 				oracleRequest.Commitment.EstimatedTotalCostJuels,
@@ -520,10 +520,10 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				oracleRequest.Commitment.TimeoutTimestamp,
 			)
 			if err != nil {
-				l.lggr.Errorw("LogsToRequests: failed to pack commitment bytes, skipping", err)
+				l.lggr.Errorw("LogsToRequests: failed to pack Coordinator v1 commitment bytes, skipping", err)
 			}
 
-			requests = append(requests, evmRelayTypes.OracleRequest{
+			OracleRequestV1 := evmRelayTypes.OracleRequest{
 				RequestId:           oracleRequest.RequestId,
 				RequestingContract:  oracleRequest.RequestingContract,
 				RequestInitiator:    oracleRequest.RequestInitiator,
@@ -534,9 +534,11 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				Flags:               oracleRequest.Flags,
 				CallbackGasLimit:    oracleRequest.CallbackGasLimit,
 				TxHash:              oracleRequest.Raw.TxHash,
-				OnchainMetadata:     commitmentBytes,
+				OnchainMetadata:     commitmentBytesV1,
 				CoordinatorContract: coordinator.address,
-			})
+			}
+
+			requests = append(requests, OracleRequestV1)
 		}
 		return requests, nil
 	}
@@ -555,12 +557,22 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				continue
 			}
 
-			addedFields := abi.Arguments{
-				{Type: uint72Type},
+			commitmentABIV2 := abi.Arguments{
+				{Type: bytes32Type}, // RequestId
+				{Type: addressType}, // Coordinator
+				{Type: uint96Type},  // EstimatedTotalCostJuels
+				{Type: addressType}, // Client
+				{Type: uint64Type},  // SubscriptionId
+				{Type: uint32Type},  // CallbackGasLimit
+				{Type: uint72Type},  // AdminFee
+				{Type: uint72Type},  // DonFee
+				{Type: uint40Type},  // GasOverheadBeforeCallback
+				{Type: uint40Type},  // GasOverheadAfterCallback
+				{Type: uint32Type},  // TimeoutTimestamp
+				{Type: uint72Type},  // OperationFee
 			}
-			commitmentABI = append(commitmentABI, addedFields...)
 
-			commitmentBytes, err := commitmentABI.Pack(
+			commitmentBytesV2, err := commitmentABIV2.Pack(
 				oracleRequest.Commitment.RequestId,
 				oracleRequest.Commitment.Coordinator,
 				oracleRequest.Commitment.EstimatedTotalCostJuels,
@@ -575,10 +587,10 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				oracleRequest.Commitment.OperationFee,
 			)
 			if err != nil {
-				l.lggr.Errorw("LogsToRequests: failed to pack commitment bytes, skipping", err)
+				l.lggr.Errorw("LogsToRequests: failed to pack Coordinator v2 commitment bytes, skipping", err)
 			}
 
-			requests = append(requests, evmRelayTypes.OracleRequest{
+			OracleRequestV2 := evmRelayTypes.OracleRequest{
 				RequestId:           oracleRequest.RequestId,
 				RequestingContract:  oracleRequest.RequestingContract,
 				RequestInitiator:    oracleRequest.RequestInitiator,
@@ -589,9 +601,11 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				Flags:               oracleRequest.Flags,
 				CallbackGasLimit:    oracleRequest.CallbackGasLimit,
 				TxHash:              oracleRequest.Raw.TxHash,
-				OnchainMetadata:     commitmentBytes,
+				OnchainMetadata:     commitmentBytesV2,
 				CoordinatorContract: coordinator.address,
-			})
+			}
+
+			requests = append(requests, OracleRequestV2)
 		}
 		return requests, nil
 	}
