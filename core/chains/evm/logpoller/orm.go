@@ -209,12 +209,33 @@ func (o *DbORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	return o.Transaction(ctx, func(orm *DbORM) error {
-		_, err := o.db.ExecContext(ctx, `DELETE FROM evm.logs WHERE block_number >= $1 AND evm_chain_id = $2`, start, ubig.New(o.chainID))
+		// Applying upper bound filter is critical for Postgres performance (especially for evm.logs table)
+		// because it allows the planner to properly estimate the number of rows to be scanned.
+		// If not applied, these queries can become very slow. After some critical number
+		// of logs, Postgres will try to scan all the logs in the index by block_number.
+		// Latency without upper bound filter can be orders of magnitude higher for large number of logs.
+		_, err := o.db.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks 
+       						WHERE evm_chain_id = $1
+       						AND block_number >= $2
+       						AND block_number <= (SELECT MAX(block_number) 
+						 		FROM evm.log_poller_blocks 
+						 		WHERE evm_chain_id = $1)`,
+			ubig.New(o.chainID), start)
 		if err != nil {
+			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
 			return err
 		}
-		_, err = o.db.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks WHERE block_number >= $1 AND evm_chain_id = $2`, start, ubig.New(o.chainID))
-		return err
+
+		_, err = o.db.ExecContext(ctx, `DELETE FROM evm.logs 
+       						WHERE evm_chain_id = $1 
+       						AND block_number >= $2
+       						AND block_number <= (SELECT MAX(block_number) FROM evm.logs WHERE evm_chain_id = $1)`,
+			ubig.New(o.chainID), start)
+		if err != nil {
+			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
+			return err
+		}
+		return nil
 	})
 }
 

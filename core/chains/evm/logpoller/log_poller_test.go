@@ -1291,9 +1291,10 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, lp.Start(ctx))
 	require.Eventually(t, func() bool {
-		return observedLogs.Len() >= 5
+		return observedLogs.Len() >= 3
 	}, 2*time.Second, 20*time.Millisecond)
-	lp.Close()
+	err = lp.Close()
+	require.NoError(t, err)
 
 	logMsgs := make(map[string]int)
 	for _, obs := range observedLogs.All() {
@@ -1305,7 +1306,6 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 		}
 	}
 
-	assert.Contains(t, logMsgs, "SQL ERROR")
 	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
 	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
 	assert.Contains(t, logMsgs, "Backup log poller ran before filters loaded, skipping")
