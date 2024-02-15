@@ -1022,6 +1022,8 @@ jobs:
 
           # Remove the created container
           docker rm "$CONTAINER_ID"
+      - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
+        run: ./scripts/install-solana-ci.sh
       - name: Generate config overrides
         run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
           cat << EOF > config.toml
