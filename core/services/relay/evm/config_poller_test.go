@@ -86,9 +86,8 @@ func TestConfigPoller(t *testing.T) {
 		b.Commit()
 
 		db := pgtest.NewSqlxDB(t)
-		cfg := pgtest.NewQConfig(false)
 		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
-		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
+		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr)
 		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
 		servicetest.Run(t, lp)
 	}

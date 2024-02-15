@@ -1209,7 +1209,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	// but context object is not
 	ctx, cancel = context.WithCancel(testutils.Context(t))
 	cancel()
-	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
+	_, err = th.LogPoller.GetBlocksRange(ctx, blockNums)
 	require.NoError(t, err)
 }
 

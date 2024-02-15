@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -68,7 +67,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
-	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	o := logpoller.NewORM(chainID, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
 	ethDB := rawdb.NewMemoryDatabase()
 	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
@@ -211,8 +210,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
 
 	// Should return logs from block 5 to 7 (inclusive)
-	logs, err := th.LogPoller.Logs(4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress,
-		pg.WithParentCtx(testutils.Context(t)))
+	logs, err := th.LogPoller.Logs(4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(logs))
 

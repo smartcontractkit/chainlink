@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/lib/pq"
 	"math/big"
 	"time"
+
+	"github.com/lib/pq"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
