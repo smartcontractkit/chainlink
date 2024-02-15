@@ -45,7 +45,7 @@ const (
 	UpkeepNotAuthorized    PipelineExecutionState = 9
 )
 
-// ErrCode is used for invoking an error handler with a specific error code
+// ErrCode is used for invoking an error handler with a specific error code.
 type ErrCode uint32
 
 const (

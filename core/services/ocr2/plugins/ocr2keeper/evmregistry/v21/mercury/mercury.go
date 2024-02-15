@@ -87,6 +87,16 @@ type HttpClient interface {
 }
 
 type MercuryClient interface {
+	// DoRequest makes a data stream request, it manages retries and returns the following:
+	// state: the state of the pipeline execution, used by our components.
+	// upkeepFailureReason: the reason for the upkeep failure, used by our components.
+	// data: the data returned from the data stream.
+	// retryable: whether the request is retryable.
+	// retryInterval: the interval to wait before retrying the request, or RetryIntervalTimeout if no more retries are allowed.
+	// errCode: the error code of the request, to be passed to the user's error handler if applicable.
+	// error: the raw error that occurred during the request.
+	//
+	// Exploratory: consider to merge state/failureReason/errCode into a single object
 	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, encoding.ErrCode, error)
 }
 
