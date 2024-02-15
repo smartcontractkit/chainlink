@@ -134,6 +134,7 @@ func CreateVRFV2PlusJob(
 		Address:               vrfJobSpecConfig.CoordinatorAddress,
 		EstimateGasMultiplier: vrfJobSpecConfig.EstimateGasMultiplier,
 		FromAddress:           vrfJobSpecConfig.FromAddresses[0],
+		SimulationBlock:       vrfJobSpecConfig.SimulationBlock,
 	}
 	ost, err := os.String()
 	if err != nil {
@@ -370,6 +371,22 @@ func CreateAndFundSendingKeys(env *test_env.CLClusterTestEnv, commonTestConfig t
 		if err != nil {
 			return nil, err
 		}
+
+func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Config *testconfig.General, pubKeyCompressed string, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
+	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
+		ForwardingAllowed:             *vrfv2Config.VRFJobForwardingAllowed,
+		CoordinatorAddress:            contracts.CoordinatorV2Plus.Address(),
+		FromAddresses:                 vrfNode.TXKeyAddressStrings,
+		EVMChainID:                    chainID.String(),
+		MinIncomingConfirmations:      int(*vrfv2Config.MinimumConfirmations),
+		PublicKey:                     pubKeyCompressed,
+		EstimateGasMultiplier:         *vrfv2Config.VRFJobEstimateGasMultiplier,
+		BatchFulfillmentEnabled:       *vrfv2Config.VRFJobBatchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: *vrfv2Config.VRFJobBatchFulfillmentGasMultiplier,
+		PollPeriod:                    vrfv2Config.VRFJobPollPeriod.Duration,
+		RequestTimeout:                vrfv2Config.VRFJobRequestTimeout.Duration,
+		SimulationBlock:               vrfv2Config.VRFJobSimulationBlock,
+		VRFOwnerConfig:                nil,
 	}
 	return newNativeTokenKeyAddresses, nil
 }
