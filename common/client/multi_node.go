@@ -465,6 +465,17 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return n.RPC().CallContract(ctx, attempt, blockNumber)
 }
 
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) PendingCallContract(
+	ctx context.Context,
+	attempt interface{},
+) (rpcErr []byte, extractErr error) {
+	n, err := c.selectNode()
+	if err != nil {
+		return rpcErr, err
+	}
+	return n.RPC().PendingCallContract(ctx, attempt)
+}
+
 // ChainID makes a direct RPC call. In most cases it should be better to use the configured chain id instead by
 // calling ConfiguredChainID.
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) ChainID(ctx context.Context) (id CHAIN_ID, err error) {
