@@ -50,8 +50,8 @@ type ErrCode uint32
 
 const (
 	ErrCodeNil                 ErrCode = 0
-	ErrCodePartielContent      ErrCode = 800206
-	ErrCodeMercuryError        ErrCode = 808500
+	ErrCodePartialContent      ErrCode = 800206
+	ErrCodeDataStreamsError    ErrCode = 808500
 	ErrCodeBadRequest          ErrCode = 800400
 	ErrCodeUnauthorized        ErrCode = 800401
 	ErrCodeEncodingError       ErrCode = 808600
@@ -63,13 +63,13 @@ func HttpToErrCode(statusCode int) ErrCode {
 	case http.StatusOK:
 		return ErrCodeNil
 	case http.StatusPartialContent:
-		return ErrCodePartielContent
+		return ErrCodePartialContent
 	case http.StatusBadRequest:
 		return ErrCodeBadRequest
 	case http.StatusUnauthorized:
 		return ErrCodeUnauthorized
 	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-		return ErrCodeMercuryError
+		return ErrCodeDataStreamsError
 	default:
 		return 0
 	}
