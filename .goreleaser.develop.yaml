@@ -63,6 +63,7 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -85,6 +86,7 @@ dockers:
     goarch: arm64
     extra_files:
       - tmp/linux_arm64/libs
+      - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -107,6 +109,7 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -130,6 +133,7 @@ dockers:
     goarch: arm64
     extra_files:
       - tmp/linux_arm64/libs
+      - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"

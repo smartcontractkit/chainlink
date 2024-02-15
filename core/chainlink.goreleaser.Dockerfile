@@ -6,7 +6,7 @@ FROM ubuntu:20.04
 ARG CHAINLINK_USER=root
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
+RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl patchelf
 
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
@@ -18,6 +18,9 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 COPY ./chainlink /usr/local/bin/
 # Copy native libs if cgo is enabled
 COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
+COPY ./tools/bin/ldd_fix /usr/local/bin/ldd_fix
+RUN chmod +x /usr/local/bin/ldd_fix
+RUN /usr/local/bin/ldd_fix
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
