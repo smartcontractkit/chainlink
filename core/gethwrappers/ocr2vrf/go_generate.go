@@ -2,7 +2,6 @@
 // golang packages, using abigen.
 package gethwrappers
 
-// OCR2VRF - remove the _disabled tag to run these locally.
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/DKG.abi ../../../contracts/solc/v0.8.19/DKG.bin DKG dkg
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/VRFCoordinator.abi ../../../contracts/solc/v0.8.19/VRFCoordinator.bin VRFCoordinator vrf_coordinator
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/VRFBeacon.abi ../../../contracts/solc/v0.8.19/VRFBeacon.bin VRFBeacon vrf_beacon
