@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -85,7 +84,7 @@ func (br *EVMTokenPoolBatchedReader) GetInboundTokenPoolRateLimits(ctx context.C
 		}
 	}
 
-	return batchCallLatestBlockNumber[ccipdata.TokenBucketRateLimit](ctx, br.lp, br.evmBatchCaller, evmCalls)
+	return batchCallLatestBlockNumber[ccipdata.TokenBucketRateLimit](ctx, br.evmBatchCaller, evmCalls)
 }
 
 // loadTokenPoolReaders loads the token pools into the factory's cache
@@ -142,16 +141,11 @@ func getBatchedTypeAndVersion(ctx context.Context, lp logpoller.LogPoller, evmBa
 		))
 	}
 
-	return batchCallLatestBlockNumber[string](ctx, lp, evmBatchCaller, evmCalls)
+	return batchCallLatestBlockNumber[string](ctx, evmBatchCaller, evmCalls)
 }
 
-func batchCallLatestBlockNumber[T any](ctx context.Context, lp logpoller.LogPoller, evmBatchCaller rpclib.EvmBatchCaller, evmCalls []rpclib.EvmCall) ([]T, error) {
-	latestBlock, err := lp.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("get latest block: %w", err)
-	}
-
-	results, err := evmBatchCaller.BatchCall(ctx, uint64(latestBlock.BlockNumber), evmCalls)
+func batchCallLatestBlockNumber[T any](ctx context.Context, evmBatchCaller rpclib.EvmBatchCaller, evmCalls []rpclib.EvmCall) ([]T, error) {
+	results, err := evmBatchCaller.BatchCall(ctx, 0, evmCalls)
 	if err != nil {
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}

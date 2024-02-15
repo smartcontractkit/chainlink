@@ -93,7 +93,10 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 			return nil, fmt.Errorf("pack %s(%+v): %w", call.methodName, call.args, err)
 		}
 
-		bn := big.NewInt(0).SetUint64(blockNumber)
+		blockNumStr := "latest"
+		if blockNumber > 0 {
+			blockNumStr = hexutil.EncodeBig(big.NewInt(0).SetUint64(blockNumber))
+		}
 
 		rpcBatchCalls[i] = rpc.BatchElem{
 			Method: "eth_call",
@@ -103,7 +106,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 					"to":   call.contractAddress,
 					"data": hexutil.Bytes(packedInputs),
 				},
-				hexutil.EncodeBig(bn),
+				blockNumStr,
 			},
 			Result: &packedOutputs[i],
 		}

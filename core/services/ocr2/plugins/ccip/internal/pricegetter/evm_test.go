@@ -348,7 +348,7 @@ func mockClientFromRound(t *testing.T, round aggregator_v3_interface.LatestRound
 
 func mockCallerFromRound(t *testing.T, round aggregator_v3_interface.LatestRoundData) *rpclibmocks.EvmBatchCaller {
 	caller := rpclibmocks.NewEvmBatchCaller(t)
-	caller.On("BatchCall", mock.Anything, round.RoundId.Uint64(), mock.Anything).Return(
+	caller.On("BatchCall", mock.Anything, uint64(0), mock.Anything).Return(
 		[]rpclib.DataAndErr{
 			{
 				Outputs: []any{round.RoundId, round.Answer, round.StartedAt, round.UpdatedAt, round.AnsweredInRound},
