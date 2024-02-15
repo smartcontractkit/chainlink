@@ -82,9 +82,7 @@ func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
 	head = new(evmtypes.Head)
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	if err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID); err != nil {
-		return nil, err
-	}
+	err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
