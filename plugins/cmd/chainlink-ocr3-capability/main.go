@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	ocr3rp "github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 const (
@@ -18,7 +19,7 @@ func main() {
 	s := loop.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
-	p := ocr3.NewOCR3(s.Logger)
+	p := ocr3.NewOCR3(s.Logger, evm.NewEVMEncoder)
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
 	s.MustRegister(p)
