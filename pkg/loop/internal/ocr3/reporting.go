@@ -339,8 +339,13 @@ func pbAttributedObservation(ao libocr.AttributedObservation) *ocr3.AttributedOb
 
 func pbReportsWithInfo(rwi []ocr3types.ReportWithInfo[any]) (ri []*ocr3.ReportWithInfo) {
 	for _, r := range rwi {
+		i, ok := r.Info.([]byte)
+		if !ok {
+			i = []byte("")
+		}
 		ri = append(ri, &ocr3.ReportWithInfo{
 			Report: r.Report,
+			Info:   i,
 		})
 	}
 	return
@@ -388,6 +393,7 @@ func reportsWithInfo(ri []*ocr3.ReportWithInfo) (rwi []ocr3types.ReportWithInfo[
 	for _, r := range ri {
 		rwi = append(rwi, ocr3types.ReportWithInfo[any]{
 			Report: r.Report,
+			Info:   r.Info,
 		})
 	}
 	return

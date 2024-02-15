@@ -198,10 +198,10 @@ URL = 'https://test.url'
 	}
 	RIs = []ocr3types.ReportWithInfo[any]{{
 		Report: []byte("report1"),
-		Info:   nil,
+		Info:   []byte("info1"),
 	}, {
 		Report: []byte("report2"),
-		Info:   nil,
+		Info:   []byte("info2"),
 	}}
 
 	//CapabilitiesRegistry

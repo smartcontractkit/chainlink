@@ -128,6 +128,7 @@ message ReportsReply{
 
 message ReportWithInfo{
   bytes report=1;
+  bytes info=2;
 }
 
 message ShouldAcceptAttestedReportRequest{
