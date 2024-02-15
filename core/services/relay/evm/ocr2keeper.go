@@ -169,18 +169,19 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 				//	r.lggr.Infow("got on chain config", "checkGasLimit", onchainConfigProto.CheckGasLimit, "maxPerformGas", onchainConfigProto.MaxPerformGas)
 				//}
 
+				type Tuple struct {
+					CheckGasLimit uint32
+					checkGasLimit uint32
+					MaxPerformGas uint32
+					maxPerformGas uint32
+				}
+
 				onchainConfig := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint32 maxRevertDataSize, uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address[] registrars,address upkeepPrivilegeManager)")
-				var m map[string]interface{}
+				m := Tuple{}
 				if err := goabi.DecodeStruct(onchainConfig, contractConfig.OnchainConfig, &m); err != nil {
 					r.lggr.Infow("error decoding struct of on chain config", "error", err.Error())
 				} else {
-					r.lggr.Infow("got on chain config from struct", "keys", len(m))
-					var res []interface{}
-					for k, v := range m {
-						res = append(res, k)
-						res = append(res, v)
-					}
-					r.lggr.Infow("got on chain config from struct keys and values", res...)
+					r.lggr.Infow("got on chain config", "CheckGasLimit", m.CheckGasLimit, "checkGasLimit", m.checkGasLimit, "MaxPerformGas", m.MaxPerformGas, "maxPerformGas", m.maxPerformGas)
 				}
 
 				// set the values on the log poller
