@@ -50,10 +50,10 @@ type ErrCode uint32
 
 const (
 	ErrCodeNil                 ErrCode = 0
-	ErrCodePartialContent      ErrCode = 800206
+	ErrCodePartialContent      ErrCode = 808206
 	ErrCodeDataStreamsError    ErrCode = 808500
-	ErrCodeBadRequest          ErrCode = 800400
-	ErrCodeUnauthorized        ErrCode = 800401
+	ErrCodeBadRequest          ErrCode = 808400
+	ErrCodeUnauthorized        ErrCode = 808401
 	ErrCodeEncodingError       ErrCode = 808600
 	ErrCodeStreamLookupTimeout ErrCode = 808603
 )
