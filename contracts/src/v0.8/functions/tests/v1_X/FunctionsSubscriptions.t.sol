@@ -346,7 +346,7 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsClientSetup {
     s_linkToken.transferAndCall(address(s_functionsRouter), totalSupplyJuels, abi.encode(invalidSubscriptionId));
   }
 
-  function test_OnTokenTransfer_Success(uint96 fundingAmount) public {
+  function test_OnTokenTransfer_Success() public {
     // Funding amount must be less than LINK total supply
     uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
     // Some of the total supply is already in the subscription account
