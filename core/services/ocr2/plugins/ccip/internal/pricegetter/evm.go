@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
@@ -31,13 +30,11 @@ func init() {
 
 type DynamicPriceGetterClient struct {
 	BatchCaller rpclib.EvmBatchCaller
-	LP          logpoller.LogPoller
 }
 
-func NewDynamicPriceGetterClient(batchCaller rpclib.EvmBatchCaller, lp logpoller.LogPoller) DynamicPriceGetterClient {
+func NewDynamicPriceGetterClient(batchCaller rpclib.EvmBatchCaller) DynamicPriceGetterClient {
 	return DynamicPriceGetterClient{
 		BatchCaller: batchCaller,
-		LP:          lp,
 	}
 }
 

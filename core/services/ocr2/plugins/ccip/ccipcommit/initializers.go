@@ -150,7 +150,7 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 				rpclib.DefaultRpcBatchSizeLimit,
 				rpclib.DefaultRpcBatchBackOffMultiplier,
 			)
-			priceGetterClients[chainID] = pricegetter.NewDynamicPriceGetterClient(caller, chain.LogPoller())
+			priceGetterClients[chainID] = pricegetter.NewDynamicPriceGetterClient(caller)
 		}
 
 		priceGetter, err = pricegetter.NewDynamicPriceGetter(*params.pluginConfig.PriceGetterConfig, priceGetterClients)
