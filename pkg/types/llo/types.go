@@ -17,7 +17,9 @@ type StreamID = uint32
 
 type LifeCycleStage string
 
-type ReportFormat string
+// ReportFormat represents different formats for different targets e.g. EVM,
+// Solana, JSON, kalechain etc
+type ReportFormat = uint32
 
 type ReportInfo struct {
 	LifeCycleStage LifeCycleStage
