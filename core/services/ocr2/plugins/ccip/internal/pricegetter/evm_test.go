@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -342,7 +340,6 @@ func testParamNoAggregatorForToken(t *testing.T) testParameters {
 func mockClientFromRound(t *testing.T, round aggregator_v3_interface.LatestRoundData) DynamicPriceGetterClient {
 	return DynamicPriceGetterClient{
 		BatchCaller: mockCallerFromRound(t, round),
-		LP:          mockLPFromRound(t, round),
 	}
 }
 
@@ -357,13 +354,4 @@ func mockCallerFromRound(t *testing.T, round aggregator_v3_interface.LatestRound
 		nil,
 	).Maybe()
 	return caller
-}
-
-func mockLPFromRound(t *testing.T, round aggregator_v3_interface.LatestRoundData) *lpmocks.LogPoller {
-	lp := lpmocks.NewLogPoller(t)
-	lp.On("LatestBlock", mock.Anything).Return(
-		logpoller.LogPollerBlock{
-			BlockNumber: int64(round.RoundId.Uint64()),
-		}, nil).Maybe()
-	return lp
 }

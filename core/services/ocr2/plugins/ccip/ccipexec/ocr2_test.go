@@ -125,7 +125,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			offRamp, _ := testhelpers.NewFakeOffRamp(t)
 			offRamp.SetRateLimiterState(tc.rateLimiterState)
 
-			p.tokenPoolBatchedReader = batchreader.NewEVMTokenPoolBatchedReader(p.lggr, 0, offRamp.Address(), nil, nil)
+			p.tokenPoolBatchedReader = batchreader.NewEVMTokenPoolBatchedReader(p.lggr, 0, offRamp.Address(), nil)
 
 			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 			mockOffRampReader.On("GetExecutionStateChangesBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
