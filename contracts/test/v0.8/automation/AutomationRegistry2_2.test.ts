@@ -717,7 +717,7 @@ describe('AutomationRegistry2_2', () => {
     gasLimit?: BigNumberish
     gasPrice?: BigNumberish
     performGas?: BigNumberish
-    performData?: string
+    performDatas?: string[]
     checkBlockNum?: number
     checkBlockHash?: string
     logBlockHash?: BytesLike
@@ -737,7 +737,7 @@ describe('AutomationRegistry2_2', () => {
     const config = {
       numSigners: f + 1,
       startingSignerIndex: 0,
-      performData: '0x',
+      performDatas: undefined,
       performGas,
       checkBlockNum: latestBlock.number,
       checkBlockHash: latestBlock.hash,
@@ -773,7 +773,7 @@ describe('AutomationRegistry2_2', () => {
         Id: upkeepIds[i],
         performGas: config.performGas,
         trigger,
-        performData: config.performData,
+        performData: config.performDatas ? config.performDatas[i] : '0x',
       })
     }
 
@@ -1447,7 +1447,7 @@ describe('AutomationRegistry2_2', () => {
         await mock.setCanPerform(true)
 
         const tx = await getTransmitTx(registry, keeper1, [upkeepId], {
-          performData: randomBytes,
+          performDatas: [randomBytes],
         })
         const receipt = await tx.wait()
 
@@ -1754,7 +1754,7 @@ describe('AutomationRegistry2_2', () => {
           await getTransmitTx(registry, keeper1, [testUpkeepId], {
             gasLimit: maxPerformGas.add(transmitGasOverhead),
             numSigners: 11,
-            performData,
+            performDatas: [performData],
           }) // Should not revert
         },
       )
@@ -1919,7 +1919,7 @@ describe('AutomationRegistry2_2', () => {
                       )
                     tx = await getTransmitTx(registry, keeper1, [upkeepId], {
                       numSigners: newF + 1,
-                      performData,
+                      performDatas: [performData],
                     })
                     const receipt = await tx.wait()
                     const upkeepPerformedLogs =
@@ -2051,7 +2051,7 @@ describe('AutomationRegistry2_2', () => {
               )
               tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
                 numSigners: newF + 1,
-                performData,
+                performDatas: [performData],
               })
               const receipt = await tx.wait()
               const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
@@ -2563,9 +2563,13 @@ describe('AutomationRegistry2_2', () => {
       })
     })
 
-    it('splits l2 payment among performed upkeeps', async () => {
+    it('splits l2 payment among performed upkeeps according to perform data weight', async () => {
       const numUpkeeps = 7
       const upkeepIds: BigNumber[] = []
+      const performDataSizes = [0, 10, 1000, 50, 33, 69, 420]
+      const performDatas: string[] = []
+      const upkeepCalldataWeights: BigNumber[] = []
+      let totalCalldataWeight = BigNumber.from('0')
       // Same as MockArbGasInfo.sol
       const l1CostWeiArb = BigNumber.from(1000000)
 
@@ -2581,40 +2585,54 @@ describe('AutomationRegistry2_2', () => {
 
         // Add funds to passing upkeeps
         await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
+
+        // Generate performData
+        let pd = '0x'
+        for (let j = 0; j < performDataSizes[i]; j++) {
+          pd += '11'
+        }
+        performDatas.push(pd)
+        let w = BigNumber.from(performDataSizes[i])
+          .add(registryTransmitCalldataFixedBytesOverhead)
+          .add(
+            registryTransmitCalldataPerSignerBytesOverhead.mul(
+              BigNumber.from(f + 1),
+            ),
+          )
+        upkeepCalldataWeights.push(w)
+        totalCalldataWeight = totalCalldataWeight.add(w)
       }
 
       // Do the thing
-      const tx = await getTransmitTx(
-        arbRegistry,
-        keeper1,
-        upkeepIds,
-
-        { gasPrice: gasWei.mul('5') }, // High gas price so that it gets capped
-      )
+      const tx = await getTransmitTx(arbRegistry, keeper1, upkeepIds, {
+        gasPrice: gasWei.mul('5'), // High gas price so that it gets capped
+        performDatas,
+      })
 
       const receipt = await tx.wait()
       const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
       // exactly numPassingUpkeeps Upkeep Performed should be emitted
       assert.equal(upkeepPerformedLogs.length, numUpkeeps)
 
-      // Verify the payment calculation in upkeepPerformed[0]
-      const upkeepPerformedLog = upkeepPerformedLogs[0]
+      for (let i = 0; i < numUpkeeps; i++) {
+        const upkeepPerformedLog = upkeepPerformedLogs[i]
 
-      const gasUsed = upkeepPerformedLog.args.gasUsed
-      const gasOverhead = upkeepPerformedLog.args.gasOverhead
-      const totalPayment = upkeepPerformedLog.args.totalPayment
+        const gasUsed = upkeepPerformedLog.args.gasUsed
+        const gasOverhead = upkeepPerformedLog.args.gasOverhead
+        const totalPayment = upkeepPerformedLog.args.totalPayment
 
-      assert.equal(
-        linkForGas(
-          gasUsed,
-          gasOverhead,
-          gasCeilingMultiplier,
-          paymentPremiumPPB,
-          flatFeeMicroLink,
-          l1CostWeiArb.div(BigNumber.from(numUpkeeps)),
-        ).total.toString(),
-        totalPayment.toString(),
-      )
+        assert.equal(
+          linkForGas(
+            gasUsed,
+            gasOverhead,
+            gasCeilingMultiplier,
+            paymentPremiumPPB,
+            flatFeeMicroLink,
+            l1CostWeiArb.mul(upkeepCalldataWeights[i]).div(totalCalldataWeight),
+          ).total.toString(),
+          totalPayment.toString(),
+        )
+      }
     })
   })
 
@@ -2778,7 +2796,7 @@ describe('AutomationRegistry2_2', () => {
 
       const tx = await getTransmitTx(registry, keeper1, [upkeepID1], {
         gasPrice: gasWei.mul(gasCeilingMultiplier),
-        performData: maxPerformData,
+        performDatas: [maxPerformData],
       })
 
       const receipt = await tx.wait()
@@ -2788,7 +2806,7 @@ describe('AutomationRegistry2_2', () => {
       // upkeep 2 perform should succeed with max performData size
       await getTransmitTx(registry, keeper1, [upkeepID2], {
         gasPrice: gasWei.mul(gasCeilingMultiplier),
-        performData: maxPerformData,
+        performDatas: [maxPerformData],
       })
     })
   })
