@@ -104,6 +104,8 @@ Execute the following command based on your upkeep type:
     ```
 ### Common issues with Upkeeps and how to resolve them
 
+#### All upkeeps
+
 - Upkeep is underfunded
   - Underfunded upkeeps will not perform. Fund your upkeep in the Automation [app](https://automation.chain.link/)
 - Upkeep is paused
@@ -120,4 +122,13 @@ Execute the following command based on your upkeep type:
   - Use the Automation [app](https://automation.chain.link/) and increase the gas limit of your upkeep
   - The maximum supported perform gas is 5,000,000
 
+#### Log-trigger upkeeps
+
+Log-trigger upkeeps require that you also supply the txn hash containing the log and the index of the log that would have triggered your upkeep. You can find both in the block scanner of the chain in question. For example the txn hash is in the URL and the block number in the green circle on the left.
+![Txn Hash and Log Index Number](/core/scripts/chaincli/images/txnHash_and_index.png "Find txn hash and log index in block scanner") 
+
+- Log doesn't match the trigger config
+  - Log-trigger upkeeps come with a filter (aka trigger config), if the emitted log doesn't match the filter, the upkeep won't run.
+  - ![Log doesn't match](/core/scripts/chaincli/images/log_trigger_log_doesnt_match.png "Log doesn't match trigger config") 
+  - Use the Automation [app](https://automation.chain.link/) to update the upkeep's trigger config to match the log.
 ---
