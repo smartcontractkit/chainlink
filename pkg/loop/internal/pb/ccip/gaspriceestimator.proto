@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "google/protobuf/empty.proto";
+import "relayer.proto";
+import "models.proto";
+
+// GasPriceEstimatorExec is a gRPC service adapter for the interface
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorExec]
+service GasPriceEstimatorExec {
+  rpc GetGasPrice(google.protobuf.Empty) returns (GetGasPriceResponse);
+  rpc DenoteInUSD(DenoteInUSDRequest) returns (DenoteInUSDResponse);
+  rpc EstimateMsgCostUSD(EstimateMsgCostUSDRequest) returns (EstimateMsgCostUSDResponse);
+  // TODO BFC-2991: reconcile gas price estimator to remove unnecessary interface funcs
+}
+
+// GasPriceEstimatorCommit is a gRPC service adapter for the interface
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorCommit]
+service GasPriceEstimatorCommit {
+    rpc GetGasPrice(google.protobuf.Empty) returns (GetGasPriceResponse);
+    rpc DenoteInUSD(DenoteInUSDRequest) returns (DenoteInUSDResponse);
+    // TODO BFC-2991: reconcile gas price estimator to remove unnecessary interface funcs
+}
+
+// GetGasPriceResponse returns the current gas price. It is a gRPC adpater for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorExec.GetGasPrice]
+message GetGasPriceResponse {
+    BigInt gas_price = 1;
+}
+
+// DenoteInUSDRequest is a gRPC adapter for the input values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorExec.DenoteInUSD]
+message DenoteInUSDRequest {
+    BigInt p = 1;
+    BigInt wrapped_native_price = 2;
+}
+
+// DenoteInUSDResponse returns the price in USD. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorExec.DenoteInUSD]
+message DenoteInUSDResponse {
+    BigInt usd_price = 1;
+}
+
+// EstimateMsgCostUSDRequest is a gRPC adapter for the input values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorExec.EstimateMsgCostUSD]
+message EstimateMsgCostUSDRequest {
+    BigInt p = 1;
+    BigInt wrapped_native_price = 2;
+    EVM2EVMOnRampCCIPSendRequestedWithMeta msg = 3;
+}
+
+// EstimateMsgCostUSDResponse returns the estimated cost in USD. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorExec.EstimateMsgCostUSD]
+message EstimateMsgCostUSDResponse {
+    BigInt usd_cost = 1;
+}
+
+

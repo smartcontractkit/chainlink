@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "google/protobuf/timestamp.proto";
+import "relayer.proto";
+
+// This file contains message definitions for the Cross-Chain Interoperability Protocol (CCIP) that are used by
+// multiple interfaces comprising CCIP
+
+// TxMeta is a message that contains the metadata of a transaction. It is a gRPC adapter to
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.TxMeta]
+message TxMeta {
+    uint64 block_timestamp = 1;
+    uint64 block_height = 2;
+    string tx_hash = 3;
+    uint64 log_index = 4;
+}
+
+// EVM2EVMMesssage is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.EVM2EVMMessage]
+message EVM2EVMMessage {
+    uint64 sequence_number = 1;
+    BigInt gas_limit = 2;
+    uint64 gas_price = 3;
+    bytes message_id = 4; // Hash [32]byte
+    uint64 source_chain_selector = 5;
+    string sender = 6; // Address
+    string receiver = 7; // Address
+    bool strict = 8;
+    string fee_token = 9; // Address
+    BigInt fee_token_amount = 10;
+    bytes data = 11;
+    repeated TokenAmount token_amounts = 12;
+    repeated bytes source_token_data = 13;
+    bytes hash = 14; // Hash [32]byte, computed from the message
+}
+
+// EVM2EVMOnRampCCIPSendRequestedWithMeta is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta]
+message EVM2EVMOnRampCCIPSendRequestedWithMeta {
+    EVM2EVMMessage evm_to_evm_msg = 1;
+    google.protobuf.Timestamp block_timestamp = 2;
+    bool executed = 3;
+    bool finalized = 4;
+    uint64 log_index = 5;
+    string tx_hash = 6;
+}
+
+// TokenPoolRateLimit is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip/TokenPoolRateLimit]
+message TokenPoolRateLimit {
+    BigInt tokens = 1;
+    uint32 last_updated = 2;
+    bool is_enabled = 3;
+    BigInt capacity = 4;
+    BigInt rate = 5;
+}
+
+// TokenAmount is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.TokenAmount]
+message TokenAmount {
+    string token = 1; // Address
+    BigInt amount = 2;
+}
+
+// ExecutionReport is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.ExecutionReport]
+message ExecutionReport {
+    repeated EVM2EVMMessage evm_to_evm_messages = 1;
+    repeated TokenData offchain_token_data = 2; // [][][]byte todo: what is the meaning of the triple nesting? ie, what is better naming? BCF-2979
+    repeated bytes proofs = 3; // [][32]byte
+    BigInt proof_flag_bits = 4;
+}
+
+message TokenData {
+    repeated bytes data= 1; // todo: better naming? BCF-2979
+}
+
+// TokenPrice is the price of the stated token. It is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.TokenPrice]
+message TokenPrice {
+    string token = 1; // Address
+    BigInt value = 2;
+}
+
+// GasPrice is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPrice]
+message GasPrice {
+    uint64 dest_chain_selector = 1;
+    BigInt value = 2;
+}

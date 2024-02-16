@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "relayer.proto";
+import "models.proto";
+
+
+// PriceRegistryReader is a gRPC service adapter for the interface
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader]
+service PriceRegistryReader {
+    rpc GetTokenPriceUpdatesCreatedAfter(GetTokenPriceUpdatesCreatedAfterRequest) returns (GetTokenPriceUpdatesCreatedAfterResponse) {}
+    rpc GetGasPriceUpdatesCreatedAfter(GetGasPriceUpdatesCreatedAfterRequest) returns (GetGasPriceUpdatesCreatedAfterResponse) {}
+    rpc GetAddress (google.protobuf.Empty) returns (GetPriceRegistryAddressResponse) {}
+    rpc GetFeeTokens (google.protobuf.Empty) returns (GetFeeTokensResponse) {}
+    rpc GetTokenPrices(GetTokenPricesRequest) returns (GetTokenPricesResponse) {}
+    rpc GetTokensDecimals(GetTokensDecimalsRequest) returns (GetTokensDecimalsResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+
+/// GetTokenPriceUpdatesCreatedAfter is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetTokenPriceUpdatesCreatedAfter]
+message GetTokenPriceUpdatesCreatedAfterRequest {
+    google.protobuf.Timestamp created_after = 1;
+    uint64 confirmations = 2;
+}
+
+/// GetTokenPriceUpdatesCreatedAfterResponse is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetTokenPriceUpdatesCreatedAfter]
+message GetTokenPriceUpdatesCreatedAfterResponse {
+    repeated TokenPriceUpdateWithTxMeta token_price_updates = 1;
+}
+
+// GetGasPriceUpdatesCreatedAfterRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetGasPriceUpdatesCreatedAfter]
+message GetGasPriceUpdatesCreatedAfterRequest {
+    uint64 chain_selector = 1;
+    google.protobuf.Timestamp created_after = 2;
+    uint64 confirmations = 3;
+}
+
+// GetGasPriceUpdatesCreatedAfterResponse is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetGasPriceUpdatesCreatedAfter]
+message GetGasPriceUpdatesCreatedAfterResponse {
+    repeated GasPriceUpdateWithTxMeta gas_price_updates = 1;
+}
+
+// GetPriceRegistryAddressResponse is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetPriceRegistryAddress]
+message GetPriceRegistryAddressResponse {
+    string address = 1;
+}
+
+// GetFeeTokensResponse is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetFeeTokens]
+message GetFeeTokensResponse {
+    repeated string fee_token_addresses = 1; //[]Address
+}
+
+// GetTokenPricesRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetTokenPrices]
+message GetTokenPricesRequest {
+    repeated string token_addresses = 1; //[]Address
+}
+
+// GetTokenPricesResponse is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetTokenPrices]
+message GetTokenPricesResponse {
+    repeated TokenPriceUpdate token_prices = 1;
+}
+
+// GetTokensDecimalsRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetTokensDecimals]
+message GetTokensDecimalsRequest {
+    repeated string token_addresses = 1; //[]Address
+}
+
+// GetTokensDecimalsResponse is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceRegistryReader.GetTokensDecimals]
+message GetTokensDecimalsResponse {
+    repeated uint32 decimals = 1; //uint8
+}
+
+// GasPriceUpdateWithTxMeta is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/GasPriceUpdateWithTxMeta]
+message GasPriceUpdateWithTxMeta {
+    GasPriceUpdate gas_price_update = 1;
+    TxMeta tx_meta = 2;
+}
+
+// GasPriceUpdate is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/GasPriceUpdate]
+message GasPriceUpdate {
+    GasPrice price = 1;
+    BigInt unix_timestamp = 2;
+}
+
+// TokenPriceUpdateWithTxMeta is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/TokenPriceUpdateWithTxMeta]
+message TokenPriceUpdateWithTxMeta {
+    TokenPriceUpdate token_price_update = 1;
+    TxMeta tx_meta = 2;
+}
+
+// TokenPriceUpdate is a gRPC adapter for the struct
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/TokenPriceUpdate]
+message TokenPriceUpdate {
+    TokenPrice price = 1;
+    BigInt unix_timestamp = 2;
+}

@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+
+// ExecutionFactoryGenerator is a gRPC service that generates a execution factory
+// It is a gRPC service adapter for the https://github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipexec/NewExecutionReportingPluginFactory
+service ExecutionFactoryGenerator {
+    rpc NewExecutionFactory(NewExecutionFactoryRequest) returns (NewExecutionFactoryResponse);
+}
+
+// NewExecutionFactoryRequest is a gRPC adapter to the factory configuration [https://github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipexec/ExecutionPluginStaticConfig]
+message NewExecutionFactoryRequest {
+    int32 onramp_reader_service_id = 1;
+    int32 offramp_reader_service_id = 2;
+    int32 commit_store_service_id = 3;
+    int32 source_price_registiry_service_id = 4;
+    string source_wrapped_native_token = 5; // Address
+    // TODO BCF-2979: what is this? there is no type in the common repo for it. seems like it can be 
+    // moved to an implementation detail of the ccipexec plugin
+    int32 token_data_worker_service_id = 6;
+    uint64 dest_chain_selector = 7;
+    int32 price_registry_service_id = 8;
+    int32 token_pool_batch_reader_service_id = 9;
+    // TODO: there is a metrics collector defined in the corresponding config. what to do with it?
+}
+
+// NewExecutionFactoryResponse is a contains the id of the created execution factory
+message NewExecutionFactoryResponse {
+    int32 execution_factory_service_id = 1;
+}

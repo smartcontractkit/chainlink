@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+
+// CommitFactoryGenerator is a gRPC service that generates a commit factory
+// It is a gRPC service adapter for the interface 
+// [github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipcommit.NewCommitReportingPluginFactory]
+service CommitFactoryGenerator {
+    rpc NewCommitFactory(NewCommitFactoryRequest) returns (NewCommitFactoryResponse);
+}
+
+// NewCommitFactoryRequest is a gRPC adapter to the factory configuration 
+// [github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipcommit.CommitPluginStaticConfig]
+message NewCommitFactoryRequest {
+    // Source
+    int32 onramp_reader_service_id = 1;
+    uint64 source_chain_selector = 2;
+    string source_native = 3; // Address
+    // Dest
+    int32 offramp_reader_service_id = 4;
+    int32 commit_store_service_id = 5;
+    uint64 dest_chain_selector = 6;
+    int32 price_registiry_service_id = 7;
+    // Offchain
+    int32 price_getter_service_id = 8;
+    // TODO BCF-2981: there is a metrics collector defined in the corresponding config. what to do with it?
+}
+
+// NewCommitFactoryResponse is a reference to the factory generator service. It is a gRPC proxy mechanism 
+// for the return value of [github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipcommit.NewCommitReportingPluginFactory]
+// because the underlying return value is an interface, which is modeled as a service in gRPC
+message NewCommitFactoryResponse {
+    int32 commit_factory_service_id = 1;
+}

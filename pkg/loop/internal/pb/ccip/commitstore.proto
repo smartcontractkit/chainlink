@@ -1,0 +1,196 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "models.proto";
+
+// CommitStoreReader is a gRPC service adapter to the CommitStoreReader interface 
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader]
+service CommitStoreReader {
+    rpc GetExpectedNextSequenceNumber(google.protobuf.Empty) returns (GetExpectedNextSequenceNumberResponse);
+    rpc GetLatestPriceEpochAndRound(google.protobuf.Empty) returns (GetLatestPriceEpochAndRoundResponse);
+    rpc GeteCommitReportMatchingSequenceNumber(GetCommitReportMatchingSequenceNumberRequest) returns (GetCommitReportMatchingSequenceNumberResponse);
+    rpc GetAcceptedCommitReportsGteTimestamp(GetAcceptedCommitReportsGteTimestampRequest) returns (GetAcceptedCommitReportsGteTimestampResponse);
+    rpc IsDown(google.protobuf.Empty) returns (IsDownResponse);
+    rpc IsBlessed(IsBlessedRequest) returns (IsBlessedResponse);
+    rpc ChangeConfig(CommitStoreChangeConfigRequest) returns (CommitStoreChangeConfigResponse);
+    rpc GetOffchainConfig(google.protobuf.Empty) returns (GetOffchainConfigResponse);
+    rpc GetCommitGasPriceEstimator(google.protobuf.Empty) returns (GetCommitGasPriceEstimatorResponse);
+    rpc EncodeCommitReport(EncodeCommitReportRequest) returns (EncodeCommitReportResponse);
+    rpc DecodeCommitReport(DecodeCommitReportRequest) returns (DecodeCommitReportResponse);
+    rpc VerifyExecutionReport(VerifyExecutionReportRequest) returns (VerifyExecutionReportResponse);
+    rpc GetCommitStoreStaticConfig(google.protobuf.Empty) returns (GetCommitStoreStaticConfigResponse);
+}
+
+// GetExpectedNextSequenceNumberResponse returns the expected next sequence number. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetExpectedNextSequenceNumber]
+message GetExpectedNextSequenceNumberResponse {
+    uint64 sequence_number = 1;
+}
+
+// GetLatestPriceEpochAndRoundResponse returns the latest price epoch and round. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetLatestPriceEpochAndRound]
+message GetLatestPriceEpochAndRoundResponse {
+    uint64 epoch_and_round = 1;
+}
+
+// GetCommitReportMatchingSequenceNumberRequest is a gRPC adapter to the input values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetCommitReportMatchingSeqNum]
+message GetCommitReportMatchingSequenceNumberRequest {
+    uint64 sequence_number = 1;
+    uint64 confirmations = 2;
+}
+
+// GetCommitReportMatchingSequenceNumberResponse returns the commit store reports matching the sequence number. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetCommitReportMatchingSeqNum]
+message GetCommitReportMatchingSequenceNumberResponse {
+    repeated CommitStoreReportWithTxMeta reports = 1;
+}
+
+// GetAcceptedCommitReportsGteTimestampRequest is a gRPC adapter to the input values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetAcceptedCommitReportsGteTimestamp]
+message GetAcceptedCommitReportsGteTimestampRequest {
+    google.protobuf.Timestamp  timestamp = 1;
+    uint64 confirmations = 2;
+}
+
+// GetAcceptedCommitReportsGteTimestampResponse returns the accepted commit store reports matching the timestamp. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetAcceptedCommitReportsGteTimestamp]
+message GetAcceptedCommitReportsGteTimestampResponse {
+    repeated CommitStoreReportWithTxMeta reports = 1;
+}
+
+// IsDownResponse returns whether the commit store is down. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.IsDown]
+message IsDownResponse {
+    bool is_down = 1;
+}
+
+// IsBlessedRequest is a gRPC adapter to the input values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.IsBlessed]
+message IsBlessedRequest {
+    bytes root = 1; // [32]byte
+}
+
+// IsBlessedResponse returns whether the commit store is blessed. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.IsBlessed]
+message IsBlessedResponse {
+    bool is_blessed = 1;
+}
+
+// CommitStoreChangeConfigRequest is a gRPC adapter to the input values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.ChangeConfig]
+message CommitStoreChangeConfigRequest {
+    bytes onchain_config = 1;
+    bytes offchain_config = 2;
+}
+
+// CommitStoreChangeConfigResponse returns the address of the commit store. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.ChangeConfig]
+message CommitStoreChangeConfigResponse {
+    string address = 1; // Address
+}
+
+// GetOffchainConfigResponse returns the offchain config. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetOffchainConfig]
+message GetOffchainConfigResponse {
+   CommitOffchainConfig offchain_config = 1;
+}
+
+// GetCommitGasPriceEstimatorResponse returns a reference to the gas price estimator service. 
+// It is a gRPC proxying mechanism instead of a wrapper to the return value of 
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetCommitGasPriceEstimator]
+// because the return value is an interface, which is modelled as a service in gRPC
+message GetCommitGasPriceEstimatorResponse {
+    uint32 gas_price_estimator_id = 1; // connection id for proxying
+}
+
+// EncodeCommitReportRequest is a gRPC adapter to the input values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.EncodeCommitReport]
+message EncodeCommitReportRequest {
+    CommitStoreReport report = 1;
+}
+
+// EncodeCommitReportResponse returns the encoded report. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.EncodeCommitReport]
+message EncodeCommitReportResponse {
+    bytes encoded_report = 1;
+}
+
+// DecodeCommitReportRequest is a gRPC adapter to the input values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.DecodeCommitReport]
+message DecodeCommitReportRequest {
+    bytes encoded_report = 1;
+}
+
+// DecodeCommitReportResponse returns the decoded report. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.DecodeCommitReport]
+message DecodeCommitReportResponse {
+    CommitStoreReport report = 1;
+}
+
+// VerifyExecutionReportRequest is a gRPC adapter to the input values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.VerifyExecutionReport]
+message VerifyExecutionReportRequest {
+    ExecutionReport report = 1;
+    bytes encoded_report = 2;
+}
+
+// VerifyExecutionReportResponse returns whether the execution report is valid. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.VerifyExecutionReport]
+message VerifyExecutionReportResponse {
+    bool is_valid = 1;
+}
+
+// GetCommitStoreStaticConfigResponse returns the static config of the commit store. It is a gRPC adapter to the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader.GetCommitStoreStaticConfig]
+message GetCommitStoreStaticConfigResponse {
+    CommitStoreStaticConfig static_config = 1;
+}
+
+// CommitOffchainConfig is the offchain config of the commit store. It is a gRPC adapter to the struct 
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip.CommitOffchainConfig]
+message CommitOffchainConfig {
+    uint32 gas_price_deviation_ppb = 1;
+    google.protobuf.Duration gas_price_hearbeat = 2;
+    uint32 token_price_deviation_ppb = 3;
+    google.protobuf.Duration token_price_hearbeat = 4;
+    google.protobuf.Duration inflight_cache_expiry = 5;
+}
+
+
+// CommitStoreReportWithTxMeta is a gRPC adapter to the struct
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip.CommitStoreReportWithTxMeta]
+message CommitStoreReportWithTxMeta {
+    CommitStoreReport report = 1;
+    TxMeta tx_meta = 2;
+}
+
+// CommitStoreReport is a gRPC adapter to the struct
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip.CommitStoreReport]
+message CommitStoreReport {
+    repeated TokenPrice token_prices = 1;
+    repeated GasPrice gas_prices = 2;
+    CommitStoreInterval interval = 3;
+    bytes merkle_root = 4;
+}
+
+// CommitStoreInterval is a gRPC adapter to the struct
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip.CommitStoreInterval]
+message CommitStoreInterval {
+    uint64 min = 1;
+    uint64 max = 2;
+}
+
+// CommitStoreStaticConfig is a gRPC adapter to the struct
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip.CommitStoreStaticConfig]
+message CommitStoreStaticConfig {
+    uint64 chain_selector = 1;
+    uint64 source_chain_selector = 2;
+    string on_ramp = 3; // Address
+    string arm_proxy = 4; // Address
+}

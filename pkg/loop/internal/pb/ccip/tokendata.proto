@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
+
+package loop.internal.pb.ccip;
+import "models.proto";
+
+
+// TokenDataReader is a service that returns the price of a token in USD. It is a gRPC service adapter for the interface
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/TokenDataReader]
+service TokenDataReader {
+    rpc ReadTokenData(TokenDataRequest) returns (TokenDataResponse) {}
+}
+
+// TokenDataRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/TokenDataReader.ReadTokenData]
+message TokenDataRequest {
+    EVM2EVMOnRampCCIPSendRequestedWithMeta  msg = 1;
+    uint64 token_index = 2;
+}
+
+// TokenDataResponse is a gRPC adapter for the return value of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/TokenDataReader.ReadTokenData]
+message TokenDataResponse {
+    bytes token_data = 1;
+}
