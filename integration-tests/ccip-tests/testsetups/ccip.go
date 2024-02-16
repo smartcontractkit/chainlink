@@ -587,7 +587,7 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates(ctx context.Context) {
 			}()
 			err = lane.Source.Common.WaitForPriceUpdates(
 				lane.Logger,
-				30*time.Minute,
+				o.Cfg.TestGroupInput.TimeoutForPriceUpdate.Duration(),
 				lane.Source.DestinationChainId,
 			)
 			if err != nil {
