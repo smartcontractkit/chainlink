@@ -277,8 +277,12 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     return REGISTRY_PER_SIGNER_GAS_OVERHEAD;
   }
 
-  function getTransmitCalldataBytesOverhead() external pure returns (uint256) {
-    return TRANSMIT_CALLDATA_BYTES_OVERHEAD;
+  function getTransmitCalldataFixedBytesOverhead() external pure returns (uint256) {
+    return TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD;
+  }
+
+  function getTransmitCalldataPerSignerBytesOverhead() external pure returns (uint256) {
+    return TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD;
   }
 
   function getCancellationDelay() external pure returns (uint256) {

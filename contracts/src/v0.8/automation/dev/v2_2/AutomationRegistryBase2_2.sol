@@ -54,9 +54,9 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 16; // Per perform data byte overhead
   // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
   // This includes overhead for all struct encoding as well as report signatures
-  // This is calculated for f=10 which is the maximum f we can have
-  // TODO: Consider splitting this into per signer (64) and base (with f=1: 1060)
-  uint256 internal constant TRANSMIT_CALLDATA_BYTES_OVERHEAD = 1636;
+  // There is a fixed component and a per signer component
+  uint256 internal constant TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD = 932;
+  uint256 internal constant TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD = 64;
 
   // Next block of constants are used in actual payment calculation. We calculate the exact gas used within the
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
@@ -647,7 +647,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     } else {
       revert InvalidTriggerType();
     }
-    uint256 maxCalldataSize = s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD;
+    uint256 maxCalldataSize = s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD + (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
     (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
     maxGasOverhead +=
       (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
@@ -655,7 +655,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       chainModuleFixedOverhead;
 
     uint256 maxL1Fee = hotVars.gasCeilingMultiplier *
-      hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_BYTES_OVERHEAD);
+      hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
 
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,

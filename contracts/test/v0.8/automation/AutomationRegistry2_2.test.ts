@@ -88,7 +88,8 @@ let registryConditionalOverhead: BigNumber
 let registryLogOverhead: BigNumber
 let registryPerSignerGasOverhead: BigNumber
 let registryPerPerformByteGasOverhead: BigNumber
-let registryTransmitCalldataBytesOverhead: BigNumber
+let registryTransmitCalldataFixedBytesOverhead: BigNumber
+let registryTransmitCalldataPerSignerBytesOverhead: BigNumber
 let cancellationDelay: number
 
 // This is the margin for gas that we test for. Gas charged should always be greater
@@ -602,7 +603,13 @@ describe('AutomationRegistry2_2', () => {
       .add(
         registryPerPerformByteGasOverhead
           .add(chainModuleOverheads.chainModulePerByteOverhead)
-          .mul(maxPerformDataSize.add(registryTransmitCalldataBytesOverhead)),
+          .mul(
+            maxPerformDataSize
+              .add(registryTransmitCalldataFixedBytesOverhead)
+              .add(
+                registryTransmitCalldataPerSignerBytesOverhead.mul(fPlusOne),
+              ),
+          ),
       )
       .add(chainModuleOverheads.chainModuleFixedOverhead) // 0
 
@@ -611,7 +618,13 @@ describe('AutomationRegistry2_2', () => {
       .add(
         registryPerPerformByteGasOverhead
           .add(chainModuleOverheads.chainModulePerByteOverhead)
-          .mul(maxPerformDataSize.add(registryTransmitCalldataBytesOverhead)),
+          .mul(
+            maxPerformDataSize
+              .add(registryTransmitCalldataFixedBytesOverhead)
+              .add(
+                registryTransmitCalldataPerSignerBytesOverhead.mul(fPlusOne),
+              ),
+          ),
       )
       .add(chainModuleOverheads.chainModuleFixedOverhead)
 
@@ -972,8 +985,10 @@ describe('AutomationRegistry2_2', () => {
     registryPerSignerGasOverhead = await registry.getPerSignerGasOverhead()
     registryPerPerformByteGasOverhead =
       await registry.getPerPerformByteGasOverhead()
-    registryTransmitCalldataBytesOverhead =
-      await registry.getTransmitCalldataBytesOverhead()
+    registryTransmitCalldataFixedBytesOverhead =
+      await registry.getTransmitCalldataFixedBytesOverhead()
+    registryTransmitCalldataPerSignerBytesOverhead =
+      await registry.getTransmitCalldataPerSignerBytesOverhead()
     cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
     await registry.connect(owner).setConfig(...baseConfig)
@@ -1931,9 +1946,13 @@ describe('AutomationRegistry2_2', () => {
                         registryPerPerformByteGasOverhead
                           .add(chainModuleOverheads.chainModulePerByteOverhead)
                           .mul(
-                            BigNumber.from(performData.length).add(
-                              registryTransmitCalldataBytesOverhead,
-                            ),
+                            BigNumber.from(performData.length / 2 - 1)
+                              .add(registryTransmitCalldataFixedBytesOverhead)
+                              .add(
+                                registryTransmitCalldataPerSignerBytesOverhead.mul(
+                                  BigNumber.from(newF + 1),
+                                ),
+                              ),
                           ),
                       )
                       .add(chainModuleOverheads.chainModuleFixedOverhead)
@@ -2078,9 +2097,13 @@ describe('AutomationRegistry2_2', () => {
                   registryPerPerformByteGasOverhead
                     .add(chainModuleOverheads.chainModulePerByteOverhead)
                     .mul(
-                      BigNumber.from(performData.length).add(
-                        registryTransmitCalldataBytesOverhead,
-                      ),
+                      BigNumber.from(performData.length)
+                        .add(registryTransmitCalldataFixedBytesOverhead)
+                        .add(
+                          registryTransmitCalldataPerSignerBytesOverhead.mul(
+                            BigNumber.from(newF + 1),
+                          ),
+                        ),
                     ),
                 )
                 .add(chainModuleOverheads.chainModuleFixedOverhead)
@@ -2427,9 +2450,13 @@ describe('AutomationRegistry2_2', () => {
                   registryPerPerformByteGasOverhead
                     .add(chainModuleOverheads.chainModulePerByteOverhead)
                     .mul(
-                      maxPerformDataSize.add(
-                        registryTransmitCalldataBytesOverhead,
-                      ),
+                      maxPerformDataSize
+                        .add(registryTransmitCalldataFixedBytesOverhead)
+                        .add(
+                          registryTransmitCalldataPerSignerBytesOverhead.mul(
+                            BigNumber.from(f + 1),
+                          ),
+                        ),
                     ),
                 )
                 .add(chainModuleOverheads.chainModuleFixedOverhead)
@@ -2439,9 +2466,13 @@ describe('AutomationRegistry2_2', () => {
                   registryPerPerformByteGasOverhead
                     .add(chainModuleOverheads.chainModulePerByteOverhead)
                     .mul(
-                      maxPerformDataSize.add(
-                        registryTransmitCalldataBytesOverhead,
-                      ),
+                      maxPerformDataSize
+                        .add(registryTransmitCalldataFixedBytesOverhead)
+                        .add(
+                          registryTransmitCalldataPerSignerBytesOverhead.mul(
+                            BigNumber.from(f + 1),
+                          ),
+                        ),
                     ),
                 )
                 .add(chainModuleOverheads.chainModuleFixedOverhead)
@@ -3330,7 +3361,15 @@ describe('AutomationRegistry2_2', () => {
       arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
       l1CostWeiArb = arbL1PriceinWei
         .mul(16)
-        .mul(maxPerformDataSize.add(registryTransmitCalldataBytesOverhead))
+        .mul(
+          maxPerformDataSize
+            .add(registryTransmitCalldataFixedBytesOverhead)
+            .add(
+              registryTransmitCalldataPerSignerBytesOverhead.mul(
+                BigNumber.from(f + 1),
+              ),
+            ),
+        )
       l1CostWeiOpt = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     })
 
@@ -3354,7 +3393,12 @@ describe('AutomationRegistry2_2', () => {
           .add(registryPerSignerGasOverhead.mul(f + 1))
           .add(
             maxPerformDataSize
-              .add(registryTransmitCalldataBytesOverhead)
+              .add(registryTransmitCalldataFixedBytesOverhead)
+              .add(
+                registryTransmitCalldataPerSignerBytesOverhead.mul(
+                  BigNumber.from(f + 1),
+                ),
+              )
               .mul(
                 registryPerPerformByteGasOverhead.add(
                   chainModuleOverheads.chainModulePerByteOverhead,
@@ -3422,7 +3466,12 @@ describe('AutomationRegistry2_2', () => {
           .add(registryPerSignerGasOverhead.mul(f + 1))
           .add(
             maxPerformDataSize
-              .add(registryTransmitCalldataBytesOverhead)
+              .add(registryTransmitCalldataFixedBytesOverhead)
+              .add(
+                registryTransmitCalldataPerSignerBytesOverhead.mul(
+                  BigNumber.from(f + 1),
+                ),
+              )
               .mul(
                 registryPerPerformByteGasOverhead.add(
                   chainModuleOverheads.chainModulePerByteOverhead,
