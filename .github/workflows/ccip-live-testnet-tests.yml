@@ -1,23 +1,29 @@
-name: CCIP Load Test
+name: CCIP On-Demand Live Testnet Tests
 on:
-  push:
-    branches:
-      - ccip-develop
+  schedule:
+    - cron: '0 */12 * * *'
   workflow_dispatch:
     inputs:
       base64_test_input : # base64 encoded toml for test input
         description: 'Base64 encoded toml test input'
         required: false
+      test_type:
+        description: 'Type of test to run'
+        required: false
+        type: choice
+        options:
+          - 'load'
+          - 'smoke'
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
-  group: load-ccip-tests-chainlink-${{ github.ref }}
+  group: live-testnet-tests
   cancel-in-progress: true
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   CHAINLINK_VERSION: ${{ github.sha}}
-  INPUT_CHAINLINK_TEST_VERSION: ${{ github.sha}}
+  CHAINLINK_TEST_VERSION: ${{ github.sha}}
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests:${{ github.sha }}
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   AWS_ECR_REPO_PUBLIC_REGISTRY: public.ecr.aws
@@ -85,7 +91,7 @@ jobs:
       - name: Build Test Image
         uses: ./.github/actions/build-test-image
         with:
-          tag: ${{ env.INPUT_CHAINLINK_TEST_VERSION }}
+          tag: ${{ env.CHAINLINK_TEST_VERSION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -95,7 +101,8 @@ jobs:
     environment: integration
     runs-on: ubuntu-latest
     needs: [ build-chainlink, build-test-image ]
-    if: ${{ always() && !contains(needs.*.result, 'failure') }}
+    # if the event is a scheduled event or the test type is load and no previous job failed
+    if: ${{ (github.event_name == 'schedule' || inputs.test_type == 'load') && !contains(needs.*.result, 'failure') }}
     permissions:
       issues: read
       checks: write
@@ -126,11 +133,17 @@ jobs:
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ env.REF_NAME }}
-      - name: Sets env vars
+      - name: Prepare Base64 TOML override
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
+            echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
+            echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
+            echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
+          fi
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            BASE64_CCIP_CONFIG_OVERRIDE=$(jq -c . ./integration-tests/ccip-tests/testconfig/override/mainnet.toml | base64 -w 0)
             echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
             echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
             echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
@@ -141,7 +154,7 @@ jobs:
           echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.CHAINLINK_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.INPUT_CHAINLINK_TEST_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ env.CHAINLINK_TEST_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
       - name: Prepare Base64 TOML override for CCIP secrets
         uses: ./.github/actions/setup-create-base64-config-ccip
         with:
@@ -181,13 +194,13 @@ jobs:
           cache_restore_only: "true"
           should_cleanup: "true"
 
-
-  ccip-version-compatibility-test:
-    name: CCIP Load With Version Compatibility Test
+  ccip-smoke-test:
+    name: CCIP smoke Test
     environment: integration
     runs-on: ubuntu-latest
     needs: [ build-chainlink, build-test-image ]
-    if: ${{ always() && !contains(needs.*.result, 'failure') }}
+    # if the event is a scheduled event or the test type is load and no previous job failed
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_type == 'smoke' && !contains(needs.*.result, 'failure') }}
     permissions:
       issues: read
       checks: write
@@ -195,12 +208,14 @@ jobs:
       id-token: write
       contents: read
     env:
+      CHAINLINK_ENV_USER: ${{ github.actor }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests
+      BASE64_NETWORK_CONFIG: ${{ secrets.BASE64_NETWORK_CONFIG }}
 
     steps:
       - name: Collect Metrics
@@ -210,14 +225,13 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: CCIP Load Test
+          this-job-name: CCIP Smoke Test
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ env.REF_NAME }}
-      - name: Sets env vars
-        id : set_env_vars
+      - name: Prepare Base64 TOML override
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -226,20 +240,13 @@ jobs:
             echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
             echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
           fi
-          echo "UPGRADE_VERSION=${{ env.CHAINLINK_VERSION }}" >> $GITHUB_ENV
-          echo "UPGRADE_IMAGE=${{ env.CHAINLINK_IMAGE }}" >> $GITHUB_ENV
-          untrimmed_ver=$(curl --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/releases | jq -r --arg SUFFIX "release" '.[] | select(.tag_name | endswith("release"))  | .tag_name' | sort -V | tail -n 1)
-          last_release="${untrimmed_ver:1}"
-          echo "last_release=${last_release}" >> $GITHUB_OUTPUT
       - name: step summary
         shell: bash
         run: |
-          echo "### chainlink upgrade image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.CHAINLINK_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.INPUT_CHAINLINK_TEST_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "### testing upgrade against release :link:" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ steps.set_env_vars.outputs.last_release }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ env.CHAINLINK_TEST_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
       - name: Prepare Base64 TOML override for CCIP secrets
         uses: ./.github/actions/setup-create-base64-config-ccip
         with:
@@ -256,25 +263,25 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
         env:
-          TEST_SUITE: load
+          TEST_SUITE: smoke
           TEST_ARGS: -test.timeout 900h
           DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
           RR_MEM: 8Gi
           RR_CPU: 4
-          TEST_TRIGGERED_BY: ccip-load-upgrade-test-ci
+          TEST_TRIGGERED_BY: ccip-smoke-test-ci
         with:
-          test_command_to_run: cd ./integration-tests/ccip-tests && go test -v -timeout 70m -count=1 -json -run ^TestLoadCCIPWithUpgradeNodeVersion$ ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests/ccip-tests && go test -v -timeout 70m -count=1 -json -run ^TestSmokeCCIPForBidirectionalLane$ ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/w0i8p0z9/chainlink-ccip # releases are published to public registry
-          cl_image_tag:  ${{ steps.set_env_vars.outputs.last_release }}
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
-          artifacts_location: ./integration-tests/load/logs/payload_ccip.json
+          artifacts_location: ./integration-tests/smoke/logs/payload_ccip.json
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          cache_key_id: ccip-load-${{ env.MOD_CACHE_VERSION }}
+          cache_key_id: ccip-smoke-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           should_cleanup: "true"

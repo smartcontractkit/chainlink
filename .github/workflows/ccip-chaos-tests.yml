@@ -116,7 +116,7 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      - name: Prepare Base64 TOML override for CCIP secrests
+      - name: Prepare Base64 TOML override for CCIP secrets
         uses: ./.github/actions/setup-create-base64-config-ccip
         with:
           runId: ${{ github.run_id }}
@@ -177,8 +177,6 @@ jobs:
       TEST_LOG_LEVEL: debug
       DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
       GH_TOKEN: ${{ github.token }}
-      TEST_LOKI_TENANT_ID: ${{ secrets.TEST_LOKI_TENANT_ID }}
-      TEST_LOKI_URL: ${{ secrets.TEST_LOKI_URL }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics

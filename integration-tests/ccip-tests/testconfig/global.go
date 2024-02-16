@@ -98,17 +98,14 @@ func NewConfig() (*Config, error) {
 	// load config from env var if specified
 	rawConfig, _ := osutil.GetEnv(OVERIDECONFIG)
 	if rawConfig != "" {
-		log.Info().Msgf("Found %s env var, overriding default config", OVERIDECONFIG)
 		override, err = DecodeConfig(rawConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode override config: %w", err)
 		}
-		log.Info().Interface("override", override).Msg("Applied overrides")
 	}
 	if override != nil {
 		// apply overrides for all products
 		if override.CCIP != nil {
-			log.Info().Interface("override", override).Msg("Applying overrides for CCIP")
 			if cfg.CCIP == nil {
 				cfg.CCIP = override.CCIP
 			} else {
@@ -124,7 +121,6 @@ func NewConfig() (*Config, error) {
 		// load config from env var if specified for secrets
 		secretRawConfig, _ := osutil.GetEnv(SECRETSCONFIG)
 		if secretRawConfig != "" {
-			log.Info().Msgf("Found %s env var, applying secrets", SECRETSCONFIG)
 			secrets, err = DecodeConfig(secretRawConfig)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode secrets config: %w", err)
@@ -145,7 +141,7 @@ func NewConfig() (*Config, error) {
 			return nil, err
 		}
 	}
-	fmt.Println("running test with config", cfg.TOMLString())
+
 	return cfg, nil
 }
 
