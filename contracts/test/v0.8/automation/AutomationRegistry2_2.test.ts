@@ -525,7 +525,7 @@ describe('AutomationRegistry2_2', () => {
     gasMultiplier: BigNumber,
     premiumPPB: BigNumber,
     flatFee: BigNumber,
-    l1CostWei?: BigNumber
+    l1CostWei?: BigNumber,
   ) => {
     l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
 
@@ -535,9 +535,7 @@ describe('AutomationRegistry2_2', () => {
       .mul(gasSpent)
       .mul(linkDivisibility)
       .div(linkEth)
-    const l1Fee = l1CostWei
-      .mul(linkDivisibility)
-      .div(linkEth)
+    const l1Fee = l1CostWei.mul(linkDivisibility).div(linkEth)
     const gasPayment = base.add(l1Fee)
 
     const premium = gasWei
@@ -2495,7 +2493,6 @@ describe('AutomationRegistry2_2', () => {
                   .add(chargedGasOverhead)
               }
 
-
               console.log(
                 'Gas Benchmarking - batching (passedConditionalUpkeeps: ',
                 numPassingConditionalUpkeeps,
@@ -3295,8 +3292,8 @@ describe('AutomationRegistry2_2', () => {
   })
 
   describe('#getMaxPaymentForGas', () => {
-    let maxl1CostWeiArbWithoutMultiplier : BigNumber
-    let maxl1CostWeiOptWithoutMultiplier : BigNumber
+    let maxl1CostWeiArbWithoutMultiplier: BigNumber
+    let maxl1CostWeiOptWithoutMultiplier: BigNumber
 
     beforeEach(async () => {
       let arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
@@ -3311,7 +3308,7 @@ describe('AutomationRegistry2_2', () => {
               ),
             ),
         )
-        maxl1CostWeiOptWithoutMultiplier = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
+      maxl1CostWeiOptWithoutMultiplier = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     })
 
     itMaybe('calculates the max fee appropriately', async () => {
@@ -3319,11 +3316,19 @@ describe('AutomationRegistry2_2', () => {
     })
 
     itMaybe('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(arbRegistry, arbitrumModule, maxl1CostWeiArbWithoutMultiplier)
+      await verifyMaxPayment(
+        arbRegistry,
+        arbitrumModule,
+        maxl1CostWeiArbWithoutMultiplier,
+      )
     })
 
     itMaybe('calculates the max fee appropriately for Optimism', async () => {
-      await verifyMaxPayment(opRegistry, optimismModule, maxl1CostWeiOptWithoutMultiplier)
+      await verifyMaxPayment(
+        opRegistry,
+        optimismModule,
+        maxl1CostWeiOptWithoutMultiplier,
+      )
     })
 
     it('uses the fallback gas price if the feed has issues', async () => {
