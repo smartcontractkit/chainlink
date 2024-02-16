@@ -11,6 +11,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -26,7 +28,7 @@ import (
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
 var info = capabilities.MustNewCapabilityInfo(
-	"write-target",
+	"",
 	capabilities.CapabilityTypeTarget,
 	"Write target.",
 	"v1.0.0",
@@ -52,7 +54,16 @@ type EvmWrite struct {
 }
 
 func NewEvmWrite(chain legacyevm.Chain) *EvmWrite {
-	// TODO: generate ID based on network id + chain id
+	// generate ID based on name
+	info := info
+	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
+	if err == nil {
+		info.ID = fmt.Sprintf("write_%v", chainName)
+
+	} else {
+		info.ID = fmt.Sprintf("write_%v", chain.ID())
+	}
+
 	return &EvmWrite{
 		chain,
 		info,
