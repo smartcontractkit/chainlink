@@ -13,7 +13,7 @@ contract Receiver {
 
   function foo(bytes calldata rawReport) external {
     // decode metadata
-    (bytes32 workflowId, bytes32 workflowExecutionId) = Utils.splitReport(rawReport);
+    (bytes32 workflowId, bytes32 workflowExecutionId) = Utils._splitReport(rawReport);
     // parse actual report
     bytes[] memory mercuryReports = abi.decode(rawReport[64:], (bytes[]));
     emit MessageReceived(workflowId, workflowExecutionId, mercuryReports);

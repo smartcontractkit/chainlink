@@ -1,6 +1,7 @@
 package targets_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -27,6 +28,7 @@ func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)
+	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
