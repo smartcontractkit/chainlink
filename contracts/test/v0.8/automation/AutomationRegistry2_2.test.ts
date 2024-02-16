@@ -516,18 +516,18 @@ describe('AutomationRegistry2_2', () => {
         .slice(10)
   })
 
+  // This function is similar to registry's _calculatePaymentAmount
+  // It uses global fastGasWei, linkEth, and assumes isExecution = false (gasFee = fastGasWei*multiplier)
+  // rest of the parameters are the same
   const linkForGas = (
     upkeepGasSpent: BigNumber,
     gasOverhead: BigNumber,
     gasMultiplier: BigNumber,
     premiumPPB: BigNumber,
     flatFee: BigNumber,
-    l1CostWei?: BigNumber,
-    numUpkeepsBatch?: BigNumber,
+    l1CostWei?: BigNumber
   ) => {
     l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
-    numUpkeepsBatch =
-      numUpkeepsBatch === undefined ? BigNumber.from(1) : numUpkeepsBatch
 
     const gasSpent = gasOverhead.add(BigNumber.from(upkeepGasSpent))
     const base = gasWei
@@ -536,8 +536,6 @@ describe('AutomationRegistry2_2', () => {
       .mul(linkDivisibility)
       .div(linkEth)
     const l1Fee = l1CostWei
-      .mul(gasMultiplier)
-      .div(numUpkeepsBatch)
       .mul(linkDivisibility)
       .div(linkEth)
     const gasPayment = base.add(l1Fee)
@@ -545,7 +543,7 @@ describe('AutomationRegistry2_2', () => {
     const premium = gasWei
       .mul(gasMultiplier)
       .mul(upkeepGasSpent)
-      .add(l1CostWei.mul(gasMultiplier).div(numUpkeepsBatch))
+      .add(l1CostWei)
       .mul(linkDivisibility)
       .div(linkEth)
       .mul(premiumPPB)
@@ -554,7 +552,7 @@ describe('AutomationRegistry2_2', () => {
 
     return {
       total: gasPayment.add(premium),
-      gasPaymemnt: gasPayment,
+      gasPayment,
       premium,
     }
   }
@@ -562,7 +560,7 @@ describe('AutomationRegistry2_2', () => {
   const verifyMaxPayment = async (
     registry: IAutomationRegistry,
     chainModule: IChainModule,
-    l1CostWei?: BigNumber,
+    maxl1CostWeWithoutMultiplier?: BigNumber,
   ) => {
     type TestCase = {
       name: string
@@ -611,7 +609,7 @@ describe('AutomationRegistry2_2', () => {
               ),
           ),
       )
-      .add(chainModuleOverheads.chainModuleFixedOverhead) // 0
+      .add(chainModuleOverheads.chainModuleFixedOverhead)
 
     const totalLogOverhead = registryLogOverhead
       .add(registryPerSignerGasOverhead.mul(fPlusOne))
@@ -667,7 +665,7 @@ describe('AutomationRegistry2_2', () => {
           BigNumber.from(test.multiplier),
           BigNumber.from(test.premium),
           BigNumber.from(test.flatFee),
-          l1CostWei,
+          maxl1CostWeWithoutMultiplier?.mul(BigNumber.from(test.multiplier)),
         ).total,
       )
 
@@ -679,7 +677,7 @@ describe('AutomationRegistry2_2', () => {
           BigNumber.from(test.multiplier),
           BigNumber.from(test.premium),
           BigNumber.from(test.flatFee),
-          l1CostWei,
+          maxl1CostWeWithoutMultiplier?.mul(BigNumber.from(test.multiplier)),
         ).total,
       )
     }
@@ -1586,7 +1584,7 @@ describe('AutomationRegistry2_2', () => {
             gasCeilingMultiplier,
             paymentPremiumPPB,
             flatFeeMicroLink,
-            l1CostWeiArb.div(gasCeilingMultiplier), // Dividing by gasCeilingMultiplier as it gets multiplied later
+            l1CostWeiArb,
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -2616,8 +2614,7 @@ describe('AutomationRegistry2_2', () => {
           gasCeilingMultiplier,
           paymentPremiumPPB,
           flatFeeMicroLink,
-          l1CostWeiArb.div(gasCeilingMultiplier), // Dividing by gasCeilingMultiplier as it gets multiplied later
-          BigNumber.from(numUpkeeps),
+          l1CostWeiArb.div(BigNumber.from(numUpkeeps)),
         ).total.toString(),
         totalPayment.toString(),
       )
@@ -3298,13 +3295,12 @@ describe('AutomationRegistry2_2', () => {
   })
 
   describe('#getMaxPaymentForGas', () => {
-    let arbL1PriceinWei: BigNumber
-    let l1CostWeiArb: BigNumber
-    let l1CostWeiOpt: BigNumber
+    let maxl1CostWeiArbWithoutMultiplier : BigNumber
+    let maxl1CostWeiOptWithoutMultiplier : BigNumber
 
     beforeEach(async () => {
-      arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
-      l1CostWeiArb = arbL1PriceinWei
+      let arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
+      maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei
         .mul(16)
         .mul(
           maxPerformDataSize
@@ -3315,7 +3311,7 @@ describe('AutomationRegistry2_2', () => {
               ),
             ),
         )
-      l1CostWeiOpt = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
+        maxl1CostWeiOptWithoutMultiplier = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     })
 
     itMaybe('calculates the max fee appropriately', async () => {
@@ -3323,11 +3319,11 @@ describe('AutomationRegistry2_2', () => {
     })
 
     itMaybe('calculates the max fee appropriately for Arbitrum', async () => {
-      await verifyMaxPayment(arbRegistry, arbitrumModule, l1CostWeiArb)
+      await verifyMaxPayment(arbRegistry, arbitrumModule, maxl1CostWeiArbWithoutMultiplier)
     })
 
     itMaybe('calculates the max fee appropriately for Optimism', async () => {
-      await verifyMaxPayment(opRegistry, optimismModule, l1CostWeiOpt)
+      await verifyMaxPayment(opRegistry, optimismModule, maxl1CostWeiOptWithoutMultiplier)
     })
 
     it('uses the fallback gas price if the feed has issues', async () => {
