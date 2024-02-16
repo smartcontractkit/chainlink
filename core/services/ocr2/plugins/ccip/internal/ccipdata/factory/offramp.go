@@ -48,7 +48,7 @@ func initOrCloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, a
 			return nil, offRamp.Close(pgOpts...)
 		}
 		return offRamp, offRamp.RegisterFilters(pgOpts...)
-	case ccipdata.V1_2_0, ccipdata.V1_4_0:
+	case ccipdata.V1_2_0, ccipdata.V1_5_0:
 		offRamp, err := v1_2_0.NewOffRamp(lggr, addr, destClient, lp, estimator)
 		if err != nil {
 			return nil, err
@@ -77,7 +77,7 @@ func ExecReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (fun
 			}
 			return execReportToEthTxMeta(execReport)
 		}, nil
-	case ccipdata.V1_2_0, ccipdata.V1_4_0:
+	case ccipdata.V1_2_0, ccipdata.V1_5_0:
 		offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			execReport, err := v1_2_0.DecodeExecReport(abihelpers.MustGetMethodInputs(ccipdata.ManuallyExecute, offRampABI)[:1], report)
