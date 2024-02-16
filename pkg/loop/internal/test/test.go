@@ -192,11 +192,11 @@ URL = 'https://test.url'
 	quorum  = ocr3types.Quorum(7)
 	outcome = ocr3types.Outcome("outcome")
 	seqNr   = uint64(43)
-	RI      = ocr3types.ReportWithInfo[any]{
+	RI      = ocr3types.ReportWithInfo[[]byte]{
 		Report: []byte("report"),
-		Info:   nil,
+		Info:   []byte("info"),
 	}
-	RIs = []ocr3types.ReportWithInfo[any]{{
+	RIs = []ocr3types.ReportWithInfo[[]byte]{{
 		Report: []byte("report1"),
 		Info:   []byte("info1"),
 	}, {

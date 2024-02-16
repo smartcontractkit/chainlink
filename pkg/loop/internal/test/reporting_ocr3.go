@@ -80,7 +80,7 @@ func (s ocr3staticReportingPlugin) Outcome(outctx ocr3types.OutcomeContext, q li
 	return outcome, nil
 }
 
-func (s ocr3staticReportingPlugin) Reports(seq uint64, o ocr3types.Outcome) ([]ocr3types.ReportWithInfo[any], error) {
+func (s ocr3staticReportingPlugin) Reports(seq uint64, o ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
 	if seq != seqNr {
 		return nil, fmt.Errorf("expected %x but got %x", seq, seqNr)
 	}
@@ -92,7 +92,7 @@ func (s ocr3staticReportingPlugin) Reports(seq uint64, o ocr3types.Outcome) ([]o
 	return RIs, nil
 }
 
-func (s ocr3staticReportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, u uint64, r ocr3types.ReportWithInfo[any]) (bool, error) {
+func (s ocr3staticReportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, u uint64, r ocr3types.ReportWithInfo[[]byte]) (bool, error) {
 	if u != seqNr {
 		return false, fmt.Errorf("expected %x but got %x", u, seqNr)
 	}
@@ -102,7 +102,7 @@ func (s ocr3staticReportingPlugin) ShouldAcceptAttestedReport(ctx context.Contex
 	return true, nil
 }
 
-func (s ocr3staticReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, u uint64, r ocr3types.ReportWithInfo[any]) (bool, error) {
+func (s ocr3staticReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, u uint64, r ocr3types.ReportWithInfo[[]byte]) (bool, error) {
 	if u != seqNr {
 		return false, fmt.Errorf("expected %x but got %x", u, seqNr)
 	}

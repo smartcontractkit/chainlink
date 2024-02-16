@@ -46,7 +46,7 @@ func NewLOOPPService(
 	return &ps
 }
 
-func (g *LOOPPService) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[any], ocr3types.ReportingPluginInfo, error) {
+func (g *LOOPPService) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[[]byte], ocr3types.ReportingPluginInfo, error) {
 	if err := g.Wait(); err != nil {
 		return nil, ocr3types.ReportingPluginInfo{}, err
 	}

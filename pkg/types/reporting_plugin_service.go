@@ -45,5 +45,5 @@ type ReportingPluginFactory interface {
 
 type OCR3ReportingPluginFactory interface {
 	Service
-	ocr3types.ReportingPluginFactory[any]
+	ocr3types.ReportingPluginFactory[[]byte]
 }

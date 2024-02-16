@@ -438,7 +438,7 @@ func (o ocr3staticPluginFactory) Ready() error { panic("implement me") }
 
 func (o ocr3staticPluginFactory) HealthReport() map[string]error { panic("implement me") }
 
-func (o ocr3staticPluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[any], ocr3types.ReportingPluginInfo, error) {
+func (o ocr3staticPluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[[]byte], ocr3types.ReportingPluginInfo, error) {
 	if config.ConfigDigest != ocr3reportingPluginConfig.ConfigDigest {
 		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("expected ConfigDigest %x but got %x", reportingPluginConfig.ConfigDigest, config.ConfigDigest)
 	}

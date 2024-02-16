@@ -53,7 +53,7 @@ func newFactoryService(config *config) (*factoryService, error) {
 	}, nil
 }
 
-func (o *factoryService) NewReportingPlugin(ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[any], ocr3types.ReportingPluginInfo, error) {
+func (o *factoryService) NewReportingPlugin(ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[[]byte], ocr3types.ReportingPluginInfo, error) {
 	//return newReportingPlugin(o.store, o.capability, o.batchSize), ocr3types.ReportingPluginInfo{Name: "OCR3 Capability Plugin"}, nil
 	return nil, ocr3types.ReportingPluginInfo{}, nil
 }
