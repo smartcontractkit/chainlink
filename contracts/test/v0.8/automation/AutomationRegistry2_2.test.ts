@@ -3314,7 +3314,7 @@ describe('AutomationRegistry2_2', () => {
     let maxl1CostWeiOptWithoutMultiplier: BigNumber
 
     beforeEach(async () => {
-      let arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
+      const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
       maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei
         .mul(16)
         .mul(
