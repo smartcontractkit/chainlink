@@ -6,7 +6,6 @@ import (
 	"github.com/K-Phoen/grabana"
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/variable/query"
-	"github.com/smartcontractkit/wasp"
 	"net/http"
 	"os"
 )
@@ -44,56 +43,34 @@ func NewDashboard(
 	panels []string,
 	extendedOpts []dashboard.Option,
 ) error {
-	if platform == "kubernetes" {
-		clcDashboard := &CLClusterDashboard{
-			Nodes:                    6,
-			Name:                     name,
-			LokiDataSourceName:       lokiDataSourceName,
-			PrometheusDataSourceName: prometheusDataSourceName,
-			Folder:                   grafanaFolder,
-			GrafanaURL:               grafanaURL,
-			GrafanaToken:             grafanaToken,
-			opts:                     nil,
-			extendedOpts:             extendedOpts,
-			builder:                  dashboard.Builder{},
-		}
+	db := &Dashboard{
+		Name:                     name,
+		grafanaURL:               grafanaURL,
+		grafanaToken:             grafanaToken,
+		grafanaFolder:            grafanaFolder,
+		grafanaTags:              grafanaTags,
+		LokiDataSourceName:       lokiDataSourceName,
+		PrometheusDataSourceName: prometheusDataSourceName,
+		platform:                 platform,
+		panels:                   panels,
+		extendedOpts:             extendedOpts,
+	}
+	db.init()
+	db.addCoreVariables()
+	db.addCorePanels()
 
-		err := clcDashboard.generate()
-		if err != nil {
-			return err
-		}
-		opts := append(clcDashboard.Opts(), clcDashboard.extendedOpts...)
+	switch db.platform {
+	case "kubernetes":
+		db.addKubernetesVariables()
+		db.addKubernetesPanels()
+		break
+	}
 
-		wdb, err := wasp.NewDashboard(nil, opts)
-		if err != nil {
-			return err
-		}
-		if _, errDeploy := wdb.Deploy(); err != nil {
-			return errDeploy
-		}
-	} else if platform == "docker" {
-		db := &Dashboard{
-			Name:                     name,
-			grafanaURL:               grafanaURL,
-			grafanaToken:             grafanaToken,
-			grafanaFolder:            grafanaFolder,
-			grafanaTags:              grafanaTags,
-			LokiDataSourceName:       lokiDataSourceName,
-			PrometheusDataSourceName: prometheusDataSourceName,
-			platform:                 platform,
-			panels:                   panels,
-			extendedOpts:             extendedOpts,
-		}
-		db.init()
-		db.addVariables()
-		db.addCorePanels()
-		db.opts = append(db.opts, db.extendedOpts...)
-		err := db.deploy()
-
-		if err != nil {
-			os.Exit(1)
-			return err
-		}
+	db.opts = append(db.opts, db.extendedOpts...)
+	err := db.deploy()
+	if err != nil {
+		os.Exit(1)
+		return err
 	}
 	return nil
 }
@@ -142,7 +119,7 @@ func (m *Dashboard) init() {
 	m.opts = append(m.opts, opts...)
 }
 
-func (m *Dashboard) addVariables() {
+func (m *Dashboard) addCoreVariables() {
 	opts := []dashboard.Option{
 		dashboard.VariableAsQuery(
 			"instance",
@@ -158,6 +135,21 @@ func (m *Dashboard) addVariables() {
 			query.Multiple(),
 			query.IncludeAll(),
 			query.Request(fmt.Sprintf("label_values(%s)", "evmChainID")),
+			query.Sort(query.NumericalAsc),
+		),
+	}
+
+	m.opts = append(m.opts, opts...)
+}
+
+func (m *Dashboard) addKubernetesVariables() {
+	opts := []dashboard.Option{
+		dashboard.VariableAsQuery(
+			"namespace",
+			query.DataSource(m.LokiDataSourceName),
+			query.Multiple(),
+			query.IncludeAll(),
+			query.Request(fmt.Sprintf("label_values(%s)", "namespace")),
 			query.Sort(query.NumericalAsc),
 		),
 	}

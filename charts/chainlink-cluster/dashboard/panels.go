@@ -12,6 +12,22 @@ import (
 )
 
 func (m *Dashboard) addMainPanels() {
+	var podRestartPanel row.Option = nil
+	var ethBalancePanelSpanSize float32 = 6
+	if m.platform == "kubernetes" {
+		podRestartPanel = row.WithStat(
+			"Pod Restarts",
+			stat.Span(2),
+			stat.Height("100px"),
+			stat.DataSource(m.PrometheusDataSourceName),
+			stat.WithPrometheusTarget(
+				`sum(increase(kube_pod_container_status_restarts_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+				prometheus.Legend("{{pod}}"),
+			),
+		)
+		ethBalancePanelSpanSize = 4
+	}
+
 	opts := []dashboard.Option{
 		dashboard.Row(
 			"Global health",
@@ -66,7 +82,7 @@ func (m *Dashboard) addMainPanels() {
 				stat.Orientation(stat.OrientationVertical),
 				stat.TitleFontSize(12),
 				stat.ValueFontSize(20),
-				stat.Span(6),
+				stat.Span(ethBalancePanelSpanSize),
 				stat.Height("100px"),
 				stat.Decimals(2),
 				stat.WithPrometheusTarget(
@@ -74,6 +90,7 @@ func (m *Dashboard) addMainPanels() {
 					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
 				),
 			),
+			podRestartPanel,
 			row.WithTimeSeries(
 				"Service Components Health",
 				timeseries.Span(12),
@@ -96,6 +113,107 @@ func (m *Dashboard) addMainPanels() {
 				timeseries.WithPrometheusTarget(
 					`eth_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
 					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
+				),
+			),
+		),
+	}
+
+	m.opts = append(m.opts, opts...)
+}
+
+func (m *Dashboard) addKubePanels() {
+	opts := []dashboard.Option{
+		dashboard.Row(
+			"Pod health",
+			row.WithTimeSeries(
+				"Pod Restarts",
+				timeseries.Span(12),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`sum(increase(kube_pod_container_status_restarts_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+					prometheus.Legend("{{pod}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"CPU Usage",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`sum(node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{pod=~"$instance.*", namespace=~"${namespace}"}) by (pod)`,
+					prometheus.Legend("{{pod}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Memory Usage",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.Axis(
+					axis.Unit("bytes"),
+					axis.Label("Memory"),
+					axis.SoftMin(0),
+				),
+				timeseries.WithPrometheusTarget(
+					`sum(container_memory_rss{pod=~"$instance.*", namespace=~"${namespace}", container!=""}) by (pod)`,
+					prometheus.Legend("{{pod}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Receive Bandwidth",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.Axis(
+					axis.Unit("Bps"),
+					axis.SoftMin(0),
+				),
+				timeseries.WithPrometheusTarget(
+					`sum(irate(container_network_receive_bytes_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+					prometheus.Legend("{{pod}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Transmit Bandwidth",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.Axis(
+					axis.Unit("Bps"),
+					axis.SoftMin(0),
+				),
+				timeseries.WithPrometheusTarget(
+					`sum(irate(container_network_transmit_bytes_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+					prometheus.Legend("{{pod}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Average Container Bandwidth by Namespace: Received",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.Axis(
+					axis.Unit("Bps"),
+					axis.SoftMin(0),
+				),
+				timeseries.WithPrometheusTarget(
+					`avg(irate(container_network_receive_bytes_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+					prometheus.Legend("{{pod}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Average Container Bandwidth by Namespace: Transmitted",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.Axis(
+					axis.Unit("Bps"),
+					axis.SoftMin(0),
+				),
+				timeseries.WithPrometheusTarget(
+					`avg(irate(container_network_transmit_bytes_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+					prometheus.Legend("{{pod}}"),
 				),
 			),
 		),
@@ -1464,6 +1582,10 @@ func (m *Dashboard) addCorePanels() {
 	m.addHTTPAPIPanels()
 	m.addPromHTTPPanels()
 	m.addGoMetricsPanels()
+}
+
+func (m *Dashboard) addKubernetesPanels() {
+	m.addKubePanels()
 }
 
 func float64Ptr(input float64) *float64 {
