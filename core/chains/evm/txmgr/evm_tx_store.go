@@ -1579,7 +1579,7 @@ func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context
 	err := qq.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return txmgr.ErrTxnNotFound
+			return sql.ErrNoRows
 		}
 		return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
 	}
