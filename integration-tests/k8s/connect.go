@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 const (
@@ -37,10 +36,10 @@ type ConnectionVars struct {
 }
 
 // ConnectRemote connects to a local environment, see charts/chainlink-cluster
-func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverClient, contracts.ContractDeployer, *client.ChainlinkK8sClient, []*client.ChainlinkK8sClient, error) {
+func ConnectRemote(l zerolog.Logger) (*blockchain.EVMNetwork, *client2.MockserverClient, *client.ChainlinkK8sClient, []*client.ChainlinkK8sClient, error) {
 	cfg, err := ReadConfig()
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return &blockchain.EVMNetwork{}, nil, nil, nil, err
 	}
 	net := &blockchain.EVMNetwork{
 		Name:                 cfg.NetworkName,
@@ -58,14 +57,6 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}
-	cc, err := blockchain.NewEVMClientFromNetwork(*net, l)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	cd, err := contracts.NewContractDeployer(cc, l)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
 	clClients := make([]*client.ChainlinkK8sClient, 0)
 	for i := 1; i <= cfg.CLNodesNum; i++ {
 		c, err := client.NewChainlinkK8sClient(&client.ChainlinkConfig{
@@ -75,7 +66,7 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 			Password:   cfg.CLNodePassword,
 		}, fmt.Sprintf(cfg.CLNodeInternalDNSRecordTemplate, i), cfg.Namespace)
 		if err != nil {
-			return nil, nil, nil, nil, nil, err
+			return &blockchain.EVMNetwork{}, nil, nil, nil, err
 		}
 		clClients = append(clClients, c)
 	}
@@ -83,7 +74,7 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 		LocalURL:   cfg.MockServerURL,
 		ClusterURL: cfg.MockServerURL,
 	})
-	return cc, msClient, cd, clClients[0], clClients[1:], nil
+	return net, msClient, clClients[0], clClients[1:], nil
 }
 
 func ReadConfig() (*ConnectionVars, error) {

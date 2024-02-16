@@ -118,10 +118,16 @@ func DeployOCRContractsLocal(
 	if err != nil {
 		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
 	}
+
+	var nodesAsInterface []contracts.ChainlinkNodeWithKeys = make([]contracts.ChainlinkNodeWithKeys, len(workerNodes))
+	for i, node := range workerNodes {
+		nodesAsInterface[i] = node // Assigning each *ChainlinkK8sClient to the interface type
+	}
+
 	for _, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
-		err = ocrInstance.SetConfigLocal(
-			workerNodes,
+		err = ocrInstance.SetConfig(
+			nodesAsInterface,
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			transmitterAddresses,
 		)
@@ -339,11 +345,16 @@ func DeployOCRContractsForwarderFlowLocal(
 		return nil, err
 	}
 
+	var nodesAsInterface []contracts.ChainlinkNodeWithKeys = make([]contracts.ChainlinkNodeWithKeys, len(workerNodes))
+	for i, node := range workerNodes {
+		nodesAsInterface[i] = node // Assigning each *ChainlinkK8sClient to the interface type
+	}
+
 	// Set Config
 	for _, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
-		err := ocrInstance.SetConfigLocal(
-			workerNodes,
+		err := ocrInstance.SetConfig(
+			nodesAsInterface,
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			forwarderAddresses,
 		)

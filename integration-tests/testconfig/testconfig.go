@@ -31,6 +31,7 @@ import (
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
+	"github.com/smartcontractkit/seth"
 )
 
 type GlobalTestConfig interface {
@@ -77,6 +78,10 @@ type NamedConfiguration interface {
 	GetConfigurationName() string
 }
 
+type SethConfig interface {
+	GetSethConfig() *seth.Config
+}
+
 type TestConfig struct {
 	ChainlinkImage         *ctf_config.ChainlinkImageConfig `toml:"ChainlinkImage"`
 	ChainlinkUpgradeImage  *ctf_config.ChainlinkImageConfig `toml:"ChainlinkUpgradeImage"`
@@ -84,6 +89,8 @@ type TestConfig struct {
 	Network                *ctf_config.NetworkConfig        `toml:"Network"`
 	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
 	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
+
+	Seth *seth.Config `toml:"Seth"`
 
 	Common     *Common                  `toml:"Common"`
 	Automation *a_config.Config         `toml:"Automation"`
@@ -206,6 +213,10 @@ func (c TestConfig) GetOCRConfig() *ocr_config.Config {
 
 func (c TestConfig) GetConfigurationName() string {
 	return c.ConfigurationName
+}
+
+func (c TestConfig) GetSethConfig() *seth.Config {
+	return c.Seth
 }
 
 func (c *TestConfig) AsBase64() (string, error) {
@@ -430,14 +441,7 @@ func (c *TestConfig) Validate() error {
 		return errors.Wrapf(err, "logging config validation failed")
 	}
 
-	// require Loki config only if these tests run locally
-	_, willUseRemoteRunner := os.LookupEnv(k8s_config.EnvVarJobImage)
-	_, isInsideK8s := os.LookupEnv(k8s_config.EnvVarInsideK8s)
-	if (!willUseRemoteRunner && !isInsideK8s) && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
-		if c.Logging.Loki == nil {
-			return fmt.Errorf("for local execution you must set Loki config in logging config")
-		}
-
+	if c.Logging.Loki != nil {
 		if err := c.Logging.Loki.Validate(); err != nil {
 			return errors.Wrapf(err, "loki config validation failed")
 		}

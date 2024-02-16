@@ -7,8 +7,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/wasp"
 )
@@ -18,14 +18,14 @@ import (
 type Gun struct {
 	roundNum     atomic.Int64
 	ocrInstances []contracts.OffchainAggregator
-	cc           blockchain.EVMClient
+	seth         *seth.Client
 	l            zerolog.Logger
 }
 
-func NewGun(l zerolog.Logger, cc blockchain.EVMClient, ocrInstances []contracts.OffchainAggregator) *Gun {
+func NewGun(l zerolog.Logger, seth *seth.Client, ocrInstances []contracts.OffchainAggregator) *Gun {
 	return &Gun{
 		l:            l,
-		cc:           cc,
+		seth:         seth,
 		ocrInstances: ocrInstances,
 	}
 }

@@ -266,7 +266,7 @@ func CreateOCRv2Jobs(
 	workerChainlinkNodes []*client.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 	mockServerValue int, // Value to get from the mock server when querying the path
-	chainId uint64, // EVM chain ID
+	chainId int64, // EVM chain ID
 	forwardingAllowed bool,
 ) error {
 	// Collect P2P ID

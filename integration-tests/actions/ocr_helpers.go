@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -24,62 +26,66 @@ import (
 
 // DeployOCRContracts deploys and funds a certain number of offchain aggregator contracts
 func DeployOCRContracts(
+	logger zerolog.Logger,
+	seth *seth.Client,
 	numberOfContracts int,
-	linkTokenContract contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
+	linkTokenContractAddress common.Address,
 	workerNodes []*client.ChainlinkK8sClient,
-	client blockchain.EVMClient,
+) ([]contracts.OffchainAggregator, error) {
+	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
+		transmitters = make([]string, 0)
+		payees = make([]string, 0)
+		for _, node := range workerNodes {
+			var addr string
+			addr, err = node.PrimaryEthAddress()
+			if err != nil {
+				err = fmt.Errorf("error getting node's primary ETH address: %w", err)
+				return
+			}
+			transmitters = append(transmitters, addr)
+			payees = append(payees, seth.Addresses[0].Hex())
+		}
+
+		return
+	}
+
+	return deployOCRContracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
+}
+
+func deployOCRContracts(
+	logger zerolog.Logger,
+	seth *seth.Client,
+	numberOfContracts int,
+	linkTokenContractAddress common.Address,
+	workerNodes []*client.ChainlinkK8sClient,
+	getTransmitterAndPayeesFn func() ([]string, []string, error),
 ) ([]contracts.OffchainAggregator, error) {
 	// Deploy contracts
 	var ocrInstances []contracts.OffchainAggregator
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contractDeployer.DeployOffChainAggregator(
-			linkTokenContract.Address(),
-			contracts.DefaultOffChainAggregatorOptions(),
-		)
+		ocrInstance, err := contracts.DeployOffchainAggregator(logger, seth, linkTokenContractAddress, contracts.DefaultOffChainAggregatorOptions())
 		if err != nil {
 			return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
 		}
-		ocrInstances = append(ocrInstances, ocrInstance)
+		ocrInstances = append(ocrInstances, &ocrInstance)
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for OCR contract deployments: %w", err)
-			}
+			time.Sleep(2 * time.Second)
 		}
-	}
-	err := client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contract deployments: %w", err)
 	}
 
 	// Gather transmitter and address payees
 	var transmitters, payees []string
-	for _, node := range workerNodes {
-		addr, err := node.PrimaryEthAddress()
-		if err != nil {
-			return nil, fmt.Errorf("error getting node's primary ETH address: %w", err)
-		}
-		transmitters = append(transmitters, addr)
-		payees = append(payees, client.GetDefaultWallet().Address())
-	}
+	transmitters, payees, err := getTransmitterAndPayeesFn()
 
 	// Set Payees
 	for contractCount, ocrInstance := range ocrInstances {
-		err = ocrInstance.SetPayees(transmitters, payees)
+		err := ocrInstance.SetPayees(transmitters, payees)
 		if err != nil {
 			return nil, fmt.Errorf("error settings OCR payees: %w", err)
 		}
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR payees: %w", err)
-			}
+			time.Sleep(2 * time.Second)
 		}
-	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contracts to set payees and transmitters: %w", err)
 	}
 
 	// Set Config
@@ -87,10 +93,16 @@ func DeployOCRContracts(
 	if err != nil {
 		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
 	}
+
+	var nodesAsInterface []contracts.ChainlinkNodeWithKeys = make([]contracts.ChainlinkNodeWithKeys, len(workerNodes))
+	for i, node := range workerNodes {
+		nodesAsInterface[i] = node // Assigning each *ChainlinkK8sClient to the interface type
+	}
+
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfig(
-			workerNodes,
+			nodesAsInterface,
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			transmitterAddresses,
 		)
@@ -98,16 +110,10 @@ func DeployOCRContracts(
 			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
 		}
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR config: %w", err)
-			}
+			time.Sleep(2 * time.Second)
 		}
 	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contracts to set config: %w", err)
-	}
+
 	return ocrInstances, nil
 }
 
@@ -115,67 +121,26 @@ func DeployOCRContracts(
 // aggregator contracts with forwarders as effectiveTransmitters
 func DeployOCRContractsForwarderFlow(
 	t *testing.T,
+	logger zerolog.Logger,
+	seth *seth.Client,
 	numberOfContracts int,
-	linkTokenContract contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
+	linkTokenContractAddress common.Address,
 	workerNodes []*client.ChainlinkK8sClient,
 	forwarderAddresses []common.Address,
-	client blockchain.EVMClient,
-) []contracts.OffchainAggregator {
-	// Deploy contracts
-	var ocrInstances []contracts.OffchainAggregator
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contractDeployer.DeployOffChainAggregator(
-			linkTokenContract.Address(),
-			contracts.DefaultOffChainAggregatorOptions(),
-		)
-		require.NoError(t, err, "Deploying OCR instance %d shouldn't fail", contractCount+1)
-		ocrInstances = append(ocrInstances, ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for OCR Contract deployments")
+) ([]contracts.OffchainAggregator, error) {
+	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
+		transmitters = make([]string, 0)
+		payees = make([]string, 0)
+		for _, forwarderCommonAddress := range forwarderAddresses {
+			forwarderAddress := forwarderCommonAddress.Hex()
+			transmitters = append(transmitters, forwarderAddress)
+			payees = append(payees, seth.Addresses[0].Hex())
 		}
-	}
-	err := client.WaitForEvents()
-	require.NoError(t, err, "Error waiting for OCR contract deployments")
 
-	// Gather transmitter and address payees
-	var transmitters, payees []string
-	for _, forwarderCommonAddress := range forwarderAddresses {
-		forwarderAddress := forwarderCommonAddress.Hex()
-		transmitters = append(transmitters, forwarderAddress)
-		payees = append(payees, client.GetDefaultWallet().Address())
+		return
 	}
 
-	// Set Payees
-	for contractCount, ocrInstance := range ocrInstances {
-		err = ocrInstance.SetPayees(transmitters, payees)
-		require.NoError(t, err, "Error setting OCR payees")
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for setting OCR payees")
-		}
-	}
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Error waiting for OCR contracts to set payees and transmitters")
-
-	// Set Config
-	for contractCount, ocrInstance := range ocrInstances {
-		// Exclude the first node, which will be used as a bootstrapper
-		err = ocrInstance.SetConfig(
-			workerNodes,
-			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
-			forwarderAddresses,
-		)
-		require.NoError(t, err, "Error setting OCR config for contract '%d'", ocrInstance.Address())
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for setting OCR config")
-		}
-	}
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Error waiting for OCR contracts to set config")
-	return ocrInstances
+	return deployOCRContracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
 }
 
 // CreateOCRJobs bootstraps the first node and to the other nodes sends ocr jobs that
@@ -267,7 +232,7 @@ func CreateOCRJobsWithForwarder(
 	workerNodes []*client.ChainlinkK8sClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
-	evmChainID string,
+	evmChainID int64,
 ) {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -276,7 +241,7 @@ func CreateOCRJobsWithForwarder(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
-			EVMChainID:      evmChainID,
+			EVMChainID:      fmt.Sprint(evmChainID),
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -307,7 +272,7 @@ func CreateOCRJobsWithForwarder(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
-				EVMChainID:         evmChainID,
+				EVMChainID:         fmt.Sprint(evmChainID),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
@@ -323,21 +288,15 @@ func CreateOCRJobsWithForwarder(
 
 // StartNewRound requests a new round from the ocr contracts and waits for confirmation
 func StartNewRound(
+	logger zerolog.Logger,
+	seth *seth.Client,
 	roundNumber int64,
 	ocrInstances []contracts.OffchainAggregator,
-	client blockchain.EVMClient,
-	logger zerolog.Logger,
 ) error {
 	for i := 0; i < len(ocrInstances); i++ {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
 			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
-		}
-		ocrRound := contracts.NewOffchainAggregatorRoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), client.GetNetworkConfig().Timeout.Duration, logger)
-		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
-		err = client.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("failed to wait for event subscriptions of OCR instance %d: %w", i+1, err)
 		}
 	}
 	return nil
