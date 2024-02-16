@@ -2592,7 +2592,7 @@ describe('AutomationRegistry2_2', () => {
           pd += '11'
         }
         performDatas.push(pd)
-        let w = BigNumber.from(performDataSizes[i])
+        const w = BigNumber.from(performDataSizes[i])
           .add(registryTransmitCalldataFixedBytesOverhead)
           .add(
             registryTransmitCalldataPerSignerBytesOverhead.mul(
