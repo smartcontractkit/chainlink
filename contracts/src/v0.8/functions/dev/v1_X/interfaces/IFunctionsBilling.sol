@@ -62,12 +62,12 @@ struct FunctionsBillingConfig {
   uint32 feedStalenessSeconds; //                  ║ How long before we consider the feed price to be stale and fallback to fallbackNativePerUnitLink.
   uint32 gasOverheadBeforeCallback; //             ║ Represents the average gas execution cost before the fulfillment callback. This amount is always billed for every request.
   uint32 gasOverheadAfterCallback; //              ║ Represents the average gas execution cost after the fulfillment callback. This amount is always billed for every request.
-  uint72 donFee; //                                ║ Additional flat fee (denominated in cents of USD, paid as LINK) that will be split between Node Operators.
   uint40 minimumEstimateGasPriceWei; //            ║ The lowest amount of wei that will be used as the tx.gasprice when estimating the cost to fulfill the request
-  uint16 maxSupportedRequestDataVersion; // ═══════╝ The highest support request data version supported by the node. All lower versions should also be supported.
-  uint224 fallbackNativePerUnitLink; // ═══════════╗ Fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
-  uint32 requestTimeoutSeconds; // ════════════════╝ How many seconds it takes before we consider a request to be timed out
-  uint72 operationFee; // ═════════════════════════╗ Additional flat fee (denominated in cents of USD, paid as LINK) that will be paid to the owner of the Coordinator contract.
+  uint16 maxSupportedRequestDataVersion; //        ║ The highest support request data version supported by the node. All lower versions should also be supported.
   uint64 fallbackUsdPerUnitLink; //                ║ Fallback LINK / USD conversion rate if the data feed is stale
   uint8 fallbackUsdPerUnitLinkDecimals; // ════════╝ Fallback LINK / USD conversion rate decimal places if the data feed is stale
+  uint224 fallbackNativePerUnitLink; // ═══════════╗ Fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
+  uint32 requestTimeoutSeconds; // ════════════════╝ How many seconds it takes before we consider a request to be timed out
+  uint16 donFee; // ═══════════════════════════════╗ Additional flat fee (denominated in cents of USD, paid as LINK) that will be split between Node Operators.
+  uint16 operationFee; // ═════════════════════════╝ Additional flat fee (denominated in cents of USD, paid as LINK) that will be paid to the owner of the Coordinator contract.
 }

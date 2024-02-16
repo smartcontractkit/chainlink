@@ -46,6 +46,7 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
   function setUp() public virtual override {
     FunctionsRouterSetup.setUp();
 
+    // Multiply all config values by 2 to confirm that they change
     configToSet = FunctionsBillingConfig({
       feedStalenessSeconds: getCoordinatorConfig().feedStalenessSeconds * 2,
       gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback * 2,

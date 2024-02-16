@@ -55,6 +55,6 @@ library FunctionsResponse {
     uint40 gasOverheadBeforeCallback; //   ║ Represents the average gas execution cost before the fulfillment callback.
     uint40 gasOverheadAfterCallback; //    ║ Represents the average gas execution cost after the fulfillment callback.
     uint32 timeoutTimestamp; // ═══════════╝ The timestamp at which a request will be eligible to be timed out
-    uint72 operationFee; // ══════════════════════ Flat fee (in Juels of LINK) that will be paid to the Coordinator Owner for operation of the network
+    uint72 operationFee; // ═══════════════╸ Flat fee (in Juels of LINK) that will be paid to the Coordinator Owner for operation of the network
   }
 }

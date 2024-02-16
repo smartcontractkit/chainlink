@@ -27,9 +27,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint96 juelsPerGas,
     uint256 l1FeeShareWei,
     uint96 callbackCostJuels,
-    uint72 donFee,
-    uint72 adminFee,
-    uint72 operationFee
+    uint72 donFeeJuels,
+    uint72 adminFeeJuels,
+    uint72 operationFeeJuels
   );
 
   // ================================================================
@@ -124,11 +124,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   /// @inheritdoc IFunctionsBilling
   function getWeiPerUnitLink() public view returns (uint256) {
-    FunctionsBillingConfig memory config = s_config;
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (config.feedStalenessSeconds < block.timestamp - timestamp && config.feedStalenessSeconds > 0) {
-      return config.fallbackNativePerUnitLink;
+    if (s_config.feedStalenessSeconds < block.timestamp - timestamp && s_config.feedStalenessSeconds > 0) {
+      return s_config.fallbackNativePerUnitLink;
     }
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
@@ -144,11 +143,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   /// @inheritdoc IFunctionsBilling
   function getUsdPerUnitLink() public view returns (uint256, uint8) {
-    FunctionsBillingConfig memory config = s_config;
     (, int256 usdPerUnitLink, , uint256 timestamp, ) = s_linkToUsdFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (config.feedStalenessSeconds < block.timestamp - timestamp && config.feedStalenessSeconds > 0) {
-      return (config.fallbackUsdPerUnitLink, config.fallbackUsdPerUnitLinkDecimals);
+    if (s_config.feedStalenessSeconds < block.timestamp - timestamp && s_config.feedStalenessSeconds > 0) {
+      return (s_config.fallbackUsdPerUnitLink, s_config.fallbackUsdPerUnitLinkDecimals);
     }
     if (usdPerUnitLink <= 0) {
       revert InvalidUsdLinkPrice(usdPerUnitLink);
@@ -224,10 +222,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function _startBilling(
     FunctionsResponse.RequestMeta memory request
   ) internal returns (FunctionsResponse.CommitmentWithOperationFee memory commitment) {
-    FunctionsBillingConfig memory config = s_config;
-
     // Nodes should support all past versions of the structure
-    if (request.dataVersion > config.maxSupportedRequestDataVersion) {
+    if (request.dataVersion > s_config.maxSupportedRequestDataVersion) {
       revert UnsupportedRequestDataVersion();
     }
 
@@ -246,7 +242,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InsufficientBalance();
     }
 
-    uint32 timeoutTimestamp = uint32(block.timestamp + config.requestTimeoutSeconds);
+    uint32 timeoutTimestamp = uint32(block.timestamp + s_config.requestTimeoutSeconds);
     bytes32 requestId = keccak256(
       abi.encode(
         address(this),
@@ -274,8 +270,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       requestId: requestId,
       donFee: donFee,
       operationFee: operationFee,
-      gasOverheadBeforeCallback: config.gasOverheadBeforeCallback,
-      gasOverheadAfterCallback: config.gasOverheadAfterCallback
+      gasOverheadBeforeCallback: s_config.gasOverheadBeforeCallback,
+      gasOverheadAfterCallback: s_config.gasOverheadAfterCallback
     });
 
     s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
@@ -352,9 +348,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
         juelsPerGas: juelsPerGas,
         l1FeeShareWei: l1FeeShareWei,
         callbackCostJuels: callbackCostJuels,
-        donFee: commitment.donFee,
-        adminFee: commitment.adminFee,
-        operationFee: commitment.operationFee
+        donFeeJuels: commitment.donFee,
+        adminFeeJuels: commitment.adminFee,
+        operationFeeJuels: commitment.operationFee
       });
     }
     return resultCode;
@@ -439,7 +435,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function _isExistingRequest(bytes32 requestId) internal view returns (bool) {
     return s_requestCommitments[requestId] != bytes32(0);
   }
-  
+
   // Overriden in FunctionsCoordinator.sol
   function _owner() internal view virtual returns (address owner);
 }

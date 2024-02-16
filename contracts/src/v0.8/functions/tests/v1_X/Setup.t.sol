@@ -26,8 +26,8 @@ contract FunctionsRouterSetup is BaseTest {
 
   uint16 internal s_maxConsumersPerSubscription = 3;
   uint72 internal s_adminFee = 100; // 100 Juels
-  uint72 internal s_donFee = 100; // $1
-  uint72 internal s_operationFee = 100; // $1
+  uint16 internal s_donFee = 100; // $1
+  uint16 internal s_operationFee = 100; // $1
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
   uint16 s_subscriptionDepositMinimumRequests = 1;
   uint72 s_subscriptionDepositJuels = 11 * JUELS_PER_LINK;

@@ -81,10 +81,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   /// @dev check if node is in current transmitter list
   function _isTransmitter(address node) internal view returns (bool) {
-    address[] memory nodes = s_transmitters;
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
-    for (uint256 i = 0; i < nodes.length; ++i) {
-      if (nodes[i] == node) {
+    for (uint256 i = 0; i < s_transmitters.length; ++i) {
+      if (s_transmitters[i] == node) {
         return true;
       }
     }
