@@ -247,9 +247,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @member registrars addresses of the registrar contracts
    * @member upkeepPrivilegeManager address which can set privilege for upkeeps
    * @member reorgProtectionEnabled if this registry enables re-org protection checks
-   * @member chainSpecificModule the chain specific module
    * @member chainModule the chain specific module
-   * @member reorgProtectionEnabled if this registry will enable re-org protection checks
    */
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
