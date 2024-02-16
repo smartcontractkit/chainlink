@@ -8,7 +8,6 @@ import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2C
 /// @title OptimismSequencerUptimeFeed - L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates from a specific L1 address, and records a new answer if the status changed
 contract OptimismSequencerUptimeFeed is SequencerUptimeFeed {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "OptimismSequencerUptimeFeed 1.0.0";
 
   /// @notice Address must not be the zero address

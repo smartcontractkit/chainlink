@@ -16,7 +16,6 @@ import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessCo
 /// FlagOn events you should filter for addresses you care about.
 // solhint-disable custom-errors
 contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "Flags 1.1.0";
 
   AccessControllerInterface public raisingAccessController;

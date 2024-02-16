@@ -15,7 +15,7 @@ contract ArbitrumValidatorTest is L2EPTest {
   address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = 0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b;
   uint256 internal constant GAS_PRICE_BID = 1000000;
   uint256 internal constant BASE_FEE = 14000000000;
-  uint96 internal constant MAX_GAS = 1000000;
+  uint64 internal constant MAX_GAS = 1000000;
 
   /// L2EP contracts
   AccessControllerInterface internal s_accessController;

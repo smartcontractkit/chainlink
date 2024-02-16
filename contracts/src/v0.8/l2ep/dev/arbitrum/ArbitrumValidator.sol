@@ -17,11 +17,10 @@ import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/
 ///  - Gas configuration is controlled by a configurable external SimpleWriteAccessController
 ///  - Funds on the contract are managed by the owner
 contract ArbitrumValidator is Validator {
+  string public constant override typeAndVersion = "ArbitrumValidator 2.0.0";
+
   /// @dev Precompiled contract that exists in every Arbitrum chain at address(100). Exposes a variety of system-level functionality.
   address internal constant ARBSYS_ADDR = address(0x0000000000000000000000000000000000000064);
-
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "ArbitrumValidator 2.0.0";
 
   /// L2 xDomain alias address of this contract
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
@@ -38,7 +37,7 @@ contract ArbitrumValidator is Validator {
     uint256 gasPriceBid; //
     uint256 baseFee; // Will use block.baseFee if set to 0
     address gasPriceL1FeedAddr; // ─╮
-    uint96 maxGas; // ──────────────╯
+    uint64 maxGas; // ──────────────╯
   }
 
   /// Helper Variable(s)
@@ -77,7 +76,7 @@ contract ArbitrumValidator is Validator {
     address l1CrossDomainMessengerAddress,
     address l2UptimeFeedAddr,
     address configACAddr,
-    uint96 maxGas,
+    uint64 maxGas,
     uint256 gasPriceBid,
     uint256 baseFee,
     address gasPriceL1FeedAddr,
@@ -175,7 +174,7 @@ contract ArbitrumValidator is Validator {
   /// @param gasPriceBid maximum L2 gas price to pay
   /// @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
   function setGasConfig(
-    uint96 maxGas,
+    uint64 maxGas,
     uint256 gasPriceBid,
     uint256 baseFee,
     address gasPriceL1FeedAddr
@@ -249,14 +248,19 @@ contract ArbitrumValidator is Validator {
   }
 
   /// @notice internal method that stores the gas configuration
-  function _setGasConfig(uint96 maxGas, uint256 gasPriceBid, uint256 baseFee, address gasPriceL1FeedAddr) internal {
+  function _setGasConfig(uint64 maxGas, uint256 gasPriceBid, uint256 baseFee, address gasPriceL1FeedAddr) internal {
     // solhint-disable-next-line custom-errors
     require(maxGas > 0, "Max gas is zero");
     // solhint-disable-next-line custom-errors
     require(gasPriceBid > 0, "Gas price bid is zero");
     // solhint-disable-next-line custom-errors
     require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
-    s_gasConfig = GasConfig(gasPriceBid, baseFee, gasPriceL1FeedAddr, maxGas);
+    s_gasConfig = GasConfig({
+      gasPriceL1FeedAddr: gasPriceL1FeedAddr,
+      gasPriceBid: gasPriceBid,
+      baseFee: baseFee,
+      maxGas: maxGas
+    });
     emit GasConfigSet(maxGas, gasPriceBid, gasPriceL1FeedAddr);
   }
 

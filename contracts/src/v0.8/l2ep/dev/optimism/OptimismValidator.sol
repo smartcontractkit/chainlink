@@ -8,7 +8,6 @@ import {IL1CrossDomainMessenger} from "@eth-optimism/contracts/L1/messaging/IL1C
 
 /// @title OptimismValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
 contract OptimismValidator is GasLimitValidator {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "OptimismValidator 1.0.0";
 
   /// @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address

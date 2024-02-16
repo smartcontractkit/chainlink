@@ -10,7 +10,6 @@ import {iOVM_CrossDomainMessenger} from "../../../vendor/@eth-optimism/contracts
 /// @dev Any other L2 contract which uses this contract's address as a privileged position,
 ///   can be considered to be owned by the `l1Owner`
 contract OptimismCrossDomainForwarder is CrossDomainForwarder {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "OptimismCrossDomainForwarder 1.0.0";
 
   /// OVM_L2CrossDomainMessenger is a precompile usually deployed to 0x4200000000000000000000000000000000000007

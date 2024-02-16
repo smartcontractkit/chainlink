@@ -8,7 +8,6 @@ import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.s
 /// @title ScrollSequencerUptimeFeed - L2 sequencer uptime status aggregator
 /// @notice L2 contract that receives status updates, and records a new answer if the status changed
 contract ScrollSequencerUptimeFeed is SequencerUptimeFeed {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ScrollSequencerUptimeFeed 1.0.0";
 
   /// @notice Address must not be the zero address

@@ -41,7 +41,7 @@ ArbitrumSequencerUptimeFeed_UpdateStatus:test_IgnoreOutOfOrderUpdates() (gas: 98
 ArbitrumSequencerUptimeFeed_UpdateStatus:test_RevertIfNotL2CrossDomainMessengerAddr() (gas: 15234)
 ArbitrumSequencerUptimeFeed_UpdateStatus:test_UpdateStatusWhenStatusChangeAndNoTimeChange() (gas: 113208)
 ArbitrumSequencerUptimeFeed_UpdateStatus:test_UpdateStatusWhenStatusChangeAndTimeChange() (gas: 113268)
-ArbitrumValidator_Validate:test_PostSequencerOffline() (gas: 69058)
+ArbitrumValidator_Validate:test_PostSequencerOffline() (gas: 69080)
 OptimismCrossDomainForwarder_AcceptL1Ownership:test_CallableByPendingL1Owner() (gas: 46884)
 OptimismCrossDomainForwarder_AcceptL1Ownership:test_NotCallableByNonPendingOwners() (gas: 22152)
 OptimismCrossDomainForwarder_Constructor:test_InitialState() (gas: 18258)

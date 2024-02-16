@@ -10,7 +10,6 @@ import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/c
 /// @dev Any other L2 contract which uses this contract's address as a privileged position,
 ///   can be considered to be owned by the `l1Owner`
 contract ArbitrumCrossDomainForwarder is CrossDomainForwarder {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ArbitrumCrossDomainForwarder 1.0.0";
 
   /// @notice creates a new Arbitrum xDomain Forwarder contract

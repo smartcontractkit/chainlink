@@ -12,8 +12,8 @@ import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/c
 ///  records a new answer if the status changed, and raises or lowers the flag on the
 ///   stored Flags contract.
 contract ArbitrumSequencerUptimeFeed is SequencerUptimeFeed {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ArbitrumSequencerUptimeFeed 1.0.0";
+
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
   address public constant FLAG_L2_SEQ_OFFLINE =
     address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));

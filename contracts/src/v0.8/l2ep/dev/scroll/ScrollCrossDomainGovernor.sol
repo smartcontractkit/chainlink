@@ -10,7 +10,6 @@ import {IScrollMessenger} from "@scroll-tech/contracts/libraries/IScrollMessenge
 /// @dev Any other L2 contract which uses this contract's address as a privileged position,
 /// can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
 contract ScrollCrossDomainGovernor is CrossDomainGovernor {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ScrollCrossDomainGovernor 1.0.0";
 
   /// The cross domain messenger address
