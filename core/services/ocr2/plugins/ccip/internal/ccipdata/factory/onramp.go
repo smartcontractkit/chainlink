@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -62,8 +62,8 @@ func initOrCloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, so
 			return nil, onRamp.Close(pgOpts...)
 		}
 		return onRamp, onRamp.RegisterFilters(pgOpts...)
-	case ccipdata.V1_4_0:
-		onRamp, err := v1_4_0.NewOnRamp(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source)
+	case ccipdata.V1_5_0:
+		onRamp, err := v1_5_0.NewOnRamp(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source)
 		if err != nil {
 			return nil, err
 		}

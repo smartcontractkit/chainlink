@@ -21,7 +21,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   error LiquidityNotAccepted();
   error Unauthorized(address caller);
 
-  string public constant override typeAndVersion = "LockReleaseTokenPool 1.4.0-dev";
+  string public constant override typeAndVersion = "LockReleaseTokenPool 1.4.0";
 
   /// @dev The unique lock release pool flag to signal through EIP 165.
   bytes4 private constant LOCK_RELEASE_INTERFACE_ID = bytes4(keccak256("LockReleaseTokenPool"));
