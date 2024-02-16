@@ -62,6 +62,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
+COPY --from=buildgo /go/bin/chainlink-ocr3-capability /usr/local/bin/
 
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 ENV CL_MEDIAN_CMD chainlink-feeds
