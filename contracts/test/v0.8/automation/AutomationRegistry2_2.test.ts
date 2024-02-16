@@ -1879,7 +1879,7 @@ describe('AutomationRegistry2_2', () => {
         },
       )
 
-      describe.skip('Gas benchmarking conditional upkeeps [ @skip-coverage ]', function () {
+      describe('Gas benchmarking conditional upkeeps [ @skip-coverage ]', function () {
         const fs = [1, 10]
         fs.forEach(function (newF) {
           it(
@@ -1999,7 +1999,7 @@ describe('AutomationRegistry2_2', () => {
                     ),
                       'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by at least ' +
                         chargedGasOverhead
-                          .sub(chargedGasOverhead)
+                          .sub(actualGasOverhead)
                           .sub(gasCalculationMargin)
                           .toString()
 
