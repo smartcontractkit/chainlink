@@ -5,6 +5,7 @@ import {IForwarder} from "./interfaces/IForwarder.sol";
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 
+// solhint-disable custom-errors, no-unused-vars
 contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
   error ReentrantCall();
 
@@ -18,6 +19,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
   constructor() ConfirmedOwner(msg.sender) {}
 
+  // solhint-disable avoid-low-level-calls, chainlink-solidity/explicit-returns
   function splitSignature(bytes memory sig) public pure returns (bytes32 r, bytes32 s, uint8 v) {
     require(sig.length == 65, "invalid signature length");
 
@@ -42,6 +44,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     // implicitly return (r, s, v)
   }
 
+  // solhint-disable avoid-low-level-calls, chainlink-solidity/explicit-returns
   function splitReport(bytes memory rawReport) public pure returns (bytes32 workflowId, bytes32 workflowExecutionId) {
     require(rawReport.length > 64, "invalid report length");
     assembly {
@@ -65,7 +68,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     bytes32 hash = keccak256(rawReport);
 
     // validate signatures
-    for (uint i = 0; i < signatures.length; i++) {
+    for (uint256 i = 0; i < signatures.length; i++) {
       // TODO: is libocr-style multiple bytes32 arrays more optimal?
       (bytes32 r, bytes32 s, uint8 v) = splitSignature(signatures[i]);
       address signer = ecrecover(hash, v, r, s);
@@ -79,6 +82,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       return false;
     }
 
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory result) = targetAddress.call(data);
 
     s_reports[workflowExecutionId] = msg.sender;
