@@ -23,7 +23,7 @@ type CCIPTestConfig struct {
 	TestDuration               *config.Duration   `toml:",omitempty"`
 	LocalCluster               *bool              `toml:",omitempty"`
 	ExistingDeployment         *bool              `toml:",omitempty"`
-	ExistingEnv                string             `toml:",omitempty"`
+	TestRunName                string             `toml:",omitempty"`
 	ReuseContracts             *bool              `toml:",omitempty"`
 	NodeFunding                float64            `toml:",omitempty"`
 	RequestPerUnitTime         []int64            `toml:",omitempty"`

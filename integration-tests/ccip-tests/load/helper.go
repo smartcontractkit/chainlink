@@ -87,7 +87,7 @@ func (l *LoadArgs) SanityCheck() {
 func (l *LoadArgs) TriggerLoadByLane() {
 	l.setSchedule()
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
-	namespace := l.TestCfg.TestGroupInput.ExistingEnv
+	namespace := l.TestCfg.TestGroupInput.TestRunName
 
 	// start load for a lane
 	startLoad := func(lane *actions.CCIPLane) {
@@ -213,7 +213,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 	require.NotNil(l.t, l.TestCfg.TestGroupInput.TestDuration, "test duration input is nil")
 	require.GreaterOrEqual(l.t, 1, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), "time unit input must be specified")
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
-	namespace := l.TestCfg.TestGroupInput.ExistingEnv
+	namespace := l.TestCfg.TestGroupInput.TestRunName
 
 	var laneBySource = make(map[string][]*actions.CCIPLane)
 	for _, lane := range l.TestSetupArgs.Lanes {

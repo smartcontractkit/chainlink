@@ -682,7 +682,7 @@ TimeUnit = '1h'
 NoOfTokensPerChain = 1
 NoOfTokensInMsg = 1
 AmountPerToken = 1
-ExistingEnv = 'mainnet-2.7-ccip1.2'
+TestRunName = 'mainnet-2.7-ccip1.2'
 
 [CCIP.Groups.smoke]
 MsgType = 'WithoutToken'

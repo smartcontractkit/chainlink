@@ -68,7 +68,8 @@ func NewMultiCallLoadGenerator(testCfg *testsetups.CCIPTestConfig, lanes []*acti
 	if err := ls.Validate(); err != nil {
 		return nil, err
 	}
-	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
+	lokiConfig := testCfg.EnvInput.Logging.Loki
+	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil))
 	if err != nil {
 		return nil, err
 	}

@@ -226,7 +226,7 @@ LocalCluster = false # same as above
 ExistingDeployment = false # same as above
 
 # uncomment the following if you want your test results to be reflected under CCIP test grafana dashboard with namespace label same as the value of the following variable
-# ExistingEnv = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
+# TestRunName = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
 
 ReuseContracts = true            # same as above
 NodeFunding = 20.0 # same as above
