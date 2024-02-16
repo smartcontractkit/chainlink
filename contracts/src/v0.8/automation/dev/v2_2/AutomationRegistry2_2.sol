@@ -62,6 +62,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
    */
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
+    uint256 totalCalldataWeight;
     uint96 totalReimbursement;
     uint96 totalPremium;
   }
@@ -107,6 +108,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     TransmitVars memory transmitVars = TransmitVars({
       numUpkeepsPassedChecks: 0,
+      totalCalldataWeight: 0,
       totalReimbursement: 0,
       totalPremium: 0
     });
@@ -139,6 +141,14 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
         report.performDatas[i]
       );
 
+      // To split L1 fee across the upkeeps, assign a weight to this upkeep based on the length
+      // of the perform data and calldata overhead
+      upkeepTransmitInfo[i].calldataWeight =
+        report.performDatas[i].length +
+        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
+        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
+      transmitVars.totalCalldataWeight += upkeepTransmitInfo[i].calldataWeight;
+
       // Deduct that gasUsed by upkeep from our running counter
       gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
@@ -167,8 +177,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
             report.fastGasWei,
             report.linkNative,
             gasOverhead,
-            // TODO: Divide gas overhead in proportion to performData
-            l1Fee / transmitVars.numUpkeepsPassedChecks
+            (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight
           );
           transmitVars.totalPremium += premium;
           transmitVars.totalReimbursement += reimbursement;

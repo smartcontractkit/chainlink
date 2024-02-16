@@ -408,6 +408,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     bool performSuccess;
     Trigger triggerType;
     uint256 gasUsed;
+    uint256 calldataWeight;
     bytes32 dedupID;
   }
 
@@ -646,15 +647,16 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     } else {
       revert InvalidTriggerType();
     }
-    uint256 maxCalldataSize = s_storage.maxPerformDataSize + TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD + (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
+    uint256 maxCalldataSize = s_storage.maxPerformDataSize +
+      TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
+      (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
     (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
     maxGasOverhead +=
       (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
       ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
       chainModuleFixedOverhead;
 
-    uint256 maxL1Fee = hotVars.gasCeilingMultiplier *
-      hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
+    uint256 maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
 
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
