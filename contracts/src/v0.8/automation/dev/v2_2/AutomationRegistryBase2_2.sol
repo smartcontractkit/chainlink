@@ -401,6 +401,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @member performSuccess whether the perform was successful
    * @member triggerType the type of trigger
    * @member gasUsed gasUsed by this upkeep in perform
+   * @member calldataWeight weight assigned to this upkeep for its contribution to calldata. It is used to split L1 fee
    * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
