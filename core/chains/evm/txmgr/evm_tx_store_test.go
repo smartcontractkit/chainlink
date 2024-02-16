@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"math/big"
@@ -411,8 +412,9 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 
 	t.Run("only updates evm.tx_attempts for the current chain", func(t *testing.T) {
-		require.NoError(t, ethKeyStore.Add(fromAddress, testutils.SimulatedChainID))
-		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
+		ctx := context.Background()
+		require.NoError(t, ethKeyStore.Add(ctx, fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Enable(ctx, fromAddress, testutils.SimulatedChainID))
 		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.EVM().ChainID())
 		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, testutils.SimulatedChainID)
 

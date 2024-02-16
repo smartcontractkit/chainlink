@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2447,6 +2448,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 	})
 
 	t.Run("multiple gas bumps with existing broadcast attempts are retried with more gas until success in legacy mode", func(t *testing.T) {
+		ctx := context.Background()
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
 
@@ -2471,7 +2473,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedLegacyTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedLegacyTx, err := ethKeyStore.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
+			thisSignedLegacyTx, err := ethKeyStore.SignTx(ctx, fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedLegacyTx = *thisSignedLegacyTx
 		}).Times(4) // 3 failures 1 success
@@ -2479,6 +2481,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 	})
 
 	t.Run("multiple gas bumps with existing broadcast attempts are retried with more gas until success in EIP-1559 mode", func(t *testing.T) {
+		ctx := context.Background()
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
 
@@ -2503,7 +2506,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedDxFeeTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedDxFeeTx, err := ethKeyStore.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
+			thisSignedDxFeeTx, err := ethKeyStore.SignTx(ctx, fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedDxFeeTx = *thisSignedDxFeeTx
 		}).Times(4) // 3 failures 1 success
@@ -2513,7 +2516,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Parallel()
-
+	ctx := context.Background()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
@@ -2523,7 +2526,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	_, err := ethKeyStore.EnabledKeysForChain(testutils.FixtureChainID)
+	_, err := ethKeyStore.EnabledKeysForChain(ctx, testutils.FixtureChainID)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	// keyStates, err := ethKeyStore.GetStatesForKeys(keys)

@@ -455,7 +455,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 		thresholdPluginDB := NewDB(d.db, spec.ID, thresholdPluginId, lggr, d.cfg.Database())
 		s4PluginDB := NewDB(d.db, spec.ID, s4PluginId, lggr, d.cfg.Database())
-		return d.newServicesOCR2Functions(lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
+		return d.newServicesOCR2Functions(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
 	case types.GenericPlugin:
 		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, d.capabilitiesRegistry)
@@ -1370,6 +1370,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 }
 
 func (d *Delegate) newServicesOCR2Functions(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1395,6 +1396,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	}
 	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
+			ctx,
 			chain,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
@@ -1506,7 +1508,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		LogPollerWrapper:  functionsProvider.LogPollerWrapper(),
 	}
 
-	functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, &thresholdOracleArgs, &s4OracleArgs, &functionsServicesConfig)
+	functionsServices, err := functions.NewFunctionsServices(ctx, &functionsOracleArgs, &thresholdOracleArgs, &s4OracleArgs, &functionsServicesConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 	}

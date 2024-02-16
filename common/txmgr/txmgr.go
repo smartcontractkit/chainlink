@@ -201,7 +201,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 		b.logger.Info("Txm starting runLoop")
 		b.wg.Add(1)
-		go b.runLoop()
+		go b.runLoop(ctx)
 		<-b.chSubbed
 
 		if b.reaper != nil {
@@ -209,7 +209,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 		}
 
 		if b.resender != nil {
-			b.resender.Start()
+			b.resender.Start(ctx)
 		}
 
 		if b.fwdMgr != nil {
@@ -307,11 +307,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 	return report
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx context.Context) {
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
-	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges()
+	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges(ctx)
 	defer unsub()
 
 	close(b.chSubbed)
@@ -374,7 +374,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.confirmer.startInternal(); err != nil {
+					if err := b.confirmer.startInternal(ctx); err != nil {
 						b.logger.Criticalw("Failed to start Confirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -441,7 +441,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if stopped {
 				continue
 			}
-			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(b.chainID)
+			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(ctx, b.chainID)
 			if err != nil {
 				b.logger.Critical("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
@@ -496,7 +496,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		}
 	}
 
-	if err = b.checkEnabled(txRequest.FromAddress); err != nil {
+	if err = b.checkEnabled(ctx, txRequest.FromAddress); err != nil {
 		return tx, err
 	}
 
@@ -543,8 +543,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForward
 	return
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(addr ADDR) error {
-	if err := b.keyStore.CheckEnabled(addr, b.chainID); err != nil {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(ctx context.Context, addr ADDR) error {
+	if err := b.keyStore.CheckEnabled(ctx, addr, b.chainID); err != nil {
 		return fmt.Errorf("cannot send transaction from %s on chain ID %s: %w", addr, b.chainID.String(), err)
 	}
 	return nil

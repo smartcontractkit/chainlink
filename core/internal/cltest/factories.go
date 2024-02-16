@@ -268,10 +268,10 @@ func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2
 	keystore.XXXTestingOnlyAdd(ctx, key)
 
 	for _, cid := range r.chainIDs {
-		require.NoError(t, keystore.Add(key.Address, cid.ToInt()))
-		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
+		require.NoError(t, keystore.Add(ctx, key.Address, cid.ToInt()))
+		require.NoError(t, keystore.Enable(ctx, key.Address, cid.ToInt()))
 		if r.Disabled {
-			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
+			require.NoError(t, keystore.Disable(ctx, key.Address, cid.ToInt()))
 		}
 	}
 
@@ -279,8 +279,9 @@ func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2
 }
 
 func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
+	ctx := context.Background()
 	k, address := r.MustInsert(t, keystore)
-	state, err := keystore.GetStateForKey(k)
+	state, err := keystore.GetStateForKey(ctx, k)
 	require.NoError(t, err)
 	return state, address
 }

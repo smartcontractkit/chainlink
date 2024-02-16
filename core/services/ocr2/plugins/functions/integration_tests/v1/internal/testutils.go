@@ -341,7 +341,7 @@ func StartNewNode(
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address

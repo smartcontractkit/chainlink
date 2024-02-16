@@ -261,14 +261,15 @@ const ownerPermsMask = os.FileMode(0o700)
 
 // RunNode starts the Chainlink core.
 func (s *Shell) RunNode(c *cli.Context) error {
-	if err := s.runNode(c); err != nil {
+	// TODO: remove redundant drilling. BCF-2971
+	var ctx = context.Background()
+	if err := s.runNode(ctx, c); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
 }
 
-func (s *Shell) runNode(c *cli.Context) error {
-	ctx := context.Background()
+func (s *Shell) runNode(ctx context.Context, c *cli.Context) error {
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
@@ -626,7 +627,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(ctx, address, chain.ID()); err != nil {
 		return s.errorOut(err)
 	}
 

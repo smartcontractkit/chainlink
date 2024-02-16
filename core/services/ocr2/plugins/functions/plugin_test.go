@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -23,6 +24,10 @@ import (
 
 func TestNewConnector_Success(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background() 
+
+	
 	keyV2, err := ethkey.NewV2()
 	require.NoError(t, err)
 
@@ -43,12 +48,15 @@ func TestNewConnector_Success(t *testing.T) {
 	config := &config.PluginConfig{
 		GatewayConnectorConfig: gwcCfg,
 	}
-	_, err = functions.NewConnector(config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
+	_, err = functions.NewConnector(ctx, config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
 	require.NoError(t, err)
 }
 
 func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background() 
+	
 	addresses := []string{
 		"0x00000000DE801ceE9471ADf23370c48b011f82a6",
 		"0x11111111DE801ceE9471ADf23370c48b011f82a6",
@@ -71,6 +79,6 @@ func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	config := &config.PluginConfig{
 		GatewayConnectorConfig: gwcCfg,
 	}
-	_, err = functions.NewConnector(config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
+	_, err = functions.NewConnector(ctx, config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
 	require.Error(t, err)
 }

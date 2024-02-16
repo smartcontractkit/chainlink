@@ -1,6 +1,7 @@
 package vrf
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -73,6 +74,10 @@ func (d *Delegate) OnDeleteJob(job.Job, pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+	
+	// TODO
+	ctx := context.Background()
+	
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -128,7 +133,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
-			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
 				return nil, err2
 			}
 
@@ -187,7 +192,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
 				return nil, err2
 			}
 
@@ -269,9 +274,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses
 // in the VRF spec's fromAddresses field does not exist in the keystore.
-func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
+func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Eth) (err error) {
 	for _, a := range jb.VRFSpec.FromAddresses {
-		_, err2 := gethks.Get(a.Hex())
+		_, err2 := gethks.Get(ctx, a.Hex())
 		err = multierr.Append(err, err2)
 	}
 	return

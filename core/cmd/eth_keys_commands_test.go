@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"math/big"
 	"os"
@@ -140,6 +141,8 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	t.Parallel()
 
+	ctx := context.Background()
+
 	ethClient := newEthMock(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(false)
@@ -148,7 +151,7 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 		withMocks(ethClient),
 	)
 	client, r := app.NewShellAndRenderer()
-	keys, err := app.KeyStore.Eth().GetAll()
+	keys, err := app.KeyStore.Eth().GetAll(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 	k := keys[0]
@@ -169,6 +172,8 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 func TestShell_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
+	ctx := context.Background()
+
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(42), nil)
@@ -186,7 +191,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
-	keys, err := app.KeyStore.Eth().GetAll()
+	keys, err := app.KeyStore.Eth().GetAll(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 
@@ -202,13 +207,15 @@ func TestShell_CreateETHKey(t *testing.T) {
 	assert.NoError(t, client.CreateETHKey(c))
 
 	cltest.AssertCount(t, db, "evm.key_states", 2)
-	keys, err = app.KeyStore.Eth().GetAll()
+	keys, err = app.KeyStore.Eth().GetAll(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(keys))
 }
 
 func TestShell_DeleteETHKey(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -221,7 +228,7 @@ func TestShell_DeleteETHKey(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	// Create the key
-	key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+	key, err := ethKeyStore.Create(ctx, &cltest.FixtureChainID)
 	require.NoError(t, err)
 
 	// Delete the key
@@ -235,12 +242,14 @@ func TestShell_DeleteETHKey(t *testing.T) {
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
 
-	_, err = ethKeyStore.Get(key.Address.Hex())
+	_, err = ethKeyStore.Get(ctx, key.Address.Hex())
 	assert.Error(t, err)
 }
 
 func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background()
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
@@ -303,7 +312,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
-	_, err = ethKeyStore.Get(address)
+	_, err = ethKeyStore.Get(ctx, address)
 	require.Error(t, err)
 
 	cltest.AssertCount(t, app.GetSqlxDB(), "evm.key_states", 0)
@@ -328,7 +337,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
 	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
-	_, err = ethKeyStore.Get(address)
+	_, err = ethKeyStore.Get(ctx, address)
 	require.NoError(t, err)
 
 	// Export test invalid id
@@ -347,6 +356,8 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 }
 func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background()
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
@@ -411,7 +422,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
-	_, err = ethKeyStore.Get(address)
+	_, err = ethKeyStore.Get(ctx, address)
 	require.Error(t, err)
 
 	// Import the key
@@ -435,7 +446,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
 	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
-	_, err = ethKeyStore.Get(address)
+	_, err = ethKeyStore.Get(ctx, address)
 	require.NoError(t, err)
 
 	// Export test invalid id

@@ -104,7 +104,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 
 	tr.ctx, tr.ctxCancel = context.WithCancel(context.Background())
 
-	if err := tr.setEnabledAddresses(); err != nil {
+	if err := tr.setEnabledAddresses(tr.ctx); err != nil {
 		return fmt.Errorf("failed to set enabled addresses: %w", err)
 	}
 	tr.lggr.Info("Enabled addresses set")
@@ -194,8 +194,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsStarted()
 	return tr.isStarted
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses() error {
-	enabledAddrs, err := tr.keyStore.EnabledAddressesForChain(tr.chainID)
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses(ctx context.Context) error {
+	enabledAddrs, err := tr.keyStore.EnabledAddressesForChain(ctx, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get enabled addresses for chain: %w", err)
 	}

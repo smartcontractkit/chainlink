@@ -1652,7 +1652,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	carolContractAddress := uni.consumerContractAddresses[0]
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Zero(t, key.Cmp(keys[0]))
 
@@ -2067,7 +2067,7 @@ func TestStartingCountsV1(t *testing.T) {
 	assert.Equal(t, 0, len(counts))
 	err = ks.Unlock(testutils.Password)
 	require.NoError(t, err)
-	k, err := ks.Eth().Create(testutils.SimulatedChainID)
+	k, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)

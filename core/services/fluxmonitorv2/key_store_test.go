@@ -1,6 +1,7 @@
 package fluxmonitorv2_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,6 +14,7 @@ import (
 
 func TestKeyStore_EnabledKeysForChain(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewQConfig(true)
@@ -20,17 +22,17 @@ func TestKeyStore_EnabledKeysForChain(t *testing.T) {
 
 	ks := fluxmonitorv2.NewKeyStore(ethKeyStore)
 
-	key, err := ethKeyStore.Create(testutils.FixtureChainID)
+	key, err := ethKeyStore.Create(ctx, testutils.FixtureChainID)
 	require.NoError(t, err)
-	key2, err := ethKeyStore.Create(testutils.SimulatedChainID)
+	key2, err := ethKeyStore.Create(ctx, testutils.SimulatedChainID)
 	require.NoError(t, err)
 
-	keys, err := ks.EnabledKeysForChain(testutils.FixtureChainID)
+	keys, err := ks.EnabledKeysForChain(ctx, testutils.FixtureChainID)
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, key, keys[0])
 
-	keys, err = ks.EnabledKeysForChain(testutils.SimulatedChainID)
+	keys, err = ks.EnabledKeysForChain(ctx, testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, key2, keys[0])
@@ -38,6 +40,8 @@ func TestKeyStore_EnabledKeysForChain(t *testing.T) {
 
 func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background()
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewQConfig(true)
@@ -48,7 +52,7 @@ func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 	ks := fluxmonitorv2.NewKeyStore(ethKeyStore)
 
 	// Gets the only address in the keystore
-	addr, err := ks.GetRoundRobinAddress(testutils.FixtureChainID)
+	addr, err := ks.GetRoundRobinAddress(ctx, testutils.FixtureChainID)
 	require.NoError(t, err)
 	require.Equal(t, k0Address, addr)
 }

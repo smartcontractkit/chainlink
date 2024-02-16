@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -59,11 +60,15 @@ func NewOCR2VRFRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, e
 }
 
 func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (DKGProvider, error) {
+
+	// commontypes.Relay doesn't wire context through
+	ctx := context.Background()
+
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newOnChainContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	contractTransmitter, err := newContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{})
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +87,15 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 }
 
 func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error) {
+	
+	// commontypes.Relay doesn't wire context through
+	ctx := context.Background()
+	
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newOnChainContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	contractTransmitter, err := newContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{})
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -219,6 +220,7 @@ func setupOCR2VRFContracts(
 
 func setupNodeOCR2(
 	t *testing.T,
+	ctx context.Context,
 	owner *bind.TransactOpts,
 	port int,
 	dbName string,
@@ -255,7 +257,7 @@ func setupNodeOCR2(
 	var sendingKeys []ethkey.KeyV2
 	{
 		var err error
-		sendingKeys, err = app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+		sendingKeys, err = app.KeyStore.Eth().EnabledKeysForChain(ctx, testutils.SimulatedChainID)
 		require.NoError(t, err)
 		require.Len(t, sendingKeys, 1)
 	}
@@ -266,10 +268,10 @@ func setupNodeOCR2(
 		sendingKeysAddresses := []common.Address{sendingKeys[0].Address}
 
 		// Add new sending key.
-		k, err := app.KeyStore.Eth().Create()
+		k, err := app.KeyStore.Eth().Create(ctx)
 		require.NoError(t, err)
-		require.NoError(t, app.KeyStore.Eth().Add(k.Address, testutils.SimulatedChainID))
-		require.NoError(t, app.KeyStore.Eth().Enable(k.Address, testutils.SimulatedChainID))
+		require.NoError(t, app.KeyStore.Eth().Add(ctx, k.Address, testutils.SimulatedChainID))
+		require.NoError(t, app.KeyStore.Eth().Enable(ctx, k.Address, testutils.SimulatedChainID))
 		sendingKeys = append(sendingKeys, k)
 		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
 
@@ -343,7 +345,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	t.Log("Creating bootstrap node")
 
 	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend, false, nil)
+	bootstrapNode := setupNodeOCR2(t, ctx, uni.owner, bootstrapNodePort, "bootstrap", uni.backend, false, nil)
 	numNodes := 5
 
 	t.Log("Creating OCR2 nodes")
@@ -368,7 +370,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
-		node := setupNodeOCR2(t, uni.owner, ports[i], fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
+		node := setupNodeOCR2(t, ctx, uni.owner, ports[i], fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
 		sendingKeys = append(sendingKeys, node.sendingKeys)
 
 		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()

@@ -255,7 +255,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 		for _, k := range app.Keys {
 			ks.XXXTestingOnlyAdd(ctx, k)
 			require.NoError(t, ks.Add(ctx, k.Address, id))
-			require.NoError(t, ks.Enable(k.Address, id))
+			require.NoError(t, ks.Enable(ctx, k.Address, id))
 		}
 	}
 
@@ -572,9 +572,9 @@ func (ta *TestApplication) MustSeedNewSession(email string) (id string) {
 }
 
 // ImportKey adds private key to the application keystore and database
-func (ta *TestApplication) Import(content string) {
+func (ta *TestApplication) Import(ctx context.Context, content string) {
 	require.NoError(ta.t, ta.KeyStore.Unlock(Password))
-	_, err := ta.KeyStore.Eth().Import([]byte(content), Password, &FixtureChainID)
+	_, err := ta.KeyStore.Eth().Import(ctx, []byte(content), Password, &FixtureChainID)
 	require.NoError(ta.t, err)
 }
 
