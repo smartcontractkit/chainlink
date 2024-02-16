@@ -95,6 +95,7 @@ type Adhoc struct {
 	DeployContracts       *bool   `toml:"deploy_contracts"`
 	LoadContracts         *bool   `toml:"load_contracts"`
 	SetupUpkeeps          *bool   `toml:"setup_upkeeps"`
+	ConnectDataStream     *bool   `toml:"connect_data_stream"`
 	TearDownDeployment    *bool   `toml:"tear_down_deployment"`
 	DeleteExistingJobs    *bool   `toml:"delete_existing_jobs"`
 	LinkTokenAddress      *string `toml:"link_token_address"`
@@ -103,6 +104,7 @@ type Adhoc struct {
 	TranscoderAddress     *string `toml:"transcoder_address"`
 	RegistryAddress       *string `toml:"registry_address"`
 	RegistrarAddress      *string `toml:"registrar_address"`
+	DataStreamURL         *string `toml:"data_stream_url"`
 }
 
 func (c *Adhoc) Validate() error {
@@ -141,6 +143,11 @@ func (c *Adhoc) Validate() error {
 			return errors.New("registrar_address must be set")
 		}
 
+	}
+	if *c.ConnectDataStream == true {
+		if c.DataStreamURL == nil {
+			return errors.New("data_stream_url must be set")
+		}
 	}
 	return nil
 }

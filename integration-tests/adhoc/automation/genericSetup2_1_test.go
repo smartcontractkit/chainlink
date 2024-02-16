@@ -41,6 +41,11 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
+	secretsTOML = `[Mercury.Credentials.cred1]
+LegacyURL = '%s'
+URL = '%s'
+Username = 'node'
+Password = 'nodepass'`
 
 	nodeSpec = map[string]interface{}{
 		"resources": map[string]interface{}{
@@ -123,6 +128,10 @@ func setupEnvironment(t *testing.T, loadedTestConfig tc.TestConfig) (*automation
 		loadedTestConfig.Pyroscope.Environment = &testEnvironment.Cfg.Namespace
 	}
 
+	if *loadedTestConfig.Automation.Adhoc.ConnectDataStream == true {
+		secretsTOML = fmt.Sprintf(secretsTOML, *loadedTestConfig.Automation.Adhoc.DataStreamURL, *loadedTestConfig.Automation.Adhoc.DataStreamURL)
+	}
+
 	numberOfNodes := *loadedTestConfig.Automation.General.NumberOfNodes
 	l.Info().Int("Number of Nodes", numberOfNodes).Msg("Number of Nodes")
 
@@ -137,10 +146,11 @@ func setupEnvironment(t *testing.T, loadedTestConfig tc.TestConfig) (*automation
 		}
 
 		cd := chainlink.NewWithOverride(i, map[string]any{
-			"toml":       nodeTOML,
-			"chainlink":  nodeSpec,
-			"db":         dbSpec,
-			"prometheus": *loadedTestConfig.Automation.General.UsePrometheus,
+			"toml":        nodeTOML,
+			"chainlink":   nodeSpec,
+			"db":          dbSpec,
+			"prometheus":  *loadedTestConfig.Automation.General.UsePrometheus,
+			"secretsToml": secretsTOML,
 		}, loadedTestConfig.ChainlinkImage, overrideFn)
 
 		testEnvironment.AddHelm(cd)
@@ -223,6 +233,10 @@ func TestAutomation(t *testing.T) {
 
 	config := loadedTestConfig.Automation.Adhoc
 
+	if *config.ConnectDataStream == true {
+		automationTest.MercuryCredentialName = "cred1"
+	}
+
 	if *config.DeployContracts == true {
 		automationTest.SetupAutomationDeployment(t)
 		err = actions.FundChainlinkNodesAddress(
@@ -260,8 +274,11 @@ func TestAutomation(t *testing.T) {
 		consumerABI, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
 		require.NoError(t, err, "Error getting consumer abi")
 
-		conditionalConsumer, err := automationTest.Deployer.DeployUpkeepCounter(big.NewInt(math.MaxInt64), big.NewInt(10))
+		conditionalConsumer, err := automationTest.Deployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(math.MaxInt64), big.NewInt(10), false, true, false)
 		require.NoError(t, err, "Error deploying conditional consumer")
+
+		err = conditionalConsumer.SetFeeds([]string{"0x000200"})
+		require.NoError(t, err, "Error setting feeds")
 
 		logTriggerConsumer, err := automationTest.Deployer.DeployAutomationLogTriggerConsumer(big.NewInt(1))
 		require.NoError(t, err, "Error deploying log trigger consumer")

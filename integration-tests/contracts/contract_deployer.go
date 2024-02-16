@@ -108,7 +108,7 @@ type ContractDeployer interface {
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error)
-	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
+	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (DataStreamsConsumer, error)
 	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
 		testBlockRange,
@@ -1537,7 +1537,7 @@ func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer() (K
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
+func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (DataStreamsConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("StreamsLookupUpkeep", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,

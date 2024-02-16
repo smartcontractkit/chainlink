@@ -101,6 +101,13 @@ type KeeperConsumer interface {
 	Start() error
 }
 
+type DataStreamsConsumer interface {
+	SetFeeds(feeds []string) error
+	Address() string
+	Counter(ctx context.Context) (*big.Int, error)
+	Start() error
+}
+
 type UpkeepCounter interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
@@ -1920,6 +1927,18 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
 
 	// The default values of ParamKeys are "feedIDs" and "timestamp" which are for v0.3
 	tx, err := v.consumer.SetParamKeys(txOpts, "feedIdHex", "blockNumber")
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) SetFeeds(feeds []string) error {
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.SetFeeds(txOpts, feeds)
 	if err != nil {
 		return err
 	}
