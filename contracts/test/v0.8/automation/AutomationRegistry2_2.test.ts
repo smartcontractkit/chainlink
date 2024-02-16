@@ -115,7 +115,7 @@ const emptyBytes32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 const transmitGasOverhead = 1_000_000
-const checkGasOverhead = 400_000 + 4_000 // 4_000 for the overhead to call chain module
+const checkGasOverhead = 500_000
 
 const stalenessSeconds = BigNumber.from(43820)
 const gasCeilingMultiplier = BigNumber.from(2)
@@ -2149,7 +2149,7 @@ describe('AutomationRegistry2_2', () => {
     })
   })
 
-  describe.skip('#transmit with upkeep batches [ @skip-coverage ]', function () {
+  describe('#transmit with upkeep batches [ @skip-coverage ]', function () {
     const numPassingConditionalUpkeepsArray = [0, 1, 5]
     const numPassingLogUpkeepsArray = [0, 1, 5]
     const numFailingUpkeepsArray = [0, 3]
@@ -2454,110 +2454,49 @@ describe('AutomationRegistry2_2', () => {
                 numPassingConditionalUpkeeps + numPassingLogUpkeeps,
               )
 
-              const chainModuleOverheads =
-                await chainModuleBase.getGasOverhead()
-              const gasConditionalOverheadCap = registryConditionalOverhead
-                //.add(registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)))
-                .add(
-                  registryPerPerformByteGasOverhead
-                    .add(chainModuleOverheads.chainModulePerByteOverhead)
-                    .mul(
-                      maxPerformDataSize
-                        .add(registryTransmitCalldataFixedBytesOverhead)
-                        .add(
-                          registryTransmitCalldataPerSignerBytesOverhead.mul(
-                            BigNumber.from(f + 1),
-                          ),
-                        ),
-                    ),
-                )
-                .add(chainModuleOverheads.chainModuleFixedOverhead)
-              const gasLogOverheadCap = registryLogOverhead
-                //.add(registryPerSignerGasOverhead.mul(BigNumber.from(f + 1)))
-                .add(
-                  registryPerPerformByteGasOverhead
-                    .add(chainModuleOverheads.chainModulePerByteOverhead)
-                    .mul(
-                      maxPerformDataSize
-                        .add(registryTransmitCalldataFixedBytesOverhead)
-                        .add(
-                          registryTransmitCalldataPerSignerBytesOverhead.mul(
-                            BigNumber.from(f + 1),
-                          ),
-                        ),
-                    ),
-                )
-                .add(chainModuleOverheads.chainModuleFixedOverhead)
-
-              const overheadCanGetCapped =
-                numFailingUpkeeps > 0 &&
-                numPassingConditionalUpkeeps <= 1 &&
-                numPassingLogUpkeeps <= 1
-              // Can happen if there are failing upkeeps and only 1 successful upkeep of each type
-              let netGasUsedPlusOverhead = BigNumber.from('0')
-
+              let netGasUsedPlusChargedOverhead = BigNumber.from('0')
               for (let i = 0; i < numPassingConditionalUpkeeps; i++) {
                 const gasUsed = upkeepPerformedLogs[i].args.gasUsed
-                const gasOverhead = upkeepPerformedLogs[i].args.gasOverhead
+                const chargedGasOverhead =
+                  upkeepPerformedLogs[i].args.gasOverhead
 
                 assert.isTrue(gasUsed.gt(BigNumber.from('0')))
-                assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+                assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
 
-                // Overhead should not exceed capped
-                assert.isTrue(gasOverhead.lte(gasConditionalOverheadCap))
-
-                // Overhead should be same for every upkeep since they have equal performData, hence same caps
+                // Overhead should be same for every upkeep
                 assert.isTrue(
-                  gasOverhead.eq(upkeepPerformedLogs[0].args.gasOverhead),
+                  chargedGasOverhead.eq(
+                    upkeepPerformedLogs[0].args.gasOverhead,
+                  ),
                 )
-
-                netGasUsedPlusOverhead = netGasUsedPlusOverhead
+                netGasUsedPlusChargedOverhead = netGasUsedPlusChargedOverhead
                   .add(gasUsed)
-                  .add(gasOverhead)
+                  .add(chargedGasOverhead)
               }
+
               for (let i = 0; i < numPassingLogUpkeeps; i++) {
                 const gasUsed =
                   upkeepPerformedLogs[numPassingConditionalUpkeeps + i].args
                     .gasUsed
-                const gasOverhead =
+                const chargedGasOverhead =
                   upkeepPerformedLogs[numPassingConditionalUpkeeps + i].args
                     .gasOverhead
 
                 assert.isTrue(gasUsed.gt(BigNumber.from('0')))
-                assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
+                assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
 
-                // Overhead should not exceed capped
-                assert.isTrue(gasOverhead.lte(gasLogOverheadCap))
-
-                // Overhead should be same for every upkeep since they have equal performData, hence same caps
+                // Overhead should be same for every upkeep
                 assert.isTrue(
-                  gasOverhead.eq(
+                  chargedGasOverhead.eq(
                     upkeepPerformedLogs[numPassingConditionalUpkeeps].args
                       .gasOverhead,
                   ),
                 )
-
-                netGasUsedPlusOverhead = netGasUsedPlusOverhead
+                netGasUsedPlusChargedOverhead = netGasUsedPlusChargedOverhead
                   .add(gasUsed)
-                  .add(gasOverhead)
+                  .add(chargedGasOverhead)
               }
 
-              const overheadsGotCapped =
-                (numPassingConditionalUpkeeps > 0 &&
-                  upkeepPerformedLogs[0].args.gasOverhead.eq(
-                    gasConditionalOverheadCap,
-                  )) ||
-                (numPassingLogUpkeeps > 0 &&
-                  upkeepPerformedLogs[
-                    numPassingConditionalUpkeeps
-                  ].args.gasOverhead.eq(gasLogOverheadCap))
-              // Should only get capped in certain scenarios
-              if (overheadsGotCapped) {
-                assert.isTrue(
-                  overheadCanGetCapped,
-                  'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD',
-                )
-              }
 
               console.log(
                 'Gas Benchmarking - batching (passedConditionalUpkeeps: ',
@@ -2567,33 +2506,27 @@ describe('AutomationRegistry2_2', () => {
                 'failedUpkeeps:',
                 numFailingUpkeeps,
                 '): ',
-                'overheadsGotCapped',
-                overheadsGotCapped,
                 numPassingConditionalUpkeeps > 0
-                  ? 'calculated conditional overhead'
+                  ? 'charged conditional overhead'
                   : '',
                 numPassingConditionalUpkeeps > 0
                   ? upkeepPerformedLogs[0].args.gasOverhead.toString()
                   : '',
-                numPassingLogUpkeeps > 0 ? 'calculated log overhead' : '',
+                numPassingLogUpkeeps > 0 ? 'charged log overhead' : '',
                 numPassingLogUpkeeps > 0
                   ? upkeepPerformedLogs[
                       numPassingConditionalUpkeeps
                     ].args.gasOverhead.toString()
                   : '',
                 ' margin over gasUsed',
-                netGasUsedPlusOverhead.sub(receipt.gasUsed).toString(),
+                netGasUsedPlusChargedOverhead.sub(receipt.gasUsed).toString(),
               )
 
-              // If overheads don't get capped then total gas charged should be greater than tx gas
-              // We don't check whether the net is within gasMargin as the margin changes with numFailedUpkeeps
-              // Which is ok, as long as individual gas overhead is capped
-              if (!overheadsGotCapped) {
-                assert.isTrue(
-                  netGasUsedPlusOverhead.gt(receipt.gasUsed),
-                  'Gas overhead is too low, increase ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD',
-                )
-              }
+              // The total gas charged should be greater than tx gas
+              assert.isTrue(
+                netGasUsedPlusChargedOverhead.gt(receipt.gasUsed),
+                'Charged gas overhead is too low for batch upkeeps, increase ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD',
+              )
             },
           )
         }

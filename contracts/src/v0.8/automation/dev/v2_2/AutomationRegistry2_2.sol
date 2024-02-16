@@ -167,6 +167,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
             report.fastGasWei,
             report.linkNative,
             gasOverhead,
+            // TODO: Divide gas overhead in proportion to performData
             l1Fee / transmitVars.numUpkeepsPassedChecks
           );
           transmitVars.totalPremium += premium;
