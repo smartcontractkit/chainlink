@@ -119,7 +119,8 @@ type Delegate struct {
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon           *mailbox.Monitor
 
-	legacyChains legacyevm.LegacyChainContainer // legacy: use relayers instead
+	legacyChains         legacyevm.LegacyChainContainer // legacy: use relayers instead
+	capabilitiesRegistry types.CapabilitiesRegistry
 }
 
 type DelegateConfig interface {
@@ -229,6 +230,7 @@ func NewDelegate(
 	ethKs keystore.Eth,
 	relayers RelayGetter,
 	mailMon *mailbox.Monitor,
+	capabilitiesRegistry types.CapabilitiesRegistry,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
@@ -248,6 +250,7 @@ func NewDelegate(
 		RelayGetter:           relayers,
 		isNewlyCreatedJob:     false,
 		mailMon:               mailMon,
+		capabilitiesRegistry:  capabilitiesRegistry,
 	}
 }
 
@@ -455,7 +458,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return d.newServicesOCR2Functions(lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
 	case types.GenericPlugin:
-		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, d.capabilitiesRegistry)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -514,6 +517,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
+	capabilitiesRegistry types.CapabilitiesRegistry,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
@@ -598,7 +602,7 @@ func (d *Delegate) newServicesGenericPlugin(
 
 		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(pCfg.ProviderType), d.lggr)
 		if err2 != nil {
-			return nil, fmt.Errorf("cannot start EVM provider server: %s", err)
+			return nil, fmt.Errorf("cannot start EVM provider server: %s", err2)
 		}
 		providerClientConn, err2 = ps.GetConn()
 		if err2 != nil {
@@ -656,9 +660,9 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	case 3:
 		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
-		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog)
+		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog, capabilitiesRegistry)
 		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
-		oracleArgs := libocr2.OCR3OracleArgs[any]{
+		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractConfigTracker:        provider.ContractConfigTracker(),

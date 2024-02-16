@@ -62,10 +62,9 @@ chainlink-local-start:
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 
-.PHONY: install-mercury-loop
-install-mercury-loop: ## Build & install the chainlink-medianpoc binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-mercury
-
+.PHONY: install-ocr3-capability
+install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 
 .PHONY: docker ## Build the chainlink docker image
 docker:

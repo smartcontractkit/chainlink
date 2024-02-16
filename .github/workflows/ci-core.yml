@@ -76,13 +76,15 @@ jobs:
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
           go install ./cmd/chainlink-feeds
           popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams)
+          go install ./mercury/cmd/chainlink-mercury
+          popd
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
           go install ./pkg/solana/cmd/chainlink-solana
           popd
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
           go install ./pkg/chainlink/cmd/chainlink-starknet
           popd
-          make install-mercury-loop
       - name: Increase Race Timeout
         if: github.event.schedule != ''
         run: |
