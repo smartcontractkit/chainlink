@@ -1,6 +1,8 @@
 package values
 
 import (
+	"github.com/mitchellh/mapstructure"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 )
 
@@ -50,4 +52,17 @@ func (m *Map) Unwrap() (any, error) {
 	}
 
 	return nm, nil
+}
+
+func (m *Map) UnwrapTo(toStruct any) error {
+	c := &mapstructure.DecoderConfig{
+		Result: toStruct,
+	}
+
+	d, err := mapstructure.NewDecoder(c)
+	if err != nil {
+		return err
+	}
+
+	return d.Decode(m.Underlying)
 }

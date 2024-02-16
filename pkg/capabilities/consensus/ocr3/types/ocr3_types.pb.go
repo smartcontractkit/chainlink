@@ -7,11 +7,13 @@
 package types
 
 import (
-	pb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+
+	pb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 )
 
 const (
@@ -91,7 +93,7 @@ type Query struct {
 	unknownFields protoimpl.UnknownFields
 
 	// the requests to get consensus on.
-	RequestIds []string `protobuf:"bytes,1,rep,name=requestIds,proto3" json:"requestIds,omitempty"`
+	Ids []*Id `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 }
 
 func (x *Query) Reset() {
@@ -126,9 +128,276 @@ func (*Query) Descriptor() ([]byte, []int) {
 	return file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Query) GetRequestIds() []string {
+func (x *Query) GetIds() []*Id {
 	if x != nil {
-		return x.RequestIds
+		return x.Ids
+	}
+	return nil
+}
+
+type Id struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	WorkflowExecutionId string `protobuf:"bytes,1,opt,name=workflowExecutionId,proto3" json:"workflowExecutionId,omitempty"`
+	WorkflowId          string `protobuf:"bytes,2,opt,name=workflowId,proto3" json:"workflowId,omitempty"`
+}
+
+func (x *Id) Reset() {
+	*x = Id{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Id) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Id) ProtoMessage() {}
+
+func (x *Id) ProtoReflect() protoreflect.Message {
+	mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Id.ProtoReflect.Descriptor instead.
+func (*Id) Descriptor() ([]byte, []int) {
+	return file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Id) GetWorkflowExecutionId() string {
+	if x != nil {
+		return x.WorkflowExecutionId
+	}
+	return ""
+}
+
+func (x *Id) GetWorkflowId() string {
+	if x != nil {
+		return x.WorkflowId
+	}
+	return ""
+}
+
+type Observation struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id          *Id       `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Observation *pb.Value `protobuf:"bytes,3,opt,name=observation,proto3" json:"observation,omitempty"`
+}
+
+func (x *Observation) Reset() {
+	*x = Observation{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Observation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Observation) ProtoMessage() {}
+
+func (x *Observation) ProtoReflect() protoreflect.Message {
+	mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Observation.ProtoReflect.Descriptor instead.
+func (*Observation) Descriptor() ([]byte, []int) {
+	return file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Observation) GetId() *Id {
+	if x != nil {
+		return x.Id
+	}
+	return nil
+}
+
+func (x *Observation) GetObservation() *pb.Value {
+	if x != nil {
+		return x.Observation
+	}
+	return nil
+}
+
+type Observations struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Observations []*Observation `protobuf:"bytes,1,rep,name=observations,proto3" json:"observations,omitempty"`
+}
+
+func (x *Observations) Reset() {
+	*x = Observations{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Observations) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Observations) ProtoMessage() {}
+
+func (x *Observations) ProtoReflect() protoreflect.Message {
+	mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Observations.ProtoReflect.Descriptor instead.
+func (*Observations) Descriptor() ([]byte, []int) {
+	return file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Observations) GetObservations() []*Observation {
+	if x != nil {
+		return x.Observations
+	}
+	return nil
+}
+
+type Report struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id      *Id                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Outcome *AggregationOutcome `protobuf:"bytes,2,opt,name=outcome,proto3" json:"outcome,omitempty"`
+}
+
+func (x *Report) Reset() {
+	*x = Report{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Report) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Report) ProtoMessage() {}
+
+func (x *Report) ProtoReflect() protoreflect.Message {
+	mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Report.ProtoReflect.Descriptor instead.
+func (*Report) Descriptor() ([]byte, []int) {
+	return file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Report) GetId() *Id {
+	if x != nil {
+		return x.Id
+	}
+	return nil
+}
+
+func (x *Report) GetOutcome() *AggregationOutcome {
+	if x != nil {
+		return x.Outcome
+	}
+	return nil
+}
+
+type Outcome struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Outcomes          map[string]*AggregationOutcome `protobuf:"bytes,1,rep,name=outcomes,proto3" json:"outcomes,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	ReportsToGenerate []*Report                      `protobuf:"bytes,2,rep,name=reports_to_generate,json=reportsToGenerate,proto3" json:"reports_to_generate,omitempty"`
+}
+
+func (x *Outcome) Reset() {
+	*x = Outcome{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Outcome) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Outcome) ProtoMessage() {}
+
+func (x *Outcome) ProtoReflect() protoreflect.Message {
+	mi := &file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Outcome.ProtoReflect.Descriptor instead.
+func (*Outcome) Descriptor() ([]byte, []int) {
+	return file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Outcome) GetOutcomes() map[string]*AggregationOutcome {
+	if x != nil {
+		return x.Outcomes
+	}
+	return nil
+}
+
+func (x *Outcome) GetReportsToGenerate() []*Report {
+	if x != nil {
+		return x.ReportsToGenerate
 	}
 	return nil
 }
@@ -150,12 +419,50 @@ var file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDesc = []byte{
 	0x64, 0x61, 0x74, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x08, 0x6d, 0x65, 0x74, 0x61,
 	0x64, 0x61, 0x74, 0x61, 0x12, 0x22, 0x0a, 0x0c, 0x73, 0x68, 0x6f, 0x75, 0x6c, 0x64, 0x52, 0x65,
 	0x70, 0x6f, 0x72, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0c, 0x73, 0x68, 0x6f, 0x75,
-	0x6c, 0x64, 0x52, 0x65, 0x70, 0x6f, 0x72, 0x74, 0x22, 0x27, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72,
-	0x79, 0x12, 0x1e, 0x0a, 0x0a, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x49, 0x64, 0x73, 0x18,
-	0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x0a, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x49, 0x64,
-	0x73, 0x42, 0x23, 0x5a, 0x21, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x69, 0x65,
-	0x73, 0x2f, 0x63, 0x6f, 0x6e, 0x73, 0x65, 0x6e, 0x73, 0x75, 0x73, 0x2f, 0x6f, 0x63, 0x72, 0x33,
-	0x2f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6c, 0x64, 0x52, 0x65, 0x70, 0x6f, 0x72, 0x74, 0x22, 0x29, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x12, 0x20, 0x0a, 0x03, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0e,
+	0x2e, 0x6f, 0x63, 0x72, 0x33, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x49, 0x64, 0x52, 0x03,
+	0x69, 0x64, 0x73, 0x22, 0x56, 0x0a, 0x02, 0x49, 0x64, 0x12, 0x30, 0x0a, 0x13, 0x77, 0x6f, 0x72,
+	0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x13, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77,
+	0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x12, 0x1e, 0x0a, 0x0a, 0x77,
+	0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x49, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x0a, 0x77, 0x6f, 0x72, 0x6b, 0x66, 0x6c, 0x6f, 0x77, 0x49, 0x64, 0x22, 0x5e, 0x0a, 0x0b, 0x4f,
+	0x62, 0x73, 0x65, 0x72, 0x76, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x1e, 0x0a, 0x02, 0x69, 0x64,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x6f, 0x63, 0x72, 0x33, 0x5f, 0x74, 0x79,
+	0x70, 0x65, 0x73, 0x2e, 0x49, 0x64, 0x52, 0x02, 0x69, 0x64, 0x12, 0x2f, 0x0a, 0x0b, 0x6f, 0x62,
+	0x73, 0x65, 0x72, 0x76, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x0d, 0x2e, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x2e, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x0b,
+	0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x4b, 0x0a, 0x0c, 0x4f,
+	0x62, 0x73, 0x65, 0x72, 0x76, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x3b, 0x0a, 0x0c, 0x6f,
+	0x62, 0x73, 0x65, 0x72, 0x76, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x17, 0x2e, 0x6f, 0x63, 0x72, 0x33, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x4f,
+	0x62, 0x73, 0x65, 0x72, 0x76, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x0c, 0x6f, 0x62, 0x73, 0x65,
+	0x72, 0x76, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x62, 0x0a, 0x06, 0x52, 0x65, 0x70, 0x6f,
+	0x72, 0x74, 0x12, 0x1e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e,
+	0x2e, 0x6f, 0x63, 0x72, 0x33, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x49, 0x64, 0x52, 0x02,
+	0x69, 0x64, 0x12, 0x38, 0x0a, 0x07, 0x6f, 0x75, 0x74, 0x63, 0x6f, 0x6d, 0x65, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x6f, 0x63, 0x72, 0x33, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73,
+	0x2e, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4f, 0x75, 0x74, 0x63,
+	0x6f, 0x6d, 0x65, 0x52, 0x07, 0x6f, 0x75, 0x74, 0x63, 0x6f, 0x6d, 0x65, 0x22, 0xe9, 0x01, 0x0a,
+	0x07, 0x4f, 0x75, 0x74, 0x63, 0x6f, 0x6d, 0x65, 0x12, 0x3d, 0x0a, 0x08, 0x6f, 0x75, 0x74, 0x63,
+	0x6f, 0x6d, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x6f, 0x63, 0x72,
+	0x33, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x4f, 0x75, 0x74, 0x63, 0x6f, 0x6d, 0x65, 0x2e,
+	0x4f, 0x75, 0x74, 0x63, 0x6f, 0x6d, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x08, 0x6f,
+	0x75, 0x74, 0x63, 0x6f, 0x6d, 0x65, 0x73, 0x12, 0x42, 0x0a, 0x13, 0x72, 0x65, 0x70, 0x6f, 0x72,
+	0x74, 0x73, 0x5f, 0x74, 0x6f, 0x5f, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x18, 0x02,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x6f, 0x63, 0x72, 0x33, 0x5f, 0x74, 0x79, 0x70, 0x65,
+	0x73, 0x2e, 0x52, 0x65, 0x70, 0x6f, 0x72, 0x74, 0x52, 0x11, 0x72, 0x65, 0x70, 0x6f, 0x72, 0x74,
+	0x73, 0x54, 0x6f, 0x47, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x1a, 0x5b, 0x0a, 0x0d, 0x4f,
+	0x75, 0x74, 0x63, 0x6f, 0x6d, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03,
+	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x34,
+	0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e,
+	0x6f, 0x63, 0x72, 0x33, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x41, 0x67, 0x67, 0x72, 0x65,
+	0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x4f, 0x75, 0x74, 0x63, 0x6f, 0x6d, 0x65, 0x52, 0x05, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x23, 0x5a, 0x21, 0x63, 0x61, 0x70, 0x61,
+	0x62, 0x69, 0x6c, 0x69, 0x74, 0x69, 0x65, 0x73, 0x2f, 0x63, 0x6f, 0x6e, 0x73, 0x65, 0x6e, 0x73,
+	0x75, 0x73, 0x2f, 0x6f, 0x63, 0x72, 0x33, 0x2f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -170,19 +477,35 @@ func file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDescGZIP() []byt
 	return file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDescData
 }
 
-var file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_capabilities_consensus_ocr3_types_ocr3_types_proto_goTypes = []interface{}{
 	(*AggregationOutcome)(nil), // 0: ocr3_types.AggregationOutcome
 	(*Query)(nil),              // 1: ocr3_types.Query
-	(*pb.Map)(nil),             // 2: values.Map
+	(*Id)(nil),                 // 2: ocr3_types.Id
+	(*Observation)(nil),        // 3: ocr3_types.Observation
+	(*Observations)(nil),       // 4: ocr3_types.Observations
+	(*Report)(nil),             // 5: ocr3_types.Report
+	(*Outcome)(nil),            // 6: ocr3_types.Outcome
+	nil,                        // 7: ocr3_types.Outcome.OutcomesEntry
+	(*pb.Map)(nil),             // 8: values.Map
+	(*pb.Value)(nil),           // 9: values.Value
 }
 var file_capabilities_consensus_ocr3_types_ocr3_types_proto_depIdxs = []int32{
-	2, // 0: ocr3_types.AggregationOutcome.encodableOutcome:type_name -> values.Map
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	8,  // 0: ocr3_types.AggregationOutcome.encodableOutcome:type_name -> values.Map
+	2,  // 1: ocr3_types.Query.ids:type_name -> ocr3_types.Id
+	2,  // 2: ocr3_types.Observation.id:type_name -> ocr3_types.Id
+	9,  // 3: ocr3_types.Observation.observation:type_name -> values.Value
+	3,  // 4: ocr3_types.Observations.observations:type_name -> ocr3_types.Observation
+	2,  // 5: ocr3_types.Report.id:type_name -> ocr3_types.Id
+	0,  // 6: ocr3_types.Report.outcome:type_name -> ocr3_types.AggregationOutcome
+	7,  // 7: ocr3_types.Outcome.outcomes:type_name -> ocr3_types.Outcome.OutcomesEntry
+	5,  // 8: ocr3_types.Outcome.reports_to_generate:type_name -> ocr3_types.Report
+	0,  // 9: ocr3_types.Outcome.OutcomesEntry.value:type_name -> ocr3_types.AggregationOutcome
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_capabilities_consensus_ocr3_types_ocr3_types_proto_init() }
@@ -215,6 +538,66 @@ func file_capabilities_consensus_ocr3_types_ocr3_types_proto_init() {
 				return nil
 			}
 		}
+		file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Id); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Observation); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Observations); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Report); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_capabilities_consensus_ocr3_types_ocr3_types_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Outcome); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -222,7 +605,7 @@ func file_capabilities_consensus_ocr3_types_ocr3_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_capabilities_consensus_ocr3_types_ocr3_types_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

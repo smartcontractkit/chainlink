@@ -1,4 +1,4 @@
-package consensus
+package ocr3
 
 import (
 	"testing"
@@ -21,8 +21,8 @@ func TestOCR3Store(t *testing.T) {
 	s := newStore(rea, fc)
 	rid := uuid.New().String()
 	req := &request{
-		RequestID: rid,
-		ExpiresAt: n.Add(10 * time.Second),
+		WorkflowExecutionID: rid,
+		ExpiresAt:           n.Add(10 * time.Second),
 	}
 
 	t.Run("add", func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestOCR3Store(t *testing.T) {
 
 	t.Run("firstN, batchSize larger than queue", func(t *testing.T) {
 		for i := 0; i < 10; i++ {
-			err := s.add(ctx, &request{RequestID: uuid.New().String(), ExpiresAt: n.Add(1 * time.Hour)})
+			err := s.add(ctx, &request{WorkflowExecutionID: uuid.New().String(), ExpiresAt: n.Add(1 * time.Hour)})
 			require.NoError(t, err)
 		}
 		items, err := s.firstN(ctx, 100)

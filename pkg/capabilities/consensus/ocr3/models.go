@@ -1,4 +1,4 @@
-package consensus
+package ocr3
 
 import (
 	"context"
@@ -14,12 +14,13 @@ type request struct {
 
 	CallbackCh chan<- capabilities.CapabilityResponse
 	RequestCtx context.Context
-	RequestID  string
+
+	WorkflowExecutionID string
+	WorkflowID          string
 }
 
-//nolint:unused
 type response struct {
-	Value     values.Value
-	Err       error
-	RequestID string
+	Value               values.Value
+	Err                 error
+	WorkflowExecutionID string
 }

@@ -4,6 +4,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+
+	"github.com/shopspring/decimal"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 // hex-encoded 32-byte value, prefixed with "0x", all lowercase
@@ -46,4 +50,34 @@ type ReportInfo struct {
 	Price     float64
 }
 
-// TODO implement a codec that satisfies datafeeds.MercuryCodec interface
+// TODO implement an actual codec
+type Codec struct {
+}
+
+func (m Codec) Unwrap(raw values.Value) (ReportSet, error) {
+	return ReportSet{
+		Reports: map[FeedID]Report{
+			FeedID("012345678901234567890123456789012345678901234567890123456789000000"): {
+				Info: ReportInfo{
+					Timestamp: 42,
+					Price:     100.00,
+				},
+			},
+		},
+	}, nil
+}
+
+func (m Codec) Wrap(reportSet ReportSet) (values.Value, error) {
+	return values.NewMap(
+		map[string]any{
+			"0123456789": map[string]any{
+				"timestamp": 42,
+				"price":     decimal.NewFromFloat(100.00),
+			},
+		},
+	)
+}
+
+func NewCodec() Codec {
+	return Codec{}
+}

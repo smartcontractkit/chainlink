@@ -1,4 +1,4 @@
-package consensus
+package ocr3
 
 import (
 	"context"
@@ -8,6 +8,10 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+)
+
+var (
+	errQueueEmpty = errors.New("queue is empty")
 )
 
 type store struct {
@@ -35,12 +39,11 @@ func (s *store) add(ctx context.Context, req *request) error {
 
 	now := s.clock.Now()
 	req.ExpiresAt = now.Add(s.requestTimeout)
-	s.requestIDs = append(s.requestIDs, req.RequestID)
-	s.requests[req.RequestID] = req
+	s.requestIDs = append(s.requestIDs, req.WorkflowExecutionID)
+	s.requests[req.WorkflowExecutionID] = req
 	return nil
 }
 
-//nolint:unused
 func (s *store) get(ctx context.Context, requestID string) (*request, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -53,7 +56,6 @@ func (s *store) get(ctx context.Context, requestID string) (*request, error) {
 	return r, nil
 }
 
-//nolint:unused
 func (s *store) getN(ctx context.Context, requestIDs []string) ([]*request, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -71,13 +73,12 @@ func (s *store) getN(ctx context.Context, requestIDs []string) ([]*request, erro
 	return o, nil
 }
 
-//nolint:unused
 func (s *store) firstN(ctx context.Context, batchSize int) ([]*request, error) {
 	if batchSize == 0 {
 		return nil, errors.New("batchsize cannot be 0")
 	}
 	if len(s.requestIDs) < 1 {
-		return nil, errors.New("queue is empty")
+		return nil, errQueueEmpty
 	}
 
 	got := []*request{}
@@ -99,7 +100,7 @@ func (s *store) firstN(ctx context.Context, batchSize int) ([]*request, error) {
 
 	s.requestIDs = append(newRequestIDs, s.requestIDs[lastIdx+1:]...)
 	if len(got) == 0 {
-		return nil, errors.New("queue is empty")
+		return nil, errQueueEmpty
 	}
 	return got, nil
 }

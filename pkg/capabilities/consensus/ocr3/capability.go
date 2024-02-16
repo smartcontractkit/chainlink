@@ -1,4 +1,4 @@
-package consensus
+package ocr3
 
 import (
 	"context"
@@ -9,7 +9,12 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 var info = capabilities.MustNewCapabilityInfo(
@@ -25,19 +30,31 @@ type capability struct {
 	store  *store
 	stopCh services.StopChan
 	wg     sync.WaitGroup
+	lggr   logger.Logger
 
 	clock clockwork.Clock
 
 	newExpiryWorkerCh chan *request
+
+	aggregators map[string]types.Aggregator
+
+	encoderFactory EncoderFactory
+	encoders       map[string]types.Encoder
 }
 
-func newCapability(s *store, clock clockwork.Clock) *capability {
+var _ capabilityIface = (*capability)(nil)
+
+func newCapability(s *store, clock clockwork.Clock, encoderFactory EncoderFactory, lggr logger.Logger) *capability {
 	o := &capability{
 		CapabilityInfo:    info,
 		store:             s,
 		newExpiryWorkerCh: make(chan *request),
 		clock:             clock,
 		stopCh:            make(chan struct{}),
+		lggr:              lggr,
+		encoderFactory:    encoderFactory,
+		aggregators:       map[string]types.Aggregator{},
+		encoders:          map[string]types.Encoder{},
 	}
 	return o
 }
@@ -58,11 +75,81 @@ func (o *capability) Close() error {
 	})
 }
 
+type workflowConfig struct {
+	AggregationMethod       string `mapstructure:"aggregation_method"`
+	AggregationMethodConfig map[string]any
+	Encoder                 string
+	EncoderConfig           map[string]any
+}
+
 func (o *capability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+	confMap, err := request.Config.Unwrap()
+	if err != nil {
+		return err
+	}
+
+	// TODO: values lib should a wrapped version of decode
+	// which can handle passthrough translations of maps to values.Map.
+	// This will avoid the need to translate/untranslate
+	c := &workflowConfig{}
+	err = mapstructure.Decode(confMap, c)
+	if err != nil {
+		return err
+	}
+
+	switch c.AggregationMethod {
+	case "data_feeds_2_0":
+		cm, err := values.NewMap(c.AggregationMethodConfig)
+		if err != nil {
+			return err
+		}
+
+		mc := mercury.NewCodec()
+		agg, err := datafeeds.NewDataFeedsAggregator(*cm, mc, o.lggr)
+		if err != nil {
+			return err
+		}
+
+		o.aggregators[request.Metadata.WorkflowID] = agg
+
+		em, err := values.NewMap(c.EncoderConfig)
+		if err != nil {
+			return err
+		}
+
+		encoder, err := o.encoderFactory(em)
+		if err != nil {
+			return err
+		}
+		o.encoders[request.Metadata.WorkflowID] = encoder
+	default:
+		return fmt.Errorf("aggregator %s not supported", c.AggregationMethod)
+	}
+
 	return nil
 }
 
+func (o *capability) getAggregator(workflowID string) (types.Aggregator, error) {
+	agg, ok := o.aggregators[workflowID]
+	if !ok {
+		return nil, fmt.Errorf("no aggregator found for workflowID %s", workflowID)
+	}
+
+	return agg, nil
+}
+
+func (o *capability) getEncoder(workflowID string) (types.Encoder, error) {
+	enc, ok := o.encoders[workflowID]
+	if !ok {
+		return nil, fmt.Errorf("no aggregator found for workflowID %s", workflowID)
+	}
+
+	return enc, nil
+}
+
 func (o *capability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+	delete(o.aggregators, request.Metadata.WorkflowID)
+	delete(o.encoders, request.Metadata.WorkflowID)
 	return nil
 }
 
@@ -111,7 +198,7 @@ func (o *capability) expiryWorker(ctx context.Context, r *request) {
 	case <-ctx.Done():
 		return
 	case <-tr.Chan():
-		wasPresent := o.store.evict(ctx, r.RequestID)
+		wasPresent := o.store.evict(ctx, r.WorkflowExecutionID)
 		if !wasPresent {
 			// the item was already evicted,
 			// we'll assume it was processed successfully
@@ -120,7 +207,7 @@ func (o *capability) expiryWorker(ctx context.Context, r *request) {
 		}
 
 		timeoutResp := capabilities.CapabilityResponse{
-			Err: fmt.Errorf("timeout exceeded: could not process request before expiry %+v", r.RequestID),
+			Err: fmt.Errorf("timeout exceeded: could not process request before expiry %+v", r.WorkflowExecutionID),
 		}
 
 		select {
@@ -131,9 +218,8 @@ func (o *capability) expiryWorker(ctx context.Context, r *request) {
 	}
 }
 
-//nolint:unused
-func (o *capability) response(ctx context.Context, resp response) error {
-	req, err := o.store.get(ctx, resp.RequestID)
+func (o *capability) transmitResponse(ctx context.Context, resp response) error {
+	req, err := o.store.get(ctx, resp.WorkflowExecutionID)
 	if err != nil {
 		return err
 	}
@@ -148,7 +234,7 @@ func (o *capability) response(ctx context.Context, resp response) error {
 		return fmt.Errorf("request canceled: not propagating response %+v to caller", resp)
 	case req.CallbackCh <- r:
 		close(req.CallbackCh)
-		o.store.evict(ctx, resp.RequestID)
+		o.store.evict(ctx, resp.WorkflowExecutionID)
 		return nil
 	}
 }
@@ -160,10 +246,11 @@ func (o *capability) unmarshalRequest(ctx context.Context, r capabilities.Capabi
 	}
 
 	req := &request{
-		RequestCtx:   ctx,
-		CallbackCh:   callback,
-		RequestID:    r.Metadata.WorkflowExecutionID,
-		Observations: r.Inputs.Underlying["observations"],
+		RequestCtx:          ctx,
+		CallbackCh:          callback,
+		WorkflowExecutionID: r.Metadata.WorkflowExecutionID,
+		WorkflowID:          r.Metadata.WorkflowID,
+		Observations:        r.Inputs.Underlying["observations"],
 	}
 	err = mapstructure.Decode(valuesMap, req)
 	if err != nil {
