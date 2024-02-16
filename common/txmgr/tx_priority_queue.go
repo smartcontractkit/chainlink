@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
+// TODO: HIDE THE HEAP INTERFACE FROM THE USER
+
 // TxPriorityQueue is a priority queue of transactions prioritized by creation time. The oldest transaction is at the front of the queue.
 type TxPriorityQueue[
 	CHAIN_ID types.ID,

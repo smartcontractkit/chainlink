@@ -34,6 +34,8 @@ type AddressState[
 	confirmed               map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	allTransactions         map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	fatalErrored            map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	// TODO: FINISH populate attemptHashToTxAttempt
+	attemptHashToTxAttempt map[TX_HASH]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 }
 
 // NewAddressState returns a new AddressState instance
@@ -59,8 +61,12 @@ func NewAddressState[
 		TxConfirmed:               0,
 		TxFatalError:              0,
 	}
+	idempotencyKeysCount := 0
 	for _, tx := range txs {
 		counts[tx.State]++
+		if tx.IdempotencyKey != nil {
+			idempotencyKeysCount++
+		}
 	}
 
 	// TODO: MAKE BETTER
@@ -70,7 +76,7 @@ func NewAddressState[
 		chainID:     chainID,
 		fromAddress: fromAddress,
 
-		idempotencyKeyToTx:      make(map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs)),
+		idempotencyKeyToTx:      make(map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], idempotencyKeysCount),
 		unstarted:               NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
 		inprogress:              nil,
 		unconfirmed:             make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxUnconfirmed]),
@@ -223,7 +229,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		return as.fetchTxAttemptsFromStorage(as.allTransactions, txFilter, txAttemptFilter, txIDs...)
+		return as.fetchTxAttempts(as.allTransactions, txFilter, txAttemptFilter, txIDs...)
 	}
 
 	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -238,20 +244,20 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 				}
 			}
 		case TxUnconfirmed:
-			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.unconfirmed, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.fetchTxAttempts(as.unconfirmed, txFilter, txAttemptFilter, txIDs...)...)
 		case TxConfirmedMissingReceipt:
-			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.confirmedMissingReceipt, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.fetchTxAttempts(as.confirmedMissingReceipt, txFilter, txAttemptFilter, txIDs...)...)
 		case TxConfirmed:
-			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.confirmed, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.fetchTxAttempts(as.confirmed, txFilter, txAttemptFilter, txIDs...)...)
 		case TxFatalError:
-			txAttempts = append(txAttempts, as.fetchTxAttemptsFromStorage(as.fatalErrored, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.fetchTxAttempts(as.fatalErrored, txFilter, txAttemptFilter, txIDs...)...)
 		}
 	}
 
 	return txAttempts
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxAttemptsFromStorage(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxAttempts(
 	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txFilter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txAttemptFilter func(*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
@@ -444,26 +450,12 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 		return fmt.Errorf("move_unstarted_to_in_progress: no unstarted transaction to move to in_progress")
 	}
 	tx.State = TxInProgress
-	as.inprogress = tx
-
-	newTxAttempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	affectedTxAttempts := 0
-	for i := 0; i < len(tx.TxAttempts); i++ {
-		// Remove any previous attempts that are in a fatal error state which share the same hash
-		if tx.TxAttempts[i].Hash == txAttempt.Hash &&
-			tx.State == TxFatalError && tx.Error == null.NewString("abandoned", true) {
-			affectedTxAttempts++
-			continue
-		}
-		newTxAttempts = append(newTxAttempts, tx.TxAttempts[i])
-	}
-	if affectedTxAttempts > 0 {
-		as.lggr.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", txAttempt.Hash, txAttempt.TxID)
-	}
-	tx.TxAttempts = append(newTxAttempts, *txAttempt)
+	tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{*txAttempt}
 	tx.Sequence = etx.Sequence
 	tx.BroadcastAt = etx.BroadcastAt
 	tx.InitialBroadcastAt = etx.InitialBroadcastAt
+
+	as.inprogress = tx
 
 	return nil
 }
@@ -524,28 +516,48 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 	as.Lock()
 	defer as.Unlock()
 
-	for _, tx := range as.unconfirmed {
-		if tx.TxAttempts == nil {
-			continue
-		}
-		for i := 0; i < len(tx.TxAttempts); i++ {
-			txAttempt := tx.TxAttempts[i]
-			if receipt.GetTxHash() == txAttempt.Hash {
-				// TODO(jtw): not sure how to set blocknumber, transactionindex, and receipt on conflict
-				txAttempt.Receipts = []txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]{receipt}
-				txAttempt.State = txmgrtypes.TxAttemptBroadcast
-				if txAttempt.BroadcastBeforeBlockNum == nil {
-					blockNum := receipt.GetBlockNumber().Int64()
-					txAttempt.BroadcastBeforeBlockNum = &blockNum
-				}
+	/*
+		for _, tx := range as.unconfirmed {
+			if tx.TxAttempts == nil {
+				continue
+			}
+			for i := 0; i < len(tx.TxAttempts); i++ {
+				txAttempt := tx.TxAttempts[i]
+				if receipt.GetTxHash() == txAttempt.Hash {
+					// TODO(jtw): not sure how to set blocknumber, transactionindex, and receipt on conflict
+					txAttempt.Receipts = []txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]{receipt}
+					txAttempt.State = txmgrtypes.TxAttemptBroadcast
+					if txAttempt.BroadcastBeforeBlockNum == nil {
+						blockNum := receipt.GetBlockNumber().Int64()
+						txAttempt.BroadcastBeforeBlockNum = &blockNum
+					}
 
-				tx.State = TxConfirmed
-				return nil
+					tx.State = TxConfirmed
+					return nil
+				}
 			}
 		}
+	*/
+	txAttempt, ok := as.attemptHashToTxAttempt[receipt.GetTxHash()]
+	if !ok {
+		return fmt.Errorf("move_unconfirmed_to_confirmed: no unconfirmed transaction with receipt %v: %w", receipt, ErrTxnNotFound)
 	}
+	// TODO(jtw): not sure how to set blocknumber, transactionindex, and receipt on conflict
+	txAttempt.Receipts = []txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]{receipt}
+	txAttempt.State = txmgrtypes.TxAttemptBroadcast
+	if txAttempt.BroadcastBeforeBlockNum == nil {
+		blockNum := receipt.GetBlockNumber().Int64()
+		txAttempt.BroadcastBeforeBlockNum = &blockNum
+	}
+	tx, ok := as.unconfirmed[txAttempt.TxID]
+	if !ok {
+		// TODO: WHAT SHOULD WE DO HERE?
+		// THIS WOULD BE A BIG BUG
+		return fmt.Errorf("move_unconfirmed_to_confirmed: no unconfirmed transaction with ID %d: %w", txAttempt.TxID, ErrTxnNotFound)
+	}
+	tx.State = TxConfirmed
 
-	return fmt.Errorf("move_unconfirmed_to_confirmed: no unconfirmed transaction with receipt %v: %w", receipt, ErrTxnNotFound)
+	return nil
 }
 
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnstartedToFatalError(

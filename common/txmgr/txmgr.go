@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"math/big"
@@ -486,7 +487,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 	if txRequest.IdempotencyKey != nil {
 		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		existingTx, err = b.txStore.FindTxWithIdempotencyKey(ctx, *txRequest.IdempotencyKey, b.chainID)
-		if err != nil && !errors.Is(err, ErrTxnNotFound) {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return tx, fmt.Errorf("Failed to search for transaction with IdempotencyKey: %w", err)
 		}
 		if existingTx != nil {
