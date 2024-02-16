@@ -28,9 +28,9 @@ type ORM interface {
 	LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error)
 	DeleteFilter(name string, qopts ...pg.QOpt) error
 
-	DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error
+	DeleteBlocksBefore(end int64, limit int64, qopts ...pg.QOpt) (int64, error)
 	DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error
-	DeleteExpiredLogs(qopts ...pg.QOpt) error
+	DeleteExpiredLogs(limit int64, qopts ...pg.QOpt) (int64, error)
 
 	GetBlocksRange(start int64, end int64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 	SelectBlockByNumber(blockNumber int64, qopts ...pg.QOpt) (*LogPollerBlock, error)
@@ -189,11 +189,26 @@ func (o *DbORM) SelectLatestLogByEventSigWithConfs(eventSig common.Hash, address
 	return &l, nil
 }
 
-// DeleteBlocksBefore delete all blocks before and including end.
-func (o *DbORM) DeleteBlocksBefore(end int64, qopts ...pg.QOpt) error {
+// DeleteBlocksBefore delete blocks before and including end. When limit is set, it will delete at most limit blocks.
+// Otherwise, it will delete all blocks at once.
+func (o *DbORM) DeleteBlocksBefore(end int64, limit int64, qopts ...pg.QOpt) (int64, error) {
 	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM evm.log_poller_blocks WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
-	return err
+	if limit > 0 {
+		return q.ExecQWithRowsAffected(
+			`DELETE FROM evm.log_poller_blocks
+        				WHERE (block_number, evm_chain_id) IN (
+            				SELECT block_number, evm_chain_id FROM evm.log_poller_blocks
+            				WHERE block_number <= $1 AND evm_chain_id = $2
+							LIMIT $3
+						)`,
+			end, ubig.New(o.chainID), limit,
+		)
+	}
+	return q.ExecQWithRowsAffected(
+		`DELETE FROM evm.log_poller_blocks 
+       				WHERE block_number <= $1 AND evm_chain_id = $2`,
+		end, ubig.New(o.chainID),
+	)
 }
 
 func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
@@ -240,11 +255,30 @@ type Exp struct {
 	ShouldDelete bool
 }
 
-func (o *DbORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
+func (o *DbORM) DeleteExpiredLogs(limit int64, qopts ...pg.QOpt) (int64, error) {
 	qopts = append(qopts, pg.WithLongQueryTimeout())
 	q := o.q.WithOpts(qopts...)
 
-	return q.ExecQ(`WITH r AS
+	if limit > 0 {
+		return q.ExecQWithRowsAffected(`
+		DELETE FROM evm.logs
+		WHERE (block_hash, log_index, evm_chain_id) IN (
+			SELECT l.block_hash, l.log_index, l.evm_chain_id
+			FROM evm.logs l
+			INNER JOIN (
+				SELECT address, event, MAX(retention) AS retention
+				FROM evm.log_poller_filters
+				WHERE evm_chain_id = $1
+				GROUP BY evm_chain_id, address, event
+				HAVING NOT 0 = ANY(ARRAY_AGG(retention))
+			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
+			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
+			LIMIT $2
+		)`,
+			ubig.New(o.chainID), limit)
+	}
+
+	return q.ExecQWithRowsAffected(`WITH r AS
 		( SELECT address, event, MAX(retention) AS retention
 			FROM evm.log_poller_filters WHERE evm_chain_id=$1 
 			GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))

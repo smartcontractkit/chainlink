@@ -76,7 +76,7 @@ type LogPollerTest interface {
 	BackupPollAndSaveLogs(ctx context.Context, backupPollerBlockDelay int64)
 	Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery
 	GetReplayFromBlock(ctx context.Context, requested int64) (int64, error)
-	PruneOldBlocks(ctx context.Context) error
+	PruneOldBlocks(ctx context.Context) (bool, error)
 }
 
 type Client interface {
@@ -387,8 +387,9 @@ func (lp *logPoller) ReplayAsync(fromBlock int64) {
 
 func (lp *logPoller) Start(context.Context) error {
 	return lp.StartOnce("LogPoller", func() error {
-		lp.wg.Add(1)
+		lp.wg.Add(2)
 		go lp.run()
+		go lp.backgroundWorkerRun()
 		return nil
 	})
 }
@@ -434,8 +435,6 @@ func (lp *logPoller) run() {
 	logPollTick := time.After(0)
 	// stagger these somewhat, so they don't all run back-to-back
 	backupLogPollTick := time.After(100 * time.Millisecond)
-	blockPruneTick := time.After(3 * time.Second)
-	logPruneTick := time.After(5 * time.Second)
 	filtersLoaded := false
 
 	loadFilters := func() error {
@@ -540,15 +539,39 @@ func (lp *logPoller) run() {
 				continue
 			}
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
+		}
+	}
+}
+
+func (lp *logPoller) backgroundWorkerRun() {
+	defer lp.wg.Done()
+
+	// Avoid putting too much pressure on the database by staggering the pruning of old blocks and logs.
+	// Usually, node after restart will have some work to boot the plugins and other services.
+	// Deferring first prune by minutes reduces risk of putting too much pressure on the database.
+	blockPruneTick := time.After(5 * time.Minute)
+	logPruneTick := time.After(10 * time.Minute)
+
+	for {
+		select {
+		case <-lp.ctx.Done():
+			return
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
-			if err := lp.PruneOldBlocks(lp.ctx); err != nil {
+			if allRemoved, err := lp.PruneOldBlocks(lp.ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
+			} else if !allRemoved {
+				// Tick faster when cleanup can't keep up with the pace of new blocks
+				blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 100))
 			}
 		case <-logPruneTick:
 			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
-			if err := lp.orm.DeleteExpiredLogs(pg.WithParentCtx(lp.ctx)); err != nil {
-				lp.lggr.Error(err)
+
+			if allRemoved, err := lp.PruneExpiredLogs(lp.ctx); err != nil {
+				lp.lggr.Errorw("Unable to prune expired logs", "err", err)
+			} else if !allRemoved {
+				// Tick faster when cleanup can't keep up with the pace of new logs
+				logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 241))
 			}
 		}
 	}
@@ -928,22 +951,34 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 }
 
 // PruneOldBlocks removes blocks that are > lp.keepFinalizedBlocksDepth behind the latest finalized block.
-func (lp *logPoller) PruneOldBlocks(ctx context.Context) error {
+func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 	latestBlock, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
-		return err
+		return false, err
 	}
 	if latestBlock == nil {
 		// No blocks saved yet.
-		return nil
+		return true, nil
 	}
 	if latestBlock.FinalizedBlockNumber <= lp.keepFinalizedBlocksDepth {
 		// No-op, keep all blocks
-		return nil
+		return true, nil
 	}
+	pageSize := int64(10_000)
 	// 1-2-3-4-5(finalized)-6-7(latest), keepFinalizedBlocksDepth=3
 	// Remove <= 2
-	return lp.orm.DeleteBlocksBefore(latestBlock.FinalizedBlockNumber-lp.keepFinalizedBlocksDepth, pg.WithParentCtx(ctx))
+	rowsRemoved, err := lp.orm.DeleteBlocksBefore(
+		latestBlock.FinalizedBlockNumber-lp.keepFinalizedBlocksDepth,
+		pageSize,
+		pg.WithParentCtx(ctx),
+	)
+	return rowsRemoved < pageSize, err
+}
+
+func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
+	pageSize := int64(10_000)
+	rowsRemoved, err := lp.orm.DeleteExpiredLogs(pageSize, pg.WithParentCtx(ctx))
+	return rowsRemoved < pageSize, err
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,

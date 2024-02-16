@@ -431,8 +431,9 @@ func TestORM(t *testing.T) {
 
 	// Delete expired logs
 	time.Sleep(2 * time.Millisecond) // just in case we haven't reached the end of the 1ms retention period
-	err = o1.DeleteExpiredLogs(pg.WithParentCtx(testutils.Context(t)))
+	deleted, err := o1.DeleteExpiredLogs(0, pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
 	logs, err = o1.SelectLogsByBlockRange(1, latest.BlockNumber)
 	require.NoError(t, err)
 	// The only log which should be deleted is the one which matches filter1 (ret=1ms) but not filter12 (ret=1 hour)
@@ -755,9 +756,11 @@ func TestORM_DeleteBlocksBefore(t *testing.T) {
 	o1 := th.ORM
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 1, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 2, time.Now(), 0))
-	require.NoError(t, o1.DeleteBlocksBefore(1))
+	deleted, err := o1.DeleteBlocksBefore(1, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
 	// 1 should be gone.
-	_, err := o1.SelectBlockByNumber(1)
+	_, err = o1.SelectBlockByNumber(1)
 	require.Equal(t, err, sql.ErrNoRows)
 	b, err := o1.SelectBlockByNumber(2)
 	require.NoError(t, err)
@@ -765,7 +768,9 @@ func TestORM_DeleteBlocksBefore(t *testing.T) {
 	// Clear multiple
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1236"), 3, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1237"), 4, time.Now(), 0))
-	require.NoError(t, o1.DeleteBlocksBefore(3))
+	deleted, err = o1.DeleteBlocksBefore(3, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), deleted)
 	_, err = o1.SelectBlockByNumber(2)
 	require.Equal(t, err, sql.ErrNoRows)
 	_, err = o1.SelectBlockByNumber(3)
@@ -1564,4 +1569,77 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 		assert.NoError(b, err)
 		assert.Len(b, logs, 1)
 	}
+}
+
+func Benchmark_DeleteExpiredLogs(b *testing.B) {
+	chainId := big.NewInt(137)
+	_, db := heavyweight.FullTestDBV2(b, nil)
+	o := logpoller.NewORM(chainId, db, logger.Test(b), pgtest.NewQConfig(false))
+
+	numberOfReports := 200_000
+	commitStoreAddress := utils.RandomAddress()
+	commitReportAccepted := utils.RandomBytes32()
+
+	past := time.Now().Add(-1 * time.Hour)
+
+	err := o.InsertFilter(logpoller.Filter{
+		Name:      "test filter",
+		EventSigs: []common.Hash{commitReportAccepted},
+		Addresses: []common.Address{commitStoreAddress},
+		Retention: 1 * time.Millisecond,
+	})
+	require.NoError(b, err)
+
+	for j := 0; j < 5; j++ {
+		var dbLogs []logpoller.Log
+		for i := 0; i < numberOfReports; i++ {
+
+			dbLogs = append(dbLogs, logpoller.Log{
+				EvmChainId:     ubig.New(chainId),
+				LogIndex:       int64(i + 1),
+				BlockHash:      utils.RandomBytes32(),
+				BlockNumber:    int64(i + 1),
+				BlockTimestamp: past,
+				EventSig:       commitReportAccepted,
+				Topics:         [][]byte{},
+				Address:        commitStoreAddress,
+				TxHash:         utils.RandomHash(),
+				Data:           []byte{},
+				CreatedAt:      past,
+			})
+		}
+		require.NoError(b, o.InsertLogs(dbLogs))
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		tx, err1 := db.Beginx()
+		assert.NoError(b, err1)
+
+		_, err1 = o.DeleteExpiredLogs(0, pg.WithQueryer(tx))
+		assert.NoError(b, err1)
+
+		err1 = tx.Rollback()
+		assert.NoError(b, err1)
+	}
+	//
+	//for i := 0; i < b.N; i++ {
+	//	tx, err1 := db.Beginx()
+	//	assert.NoError(b, err1)
+	//
+	//	for {
+	//		start := time.Now()
+	//		removed, err1 := o.DeleteExpiredLogs(10_000, pg.WithQueryer(tx))
+	//		assert.NoError(b, err1)
+	//		fmt.Println("Removed", removed, "logs in", time.Since(start))
+	//
+	//		if removed == 0 {
+	//			break
+	//		}
+	//	}
+	//
+	//	err1 = tx.Rollback()
+	//	assert.NoError(b, err1)
+	//}
 }

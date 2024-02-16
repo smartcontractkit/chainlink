@@ -1649,11 +1649,14 @@ func Test_PruneOldBlocks(t *testing.T) {
 			}
 
 			if tt.wantErr {
-				require.Error(t, th.LogPoller.PruneOldBlocks(ctx))
+				_, err := th.LogPoller.PruneOldBlocks(ctx)
+				require.Error(t, err)
 				return
 			}
 
-			require.NoError(t, th.LogPoller.PruneOldBlocks(ctx))
+			allDeleted, err := th.LogPoller.PruneOldBlocks(ctx)
+			require.NoError(t, err)
+			assert.True(t, allDeleted)
 			blocks, err := th.ORM.GetBlocksRange(0, math.MaxInt64, pg.WithParentCtx(ctx))
 			require.NoError(t, err)
 			assert.Len(t, blocks, tt.blocksLeft)
