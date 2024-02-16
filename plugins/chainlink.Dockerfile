@@ -37,7 +37,7 @@ RUN go install ./cmd/chainlink-feeds
 
 WORKDIR /chainlink-data-streams
 COPY --from=buildgo /chainlink-data-streams .
-RUN go install ./cmd/chainlink-data-streams/mercury/cmd/chainlink-mercury
+RUN go install ./mercury/cmd/chainlink-mercury
 
 WORKDIR /chainlink-solana
 COPY --from=buildgo /chainlink-solana .
