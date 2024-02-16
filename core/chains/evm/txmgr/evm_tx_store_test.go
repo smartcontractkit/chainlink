@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"database/sql"
 	"fmt"
 	"math/big"
 	"testing"
@@ -1262,7 +1263,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 
 		resultEtx := new(txmgr.Tx)
 		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
-		assert.ErrorIs(t, err, txmgrcommon.ErrTxnNotFound)
+		assert.ErrorIs(t, err, sql.ErrNoRows)
 	})
 
 	t.Run("finds unstarted tx", func(t *testing.T) {
