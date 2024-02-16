@@ -12,8 +12,8 @@ import "relayer.proto";
 // TxMeta is a message that contains the metadata of a transaction. It is a gRPC adapter to
 // [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.TxMeta]
 message TxMeta {
-    uint64 block_timestamp = 1;
-    uint64 block_height = 2;
+    int64 block_timestamp_unix_milli = 1;
+    uint64 block_number = 2;
     string tx_hash = 3;
     uint64 log_index = 4;
 }
@@ -22,18 +22,19 @@ message TxMeta {
 message EVM2EVMMessage {
     uint64 sequence_number = 1;
     BigInt gas_limit = 2;
-    uint64 gas_price = 3;
-    bytes message_id = 4; // Hash [32]byte
-    uint64 source_chain_selector = 5;
-    string sender = 6; // Address
-    string receiver = 7; // Address
-    bool strict = 8;
-    string fee_token = 9; // Address
-    BigInt fee_token_amount = 10;
-    bytes data = 11;
-    repeated TokenAmount token_amounts = 12;
-    repeated bytes source_token_data = 13;
-    bytes hash = 14; // Hash [32]byte, computed from the message
+    uint64 nonce = 3;
+    uint64 gas_price = 4;
+    bytes message_id = 5; // Hash [32]byte
+    uint64 source_chain_selector = 6;
+    string sender = 7; // Address
+    string receiver = 8; // Address
+    bool strict = 9;
+    string fee_token = 10; // Address
+    BigInt fee_token_amount = 11;
+    bytes data = 12;
+    repeated TokenAmount token_amounts = 13;
+    repeated bytes source_token_data = 14;
+    // Note: we don't bother with the Hash field here in the gRPC because it's derived from the golang struct
 }
 
 // EVM2EVMOnRampCCIPSendRequestedWithMeta is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta]

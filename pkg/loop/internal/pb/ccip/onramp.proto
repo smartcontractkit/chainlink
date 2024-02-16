@@ -9,23 +9,23 @@ import "models.proto";
 // OnRampReader is a gRPC service adapter for the interface
 // [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader]
 service OnRampReader {
-    rpc GetSendRequestBetweenSeqNums(GetSendRequestBetweenSeqNumsRequest) returns (GetSendRequestBetweenSeqNumsResponse) {}
+    rpc GetSendRequestsBetweenSeqNums(GetSendRequestsBetweenSeqNumsRequest) returns (GetSendRequestsBetweenSeqNumsResponse) {}
     rpc RouterAddress(google.protobuf.Empty) returns (RouterAddressResponse) {}
     rpc Address(google.protobuf.Empty) returns (OnrampAddressResponse) {}
     rpc GetDynamicConfig(google.protobuf.Empty) returns (GetDynamicConfigResponse) {}
 }
 
-// GetSendRequestBetweenSeqNumsRequest is a gRPC adapter for the input arguments of
-// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.GetSendRequestBetweenSeqNums]
-message GetSendRequestBetweenSeqNumsRequest {
+// GetSendRequestsBetweenSeqNumsRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.GetSendRequestsBetweenSeqNums]
+message GetSendRequestsBetweenSeqNumsRequest {
     uint64 seq_num_min = 1;
     uint64 seq_num_max = 2;
     bool finalized = 3;
 }
 
-// GetSendRequestBetweenSeqNumsResponse is a gRPC adapter for the output arguments of
-// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.GetSendRequestBetweenSeqNums]
-message GetSendRequestBetweenSeqNumsResponse {
+// GetSendRequestsBetweenSeqNumsResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampReader.GetSendRequestsBetweenSeqNums]
+message GetSendRequestsBetweenSeqNumsResponse {
     // Note, the content here maybe better modeled as a oneof when CCIP supports
     // multiple types of messages/chains
     repeated EVM2EVMMessageWithTxMeta send_requests = 1;
@@ -53,15 +53,15 @@ message GetDynamicConfigResponse {
 // [github.com/smartcontractkit/chainlink-common/pkg/types/OnRampDynamicConfig]
 message OnRampDynamicConfig {
     string router = 1; // Address
-    uint32 max_number_of_token_per_msg = 2;
+    uint32 max_number_of_tokens_per_msg = 2;
     uint32 dest_gas_overhead = 3;
     uint32 dest_gas_per_byte = 4;
     uint32 dest_data_availability_overhead_gas = 5;
-    uint32 dest_data_availability_gas_per_byte = 6;
+    uint32 dest_gas_per_data_availability_byte = 6;
     uint32 dest_data_availability_multiplier_bps = 7;
     string price_registry = 8; // Address
     uint32 max_data_bytes = 9;
-    uint32 max_per_msg_gas_limite = 10;
+    uint32 max_per_msg_gas_limit = 10;
 }
 
 // EVM2EVMMessageWithTxMeta is a gRPC adapter for the struct
