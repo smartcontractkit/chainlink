@@ -9,7 +9,7 @@ import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterfa
 
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 
-import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import {AddressAliasHelper} from "../../../vendor/@scroll-tech/contracts/src/libraries/common/AddressAliasHelper.sol";
 import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.sol";
 
 /// @title ScrollSequencerUptimeFeed - L2 sequencer uptime status aggregator
