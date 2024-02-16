@@ -22,6 +22,7 @@ import (
 // VU is a virtual user for the OCR load test
 // it creates a feed and triggers new rounds
 type VU struct {
+	*wasp.VUControl
 	rl            ratelimit.Limiter
 	rate          int
 	rateUnit      time.Duration
@@ -34,7 +35,6 @@ type VU struct {
 	msClient      *client2.MockserverClient
 	l             zerolog.Logger
 	ocrInstances  []contracts.OffchainAggregator
-	stop          chan struct{}
 }
 
 func NewVU(
@@ -49,6 +49,7 @@ func NewVU(
 	msClient *client2.MockserverClient,
 ) *VU {
 	return &VU{
+		VUControl:     wasp.NewVUControl(),
 		rl:            ratelimit.New(rate, ratelimit.Per(rateUnit)),
 		rate:          rate,
 		rateUnit:      rateUnit,
@@ -64,7 +65,7 @@ func NewVU(
 
 func (m *VU) Clone(_ *wasp.Generator) wasp.VirtualUser {
 	return &VU{
-		stop:          make(chan struct{}, 1),
+		VUControl:     wasp.NewVUControl(),
 		rl:            ratelimit.New(m.rate, ratelimit.Per(m.rateUnit)),
 		rate:          m.rate,
 		rateUnit:      m.rateUnit,
@@ -118,12 +119,4 @@ func (m *VU) Call(l *wasp.Generator) {
 			l.ResponsesChan <- &wasp.Response{}
 		}
 	}
-}
-
-func (m *VU) Stop(_ *wasp.Generator) {
-	m.stop <- struct{}{}
-}
-
-func (m *VU) StopChan() chan struct{} {
-	return m.stop
 }

@@ -149,11 +149,10 @@ func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 	hexExtra := hex.EncodeToString(extra)
 	prefix := ""
 	for _, s := range hexExtra {
-		if s == '0' {
-			prefix = prefix + "0"
-		} else {
+		if s != '0' {
 			break
 		}
+		prefix = prefix + "0"
 	}
 
 	hexExtra = strings.TrimLeft(hexExtra, "0")

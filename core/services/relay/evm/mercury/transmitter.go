@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jpillora/backoff"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -107,7 +108,6 @@ type mercuryTransmitter struct {
 	services.StateMachine
 	lggr               logger.Logger
 	rpcClient          wsrpc.Client
-	cfgTracker         ConfigTracker
 	persistenceManager *PersistenceManager
 	codec              TransmitterReportDecoder
 
@@ -148,14 +148,13 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig, codec TransmitterReportDecoder) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig, codec TransmitterReportDecoder) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg), jobID, maxTransmitQueueSize, flushDeletesFrequency, pruneFrequency)
 	return &mercuryTransmitter{
 		services.StateMachine{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
-		cfgTracker,
 		persistenceManager,
 		codec,
 		feedID,
@@ -241,7 +240,7 @@ func (mt *mercuryTransmitter) runDeleteQueueLoop() {
 		case req := <-mt.deleteQueue:
 			for {
 				if err := mt.persistenceManager.Delete(runloopCtx, req); err != nil {
-					mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "req", req)
+					mt.lggr.Errorw("Failed to delete transmit request record", "err", err, "req.Payload", req.Payload)
 					mt.transmitQueueDeleteErrorCount.Inc()
 					select {
 					case <-time.After(b.Duration()):
@@ -308,7 +307,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 		b.Reset()
 		if res.Error == "" {
 			mt.transmitSuccessCount.Inc()
-			mt.lggr.Tracew("Transmit report success", "req", t.Req, "response", res, "reportCtx", t.ReportCtx)
+			mt.lggr.Debugw("Transmit report success", "payload", hexutil.Encode(t.Req.Payload), "response", res, "reportCtx", t.ReportCtx)
 		} else {
 			// We don't need to retry here because the mercury server
 			// has confirmed it received the report. We only need to retry
@@ -317,7 +316,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 			case DuplicateReport:
 				mt.transmitSuccessCount.Inc()
 				mt.transmitDuplicateCount.Inc()
-				mt.lggr.Tracew("Transmit report succeeded; duplicate report", "code", res.Code)
+				mt.lggr.Debugw("Transmit report success; duplicate report", "payload", hexutil.Encode(t.Req.Payload), "response", res, "reportCtx", t.ReportCtx)
 			default:
 				transmitServerErrorCount.WithLabelValues(mt.feedID.String(), fmt.Sprintf("%d", res.Code)).Inc()
 				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
@@ -357,7 +356,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		Payload: payload,
 	}
 
-	mt.lggr.Tracew("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
+	mt.lggr.Tracew("Transmit enqueue", "req.Payload", req.Payload, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
 	if err := mt.persistenceManager.Insert(ctx, req, reportCtx); err != nil {
 		mt.transmitQueueInsertErrorCount.Inc()

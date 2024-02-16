@@ -165,6 +165,10 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
+func FormatWithPrefixedChainID(chainID, id string) string {
+	return fmt.Sprintf("%s/%s", chainID, id)
+}
+
 type JobPipelineV2TestHelper struct {
 	Prm pipeline.ORM
 	Jrm job.ORM

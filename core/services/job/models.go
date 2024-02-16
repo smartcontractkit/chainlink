@@ -48,6 +48,7 @@ const (
 	Stream                  Type = (Type)(pipeline.StreamJobType)
 	VRF                     Type = (Type)(pipeline.VRFJobType)
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
+	Workflow                Type = (Type)(pipeline.WorkflowJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -126,7 +127,7 @@ var (
 type Job struct {
 	ID                            int32     `toml:"-"`
 	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
-	StreamID                      *uint64   `toml:"streamID"`
+	StreamID                      *uint32   `toml:"streamID"`
 	OCROracleSpecID               *int32
 	OCROracleSpec                 *OCROracleSpec
 	OCR2OracleSpecID              *int32
@@ -162,11 +163,11 @@ type Job struct {
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
-	Type                          Type
-	SchemaVersion                 uint32
+	Type                          Type          `toml:"type"`
+	SchemaVersion                 uint32        `toml:"schemaVersion"`
 	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
 	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
-	Name                          null.String
+	Name                          null.String   `toml:"name"`
 	MaxTaskDuration               models.Interval
 	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
 	CreatedAt                     time.Time

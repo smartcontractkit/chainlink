@@ -60,12 +60,12 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 	}
 	var gasToken string
 	cfgs := tc.App.GetConfig().CosmosConfigs()
-	if i := slices.IndexFunc(cfgs, func(config *coscfg.TOMLConfig) bool { return *config.ChainID == tr.CosmosChainID }); i != -1 {
-		gasToken = cfgs[i].GasToken()
-	} else {
+	i := slices.IndexFunc(cfgs, func(config *coscfg.TOMLConfig) bool { return *config.ChainID == tr.CosmosChainID })
+	if i == -1 {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("no config for chain id: %s", tr.CosmosChainID))
 		return
 	}
+	gasToken = cfgs[i].GasToken()
 
 	//TODO move this inside?
 	coin, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec(tr.Token, tr.Amount), gasToken)

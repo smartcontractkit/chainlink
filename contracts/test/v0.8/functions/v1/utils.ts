@@ -257,9 +257,11 @@ export function getSetupFactory(): () => {
       .connect(roles.defaultAccount)
       .deploy(router.address, coordinatorConfig, mockLinkEth.address)
 
+    const initialAllowedSenders: string[] = []
+    const initialBlockedSenders: string[] = []
     const accessControl = await factories.accessControlFactory
       .connect(roles.defaultAccount)
-      .deploy(accessControlConfig)
+      .deploy(accessControlConfig, initialAllowedSenders, initialBlockedSenders)
 
     const client = await factories.clientTestHelperFactory
       .connect(roles.consumer)

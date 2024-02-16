@@ -734,7 +734,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 		require.Equal(t, numberOfTxKeysToCreate+1, len(fulfillmentTxFromAddresses))
 		var txKeyAddresses []string
 		for _, txKey := range txKeys.Data {
-			txKeyAddresses = append(txKeyAddresses, txKey.ID)
+			txKeyAddresses = append(txKeyAddresses, txKey.Attributes.Address)
 		}
 		less := func(a, b string) bool { return a < b }
 		equalIgnoreOrder := cmp.Diff(txKeyAddresses, fulfillmentTxFromAddresses, cmpopts.SortSlices(less)) == ""
@@ -1139,4 +1139,93 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			Msg("BHS Contract's stored Blockhash for Randomness Request")
 		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
 	})
+}
+
+func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// override config with minConf = 0 and use pending block for simulation
+	config.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](0)
+	config.VRFv2Plus.General.VRFJobSimulationBlock = ptr.Ptr[string]("pending")
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(network).
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err, "error creating test env")
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2Plus.General.LinkNativeFeedResponse))
+	require.NoError(t, err, "error deploying mock ETH/LINK feed")
+
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	require.NoError(t, err, "error deploying LINK contract")
+
+	numberOfTxKeysToCreate := 2
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		env,
+		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
+		&config,
+		linkToken,
+		mockETHLinkFeed,
+		numberOfTxKeysToCreate,
+		1,
+		1,
+		l,
+	)
+	require.NoError(t, err, "error setting up VRF v2_5 env")
+
+	subID := subIDs[0]
+
+	subscription, err := vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+	require.NoError(t, err, "error getting subscription information")
+
+	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.CoordinatorV2Plus)
+
+	var isNativeBilling = false
+
+	jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+	require.NoError(t, err, "error reading job runs")
+
+	l.Info().Uint16("minimumConfirmationDelay", *config.VRFv2Plus.General.MinimumConfirmations).Msg("Minimum Confirmation Delay")
+
+	// test and assert
+	randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		vrfv2PlusContracts.VRFV2PlusConsumer[0],
+		vrfv2PlusContracts.CoordinatorV2Plus,
+		vrfv2PlusData,
+		subID,
+		isNativeBilling,
+		*config.VRFv2Plus.General.MinimumConfirmations,
+		*config.VRFv2Plus.General.CallbackGasLimit,
+		*config.VRFv2Plus.General.NumberOfWords,
+		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+		config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+		l,
+	)
+	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+	jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+	require.NoError(t, err, "error reading job runs")
+	require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
+
+	status, err := vrfv2PlusContracts.VRFV2PlusConsumer[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+	require.NoError(t, err, "error getting rand request status")
+	require.True(t, status.Fulfilled)
+	l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 }
