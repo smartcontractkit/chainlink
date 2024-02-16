@@ -662,7 +662,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
 		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog, capabilitiesRegistry)
 		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
-		oracleArgs := libocr2.OCR3OracleArgs[any]{
+		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractConfigTracker:        provider.ContractConfigTracker(),
