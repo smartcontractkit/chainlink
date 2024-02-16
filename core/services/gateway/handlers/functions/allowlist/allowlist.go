@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -23,9 +25,10 @@ import (
 )
 
 const (
-	defaultStoredAllowlistBatchSize  = 1000
-	defaultOnchainAllowlistBatchSize = 100
-	defaultFetchingDelayInRangeSec   = 1
+	defaultStoredAllowlistBatchSize      = 1000
+	defaultOnchainAllowlistBatchSize     = 100
+	defaultFetchingDelayInRangeSec       = 1
+	tosContractMinBatchProcessingVersion = "1.1.0"
 )
 
 type OnchainAllowlistConfig struct {
@@ -38,8 +41,6 @@ type OnchainAllowlistConfig struct {
 	UpdateTimeoutSec          uint `json:"updateTimeoutSec"`
 	StoredAllowlistBatchSize  uint `json:"storedAllowlistBatchSize"`
 	OnchainAllowlistBatchSize uint `json:"onchainAllowlistBatchSize"`
-	// StoreAllowedSendersEnabled is a feature flag that enables storing in db a copy of the allowlist.
-	StoreAllowedSendersEnabled bool `json:"storeAllowedSendersEnabled"`
 	// FetchingDelayInRangeSec prevents RPC client being rate limited when fetching the allowlist in ranges.
 	FetchingDelayInRangeSec uint `json:"fetchingDelayInRangeSec"`
 }
@@ -210,7 +211,21 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	}
 
 	var allowedSenderList []common.Address
-	if !a.config.StoreAllowedSendersEnabled {
+	typeAndVersion, err := tosContract.TypeAndVersion(&bind.CallOpts{
+		Pending:     false,
+		BlockNumber: blockNum,
+		Context:     ctx,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch the tos contract type and version")
+	}
+
+	version, err := extractContractVersion(typeAndVersion)
+	if err != nil {
+		return errors.Wrap(err, "failed to extract version")
+	}
+
+	if version < strings.ReplaceAll(tosContractMinBatchProcessingVersion, ".", "") {
 		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
 			Pending:     false,
 			BlockNumber: blockNum,
@@ -354,4 +369,15 @@ func (a *onchainAllowlist) loadStoredAllowedSenderList() {
 	}
 
 	a.update(allowedList)
+}
+
+func extractContractVersion(str string) (string, error) {
+	pattern := `v(\d+).(\d+).(\d+)`
+	re := regexp.MustCompile(pattern)
+
+	match := re.FindStringSubmatch(str)
+	if len(match) != 4 {
+		return "", fmt.Errorf("version not found in string: %s", str)
+	}
+	return match[1] + match[2] + match[3], nil
 }
