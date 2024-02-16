@@ -52,9 +52,10 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 87_000; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_800; // Value scales with f
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 22; // Per perform data byte overhead
+
   // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
   // This includes overhead for all struct encoding as well as report signatures
-  // There is a fixed component and a per signer component
+  // There is a fixed component and a per signer component. This is calculated exactly by doing abi encoding
   uint256 internal constant TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD = 932;
   uint256 internal constant TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD = 64;
 
