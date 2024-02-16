@@ -836,7 +836,7 @@ func Test_HandleErrCode(t *testing.T) {
 		expectedErr    error
 	}{
 		{
-			name: "no error",
+			name: "log trigger no error",
 			checkResult: &ocr2keepers.CheckResult{
 				UpkeepID: core.GenUpkeepID(clatypes.LogTrigger, "111"),
 			},
@@ -846,7 +846,17 @@ func Test_HandleErrCode(t *testing.T) {
 			expectedErr:    nil,
 		},
 		{
-			name: "error code bad request",
+			name: "conditional trigger no error",
+			checkResult: &ocr2keepers.CheckResult{
+				UpkeepID: core.GenUpkeepID(clatypes.ConditionTrigger, "222"),
+			},
+			errCode:        encoding.ErrCodeNil,
+			err:            nil,
+			expectedValues: [][]byte{},
+			expectedErr:    nil,
+		},
+		{
+			name: "log trigger error code bad request",
 			checkResult: &ocr2keepers.CheckResult{
 				UpkeepID: core.GenUpkeepID(clatypes.LogTrigger, "111"),
 			},
@@ -856,7 +866,17 @@ func Test_HandleErrCode(t *testing.T) {
 			expectedErr:    nil,
 		},
 		{
-			name: "error code partial content with retry timeout",
+			name: "conditional trigger bad request",
+			checkResult: &ocr2keepers.CheckResult{
+				UpkeepID: core.GenUpkeepID(clatypes.ConditionTrigger, "222"),
+			},
+			errCode:        encoding.ErrCodeBadRequest,
+			err:            errors.New("400"),
+			expectedValues: [][]byte{},
+			expectedErr:    nil,
+		},
+		{
+			name: "log trigger error code partial content with retry timeout",
 			checkResult: &ocr2keepers.CheckResult{
 				UpkeepID:      core.GenUpkeepID(clatypes.LogTrigger, "111"),
 				RetryInterval: mercury.RetryIntervalTimeout,
@@ -868,7 +888,7 @@ func Test_HandleErrCode(t *testing.T) {
 			expectedErr:    nil,
 		},
 		{
-			name: "error code partial content without retry timeout",
+			name: "log trigger error code partial content without retry timeout",
 			checkResult: &ocr2keepers.CheckResult{
 				UpkeepID:      core.GenUpkeepID(clatypes.LogTrigger, "111"),
 				RetryInterval: time.Second,
@@ -878,6 +898,18 @@ func Test_HandleErrCode(t *testing.T) {
 			err:            partialContentErr,
 			expectedValues: nil,
 			expectedErr:    partialContentErr,
+		},
+		{
+			name: "conditional trigger partial content",
+			checkResult: &ocr2keepers.CheckResult{
+				UpkeepID:      core.GenUpkeepID(clatypes.ConditionTrigger, "222"),
+				RetryInterval: time.Second,
+				Retryable:     true,
+			},
+			errCode:        encoding.ErrCodePartialContent,
+			err:            errors.New("206"),
+			expectedValues: [][]byte{},
+			expectedErr:    nil,
 		},
 	}
 
