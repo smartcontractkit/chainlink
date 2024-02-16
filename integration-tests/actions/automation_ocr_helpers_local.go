@@ -9,22 +9,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
-	"gopkg.in/guregu/null.v4"
-
+	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func BuildAutoOCR2ConfigVarsLocal(
@@ -34,8 +32,9 @@ func BuildAutoOCR2ConfigVarsLocal(
 	registrar string,
 	deltaStage time.Duration,
 	registryOwnerAddress common.Address,
+	evmClient blockchain.EVMClient,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress)
+	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress, evmClient)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
@@ -46,6 +45,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 	deltaStage time.Duration,
 	keyIndex int,
 	registryOwnerAddress common.Address,
+	evmClient blockchain.EVMClient,
 ) (contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndexLocal(chainlinkNodes, keyIndex)
 	if err != nil {
@@ -59,7 +59,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 	var offchainConfigVersion uint64
 	var offchainConfig []byte
 
-	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 {
+	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		offC, err = json.Marshal(ocr2keepers30config.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
@@ -149,7 +149,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, evmClient)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
 	}

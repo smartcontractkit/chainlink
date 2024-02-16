@@ -10,37 +10,32 @@ import (
 	"testing"
 	"time"
 
-	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/require"
-
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 )
 
-var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
+var utilsABI21 = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
 
 const (
 	automationDefaultUpkeepGasLimit = uint32(2500000)
@@ -96,6 +91,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 		"registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
 		"registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
 		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
+		"registry_2_2_conditional":                     ethereum.RegistryVersion_2_2,
+		"registry_2_2_logtrigger":                      ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -114,9 +114,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 			}
 
 			// Use the name to determine if this is a log trigger or mercury
-			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_1_with_logtrigger_and_mercury_v02"
-			isMercuryV02 := name == "registry_2_1_with_mercury_v02" || name == "registry_2_1_with_logtrigger_and_mercury_v02"
-			isMercuryV03 := name == "registry_2_1_with_mercury_v03"
+			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_logtrigger" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
+			isMercuryV02 := name == "registry_2_1_with_mercury_v02" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_with_mercury_v02" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
+			isMercuryV03 := name == "registry_2_1_with_mercury_v03" || name == "registry_2_2_with_mercury_v03"
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
@@ -309,7 +309,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			Topic2:          bytes0,
 			Topic3:          bytes0,
 		}
-		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+		encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 		if err != nil {
 			return
 		}
@@ -357,7 +357,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			Topic2:          bytes0,
 			Topic3:          bytes0,
 		}
-		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+		encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 		if err != nil {
 			return
 		}
@@ -407,6 +407,7 @@ func TestAutomationAddFunds(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -473,6 +474,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
@@ -572,6 +574,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -660,6 +663,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -733,6 +737,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -837,6 +842,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -904,6 +910,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -997,7 +1004,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
 
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, a.Registrar.Address(), 30*time.Second, a.Registry.RegistryOwnerAddress())
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, a.Registrar.Address(), 30*time.Second, a.Registry.RegistryOwnerAddress(), a.ChainClient)
 			require.NoError(t, err, "Error building OCR config")
 
 			err = a.Registry.SetConfig(highCheckGasLimit, ocrConfig)
@@ -1022,6 +1029,7 @@ func TestUpdateCheckData(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {

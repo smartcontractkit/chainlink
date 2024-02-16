@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -498,7 +500,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 			return errors.Join(err, fmt.Errorf("failed to build config args"))
 		}
 
-	case ethereum.RegistryVersion_2_1:
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
 		offC, err = json.Marshal(ocr2keepers30config.OffchainConfig{
 			TargetProbability:    a.PluginConfig.TargetProbability,
 			TargetInRounds:       a.PluginConfig.TargetInRounds,
@@ -526,7 +528,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 			return errors.Join(err, fmt.Errorf("failed to build config args"))
 		}
 	default:
-		return fmt.Errorf("v2.0 and v2.1 are the only supported versions")
+		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
 
 	var signers []common.Address
@@ -545,7 +547,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := a.RegistrySettings.EncodeOnChainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
+	onchainConfig, err := a.RegistrySettings.EncodeOnChainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.ChainClient)
 	if err != nil {
 		return errors.Join(err, fmt.Errorf("failed to encode onchain config"))
 	}
@@ -602,8 +604,22 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 			if err != nil {
 				return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
 			}
+		case ethereum.RegistryVersion_2_2:
+			registrarABI, err = automation_registrar_wrapper2_2.AutomationRegistrarMetaData.GetAbi()
+			if err != nil {
+				return nil, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+			}
+			registrationRequest, err = registrarABI.Pack(
+				"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
+				upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
+				upkeepConfig.TriggerType, upkeepConfig.CheckData, upkeepConfig.TriggerConfig,
+				upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
+				common.HexToAddress(a.ChainClient.GetDefaultWallet().Address()))
+			if err != nil {
+				return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+			}
 		default:
-			return nil, fmt.Errorf("v2.0 and v2.1 are the only supported versions")
+			return nil, fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 		}
 		tx, err := a.LinkToken.TransferAndCall(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest)
 		if err != nil {
