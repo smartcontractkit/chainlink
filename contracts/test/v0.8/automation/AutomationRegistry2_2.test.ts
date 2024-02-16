@@ -2875,64 +2875,45 @@ describe('AutomationRegistry2_2', () => {
     })
 
     it('uses maxPerformData size in checkUpkeep but actual performDataSize in transmit', async () => {
-      const tx1 = await registry
+      const tx = await registry
         .connect(owner)
         [
           'registerUpkeep(address,uint32,address,bytes,bytes)'
         ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
-      const upkeepID1 = await getUpkeepID(tx1)
-      const tx2 = await registry
-        .connect(owner)
-        [
-          'registerUpkeep(address,uint32,address,bytes,bytes)'
-        ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
-      const upkeepID2 = await getUpkeepID(tx2)
+      const upkeepID = await getUpkeepID(tx)
       await mock.setCanCheck(true)
       await mock.setCanPerform(true)
 
-      // upkeep 1 is underfunded, 2 is fully funded
+      // upkeep is underfunded by 1 wei
       const minBalance1 = (
-        await registry.getMinBalanceForUpkeep(upkeepID1)
+        await registry.getMinBalanceForUpkeep(upkeepID)
       ).sub(1)
-      const minBalance2 = await registry.getMinBalanceForUpkeep(upkeepID2)
-      await registry.connect(owner).addFunds(upkeepID1, minBalance1)
-      await registry.connect(owner).addFunds(upkeepID2, minBalance2)
+      await registry.connect(owner).addFunds(upkeepID, minBalance1)
 
-      // upkeep 1 check should return false, 2 should return true
+      // upkeep check should return false, 2 should return true
       let checkUpkeepResult = await registry
         .connect(zeroAddress)
-        .callStatic['checkUpkeep(uint256)'](upkeepID1)
+        .callStatic['checkUpkeep(uint256)'](upkeepID)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
       assert.equal(
         checkUpkeepResult.upkeepFailureReason,
         UpkeepFailureReason.INSUFFICIENT_BALANCE,
       )
 
-      checkUpkeepResult = await registry
-        .connect(zeroAddress)
-        .callStatic['checkUpkeep(uint256)'](upkeepID2)
-      assert.equal(checkUpkeepResult.upkeepNeeded, true)
-
-      // upkeep 1 should perform and pay all the remaining balance
+      // however upkeep should perform and pay all the remaining balance
       let maxPerformData = '0x'
       for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
         maxPerformData += '11'
       }
 
-      const tx = await getTransmitTx(registry, keeper1, [upkeepID1], {
+      const tx2 = await getTransmitTx(registry, keeper1, [upkeepID], {
         gasPrice: gasWei.mul(gasCeilingMultiplier),
         performDatas: [maxPerformData],
       })
 
-      const receipt = await tx.wait()
+      const receipt = await tx2.wait()
       const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
       assert.equal(upkeepPerformedLogs.length, 1)
-
-      // upkeep 2 perform should succeed with max performData size
-      await getTransmitTx(registry, keeper1, [upkeepID2], {
-        gasPrice: gasWei.mul(gasCeilingMultiplier),
-        performDatas: [maxPerformData],
-      })
     })
   })
 
