@@ -9,6 +9,7 @@ import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterfa
 
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 
+import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.sol";
 
 /// @title ScrollSequencerUptimeFeed - L2 sequencer uptime status aggregator
@@ -109,6 +110,13 @@ contract ScrollSequencerUptimeFeed is
     }
   }
 
+  /// @notice Messages sent by the stored L1 sender will arrive on L2 with this
+  ///  address as the `msg.sender`
+  /// @return L2-aliased form of the L1 sender address
+  function aliasedL1MessageSender() public view returns (address) {
+    return AddressAliasHelper.applyL1ToL2Alias(l1Sender());
+  }
+
   /// @dev Returns an AggregatorV2V3Interface compatible answer from status flag
   /// @param status The status flag to convert to an aggregator-compatible answer
   function _getStatusAnswer(bool status) private pure returns (int256) {
@@ -143,10 +151,7 @@ contract ScrollSequencerUptimeFeed is
   /// @param timestamp Block timestamp of status update
   function updateStatus(bool status, uint64 timestamp) external override {
     FeedState memory feedState = s_feedState;
-
-    if (
-      msg.sender != address(s_l2CrossDomainMessenger) || s_l2CrossDomainMessenger.xDomainMessageSender() != s_l1Sender
-    ) {
+    if (msg.sender != aliasedL1MessageSender()) {
       revert InvalidSender();
     }
 
