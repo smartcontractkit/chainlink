@@ -1996,33 +1996,33 @@ describe('AutomationRegistry2_2', () => {
                       chargedGasOverhead
                         .sub(actualGasOverhead)
                         .lt(gasCalculationMargin),
-                    ),
                       'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by at least ' +
                         chargedGasOverhead
                           .sub(actualGasOverhead)
                           .sub(gasCalculationMargin)
-                          .toString()
+                          .toString(),
+                    )
 
                     // The estimated overhead during checkUpkeep should be close to the actual overhead in transaction
                     // It should be greater than the actual overhead but not by a lot
                     // The estimated overhead is controlled by variables
                     // REGISTRY_CONDITIONAL_OVERHEAD, REGISTRY_LOG_OVERHEAD, REGISTRY_PER_SIGNER_GAS_OVERHEAD
-                    // REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD and TRANSMIT_CALLDATA_BYTES_OVERHEAD
+                    // REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD
                     assert.isTrue(
                       estimatedGasOverhead.gt(actualGasOverhead),
-                      'Gas overhead estimated in check upkeep is too low, increase estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD/TRANSMIT_CALLDATA_BYTES_OVERHEAD) by at least ' +
+                      'Gas overhead estimated in check upkeep is too low, increase estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD) by at least ' +
                         estimatedGasOverhead.sub(chargedGasOverhead).toString(),
                     )
                     assert.isTrue(
                       estimatedGasOverhead
                         .sub(actualGasOverhead)
                         .lt(gasEstimationMargin),
-                    ),
-                      'Gas overhead estimated is too high, decrease estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD/TRANSMIT_CALLDATA_BYTES_OVERHEAD)  by at least ' +
+                      'Gas overhead estimated is too high, decrease estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD)  by at least ' +
                         estimatedGasOverhead
                           .sub(actualGasOverhead)
                           .sub(gasEstimationMargin)
-                          .toString()
+                          .toString(),
+                    )
                   }
                 }
               }
@@ -2031,7 +2031,7 @@ describe('AutomationRegistry2_2', () => {
         })
       })
 
-      describe.skip('Gas benchmarking log upkeeps [ @skip-coverage ]', function () {
+      describe('Gas benchmarking log upkeeps [ @skip-coverage ]', function () {
         const fs = [1, 10]
         fs.forEach(function (newF) {
           it(
@@ -2062,15 +2062,32 @@ describe('AutomationRegistry2_2', () => {
               // exactly 1 Upkeep Performed should be emitted
               assert.equal(upkeepPerformedLogs.length, 1)
               const upkeepPerformedLog = upkeepPerformedLogs[0]
+              const chainModuleOverheads =
+                await chainModuleBase.getGasOverhead()
 
               const upkeepGasUsed = upkeepPerformedLog.args.gasUsed
               const chargedGasOverhead = upkeepPerformedLog.args.gasOverhead
               const actualGasOverhead = receipt.gasUsed.sub(upkeepGasUsed)
-              const chainModuleOverheads =
-                await chainModuleBase.getGasOverhead()
+              const estimatedGasOverhead = registryLogOverhead
+                .add(registryPerSignerGasOverhead.mul(BigNumber.from(newF + 1)))
+                .add(
+                  registryPerPerformByteGasOverhead
+                    .add(chainModuleOverheads.chainModulePerByteOverhead)
+                    .mul(
+                      BigNumber.from(performData.length / 2 - 1)
+                        .add(registryTransmitCalldataFixedBytesOverhead)
+                        .add(
+                          registryTransmitCalldataPerSignerBytesOverhead.mul(
+                            BigNumber.from(newF + 1),
+                          ),
+                        ),
+                    ),
+                )
+                .add(chainModuleOverheads.chainModuleFixedOverhead)
 
               assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
               assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
+              assert.isTrue(actualGasOverhead.gt(BigNumber.from('0')))
 
               console.log(
                 'Gas Benchmarking log upkeeps:',
@@ -2082,54 +2099,49 @@ describe('AutomationRegistry2_2', () => {
                 performData.length / 2 - 1,
                 'sig verification ( f =',
                 newF,
-                '): calculated overhead: ',
+                '): estimated overhead: ',
+                estimatedGasOverhead.toString(),
+                ' charged overhead: ',
                 chargedGasOverhead.toString(),
                 ' actual overhead: ',
                 actualGasOverhead.toString(),
-                ' margin over gasUsed: ',
+                ' calculation margin over gasUsed: ',
                 chargedGasOverhead.sub(actualGasOverhead).toString(),
+                ' estimation margin over gasUsed: ',
+                estimatedGasOverhead.sub(actualGasOverhead).toString(),
               )
 
-              // Overhead should not get capped
-              const gasOverheadCap = registryLogOverhead
-                .add(registryPerSignerGasOverhead.mul(BigNumber.from(newF + 1)))
-                .add(
-                  registryPerPerformByteGasOverhead
-                    .add(chainModuleOverheads.chainModulePerByteOverhead)
-                    .mul(
-                      BigNumber.from(performData.length)
-                        .add(registryTransmitCalldataFixedBytesOverhead)
-                        .add(
-                          registryTransmitCalldataPerSignerBytesOverhead.mul(
-                            BigNumber.from(newF + 1),
-                          ),
-                        ),
-                    ),
-                )
-                .add(chainModuleOverheads.chainModuleFixedOverhead)
-              const gasCapMinusOverhead = gasOverheadCap.sub(chargedGasOverhead)
-              assert.isTrue(
-                gasCapMinusOverhead.gt(BigNumber.from(0)),
-                'Gas overhead got capped. Verify gas overhead variables in test match those in the registry. To not have the overheads capped increase REGISTRY_GAS_OVERHEAD by atleast ' +
-                  gasCapMinusOverhead.toString(),
-              )
-              // total gas charged should be greater than tx gas but within gasCalculationMargin
               assert.isTrue(
                 chargedGasOverhead.gt(actualGasOverhead),
-                'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD) by atleast ' +
+                'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD) by at least ' +
                   actualGasOverhead.sub(chargedGasOverhead).toString(),
               )
-
               assert.isTrue(
                 chargedGasOverhead
                   .sub(actualGasOverhead)
                   .lt(gasCalculationMargin),
-              ),
-                'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by atleast ' +
+                'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by at least ' +
                   chargedGasOverhead
-                    .sub(chargedGasOverhead)
+                    .sub(actualGasOverhead)
                     .sub(gasCalculationMargin)
-                    .toString()
+                    .toString(),
+              )
+
+              assert.isTrue(
+                estimatedGasOverhead.gt(actualGasOverhead),
+                'Gas overhead estimated in check upkeep is too low, increase estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD) by at least ' +
+                  estimatedGasOverhead.sub(chargedGasOverhead).toString(),
+              )
+              assert.isTrue(
+                estimatedGasOverhead
+                  .sub(actualGasOverhead)
+                  .lt(gasEstimationMargin),
+                'Gas overhead estimated is too high, decrease estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD)  by at least ' +
+                  estimatedGasOverhead
+                    .sub(actualGasOverhead)
+                    .sub(gasEstimationMargin)
+                    .toString(),
+              )
             },
           )
         })
