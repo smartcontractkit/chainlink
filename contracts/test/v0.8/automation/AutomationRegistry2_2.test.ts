@@ -2885,9 +2885,9 @@ describe('AutomationRegistry2_2', () => {
       await mock.setCanPerform(true)
 
       // upkeep is underfunded by 1 wei
-      const minBalance1 = (
-        await registry.getMinBalanceForUpkeep(upkeepID)
-      ).sub(1)
+      const minBalance1 = (await registry.getMinBalanceForUpkeep(upkeepID)).sub(
+        1,
+      )
       await registry.connect(owner).addFunds(upkeepID, minBalance1)
 
       // upkeep check should return false, 2 should return true
