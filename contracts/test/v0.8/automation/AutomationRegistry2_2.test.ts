@@ -1321,6 +1321,81 @@ describe('AutomationRegistry2_2', () => {
         }
       })
 
+      it('allows bypassing reorg protection with reorgProtectionEnabled false config', async () => {
+        const tests: [string, BigNumber][] = [
+          ['conditional', upkeepId],
+          ['log-trigger', logUpkeepId],
+        ]
+        let newConfig = config
+        newConfig.reorgProtectionEnabled = false
+        await registry // used to test initial configurations
+          .connect(owner)
+          .setConfigTypeSafe(
+            signerAddresses,
+            keeperAddresses,
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          )
+
+        for (const [type, id] of tests) {
+          const latestBlock = await ethers.provider.getBlock('latest')
+          // Try to transmit a report which has incorrect checkBlockHash
+          const tx = await getTransmitTx(registry, keeper1, [id], {
+            checkBlockNum: latestBlock.number - 1,
+            checkBlockHash: latestBlock.hash, // should be latestBlock.parentHash
+          })
+
+          const receipt = await tx.wait()
+          const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+          assert.equal(
+            upkeepPerformedLogs.length,
+            1,
+            `wrong log count for ${type} upkeep`,
+          )
+        }
+      })
+
+      it('allows very old trigger block numbers when bypassing reorg protection with reorgProtectionEnabled config', async () => {
+        let newConfig = config
+        newConfig.reorgProtectionEnabled = false
+        await registry // used to test initial configurations
+          .connect(owner)
+          .setConfigTypeSafe(
+            signerAddresses,
+            keeperAddresses,
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          )
+        for (let i = 0; i < 256; i++) {
+          await ethers.provider.send('evm_mine', [])
+        }
+        const tests: [string, BigNumber][] = [
+          ['conditional', upkeepId],
+          ['log-trigger', logUpkeepId],
+        ]
+        for (const [type, id] of tests) {
+          const latestBlock = await ethers.provider.getBlock('latest')
+          const old = await ethers.provider.getBlock(latestBlock.number - 256)
+          // Try to transmit a report which has incorrect checkBlockHash
+          const tx = await getTransmitTx(registry, keeper1, [id], {
+            checkBlockNum: old.number,
+            checkBlockHash: old.hash,
+          })
+
+          const receipt = await tx.wait()
+          const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+          assert.equal(
+            upkeepPerformedLogs.length,
+            1,
+            `wrong log count for ${type} upkeep`,
+          )
+        }
+      })
+
       it('allows very old trigger block numbers when bypassing reorg protection with empty blockhash', async () => {
         // mine enough blocks so that blockhash(1) is unavailable
         for (let i = 0; i <= 256; i++) {
@@ -1346,6 +1421,56 @@ describe('AutomationRegistry2_2', () => {
       })
 
       it('returns early when future block number is provided as trigger, irrespective of blockhash being present', async () => {
+        const tests: [string, BigNumber][] = [
+          ['conditional', upkeepId],
+          ['log-trigger', logUpkeepId],
+        ]
+        for (const [type, id] of tests) {
+          const latestBlock = await ethers.provider.getBlock('latest')
+
+          // Should fail when blockhash is empty
+          let tx = await getTransmitTx(registry, keeper1, [id], {
+            checkBlockNum: latestBlock.number + 100,
+            checkBlockHash: emptyBytes32,
+          })
+          let receipt = await tx.wait()
+          let reorgedUpkeepReportLogs = parseReorgedUpkeepReportLogs(receipt)
+          // exactly 1 ReorgedUpkeepReportLogs log should be emitted
+          assert.equal(
+            reorgedUpkeepReportLogs.length,
+            1,
+            `wrong log count for ${type} upkeep`,
+          )
+
+          // Should also fail when blockhash is not empty
+          tx = await getTransmitTx(registry, keeper1, [id], {
+            checkBlockNum: latestBlock.number + 100,
+            checkBlockHash: latestBlock.hash,
+          })
+          receipt = await tx.wait()
+          reorgedUpkeepReportLogs = parseReorgedUpkeepReportLogs(receipt)
+          // exactly 1 ReorgedUpkeepReportLogs log should be emitted
+          assert.equal(
+            reorgedUpkeepReportLogs.length,
+            1,
+            `wrong log count for ${type} upkeep`,
+          )
+        }
+      })
+
+      it('returns early when future block number is provided as trigger, irrespective of reorgProtectionEnabled config', async () => {
+        let newConfig = config
+        newConfig.reorgProtectionEnabled = false
+        await registry // used to test initial configurations
+          .connect(owner)
+          .setConfigTypeSafe(
+            signerAddresses,
+            keeperAddresses,
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          )
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
           ['log-trigger', logUpkeepId],
