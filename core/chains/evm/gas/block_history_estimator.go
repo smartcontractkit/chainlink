@@ -855,7 +855,7 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmty
 	switch tx.Type {
 	case 0x0, 0x1:
 		return tx.GasPrice
-	case 0x2:
+	case 0x2, 0x3:
 		if block.BaseFeePerGas == nil || tx.MaxPriorityFeePerGas == nil || tx.MaxFeePerGas == nil {
 			b.logger.Warnw("Got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
 			return tx.GasPrice
@@ -890,7 +890,7 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmty
 
 func (b *BlockHistoryEstimator) EffectiveTipCap(block evmtypes.Block, tx evmtypes.Transaction) *assets.Wei {
 	switch tx.Type {
-	case 0x2:
+	case 0x2, 0x3:
 		return tx.MaxPriorityFeePerGas
 	case 0x0, 0x1:
 		if tx.GasPrice == nil {
