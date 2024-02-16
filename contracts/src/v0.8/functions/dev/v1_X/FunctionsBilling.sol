@@ -372,4 +372,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   // Overriden in FunctionsCoordinator.sol
   function _onlyOwner() internal view virtual;
+
+  // Used in FunctionsCoordinator.sol
+  function _isExistingRequest(bytes32 requestId) internal view returns (bool) {
+    return s_requestCommitments[requestId] != bytes32(0);
+  }
 }

@@ -45,7 +45,13 @@ contract FunctionsRouterSetup is BaseTest {
       getCoordinatorConfig(),
       address(s_linkEthFeed)
     );
-    s_termsOfServiceAllowList = new TermsOfServiceAllowList(getTermsOfServiceConfig());
+    address[] memory initialAllowedSenders;
+    address[] memory initialBlockedSenders;
+    s_termsOfServiceAllowList = new TermsOfServiceAllowList(
+      getTermsOfServiceConfig(),
+      initialAllowedSenders,
+      initialBlockedSenders
+    );
   }
 
   function getRouterConfig() public view returns (FunctionsRouter.Config memory) {
