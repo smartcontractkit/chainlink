@@ -27,13 +27,6 @@ import (
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
-var info = capabilities.MustNewCapabilityInfo(
-	"",
-	capabilities.CapabilityTypeTarget,
-	"Write target.",
-	"v1.0.0",
-)
-
 func InitializeWrite(registry commontypes.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) error {
 	for _, chain := range legacyEVMChains.Slice() {
 		capability := NewEvmWrite(chain)
@@ -54,15 +47,19 @@ type EvmWrite struct {
 }
 
 func NewEvmWrite(chain legacyevm.Chain) *EvmWrite {
-	// generate ID based on name
-	info := info
+	// generate ID based on chain selector
+	name := fmt.Sprintf("write_%v", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
 	if err == nil {
-		info.ID = fmt.Sprintf("write_%v", chainName)
-
-	} else {
-		info.ID = fmt.Sprintf("write_%v", chain.ID())
+		name = fmt.Sprintf("write_%v", chainName)
 	}
+
+	info := capabilities.MustNewCapabilityInfo(
+		name,
+		capabilities.CapabilityTypeTarget,
+		"Write target.",
+		"v1.0.0",
+	)
 
 	return &EvmWrite{
 		chain,

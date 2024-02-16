@@ -39,12 +39,12 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     // validate signatures
     for (uint256 i = 0; i < signatures.length; i++) {
       // TODO: is libocr-style multiple bytes32 arrays more optimal?
-      (bytes32 r, bytes32 s, uint8 v) = Utils.splitSignature(signatures[i]);
+      (bytes32 r, bytes32 s, uint8 v) = Utils._splitSignature(signatures[i]);
       address signer = ecrecover(hash, v, r, s);
       // TODO: we need to store oracle cluster similar to aggregator then, to validate valid signer list
     }
 
-    (bytes32 workflowId, bytes32 workflowExecutionId) = Utils.splitReport(rawReport);
+    (bytes32 workflowId, bytes32 workflowExecutionId) = Utils._splitReport(rawReport);
 
     // report was already processed
     if (s_reports[workflowExecutionId] != address(0)) {

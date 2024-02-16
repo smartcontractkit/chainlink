@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
 // solhint-disable custom-errors
 library Utils {
   // solhint-disable avoid-low-level-calls, chainlink-solidity/explicit-returns
-  function splitSignature(bytes memory sig) public pure returns (bytes32 r, bytes32 s, uint8 v) {
+  function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
     require(sig.length == 65, "invalid signature length");
 
     assembly {
@@ -26,7 +29,9 @@ library Utils {
   }
 
   // solhint-disable avoid-low-level-calls, chainlink-solidity/explicit-returns
-  function splitReport(bytes memory rawReport) public pure returns (bytes32 workflowId, bytes32 workflowExecutionId) {
+  function _splitReport(
+    bytes memory rawReport
+  ) internal pure returns (bytes32 workflowId, bytes32 workflowExecutionId) {
     require(rawReport.length > 64, "invalid report length");
     assembly {
       // skip first 32 bytes, contains length of the report
