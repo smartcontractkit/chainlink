@@ -34,14 +34,8 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
     return super._getTransmitters();
   }
 
-  function report_HARNESS(
-    uint256 initialGas,
-    address transmitter,
-    uint8 signerCount,
-    address[MAX_NUM_ORACLES] memory signers,
-    bytes calldata report
-  ) external {
-    return super._report(initialGas, transmitter, signerCount, signers, report);
+  function report_HARNESS(DecodedReport memory decodedReport) external {
+    return super._report(decodedReport);
   }
 
   function onlyOwner_HARNESS() external view {

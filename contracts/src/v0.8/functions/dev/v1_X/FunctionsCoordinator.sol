@@ -125,14 +125,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     return s_transmitters;
   }
 
-  /// @dev Report hook called within OCR2Base.sol
-  function _report(
-    uint256 /*initialGas*/,
-    address /*transmitter*/,
-    uint8 /*signerCount*/,
-    address[MAX_NUM_ORACLES] memory /*signers*/,
+  function _beforeTransmit(
     bytes calldata report
-  ) internal override {
+  ) internal view override returns (bool shouldStop, DecodedReport memory decodedReport) {
     (
       bytes32[] memory requestIds,
       bytes[] memory results,
@@ -152,15 +147,44 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert ReportInvalid("Fields must be equal length");
     }
 
+    for (uint256 i = 0; i < numberOfFulfillments; ++i) {
+      if (_isExistingRequest(requestIds[i])) {
+        // If there is an existing request, validate report
+        // Leave shouldStop to default, false
+        break;
+      }
+      if (i == numberOfFulfillments - 1) {
+        // If the last fulfillment on the report does not exist, then all are duplicates
+        // Indicate that it's safe to stop to save on the gas of validating the report
+        shouldStop = true;
+      }
+    }
+
+    return (
+      shouldStop,
+      DecodedReport({
+        requestIds: requestIds,
+        results: results,
+        errors: errors,
+        onchainMetadata: onchainMetadata,
+        offchainMetadata: offchainMetadata
+      })
+    );
+  }
+
+  /// @dev Report hook called within OCR2Base.sol
+  function _report(DecodedReport memory decodedReport) internal override {
+    uint256 numberOfFulfillments = uint8(decodedReport.requestIds.length);
+
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
     for (uint256 i = 0; i < numberOfFulfillments; ++i) {
       FunctionsResponse.FulfillResult result = FunctionsResponse.FulfillResult(
         _fulfillAndBill(
-          requestIds[i],
-          results[i],
-          errors[i],
-          onchainMetadata[i],
-          offchainMetadata[i],
+          decodedReport.requestIds[i],
+          decodedReport.results[i],
+          decodedReport.errors[i],
+          decodedReport.onchainMetadata[i],
+          decodedReport.offchainMetadata[i],
           uint8(numberOfFulfillments) // will not exceed "MaxRequestBatchSize" on the Job's ReportingPluginConfig
         )
       );
@@ -172,7 +196,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         result == FunctionsResponse.FulfillResult.FULFILLED ||
         result == FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR
       ) {
-        emit OracleResponse(requestIds[i], msg.sender);
+        emit OracleResponse(decodedReport.requestIds[i], msg.sender);
       }
     }
   }
