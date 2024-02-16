@@ -2,11 +2,7 @@ module github.com/smartcontractkit/chainlink/integration-tests
 
 go 1.21.7
 
-// Make sure we're working with the latest chainlink libs
-replace github.com/smartcontractkit/chainlink/v2 => ../
-
 require (
-	github.com/K-Phoen/grabana v0.22.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/cli/go-gh/v2 v2.0.0
 	github.com/ethereum/go-ethereum v1.13.8
@@ -27,17 +23,15 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240219152510-85226a0fbdc1
 	github.com/smartcontractkit/chainlink-testing-framework v1.23.5
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/libocr v0.0.0-20240215150045-fe2ba71b2f0a
-	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wasp v0.4.2
+	github.com/smartcontractkit/wasp v0.4.3
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	github.com/test-go/testify v1.1.4
 	github.com/testcontainers/testcontainers-go v0.23.0
 	github.com/umbracle/ethgo v0.1.3
 	go.dedis.ch/kyber/v3 v3.1.0
-	go.uber.org/ratelimit v0.2.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/text v0.14.0
@@ -76,6 +70,7 @@ require (
 	github.com/CosmWasm/wasmd v0.40.1 // indirect
 	github.com/CosmWasm/wasmvm v1.2.4 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
+	github.com/K-Phoen/grabana v0.22.1 // indirect
 	github.com/K-Phoen/sdk v0.12.4 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -284,7 +279,6 @@ require (
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
-	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -377,6 +371,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240216142700-c5869534c19e // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240213121419-1272736c2ac0 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
@@ -434,6 +429,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/goleak v1.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/ratelimit v0.2.0 // indirect
 	go4.org/netipx v0.0.0-20230125063823-8449b0a6169f // indirect
 	golang.org/x/arch v0.7.0 // indirect
 	golang.org/x/crypto v0.19.0 // indirect
