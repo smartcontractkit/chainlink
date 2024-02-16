@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {IForwarder} from "./interfaces/IForwarder.sol";
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {Utils} from "./libraries/Utils.sol";
 
 // solhint-disable custom-errors, no-unused-vars
 contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
@@ -19,46 +20,14 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
   constructor() ConfirmedOwner(msg.sender) {}
 
-  // solhint-disable avoid-low-level-calls, chainlink-solidity/explicit-returns
-  function splitSignature(bytes memory sig) public pure returns (bytes32 r, bytes32 s, uint8 v) {
-    require(sig.length == 65, "invalid signature length");
-
-    assembly {
-      /*
-      First 32 bytes stores the length of the signature
-
-      add(sig, 32) = pointer of sig + 32
-      effectively, skips first 32 bytes of signature
-
-      mload(p) loads next 32 bytes starting at the memory address p into memory
-      */
-
-      // first 32 bytes, after the length prefix
-      r := mload(add(sig, 32))
-      // second 32 bytes
-      s := mload(add(sig, 64))
-      // final byte (first byte of the next 32 bytes)
-      v := byte(0, mload(add(sig, 96)))
-    }
-
-    // implicitly return (r, s, v)
-  }
-
-  // solhint-disable avoid-low-level-calls, chainlink-solidity/explicit-returns
-  function splitReport(bytes memory rawReport) public pure returns (bytes32 workflowId, bytes32 workflowExecutionId) {
-    require(rawReport.length > 64, "invalid report length");
-    assembly {
-      workflowId := mload(add(rawReport, 4))
-      workflowExecutionId := mload(add(rawReport, 36)) // 4 + 32
-    }
-  }
-
   // send a report to targetAddress
   function report(
     address targetAddress,
     bytes calldata data,
     bytes[] calldata signatures
   ) external nonReentrant returns (bool) {
+    require(data.length > 4 + 64, "invalid data length");
+
     // data is an encoded call with the selector prefixed: (bytes4 selector, bytes report, ...)
     // we are able to partially decode just the first param, since we don't know the rest
     bytes memory rawReport = abi.decode(data[4:], (bytes));
@@ -70,12 +39,12 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     // validate signatures
     for (uint256 i = 0; i < signatures.length; i++) {
       // TODO: is libocr-style multiple bytes32 arrays more optimal?
-      (bytes32 r, bytes32 s, uint8 v) = splitSignature(signatures[i]);
+      (bytes32 r, bytes32 s, uint8 v) = Utils.splitSignature(signatures[i]);
       address signer = ecrecover(hash, v, r, s);
       // TODO: we need to store oracle cluster similar to aggregator then, to validate valid signer list
     }
 
-    (bytes32 workflowId, bytes32 workflowExecutionId) = splitReport(rawReport);
+    (bytes32 workflowId, bytes32 workflowExecutionId) = Utils.splitReport(rawReport);
 
     // report was already processed
     if (s_reports[workflowExecutionId] != address(0)) {
