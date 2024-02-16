@@ -27,12 +27,17 @@ describe('ScrollSequencerUptimeFeed', () => {
 
     l2CrossDomainMessenger = await l2CrossDomainMessengerFactory.deploy()
 
+    const l2MessengerAddress = ethers.utils.getAddress(
+      BigNumber.from(l1Owner.address)
+        .add('0x1111000000000000000000000000000000001111')
+        .toHexString(),
+    )
     // Pretend we're on L2
     await network.provider.request({
       method: 'hardhat_impersonateAccount',
-      params: [l2CrossDomainMessenger.address],
+      params: [l2MessengerAddress],
     })
-    l2Messenger = await ethers.getSigner(l2CrossDomainMessenger.address)
+    l2Messenger = await ethers.getSigner(l2MessengerAddress)
     // Credit the L2 messenger with some ETH
     await dummy.sendTransaction({
       to: l2Messenger.address,
@@ -304,7 +309,7 @@ describe('ScrollSequencerUptimeFeed', () => {
       // Assert no update
       expect(await scrollUptimeFeed.latestAnswer()).to.equal(0)
       expect(noUpdateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        38594,
+        35912,
         gasUsedDeviation,
       )
 
@@ -317,7 +322,7 @@ describe('ScrollSequencerUptimeFeed', () => {
       // Assert update
       expect(await scrollUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        58458,
+        55770,
         gasUsedDeviation,
       )
     })
@@ -391,7 +396,7 @@ describe('ScrollSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28145,
+          28035,
           gasUsedDeviation,
         )
       })

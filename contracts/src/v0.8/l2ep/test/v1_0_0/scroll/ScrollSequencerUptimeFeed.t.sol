@@ -11,6 +11,9 @@ contract ScrollSequencerUptimeFeedTest is L2EPTest {
   /// Constants
   uint256 internal constant GAS_USED_DEVIATION = 100;
 
+  /// Helper variable(s)
+  address internal s_l2MessengerAddr = toScrollL2AliasAddress(s_l1OwnerAddr);
+
   /// L2EP contracts
   MockScrollL1CrossDomainMessenger internal s_mockScrollL1CrossDomainMessenger;
   MockScrollL2CrossDomainMessenger internal s_mockScrollL2CrossDomainMessenger;
@@ -85,8 +88,7 @@ contract ScrollSequencerUptimeFeed_UpdateStatus is ScrollSequencerUptimeFeedTest
   /// @notice it should update status when status has not changed and incoming timestamp is the same as latest
   function test_UpdateStatusWhenNoChange() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Fetches the latest timestamp
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp();
@@ -134,8 +136,7 @@ contract ScrollSequencerUptimeFeed_UpdateStatus is ScrollSequencerUptimeFeedTest
   /// @notice it should update status when status has changed and incoming timestamp is newer than the latest
   function test_UpdateStatusWhenStatusChangeAndTimeChange() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Submits a status update
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp();
@@ -157,8 +158,7 @@ contract ScrollSequencerUptimeFeed_UpdateStatus is ScrollSequencerUptimeFeedTest
   /// @notice it should update status when status has changed and incoming timestamp is the same as latest
   function test_UpdateStatusWhenStatusChangeAndNoTimeChange() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Fetches the latest timestamp
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp();
@@ -181,8 +181,7 @@ contract ScrollSequencerUptimeFeed_UpdateStatus is ScrollSequencerUptimeFeedTest
   /// @notice it should ignore out-of-order updates
   function test_IgnoreOutOfOrderUpdates() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Submits a status update
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp() + 10000;
@@ -205,8 +204,7 @@ contract ScrollSequencerUptimeFeed_AggregatorV3Interface is ScrollSequencerUptim
   /// @notice it should return valid answer from getRoundData and latestRoundData
   function test_AggregatorV3Interface() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables
     uint80 roundId;
@@ -327,8 +325,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
   /// @notice it should consume a known amount of gas for updates
   function test_GasCosts() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Assert initial conditions
     uint256 timestamp = s_scrollSequencerUptimeFeed.latestTimestamp();
@@ -340,7 +337,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
     uint256 gasFinal;
 
     // measures gas used for no update
-    expectedGasUsed = 10197; // NOTE: used to be 38594 in hardhat tests
+    expectedGasUsed = 7513; // NOTE: used to be 38594 in hardhat tests
     gasStart = gasleft();
     s_scrollSequencerUptimeFeed.updateStatus(false, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -348,7 +345,7 @@ contract ScrollSequencerUptimeFeed_GasCosts is ScrollSequencerUptimeFeedTest {
     assertGasUsageIsCloseTo(expectedGasUsed, gasStart, gasFinal, GAS_USED_DEVIATION);
 
     // measures gas used for update
-    expectedGasUsed = 31644; // NOTE: used to be 58458 in hardhat tests
+    expectedGasUsed = 30953; // NOTE: used to be 58458 in hardhat tests
     gasStart = gasleft();
     s_scrollSequencerUptimeFeed.updateStatus(true, uint64(timestamp + 1000));
     gasFinal = gasleft();
@@ -361,8 +358,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
   /// @notice it should consume a known amount of gas for getRoundData(uint80)
   function test_GasUsageForGetRoundData() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
     uint256 expectedGasUsed = 4504; // NOTE: used to be 30952 in hardhat tesst
@@ -385,8 +381,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
   /// @notice it should consume a known amount of gas for latestRoundData()
   function test_GasUsageForLatestRoundData() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
     uint256 expectedGasUsed = 2154; // NOTE: used to be 28523 in hardhat tests
@@ -409,8 +404,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
   /// @notice it should consume a known amount of gas for latestAnswer()
   function test_GasUsageForLatestAnswer() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
     uint256 expectedGasUsed = 1566; // NOTE: used to be 28229 in hardhat tests
@@ -433,8 +427,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
   /// @notice it should consume a known amount of gas for latestTimestamp()
   function test_GasUsageForLatestTimestamp() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
     uint256 expectedGasUsed = 1459; // NOTE: used to be 28129 in hardhat tests
@@ -457,8 +450,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
   /// @notice it should consume a known amount of gas for latestRound()
   function test_GasUsageForLatestRound() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
     uint256 expectedGasUsed = 1470; // NOTE: used to be 28145 in hardhat tests
@@ -481,8 +473,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
   /// @notice it should consume a known amount of gas for getAnswer()
   function test_GasUsageForGetAnswer() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
     uint256 expectedGasUsed = 3929; // NOTE: used to be 30682 in hardhat tests
@@ -505,8 +496,7 @@ contract ScrollSequencerUptimeFeed_AggregatorInterfaceGasCosts is ScrollSequence
   /// @notice it should consume a known amount of gas for getTimestamp()
   function test_GasUsageForGetTimestamp() public {
     // Sets msg.sender and tx.origin to a valid address
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(s_l2MessengerAddr, s_l2MessengerAddr);
 
     // Defines helper variables for measuring gas usage
     uint256 expectedGasUsed = 3817; // NOTE: used to be 30570 in hardhat tests

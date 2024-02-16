@@ -79,4 +79,10 @@ contract L2EPTest is Test {
   function toArbitrumL2AliasAddress(address l1Address) public pure returns (address) {
     return address(uint160(l1Address) + uint160(0x1111000000000000000000000000000000001111));
   }
+
+  /// @param l1Address - Address on L1
+  /// @return a Scroll L2 address
+  function toScrollL2AliasAddress(address l1Address) public pure returns (address) {
+    return address(uint160(l1Address) + uint160(0x1111000000000000000000000000000000001111));
+  }
 }
