@@ -633,6 +633,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 			return false
 		}
 
+		// TODO: loop through all attempts since any of them can have a receipt
 		if tx.TxAttempts[0].Receipts == nil || len(tx.TxAttempts[0].Receipts) == 0 {
 			return false
 		}
@@ -845,15 +846,18 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
 			return false
 		}
-		attempt := tx.TxAttempts[0]
-		if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
-			return false
-		}
-		if attempt.Receipts[0].GetBlockNumber() == nil {
-			return false
+
+		for _, attempt := range tx.TxAttempts {
+			if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+				continue
+			}
+			if attempt.Receipts[0].GetBlockNumber() == nil {
+				continue
+			}
+			return attempt.Receipts[0].GetBlockNumber().Int64() >= blockNum
 		}
 
-		return attempt.Receipts[0].GetBlockNumber().Int64() >= blockNum
+		return false
 	}
 
 	txsLock := sync.Mutex{}
@@ -947,23 +951,22 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapT
 		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
 			return false
 		}
-		attempt := tx.TxAttempts[0]
-		if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
-			return false
+		for _, attempt := range tx.TxAttempts {
+			if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+				continue
+			}
+			if attempt.Receipts[0].GetBlockNumber() == nil {
+				continue
+			}
+			if attempt.Receipts[0].GetBlockNumber().Int64() >= minBlockNumberToKeep {
+				continue
+			}
+			if tx.CreatedAt.After(timeThreshold) {
+				continue
+			}
+			return tx.State == TxConfirmed
 		}
-		if attempt.Receipts[0].GetBlockNumber() == nil {
-			return false
-		}
-		if attempt.Receipts[0].GetBlockNumber().Int64() >= minBlockNumberToKeep {
-			return false
-		}
-		if tx.CreatedAt.After(timeThreshold) {
-			return false
-		}
-		if tx.State != TxConfirmed {
-			return false
-		}
-		return true
+		return false
 	}
 
 	wg := sync.WaitGroup{}
@@ -1037,7 +1040,12 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 			return false
 		}
 
-		return tx.TxAttempts[0].ID == attempt.ID
+		for _, a := range tx.TxAttempts {
+			if a.ID == attempt.ID {
+				return true
+			}
+		}
+		return false
 	}
 	as.DeleteTxs(as.FetchTxs(nil, filter)...)
 
@@ -1060,9 +1068,12 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
 			return false
 		}
-		attempt := tx.TxAttempts[0]
-
-		return attempt.State == txmgrtypes.TxAttemptInsufficientFunds
+		for _, attempt := range tx.TxAttempts {
+			if attempt.State == txmgrtypes.TxAttemptInsufficientFunds {
+				return true
+			}
+		}
+		return false
 	}
 	states := []txmgrtypes.TxState{TxUnconfirmed}
 	txs := as.FetchTxs(states, filter)
@@ -1153,18 +1164,23 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
 			return false
 		}
-		attempt := tx.TxAttempts[0]
-		if attempt.State != txmgrtypes.TxAttemptBroadcast {
-			return false
+		for _, attempt := range tx.TxAttempts {
+			if attempt.State != txmgrtypes.TxAttemptBroadcast {
+				continue
+			}
+			if len(attempt.Receipts) == 0 {
+				continue
+			}
+			if attempt.Receipts[0].GetBlockNumber() == nil {
+				continue
+			}
+			blockNum := attempt.Receipts[0].GetBlockNumber().Int64()
+			if blockNum >= lowBlockNumber && blockNum <= highBlockNumber {
+				return true
+			}
 		}
-		if len(attempt.Receipts) == 0 {
-			return false
-		}
-		if attempt.Receipts[0].GetBlockNumber() == nil {
-			return false
-		}
-		blockNum := attempt.Receipts[0].GetBlockNumber().Int64()
-		return blockNum >= lowBlockNumber && blockNum <= highBlockNumber
+
+		return false
 	}
 	states := []txmgrtypes.TxState{TxConfirmed, TxConfirmedMissingReceipt}
 	txsLock := sync.Mutex{}
@@ -1240,8 +1256,14 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
 			return false
 		}
-		attempt := tx.TxAttempts[0]
-		return attempt.BroadcastBeforeBlockNum != nil
+
+		for _, attempt := range tx.TxAttempts {
+			if attempt.BroadcastBeforeBlockNum != nil {
+				return true
+			}
+		}
+
+		return false
 	}
 	states := []txmgrtypes.TxState{TxUnconfirmed}
 	txsLock := sync.Mutex{}
