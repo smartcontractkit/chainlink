@@ -151,8 +151,6 @@ type logEventBuffer struct {
 	blocks []fetchedBlock
 	// latestBlock is the latest block number seen
 	latestBlock int64
-	// logsInBuffer is the number of logs currently in the buffer
-	logsInBuffer int64
 }
 
 func newLogEventBuffer(lggr logger.Logger, size, numOfLogUpkeeps, fastExecLogsHigh int) *logEventBuffer {
@@ -233,7 +231,7 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 	}
 	if added > 0 {
 		lggr.Debugw("Added logs to buffer", "addedLogs", added, "dropped", dropped, "latestBlock", latestBlock)
-		prommetrics.AutomationLogsInLogBuffer.Set(float64(atomic.AddInt64(&b.logsInBuffer, int64(added-dropped))))
+		prommetrics.AutomationLogsInLogBuffer.Add(float64(added - dropped))
 	}
 
 	return added - dropped
@@ -335,7 +333,7 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit, totalLimit 
 
 	if len(results) > 0 {
 		b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
-		prommetrics.AutomationLogsInLogBuffer.Set(float64(atomic.AddInt64(&b.logsInBuffer, -int64(len(results)))))
+		prommetrics.AutomationLogsInLogBuffer.Sub(float64(len(results)))
 	}
 
 	return results
