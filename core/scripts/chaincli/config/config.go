@@ -157,7 +157,7 @@ func init() {
 	viper.SetDefault("CHECK_GAS_LIMIT", 650000000)
 	viper.SetDefault("STALENESS_SECONDS", 90000)
 	viper.SetDefault("GAS_CEILING_MULTIPLIER", 1)
-	viper.SetDefault("FALLBACK_GAS_PRICE", 200000000000)
+	viper.SetDefault("FALLBACK_GAS_PRICE", 10000000000000)
 	viper.SetDefault("FALLBACK_LINK_PRICE", 20000000000000000)
 	viper.SetDefault("CHAINLINK_DOCKER_IMAGE", "smartcontract/chainlink:1.13.0-root")
 	viper.SetDefault("POSTGRES_DOCKER_IMAGE", "postgres:latest")
