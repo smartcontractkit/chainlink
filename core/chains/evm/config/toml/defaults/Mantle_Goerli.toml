@@ -1,5 +1,4 @@
 ChainID = '5001'
-ChainType = 'optimismBedrock'
 LinkContractAddress = '0xB80e1F300D0260E8840A9E9017b221244974A5E5'
 FinalityDepth = 200
 LogPollInterval = '2s'
