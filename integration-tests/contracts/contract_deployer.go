@@ -1596,6 +1596,8 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		la := common.HexToAddress(linkAddr)
+		auth.GasLimit = uint64(100000000000) // 11,885,630,143 | 100 000 000 000
+		auth.GasPrice = big.NewInt(10000000000)
 		return ocr2aggregator.DeployOCR2Aggregator(
 			auth,
 			backend,
