@@ -2,6 +2,9 @@ module github.com/smartcontractkit/chainlink/integration-tests
 
 go 1.21.7
 
+// Make sure we're working with the latest chainlink libs
+replace github.com/smartcontractkit/chainlink/v2 => ../
+
 require (
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/cli/go-gh/v2 v2.0.0
@@ -23,9 +26,9 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240219152510-85226a0fbdc1
 	github.com/smartcontractkit/chainlink-testing-framework v1.23.5
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
-	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216011255-187dafb507cf
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240215150045-fe2ba71b2f0a
-	github.com/smartcontractkit/wasp v0.4.3
+	github.com/smartcontractkit/wasp v0.4.2
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	github.com/test-go/testify v1.1.4
@@ -121,7 +124,6 @@ require (
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/containerd/containerd v1.7.7 // indirect
-	github.com/containerd/continuity v0.4.3 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -200,7 +202,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.15.5 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
-	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/go-webauthn/webauthn v0.9.4 // indirect
 	github.com/go-webauthn/x v0.1.5 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
@@ -332,7 +333,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
-	github.com/opencontainers/runc v1.1.10 // indirect
+	github.com/opencontainers/runc v1.1.7 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e // indirect
 	github.com/opentracing-contrib/go-stdlib v1.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect

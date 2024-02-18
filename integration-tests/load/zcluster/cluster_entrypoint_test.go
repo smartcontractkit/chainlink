@@ -15,9 +15,11 @@ func TestClusterEntrypoint(t *testing.T) {
 	require.NoError(t, err)
 
 	p, err := wasp.NewClusterProfile(&wasp.ClusterConfig{
-		Namespace:    "wasp",
-		UpdateImage:  true,
-		BuildCtxPath: "..",
+		Namespace: "wasp",
+		KeepJobs:  true,
+		//UpdateImage:       true,
+		DockerCmdExecPath: "../../..",
+		BuildCtxPath:      "integration-tests/load",
 		HelmValues: map[string]string{
 			"env.loki.url":        os.Getenv("LOKI_URL"),
 			"env.loki.token":      os.Getenv("LOKI_TOKEN"),
