@@ -1,5 +1,5 @@
-ChainID = '5001'
-LinkContractAddress = '0xB80e1F300D0260E8840A9E9017b221244974A5E5'
+ChainID = '5003'
+LinkContractAddress = '0x567B10818d6fdD653F0331b5Df08968Ca826bE88'
 FinalityDepth = 200
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '0'
