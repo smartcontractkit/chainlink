@@ -15,24 +15,7 @@ import (
 func TestOCRSoak(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
-	customNetworkTOML := `
-	ChainID = '5001'
-	LinkContractAddress = '0xB80e1F300D0260E8840A9E9017b221244974A5E5'
-	FinalityDepth = 200
-	LogPollInterval = '2s'
-	NoNewHeadsThreshold = '0'
-	MinIncomingConfirmations = 1
-	
-	[HeadTracker]
-	HistoryDepth = 300
-	
-	[GasEstimator]
-	Mode = 'L2Suggested'
-	PriceMin = '0.05 gwei' 
-	PriceMax = '500 gwei'
-	BumpThreshold = 0
-	LimitDefault = 6000000	
-	`
+	customNetworkTOML := ``
 	// Uncomment below for debugging TOML issues on the node
 	// network := networks.MustGetSelectedNetworksFromEnv()[0]
 	// fmt.Println("Using Chainlink TOML\n---------------------")
