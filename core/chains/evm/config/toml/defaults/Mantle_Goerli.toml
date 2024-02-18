@@ -11,7 +11,7 @@ HistoryDepth = 300
 [GasEstimator]
 Mode = 'L2Suggested'
 PriceMin = '0.05 gwei' 
-PriceMax = '1000 gwei'
+PriceMax = '500 gwei'
 BumpThreshold = 0
 LimitDefault = 6000000
 
