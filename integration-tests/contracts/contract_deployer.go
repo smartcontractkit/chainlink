@@ -522,8 +522,6 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		auth.GasLimit = uint64(1500000)
-		auth.GasPrice = big.NewInt(500000000000)
 		return link_token_interface.DeployLinkToken(auth, backend)
 	})
 	if err != nil {
