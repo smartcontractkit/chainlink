@@ -256,7 +256,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 
 		return encodedOnchainConfig, err
 	} else if rcs.RegistryVersion == ethereum.RegistryVersion_2_2 {
-		chainModuleBaseAddr, _, _, err := client.DeployContract("ChainModuleBase", func(
+		chainModuleBaseAddr, _, _, _ := client.DeployContract("ChainModuleBase", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {

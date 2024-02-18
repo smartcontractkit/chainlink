@@ -1134,18 +1134,8 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		}, err
 
 	case eth_contracts.RegistryVersion_2_1:
-		automationForwarderLogicAddr, _, _, err := e.client.DeployContract("automationForwarderLogic", func(
-			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
-			return automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend)
-		})
-
+		automationForwarderLogicAddr, err := deployAutomationForwarderLogic(e.client)
 		if err != nil {
-			return nil, err
-		}
-
-		if err := e.client.WaitForEvents(); err != nil {
 			return nil, err
 		}
 
@@ -1221,18 +1211,8 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			address:     address,
 		}, err
 	case eth_contracts.RegistryVersion_2_2:
-		automationForwarderLogicAddr, _, _, err := e.client.DeployContract("automationForwarderLogic", func(
-			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
-			return automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend)
-		})
-
+		automationForwarderLogicAddr, err := deployAutomationForwarderLogic(e.client)
 		if err != nil {
-			return nil, err
-		}
-
-		if err := e.client.WaitForEvents(); err != nil {
 			return nil, err
 		}
 
@@ -1310,6 +1290,24 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", opts.RegistryVersion)
 	}
+}
+
+func deployAutomationForwarderLogic(client blockchain.EVMClient) (*common.Address, error) {
+	automationForwarderLogicAddr, _, _, err := client.DeployContract("automationForwarderLogic", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := client.WaitForEvents(); err != nil {
+		return nil, err
+	}
+	return automationForwarderLogicAddr, nil
 }
 
 // LoadKeeperRegistry returns deployed on given address EthereumKeeperRegistry
