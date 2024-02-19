@@ -25,6 +25,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseSelector(t *testing.T) {
@@ -122,5 +124,37 @@ func TestParseSignature(t *testing.T) {
 		if !reflect.DeepEqual(selector.Inputs, tt.args) {
 			t.Errorf("test %d: unexpected args: '%v' != '%v'", i, selector.Inputs, tt.args)
 		}
+	}
+}
+
+func TestParseSignatureErrors(t *testing.T) {
+	type errorTestCases struct {
+		description   string
+		input         string
+		expectedError string
+	}
+
+	for _, scenario := range []errorTestCases{
+		{
+			description:   "invalid name",
+			input:         "123()",
+			expectedError: "failed to parse selector identifier '123()': invalid token start. Expected: [a-zA-Z], received: 1",
+		},
+		{
+			description:   "missing closing parenthesis",
+			input:         "noargs(",
+			expectedError: "failed to parse selector args 'noargs(': expected ')', got ''",
+		},
+		{
+			description:   "missing opening parenthesis",
+			input:         "noargs)",
+			expectedError: "failed to parse selector args 'noargs)': expected '(', got )",
+		},
+	} {
+		t.Run(scenario.description, func(t *testing.T) {
+			_, err := ParseSignature(scenario.input)
+			require.Error(t, err)
+			assert.Equal(t, scenario.expectedError, err.Error())
+		})
 	}
 }

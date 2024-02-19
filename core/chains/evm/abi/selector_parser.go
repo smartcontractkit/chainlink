@@ -22,9 +22,12 @@ package abi
 import (
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
+
+var alphaRegex = regexp.MustCompile(`[a-zA-Z]`)
 
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
@@ -42,11 +45,13 @@ func parseToken(unescapedSelector string, isIdent bool) (string, string, error) 
 	if len(unescapedSelector) == 0 {
 		return "", "", errors.New("empty token")
 	}
+
 	firstChar := unescapedSelector[0]
-	position := 1
-	if !(isAlpha(firstChar) || (isIdent && isIdentifierSymbol(firstChar))) {
-		return "", "", fmt.Errorf("invalid token start: %c", firstChar)
+	if !(alphaRegex.MatchString(string(firstChar)) || (isIdent && isIdentifierSymbol(firstChar))) {
+		return "", "", fmt.Errorf("invalid token start. Expected: %s, received: %c", alphaRegex, firstChar)
 	}
+
+	position := 1
 	for position < len(unescapedSelector) {
 		char := unescapedSelector[position]
 		if !(isAlpha(char) || isDigit(char) || (isIdent && isIdentifierSymbol(char))) {
@@ -235,14 +240,18 @@ func ParseSelector(unescapedSelector string) (abi.SelectorMarshaling, error) {
 func ParseSignature(unescapedSelector string) (abi.SelectorMarshaling, error) {
 	name, rest, err := parseIdentifier(unescapedSelector)
 	if err != nil {
-		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector '%s': %v", unescapedSelector, err)
+		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector identifier '%s': %v", unescapedSelector, err)
 	}
 	args := []abi.ArgumentMarshaling{}
-	if len(rest) < 2 || rest[0] != '(' || rest[1] != ')' {
-		args, err = parseArgs(rest)
-		if err != nil {
-			return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector '%s': %v", unescapedSelector, err)
-		}
+
+	// Function has no arguments
+	if rest == "()" {
+		return abi.SelectorMarshaling{Name: name, Type: "function", Inputs: args}, nil
+	}
+
+	args, err = parseArgs(rest)
+	if err != nil {
+		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector args '%s': %v", unescapedSelector, err)
 	}
 
 	return abi.SelectorMarshaling{Name: name, Type: "function", Inputs: args}, nil
