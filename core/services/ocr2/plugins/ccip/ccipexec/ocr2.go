@@ -9,7 +9,6 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -18,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -55,7 +54,7 @@ type ExecutionPluginStaticConfig struct {
 	offRampReader            ccipdata.OffRampReader
 	commitStoreReader        ccipdata.CommitStoreReader
 	sourcePriceRegistry      ccipdata.PriceRegistryReader
-	sourceWrappedNativeToken common.Address
+	sourceWrappedNativeToken cciptypes.Address
 	tokenDataWorker          tokendata.Worker
 	destChainSelector        uint64
 	priceRegistryProvider    ccipdataprovider.PriceRegistry
@@ -67,21 +66,23 @@ type ExecutionReportingPlugin struct {
 	// Misc
 	F                int
 	lggr             logger.Logger
-	offchainConfig   ccipdata.ExecOffchainConfig
+	offchainConfig   cciptypes.ExecOffchainConfig
 	tokenDataWorker  tokendata.Worker
 	metricsCollector ccip.PluginMetricsCollector
 	// Source
 	gasPriceEstimator        prices.GasPriceEstimatorExec
 	sourcePriceRegistry      ccipdata.PriceRegistryReader
-	sourceWrappedNativeToken common.Address
+	sourceWrappedNativeToken cciptypes.Address
 	onRampReader             ccipdata.OnRampReader
 	// Dest
+
 	commitStoreReader      ccipdata.CommitStoreReader
 	destPriceRegistry      ccipdata.PriceRegistryReader
-	destWrappedNative      common.Address
-	onchainConfig          ccipdata.ExecOnchainConfig
+	destWrappedNative      cciptypes.Address
+	onchainConfig          cciptypes.ExecOnchainConfig
 	offRampReader          ccipdata.OffRampReader
 	tokenPoolBatchedReader batchreader.TokenPoolBatchedReader
+
 	// State
 	inflightReports *inflightExecReportsContainer
 	snoozedRoots    cache.SnoozedRoots
@@ -156,7 +157,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			return nil, err
 		}
 
-		getDestPoolRateLimits := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
+		getDestPoolRateLimits := cache.LazyFetch(func() (map[cciptypes.Address]*big.Int, error) {
 			tokenExecData, err1 := getExecTokenData()
 			if err1 != nil {
 				return nil, err1
@@ -235,15 +236,15 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 
 // destPoolRateLimits returns a map that consists of the rate limits of each destination token of the provided reports.
 // If a token is missing from the returned map it either means that token was not found or token pool is disabled for this token.
-func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commitReports []commitReportWithSendRequests, sourceToDestToken map[common.Address]common.Address) (map[common.Address]*big.Int, error) {
+func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commitReports []commitReportWithSendRequests, sourceToDestToken map[cciptypes.Address]cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
 	tokens, err := r.offRampReader.GetTokens(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get cached token pools: %w", err)
 	}
 
-	dstTokenToPool := make(map[common.Address]common.Address)
-	dstPoolToToken := make(map[common.Address]common.Address)
-	dstPoolAddresses := make([]common.Address, 0)
+	dstTokenToPool := make(map[cciptypes.Address]cciptypes.Address)
+	dstPoolToToken := make(map[cciptypes.Address]cciptypes.Address)
+	dstPoolAddresses := make([]cciptypes.Address, 0)
 
 	for _, msg := range commitReports {
 		for _, req := range msg.sendRequestsWithMeta {
@@ -281,7 +282,7 @@ func (r *ExecutionReportingPlugin) destPoolRateLimits(ctx context.Context, commi
 		return nil, fmt.Errorf("fetch pool rate limits: %w", err)
 	}
 
-	res := make(map[common.Address]*big.Int, len(dstTokenToPool))
+	res := make(map[cciptypes.Address]*big.Int, len(dstTokenToPool))
 	for i, rateLimit := range rateLimits {
 		// if the rate limit is disabled for this token pool then we omit it from the result
 		if !rateLimit.IsEnabled {
@@ -313,7 +314,7 @@ func (r *ExecutionReportingPlugin) getExecutedSeqNrsInRange(ctx context.Context,
 	}
 	executedMp := make(map[uint64]bool, len(stateChanges))
 	for _, stateChange := range stateChanges {
-		executedMp[stateChange.Data.SequenceNumber] = stateChange.Data.Finalized
+		executedMp[stateChange.SequenceNumber] = stateChange.Finalized
 	}
 	return executedMp, nil
 }
@@ -327,11 +328,11 @@ func (r *ExecutionReportingPlugin) buildBatch(
 	report commitReportWithSendRequests,
 	inflight []InflightInternalExecutionReport,
 	aggregateTokenLimit *big.Int,
-	sourceTokenPricesUSD map[common.Address]*big.Int,
-	destTokenPricesUSD map[common.Address]*big.Int,
-	gasPrice prices.GasPrice,
-	sourceToDestToken map[common.Address]common.Address,
-	destTokenPoolRateLimits map[common.Address]*big.Int,
+	sourceTokenPricesUSD map[cciptypes.Address]*big.Int,
+	destTokenPricesUSD map[cciptypes.Address]*big.Int,
+	gasPrice *big.Int,
+	sourceToDestToken map[cciptypes.Address]cciptypes.Address,
+	destTokenPoolRateLimits map[cciptypes.Address]*big.Int,
 ) (executableMessages []ccip.ObservedMessage) {
 	inflightSeqNrs, inflightAggregateValue, maxInflightSenderNonces, inflightTokenAmounts, err := inflightAggregates(inflight, destTokenPricesUSD, sourceToDestToken)
 	if err != nil {
@@ -339,11 +340,11 @@ func (r *ExecutionReportingPlugin) buildBatch(
 		return []ccip.ObservedMessage{}
 	}
 	availableGas := uint64(r.offchainConfig.BatchGasLimit)
-	expectedNonces := make(map[common.Address]uint64)
+	expectedNonces := make(map[cciptypes.Address]uint64)
 	availableDataLen := MaxDataLenPerBatch
 	tokenDataRemainingDuration := MaximumAllowedTokenDataWaitTimePerBatch
 	for _, msg := range report.sendRequestsWithMeta {
-		msgLggr := lggr.With("messageID", hexutil.Encode(msg.MessageId[:]))
+		msgLggr := lggr.With("messageID", hexutil.Encode(msg.MessageID[:]))
 		if msg.Executed {
 			msgLggr.Infow("Skipping message already executed", "seqNr", msg.SequenceNumber)
 			continue
@@ -487,7 +488,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 // Stops and returns an error if more than allowedWaitingTime is passed.
 func (r *ExecutionReportingPlugin) getTokenDataWithTimeout(
 	ctx context.Context,
-	msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta,
+	msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta,
 	timeout time.Duration,
 ) ([][]byte, time.Duration, error) {
 	if len(msg.TokenAmounts) == 0 {
@@ -503,12 +504,12 @@ func (r *ExecutionReportingPlugin) getTokenDataWithTimeout(
 }
 
 func (r *ExecutionReportingPlugin) isRateLimitEnoughForTokenPool(
-	destTokenPoolRateLimits map[common.Address]*big.Int,
-	sourceTokenAmounts []internal.TokenAmount,
-	inflightTokenAmounts map[common.Address]*big.Int,
-	sourceToDestToken map[common.Address]common.Address,
+	destTokenPoolRateLimits map[cciptypes.Address]*big.Int,
+	sourceTokenAmounts []cciptypes.TokenAmount,
+	inflightTokenAmounts map[cciptypes.Address]*big.Int,
+	sourceToDestToken map[cciptypes.Address]cciptypes.Address,
 ) bool {
-	rateLimitsCopy := make(map[common.Address]*big.Int)
+	rateLimitsCopy := make(map[cciptypes.Address]*big.Int)
 	for destToken, rl := range destTokenPoolRateLimits {
 		rateLimitsCopy[destToken] = new(big.Int).Set(rl)
 	}
@@ -568,8 +569,8 @@ func calculateMessageMaxGas(gasLimit *big.Int, numRequests, dataLen, numTokens i
 
 // helper struct to hold the commitReport and the related send requests
 type commitReportWithSendRequests struct {
-	commitReport         ccipdata.CommitStoreReport
-	sendRequestsWithMeta []internal.EVM2EVMOnRampCCIPSendRequestedWithMeta
+	commitReport         cciptypes.CommitStoreReport
+	sendRequestsWithMeta []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta
 }
 
 func (r *commitReportWithSendRequests) validate() error {
@@ -592,7 +593,7 @@ func (r *commitReportWithSendRequests) allRequestsAreExecutedAndFinalized() bool
 }
 
 // checks if the send request fits the commit report interval
-func (r *commitReportWithSendRequests) sendReqFits(sendReq internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) bool {
+func (r *commitReportWithSendRequests) sendReqFits(sendReq cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) bool {
 	return sendReq.SequenceNumber >= r.commitReport.Interval.Min &&
 		sendReq.SequenceNumber <= r.commitReport.Interval.Max
 }
@@ -600,7 +601,7 @@ func (r *commitReportWithSendRequests) sendReqFits(sendReq internal.EVM2EVMOnRam
 // getReportsWithSendRequests returns the target reports with populated send requests.
 func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	ctx context.Context,
-	reports []ccipdata.CommitStoreReport,
+	reports []cciptypes.CommitStoreReport,
 ) ([]commitReportWithSendRequests, error) {
 	if len(reports) == 0 {
 		return nil, nil
@@ -621,7 +622,7 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	// use errgroup to fetch send request logs and executed sequence numbers in parallel
 	eg := &errgroup.Group{}
 
-	var sendRequests []ccipdata.Event[internal.EVM2EVMMessage]
+	var sendRequests []cciptypes.EVM2EVMMessageWithTxMeta
 	eg.Go(func() error {
 		// We don't need to double-check if logs are finalized because we already checked that in the Commit phase.
 		sendReqs, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, intervalMin, intervalMax, false)
@@ -651,21 +652,21 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	for i, report := range reports {
 		reportsWithSendReqs[i] = commitReportWithSendRequests{
 			commitReport:         report,
-			sendRequestsWithMeta: make([]internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, 0, report.Interval.Max-report.Interval.Min+1),
+			sendRequestsWithMeta: make([]cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, 0, report.Interval.Max-report.Interval.Min+1),
 		}
 	}
 
 	for _, sendReq := range sendRequests {
 		// if value exists in the map then it's executed
 		// if value exists, and it's true then it's considered finalized
-		finalized, executed := executedSeqNums[sendReq.Data.SequenceNumber]
+		finalized, executed := executedSeqNums[sendReq.SequenceNumber]
 
-		reqWithMeta := internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-			EVM2EVMMessage: sendReq.Data,
-			BlockTimestamp: sendReq.BlockTimestamp,
+		reqWithMeta := cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+			EVM2EVMMessage: sendReq.EVM2EVMMessage,
+			BlockTimestamp: time.UnixMilli(sendReq.BlockTimestampUnixMilli),
 			Executed:       executed,
 			Finalized:      finalized,
-			LogIndex:       sendReq.LogIndex,
+			LogIndex:       uint(sendReq.LogIndex),
 			TxHash:         sendReq.TxHash,
 		}
 
@@ -680,7 +681,7 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	return reportsWithSendReqs, nil
 }
 
-func aggregateTokenValue(destTokenPricesUSD map[common.Address]*big.Int, sourceToDest map[common.Address]common.Address, tokensAndAmount []internal.TokenAmount) (*big.Int, error) {
+func aggregateTokenValue(destTokenPricesUSD map[cciptypes.Address]*big.Int, sourceToDest map[cciptypes.Address]cciptypes.Address, tokensAndAmount []cciptypes.TokenAmount) (*big.Int, error) {
 	sum := big.NewInt(0)
 	for i := 0; i < len(tokensAndAmount); i++ {
 		price, ok := destTokenPricesUSD[sourceToDest[tokensAndAmount[i].Token]]
@@ -889,7 +890,7 @@ func (r *ExecutionReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Cont
 	return true, err
 }
 
-func (r *ExecutionReportingPlugin) isStaleReport(ctx context.Context, messages []internal.EVM2EVMMessage) (bool, error) {
+func (r *ExecutionReportingPlugin) isStaleReport(ctx context.Context, messages []cciptypes.EVM2EVMMessage) (bool, error) {
 	if len(messages) == 0 {
 		return true, fmt.Errorf("messages are empty")
 	}
@@ -901,7 +902,7 @@ func (r *ExecutionReportingPlugin) isStaleReport(ctx context.Context, messages [
 	if err != nil {
 		return true, err
 	}
-	if state := ccipdata.MessageExecutionState(msgState); state == ccipdata.ExecutionStateFailure || state == ccipdata.ExecutionStateSuccess {
+	if state := cciptypes.MessageExecutionState(msgState); state == cciptypes.ExecutionStateFailure || state == cciptypes.ExecutionStateSuccess {
 		return true, nil
 	}
 
@@ -914,13 +915,13 @@ func (r *ExecutionReportingPlugin) Close() error {
 
 func inflightAggregates(
 	inflight []InflightInternalExecutionReport,
-	destTokenPrices map[common.Address]*big.Int,
-	sourceToDest map[common.Address]common.Address,
-) (mapset.Set[uint64], *big.Int, map[common.Address]uint64, map[common.Address]*big.Int, error) {
+	destTokenPrices map[cciptypes.Address]*big.Int,
+	sourceToDest map[cciptypes.Address]cciptypes.Address,
+) (mapset.Set[uint64], *big.Int, map[cciptypes.Address]uint64, map[cciptypes.Address]*big.Int, error) {
 	inflightSeqNrs := mapset.NewSet[uint64]()
 	inflightAggregateValue := big.NewInt(0)
-	maxInflightSenderNonces := make(map[common.Address]uint64)
-	inflightTokenAmounts := make(map[common.Address]*big.Int)
+	maxInflightSenderNonces := make(map[cciptypes.Address]uint64)
+	inflightTokenAmounts := make(map[cciptypes.Address]*big.Int)
 
 	for _, rep := range inflight {
 		for _, message := range rep.messages {
@@ -950,8 +951,8 @@ func inflightAggregates(
 // getTokensPrices returns token prices of the given price registry,
 // price values are USD per 1e18 of smallest token denomination, in base units 1e18 (e.g. 5$ = 5e18 USD per 1e18 units).
 // this function is used for price registry of both source and destination chains.
-func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryReader, tokens []common.Address) (map[common.Address]*big.Int, error) {
-	prices := make(map[common.Address]*big.Int)
+func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryReader, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
+	prices := make(map[cciptypes.Address]*big.Int)
 
 	fetchedPrices, err := priceRegistry.GetTokenPrices(ctx, tokens)
 	if err != nil {
@@ -987,7 +988,7 @@ func (r *ExecutionReportingPlugin) getUnexpiredCommitReports(
 	commitStoreReader ccipdata.CommitStoreReader,
 	permissionExecutionThreshold time.Duration,
 	lggr logger.Logger,
-) ([]ccipdata.CommitStoreReport, error) {
+) ([]cciptypes.CommitStoreReport, error) {
 	acceptedReports, err := commitStoreReader.GetAcceptedCommitReportsGteTimestamp(
 		ctx,
 		time.Now().Add(-permissionExecutionThreshold),
@@ -997,12 +998,12 @@ func (r *ExecutionReportingPlugin) getUnexpiredCommitReports(
 		return nil, err
 	}
 
-	var reports []ccipdata.CommitStoreReport
+	var reports []cciptypes.CommitStoreReport
 	for _, acceptedReport := range acceptedReports {
-		reports = append(reports, acceptedReport.Data)
+		reports = append(reports, acceptedReport.CommitStoreReport)
 	}
 
-	notSnoozedReports := make([]ccipdata.CommitStoreReport, 0)
+	notSnoozedReports := make([]cciptypes.CommitStoreReport, 0)
 	for _, report := range reports {
 		if r.snoozedRoots.IsSnoozed(report.MerkleRoot) {
 			lggr.Debug("Skipping snoozed root", "minSeqNr", report.Interval.Min, "maxSeqNr", report.Interval.Max)
@@ -1017,11 +1018,11 @@ func (r *ExecutionReportingPlugin) getUnexpiredCommitReports(
 }
 
 type execTokenData struct {
-	rateLimiterTokenBucket ccipdata.TokenBucketRateLimit
-	sourceTokenPrices      map[common.Address]*big.Int
-	destTokenPrices        map[common.Address]*big.Int
-	sourceToDestTokens     map[common.Address]common.Address
-	gasPrice               prices.GasPrice
+	rateLimiterTokenBucket cciptypes.TokenBucketRateLimit
+	sourceTokenPrices      map[cciptypes.Address]*big.Int
+	destTokenPrices        map[cciptypes.Address]*big.Int
+	sourceToDestTokens     map[cciptypes.Address]cciptypes.Address
+	gasPrice               *big.Int
 }
 
 // prepareTokenExecData gather all the pre-execution data needed for token execution into a single lazy call.
@@ -1047,7 +1048,7 @@ func (r *ExecutionReportingPlugin) prepareTokenExecData(ctx context.Context) (ex
 		r.sourcePriceRegistry,
 		ccipcommon.FlattenUniqueSlice(
 			sourceFeeTokens,
-			[]common.Address{r.sourceWrappedNativeToken},
+			[]cciptypes.Address{r.sourceWrappedNativeToken},
 		),
 	)
 	if err != nil {
@@ -1064,7 +1065,7 @@ func (r *ExecutionReportingPlugin) prepareTokenExecData(ctx context.Context) (ex
 		ccipcommon.FlattenUniqueSlice(
 			destFeeTokens,
 			destBridgedTokens,
-			[]common.Address{r.destWrappedNative},
+			[]cciptypes.Address{r.destWrappedNative},
 		),
 	)
 	if err != nil {
@@ -1097,7 +1098,7 @@ func (r *ExecutionReportingPlugin) prepareTokenExecData(ctx context.Context) (ex
 // Having unexpiredReports not sorted properly will lead to fetching more messages and execution states to the memory than the messagesLimit provided.
 // However, logs from LogPoller are returned ordered by (block_number, log_index), so it should preserve the order of Interval.Min.
 // Single CommitRoot can have up to 256 messages, with current MessagesIterationStep of 800, it means processing 4 CommitRoots at once.
-func selectReportsToFillBatch(unexpiredReports []ccipdata.CommitStoreReport, messagesLimit uint64) ([]ccipdata.CommitStoreReport, int) {
+func selectReportsToFillBatch(unexpiredReports []cciptypes.CommitStoreReport, messagesLimit uint64) ([]cciptypes.CommitStoreReport, int) {
 	currentNumberOfMessages := uint64(0)
 	var index int
 

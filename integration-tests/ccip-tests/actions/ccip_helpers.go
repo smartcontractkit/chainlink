@@ -1021,17 +1021,18 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 			return fmt.Errorf("getting new onramp contractshouldn't fail %w", err)
 		}
 	}
-
-	// set remote chain on the pools
-	for _, pool := range sourceCCIP.Common.BridgeTokenPools {
-		err = pool.SetRemoteChainOnPool(sourceCCIP.DestChainSelector)
-		if err != nil {
-			return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+	if !sourceCCIP.Common.ExistingDeployment {
+		// set remote chain on the pools
+		for _, pool := range sourceCCIP.Common.BridgeTokenPools {
+			err = pool.SetRemoteChainOnPool(sourceCCIP.DestChainSelector)
+			if err != nil {
+				return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+			}
 		}
-	}
-	err = sourceCCIP.Common.ChainClient.WaitForEvents()
-	if err != nil {
-		return fmt.Errorf("waiting for events shouldn't fail %w", err)
+		err = sourceCCIP.Common.ChainClient.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("waiting for events shouldn't fail %w", err)
+		}
 	}
 	return nil
 }
@@ -1322,6 +1323,7 @@ type DestCCIPModule struct {
 	ReportAcceptedWatcher   *sync.Map
 	ExecStateChangedWatcher *sync.Map
 	ReportBlessedWatcher    *sync.Map
+	ReportBlessedBySeqNum   *sync.Map
 	NextSeqNumToCommit      *atomic.Uint64
 }
 
@@ -1454,12 +1456,13 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			return fmt.Errorf("getting new offramp shouldn't fail %w", err)
 		}
 	}
-
-	// update pools with remote chain
-	for _, pool := range destCCIP.Common.BridgeTokenPools {
-		err = pool.SetRemoteChainOnPool(destCCIP.SourceChainSelector)
-		if err != nil {
-			return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+	if !destCCIP.Common.ExistingDeployment {
+		// update pools with remote chain
+		for _, pool := range destCCIP.Common.BridgeTokenPools {
+			err = pool.SetRemoteChainOnPool(destCCIP.SourceChainSelector)
+			if err != nil {
+				return fmt.Errorf("setting remote chain on the bridge token pool shouldn't fail %w", err)
+			}
 		}
 	}
 	if destCCIP.ReceiverDapp == nil {
@@ -1694,13 +1697,30 @@ func (destCCIP *DestCCIPModule) AssertReportBlessed(
 	for {
 		select {
 		case <-ticker.C:
-			value, ok := destCCIP.ReportBlessedWatcher.Load(CommitReport.MerkleRoot)
+			var value any
+			var foundAsRoot, ok bool
+			value, foundAsRoot = destCCIP.ReportBlessedWatcher.Load(CommitReport.MerkleRoot)
 			receivedAt := time.Now().UTC()
+			ok = foundAsRoot
+			if !foundAsRoot {
+				// if the value is not found as root, check if it is found as sequence number
+				value, ok = destCCIP.ReportBlessedBySeqNum.Load(seqNum)
+			}
 			if ok && value != nil {
 				vLogs, exists := value.(*types.Log)
 				if exists {
-					// if the value is processed, delete it from the map
-					destCCIP.ReportBlessedWatcher.Delete(CommitReport.MerkleRoot)
+					// if the root is found, set the value for all the sequence numbers in the interval and delete the root from the map
+					if foundAsRoot {
+						// set the value for all the sequence numbers in the interval
+						for i := CommitReport.Interval.Min; i <= CommitReport.Interval.Max; i++ {
+							destCCIP.ReportBlessedBySeqNum.Store(i, vLogs)
+						}
+						// if the value is processed, delete it from the map
+						destCCIP.ReportBlessedWatcher.Delete(CommitReport.MerkleRoot)
+					} else {
+						// if the value is processed, delete it from the map
+						destCCIP.ReportBlessedBySeqNum.Delete(seqNum)
+					}
 					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(vLogs.BlockNumber)))
 					if err == nil {
 						receivedAt = hdr.Timestamp
@@ -1782,6 +1802,7 @@ func DefaultDestinationCCIPModule(logger zerolog.Logger, chainClient blockchain.
 		SourceNetworkName:       sourceChain,
 		NextSeqNumToCommit:      atomic.NewUint64(1),
 		ReportBlessedWatcher:    &sync.Map{},
+		ReportBlessedBySeqNum:   &sync.Map{},
 		ExecStateChangedWatcher: &sync.Map{},
 		ReportAcceptedWatcher:   &sync.Map{},
 	}, nil

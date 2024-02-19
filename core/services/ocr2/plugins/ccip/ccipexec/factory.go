@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -17,7 +17,7 @@ type ExecutionReportingPluginFactory struct {
 	config ExecutionPluginStaticConfig
 
 	destPriceRegReader ccipdata.PriceRegistryReader
-	destPriceRegAddr   common.Address
+	destPriceRegAddr   cciptypes.Address
 	readersMu          *sync.Mutex
 }
 
@@ -28,11 +28,11 @@ func NewExecutionReportingPluginFactory(config ExecutionPluginStaticConfig) *Exe
 
 		// the fields below are initially empty and populated on demand
 		destPriceRegReader: nil,
-		destPriceRegAddr:   common.Address{},
+		destPriceRegAddr:   "",
 	}
 }
 
-func (rf *ExecutionReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr common.Address) error {
+func (rf *ExecutionReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr cciptypes.Address) error {
 	rf.readersMu.Lock()
 	defer rf.readersMu.Unlock()
 	// TODO: Investigate use of Close() to cleanup.

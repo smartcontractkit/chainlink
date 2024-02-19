@@ -243,6 +243,11 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 	if !exists {
 		t.Fatalf("group config for %s does not exist", tType)
 	}
+	if tType == testconfig.Load {
+		if testCfg.CCIP.Env.Logging == nil || testCfg.CCIP.Env.Logging.Loki == nil {
+			t.Fatal("loki config is required to be set for load test")
+		}
+	}
 	ccipTestConfig := &CCIPTestConfig{
 		Test:                t,
 		EnvInput:            testCfg.CCIP.Env,
@@ -347,7 +352,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	t := o.Cfg.Test
 	var k8Env *environment.Environment
 	ccipEnv := o.Env
-	namespace := o.Cfg.TestGroupInput.ExistingEnv
+	namespace := o.Cfg.TestGroupInput.TestRunName
 	if ccipEnv != nil {
 		k8Env = ccipEnv.K8Env
 		if k8Env != nil {
@@ -582,7 +587,7 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates(ctx context.Context) {
 			}()
 			err = lane.Source.Common.WaitForPriceUpdates(
 				lane.Logger,
-				30*time.Minute,
+				o.Cfg.TestGroupInput.TimeoutForPriceUpdate.Duration(),
 				lane.Source.DestinationChainId,
 			)
 			if err != nil {

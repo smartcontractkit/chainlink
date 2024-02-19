@@ -38,6 +38,8 @@ runs:
         LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
         LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
         LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
+        GRAFANA_URL: ${{ inputs.grafanaUrl }}
+        GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
       run: |
         echo ::add-mask::$CHAINLINK_IMAGE        
         function convert_to_toml_array() {
@@ -90,3 +92,4 @@ runs:
         BASE64_CCIP_SECRETS_CONFIG=$(cat config.toml | base64 -w 0)
         echo ::add-mask::$BASE64_CCIP_SECRETS_CONFIG
         echo "BASE64_CCIP_SECRETS_CONFIG=$BASE64_CCIP_SECRETS_CONFIG" >> $GITHUB_ENV
+        echo "TEST_BASE64_CCIP_SECRETS_CONFIG=$BASE64_CCIP_SECRETS_CONFIG" >> $GITHUB_ENV

@@ -11,7 +11,7 @@ TimeUnit = '5m'
 NoOfTokensPerChain = 1
 NoOfTokensInMsg = 1
 AmountPerToken = 1
-ExistingEnv = 'prod-testnet-2.7.1-ccip1.2.2-beta'
+TestRunName = 'prod-testnet-2.7.1-ccip1.2.2-beta'
 
 [CCIP.Groups.smoke]
 MsgType = 'WithoutToken'

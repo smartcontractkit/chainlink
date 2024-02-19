@@ -87,7 +87,7 @@ func (l *LoadArgs) SanityCheck() {
 func (l *LoadArgs) TriggerLoadByLane() {
 	l.setSchedule()
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
-	namespace := l.TestCfg.TestGroupInput.ExistingEnv
+	namespace := l.TestCfg.TestGroupInput.TestRunName
 
 	// start load for a lane
 	startLoad := func(lane *actions.CCIPLane) {
@@ -101,7 +101,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 		if lane.TestEnv != nil && lane.TestEnv.K8Env != nil && lane.TestEnv.K8Env.Cfg != nil {
 			namespace = lane.TestEnv.K8Env.Cfg.Namespace
 		}
-
+		lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 		loadRunner, err := wasp.NewGenerator(&wasp.Config{
 			T:                     l.TestCfg.Test,
 			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
@@ -113,7 +113,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			Gun:                   ccipLoad,
 			Logger:                ccipLoad.Lane.Logger,
 			SharedData:            l.TestCfg.TestGroupInput.MsgType,
-			LokiConfig:            wasp.NewEnvLokiConfig(),
+			LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 			Labels: map[string]string{
 				"test_group":   "load",
 				"cluster":      "sdlc",
@@ -213,7 +213,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 	require.NotNil(l.t, l.TestCfg.TestGroupInput.TestDuration, "test duration input is nil")
 	require.GreaterOrEqual(l.t, 1, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), "time unit input must be specified")
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
-	namespace := l.TestCfg.TestGroupInput.ExistingEnv
+	namespace := l.TestCfg.TestGroupInput.TestRunName
 
 	var laneBySource = make(map[string][]*actions.CCIPLane)
 	for _, lane := range l.TestSetupArgs.Lanes {
@@ -243,7 +243,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 			}
 			multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.RequestPerUnitTime[0], allLabels)
 			require.NoError(l.t, err)
-
+			lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 			loadRunner, err := wasp.NewGenerator(&wasp.Config{
 				T:                     l.TestCfg.Test,
 				GenName:               fmt.Sprintf("Source %s", source),
@@ -254,7 +254,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 				CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
 				Gun:                   multiCallGen,
 				Logger:                multiCallGen.logger,
-				LokiConfig:            wasp.NewEnvLokiConfig(),
+				LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 				Labels:                allLabels,
 				FailOnErr:             true,
 			})

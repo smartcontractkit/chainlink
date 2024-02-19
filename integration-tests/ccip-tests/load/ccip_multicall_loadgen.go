@@ -68,7 +68,8 @@ func NewMultiCallLoadGenerator(testCfg *testsetups.CCIPTestConfig, lanes []*acti
 	if err := ls.Validate(); err != nil {
 		return nil, err
 	}
-	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
+	lokiConfig := testCfg.EnvInput.Logging.Loki
+	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil))
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +87,9 @@ func NewMultiCallLoadGenerator(testCfg *testsetups.CCIPTestConfig, lanes []*acti
 	}
 	for _, lane := range lanes {
 		ccipLoad := NewCCIPLoad(testCfg.Test, lane, testCfg.TestGroupInput.PhaseTimeout.Duration(), 100000)
+		// for multicall load generator, we don't want to send max data intermittently, it might
+		// cause oversized data for multicall
+		ccipLoad.SendMaxDataIntermittently = false
 		ccipLoad.BeforeAllCall(testCfg.TestGroupInput.MsgType, big.NewInt(*testCfg.TestGroupInput.DestGasLimit))
 		m.E2ELoads[fmt.Sprintf("%s-%s", lane.SourceNetworkName, lane.DestNetworkName)] = ccipLoad
 	}

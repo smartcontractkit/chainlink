@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 )
 
 func encodeGasPrice(daPrice, execPrice *big.Int) *big.Int {
@@ -22,9 +22,9 @@ func TestDAPriceEstimator_GetGasPrice(t *testing.T) {
 
 	testCases := []struct {
 		name         string
-		daGasPrice   GasPrice
-		execGasPrice GasPrice
-		expPrice     GasPrice
+		daGasPrice   *big.Int
+		execGasPrice *big.Int
+		expPrice     *big.Int
 		expErr       bool
 	}{
 		{
@@ -89,7 +89,7 @@ func TestDAPriceEstimator_GetGasPrice(t *testing.T) {
 	}
 
 	t.Run("nil L1 oracle", func(t *testing.T) {
-		var expPrice GasPrice = big.NewInt(1)
+		expPrice := big.NewInt(1)
 
 		execEstimator := NewMockGasPriceEstimator(t)
 		execEstimator.On("GetGasPrice", ctx).Return(expPrice, nil)
@@ -111,9 +111,9 @@ func TestDAPriceEstimator_DenoteInUSD(t *testing.T) {
 
 	testCases := []struct {
 		name        string
-		gasPrice    GasPrice
+		gasPrice    *big.Int
 		nativePrice *big.Int
-		expPrice    GasPrice
+		expPrice    *big.Int
 	}{
 		{
 			name:        "base",
@@ -143,7 +143,7 @@ func TestDAPriceEstimator_DenoteInUSD(t *testing.T) {
 
 			gasPrice, err := g.DenoteInUSD(tc.gasPrice, tc.nativePrice)
 			assert.NoError(t, err)
-			assert.True(t, ((*big.Int)(tc.expPrice)).Cmp(gasPrice) == 0)
+			assert.True(t, tc.expPrice.Cmp(gasPrice) == 0)
 		})
 	}
 }
@@ -153,12 +153,12 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 
 	testCases := []struct {
 		name      string
-		gasPrices []GasPrice
-		expMedian GasPrice
+		gasPrices []*big.Int
+		expMedian *big.Int
 	}{
 		{
 			name: "base",
-			gasPrices: []GasPrice{
+			gasPrices: []*big.Int{
 				encodeGasPrice(big.NewInt(1), big.NewInt(1)),
 				encodeGasPrice(big.NewInt(2), big.NewInt(2)),
 				encodeGasPrice(big.NewInt(3), big.NewInt(3)),
@@ -167,7 +167,7 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 		},
 		{
 			name: "median 2",
-			gasPrices: []GasPrice{
+			gasPrices: []*big.Int{
 				encodeGasPrice(big.NewInt(1), big.NewInt(1)),
 				encodeGasPrice(big.NewInt(2), big.NewInt(2)),
 			},
@@ -175,7 +175,7 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 		},
 		{
 			name: "large values",
-			gasPrices: []GasPrice{
+			gasPrices: []*big.Int{
 				encodeGasPrice(val1e18(5), val1e18(5)),
 				encodeGasPrice(val1e18(4), val1e18(4)),
 				encodeGasPrice(val1e18(3), val1e18(3)),
@@ -186,12 +186,12 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 		},
 		{
 			name:      "zeros",
-			gasPrices: []GasPrice{big.NewInt(0), big.NewInt(0), big.NewInt(0)},
+			gasPrices: []*big.Int{big.NewInt(0), big.NewInt(0), big.NewInt(0)},
 			expMedian: big.NewInt(0),
 		},
 		{
 			name: "picks median of each price component individually",
-			gasPrices: []GasPrice{
+			gasPrices: []*big.Int{
 				encodeGasPrice(val1e18(1), val1e18(3)),
 				encodeGasPrice(val1e18(2), val1e18(2)),
 				encodeGasPrice(val1e18(3), val1e18(1)),
@@ -200,7 +200,7 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 		},
 		{
 			name: "unsorted even number of price components",
-			gasPrices: []GasPrice{
+			gasPrices: []*big.Int{
 				encodeGasPrice(val1e18(1), val1e18(22)),
 				encodeGasPrice(val1e18(4), val1e18(33)),
 				encodeGasPrice(val1e18(2), val1e18(44)),
@@ -210,7 +210,7 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 		},
 		{
 			name: "equal DA price components",
-			gasPrices: []GasPrice{
+			gasPrices: []*big.Int{
 				encodeGasPrice(val1e18(2), val1e18(22)),
 				encodeGasPrice(val1e18(2), val1e18(33)),
 				encodeGasPrice(val1e18(2), val1e18(44)),
@@ -228,7 +228,7 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 
 			gasPrice, err := g.Median(tc.gasPrices)
 			assert.NoError(t, err)
-			assert.True(t, ((*big.Int)(tc.expMedian)).Cmp(gasPrice) == 0)
+			assert.True(t, tc.expMedian.Cmp(gasPrice) == 0)
 		})
 	}
 }
@@ -236,8 +236,8 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 func TestDAPriceEstimator_Deviates(t *testing.T) {
 	testCases := []struct {
 		name             string
-		gasPrice1        GasPrice
-		gasPrice2        GasPrice
+		gasPrice1        *big.Int
+		gasPrice2        *big.Int
 		daDeviationPPB   int64
 		execDeviationPPB int64
 		expDeviates      bool
@@ -326,9 +326,9 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 
 	testCases := []struct {
 		name               string
-		gasPrice           GasPrice
+		gasPrice           *big.Int
 		wrappedNativePrice *big.Int
-		msg                internal.EVM2EVMOnRampCCIPSendRequestedWithMeta
+		msg                cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta
 		daOverheadGas      int64
 		gasPerDAByte       int64
 		daMultiplier       int64
@@ -338,10 +338,10 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			name:               "only DA overhead",
 			gasPrice:           encodeGasPrice(big.NewInt(1e9), big.NewInt(0)), // 1 gwei DA price, 0 exec price
 			wrappedNativePrice: big.NewInt(1e18),                               // $1
-			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				EVM2EVMMessage: internal.EVM2EVMMessage{
+			msg: cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+				EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 					Data:            []byte{},
-					TokenAmounts:    []internal.TokenAmount{},
+					TokenAmounts:    []cciptypes.TokenAmount{},
 					SourceTokenData: [][]byte{},
 				},
 			},
@@ -354,10 +354,10 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			name:               "include message data gas",
 			gasPrice:           encodeGasPrice(big.NewInt(1e9), big.NewInt(0)), // 1 gwei DA price, 0 exec price
 			wrappedNativePrice: big.NewInt(1e18),                               // $1
-			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				EVM2EVMMessage: internal.EVM2EVMMessage{
+			msg: cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+				EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 					Data:         make([]byte, 1_000),
-					TokenAmounts: make([]internal.TokenAmount, 5),
+					TokenAmounts: make([]cciptypes.TokenAmount, 5),
 					SourceTokenData: [][]byte{
 						make([]byte, 10), make([]byte, 10), make([]byte, 10), make([]byte, 10), make([]byte, 10),
 					},
@@ -372,10 +372,10 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			name:               "zero DA price",
 			gasPrice:           big.NewInt(0),    // 1 gwei DA price, 0 exec price
 			wrappedNativePrice: big.NewInt(1e18), // $1
-			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				EVM2EVMMessage: internal.EVM2EVMMessage{
+			msg: cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+				EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 					Data:            []byte{},
-					TokenAmounts:    []internal.TokenAmount{},
+					TokenAmounts:    []cciptypes.TokenAmount{},
 					SourceTokenData: [][]byte{},
 				},
 			},
@@ -388,10 +388,10 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			name:               "double native price",
 			gasPrice:           encodeGasPrice(big.NewInt(1e9), big.NewInt(0)), // 1 gwei DA price, 0 exec price
 			wrappedNativePrice: big.NewInt(2e18),                               // $1
-			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				EVM2EVMMessage: internal.EVM2EVMMessage{
+			msg: cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+				EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 					Data:            []byte{},
-					TokenAmounts:    []internal.TokenAmount{},
+					TokenAmounts:    []cciptypes.TokenAmount{},
 					SourceTokenData: [][]byte{},
 				},
 			},
@@ -404,10 +404,10 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			name:               "half multiplier",
 			gasPrice:           encodeGasPrice(big.NewInt(1e9), big.NewInt(0)), // 1 gwei DA price, 0 exec price
 			wrappedNativePrice: big.NewInt(1e18),                               // $1
-			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				EVM2EVMMessage: internal.EVM2EVMMessage{
+			msg: cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+				EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 					Data:            []byte{},
-					TokenAmounts:    []internal.TokenAmount{},
+					TokenAmounts:    []cciptypes.TokenAmount{},
 					SourceTokenData: [][]byte{},
 				},
 			},
@@ -437,15 +437,4 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			assert.Equal(t, tc.expUSD, costUSD)
 		})
 	}
-}
-
-func TestDAPriceEstimator_String(t *testing.T) {
-	g := DAGasPriceEstimator{
-		execEstimator:       nil,
-		l1Oracle:            nil,
-		priceEncodingLength: daGasPriceEncodingLength,
-	}
-
-	str := g.String(encodeGasPrice(big.NewInt(1), big.NewInt(2)))
-	assert.Equal(t, "DA Price: 1, Exec Price: 2", str)
 }

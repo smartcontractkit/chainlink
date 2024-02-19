@@ -6,20 +6,19 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 )
 
 // Note if a breaking change is introduced to this struct nodes running different versions
 // will not be able to unmarshal each other's observations. Do not modify unless you
 // know what you are doing.
 type CommitObservation struct {
-	Interval          ccipdata.CommitStoreInterval `json:"interval"`
-	TokenPricesUSD    map[common.Address]*big.Int  `json:"tokensPerFeeCoin"`
-	SourceGasPriceUSD *big.Int                     `json:"sourceGasPrice"`
+	Interval          cciptypes.CommitStoreInterval  `json:"interval"`
+	TokenPricesUSD    map[cciptypes.Address]*big.Int `json:"tokensPerFeeCoin"`
+	SourceGasPriceUSD *big.Int                       `json:"sourceGasPrice"`
 }
 
 func (o CommitObservation) Marshal() ([]byte, error) {

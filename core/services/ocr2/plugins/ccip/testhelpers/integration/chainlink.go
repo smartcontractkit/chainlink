@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -781,7 +782,7 @@ func (c *CCIPIntegrationTestHarness) EventuallyExecutionStateChangedToSuccess(t 
 		it, err := offRamp.FilterExecutionStateChanged(&bind.FilterOpts{Start: blockNum}, seqNum, [][32]byte{})
 		require.NoError(t, err)
 		for it.Next() {
-			if ccipdata.MessageExecutionState(it.Event.State) == ccipdata.ExecutionStateSuccess {
+			if cciptypes.MessageExecutionState(it.Event.State) == cciptypes.ExecutionStateSuccess {
 				t.Logf("ExecutionStateChanged event found for seqNum %d", it.Event.SequenceNumber)
 				return true
 			}

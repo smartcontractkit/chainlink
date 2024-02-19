@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -696,7 +696,7 @@ tokenPricesUSDPipeline = "merge [type=merge left=\"{}\" right=\"{\\\"0xC79b96044
 				expected := config.CommitPluginJobSpecConfig{
 					SourceStartBlock:       1,
 					DestStartBlock:         2,
-					OffRamp:                common.HexToAddress("0x1234567890123456789012345678901234567890"),
+					OffRamp:                cciptypes.Address(common.HexToAddress("0x1234567890123456789012345678901234567890").String()),
 					TokenPricesUSDPipeline: `merge [type=merge left="{}" right="{\"0xC79b96044906550A5652BCf20a6EA02f139B9Ae5\":\"1000000000000000000\"}"];`,
 					PriceGetterConfig:      nil,
 				}
@@ -748,7 +748,7 @@ priceGetterConfig = """
 				expected := config.CommitPluginJobSpecConfig{
 					SourceStartBlock:       1,
 					DestStartBlock:         2,
-					OffRamp:                common.HexToAddress("0x1234567890123456789012345678901234567890"),
+					OffRamp:                cciptypes.Address(common.HexToAddress("0x1234567890123456789012345678901234567890").String()),
 					TokenPricesUSDPipeline: "",
 					PriceGetterConfig: &config.DynamicPriceGetterConfig{
 						AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{

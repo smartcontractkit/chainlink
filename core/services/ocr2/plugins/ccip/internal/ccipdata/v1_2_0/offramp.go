@@ -19,8 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
@@ -147,12 +148,12 @@ type OffRamp struct {
 	offRampV120 *evm_2_evm_offramp.EVM2EVMOffRamp
 }
 
-func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (ccipdata.TokenBucketRateLimit, error) {
+func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (cciptypes.TokenBucketRateLimit, error) {
 	bucket, err := o.offRampV120.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return ccipdata.TokenBucketRateLimit{}, err
+		return cciptypes.TokenBucketRateLimit{}, err
 	}
-	return ccipdata.TokenBucketRateLimit{
+	return cciptypes.TokenBucketRateLimit{
 		Tokens:      bucket.Tokens,
 		LastUpdated: bucket.LastUpdated,
 		IsEnabled:   bucket.IsEnabled,
@@ -161,33 +162,33 @@ func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (ccipdata.TokenBu
 	}, nil
 }
 
-func (o *OffRamp) ChangeConfig(onchainConfigBytes []byte, offchainConfigBytes []byte) (common.Address, common.Address, error) {
+func (o *OffRamp) ChangeConfig(onchainConfigBytes []byte, offchainConfigBytes []byte) (cciptypes.Address, cciptypes.Address, error) {
 	// Same as the v1.0.0 method, except for the ExecOnchainConfig type.
 	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ExecOnchainConfig](onchainConfigBytes)
 	if err != nil {
-		return common.Address{}, common.Address{}, err
+		return "", "", err
 	}
 
 	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[JSONExecOffchainConfig](offchainConfigBytes)
 	if err != nil {
-		return common.Address{}, common.Address{}, err
+		return "", "", err
 	}
 	destRouter, err := router.NewRouter(onchainConfigParsed.Router, o.Client)
 	if err != nil {
-		return common.Address{}, common.Address{}, err
+		return "", "", err
 	}
 	destWrappedNative, err := destRouter.GetWrappedNative(nil)
 	if err != nil {
-		return common.Address{}, common.Address{}, err
+		return "", "", err
 	}
-	offchainConfig := ccipdata.ExecOffchainConfig{
+	offchainConfig := cciptypes.ExecOffchainConfig{
 		DestOptimisticConfirmations: offchainConfigParsed.DestOptimisticConfirmations,
 		BatchGasLimit:               offchainConfigParsed.BatchGasLimit,
 		RelativeBoostPerWaitHour:    offchainConfigParsed.RelativeBoostPerWaitHour,
 		InflightCacheExpiry:         offchainConfigParsed.InflightCacheExpiry,
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
 	}
-	onchainConfig := ccipdata.ExecOnchainConfig{PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds)}
+	onchainConfig := cciptypes.ExecOnchainConfig{PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds)}
 	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, big.NewInt(int64(offchainConfigParsed.ComputeDestMaxGasPrice())), 0, 0)
 
 	o.UpdateDynamicConfig(onchainConfig, offchainConfig, priceEstimator)
@@ -195,32 +196,43 @@ func (o *OffRamp) ChangeConfig(onchainConfigBytes []byte, offchainConfigBytes []
 	o.Logger.Infow("Starting exec plugin",
 		"offchainConfig", onchainConfigParsed,
 		"onchainConfig", offchainConfigParsed)
-	return onchainConfigParsed.PriceRegistry, destWrappedNative, nil
+	return cciptypes.Address(onchainConfigParsed.PriceRegistry.String()),
+		cciptypes.Address(destWrappedNative.String()), nil
 }
 
-func EncodeExecutionReport(args abi.Arguments, report ccipdata.ExecReport) ([]byte, error) {
+func EncodeExecutionReport(args abi.Arguments, report cciptypes.ExecReport) ([]byte, error) {
 	var msgs []evm_2_evm_offramp.InternalEVM2EVMMessage
 	for _, msg := range report.Messages {
 		var ta []evm_2_evm_offramp.ClientEVMTokenAmount
 		for _, tokenAndAmount := range msg.TokenAmounts {
+			evmAddrs, err := ccipcalc.GenericAddrsToEvm(tokenAndAmount.Token)
+			if err != nil {
+				return nil, err
+			}
 			ta = append(ta, evm_2_evm_offramp.ClientEVMTokenAmount{
-				Token:  tokenAndAmount.Token,
+				Token:  evmAddrs[0],
 				Amount: tokenAndAmount.Amount,
 			})
 		}
+
+		evmAddrs, err := ccipcalc.GenericAddrsToEvm(msg.Sender, msg.Receiver, msg.FeeToken)
+		if err != nil {
+			return nil, err
+		}
+
 		msgs = append(msgs, evm_2_evm_offramp.InternalEVM2EVMMessage{
 			SourceChainSelector: msg.SourceChainSelector,
-			Sender:              msg.Sender,
-			Receiver:            msg.Receiver,
+			Sender:              evmAddrs[0],
+			Receiver:            evmAddrs[1],
 			SequenceNumber:      msg.SequenceNumber,
 			GasLimit:            msg.GasLimit,
 			Strict:              msg.Strict,
 			Nonce:               msg.Nonce,
-			FeeToken:            msg.FeeToken,
+			FeeToken:            evmAddrs[2],
 			FeeTokenAmount:      msg.FeeTokenAmount,
 			Data:                msg.Data,
 			TokenAmounts:        ta,
-			MessageId:           msg.MessageId,
+			MessageId:           msg.MessageID,
 			// NOTE: this field is new in v1.2.
 			SourceTokenData: msg.SourceTokenData,
 		})
@@ -235,17 +247,17 @@ func EncodeExecutionReport(args abi.Arguments, report ccipdata.ExecReport) ([]by
 	return args.PackValues([]interface{}{&rep})
 }
 
-func (o *OffRamp) EncodeExecutionReport(report ccipdata.ExecReport) ([]byte, error) {
+func (o *OffRamp) EncodeExecutionReport(report cciptypes.ExecReport) ([]byte, error) {
 	return EncodeExecutionReport(o.ExecutionReportArgs, report)
 }
 
-func DecodeExecReport(args abi.Arguments, report []byte) (ccipdata.ExecReport, error) {
+func DecodeExecReport(args abi.Arguments, report []byte) (cciptypes.ExecReport, error) {
 	unpacked, err := args.Unpack(report)
 	if err != nil {
-		return ccipdata.ExecReport{}, err
+		return cciptypes.ExecReport{}, err
 	}
 	if len(unpacked) == 0 {
-		return ccipdata.ExecReport{}, errors.New("assumptionViolation: expected at least one element")
+		return cciptypes.ExecReport{}, errors.New("assumptionViolation: expected at least one element")
 	}
 	// Must be anonymous struct here
 	erStruct, ok := unpacked[0].(struct {
@@ -272,27 +284,27 @@ func DecodeExecReport(args abi.Arguments, report []byte) (ccipdata.ExecReport, e
 		ProofFlagBits     *big.Int    `json:"proofFlagBits"`
 	})
 	if !ok {
-		return ccipdata.ExecReport{}, fmt.Errorf("got %T", unpacked[0])
+		return cciptypes.ExecReport{}, fmt.Errorf("got %T", unpacked[0])
 	}
-	messages := []internal.EVM2EVMMessage{}
+	messages := make([]cciptypes.EVM2EVMMessage, 0, len(erStruct.Messages))
 	for _, msg := range erStruct.Messages {
-		var tokensAndAmounts []internal.TokenAmount
+		var tokensAndAmounts []cciptypes.TokenAmount
 		for _, tokenAndAmount := range msg.TokenAmounts {
-			tokensAndAmounts = append(tokensAndAmounts, internal.TokenAmount{
-				Token:  tokenAndAmount.Token,
+			tokensAndAmounts = append(tokensAndAmounts, cciptypes.TokenAmount{
+				Token:  cciptypes.Address(tokenAndAmount.Token.String()),
 				Amount: tokenAndAmount.Amount,
 			})
 		}
-		messages = append(messages, internal.EVM2EVMMessage{
+		messages = append(messages, cciptypes.EVM2EVMMessage{
 			SequenceNumber:      msg.SequenceNumber,
 			GasLimit:            msg.GasLimit,
 			Nonce:               msg.Nonce,
-			MessageId:           msg.MessageId,
+			MessageID:           msg.MessageId,
 			SourceChainSelector: msg.SourceChainSelector,
-			Sender:              msg.Sender,
-			Receiver:            msg.Receiver,
+			Sender:              cciptypes.Address(msg.Sender.String()),
+			Receiver:            cciptypes.Address(msg.Receiver.String()),
 			Strict:              msg.Strict,
-			FeeToken:            msg.FeeToken,
+			FeeToken:            cciptypes.Address(msg.FeeToken.String()),
 			FeeTokenAmount:      msg.FeeTokenAmount,
 			Data:                msg.Data,
 			TokenAmounts:        tokensAndAmounts,
@@ -305,7 +317,7 @@ func DecodeExecReport(args abi.Arguments, report []byte) (ccipdata.ExecReport, e
 
 	// Unpack will populate with big.Int{false, <allocated empty nat>} for 0 values,
 	// which is different from the expected big.NewInt(0). Rebuild to the expected value for this case.
-	return ccipdata.ExecReport{
+	return cciptypes.ExecReport{
 		Messages:          messages,
 		OffchainTokenData: erStruct.OffchainTokenData,
 		Proofs:            erStruct.Proofs,
@@ -314,7 +326,7 @@ func DecodeExecReport(args abi.Arguments, report []byte) (ccipdata.ExecReport, e
 
 }
 
-func (o *OffRamp) DecodeExecutionReport(report []byte) (ccipdata.ExecReport, error) {
+func (o *OffRamp) DecodeExecutionReport(report []byte) (cciptypes.ExecReport, error) {
 	return DecodeExecReport(o.ExecutionReportArgs, report)
 }
 

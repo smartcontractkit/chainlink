@@ -3,8 +3,7 @@ package observability
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/common"
-
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -26,20 +25,20 @@ func NewObservedOffRampReader(origin ccipdata.OffRampReader, chainID int64, plug
 	}
 }
 
-func (o *ObservedOffRampReader) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confs int) ([]ccipdata.Event[ccipdata.ExecutionStateChanged], error) {
-	return withObservedInteraction(o.metric, "GetExecutionStateChangesBetweenSeqNums", func() ([]ccipdata.Event[ccipdata.ExecutionStateChanged], error) {
+func (o *ObservedOffRampReader) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confs int) ([]cciptypes.ExecutionStateChangedWithTxMeta, error) {
+	return withObservedInteraction(o.metric, "GetExecutionStateChangesBetweenSeqNums", func() ([]cciptypes.ExecutionStateChangedWithTxMeta, error) {
 		return o.OffRampReader.GetExecutionStateChangesBetweenSeqNums(ctx, seqNumMin, seqNumMax, confs)
 	})
 }
 
-func (o *ObservedOffRampReader) GetSenderNonce(ctx context.Context, sender common.Address) (uint64, error) {
+func (o *ObservedOffRampReader) GetSenderNonce(ctx context.Context, sender cciptypes.Address) (uint64, error) {
 	return withObservedInteraction(o.metric, "GetSenderNonce", func() (uint64, error) {
 		return o.OffRampReader.GetSenderNonce(ctx, sender)
 	})
 }
 
-func (o *ObservedOffRampReader) CurrentRateLimiterState(ctx context.Context) (ccipdata.TokenBucketRateLimit, error) {
-	return withObservedInteraction(o.metric, "CurrentRateLimiterState", func() (ccipdata.TokenBucketRateLimit, error) {
+func (o *ObservedOffRampReader) CurrentRateLimiterState(ctx context.Context) (cciptypes.TokenBucketRateLimit, error) {
+	return withObservedInteraction(o.metric, "CurrentRateLimiterState", func() (cciptypes.TokenBucketRateLimit, error) {
 		return o.OffRampReader.CurrentRateLimiterState(ctx)
 	})
 }
@@ -50,20 +49,20 @@ func (o *ObservedOffRampReader) GetExecutionState(ctx context.Context, sequenceN
 	})
 }
 
-func (o *ObservedOffRampReader) GetStaticConfig(ctx context.Context) (ccipdata.OffRampStaticConfig, error) {
-	return withObservedInteraction(o.metric, "GetStaticConfig", func() (ccipdata.OffRampStaticConfig, error) {
+func (o *ObservedOffRampReader) GetStaticConfig(ctx context.Context) (cciptypes.OffRampStaticConfig, error) {
+	return withObservedInteraction(o.metric, "GetStaticConfig", func() (cciptypes.OffRampStaticConfig, error) {
 		return o.OffRampReader.GetStaticConfig(ctx)
 	})
 }
 
-func (o *ObservedOffRampReader) GetSourceToDestTokensMapping(ctx context.Context) (map[common.Address]common.Address, error) {
-	return withObservedInteraction(o.metric, "GetSourceToDestTokensMapping", func() (map[common.Address]common.Address, error) {
+func (o *ObservedOffRampReader) GetSourceToDestTokensMapping(ctx context.Context) (map[cciptypes.Address]cciptypes.Address, error) {
+	return withObservedInteraction(o.metric, "GetSourceToDestTokensMapping", func() (map[cciptypes.Address]cciptypes.Address, error) {
 		return o.OffRampReader.GetSourceToDestTokensMapping(ctx)
 	})
 }
 
-func (o *ObservedOffRampReader) GetTokens(ctx context.Context) (ccipdata.OffRampTokens, error) {
-	return withObservedInteraction(o.metric, "GetTokens", func() (ccipdata.OffRampTokens, error) {
+func (o *ObservedOffRampReader) GetTokens(ctx context.Context) (cciptypes.OffRampTokens, error) {
+	return withObservedInteraction(o.metric, "GetTokens", func() (cciptypes.OffRampTokens, error) {
 		return o.OffRampReader.GetTokens(ctx)
 	})
 }

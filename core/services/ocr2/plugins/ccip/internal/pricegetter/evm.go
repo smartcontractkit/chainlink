@@ -11,7 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 )
 
@@ -73,15 +75,20 @@ func NewDynamicPriceGetter(cfg config.DynamicPriceGetterConfig, evmClients map[u
 
 // TokenPricesUSD implements the PriceGetter interface.
 // It returns static prices stored in the price getter, and batch calls to aggregators (on per chain) for aggregator-based prices.
-func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []common.Address) (map[common.Address]*big.Int, error) {
-	prices := make(map[common.Address]*big.Int, len(tokens))
+func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
+	prices := make(map[cciptypes.Address]*big.Int, len(tokens))
 
 	batchCallsPerChain := make(map[uint64][]rpclib.EvmCall)
 
 	// required to maintain the order of the batched rpc calls for mapping the results
 	batchCallsTokensOrder := make(map[uint64][]common.Address)
 
-	for _, tk := range tokens {
+	evmAddrs, err := ccipcalc.GenericAddrsToEvm(tokens...)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tk := range evmAddrs {
 		if aggCfg, isAgg := d.cfg.AggregatorPrices[tk]; isAgg {
 			// Batch calls for aggregator-based token prices (one per chain).
 			batchCallsPerChain[aggCfg.ChainID] = append(batchCallsPerChain[aggCfg.ChainID], rpclib.NewEvmCall(
@@ -92,7 +99,7 @@ func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []common
 			batchCallsTokensOrder[aggCfg.ChainID] = append(batchCallsTokensOrder[aggCfg.ChainID], tk)
 		} else if staticCfg, isStatic := d.cfg.StaticPrices[tk]; isStatic {
 			// Fill static prices.
-			prices[tk] = staticCfg.Price
+			prices[ccipcalc.EvmAddrToGeneric(tk)] = staticCfg.Price
 		} else {
 			return nil, fmt.Errorf("no price resolution rule for token %s", tk.Hex())
 		}
@@ -122,7 +129,7 @@ func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []common
 
 		for i := range tokensOrder {
 			// Prices are already in wei (10e18) when coming from aggregator, no conversion needed.
-			prices[tokensOrder[i]] = latestRounds[i]
+			prices[ccipcalc.EvmAddrToGeneric(tokensOrder[i])] = latestRounds[i]
 		}
 	}
 

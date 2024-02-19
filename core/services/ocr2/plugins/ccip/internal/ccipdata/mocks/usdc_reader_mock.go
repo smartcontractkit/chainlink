@@ -5,8 +5,6 @@ package mocks
 import (
 	context "context"
 
-	common "github.com/ethereum/go-ethereum/common"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -16,7 +14,7 @@ type USDCReader struct {
 }
 
 // GetLastUSDCMessagePriorToLogIndexInTx provides a mock function with given fields: ctx, logIndex, txHash
-func (_m *USDCReader) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error) {
+func (_m *USDCReader) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash string) ([]byte, error) {
 	ret := _m.Called(ctx, logIndex, txHash)
 
 	if len(ret) == 0 {
@@ -25,10 +23,10 @@ func (_m *USDCReader) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context,
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, common.Hash) ([]byte, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string) ([]byte, error)); ok {
 		return rf(ctx, logIndex, txHash)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, common.Hash) []byte); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string) []byte); ok {
 		r0 = rf(ctx, logIndex, txHash)
 	} else {
 		if ret.Get(0) != nil {
@@ -36,7 +34,7 @@ func (_m *USDCReader) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context,
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int64, common.Hash) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, int64, string) error); ok {
 		r1 = rf(ctx, logIndex, txHash)
 	} else {
 		r1 = ret.Error(1)

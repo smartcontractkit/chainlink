@@ -200,6 +200,7 @@ NoOfNetworks = 2                    # this is used with Networks in `CCIP.Env`, 
 # This value is ignored if CCIP.Groups.<TestGroup>.NetworkPairs is provided
 
 Blockscout = false                  # if true, the test will use blockscout
+TimeoutForPriceUpdate = '10m'          # Duration to wait for the price update to time-out.
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
@@ -226,7 +227,7 @@ LocalCluster = false # same as above
 ExistingDeployment = false # same as above
 
 # uncomment the following if you want your test results to be reflected under CCIP test grafana dashboard with namespace label same as the value of the following variable
-# ExistingEnv = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
+# TestRunName = <env>_<testnet/mainnet>_<cciprelease> i.e prod-testnet-2.7.1-ccip1.2.1-beta
 
 ReuseContracts = true            # same as above
 NodeFunding = 20.0 # same as above
@@ -240,6 +241,7 @@ RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
 TimeUnit = '1s' # unit of time for RequestPerUnitTime
 NoOfNetworks = 2   # same as above
 Blockscout = false   # same as above
+TimeoutForPriceUpdate = '10m' # time to wait for price update
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
@@ -278,7 +280,7 @@ Blockscout = false
 # chaos test settings
 ChaosDuration = '10m'               # Duration for whichever chaos will be injected; only valid for chaos tests
 WaitBetweenChaosDuringLoad = '2m'   # Duration to wait between each chaos injection during load test; only valid for chaos tests
-
+TimeoutForPriceUpdate = '10m'      # Timeout for price update
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
 # for example, if you have provided CCIP.Env.Networks = ['SIMULATED_1', 'SIMULATED_2', 'SIMULATED_3'] and CCIP.Groups.<test_type>.MaxNoOfLanes = 2,

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 )
@@ -36,31 +37,31 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	}, nil
 }
 
-func (o *OnRamp) RouterAddress() (common.Address, error) {
+func (o *OnRamp) RouterAddress() (cciptypes.Address, error) {
 	config, err := o.onRamp.GetDynamicConfig(nil)
 	if err != nil {
-		return common.Address{}, err
+		return "", err
 	}
-	return config.Router, nil
+	return cciptypes.Address(config.Router.String()), nil
 }
 
-func (o *OnRamp) GetDynamicConfig() (ccipdata.OnRampDynamicConfig, error) {
+func (o *OnRamp) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
 	if o.onRamp == nil {
-		return ccipdata.OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
+		return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
 	}
 	legacyDynamicConfig, err := o.onRamp.GetDynamicConfig(nil)
 	if err != nil {
-		return ccipdata.OnRampDynamicConfig{}, err
+		return cciptypes.OnRampDynamicConfig{}, err
 	}
-	return ccipdata.OnRampDynamicConfig{
-		Router:                            legacyDynamicConfig.Router,
+	return cciptypes.OnRampDynamicConfig{
+		Router:                            cciptypes.Address(legacyDynamicConfig.Router.String()),
 		MaxNumberOfTokensPerMsg:           legacyDynamicConfig.MaxTokensLength,
 		DestGasOverhead:                   legacyDynamicConfig.DestGasOverhead,
 		DestGasPerPayloadByte:             legacyDynamicConfig.DestGasPerPayloadByte,
 		DestDataAvailabilityOverheadGas:   0,
 		DestGasPerDataAvailabilityByte:    0,
 		DestDataAvailabilityMultiplierBps: 0,
-		PriceRegistry:                     legacyDynamicConfig.PriceRegistry,
+		PriceRegistry:                     cciptypes.Address(legacyDynamicConfig.PriceRegistry.String()),
 		MaxDataBytes:                      legacyDynamicConfig.MaxDataSize,
 		MaxPerMsgGasLimit:                 uint32(legacyDynamicConfig.MaxGasLimit),
 	}, nil

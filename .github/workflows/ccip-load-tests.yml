@@ -25,7 +25,6 @@ env:
 jobs:
   build-chainlink:
     environment: integration
-    if: ${{ inputs.chainlinkImage == '' || inputs.chainlinkVersion == '' }}
     permissions:
       id-token: write
       contents: read
@@ -111,6 +110,7 @@ jobs:
       TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests
+      BASE64_NETWORK_CONFIG: ${{ secrets.BASE64_NETWORK_CONFIG }}
 
     steps:
       - name: Collect Metrics
@@ -130,8 +130,10 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "BASE64_TEST_CONFIG_OVERRIDE=${{ inputs.base64_test_input }}" >> $GITHUB_ENV
-            echo "TEST_BASE64_TEST_CONFIG_OVERRIDE=${{ inputs.base64_test_input }}" >> $GITHUB_ENV
+            BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
+            echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
+            echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
+            echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
           fi
       - name: step summary
         shell: bash
@@ -140,9 +142,7 @@ jobs:
           echo "\`${{ env.CHAINLINK_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.INPUT_CHAINLINK_TEST_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "### test input override :link:" >>$GITHUB_STEP_SUMMARY
-          echo "$(base64 -d <<< "${{ inputs.base64_test_input }}")" >>$GITHUB_STEP_SUMMARY
-      - name: Prepare Base64 TOML override for CCIP secrests
+      - name: Prepare Base64 TOML override for CCIP secrets
         uses: ./.github/actions/setup-create-base64-config-ccip
         with:
           runId: ${{ github.run_id }}
@@ -161,8 +161,6 @@ jobs:
           TEST_SUITE: load
           TEST_ARGS: -test.timeout 900h
           DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
-          TEST_LOKI_TENANT_ID: ${{ secrets.TEST_LOKI_TENANT_ID }}
-          TEST_LOKI_URL: ${{ secrets.TEST_LOKI_URL }}
           RR_MEM: 8Gi
           RR_CPU: 4
           TEST_TRIGGERED_BY: ccip-load-test-ci
@@ -223,8 +221,10 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "BASE64_TEST_CONFIG_OVERRIDE=${{ inputs.base64_test_input }}" >> $GITHUB_ENV
-            echo "TEST_BASE64_TEST_CONFIG_OVERRIDE=${{ inputs.base64_test_input }}" >> $GITHUB_ENV
+            BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
+            echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
+            echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
+            echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
           fi
           echo "UPGRADE_VERSION=${{ env.CHAINLINK_VERSION }}" >> $GITHUB_ENV
           echo "UPGRADE_IMAGE=${{ env.CHAINLINK_IMAGE }}" >> $GITHUB_ENV
@@ -238,11 +238,9 @@ jobs:
           echo "\`${{ env.CHAINLINK_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.INPUT_CHAINLINK_TEST_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "### test input override :link:" >>$GITHUB_STEP_SUMMARY
-          echo "$(base64 -d <<< "${{ inputs.base64_test_input }}")" >>$GITHUB_STEP_SUMMARY
           echo "### testing upgrade against release :link:" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ steps.set_env_vars.outputs.last_release }}\`" >>$GITHUB_STEP_SUMMARY
-      - name: Prepare Base64 TOML override for CCIP secrests
+      - name: Prepare Base64 TOML override for CCIP secrets
         uses: ./.github/actions/setup-create-base64-config-ccip
         with:
           runId: ${{ github.run_id }}
@@ -261,8 +259,6 @@ jobs:
           TEST_SUITE: load
           TEST_ARGS: -test.timeout 900h
           DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
-          TEST_LOKI_TENANT_ID: ${{ secrets.TEST_LOKI_TENANT_ID }}
-          TEST_LOKI_URL: ${{ secrets.TEST_LOKI_URL }}
           RR_MEM: 8Gi
           RR_CPU: 4
           TEST_TRIGGERED_BY: ccip-load-upgrade-test-ci

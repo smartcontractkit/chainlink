@@ -7,13 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )
 
@@ -26,14 +25,14 @@ func TestBackgroundWorker(t *testing.T) {
 	const maxReaderLatencyMS = 200
 	const percentOfTokensWithoutTokenData = 10
 
-	tokens := make([]common.Address, numTokens)
-	readers := make(map[common.Address]*tokendata.MockReader, numTokens)
-	tokenDataReaders := make(map[common.Address]tokendata.Reader, numTokens)
-	tokenData := make(map[common.Address][]byte)
-	delays := make(map[common.Address]time.Duration)
+	tokens := make([]cciptypes.Address, numTokens)
+	readers := make(map[cciptypes.Address]*tokendata.MockReader, numTokens)
+	tokenDataReaders := make(map[cciptypes.Address]tokendata.Reader, numTokens)
+	tokenData := make(map[cciptypes.Address][]byte)
+	delays := make(map[cciptypes.Address]time.Duration)
 
 	for i := range tokens {
-		tokens[i] = utils.RandomAddress()
+		tokens[i] = cciptypes.Address(utils.RandomAddress().String())
 		readers[tokens[i]] = tokendata.NewMockReader(t)
 		if rand.Intn(100) >= percentOfTokensWithoutTokenData {
 			tokenDataReaders[tokens[i]] = readers[tokens[i]]
@@ -46,14 +45,14 @@ func TestBackgroundWorker(t *testing.T) {
 	}
 	w := tokendata.NewBackgroundWorker(ctx, tokenDataReaders, numWorkers, 5*time.Second, time.Hour)
 
-	msgs := make([]internal.EVM2EVMOnRampCCIPSendRequestedWithMeta, numMessages)
+	msgs := make([]cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numMessages)
 	for i := range msgs {
 		tk := tokens[i%len(tokens)]
 
-		msgs[i] = internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-			EVM2EVMMessage: internal.EVM2EVMMessage{
+		msgs[i] = cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+			EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 				SequenceNumber: uint64(i + 1),
-				TokenAmounts:   []internal.TokenAmount{{Token: tk}},
+				TokenAmounts:   []cciptypes.TokenAmount{{Token: tk}},
 			},
 		}
 
@@ -96,25 +95,25 @@ func TestBackgroundWorker(t *testing.T) {
 func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	tk1 := utils.RandomAddress()
-	tk2 := utils.RandomAddress()
+	tk1 := cciptypes.Address(utils.RandomAddress().String())
+	tk2 := cciptypes.Address(utils.RandomAddress().String())
 
 	rdr1 := tokendata.NewMockReader(t)
 	rdr2 := tokendata.NewMockReader(t)
 
-	w := tokendata.NewBackgroundWorker(ctx, map[common.Address]tokendata.Reader{
+	w := tokendata.NewBackgroundWorker(ctx, map[cciptypes.Address]tokendata.Reader{
 		tk1: rdr1,
 		tk2: rdr2,
 	}, 10, 5*time.Second, time.Hour)
 
-	msgs := []internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-		{EVM2EVMMessage: internal.EVM2EVMMessage{
+	msgs := []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+		{EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 			SequenceNumber: uint64(1),
-			TokenAmounts:   []internal.TokenAmount{{Token: tk1}},
+			TokenAmounts:   []cciptypes.TokenAmount{{Token: tk1}},
 		}},
-		{EVM2EVMMessage: internal.EVM2EVMMessage{
+		{EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 			SequenceNumber: uint64(2),
-			TokenAmounts:   []internal.TokenAmount{{Token: tk2}},
+			TokenAmounts:   []cciptypes.TokenAmount{{Token: tk2}},
 		}},
 	}
 
@@ -161,20 +160,20 @@ func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
 func TestBackgroundWorker_Timeout(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	tk1 := utils.RandomAddress()
-	tk2 := utils.RandomAddress()
+	tk1 := cciptypes.Address(utils.RandomAddress().String())
+	tk2 := cciptypes.Address(utils.RandomAddress().String())
 
 	rdr1 := tokendata.NewMockReader(t)
 	rdr2 := tokendata.NewMockReader(t)
 
 	w := tokendata.NewBackgroundWorker(
-		ctx, map[common.Address]tokendata.Reader{tk1: rdr1, tk2: rdr2}, 10, 5*time.Second, time.Hour)
+		ctx, map[cciptypes.Address]tokendata.Reader{tk1: rdr1, tk2: rdr2}, 10, 5*time.Second, time.Hour)
 
 	ctx, cf := context.WithTimeout(ctx, 500*time.Millisecond)
 	defer cf()
 
-	_, err := w.GetMsgTokenData(ctx, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-		EVM2EVMMessage: internal.EVM2EVMMessage{SequenceNumber: 1}},
+	_, err := w.GetMsgTokenData(ctx, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+		EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 1}},
 	)
 	assert.Error(t, err)
 }

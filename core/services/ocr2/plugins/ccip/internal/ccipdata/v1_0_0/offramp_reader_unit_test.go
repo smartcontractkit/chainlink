@@ -17,8 +17,9 @@ import (
 	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
 )
@@ -56,7 +57,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 		{
 			name: "different compatible type",
 			outputChangeFn: func(outputs []rpclib.DataAndErr) []rpclib.DataAndErr {
-				outputs[0].Outputs = []any{outputs[0].Outputs[0].(common.Address).String()}
+				outputs[0].Outputs = []any{outputs[0].Outputs[0].(common.Address)}
 				return outputs
 			},
 			expErr: false,
@@ -78,9 +79,9 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 			o := &OffRamp{evmBatchCaller: batchCaller, lp: lp}
 			srcTks, dstTks, outputs := generateTokensAndOutputs(numSrcTokens)
 			outputs = tc.outputChangeFn(outputs)
-			batchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).
-				Return(outputs, nil)
-			actualDstTokens, err := o.getDestinationTokensFromSourceTokens(ctx, srcTks)
+			batchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).Return(outputs, nil)
+			genericAddrs := ccipcalc.EvmAddrsToGeneric(srcTks...)
+			actualDstTokens, err := o.getDestinationTokensFromSourceTokens(ctx, genericAddrs)
 
 			if tc.expErr {
 				assert.Error(t, err)
@@ -88,7 +89,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
-			assert.Equal(t, dstTks, actualDstTokens)
+			assert.Equal(t, ccipcalc.EvmAddrsToGeneric(dstTks...), actualDstTokens)
 		})
 	}
 }
@@ -117,7 +118,7 @@ func TestCachedOffRampTokens(t *testing.T) {
 		Logger:         logger.TestLogger(t),
 		Client:         ec,
 		evmBatchCaller: batchCaller,
-		cachedOffRampTokens: cache.NewLogpollerEventsBased[ccipdata.OffRampTokens](
+		cachedOffRampTokens: cache.NewLogpollerEventsBased[cciptypes.OffRampTokens](
 			lp,
 			offRamp_poolAddedPoolRemovedEvents,
 			mockOffRamp.Address(),
@@ -129,13 +130,13 @@ func TestCachedOffRampTokens(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify data is properly loaded in the cache.
-	expectedPools := make(map[common.Address]common.Address)
+	expectedPools := make(map[cciptypes.Address]cciptypes.Address)
 	for i := range dstTks {
-		expectedPools[dstTks[i]] = dstTks[i]
+		expectedPools[cciptypes.Address(dstTks[i].String())] = cciptypes.Address(dstTks[i].String())
 	}
-	require.Equal(t, ccipdata.OffRampTokens{
-		DestinationTokens: dstTks,
-		SourceTokens:      srcTks,
+	require.Equal(t, cciptypes.OffRampTokens{
+		DestinationTokens: ccipcalc.EvmAddrsToGeneric(dstTks...),
+		SourceTokens:      ccipcalc.EvmAddrsToGeneric(srcTks...),
 		DestinationPool:   expectedPools,
 	}, tokens)
 }

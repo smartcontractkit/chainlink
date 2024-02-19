@@ -675,7 +675,7 @@ jobs:
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-      - name: Prepare Base64 TOML override for CCIP secrests
+      - name: Prepare Base64 TOML override for CCIP secrets
         uses: ./.github/actions/setup-create-base64-config-ccip
         with:
           runId: ${{ github.run_id }}

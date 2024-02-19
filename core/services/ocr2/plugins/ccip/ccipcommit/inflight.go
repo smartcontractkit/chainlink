@@ -4,11 +4,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 )
 
 const (
@@ -26,13 +25,13 @@ const (
 // we are able to obtain high throughput during happy path yet still naturally recover
 // if a reorg or issue causes onchain reverts.
 type InflightCommitReport struct {
-	report    ccipdata.CommitStoreReport
+	report    cciptypes.CommitStoreReport
 	createdAt time.Time
 }
 
 type InflightPriceUpdate struct {
-	gasPrices     []ccipdata.GasPrice
-	tokenPrices   []ccipdata.TokenPrice
+	gasPrices     []cciptypes.GasPrice
+	tokenPrices   []cciptypes.TokenPrice
 	createdAt     time.Time
 	epochAndRound uint64
 }
@@ -92,11 +91,11 @@ func (c *inflightCommitReportsContainer) latestInflightGasPriceUpdates() map[uin
 }
 
 // latestInflightTokenPriceUpdates returns a map of the latest token price updates
-func (c *inflightCommitReportsContainer) latestInflightTokenPriceUpdates() map[common.Address]update {
+func (c *inflightCommitReportsContainer) latestInflightTokenPriceUpdates() map[cciptypes.Address]update {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
-	latestTokenPriceUpdates := make(map[common.Address]update)
-	latestEpochAndRounds := make(map[common.Address]uint64)
+	latestTokenPriceUpdates := make(map[cciptypes.Address]update)
+	latestEpochAndRounds := make(map[cciptypes.Address]uint64)
 	for _, inflight := range c.inFlightPriceUpdates {
 		for _, inflightTokenUpdate := range inflight.tokenPrices {
 			_, ok := latestTokenPriceUpdates[inflightTokenUpdate.Token]
@@ -151,7 +150,7 @@ func (c *inflightCommitReportsContainer) expire(lggr logger.Logger) {
 	c.inFlightPriceUpdates = stillInflight
 }
 
-func (c *inflightCommitReportsContainer) add(lggr logger.Logger, report ccipdata.CommitStoreReport, epochAndRound uint64) error {
+func (c *inflightCommitReportsContainer) add(lggr logger.Logger, report cciptypes.CommitStoreReport, epochAndRound uint64) error {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 

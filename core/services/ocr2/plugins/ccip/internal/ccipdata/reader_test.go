@@ -35,7 +35,7 @@ func Test_parseLogs(t *testing.T) {
 	for i, ev := range parsedEvents {
 		assert.Equal(t, i+1, int(ev.Data))
 		assert.Equal(t, i*1000, int(ev.BlockNumber))
-		assert.Greater(t, ev.BlockTimestamp, time.Now().Add(-time.Minute))
+		assert.Greater(t, ev.BlockTimestampUnixMilli, time.Now().Add(-time.Minute).UnixMilli())
 	}
 }
 
