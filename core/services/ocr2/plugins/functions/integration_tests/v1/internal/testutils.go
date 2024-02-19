@@ -211,7 +211,9 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		Enabled:         false, // TODO: true
 		SignerPublicKey: proofSignerPublicKey,
 	}
-	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig)
+	var initialAllowedSenders []common.Address
+	var initialBlockedSenders []common.Address
+	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig, initialAllowedSenders, initialBlockedSenders)
 	require.NoError(t, err)
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)

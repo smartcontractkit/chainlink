@@ -357,6 +357,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			job.Workflow: workflows.NewDelegate(
 				globalLogger,
 				registry,
+				legacyEVMChains,
 			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()

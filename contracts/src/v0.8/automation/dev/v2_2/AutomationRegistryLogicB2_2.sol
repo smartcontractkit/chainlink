@@ -172,14 +172,6 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   // ================================================================
 
   /**
-   * @notice sets the chain specific module
-   */
-  function setChainSpecificModule(IChainModule newModule) external onlyOwner {
-    s_hotVars.chainModule = newModule;
-    emit ChainSpecificModuleUpdated(address(newModule));
-  }
-
-  /**
    * @notice sets the privilege config for an upkeep
    */
   function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
@@ -283,6 +275,14 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
 
   function getPerSignerGasOverhead() external pure returns (uint256) {
     return REGISTRY_PER_SIGNER_GAS_OVERHEAD;
+  }
+
+  function getTransmitCalldataFixedBytesOverhead() external pure returns (uint256) {
+    return TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD;
+  }
+
+  function getTransmitCalldataPerSignerBytesOverhead() external pure returns (uint256) {
+    return TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD;
   }
 
   function getCancellationDelay() external pure returns (uint256) {
@@ -499,8 +499,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return
-      _getMaxLinkPayment(hotVars, triggerType, gasLimit, s_storage.maxPerformDataSize, fastGasWei, linkNative, false);
+    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkNative);
   }
 
   /**

@@ -602,7 +602,7 @@ func (d *Delegate) newServicesGenericPlugin(
 
 		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(pCfg.ProviderType), d.lggr)
 		if err2 != nil {
-			return nil, fmt.Errorf("cannot start EVM provider server: %s", err)
+			return nil, fmt.Errorf("cannot start EVM provider server: %s", err2)
 		}
 		providerClientConn, err2 = ps.GetConn()
 		if err2 != nil {
@@ -662,7 +662,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
 		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog, capabilitiesRegistry)
 		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
-		oracleArgs := libocr2.OCR3OracleArgs[any]{
+		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractConfigTracker:        provider.ContractConfigTracker(),
