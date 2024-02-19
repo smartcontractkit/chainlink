@@ -18,6 +18,7 @@ import (
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -184,12 +185,13 @@ func CreateOCRKeeperJobsLocal(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	var contractVersion string
-	if registryVersion == ethereum.RegistryVersion_2_1 {
+	// TODO: use v2.1 for registry 2.2 for now until
+	if registryVersion == ethereum.RegistryVersion_2_1 || registryVersion == ethereum.RegistryVersion_2_2 {
 		contractVersion = "v2.1"
 	} else if registryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
 	} else {
-		return fmt.Errorf("v2.0 and v2.1 are the only supported versions")
+		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
