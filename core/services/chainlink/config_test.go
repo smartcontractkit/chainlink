@@ -1157,7 +1157,8 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 6 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 7 errors:
+	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
 		- LDAP.BaseDN: invalid value (<nil>): LDAP BaseDN can not be empty
