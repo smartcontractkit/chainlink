@@ -445,21 +445,25 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 		}
 		return v.client.ProcessTransaction(tx)
 	case ethereum.RegistryVersion_2_2:
-		tx, err := v.registry2_2.SetConfig(txOpts,
-			ocrConfig.Signers,
-			ocrConfig.Transmitters,
-			ocrConfig.F,
-			ocrConfig.OnchainConfig,
-			ocrConfig.OffchainConfigVersion,
-			ocrConfig.OffchainConfig,
-		)
-		if err != nil {
-			return err
-		}
-		return v.client.ProcessTransaction(tx)
+		return v.setConfig22(txOpts, ocrConfig)
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
+}
+
+func (v *EthereumKeeperRegistry) setConfig22(txOpts *bind.TransactOpts, ocrConfig OCRv2Config) error {
+	tx, err := v.registry2_2.SetConfig(txOpts,
+		ocrConfig.Signers,
+		ocrConfig.Transmitters,
+		ocrConfig.F,
+		ocrConfig.OnchainConfig,
+		ocrConfig.OffchainConfigVersion,
+		ocrConfig.OffchainConfig,
+	)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }
 
 // Pause pauses the registry.

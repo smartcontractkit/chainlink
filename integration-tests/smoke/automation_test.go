@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -100,8 +101,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 	}
 
 	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			cfg := tc.MustCopy(automationTestConfig)
 			t.Parallel()
@@ -235,172 +234,182 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.Automation)
-	if err != nil {
-		t.Fatal(err)
+	registryVersions := map[string]ethereum.KeeperRegistryVersion{
+		"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_2": ethereum.RegistryVersion_2_2,
 	}
 
-	a := setupAutomationTestDocker(
-		t, ethereum.RegistryVersion_2_1, automationDefaultRegistryConfig, false, false, &config,
-	)
+	for name, registryVersion := range registryVersions {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			config, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	consumers, upkeepIDs := actions.DeployConsumers(
-		t,
-		a.Registry,
-		a.Registrar,
-		a.LinkToken,
-		a.Deployer,
-		a.ChainClient,
-		defaultAmountOfUpkeeps,
-		big.NewInt(automationDefaultLinkFunds),
-		automationDefaultUpkeepGasLimit,
-		true,
-		false,
-	)
+			a := setupAutomationTestDocker(
+				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+			)
 
-	// Start log trigger based upkeeps for all consumers
-	for i := 0; i < len(consumers); i++ {
-		err := consumers[i].Start()
-		if err != nil {
-			return
-		}
+			consumers, upkeepIDs := actions.DeployConsumers(
+				t,
+				a.Registry,
+				a.Registrar,
+				a.LinkToken,
+				a.Deployer,
+				a.ChainClient,
+				defaultAmountOfUpkeeps,
+				big.NewInt(automationDefaultLinkFunds),
+				automationDefaultUpkeepGasLimit,
+				true,
+				false,
+			)
+
+			// Start log trigger based upkeeps for all consumers
+			for i := 0; i < len(consumers); i++ {
+				err := consumers[i].Start()
+				if err != nil {
+					return
+				}
+			}
+
+			l.Info().Msg("Waiting for all upkeeps to perform")
+			gom := gomega.NewGomegaWithT(t)
+			gom.Eventually(func(g gomega.Gomega) {
+				// Check if the upkeeps are performing multiple times by analyzing their counters
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(testcontext.Get(t))
+					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+					expect := 5
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
+						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
+				}
+			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+
+			topic0InBytesMatch := [32]byte{
+				61, 83, 163, 149, 80, 224, 70, 136,
+				6, 88, 39, 243, 187, 134, 88, 76,
+				176, 7, 171, 158, 188, 167, 235,
+				213, 40, 231, 48, 28, 156, 49, 235, 93,
+			} // bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
+
+			topic0InBytesNoMatch := [32]byte{
+				62, 83, 163, 149, 80, 224, 70, 136,
+				6, 88, 39, 243, 187, 134, 88, 76,
+				176, 7, 171, 158, 188, 167, 235,
+				213, 40, 231, 48, 28, 156, 49, 235, 93,
+			} // changed the first byte from 61 to 62 to make it not match
+
+			bytes0 := [32]byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			} // bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
+
+			// Update the trigger config so no upkeeps are triggered
+			for i := 0; i < len(consumers); i++ {
+				upkeepAddr := consumers[i].Address()
+
+				logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+					ContractAddress: common.HexToAddress(upkeepAddr),
+					FilterSelector:  0,
+					Topic0:          topic0InBytesNoMatch,
+					Topic1:          bytes0,
+					Topic2:          bytes0,
+					Topic3:          bytes0,
+				}
+				encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+				if err != nil {
+					return
+				}
+
+				err = a.Registry.SetUpkeepTriggerConfig(upkeepIDs[i], encodedLogTriggerConfig)
+				require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
+			}
+
+			err = a.ChainClient.WaitForEvents()
+			require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
+
+			var countersAfterSetNoMatch = make([]*big.Int, len(upkeepIDs))
+
+			// Wait for 10 seconds to let in-flight upkeeps finish
+			time.Sleep(10 * time.Second)
+			for i := 0; i < len(upkeepIDs); i++ {
+				// Obtain the amount of times the upkeep has been executed so far
+				countersAfterSetNoMatch[i], err = consumers[i].Counter(testcontext.Get(t))
+				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+				l.Info().Int64("Upkeep Count", countersAfterSetNoMatch[i].Int64()).Int("Upkeep Index", i).Msg("Upkeep")
+			}
+
+			l.Info().Msg("Making sure the counter stays consistent")
+			gom.Consistently(func(g gomega.Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					// Expect the counter to remain constant (At most increase by 2 to account for stale performs) because the upkeep trigger config is not met
+					bufferCount := int64(2)
+					latestCounter, err := consumers[i].Counter(testcontext.Get(t))
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterSetNoMatch[i].Int64()+bufferCount),
+						"Expected consumer counter to remain less than or equal to %d, but got %d",
+						countersAfterSetNoMatch[i].Int64()+bufferCount, latestCounter.Int64())
+				}
+			}, "1m", "1s").Should(gomega.Succeed())
+
+			// Update the trigger config, so upkeeps start performing again
+			for i := 0; i < len(consumers); i++ {
+				upkeepAddr := consumers[i].Address()
+
+				logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+					ContractAddress: common.HexToAddress(upkeepAddr),
+					FilterSelector:  0,
+					Topic0:          topic0InBytesMatch,
+					Topic1:          bytes0,
+					Topic2:          bytes0,
+					Topic3:          bytes0,
+				}
+				encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+				if err != nil {
+					return
+				}
+
+				err = a.Registry.SetUpkeepTriggerConfig(upkeepIDs[i], encodedLogTriggerConfig)
+				require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
+			}
+
+			err = a.ChainClient.WaitForEvents()
+			require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
+
+			var countersAfterSetMatch = make([]*big.Int, len(upkeepIDs))
+
+			for i := 0; i < len(upkeepIDs); i++ {
+				// Obtain the amount of times the upkeep has been executed so far
+				countersAfterSetMatch[i], err = consumers[i].Counter(testcontext.Get(t))
+				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+				l.Info().Int64("Upkeep Count", countersAfterSetMatch[i].Int64()).Int("Upkeep Index", i).Msg("Upkeep")
+			}
+
+			// Wait for 30 seconds to make sure backend is ready
+			time.Sleep(30 * time.Second)
+			// Start the consumers again
+			for i := 0; i < len(consumers); i++ {
+				err := consumers[i].Start()
+				if err != nil {
+					return
+				}
+			}
+
+			l.Info().Msg("Making sure the counter starts increasing again")
+			gom.Eventually(func(g gomega.Gomega) {
+				// Check if the upkeeps are performing multiple times by analyzing their counters
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(testcontext.Get(t))
+					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+					expect := int64(5)
+					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", countersAfterSetMatch[i].Int64()+expect),
+						"Expected consumer counter to be greater than %d, but got %d", countersAfterSetMatch[i].Int64()+expect, counter.Int64())
+				}
+			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+		})
 	}
-
-	l.Info().Msg("Waiting for all upkeeps to perform")
-	gom := gomega.NewGomegaWithT(t)
-	gom.Eventually(func(g gomega.Gomega) {
-		// Check if the upkeeps are performing multiple times by analyzing their counters
-		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(testcontext.Get(t))
-			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-			expect := 5
-			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
-			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-		}
-	}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
-
-	topic0InBytesMatch := [32]byte{
-		61, 83, 163, 149, 80, 224, 70, 136,
-		6, 88, 39, 243, 187, 134, 88, 76,
-		176, 7, 171, 158, 188, 167, 235,
-		213, 40, 231, 48, 28, 156, 49, 235, 93,
-	} // bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
-
-	topic0InBytesNoMatch := [32]byte{
-		62, 83, 163, 149, 80, 224, 70, 136,
-		6, 88, 39, 243, 187, 134, 88, 76,
-		176, 7, 171, 158, 188, 167, 235,
-		213, 40, 231, 48, 28, 156, 49, 235, 93,
-	} // changed the first byte from 61 to 62 to make it not match
-
-	bytes0 := [32]byte{
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	} // bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
-
-	// Update the trigger config so no upkeeps are triggered
-	for i := 0; i < len(consumers); i++ {
-		upkeepAddr := consumers[i].Address()
-
-		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
-			ContractAddress: common.HexToAddress(upkeepAddr),
-			FilterSelector:  0,
-			Topic0:          topic0InBytesNoMatch,
-			Topic1:          bytes0,
-			Topic2:          bytes0,
-			Topic3:          bytes0,
-		}
-		encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
-		if err != nil {
-			return
-		}
-
-		err = a.Registry.SetUpkeepTriggerConfig(upkeepIDs[i], encodedLogTriggerConfig)
-		require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
-	}
-
-	err = a.ChainClient.WaitForEvents()
-	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
-
-	var countersAfterSetNoMatch = make([]*big.Int, len(upkeepIDs))
-
-	// Wait for 10 seconds to let in-flight upkeeps finish
-	time.Sleep(10 * time.Second)
-	for i := 0; i < len(upkeepIDs); i++ {
-		// Obtain the amount of times the upkeep has been executed so far
-		countersAfterSetNoMatch[i], err = consumers[i].Counter(testcontext.Get(t))
-		require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-		l.Info().Int64("Upkeep Count", countersAfterSetNoMatch[i].Int64()).Int("Upkeep Index", i).Msg("Upkeep")
-	}
-
-	l.Info().Msg("Making sure the counter stays consistent")
-	gom.Consistently(func(g gomega.Gomega) {
-		for i := 0; i < len(upkeepIDs); i++ {
-			// Expect the counter to remain constant (At most increase by 2 to account for stale performs) because the upkeep trigger config is not met
-			bufferCount := int64(2)
-			latestCounter, err := consumers[i].Counter(testcontext.Get(t))
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-			g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterSetNoMatch[i].Int64()+bufferCount),
-				"Expected consumer counter to remain less than or equal to %d, but got %d",
-				countersAfterSetNoMatch[i].Int64()+bufferCount, latestCounter.Int64())
-		}
-	}, "1m", "1s").Should(gomega.Succeed())
-
-	// Update the trigger config, so upkeeps start performing again
-	for i := 0; i < len(consumers); i++ {
-		upkeepAddr := consumers[i].Address()
-
-		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
-			ContractAddress: common.HexToAddress(upkeepAddr),
-			FilterSelector:  0,
-			Topic0:          topic0InBytesMatch,
-			Topic1:          bytes0,
-			Topic2:          bytes0,
-			Topic3:          bytes0,
-		}
-		encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
-		if err != nil {
-			return
-		}
-
-		err = a.Registry.SetUpkeepTriggerConfig(upkeepIDs[i], encodedLogTriggerConfig)
-		require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
-	}
-
-	err = a.ChainClient.WaitForEvents()
-	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
-
-	var countersAfterSetMatch = make([]*big.Int, len(upkeepIDs))
-
-	for i := 0; i < len(upkeepIDs); i++ {
-		// Obtain the amount of times the upkeep has been executed so far
-		countersAfterSetMatch[i], err = consumers[i].Counter(testcontext.Get(t))
-		require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-		l.Info().Int64("Upkeep Count", countersAfterSetMatch[i].Int64()).Int("Upkeep Index", i).Msg("Upkeep")
-	}
-
-	// Wait for 30 seconds to make sure backend is ready
-	time.Sleep(30 * time.Second)
-	// Start the consumers again
-	for i := 0; i < len(consumers); i++ {
-		err := consumers[i].Start()
-		if err != nil {
-			return
-		}
-	}
-
-	l.Info().Msg("Making sure the counter starts increasing again")
-	gom.Eventually(func(g gomega.Gomega) {
-		// Check if the upkeeps are performing multiple times by analyzing their counters
-		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(testcontext.Get(t))
-			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-			expect := int64(5)
-			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
-			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", countersAfterSetMatch[i].Int64()+expect),
-				"Expected consumer counter to be greater than %d, but got %d", countersAfterSetMatch[i].Int64()+expect, counter.Int64())
-		}
-	}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 }
 
 func TestAutomationAddFunds(t *testing.T) {
@@ -412,8 +421,6 @@ func TestAutomationAddFunds(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			config, err := tc.GetConfig("Smoke", tc.Automation)
@@ -579,8 +586,6 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -668,8 +673,6 @@ func TestAutomationPauseRegistry(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			config, err := tc.GetConfig("Smoke", tc.Automation)
@@ -742,8 +745,6 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -847,8 +848,6 @@ func TestAutomationPerformSimulation(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			config, err := tc.GetConfig("Smoke", tc.Automation)
@@ -915,8 +914,6 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
@@ -1034,8 +1031,6 @@ func TestUpdateCheckData(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
