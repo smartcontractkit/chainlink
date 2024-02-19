@@ -13,10 +13,11 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"

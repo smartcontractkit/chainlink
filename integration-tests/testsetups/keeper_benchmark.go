@@ -19,12 +19,13 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
