@@ -15,15 +15,15 @@ interface IFunctionsBilling {
   /// @notice Determine the fee that will be split between Node Operators for servicing a request
   /// @param requestCBOR - CBOR encoded Chainlink Functions request data, use FunctionsRequest library to encode a request
   /// @return fee - Cost in Juels (1e18) of LINK
-  function getDONFee(bytes memory requestCBOR) external view returns (uint72);
+  function getDONFeeJuels(bytes memory requestCBOR) external view returns (uint72);
 
   /// @notice Determine the fee that will be paid to the Coordinator owner for operating the network
   /// @return fee - Cost in Juels (1e18) of LINK
-  function getOperationFee() external view returns (uint72);
+  function getOperationFeeJuels() external view returns (uint72);
 
   /// @notice Determine the fee that will be paid to the Router owner for operating the network
   /// @return fee - Cost in Juels (1e18) of LINK
-  function getAdminFee() external view returns (uint72);
+  function getAdminFeeJuels() external view returns (uint72);
 
   /// @notice Estimate the total cost that will be charged to a subscription to make a request: transmitter gas re-reimbursement, plus DON fee, plus Registry fee
   /// @param - subscriptionId An identifier of the billing account
@@ -68,6 +68,6 @@ struct FunctionsBillingConfig {
   uint8 fallbackUsdPerUnitLinkDecimals; // ════════╝ Fallback LINK / USD conversion rate decimal places if the data feed is stale
   uint224 fallbackNativePerUnitLink; // ═══════════╗ Fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
   uint32 requestTimeoutSeconds; // ════════════════╝ How many seconds it takes before we consider a request to be timed out
-  uint16 donFee; // ═══════════════════════════════╗ Additional flat fee (denominated in cents of USD, paid as LINK) that will be split between Node Operators.
-  uint16 operationFee; // ═════════════════════════╝ Additional flat fee (denominated in cents of USD, paid as LINK) that will be paid to the owner of the Coordinator contract.
+  uint16 donFeeCentsUsd; // ═══════════════════════════════╗ Additional flat fee (denominated in cents of USD, paid as LINK) that will be split between Node Operators.
+  uint16 operationFeeCentsUsd; // ═════════════════════════╝ Additional flat fee (denominated in cents of USD, paid as LINK) that will be paid to the owner of the Coordinator contract.
 }

@@ -106,19 +106,19 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
 
   /// @inheritdoc IFunctionsBilling
-  function getDONFee(bytes memory /* requestData */) public view override returns (uint72) {
+  function getDONFeeJuels(bytes memory /* requestData */) public view override returns (uint72) {
     // s_config.donFee is in cents of USD. Get Juel amount then convert to dollars.
-    return SafeCast.toUint72(_getJuelsFromUsd(s_config.donFee) / 100);
+    return SafeCast.toUint72(_getJuelsFromUsd(s_config.donFeeCentsUsd) / 100);
   }
 
   /// @inheritdoc IFunctionsBilling
-  function getOperationFee() public view override returns (uint72) {
+  function getOperationFeeJuels() public view override returns (uint72) {
     // s_config.donFee is in cents of USD. Get Juel amount then convert to dollars.
-    return SafeCast.toUint72(_getJuelsFromUsd(s_config.operationFee) / 100);
+    return SafeCast.toUint72(_getJuelsFromUsd(s_config.operationFeeCentsUsd) / 100);
   }
 
   /// @inheritdoc IFunctionsBilling
-  function getAdminFee() public view override returns (uint72) {
+  function getAdminFeeJuels() public view override returns (uint72) {
     return _getRouter().getAdminFee();
   }
 
@@ -177,9 +177,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     if (gasPriceWei > REASONABLE_GAS_PRICE_CEILING) {
       revert InvalidCalldata();
     }
-    uint72 adminFee = getAdminFee();
-    uint72 donFee = getDONFee(data);
-    uint72 operationFee = getOperationFee();
+    uint72 adminFee = getAdminFeeJuels();
+    uint72 donFee = getDONFeeJuels(data);
+    uint72 operationFee = getOperationFeeJuels();
     return _calculateCostEstimate(callbackGasLimit, gasPriceWei, donFee, adminFee, operationFee);
   }
 
@@ -189,9 +189,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function _calculateCostEstimate(
     uint32 callbackGasLimit,
     uint256 gasPriceWei,
-    uint72 donFee,
-    uint72 adminFee,
-    uint72 operationFee
+    uint72 donFeeJuels,
+    uint72 adminFeeJuels,
+    uint72 operationFeeJuels
   ) internal view returns (uint96) {
     // If gas price is less than the minimum fulfillment gas price, override to using the minimum
     if (gasPriceWei < s_config.minimumEstimateGasPriceWei) {
@@ -206,7 +206,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint256 l1FeeWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
     uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
 
-    uint96 feesJuels = uint96(donFee) + uint96(adminFee) + uint96(operationFee);
+    uint96 feesJuels = uint96(donFeeJuels) + uint96(adminFeeJuels) + uint96(operationFeeJuels);
 
     return estimatedGasReimbursementJuels + feesJuels;
   }
@@ -227,8 +227,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert UnsupportedRequestDataVersion();
     }
 
-    uint72 donFee = getDONFee(request.data);
-    uint72 operationFee = getOperationFee();
+    uint72 donFee = getDONFeeJuels(request.data);
+    uint72 operationFee = getOperationFeeJuels();
     uint96 estimatedTotalCostJuels = _calculateCostEstimate(
       request.callbackGasLimit,
       tx.gasprice,
@@ -260,7 +260,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     );
 
     commitment = FunctionsResponse.CommitmentWithOperationFee({
-      adminFee: request.adminFee,
+      adminFeeJuels: request.adminFee,
       coordinator: address(this),
       client: request.requestingContract,
       subscriptionId: request.subscriptionId,
@@ -268,8 +268,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       estimatedTotalCostJuels: estimatedTotalCostJuels,
       timeoutTimestamp: timeoutTimestamp,
       requestId: requestId,
-      donFee: donFee,
-      operationFee: operationFee,
+      donFeeJuels: donFee,
+      operationFeeJuels: operationFee,
       gasOverheadBeforeCallback: s_config.gasOverheadBeforeCallback,
       gasOverheadAfterCallback: s_config.gasOverheadAfterCallback
     });
@@ -311,10 +311,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       response,
       err,
       juelsPerGas,
-      gasOverheadJuels + commitment.donFee + commitment.operationFee, // cost without callback or admin fee, those will be added by the Router
+      gasOverheadJuels + commitment.donFeeJuels + commitment.operationFeeJuels, // cost without callback or admin fee, those will be added by the Router
       msg.sender,
       FunctionsResponse.Commitment({
-        adminFee: commitment.adminFee,
+        adminFee: commitment.adminFeeJuels,
         coordinator: commitment.coordinator,
         client: commitment.client,
         subscriptionId: commitment.subscriptionId,
@@ -322,7 +322,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
         estimatedTotalCostJuels: commitment.estimatedTotalCostJuels,
         timeoutTimestamp: commitment.timeoutTimestamp,
         requestId: commitment.requestId,
-        donFee: commitment.donFee,
+        donFee: commitment.donFeeJuels,
         gasOverheadBeforeCallback: commitment.gasOverheadBeforeCallback,
         gasOverheadAfterCallback: commitment.gasOverheadAfterCallback
       })
@@ -340,17 +340,17 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       s_withdrawableTokens[msg.sender] += gasOverheadJuels + callbackCostJuels;
       // Put donFee into the pool of fees, to be split later
       // Saves on storage writes that would otherwise be charged to the user
-      s_feePool += commitment.donFee;
+      s_feePool += commitment.donFeeJuels;
       // Pay the operation fee to the Coordinator owner
-      s_withdrawableTokens[_owner()] += commitment.operationFee;
+      s_withdrawableTokens[_owner()] += commitment.operationFeeJuels;
       emit RequestBilled({
         requestId: requestId,
         juelsPerGas: juelsPerGas,
         l1FeeShareWei: l1FeeShareWei,
         callbackCostJuels: callbackCostJuels,
-        donFeeJuels: commitment.donFee,
-        adminFeeJuels: commitment.adminFee,
-        operationFeeJuels: commitment.operationFee
+        donFeeJuels: commitment.donFeeJuels,
+        adminFeeJuels: commitment.adminFeeJuels,
+        operationFeeJuels: commitment.operationFeeJuels
       });
     }
     return resultCode;

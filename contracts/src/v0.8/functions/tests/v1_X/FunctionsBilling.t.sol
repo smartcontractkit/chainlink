@@ -32,7 +32,7 @@ contract FunctionsBilling_GetConfig is FunctionsRouterSetup {
     assertEq(config.gasOverheadBeforeCallback, getCoordinatorConfig().gasOverheadBeforeCallback);
     assertEq(config.gasOverheadAfterCallback, getCoordinatorConfig().gasOverheadAfterCallback);
     assertEq(config.requestTimeoutSeconds, getCoordinatorConfig().requestTimeoutSeconds);
-    assertEq(config.donFee, getCoordinatorConfig().donFee);
+    assertEq(config.donFeeCentsUsd, getCoordinatorConfig().donFeeCentsUsd);
     assertEq(config.maxSupportedRequestDataVersion, getCoordinatorConfig().maxSupportedRequestDataVersion);
     assertEq(config.fulfillmentGasPriceOverEstimationBP, getCoordinatorConfig().fulfillmentGasPriceOverEstimationBP);
     assertEq(config.fallbackNativePerUnitLink, getCoordinatorConfig().fallbackNativePerUnitLink);
@@ -52,8 +52,8 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
       gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback * 2,
       gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback * 2,
       requestTimeoutSeconds: getCoordinatorConfig().requestTimeoutSeconds * 2,
-      donFee: getCoordinatorConfig().donFee * 2,
-      operationFee: getCoordinatorConfig().operationFee * 2,
+      donFeeCentsUsd: getCoordinatorConfig().donFeeCentsUsd * 2,
+      operationFeeCentsUsd: getCoordinatorConfig().operationFeeCentsUsd * 2,
       maxSupportedRequestDataVersion: getCoordinatorConfig().maxSupportedRequestDataVersion * 2,
       fulfillmentGasPriceOverEstimationBP: getCoordinatorConfig().fulfillmentGasPriceOverEstimationBP * 2,
       fallbackNativePerUnitLink: getCoordinatorConfig().fallbackNativePerUnitLink * 2,
@@ -90,22 +90,25 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
     assertEq(config.gasOverheadAfterCallback, configToSet.gasOverheadAfterCallback);
     assertEq(config.gasOverheadBeforeCallback, configToSet.gasOverheadBeforeCallback);
     assertEq(config.requestTimeoutSeconds, configToSet.requestTimeoutSeconds);
-    assertEq(config.donFee, configToSet.donFee);
+    assertEq(config.donFeeCentsUsd, configToSet.donFeeCentsUsd);
+    assertEq(config.operationFeeCentsUsd, configToSet.operationFeeCentsUsd);
     assertEq(config.maxSupportedRequestDataVersion, configToSet.maxSupportedRequestDataVersion);
     assertEq(config.fulfillmentGasPriceOverEstimationBP, configToSet.fulfillmentGasPriceOverEstimationBP);
     assertEq(config.fallbackNativePerUnitLink, configToSet.fallbackNativePerUnitLink);
     assertEq(config.minimumEstimateGasPriceWei, configToSet.minimumEstimateGasPriceWei);
+    assertEq(config.fallbackUsdPerUnitLink, configToSet.fallbackUsdPerUnitLink);
+    assertEq(config.fallbackUsdPerUnitLinkDecimals, configToSet.fallbackUsdPerUnitLinkDecimals);
   }
 }
 
 /// @notice #getDONFee
-contract FunctionsBilling_GetDONFee is FunctionsRouterSetup {
-  function test_GetDONFee_Success() public {
+contract FunctionsBilling_GetDONFeeJuels is FunctionsRouterSetup {
+  function test_GetDONFeeJuels_Success() public {
     // Send as stranger
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    uint72 donFee = s_functionsCoordinator.getDONFee(new bytes(0));
+    uint72 donFee = s_functionsCoordinator.getDONFeeJuels(new bytes(0));
     uint72 expectedDonFee = uint72(((s_donFee * 10 ** (18 + LINK_USD_DECIMALS)) / uint256(LINK_USD_RATE)) / 100);
     assertEq(donFee, expectedDonFee);
   }
@@ -113,12 +116,12 @@ contract FunctionsBilling_GetDONFee is FunctionsRouterSetup {
 
 /// @notice #getOperationFee
 contract FunctionsBilling_GetOperationFee is FunctionsRouterSetup {
-  function test_GetOperationFee_Success() public {
+  function test_GetOperationFeeJuels_Success() public {
     // Send as stranger
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    uint72 operationFee = s_functionsCoordinator.getOperationFee();
+    uint72 operationFee = s_functionsCoordinator.getOperationFeeJuels();
     uint72 expectedOperationFee = uint72(
       ((s_operationFee * 10 ** (18 + LINK_USD_DECIMALS)) / uint256(LINK_USD_RATE)) / 100
     );
@@ -127,13 +130,13 @@ contract FunctionsBilling_GetOperationFee is FunctionsRouterSetup {
 }
 
 /// @notice #getAdminFee
-contract FunctionsBilling_GetAdminFee is FunctionsRouterSetup {
-  function test_GetAdminFee_Success() public {
+contract FunctionsBilling_GetAdminFeeJuels is FunctionsRouterSetup {
+  function test_GetAdminFeeJuels_Success() public {
     // Send as stranger
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    uint72 adminFee = s_functionsCoordinator.getAdminFee();
+    uint72 adminFee = s_functionsCoordinator.getAdminFeeJuels();
     assertEq(adminFee, s_adminFee);
   }
 }
@@ -205,8 +208,8 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
     );
     uint96 expectedCostEstimate = 51110500000000000 +
       s_adminFee +
-      s_functionsCoordinator.getDONFee(requestData) +
-      s_functionsCoordinator.getOperationFee();
+      s_functionsCoordinator.getDONFeeJuels(requestData) +
+      s_functionsCoordinator.getOperationFeeJuels();
     assertEq(costEstimate, expectedCostEstimate);
   }
 
@@ -233,8 +236,8 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
     );
     uint96 expectedCostEstimate = 255552500000000000 +
       s_adminFee +
-      s_functionsCoordinator.getDONFee(requestData) +
-      s_functionsCoordinator.getOperationFee();
+      s_functionsCoordinator.getDONFeeJuels(requestData) +
+      s_functionsCoordinator.getOperationFeeJuels();
     assertEq(costEstimate, expectedCostEstimate);
   }
 }
@@ -323,9 +326,9 @@ contract FunctionsBilling__FulfillAndBill is FunctionsClientRequestSetup {
       juelsPerGas,
       0,
       callbackCostJuels,
-      s_functionsCoordinator.getDONFee(new bytes(0)),
+      s_functionsCoordinator.getDONFeeJuels(new bytes(0)),
       s_adminFee,
-      s_functionsCoordinator.getOperationFee()
+      s_functionsCoordinator.getOperationFeeJuels()
     );
 
     FunctionsResponse.FulfillResult resultCode = s_functionsCoordinator.fulfillAndBill_HARNESS(
@@ -433,8 +436,8 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
     // Attempt to withdraw with no amount, which will withdraw the full balance
     s_functionsCoordinator.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, 0);
 
-    uint96 totalOperationFees = s_functionsCoordinator.getOperationFee() * s_requestsFulfilled;
-    uint96 totalDonFees = s_functionsCoordinator.getDONFee(new bytes(0)) * s_requestsFulfilled;
+    uint96 totalOperationFees = s_functionsCoordinator.getOperationFeeJuels() * s_requestsFulfilled;
+    uint96 totalDonFees = s_functionsCoordinator.getDONFeeJuels(new bytes(0)) * s_requestsFulfilled;
     uint96 donFeeShare = totalDonFees / uint8(s_transmitters.length);
     uint96 expectedBalancePerFulfillment = ((s_fulfillmentCoordinatorBalance - totalOperationFees - totalDonFees) /
       s_requestsFulfilled);
@@ -459,7 +462,7 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
     s_functionsCoordinator.oracleWithdraw(coordinatorOwner, 0);
 
     // 4 report transmissions have been made
-    uint96 totalOperationFees = s_functionsCoordinator.getOperationFee() * s_requestsFulfilled;
+    uint96 totalOperationFees = s_functionsCoordinator.getOperationFeeJuels() * s_requestsFulfilled;
 
     uint256 coordinatorOwnerBalanceAfter = s_linkToken.balanceOf(coordinatorOwner);
     assertEq(coordinatorOwnerBalanceBefore + totalOperationFees, coordinatorOwnerBalanceAfter);
@@ -487,8 +490,8 @@ contract FunctionsBilling_OracleWithdrawAll is FunctionsMultipleFulfillmentsSetu
 
     s_functionsCoordinator.oracleWithdrawAll();
 
-    uint96 totalOperationFees = s_functionsCoordinator.getOperationFee() * s_requestsFulfilled;
-    uint96 totalDonFees = s_functionsCoordinator.getDONFee(new bytes(0)) * s_requestsFulfilled;
+    uint96 totalOperationFees = s_functionsCoordinator.getOperationFeeJuels() * s_requestsFulfilled;
+    uint96 totalDonFees = s_functionsCoordinator.getDONFeeJuels(new bytes(0)) * s_requestsFulfilled;
     uint96 donFeeShare = totalDonFees / uint8(s_transmitters.length);
     uint96 expectedBalancePerFulfillment = ((s_fulfillmentCoordinatorBalance - totalOperationFees - totalDonFees) /
       s_requestsFulfilled);

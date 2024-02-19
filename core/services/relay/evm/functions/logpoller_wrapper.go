@@ -579,12 +579,12 @@ func (l *logPollerWrapper) logsToRequests(coordinator coordinator, requestLogs [
 				oracleRequest.Commitment.Client,
 				oracleRequest.Commitment.SubscriptionId,
 				oracleRequest.Commitment.CallbackGasLimit,
-				oracleRequest.Commitment.AdminFee,
-				oracleRequest.Commitment.DonFee,
+				oracleRequest.Commitment.AdminFeeJuels,
+				oracleRequest.Commitment.DonFeeJuels,
 				oracleRequest.Commitment.GasOverheadBeforeCallback,
 				oracleRequest.Commitment.GasOverheadAfterCallback,
 				oracleRequest.Commitment.TimeoutTimestamp,
-				oracleRequest.Commitment.OperationFee,
+				oracleRequest.Commitment.OperationFeeJuels,
 			)
 			if err != nil {
 				l.lggr.Errorw("LogsToRequests: failed to pack Coordinator v2 commitment bytes, skipping", err)

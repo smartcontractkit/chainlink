@@ -112,7 +112,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     return
       FunctionsResponse.Commitment({
-        adminFee: commitmentWithOperationFee.adminFee,
+        adminFee: commitmentWithOperationFee.adminFeeJuels,
         coordinator: commitmentWithOperationFee.coordinator,
         client: commitmentWithOperationFee.client,
         subscriptionId: commitmentWithOperationFee.subscriptionId,
@@ -120,7 +120,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         estimatedTotalCostJuels: commitmentWithOperationFee.estimatedTotalCostJuels,
         timeoutTimestamp: commitmentWithOperationFee.timeoutTimestamp,
         requestId: commitmentWithOperationFee.requestId,
-        donFee: commitmentWithOperationFee.donFee,
+        donFee: commitmentWithOperationFee.donFeeJuels,
         gasOverheadBeforeCallback: commitmentWithOperationFee.gasOverheadBeforeCallback,
         gasOverheadAfterCallback: commitmentWithOperationFee.gasOverheadAfterCallback
       });

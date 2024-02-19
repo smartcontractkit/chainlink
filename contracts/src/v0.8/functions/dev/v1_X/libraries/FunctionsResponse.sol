@@ -50,11 +50,11 @@ library FunctionsResponse {
     address client; // ════════════════════╗ The client contract that sent the request
     uint64 subscriptionId; //              ║ Identifier of the billing subscription that will be charged for the request
     uint32 callbackGasLimit; // ═══════════╝ The amount of gas that the callback to the consuming contract will be given
-    uint72 adminFee; // ═══════════════════╗ Flat fee (in Juels of LINK) that will be paid to the Router Owner for operation of the network
-    uint72 donFee; //                      ║ Fee (in Juels of LINK) that will be split between Node Operators for servicing a request
+    uint72 adminFeeJuels; // ══════════════╗ Flat fee (in Juels of LINK) that will be paid to the Router Owner for operation of the network
+    uint72 donFeeJuels; //                 ║ Fee (in Juels of LINK) that will be split between Node Operators for servicing a request
     uint40 gasOverheadBeforeCallback; //   ║ Represents the average gas execution cost before the fulfillment callback.
     uint40 gasOverheadAfterCallback; //    ║ Represents the average gas execution cost after the fulfillment callback.
     uint32 timeoutTimestamp; // ═══════════╝ The timestamp at which a request will be eligible to be timed out
-    uint72 operationFee; // ═══════════════╸ Flat fee (in Juels of LINK) that will be paid to the Coordinator Owner for operation of the network
+    uint72 operationFeeJuels; // ══════════╸ Flat fee (in Juels of LINK) that will be paid to the Coordinator Owner for operation of the network
   }
 }

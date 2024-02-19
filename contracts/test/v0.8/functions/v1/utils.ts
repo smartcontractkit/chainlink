@@ -95,12 +95,12 @@ export type CoordinatorConfig = {
   gasOverheadBeforeCallback: number
   gasOverheadAfterCallback: number
   requestTimeoutSeconds: number
-  donFee: number
+  donFeeCentsUsd: number
   maxSupportedRequestDataVersion: number
   fulfillmentGasPriceOverEstimationBP: number
   fallbackNativePerUnitLink: BigNumber
   minimumEstimateGasPriceWei: number
-  operationFee: number
+  operationFeeCentsUsd: number
   fallbackUsdPerUnitLink: number
   fallbackUsdPerUnitLinkDecimals: number
 }
@@ -110,12 +110,12 @@ export const coordinatorConfig: CoordinatorConfig = {
   gasOverheadBeforeCallback: 44_615,
   gasOverheadAfterCallback: 44_615,
   requestTimeoutSeconds: 300,
-  donFee: 0,
+  donFeeCentsUsd: 0,
   maxSupportedRequestDataVersion: 1,
   fulfillmentGasPriceOverEstimationBP: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   minimumEstimateGasPriceWei: 1000000000,
-  operationFee: 0,
+  operationFeeCentsUsd: 0,
   fallbackUsdPerUnitLink: 1500000000,
   fallbackUsdPerUnitLinkDecimals: 8,
 }

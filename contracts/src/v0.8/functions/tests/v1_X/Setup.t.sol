@@ -86,8 +86,8 @@ contract FunctionsRouterSetup is BaseTest {
         gasOverheadAfterCallback: 93_942,
         gasOverheadBeforeCallback: 105_000,
         requestTimeoutSeconds: 60 * 5, // 5 minutes
-        donFee: s_donFee,
-        operationFee: s_operationFee,
+        donFeeCentsUsd: s_donFee,
+        operationFeeCentsUsd: s_operationFee,
         maxSupportedRequestDataVersion: 1,
         fulfillmentGasPriceOverEstimationBP: 5000,
         fallbackNativePerUnitLink: 5000000000000000,
@@ -305,9 +305,9 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     bytes memory emptyData = new bytes(0);
     return
       gasOverheadJuels +
-      s_functionsCoordinator.getDONFee(emptyData) +
+      s_functionsCoordinator.getDONFeeJuels(emptyData) +
       s_adminFee +
-      s_functionsCoordinator.getOperationFee() +
+      s_functionsCoordinator.getOperationFeeJuels() +
       callbackGasCostJuels;
   }
 
@@ -321,9 +321,9 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     bytes memory emptyData = new bytes(0);
     return
       gasOverheadJuels +
-      s_functionsCoordinator.getDONFee(emptyData) +
+      s_functionsCoordinator.getDONFeeJuels(emptyData) +
       s_adminFee +
-      s_functionsCoordinator.getOperationFee() +
+      s_functionsCoordinator.getOperationFeeJuels() +
       callbackGasCostJuels;
   }
 
@@ -376,7 +376,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
       }),
       requestId: requestId,
       commitment: FunctionsResponse.Commitment({
-        adminFee: commitment.adminFee,
+        adminFee: commitment.adminFeeJuels,
         coordinator: commitment.coordinator,
         client: commitment.client,
         subscriptionId: commitment.subscriptionId,
@@ -384,7 +384,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
         estimatedTotalCostJuels: commitment.estimatedTotalCostJuels,
         timeoutTimestamp: commitment.timeoutTimestamp,
         requestId: commitment.requestId,
-        donFee: commitment.donFee,
+        donFee: commitment.donFeeJuels,
         gasOverheadBeforeCallback: commitment.gasOverheadBeforeCallback,
         gasOverheadAfterCallback: commitment.gasOverheadAfterCallback
       }),

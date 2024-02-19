@@ -191,7 +191,7 @@ contract FunctionsCoordinator_StartRequest is FunctionsSubscriptionSetup {
 
     FunctionsResponse.CommitmentWithOperationFee memory expectedComittment = FunctionsResponse
       .CommitmentWithOperationFee({
-        adminFee: s_adminFee,
+        adminFeeJuels: s_adminFee,
         coordinator: address(s_functionsCoordinator),
         client: address(s_functionsClient),
         subscriptionId: s_subscriptionId,
@@ -199,8 +199,8 @@ contract FunctionsCoordinator_StartRequest is FunctionsSubscriptionSetup {
         estimatedTotalCostJuels: costEstimate,
         timeoutTimestamp: timeoutTimestamp,
         requestId: expectedRequestId,
-        donFee: s_functionsCoordinator.getDONFee(_requestData),
-        operationFee: s_functionsCoordinator.getOperationFee(),
+        donFeeJuels: s_functionsCoordinator.getDONFeeJuels(_requestData),
+        operationFeeJuels: s_functionsCoordinator.getOperationFeeJuels(),
         gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback,
         gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback
       });

@@ -1087,7 +1087,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       }),
       requestId: requestId,
       commitment: FunctionsResponse.Commitment({
-        adminFee: _commitment.adminFee,
+        adminFee: _commitment.adminFeeJuels,
         coordinator: _commitment.coordinator,
         client: _commitment.client,
         subscriptionId: _commitment.subscriptionId,
@@ -1095,7 +1095,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
         estimatedTotalCostJuels: _commitment.estimatedTotalCostJuels,
         timeoutTimestamp: _commitment.timeoutTimestamp,
         requestId: _commitment.requestId,
-        donFee: _commitment.donFee,
+        donFee: _commitment.donFeeJuels,
         gasOverheadBeforeCallback: _commitment.gasOverheadBeforeCallback,
         gasOverheadAfterCallback: _commitment.gasOverheadAfterCallback
       }),
