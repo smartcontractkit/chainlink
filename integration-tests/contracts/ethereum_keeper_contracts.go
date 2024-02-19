@@ -271,29 +271,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 			return nil, err
 		}
 
-		onchainConfigStruct := automation_registry_wrapper_2_2.AutomationRegistryBase22OnchainConfig{
-			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
-			FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
-			CheckGasLimit:          rcs.CheckGasLimit,
-			StalenessSeconds:       rcs.StalenessSeconds,
-			GasCeilingMultiplier:   rcs.GasCeilingMultiplier,
-			MinUpkeepSpend:         rcs.MinUpkeepSpend,
-			MaxPerformGas:          rcs.MaxPerformGas,
-			MaxCheckDataSize:       rcs.MaxCheckDataSize,
-			MaxPerformDataSize:     rcs.MaxPerformDataSize,
-			MaxRevertDataSize:      uint32(1000),
-			FallbackGasPrice:       rcs.FallbackGasPrice,
-			FallbackLinkPrice:      rcs.FallbackLinkPrice,
-			Transcoder:             common.Address{},
-			Registrars:             []common.Address{common.HexToAddress(registrar)},
-			UpkeepPrivilegeManager: registryOwnerAddress,
-			ChainModule:            *chainModuleBaseAddr,
-			ReorgProtectionEnabled: true,
-		}
-
-		encodedOnchainConfig, err := utilsABI22.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
-
-		return encodedOnchainConfig, err
+		return rcs.encode22OnchainConfig(registrar, registryOwnerAddress, *chainModuleBaseAddr)
 	}
 	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
 	onchainConfig, err := goabi.Encode(map[string]interface{}{
@@ -313,6 +291,32 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 	}, configType)
 	return onchainConfig, err
 
+}
+
+func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, registryOwnerAddress, chainModuleBaseAddr common.Address) ([]byte, error) {
+	onchainConfigStruct := automation_registry_wrapper_2_2.AutomationRegistryBase22OnchainConfig{
+		PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
+		FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
+		CheckGasLimit:          rcs.CheckGasLimit,
+		StalenessSeconds:       rcs.StalenessSeconds,
+		GasCeilingMultiplier:   rcs.GasCeilingMultiplier,
+		MinUpkeepSpend:         rcs.MinUpkeepSpend,
+		MaxPerformGas:          rcs.MaxPerformGas,
+		MaxCheckDataSize:       rcs.MaxCheckDataSize,
+		MaxPerformDataSize:     rcs.MaxPerformDataSize,
+		MaxRevertDataSize:      uint32(1000),
+		FallbackGasPrice:       rcs.FallbackGasPrice,
+		FallbackLinkPrice:      rcs.FallbackLinkPrice,
+		Transcoder:             common.Address{},
+		Registrars:             []common.Address{common.HexToAddress(registrar)},
+		UpkeepPrivilegeManager: registryOwnerAddress,
+		ChainModule:            chainModuleBaseAddr,
+		ReorgProtectionEnabled: true,
+	}
+
+	encodedOnchainConfig, err := utilsABI22.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
+
+	return encodedOnchainConfig, err
 }
 
 func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
