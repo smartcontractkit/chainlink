@@ -72,14 +72,14 @@ core/scripts/gateway @bolekk @pinebit
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @se3000 @connorwstein @RensR
-/contracts/**/*shared* @RensR @connorwstein
+/contracts/ @rensr @matyang @makramkd
+/contracts/**/*shared* @rensr @matyang @makramkd
 /contracts/srv/v0.8/automation @smartcontractkit/keepers
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
 /contracts/gas-snapshots/automation.gas-snapshot @smartcontractkit/keepers
-/contracts/**/ccip/ @rensr @matyang
+/contracts/**/ccip/ @rensr @matyang @makramkd
 /contracts/**/*Functions* @smartcontractkit/functions
 
 /contracts/src/v0.8/functions @smartcontractkit/functions

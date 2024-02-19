@@ -32,6 +32,7 @@
     "src/v0.8/shared/enumerable/EnumerableMapAddresses.sol",
     "src/v0.8/shared/interfaces/IOwnable.sol",
     "src/v0.8/shared/interfaces/ITypeAndVersion.sol",
+    "src/v0.8/shared/interfaces/IERC677Receiver.sol",
     "src/v0.8/shared/token/ERC20/IBurnMintERC20.sol",
     "src/v0.8/shared/token/ERC677/IERC677.sol",
     "src/v0.8/shared/token/ERC677/IERC677Receiver.sol",
@@ -43,7 +44,7 @@
     "abi/v0.8/",
     "src/v0.8/ccip/LICENSE.md",
     "src/v0.8/ccip/LICENSE-MIT.md",
-    "src/v0.8/ccip/v1.2-CCIP-License-grants.md"
+    "src/v0.8/ccip/v1.4-CCIP-License-grants.md"
   ],
   "pnpm": {
     "_comment": "See https://github.com/ethers-io/ethers.js/discussions/2849#discussioncomment-2696454",
