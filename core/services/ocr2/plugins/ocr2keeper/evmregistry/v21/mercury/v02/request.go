@@ -77,8 +77,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 
 	// in v0.2, when combining results for multiple feed requests
 	// if any request resulted in pipeline execution error then use the last execution error as the state
-	// if no execution errors, then check if any feed returned an error code
-	// When combining multiple results,
+	// if no execution errors, then check if any feed returned an error code, if so use the last error code
 	for i := 0; i < resultLen; i++ {
 		m := <-ch
 		if m.Error != nil {
