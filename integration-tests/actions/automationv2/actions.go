@@ -372,12 +372,12 @@ func (a *AutomationTest) AddBootstrapJob() error {
 
 func (a *AutomationTest) AddAutomationJobs() error {
 	var contractVersion string
-	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
+	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 || a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		contractVersion = "v2.1"
 	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
 	} else {
-		return fmt.Errorf("v2.0 and v2.1 are the only supported versions")
+		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
 	for i := 1; i < len(a.ChainlinkNodes); i++ {
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
