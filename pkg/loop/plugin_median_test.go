@@ -75,3 +75,16 @@ func newMedianProvider(t *testing.T, pr loop.PluginRelayer) types.MedianProvider
 	servicetest.Run(t, mp)
 	return mp
 }
+
+func newGenericPluginProvider(t *testing.T, pr loop.PluginRelayer) types.PluginProvider {
+	ctx := context.Background()
+	r, err := pr.NewRelayer(ctx, test.ConfigTOML, test.StaticKeystore{})
+	require.NoError(t, err)
+	servicetest.Run(t, r)
+	ra := test.RelayArgs
+	ra.ProviderType = string(types.GenericPlugin)
+	p, err := r.NewPluginProvider(ctx, ra, test.PluginArgs)
+	require.NoError(t, err)
+	servicetest.Run(t, p)
+	return p
+}
