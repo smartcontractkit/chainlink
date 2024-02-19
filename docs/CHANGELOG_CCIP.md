@@ -5,7 +5,10 @@ All notable changes to the CCIP project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 1.4.0 - Unreleased
+## 1.5.0 - Unreleased
+
+
+## 1.4.0 - 2024-02-16
 
 ### Changed
 
@@ -29,6 +32,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed obsolete `SourceFinalityDepth` and `DestFinalityDepth` fields.
 
   This change is not breaking: the config decoder still accepts old field names.
+
+- Minor changes to the Prometheus metrics emitted by plugins
+  - `ccip_unexpired_report_skipped`, `ccip_execution_observation_reports_count`, `ccip_execution_observation_build_duration`, `ccip_execution_build_single_batch`, `ccip_execution_reports_iteration_build_batch`
+    removed, because they didn't introduce any additional value compared to the existing OCR2 metrics.
+  - Some metrics added to track details of the processing
+    - `ccip_unexpired_commit_roots` number of unexpired Commit Roots processed by Exec during the OCR2 iteration
+    - `ccip_number_of_messages_processed` number of messages processed by the Exec when building the OCR2 reports and observations
+    - `ccip_sequence_number_counter` latest sequence number that was used for generating Commit Report
+    
+- New `DynamicPriceGetter` implementation of `PriceGetter`.
+  - allows for dynamic price fetching from an aggregator contract as well as using static configuration of token prices.
+  - current pipeline implementation is still supported.
+  - only one of the two PriceGetter implementations can be used at a time (specified in the job spec).
 
 ## 1.2.0 - 2023-11-20
 

@@ -10,13 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const latestRoundDataMethodName = "latestRoundData"
@@ -34,13 +32,11 @@ func init() {
 
 type DynamicPriceGetterClient struct {
 	BatchCaller rpclib.EvmBatchCaller
-	LP          logpoller.LogPoller
 }
 
-func NewDynamicPriceGetterClient(batchCaller rpclib.EvmBatchCaller, lp logpoller.LogPoller) DynamicPriceGetterClient {
+func NewDynamicPriceGetterClient(batchCaller rpclib.EvmBatchCaller) DynamicPriceGetterClient {
 	return DynamicPriceGetterClient{
 		BatchCaller: batchCaller,
-		LP:          lp,
 	}
 }
 
@@ -116,15 +112,9 @@ func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []ccipty
 		}
 
 		evmCaller := client.BatchCaller
-		lp := client.LP
-
 		tokensOrder := batchCallsTokensOrder[chainID]
-		latestBlock, err := lp.LatestBlock(pg.WithParentCtx(ctx))
-		if err != nil {
-			return nil, fmt.Errorf("get latest block: %w", err)
-		}
 
-		resultsPerChain, err := evmCaller.BatchCall(ctx, uint64(latestBlock.BlockNumber), batchCalls)
+		resultsPerChain, err := evmCaller.BatchCall(ctx, 0, batchCalls)
 		if err != nil {
 			return nil, fmt.Errorf("batch call: %w", err)
 		}

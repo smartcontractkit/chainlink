@@ -126,7 +126,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			offRamp, _ := testhelpers.NewFakeOffRamp(t)
 			offRamp.SetRateLimiterState(tc.rateLimiterState)
 
-			tokenPoolBatchedReader, err := batchreader.NewEVMTokenPoolBatchedReader(p.lggr, 0, ccipcalc.EvmAddrToGeneric(offRamp.Address()), nil, nil)
+			tokenPoolBatchedReader, err := batchreader.NewEVMTokenPoolBatchedReader(p.lggr, 0, ccipcalc.EvmAddrToGeneric(offRamp.Address()), nil)
 			assert.NoError(t, err)
 			p.tokenPoolBatchedReader = tokenPoolBatchedReader
 

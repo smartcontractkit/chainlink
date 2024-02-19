@@ -31,10 +31,6 @@ contract MockCCIPRouter is IRouter, IRouterClient {
     uint256 gasLimit,
     address receiver
   ) external returns (bool success, bytes memory retData, uint256 gasUsed) {
-    // Only send through the router if the receiver is a contract and implements the IAny2EVMMessageReceiver interface.
-    if (receiver.code.length == 0 || !receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId))
-      return (true, "", 0);
-
     return _routeMessage(message, gasForCallExactCheck, gasLimit, receiver);
   }
 
@@ -44,6 +40,10 @@ contract MockCCIPRouter is IRouter, IRouterClient {
     uint256 gasLimit,
     address receiver
   ) internal returns (bool success, bytes memory retData, uint256 gasUsed) {
+    // Only send through the router if the receiver is a contract and implements the IAny2EVMMessageReceiver interface.
+    if (receiver.code.length == 0 || !receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId))
+      return (true, "", 0);
+
     bytes memory data = abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message);
 
     (success, retData, gasUsed) = CallWithExactGas._callWithExactGasSafeReturnData(
