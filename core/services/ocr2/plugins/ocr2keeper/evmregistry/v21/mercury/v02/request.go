@@ -108,17 +108,17 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		}
 		// If errors were retryable then calculate retry interval
 		retryInterval := mercury.CalculateRetryConfigFn(pluginRetryKey, c.mercuryConfig)
-		if retryInterval == mercury.RetryIntervalTimeout {
-			// If we have exhausted all retries and we have an error code to expose to user expose it with noPipelineError
-			// otherwise expose the last pipeline error to pipeline runner (not the user)
-			if errCode != encoding.ErrCodeNil {
-				return encoding.NoPipelineError, nil, errCode, false, 0 * time.Second, nil
-			}
-			return state, nil, errCode, false, 0 * time.Second, reqErr
+		if retryInterval != mercury.RetryIntervalTimeout {
+			// Return the retyrable state with appropriate retry interval
+			return state, nil, errCode, retryable, retryInterval, reqErr
 		}
 
-		// Return the retyrable state with appropriate retry interval
-		return state, nil, errCode, retryable, retryInterval, reqErr
+		// Now we have exhausted all retries and we have an error code to expose to user expose it with noPipelineError
+		// otherwise expose the last pipeline error to pipeline runner (not the user)
+		if errCode != encoding.ErrCodeNil {
+			return encoding.NoPipelineError, nil, errCode, false, 0 * time.Second, nil
+		}
+		return state, nil, errCode, false, 0 * time.Second, reqErr
 	}
 
 	// All feeds faced no pipeline error
