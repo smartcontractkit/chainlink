@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
+	type_and_version "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/type_and_version_interface_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -338,21 +339,21 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 	return activeCoordinatorAddress, proposedCoordinator, nil
 }
 
-func (l *logPollerWrapper) getCoordinatorTypeAndVersion(coordinatorAddress common.Address) (string, error) {
-	if coordinatorAddress == (common.Address{}) {
+func (l *logPollerWrapper) getTypeAndVersion(contractAddress common.Address) (string, error) {
+	if contractAddress == (common.Address{}) {
 		l.lggr.Debug("LogPollerWrapper: cannot get typeAndVersion from an unset address")
 		return "", nil
 	}
 
-	coordinatorContract, err := functions_coordinator.NewFunctionsCoordinator(coordinatorAddress, l.client)
+	contract, err := type_and_version.NewTypeAndVersionInterface(contractAddress, l.client)
 	if err != nil {
-		l.lggr.Error("LogPollerWrapper: could not initialize Coordinator contract ", coordinatorAddress)
+		l.lggr.Error("LogPollerWrapper: could not initialize contract with typeAndVersion interface", contractAddress)
 		return "", err
 	}
 
-	typeAndVersion, err := coordinatorContract.TypeAndVersion(&bind.CallOpts{})
+	typeAndVersion, err := contract.TypeAndVersion(&bind.CallOpts{})
 	if err != nil {
-		l.lggr.Error("LogPollerWrapper: could not get typeAndVersion from Coordinator contract ", coordinatorAddress)
+		l.lggr.Error("LogPollerWrapper: could not get typeAndVersion from contract ", contractAddress)
 		return "", err
 	}
 
@@ -373,13 +374,13 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 		return
 	}
 
-	activeCoordinatorTypeAndVersion, err := l.getCoordinatorTypeAndVersion(activeCoordinatorAddress)
+	activeCoordinatorTypeAndVersion, err := l.getTypeAndVersion(activeCoordinatorAddress)
 	if err != nil {
 		return
 	}
 	activeCoordinator := coordinator{address: activeCoordinatorAddress, typeAndVersion: activeCoordinatorTypeAndVersion}
 
-	proposedCoordinatorTypeAndVersion, err := l.getCoordinatorTypeAndVersion(proposedCoordinatorAddress)
+	proposedCoordinatorTypeAndVersion, err := l.getTypeAndVersion(proposedCoordinatorAddress)
 	if err != nil {
 		return
 	}
