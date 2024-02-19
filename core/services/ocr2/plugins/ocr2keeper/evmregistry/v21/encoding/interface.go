@@ -47,6 +47,7 @@ const (
 type ErrCode uint32
 
 const (
+	// TODO: Finalize these
 	ErrCodeNil                   ErrCode = 0
 	ErrCodeStreamsPartialContent ErrCode = 808206
 	ErrCodeStreamsBadRequest     ErrCode = 808400
