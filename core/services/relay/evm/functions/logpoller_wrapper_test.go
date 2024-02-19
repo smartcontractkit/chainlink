@@ -60,10 +60,12 @@ func newSubscriber(expectedCalls int) *subscriber {
 	return sub
 }
 
-func addr(t *testing.T, lastByte string) []byte {
+func addr(lastByte string) ([]byte, error) {
 	contractAddr, err := hex.DecodeString("00000000000000000000000000000000000000000000000000000000000000" + lastByte)
-	require.NoError(t, err)
-	return contractAddr
+	if err != nil {
+		return []byte{}, err
+	}
+	return contractAddr, nil
 }
 
 func setUp(t *testing.T, updateFrequencySec uint32) (*lpmocks.LogPoller, types.LogPollerWrapper, *evmclimocks.Client) {
@@ -74,9 +76,11 @@ func setUp(t *testing.T, updateFrequencySec uint32) (*lpmocks.LogPoller, types.L
 		ContractUpdateCheckFrequencySec: updateFrequencySec,
 		ContractVersion:                 1,
 	}
-	routerAddressBytes = addr(t, "01")
+	routerAddressBytes, err := addr("01")
+	require.NoError(t, err)
 	routerAddressHex = common.BytesToAddress(routerAddressBytes)
-	coordinatorAddressBytes = addr(t, "02")
+	coordinatorAddressBytes, err = addr("02")
+	require.NoError(t, err)
 	coordinatorAddressHex = common.BytesToAddress(coordinatorAddressBytes)
 	lpWrapper, err := NewLogPollerWrapper(routerAddressHex, config, client, lp, lggr)
 	require.NoError(t, err)
@@ -132,7 +136,7 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents_CoordinatorV1(t *testing.T
 	client.On("CallContract", mock.Anything, ethereum.CallMsg{ // getProposedContractById
 		To:   &routerAddressHex,
 		Data: []uint8{0x6a, 0x22, 0x15, 0xde, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-	}, mock.Anything).Return(addr(t, "00"), nil)
+	}, mock.Anything).Return(addr("00"))
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	typeAndVersionResponse, err := encodeTypeAndVersion(CoordinatorContractV100)
 	require.NoError(t, err)
@@ -163,7 +167,7 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents_CoordinatorV2(t *testing.T
 	client.On("CallContract", mock.Anything, ethereum.CallMsg{ // getProposedContractById
 		To:   &routerAddressHex,
 		Data: []uint8{0x6a, 0x22, 0x15, 0xde, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-	}, mock.Anything).Return(addr(t, "00"), nil)
+	}, mock.Anything).Return(addr("00"))
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	typeAndVersionResponse, err := encodeTypeAndVersion(CoordinatorContractV200)
 	require.NoError(t, err)
@@ -186,7 +190,7 @@ func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
 	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
-	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "00"), nil)
+	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr("00"))
 
 	servicetest.Run(t, lpWrapper)
 	_, _, err := lpWrapper.LatestEvents()
@@ -203,7 +207,7 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandlingV1(t *testing.T) {
 	client.On("CallContract", mock.Anything, ethereum.CallMsg{ // getProposedContractById
 		To:   &routerAddressHex,
 		Data: []uint8{0x6a, 0x22, 0x15, 0xde, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-	}, mock.Anything).Return(addr(t, "00"), nil)
+	}, mock.Anything).Return(addr("00"))
 	typeAndVersionResponse, err := encodeTypeAndVersion(CoordinatorContractV100)
 	require.NoError(t, err)
 	client.On("CallContract", mock.Anything, ethereum.CallMsg{ // typeAndVersion
@@ -248,7 +252,7 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandlingV2(t *testing.T) {
 	client.On("CallContract", mock.Anything, ethereum.CallMsg{ // getProposedContractById
 		To:   &routerAddressHex,
 		Data: []uint8{0x6a, 0x22, 0x15, 0xde, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-	}, mock.Anything).Return(addr(t, "00"), nil)
+	}, mock.Anything).Return(addr("00"))
 	typeAndVersionResponse, err := encodeTypeAndVersion(CoordinatorContractV200)
 	require.NoError(t, err)
 	client.On("CallContract", mock.Anything, ethereum.CallMsg{ // typeAndVersion
