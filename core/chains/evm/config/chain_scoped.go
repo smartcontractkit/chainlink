@@ -193,3 +193,11 @@ func (e *evmConfig) OperatorFactoryAddress() string {
 	}
 	return e.c.OperatorFactoryAddress.String()
 }
+
+func (e *evmConfig) LogPrunePageSize() uint32 {
+	// If not set, return 0 to indicate no paging during logs deletion
+	if e.c.LogPrunePageSize == nil {
+		return 0
+	}
+	return *e.c.LogPrunePageSize
+}

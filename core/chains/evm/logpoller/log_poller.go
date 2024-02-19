@@ -106,6 +106,7 @@ type logPoller struct {
 	backfillBatchSize        int64         // batch size to use when backfilling finalized logs
 	rpcBatchSize             int64         // batch size to use for fallback RPC calls made in GetBlocks
 	backupPollerNextBlock    int64
+	logPrunePageSize         int64
 
 	filterMu        sync.RWMutex
 	filters         map[string]Filter
@@ -130,8 +131,7 @@ type logPoller struct {
 //
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
-	useFinalityTag bool, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepFinalizedBlocksDepth int64) *logPoller {
+func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration, useFinalityTag bool, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepFinalizedBlocksDepth int64, logsPrunePageSize int64) *logPoller {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &logPoller{
 		ctx:                      ctx,
@@ -147,6 +147,7 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Durati
 		backfillBatchSize:        backfillBatchSize,
 		rpcBatchSize:             rpcBatchSize,
 		keepFinalizedBlocksDepth: keepFinalizedBlocksDepth,
+		logPrunePageSize:         logsPrunePageSize,
 		filters:                  make(map[string]Filter),
 		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
 	}
@@ -964,21 +965,19 @@ func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 		// No-op, keep all blocks
 		return true, nil
 	}
-	pageSize := int64(10_000)
 	// 1-2-3-4-5(finalized)-6-7(latest), keepFinalizedBlocksDepth=3
 	// Remove <= 2
 	rowsRemoved, err := lp.orm.DeleteBlocksBefore(
 		latestBlock.FinalizedBlockNumber-lp.keepFinalizedBlocksDepth,
-		pageSize,
+		lp.logPrunePageSize,
 		pg.WithParentCtx(ctx),
 	)
-	return rowsRemoved < pageSize, err
+	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
 }
 
 func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
-	pageSize := int64(10_000)
-	rowsRemoved, err := lp.orm.DeleteExpiredLogs(pageSize, pg.WithParentCtx(ctx))
-	return rowsRemoved < pageSize, err
+	rowsRemoved, err := lp.orm.DeleteExpiredLogs(lp.logPrunePageSize, pg.WithParentCtx(ctx))
+	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,
