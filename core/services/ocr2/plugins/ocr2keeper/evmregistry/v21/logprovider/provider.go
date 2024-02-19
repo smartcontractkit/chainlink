@@ -102,6 +102,9 @@ type logEventProvider struct {
 	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
+
+	numOfLogUpkeeps  uint32
+	fastExecLogsHigh uint32
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
@@ -114,6 +117,17 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 		opts:        opts,
 		filterStore: filterStore,
 	}
+}
+
+func (p *logEventProvider) GetConfig() (uint32, uint32) {
+	return p.numOfLogUpkeeps, p.fastExecLogsHigh
+}
+
+func (p *logEventProvider) SetConfig(ctx context.Context, numOfLogUpkeeps, fastExecLogsHigh uint32) error {
+	p.numOfLogUpkeeps = numOfLogUpkeeps
+	p.fastExecLogsHigh = fastExecLogsHigh
+
+	return nil
 }
 
 func (p *logEventProvider) Start(context.Context) error {

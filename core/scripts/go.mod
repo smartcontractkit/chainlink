@@ -19,8 +19,8 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240219152510-85226a0fbdc1
+	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240219190432-c5a482020daf
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240219191003-14053c886e21
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240215150045-fe2ba71b2f0a
