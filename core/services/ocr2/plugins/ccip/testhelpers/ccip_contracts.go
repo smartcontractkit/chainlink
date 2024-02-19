@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
@@ -75,11 +76,11 @@ var (
 // Backwards compat, in principle these statuses are version dependent
 // TODO: Adjust integration tests to be version agnostic using readers
 var (
-	ExecutionStateSuccess = MessageExecutionState(ccipdata.ExecutionStateSuccess)
-	ExecutionStateFailure = MessageExecutionState(ccipdata.ExecutionStateFailure)
+	ExecutionStateSuccess = MessageExecutionState(cciptypes.ExecutionStateSuccess)
+	ExecutionStateFailure = MessageExecutionState(cciptypes.ExecutionStateFailure)
 )
 
-type MessageExecutionState ccipdata.MessageExecutionState
+type MessageExecutionState cciptypes.MessageExecutionState
 type CommitOffchainConfig struct {
 	v1_2_0.JSONCommitOffchainConfig
 }

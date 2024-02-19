@@ -6,7 +6,8 @@ import (
 	context "context"
 	big "math/big"
 
-	internal "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -16,27 +17,27 @@ type MockGasPriceEstimator struct {
 }
 
 // DenoteInUSD provides a mock function with given fields: p, wrappedNativePrice
-func (_m *MockGasPriceEstimator) DenoteInUSD(p GasPrice, wrappedNativePrice *big.Int) (GasPrice, error) {
+func (_m *MockGasPriceEstimator) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
 	ret := _m.Called(p, wrappedNativePrice)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DenoteInUSD")
 	}
 
-	var r0 GasPrice
+	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(GasPrice, *big.Int) (GasPrice, error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) (*big.Int, error)); ok {
 		return rf(p, wrappedNativePrice)
 	}
-	if rf, ok := ret.Get(0).(func(GasPrice, *big.Int) GasPrice); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) *big.Int); ok {
 		r0 = rf(p, wrappedNativePrice)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(GasPrice)
+			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(GasPrice, *big.Int) error); ok {
+	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int) error); ok {
 		r1 = rf(p, wrappedNativePrice)
 	} else {
 		r1 = ret.Error(1)
@@ -46,7 +47,7 @@ func (_m *MockGasPriceEstimator) DenoteInUSD(p GasPrice, wrappedNativePrice *big
 }
 
 // Deviates provides a mock function with given fields: p1, p2
-func (_m *MockGasPriceEstimator) Deviates(p1 GasPrice, p2 GasPrice) (bool, error) {
+func (_m *MockGasPriceEstimator) Deviates(p1 *big.Int, p2 *big.Int) (bool, error) {
 	ret := _m.Called(p1, p2)
 
 	if len(ret) == 0 {
@@ -55,16 +56,16 @@ func (_m *MockGasPriceEstimator) Deviates(p1 GasPrice, p2 GasPrice) (bool, error
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(GasPrice, GasPrice) (bool, error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) (bool, error)); ok {
 		return rf(p1, p2)
 	}
-	if rf, ok := ret.Get(0).(func(GasPrice, GasPrice) bool); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) bool); ok {
 		r0 = rf(p1, p2)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(GasPrice, GasPrice) error); ok {
+	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int) error); ok {
 		r1 = rf(p1, p2)
 	} else {
 		r1 = ret.Error(1)
@@ -74,7 +75,7 @@ func (_m *MockGasPriceEstimator) Deviates(p1 GasPrice, p2 GasPrice) (bool, error
 }
 
 // EstimateMsgCostUSD provides a mock function with given fields: p, wrappedNativePrice, msg
-func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p GasPrice, wrappedNativePrice *big.Int, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
+func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
 	ret := _m.Called(p, wrappedNativePrice, msg)
 
 	if len(ret) == 0 {
@@ -83,10 +84,10 @@ func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p GasPrice, wrappedNativePri
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(GasPrice, *big.Int, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error)); ok {
 		return rf(p, wrappedNativePrice, msg)
 	}
-	if rf, ok := ret.Get(0).(func(GasPrice, *big.Int, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) *big.Int); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) *big.Int); ok {
 		r0 = rf(p, wrappedNativePrice, msg)
 	} else {
 		if ret.Get(0) != nil {
@@ -94,7 +95,7 @@ func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p GasPrice, wrappedNativePri
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(GasPrice, *big.Int, internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) error); ok {
+	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) error); ok {
 		r1 = rf(p, wrappedNativePrice, msg)
 	} else {
 		r1 = ret.Error(1)
@@ -104,23 +105,23 @@ func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p GasPrice, wrappedNativePri
 }
 
 // GetGasPrice provides a mock function with given fields: ctx
-func (_m *MockGasPriceEstimator) GetGasPrice(ctx context.Context) (GasPrice, error) {
+func (_m *MockGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetGasPrice")
 	}
 
-	var r0 GasPrice
+	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (GasPrice, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (*big.Int, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) GasPrice); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) *big.Int); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(GasPrice)
+			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
@@ -134,51 +135,33 @@ func (_m *MockGasPriceEstimator) GetGasPrice(ctx context.Context) (GasPrice, err
 }
 
 // Median provides a mock function with given fields: gasPrices
-func (_m *MockGasPriceEstimator) Median(gasPrices []GasPrice) (GasPrice, error) {
+func (_m *MockGasPriceEstimator) Median(gasPrices []*big.Int) (*big.Int, error) {
 	ret := _m.Called(gasPrices)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Median")
 	}
 
-	var r0 GasPrice
+	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]GasPrice) (GasPrice, error)); ok {
+	if rf, ok := ret.Get(0).(func([]*big.Int) (*big.Int, error)); ok {
 		return rf(gasPrices)
 	}
-	if rf, ok := ret.Get(0).(func([]GasPrice) GasPrice); ok {
+	if rf, ok := ret.Get(0).(func([]*big.Int) *big.Int); ok {
 		r0 = rf(gasPrices)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(GasPrice)
+			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]GasPrice) error); ok {
+	if rf, ok := ret.Get(1).(func([]*big.Int) error); ok {
 		r1 = rf(gasPrices)
 	} else {
 		r1 = ret.Error(1)
 	}
 
 	return r0, r1
-}
-
-// String provides a mock function with given fields: p
-func (_m *MockGasPriceEstimator) String(p GasPrice) string {
-	ret := _m.Called(p)
-
-	if len(ret) == 0 {
-		panic("no return value specified for String")
-	}
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func(GasPrice) string); ok {
-		r0 = rf(p)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
 }
 
 // NewMockGasPriceEstimator creates a new instance of MockGasPriceEstimator. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

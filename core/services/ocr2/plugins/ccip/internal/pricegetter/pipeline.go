@@ -6,11 +6,11 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/parseutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -42,7 +42,7 @@ func NewPipelineGetter(source string, runner pipeline.Runner, jobID int32, exter
 	}, nil
 }
 
-func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []common.Address) (map[common.Address]*big.Int, error) {
+func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
 	_, trrs, err := d.runner.ExecuteRun(ctx, pipeline.Spec{
 		ID:           d.jobID,
 		DotDagSource: d.source,
@@ -66,17 +66,16 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []common.Add
 		return nil, errors.Errorf("expected map output of price pipeline, got %T", finalResult.Values[0])
 	}
 
-	providedTokensSet := mapset.NewSet[common.Address](tokens...)
-	tokenPrices := make(map[common.Address]*big.Int)
+	providedTokensSet := mapset.NewSet[cciptypes.Address](tokens...)
+	tokenPrices := make(map[cciptypes.Address]*big.Int)
 	for tokenAddressStr, rawPrice := range prices {
 		castedPrice, err := parseutil.ParseBigIntFromAny(rawPrice)
 		if err != nil {
 			return nil, err
 		}
 
-		tokenAddress := common.HexToAddress(tokenAddressStr)
-		if providedTokensSet.Contains(tokenAddress) {
-			tokenPrices[tokenAddress] = castedPrice
+		if providedTokensSet.Contains(cciptypes.Address(tokenAddressStr)) {
+			tokenPrices[cciptypes.Address(tokenAddressStr)] = castedPrice
 		}
 	}
 

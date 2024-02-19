@@ -25,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
@@ -41,8 +43,8 @@ type priceRegReaderTH struct {
 	// Expected state
 	blockTs              []uint64
 	expectedFeeTokens    []common.Address
-	expectedGasUpdates   map[uint64][]ccipdata.GasPrice
-	expectedTokenUpdates map[uint64][]ccipdata.TokenPrice
+	expectedGasUpdates   map[uint64][]cciptypes.GasPrice
+	expectedTokenUpdates map[uint64][]cciptypes.TokenPrice
 	dest                 uint64
 }
 
@@ -73,27 +75,27 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 
 	feeTokens := []common.Address{utils.RandomAddress(), utils.RandomAddress()}
 	dest := uint64(10)
-	gasPriceUpdatesBlock1 := []ccipdata.GasPrice{
+	gasPriceUpdatesBlock1 := []cciptypes.GasPrice{
 		{
 			DestChainSelector: dest,
 			Value:             big.NewInt(11),
 		},
 	}
-	gasPriceUpdatesBlock2 := []ccipdata.GasPrice{
+	gasPriceUpdatesBlock2 := []cciptypes.GasPrice{
 		{
 			DestChainSelector: dest,           // Reset same gas price
 			Value:             big.NewInt(12), // Intentionally different from block1
 		},
 	}
-	token1 := utils.RandomAddress()
-	token2 := utils.RandomAddress()
-	tokenPriceUpdatesBlock1 := []ccipdata.TokenPrice{
+	token1 := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
+	token2 := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
+	tokenPriceUpdatesBlock1 := []cciptypes.TokenPrice{
 		{
 			Token: token1,
 			Value: big.NewInt(12),
 		},
 	}
-	tokenPriceUpdatesBlock2 := []ccipdata.TokenPrice{
+	tokenPriceUpdatesBlock2 := []cciptypes.TokenPrice{
 		{
 			Token: token1,
 			Value: big.NewInt(13), // Intentionally change token1 value
@@ -108,10 +110,10 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	addr2, _, _, err := price_registry.DeployPriceRegistry(user, ec, nil, feeTokens, 1000)
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec) // Deploy these
-	pr10r, err := factory.NewPriceRegistryReader(lggr, factory.NewEvmVersionFinder(), addr, lp, ec)
+	pr10r, err := factory.NewPriceRegistryReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr), lp, ec)
 	require.NoError(t, err)
 	assert.Equal(t, reflect.TypeOf(pr10r).String(), reflect.TypeOf(&v1_0_0.PriceRegistry{}).String())
-	pr12r, err := factory.NewPriceRegistryReader(lggr, factory.NewEvmVersionFinder(), addr2, lp, ec)
+	pr12r, err := factory.NewPriceRegistryReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), lp, ec)
 	require.NoError(t, err)
 	assert.Equal(t, reflect.TypeOf(pr12r).String(), reflect.TypeOf(&v1_2_0.PriceRegistry{}).String())
 	// Apply block1.
@@ -135,11 +137,11 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 			ccipdata.V1_0_0: pr10r, ccipdata.V1_2_0: pr12r,
 		},
 		expectedFeeTokens: feeTokens,
-		expectedGasUpdates: map[uint64][]ccipdata.GasPrice{
+		expectedGasUpdates: map[uint64][]cciptypes.GasPrice{
 			b1: gasPriceUpdatesBlock1,
 			b2: gasPriceUpdatesBlock2,
 		},
-		expectedTokenUpdates: map[uint64][]ccipdata.TokenPrice{
+		expectedTokenUpdates: map[uint64][]cciptypes.TokenPrice{
 			b1: tokenPriceUpdatesBlock1,
 			b2: tokenPriceUpdatesBlock2,
 		},
@@ -152,7 +154,9 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	// Assert have expected fee tokens.
 	gotFeeTokens, err := pr.GetFeeTokens(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, th.expectedFeeTokens, gotFeeTokens)
+	evmAddrs, err := ccipcalc.GenericAddrsToEvm(gotFeeTokens...)
+	require.NoError(t, err)
+	assert.Equal(t, th.expectedFeeTokens, evmAddrs)
 
 	// Note unsupported chain selector simply returns an empty set not an error
 	gasUpdates, err := pr.GetGasPriceUpdatesCreatedAfter(context.Background(), 1e6, time.Unix(0, 0), 0)
@@ -161,8 +165,8 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 
 	for i, ts := range th.blockTs {
 		// Should see all updates >= ts.
-		var expectedGas []ccipdata.GasPrice
-		var expectedToken []ccipdata.TokenPrice
+		var expectedGas []cciptypes.GasPrice
+		var expectedToken []cciptypes.TokenPrice
 		for j := i; j < len(th.blockTs); j++ {
 			expectedGas = append(expectedGas, th.expectedGasUpdates[th.blockTs[j]]...)
 			expectedToken = append(expectedToken, th.expectedTokenUpdates[th.blockTs[j]]...)
@@ -177,7 +181,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	}
 
 	// Empty token set should return empty set no error.
-	gotEmpty, err := pr.GetTokenPrices(context.Background(), []common.Address{})
+	gotEmpty, err := pr.GetTokenPrices(context.Background(), []cciptypes.Address{})
 	require.NoError(t, err)
 	assert.Len(t, gotEmpty, 0)
 
@@ -185,16 +189,17 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	allTokenUpdates, err := pr.GetTokenPriceUpdatesCreatedAfter(context.Background(), time.Unix(0, 0), 0)
 	require.NoError(t, err)
 	// Build latest map
-	latest := make(map[common.Address]*big.Int)
+	latest := make(map[cciptypes.Address]*big.Int)
 	// Comes back in ascending order (oldest first)
-	var allTokens []common.Address
+	var allTokens []cciptypes.Address
 	for i := len(allTokenUpdates) - 1; i >= 0; i-- {
-		_, have := latest[allTokenUpdates[i].Data.Token]
+		assert.NoError(t, err)
+		_, have := latest[allTokenUpdates[i].Token]
 		if have {
 			continue
 		}
-		latest[allTokenUpdates[i].Data.Token] = allTokenUpdates[i].Data.Value
-		allTokens = append(allTokens, allTokenUpdates[i].Data.Token)
+		latest[allTokenUpdates[i].Token] = allTokenUpdates[i].Value
+		allTokens = append(allTokens, allTokenUpdates[i].Token)
 	}
 	tokenPrices, err := pr.GetTokenPrices(context.Background(), allTokens)
 	require.NoError(t, err)
@@ -243,7 +248,10 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			require.NoError(t, err)
 			c := evmclientmocks.NewClient(t)
 			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
-			_, err = factory.NewPriceRegistryReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), common.Address{}, lpmocks.NewLogPoller(t), c)
+			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
+			lp := lpmocks.NewLogPoller(t)
+			lp.On("RegisterFilter", mock.Anything).Return(nil).Maybe()
+			_, err = factory.NewPriceRegistryReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, lp, c)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {

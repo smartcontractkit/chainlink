@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	common "github.com/ethereum/go-ethereum/common"
-	ccipdata "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-
 	context "context"
+
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -19,20 +18,18 @@ type PriceRegistryReader struct {
 }
 
 // Address provides a mock function with given fields:
-func (_m *PriceRegistryReader) Address() common.Address {
+func (_m *PriceRegistryReader) Address() cciptypes.Address {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Address")
 	}
 
-	var r0 common.Address
-	if rf, ok := ret.Get(0).(func() common.Address); ok {
+	var r0 cciptypes.Address
+	if rf, ok := ret.Get(0).(func() cciptypes.Address); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Address)
-		}
+		r0 = ret.Get(0).(cciptypes.Address)
 	}
 
 	return r0
@@ -57,23 +54,23 @@ func (_m *PriceRegistryReader) Close() error {
 }
 
 // GetFeeTokens provides a mock function with given fields: ctx
-func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]common.Address, error) {
+func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]cciptypes.Address, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetFeeTokens")
 	}
 
-	var r0 []common.Address
+	var r0 []cciptypes.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]common.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) ([]cciptypes.Address, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) []common.Address); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) []cciptypes.Address); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]common.Address)
+			r0 = ret.Get(0).([]cciptypes.Address)
 		}
 	}
 
@@ -86,29 +83,29 @@ func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]common.Addre
 	return r0, r1
 }
 
-// GetGasPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, chainSelector, ts, confs
-func (_m *PriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.GasPriceUpdate], error) {
-	ret := _m.Called(ctx, chainSelector, ts, confs)
+// GetGasPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, chainSelector, ts, confirmations
+func (_m *PriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confirmations int) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
+	ret := _m.Called(ctx, chainSelector, ts, confirmations)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetGasPriceUpdatesCreatedAfter")
 	}
 
-	var r0 []ccipdata.Event[ccipdata.GasPriceUpdate]
+	var r0 []cciptypes.GasPriceUpdateWithTxMeta
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Time, int) ([]ccipdata.Event[ccipdata.GasPriceUpdate], error)); ok {
-		return rf(ctx, chainSelector, ts, confs)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Time, int) ([]cciptypes.GasPriceUpdateWithTxMeta, error)); ok {
+		return rf(ctx, chainSelector, ts, confirmations)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Time, int) []ccipdata.Event[ccipdata.GasPriceUpdate]); ok {
-		r0 = rf(ctx, chainSelector, ts, confs)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Time, int) []cciptypes.GasPriceUpdateWithTxMeta); ok {
+		r0 = rf(ctx, chainSelector, ts, confirmations)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccipdata.Event[ccipdata.GasPriceUpdate])
+			r0 = ret.Get(0).([]cciptypes.GasPriceUpdateWithTxMeta)
 		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, uint64, time.Time, int) error); ok {
-		r1 = rf(ctx, chainSelector, ts, confs)
+		r1 = rf(ctx, chainSelector, ts, confirmations)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -116,29 +113,29 @@ func (_m *PriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Contex
 	return r0, r1
 }
 
-// GetTokenPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, ts, confs
-func (_m *PriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.TokenPriceUpdate], error) {
-	ret := _m.Called(ctx, ts, confs)
+// GetTokenPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, ts, confirmations
+func (_m *PriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]cciptypes.TokenPriceUpdateWithTxMeta, error) {
+	ret := _m.Called(ctx, ts, confirmations)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTokenPriceUpdatesCreatedAfter")
 	}
 
-	var r0 []ccipdata.Event[ccipdata.TokenPriceUpdate]
+	var r0 []cciptypes.TokenPriceUpdateWithTxMeta
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) ([]ccipdata.Event[ccipdata.TokenPriceUpdate], error)); ok {
-		return rf(ctx, ts, confs)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) ([]cciptypes.TokenPriceUpdateWithTxMeta, error)); ok {
+		return rf(ctx, ts, confirmations)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) []ccipdata.Event[ccipdata.TokenPriceUpdate]); ok {
-		r0 = rf(ctx, ts, confs)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) []cciptypes.TokenPriceUpdateWithTxMeta); ok {
+		r0 = rf(ctx, ts, confirmations)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccipdata.Event[ccipdata.TokenPriceUpdate])
+			r0 = ret.Get(0).([]cciptypes.TokenPriceUpdateWithTxMeta)
 		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, time.Time, int) error); ok {
-		r1 = rf(ctx, ts, confs)
+		r1 = rf(ctx, ts, confirmations)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -147,27 +144,27 @@ func (_m *PriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Cont
 }
 
 // GetTokenPrices provides a mock function with given fields: ctx, wantedTokens
-func (_m *PriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTokens []common.Address) ([]ccipdata.TokenPriceUpdate, error) {
+func (_m *PriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTokens []cciptypes.Address) ([]cciptypes.TokenPriceUpdate, error) {
 	ret := _m.Called(ctx, wantedTokens)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTokenPrices")
 	}
 
-	var r0 []ccipdata.TokenPriceUpdate
+	var r0 []cciptypes.TokenPriceUpdate
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) ([]ccipdata.TokenPriceUpdate, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) ([]cciptypes.TokenPriceUpdate, error)); ok {
 		return rf(ctx, wantedTokens)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) []ccipdata.TokenPriceUpdate); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) []cciptypes.TokenPriceUpdate); ok {
 		r0 = rf(ctx, wantedTokens)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]ccipdata.TokenPriceUpdate)
+			r0 = ret.Get(0).([]cciptypes.TokenPriceUpdate)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []common.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []cciptypes.Address) error); ok {
 		r1 = rf(ctx, wantedTokens)
 	} else {
 		r1 = ret.Error(1)
@@ -177,7 +174,7 @@ func (_m *PriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTokens 
 }
 
 // GetTokensDecimals provides a mock function with given fields: ctx, tokenAddresses
-func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddresses []common.Address) ([]uint8, error) {
+func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddresses []cciptypes.Address) ([]uint8, error) {
 	ret := _m.Called(ctx, tokenAddresses)
 
 	if len(ret) == 0 {
@@ -186,10 +183,10 @@ func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddre
 
 	var r0 []uint8
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) ([]uint8, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) ([]uint8, error)); ok {
 		return rf(ctx, tokenAddresses)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) []uint8); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) []uint8); ok {
 		r0 = rf(ctx, tokenAddresses)
 	} else {
 		if ret.Get(0) != nil {
@@ -197,7 +194,7 @@ func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddre
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []common.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []cciptypes.Address) error); ok {
 		r1 = rf(ctx, tokenAddresses)
 	} else {
 		r1 = ret.Error(1)

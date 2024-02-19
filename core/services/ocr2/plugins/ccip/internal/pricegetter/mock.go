@@ -6,7 +6,7 @@ import (
 	context "context"
 	big "math/big"
 
-	common "github.com/ethereum/go-ethereum/common"
+	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -17,27 +17,27 @@ type MockPriceGetter struct {
 }
 
 // TokenPricesUSD provides a mock function with given fields: ctx, tokens
-func (_m *MockPriceGetter) TokenPricesUSD(ctx context.Context, tokens []common.Address) (map[common.Address]*big.Int, error) {
+func (_m *MockPriceGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
 	ret := _m.Called(ctx, tokens)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TokenPricesUSD")
 	}
 
-	var r0 map[common.Address]*big.Int
+	var r0 map[cciptypes.Address]*big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) (map[common.Address]*big.Int, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) (map[cciptypes.Address]*big.Int, error)); ok {
 		return rf(ctx, tokens)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []common.Address) map[common.Address]*big.Int); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) map[cciptypes.Address]*big.Int); ok {
 		r0 = rf(ctx, tokens)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[common.Address]*big.Int)
+			r0 = ret.Get(0).(map[cciptypes.Address]*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []common.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []cciptypes.Address) error); ok {
 		r1 = rf(ctx, tokens)
 	} else {
 		r1 = ret.Error(1)

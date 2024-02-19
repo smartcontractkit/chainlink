@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -37,14 +38,14 @@ func (o *ObservedCommitStoreReader) GetLatestPriceEpochAndRound(context context.
 	})
 }
 
-func (o *ObservedCommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
-	return withObservedInteractionAndResults(o.metric, "GetCommitReportMatchingSeqNum", func() ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
+func (o *ObservedCommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confs int) ([]cciptypes.CommitStoreReportWithTxMeta, error) {
+	return withObservedInteractionAndResults(o.metric, "GetCommitReportMatchingSeqNum", func() ([]cciptypes.CommitStoreReportWithTxMeta, error) {
 		return o.CommitStoreReader.GetCommitReportMatchingSeqNum(ctx, seqNum, confs)
 	})
 }
 
-func (o *ObservedCommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confs int) ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
-	return withObservedInteractionAndResults(o.metric, "GetAcceptedCommitReportsGteTimestamp", func() ([]ccipdata.Event[ccipdata.CommitStoreReport], error) {
+func (o *ObservedCommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confs int) ([]cciptypes.CommitStoreReportWithTxMeta, error) {
+	return withObservedInteractionAndResults(o.metric, "GetAcceptedCommitReportsGteTimestamp", func() ([]cciptypes.CommitStoreReportWithTxMeta, error) {
 		return o.CommitStoreReader.GetAcceptedCommitReportsGteTimestamp(ctx, ts, confs)
 	})
 }
@@ -61,14 +62,14 @@ func (o *ObservedCommitStoreReader) IsBlessed(ctx context.Context, root [32]byte
 	})
 }
 
-func (o *ObservedCommitStoreReader) VerifyExecutionReport(ctx context.Context, report ccipdata.ExecReport) (bool, error) {
+func (o *ObservedCommitStoreReader) VerifyExecutionReport(ctx context.Context, report cciptypes.ExecReport) (bool, error) {
 	return withObservedInteraction(o.metric, "VerifyExecutionReport", func() (bool, error) {
 		return o.CommitStoreReader.VerifyExecutionReport(ctx, report)
 	})
 }
 
-func (o *ObservedCommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (ccipdata.CommitStoreStaticConfig, error) {
-	return withObservedInteraction(o.metric, "GetCommitStoreStaticConfig", func() (ccipdata.CommitStoreStaticConfig, error) {
+func (o *ObservedCommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (cciptypes.CommitStoreStaticConfig, error) {
+	return withObservedInteraction(o.metric, "GetCommitStoreStaticConfig", func() (cciptypes.CommitStoreStaticConfig, error) {
 		return o.CommitStoreReader.GetCommitStoreStaticConfig(ctx)
 	})
 }

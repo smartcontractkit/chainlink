@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 func TestCommitInflight(t *testing.T) {
@@ -21,7 +21,7 @@ func TestCommitInflight(t *testing.T) {
 	c := newInflightCommitReportsContainer(time.Hour)
 
 	c.inFlightPriceUpdates = append(c.inFlightPriceUpdates, InflightPriceUpdate{
-		gasPrices:     []ccipdata.GasPrice{},
+		gasPrices:     []cciptypes.GasPrice{},
 		createdAt:     time.Now(),
 		epochAndRound: ccipcalc.MergeEpochAndRound(2, 4),
 	})
@@ -35,10 +35,10 @@ func TestCommitInflight(t *testing.T) {
 
 	// Add a single report inflight
 	root1 := utils.Keccak256Fixed(hexutil.MustDecode("0xaa"))
-	require.NoError(t, c.add(lggr, ccipdata.CommitStoreReport{
-		Interval:   ccipdata.CommitStoreInterval{Min: 1, Max: 2},
+	require.NoError(t, c.add(lggr, cciptypes.CommitStoreReport{
+		Interval:   cciptypes.CommitStoreInterval{Min: 1, Max: 2},
 		MerkleRoot: root1,
-		GasPrices: []ccipdata.GasPrice{
+		GasPrices: []cciptypes.GasPrice{
 			{DestChainSelector: 123, Value: big.NewInt(999)},
 		},
 	}, epochAndRound))
@@ -50,10 +50,10 @@ func TestCommitInflight(t *testing.T) {
 
 	// Add another price report
 	root2 := utils.Keccak256Fixed(hexutil.MustDecode("0xab"))
-	require.NoError(t, c.add(lggr, ccipdata.CommitStoreReport{
-		Interval:   ccipdata.CommitStoreInterval{Min: 3, Max: 4},
+	require.NoError(t, c.add(lggr, cciptypes.CommitStoreReport{
+		Interval:   cciptypes.CommitStoreInterval{Min: 3, Max: 4},
 		MerkleRoot: root2,
-		GasPrices: []ccipdata.GasPrice{
+		GasPrices: []cciptypes.GasPrice{
 			{DestChainSelector: 321, Value: big.NewInt(888)},
 		},
 	}, epochAndRound))
@@ -65,8 +65,8 @@ func TestCommitInflight(t *testing.T) {
 	epochAndRound++
 
 	// Add gas price updates
-	require.NoError(t, c.add(lggr, ccipdata.CommitStoreReport{
-		GasPrices: []ccipdata.GasPrice{
+	require.NoError(t, c.add(lggr, cciptypes.CommitStoreReport{
+		GasPrices: []cciptypes.GasPrice{
 			{
 				DestChainSelector: uint64(1),
 				Value:             big.NewInt(1),
@@ -83,26 +83,26 @@ func TestCommitInflight(t *testing.T) {
 
 	// Add a token price update
 	token := common.HexToAddress("0xa")
-	require.NoError(t, c.add(lggr, ccipdata.CommitStoreReport{
-		TokenPrices: []ccipdata.TokenPrice{
+	require.NoError(t, c.add(lggr, cciptypes.CommitStoreReport{
+		TokenPrices: []cciptypes.TokenPrice{
 			{
-				Token: token,
+				Token: ccipcalc.EvmAddrToGeneric(token),
 				Value: big.NewInt(10),
 			},
 		},
-		GasPrices: []ccipdata.GasPrice{},
+		GasPrices: []cciptypes.GasPrice{},
 	}, epochAndRound))
 	// Apply cache price to existing
 	latestInflightTokenPriceUpdates := c.latestInflightTokenPriceUpdates()
 	require.Equal(t, len(latestInflightTokenPriceUpdates), 1)
-	assert.Equal(t, big.NewInt(10), latestInflightTokenPriceUpdates[token].value)
+	assert.Equal(t, big.NewInt(10), latestInflightTokenPriceUpdates[ccipcalc.EvmAddrToGeneric(token)].value)
 
 	// larger epoch and round overrides existing price update
 	c.inFlightPriceUpdates = append(c.inFlightPriceUpdates, InflightPriceUpdate{
-		tokenPrices: []ccipdata.TokenPrice{
-			{Token: token, Value: big.NewInt(9999)},
+		tokenPrices: []cciptypes.TokenPrice{
+			{Token: ccipcalc.EvmAddrToGeneric(token), Value: big.NewInt(9999)},
 		},
-		gasPrices: []ccipdata.GasPrice{
+		gasPrices: []cciptypes.GasPrice{
 			{
 				DestChainSelector: uint64(1),
 				Value:             big.NewInt(999),
@@ -113,7 +113,7 @@ func TestCommitInflight(t *testing.T) {
 	})
 	latestInflightTokenPriceUpdates = c.latestInflightTokenPriceUpdates()
 	require.Equal(t, len(latestInflightTokenPriceUpdates), 1)
-	assert.Equal(t, big.NewInt(9999), latestInflightTokenPriceUpdates[token].value)
+	assert.Equal(t, big.NewInt(9999), latestInflightTokenPriceUpdates[ccipcalc.EvmAddrToGeneric(token)].value)
 	inflightGasUpdates = c.latestInflightGasPriceUpdates()
 	assert.Equal(t, 3, len(inflightGasUpdates))
 	assert.Equal(t, big.NewInt(999), inflightGasUpdates[123].value)
@@ -126,22 +126,22 @@ func Test_inflightCommitReportsContainer_expire(t *testing.T) {
 		cacheExpiry: time.Minute,
 		inFlight: map[[32]byte]InflightCommitReport{
 			common.HexToHash("1"): {
-				report:    ccipdata.CommitStoreReport{},
+				report:    cciptypes.CommitStoreReport{},
 				createdAt: time.Now().Add(-5 * time.Minute),
 			},
 			common.HexToHash("2"): {
-				report:    ccipdata.CommitStoreReport{},
+				report:    cciptypes.CommitStoreReport{},
 				createdAt: time.Now().Add(-10 * time.Second),
 			},
 		},
 		inFlightPriceUpdates: []InflightPriceUpdate{
 			{
-				gasPrices:     []ccipdata.GasPrice{{DestChainSelector: 100, Value: big.NewInt(0)}},
+				gasPrices:     []cciptypes.GasPrice{{DestChainSelector: 100, Value: big.NewInt(0)}},
 				createdAt:     time.Now().Add(-PRICE_EXPIRY_MULTIPLIER * time.Minute),
 				epochAndRound: ccipcalc.MergeEpochAndRound(10, 5),
 			},
 			{
-				gasPrices:     []ccipdata.GasPrice{{DestChainSelector: 200, Value: big.NewInt(0)}},
+				gasPrices:     []cciptypes.GasPrice{{DestChainSelector: 200, Value: big.NewInt(0)}},
 				createdAt:     time.Now().Add(-PRICE_EXPIRY_MULTIPLIER * time.Second),
 				epochAndRound: ccipcalc.MergeEpochAndRound(20, 5),
 			},

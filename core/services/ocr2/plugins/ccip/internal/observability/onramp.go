@@ -3,9 +3,7 @@ package observability
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -27,20 +25,20 @@ func NewObservedOnRampReader(origin ccipdata.OnRampReader, chainID int64, plugin
 	}
 }
 
-func (o ObservedOnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
-	return withObservedInteractionAndResults(o.metric, "GetSendRequestsBetweenSeqNums", func() ([]ccipdata.Event[internal.EVM2EVMMessage], error) {
+func (o ObservedOnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
+	return withObservedInteractionAndResults(o.metric, "GetSendRequestsBetweenSeqNums", func() ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
 		return o.OnRampReader.GetSendRequestsBetweenSeqNums(ctx, seqNumMin, seqNumMax, finalized)
 	})
 }
 
-func (o ObservedOnRampReader) RouterAddress() (common.Address, error) {
-	return withObservedInteraction(o.metric, "RouterAddress", func() (common.Address, error) {
+func (o ObservedOnRampReader) RouterAddress() (cciptypes.Address, error) {
+	return withObservedInteraction(o.metric, "RouterAddress", func() (cciptypes.Address, error) {
 		return o.OnRampReader.RouterAddress()
 	})
 }
 
-func (o ObservedOnRampReader) GetDynamicConfig() (ccipdata.OnRampDynamicConfig, error) {
-	return withObservedInteraction(o.metric, "GetDynamicConfig", func() (ccipdata.OnRampDynamicConfig, error) {
+func (o ObservedOnRampReader) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
+	return withObservedInteraction(o.metric, "GetDynamicConfig", func() (cciptypes.OnRampDynamicConfig, error) {
 		return o.OnRampReader.GetDynamicConfig()
 	})
 }

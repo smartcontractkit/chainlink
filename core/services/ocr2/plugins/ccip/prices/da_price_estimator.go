@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
@@ -35,7 +35,7 @@ func NewDAGasPriceEstimator(
 	}
 }
 
-func (g DAGasPriceEstimator) GetGasPrice(ctx context.Context) (GasPrice, error) {
+func (g DAGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	execGasPrice, err := g.execEstimator.GetGasPrice(ctx)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (g DAGasPriceEstimator) GetGasPrice(ctx context.Context) (GasPrice, error) 
 	return gasPrice, nil
 }
 
-func (g DAGasPriceEstimator) DenoteInUSD(p GasPrice, wrappedNativePrice *big.Int) (GasPrice, error) {
+func (g DAGasPriceEstimator) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
 	daGasPrice, execGasPrice, err := g.parseEncodedGasPrice(p)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (g DAGasPriceEstimator) DenoteInUSD(p GasPrice, wrappedNativePrice *big.Int
 	return new(big.Int).Add(daUSD, execUSD), nil
 }
 
-func (g DAGasPriceEstimator) Median(gasPrices []GasPrice) (GasPrice, error) {
+func (g DAGasPriceEstimator) Median(gasPrices []*big.Int) (*big.Int, error) {
 	daPrices := make([]*big.Int, len(gasPrices))
 	execPrices := make([]*big.Int, len(gasPrices))
 
@@ -107,7 +107,7 @@ func (g DAGasPriceEstimator) Median(gasPrices []GasPrice) (GasPrice, error) {
 	return new(big.Int).Add(daMedian, execMedian), nil
 }
 
-func (g DAGasPriceEstimator) Deviates(p1 GasPrice, p2 GasPrice) (bool, error) {
+func (g DAGasPriceEstimator) Deviates(p1, p2 *big.Int) (bool, error) {
 	p1DAGasPrice, p1ExecGasPrice, err := g.parseEncodedGasPrice(p1)
 	if err != nil {
 		return false, err
@@ -128,7 +128,7 @@ func (g DAGasPriceEstimator) Deviates(p1 GasPrice, p2 GasPrice) (bool, error) {
 	return ccipcalc.Deviates(p1DAGasPrice, p2DAGasPrice, g.daDeviationPPB), nil
 }
 
-func (g DAGasPriceEstimator) EstimateMsgCostUSD(p GasPrice, wrappedNativePrice *big.Int, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
+func (g DAGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
 	daGasPrice, execGasPrice, err := g.parseEncodedGasPrice(p)
 	if err != nil {
 		return nil, err
@@ -147,14 +147,6 @@ func (g DAGasPriceEstimator) EstimateMsgCostUSD(p GasPrice, wrappedNativePrice *
 	return execCostUSD, nil
 }
 
-func (g DAGasPriceEstimator) String(p GasPrice) string {
-	daGasPrice, execGasPrice, err := g.parseEncodedGasPrice(p)
-	if err != nil {
-		return err.Error()
-	}
-	return fmt.Sprintf("DA Price: %s, Exec Price: %s", daGasPrice, execGasPrice)
-}
-
 func (g DAGasPriceEstimator) parseEncodedGasPrice(p *big.Int) (*big.Int, *big.Int, error) {
 	if p.BitLen() > int(g.priceEncodingLength*2) {
 		return nil, nil, fmt.Errorf("encoded gas price exceeded max range %+v", p)
@@ -168,7 +160,7 @@ func (g DAGasPriceEstimator) parseEncodedGasPrice(p *big.Int) (*big.Int, *big.In
 	return daGasPrice, execGasPrice, nil
 }
 
-func (g DAGasPriceEstimator) estimateDACostUSD(daGasPrice GasPrice, wrappedNativePrice *big.Int, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) *big.Int {
+func (g DAGasPriceEstimator) estimateDACostUSD(daGasPrice *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) *big.Int {
 	var sourceTokenDataLen int
 	for _, tokenData := range msg.SourceTokenData {
 		sourceTokenDataLen += len(tokenData)

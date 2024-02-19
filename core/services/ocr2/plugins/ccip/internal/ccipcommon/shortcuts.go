@@ -5,18 +5,17 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
-func GetMessageIDsAsHexString(messages []internal.EVM2EVMMessage) []string {
+func GetMessageIDsAsHexString(messages []cciptypes.EVM2EVMMessage) []string {
 	messageIDs := make([]string, 0, len(messages))
 	for _, m := range messages {
-		messageIDs = append(messageIDs, "0x"+hex.EncodeToString(m.MessageId[:]))
+		messageIDs = append(messageIDs, "0x"+hex.EncodeToString(m.MessageID[:]))
 	}
 	return messageIDs
 }
@@ -28,11 +27,11 @@ type BackfillArgs struct {
 
 // GetDestinationTokens returns the destination chain fee tokens from the provided price registry
 // and the bridgeable tokens from the offramp.
-func GetDestinationTokens(ctx context.Context, offRamp ccipdata.OffRampReader, priceRegistry ccipdata.PriceRegistryReader) (fee, bridged []common.Address, err error) {
+func GetDestinationTokens(ctx context.Context, offRamp ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader) (fee, bridged []cciptypes.Address, err error) {
 	eg := new(errgroup.Group)
 
-	var destFeeTokens []common.Address
-	var destBridgeableTokens []common.Address
+	var destFeeTokens []cciptypes.Address
+	var destBridgeableTokens []cciptypes.Address
 
 	eg.Go(func() error {
 		tokens, err := priceRegistry.GetFeeTokens(ctx)
