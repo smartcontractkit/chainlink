@@ -101,7 +101,7 @@ func (s *streams) Lookup(ctx context.Context, checkResults []ocr2keepers.CheckRe
 	for i, lookup := range lookups {
 		wg.Add(1)
 		func(i int, lookup *mercury.StreamsLookup) {
-			s.threadCtrl.Go(func(ctx context.Context) {
+			s.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 				s.doLookup(ctx, &wg, lookup, i, checkResults)
 			})
 		}(i, lookup)
