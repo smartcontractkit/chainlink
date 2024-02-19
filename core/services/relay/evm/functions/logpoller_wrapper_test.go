@@ -121,7 +121,6 @@ func getMockedRequestLogV2(t *testing.T) logpoller.Log {
 }
 
 func TestLogPollerWrapper_SingleSubscriberEmptyEvents_CoordinatorV1(t *testing.T) {
-	t.Parallel()
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
 	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
@@ -153,7 +152,6 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents_CoordinatorV1(t *testing.T
 }
 
 func TestLogPollerWrapper_SingleSubscriberEmptyEvents_CoordinatorV2(t *testing.T) {
-	t.Parallel()
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
 	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
@@ -185,7 +183,6 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents_CoordinatorV2(t *testing.T
 }
 
 func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
-	t.Parallel()
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
 	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
@@ -197,7 +194,6 @@ func TestLogPollerWrapper_ErrorOnZeroAddresses(t *testing.T) {
 }
 
 func TestLogPollerWrapper_LatestEvents_ReorgHandlingV1(t *testing.T) {
-	t.Parallel()
 	lp, lpWrapper, client := setUp(t, 100_000)
 	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 	client.On("CallContract", mock.Anything, ethereum.CallMsg{ // getContractById
@@ -243,7 +239,6 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandlingV1(t *testing.T) {
 }
 
 func TestLogPollerWrapper_LatestEvents_ReorgHandlingV2(t *testing.T) {
-	t.Parallel()
 	lp, lpWrapper, client := setUp(t, 100_000)
 	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 	client.On("CallContract", mock.Anything, ethereum.CallMsg{ // getContractById
@@ -289,7 +284,6 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandlingV2(t *testing.T) {
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testing.T) {
-	t.Parallel()
 	_, lpWrapper, _ := setUp(t, 100_000)
 
 	inputLogs := make([]logpoller.Log, maxLogsToProcess+100)
@@ -307,7 +301,6 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_TruncatesLogs(t *testin
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *testing.T) {
-	t.Parallel()
 	_, lpWrapper, _ := setUp(t, 100_000)
 	inputLogs := []logpoller.Log{getMockedRequestLogV1(t)}
 	inputLogs[0].Topics = [][]byte{[]byte("invalid topic")}
@@ -322,7 +315,6 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_SkipsInvalidLog(t *test
 }
 
 func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetectedEvent(t *testing.T) {
-	t.Parallel()
 	_, lpWrapper, _ := setUp(t, 100_000)
 	mockedRequestLog := getMockedRequestLogV1(t)
 	inputLogs := []logpoller.Log{mockedRequestLog}
