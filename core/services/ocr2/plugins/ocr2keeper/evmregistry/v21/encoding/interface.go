@@ -40,9 +40,7 @@ const (
 	MercuryFlakyFailure    PipelineExecutionState = 4
 	PackUnpackDecodeFailed PipelineExecutionState = 5
 	MercuryUnmarshalError  PipelineExecutionState = 6
-	InvalidMercuryRequest  PipelineExecutionState = 7
-	InvalidMercuryResponse PipelineExecutionState = 8 // this will only happen if Mercury server sends bad responses
-	UpkeepNotAuthorized    PipelineExecutionState = 9
+	UpkeepNotAuthorized    PipelineExecutionState = 7
 )
 
 // ErrCode is used for invoking an error handler with a specific error code.
@@ -54,8 +52,9 @@ const (
 	ErrCodeStreamsBadRequest     ErrCode = 808400
 	ErrCodeStreamsUnauthorized   ErrCode = 808401
 	ErrCodeStreamsInternalError  ErrCode = 808500
-	ErrCodeStreamsEncodingError  ErrCode = 808600
-	ErrCodeStreamsTimeout        ErrCode = 808603
+	ErrCodeStreamsBadResponse    ErrCode = 808600
+	ErrCodeStreamsTimeout        ErrCode = 808602
+	ErrCodeStreamsUnknownError   ErrCode = 808700
 )
 
 func HttpToStreamsErrCode(statusCode int) ErrCode {

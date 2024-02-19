@@ -68,11 +68,11 @@ var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvide
 
 type MercuryData struct {
 	Index     int
-	Error     error
-	ErrCode   encoding.ErrCode
-	Retryable bool
-	Bytes     [][]byte
-	State     encoding.PipelineExecutionState
+	Bytes     [][]byte                        // Mercury values is request is successful
+	ErrCode   encoding.ErrCode                // Error code if mercury gives an error
+	State     encoding.PipelineExecutionState // NoPipelineError if no error during execution, otherwise appropriate error
+	Retryable bool                            // Applicable if State != NoPipelineError
+	Error     error                           // non nil if State != NoPipelineError
 }
 
 type MercuryConfigProvider interface {
