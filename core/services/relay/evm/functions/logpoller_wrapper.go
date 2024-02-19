@@ -176,10 +176,10 @@ func (l *logPollerWrapper) Name() string { return l.lggr.Name() }
 func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
 	l.mu.Lock()
 	coordinators := []Coordinator{}
-	if l.activeCoordinator.Address() != (common.Address{}) {
+	if l.activeCoordinator != nil && l.activeCoordinator.Address() != (common.Address{}) {
 		coordinators = append(coordinators, l.activeCoordinator)
 	}
-	if l.proposedCoordinator.Address() != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
+	if l.proposedCoordinator != nil && l.proposedCoordinator.Address() != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
 	latest, err := l.logPoller.LatestBlock()
@@ -385,48 +385,65 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 		return
 	}
 
-	if activeCoordinatorAddress == l.activeCoordinator.Address() && proposedCoordinatorAddress == l.proposedCoordinator.Address() {
+	if (l.activeCoordinator != nil && l.activeCoordinator.Address() == activeCoordinatorAddress) &&
+		(l.proposedCoordinator != nil && l.proposedCoordinator.Address() == proposedCoordinatorAddress) {
 		l.lggr.Debug("LogPollerWrapper: no changes to routes")
 		return
 	}
 
 	activeCoordinatorTypeAndVersion, err := l.getTypeAndVersion(activeCoordinatorAddress)
 	if err != nil {
+		l.lggr.Errorf("LogPollerWrapper: failed to get active coordinatorTypeAndVersion: %w", err)
 		return
 	}
 	var activeCoordinator Coordinator
-	if strings.Contains(activeCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING) {
+	switch {
+	case strings.Contains(activeCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING):
 		activeCoordinator = NewCoordinatorV1(activeCoordinatorAddress, l.client, l.logPoller, l.lggr)
-	} else if strings.Contains(activeCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING) {
+	case strings.Contains(activeCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING):
 		activeCoordinator = NewCoordinatorV2(activeCoordinatorAddress, l.client, l.logPoller, l.lggr)
+	default:
+		l.lggr.Errorf("LogPollerWrapper: Invalid active coordinator type and version: %q", activeCoordinatorTypeAndVersion)
+		return
 	}
 
-	err = activeCoordinator.RegisterFilters()
-	if err != nil {
-		l.lggr.Errorw("LogPollerWrapper: Failed to register active coordinator filters", err)
-		return
+	if activeCoordinator != nil {
+		err = activeCoordinator.RegisterFilters()
+		if err != nil {
+			l.lggr.Errorw("LogPollerWrapper: Failed to register active coordinator filters", err)
+			return
+		}
+		l.activeCoordinator = activeCoordinator
+		l.lggr.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.Address().Hex())
 	}
 
 	proposedCoordinatorTypeAndVersion, err := l.getTypeAndVersion(proposedCoordinatorAddress)
 	if err != nil {
+		l.lggr.Errorf("LogPollerWrapper: failed to get proposed coordinatorTypeAndVersion: %w", err)
 		return
 	}
+
 	var proposedCoordinator Coordinator
-	if strings.Contains(proposedCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING) {
+	switch {
+	// proposedCoordinatorTypeAndVersion can be empty due to an empty proposedCoordinatorAddress
+	case proposedCoordinatorTypeAndVersion == "":
 		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, l.client, l.logPoller, l.lggr)
-	} else if strings.Contains(proposedCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING) {
+	case strings.Contains(proposedCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING):
+		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, l.client, l.logPoller, l.lggr)
+	case strings.Contains(proposedCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING):
 		proposedCoordinator = NewCoordinatorV2(proposedCoordinatorAddress, l.client, l.logPoller, l.lggr)
+
 	}
 
-	err = proposedCoordinator.RegisterFilters()
-	if err != nil {
-		l.lggr.Errorw("LogPollerWrapper: Failed to register proposed coordinator filters", err)
-		return
+	if proposedCoordinator != nil {
+		err = proposedCoordinator.RegisterFilters()
+		if err != nil {
+			l.lggr.Errorw("LogPollerWrapper: Failed to register proposed coordinator filters", err)
+			return
+		}
+		l.proposedCoordinator = proposedCoordinator
+		l.lggr.Debugw("LogPollerWrapper: new routes", "proposedCoordinator", proposedCoordinator.Address().Hex())
 	}
-
-	l.lggr.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.Address().Hex(), "proposedCoordinator", proposedCoordinator.Address().Hex())
-	l.activeCoordinator = activeCoordinator
-	l.proposedCoordinator = proposedCoordinator
 
 	for _, subscriber := range l.subscribers {
 		err := subscriber.UpdateRoutes(activeCoordinator.Address(), proposedCoordinator.Address())

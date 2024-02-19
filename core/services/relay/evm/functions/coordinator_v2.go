@@ -1,9 +1,11 @@
 package functions
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -58,7 +60,7 @@ func (c *CoordinatorV2) LogsToRequests(requestLogs []logpoller.Log) ([]evmRelayT
 
 	parsingContract, err := functions_coordinator.NewFunctionsCoordinator(c.address, c.client)
 	if err != nil {
-		return nil, errors.Errorf("LogsToRequests: creating a contract instance for NewFunctionsCoordinator parsing failed")
+		return nil, fmt.Errorf("LogsToRequests: creating a contract instance for NewFunctionsCoordinator parsing failed: %w", err)
 	}
 
 	for _, log := range requestLogs {
@@ -127,7 +129,7 @@ func (c *CoordinatorV2) LogsToResponses(responseLogs []logpoller.Log) ([]evmRela
 
 	parsingContract, err := functions_coordinator.NewFunctionsCoordinator(c.address, c.client)
 	if err != nil {
-		return nil, errors.Errorf("LogsToResponses: creating a contract instance for parsing failed")
+		return nil, fmt.Errorf("LogsToResponses: creating a contract instance for parsing failed: %w", err)
 	}
 	for _, log := range responseLogs {
 		gethLog := log.ToGethLog()

@@ -232,7 +232,20 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandlingV1(t *testing.T) {
 	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
 
 	servicetest.Run(t, lpWrapper)
-	subscriber.updates.Wait()
+
+	done := make(chan struct{})
+	go func() {
+		subscriber.updates.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done: // subscriber.updates is 0
+		break
+	case <-time.After(5 * time.Second): // Hit timeout.
+		t.Log("TestLogPollerWrapper_LatestEvents_ReorgHandlingV1: timeout")
+		t.FailNow()
+	}
 
 	oracleRequests, _, err := lpWrapper.LatestEvents()
 	require.NoError(t, err)
