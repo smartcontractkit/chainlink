@@ -46,7 +46,7 @@ var GenerateHMACFn = func(method string, path string, body []byte, clientId stri
 }
 
 // CalculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
-// TODO: Return false for conditionals
+// TODO: Return false for conditionals on first retry
 var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
 	var retries int
 	totalAttempts, ok := mercuryConfig.GetPluginRetry(prk)
