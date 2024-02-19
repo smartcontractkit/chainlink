@@ -20,12 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -136,7 +134,9 @@ func TestAutomationReorg(t *testing.T) {
 		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			config, err := tc.GetConfig("Reorg", tc.Automation)
