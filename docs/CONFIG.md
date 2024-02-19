@@ -4190,7 +4190,6 @@ BlockBackfillSkip = false
 ChainType = 'xdai'
 FinalityDepth = 100
 FinalityTagEnabled = false
-LinkContractAddress = '0x57Cb1581A672Dfd9D34f12086B0495aD210FB98f'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
