@@ -203,12 +203,11 @@ func (k *Keeper) fetchBucketData(v verifiableLoad, opts *bind.CallOpts, id *big.
 	var err error
 	for i := 0; i < retryNum; i++ {
 		bucketDelays, err = v.GetBucketedDelays(opts, id, bucketNum)
-		if err != nil {
-			log.Printf("failed to get bucketed delays for upkeep id %s bucket %d: %v, retrying...", id.String(), bucketNum, err)
-			time.Sleep(retryDelay)
-		} else {
+		if err == nil {
 			break
 		}
+		log.Printf("failed to get bucketed delays for upkeep id %s bucket %d: %v, retrying...", id.String(), bucketNum, err)
+		time.Sleep(retryDelay)
 	}
 
 	var floatBucketDelays []float64

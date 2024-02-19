@@ -92,6 +92,7 @@ type Client interface {
 	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
 
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error)
 
 	IsL2() bool
 }
@@ -259,6 +260,10 @@ func (client *client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 
 func (client *client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	return client.pool.CallContract(ctx, msg, blockNumber)
+}
+
+func (client *client) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	return client.pool.PendingCallContract(ctx, msg)
 }
 
 func (client *client) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {

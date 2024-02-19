@@ -357,6 +357,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			job.Workflow: workflows.NewDelegate(
 				globalLogger,
 				registry,
+				legacyEVMChains,
 			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
@@ -387,7 +388,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
-		globalLogger.Debug("P2P stack disabled")
+		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
 	}
 
 	if cfg.OCR().Enabled() {
@@ -427,6 +428,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
+			registry,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,

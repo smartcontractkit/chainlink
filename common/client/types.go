@@ -126,6 +126,10 @@ type clientAPI[
 		msg interface{},
 		blockNumber *big.Int,
 	) (rpcErr []byte, extractErr error)
+	PendingCallContract(
+		ctx context.Context,
+		msg interface{},
+	) (rpcErr []byte, extractErr error)
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error)
 }

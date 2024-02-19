@@ -193,16 +193,16 @@ func (w *client) resetTransport() {
 	b := utils.NewRedialBackoff()
 	for {
 		// Will block until successful dial, or context is canceled (i.e. on close)
-		if err := w.dial(ctx, wsrpc.WithBlock()); err != nil {
-			if ctx.Err() != nil {
-				w.logger.Debugw("ResetTransport exiting due to client Close", "err", err)
-				return
-			}
-			w.logger.Errorw("ResetTransport failed to redial", "err", err)
-			time.Sleep(b.Duration())
-		} else {
+		err := w.dial(ctx, wsrpc.WithBlock())
+		if err == nil {
 			break
 		}
+		if ctx.Err() != nil {
+			w.logger.Debugw("ResetTransport exiting due to client Close", "err", err)
+			return
+		}
+		w.logger.Errorw("ResetTransport failed to redial", "err", err)
+		time.Sleep(b.Duration())
 	}
 	w.logger.Info("ResetTransport successfully redialled")
 }
