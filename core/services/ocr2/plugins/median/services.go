@@ -113,17 +113,29 @@ func NewMedianServices(ctx context.Context,
 		}
 	}
 
-	dataSource, juelsPerFeeCoinSource := ocrcommon.NewDataSourceV2(pipelineRunner,
+	dataSource := ocrcommon.NewDataSourceV2(pipelineRunner,
 		jb,
 		*jb.PipelineSpec,
 		lggr,
 		runSaver,
-		chEnhancedTelem,
-	), ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
+		chEnhancedTelem)
+
+	juelsPerFeeCoinSource := ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
 		ID:           jb.ID,
 		DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
 		CreatedAt:    time.Now(),
 	}, lggr)
+
+	if pluginConfig.JuelsPerFeeCoinCaching {
+		lggr.Infof("juelsPerFeeCoinSource caching is enabled for jb %s, cache expiration is set to %s", jb.Name.ValueOrZero(), pluginConfig.JuelsPerFeeCoinCacheDuration.String())
+		juelsPerFeeCoinSource = ocrcommon.NewInMemoryDataSourceCache(pipelineRunner, jb, pipeline.Spec{
+			ID:           jb.ID,
+			DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
+			CreatedAt:    time.Now(),
+		},
+			pluginConfig.JuelsPerFeeCoinCacheDuration,
+			lggr)
+	}
 
 	if cmdName := env.MedianPlugin.Cmd.Get(); cmdName != "" {
 		// use unique logger names so we can use it to register a loop

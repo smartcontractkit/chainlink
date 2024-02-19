@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -98,6 +99,20 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
+func NewInMemoryDataSourceCache(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, cacheExpiryDuration time.Duration, lggr logger.Logger) median.DataSource {
+	return &inMemoryDataSourceCache{
+		cacheExpiration: cacheExpiryDuration,
+		cacheUpdateMux:  new(sync.Mutex),
+		lastUpdate:      atomic.Pointer[time.Time]{},
+		inMemoryDataSource: &inMemoryDataSource{
+			pipelineRunner: pr,
+			jb:             jb,
+			spec:           spec,
+			lggr:           lggr,
+		},
+	}
+}
+
 var _ ocr1types.DataSource = (*dataSource)(nil)
 
 func (ds *inMemoryDataSource) updateAnswer(a *big.Int) {
@@ -185,6 +200,105 @@ func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.R
 		return nil, err
 	}
 	return ds.parse(finalResult)
+}
+
+// inMemoryDataSourceCache is a time based cache wrapper for inMemoryDataSource.
+// If cache update is overdue Observe defaults to standard inMemoryDataSource behaviour.
+type inMemoryDataSourceCache struct {
+	cacheExpiration time.Duration
+	cacheUpdateMux  *sync.Mutex
+	lastUpdate      atomic.Pointer[time.Time]
+	latestTrrs      pipeline.TaskRunResults
+	latestResult    pipeline.FinalResult
+	*inMemoryDataSource
+}
+
+// isUpdateOverdue atomically checks if update is overdue.
+func (ds *inMemoryDataSourceCache) isUpdateOverdue() bool {
+	timeSinceUpdate := time.Now().Sub(*ds.lastUpdate.Load())
+	isOverDue := timeSinceUpdate >= ds.cacheExpiration
+	return isOverDue
+}
+
+// updater periodically updates data source cache.
+func (ds *inMemoryDataSourceCache) updater() {
+	ticker := time.NewTicker(ds.cacheExpiration)
+	for {
+		select {
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
+			if err := ds.updateCache(ctx); err != nil {
+				ds.lggr.Warnw("failed to update cache", "err", err)
+			}
+			cancel()
+		}
+	}
+}
+
+func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
+	ds.cacheUpdateMux.Lock()
+	defer ds.cacheUpdateMux.Unlock()
+
+	if ds.isUpdateOverdue() {
+		md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
+		if err != nil {
+			ds.lggr.Warnw("unable to attach metadata for run", "err", err)
+		}
+
+		vars := pipeline.NewVarsFrom(map[string]interface{}{
+			"jb": map[string]interface{}{
+				"databaseID":    ds.jb.ID,
+				"externalJobID": ds.jb.ExternalJobID,
+				"name":          ds.jb.Name.ValueOrZero(),
+			},
+			"jobRun": map[string]interface{}{
+				"meta": md,
+			},
+		})
+
+		_, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
+		if err != nil {
+			return errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		}
+		ds.latestResult = trrs.FinalResult(ds.lggr)
+		ds.latestTrrs = trrs
+		lastUpdate := time.Now()
+		ds.lastUpdate.Store(&lastUpdate)
+	}
+	return nil
+}
+
+func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	// if cache update is overdue revert to standard inMemoryDataSource Observe behaviour
+	if ds.isUpdateOverdue() {
+		done := make(chan error)
+		go func() { done <- ds.updateCache(ctx) }()
+		select {
+		case <-ctx.Done():
+		case err := <-done:
+			if err != nil {
+				ds.lggr.Warnw("unable to update in memory data source cache during observe, returning most recent value", "err", err)
+			}
+		}
+	}
+
+	promSetBridgeParseMetrics(ds.inMemoryDataSource, &ds.latestTrrs)
+	promSetFinalResultMetrics(ds.inMemoryDataSource, &ds.latestResult)
+	if ShouldCollectEnhancedTelemetry(&ds.jb) {
+		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
+			TaskRunResults: ds.latestTrrs,
+			FinalResults:   ds.latestResult,
+			RepTimestamp: ObservationTimestamp{
+				Round:        timestamp.Round,
+				Epoch:        timestamp.Epoch,
+				ConfigDigest: timestamp.ConfigDigest.Hex(),
+			},
+		})
+	} else {
+		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
+	}
+
+	return ds.parse(ds.latestResult)
 }
 
 func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {

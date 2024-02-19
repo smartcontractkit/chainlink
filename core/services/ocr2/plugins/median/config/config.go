@@ -4,6 +4,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -11,9 +13,12 @@ import (
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
 type PluginConfig struct {
-	JuelsPerFeeCoinPipeline string `json:"juelsPerFeeCoinSource"`
+	JuelsPerFeeCoinPipeline      string        `json:"juelsPerFeeCoinSource"`
+	JuelsPerFeeCoinCaching       bool          `json:"juelsPerFeeCoinCaching"`
+	JuelsPerFeeCoinCacheDuration time.Duration `json:"juelsPerFeeCoinCacheDuration"`
 }
 
+// TODO add validation
 // ValidatePluginConfig validates the arguments for the Median plugin.
 func ValidatePluginConfig(config PluginConfig) error {
 	if _, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline); err != nil {
