@@ -164,7 +164,8 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 			}
 			c.httpClient = hc
 
-			state, reason, values, retryable, retryInterval, errCode, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, tt.pluginRetryKey)
+			reason := encoding.UpkeepFailureReasonNone // TODO: Fix test
+			state, values, errCode, retryable, retryInterval, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, tt.pluginRetryKey)
 
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)

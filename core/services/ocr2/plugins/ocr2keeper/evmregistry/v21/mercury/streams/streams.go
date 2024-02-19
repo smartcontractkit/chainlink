@@ -185,7 +185,7 @@ func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *merc
 	}
 
 	if errCode != encoding.ErrCodeNil {
-		err = s.CheckErrorHandler(ctx, values, lookup, checkResults, i)
+		err = s.CheckErrorHandler(ctx, errCode, lookup, checkResults, i)
 		if err != nil {
 			s.lggr.Errorf("at block %d upkeep %s requested time %s CheckErrorHandler err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
 		}
