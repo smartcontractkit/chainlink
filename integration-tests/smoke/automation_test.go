@@ -12,6 +12,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -19,9 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
