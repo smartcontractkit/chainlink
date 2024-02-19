@@ -128,7 +128,7 @@ func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":				ethereum.RegistryVersion_2_0,
+		"registry_2_0":             ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional":	ethereum.RegistryVersion_2_1,
 		"registry_2_1_logtrigger":	ethereum.RegistryVersion_2_1,
 		"registry_2_2_conditional": ethereum.RegistryVersion_2_2,
