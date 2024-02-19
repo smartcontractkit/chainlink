@@ -15,3 +15,6 @@ PriceMax = '500 gwei'
 BumpThreshold = 0
 LimitDefault = 6000000
 
+[Transactions]
+ResendAfterThreshold = '1m'
+MaxQueued = 5000
