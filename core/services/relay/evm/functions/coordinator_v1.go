@@ -59,20 +59,6 @@ func (c *CoordinatorV1) OracleResponseLogTopic() (common.Hash, error) {
 func (c *CoordinatorV1) LogsToRequests(requestLogs []logpoller.Log) ([]evmRelayTypes.OracleRequest, error) {
 	var requests []evmRelayTypes.OracleRequest
 
-	uint32Type, errType1 := abi.NewType("uint32", "uint32", nil)
-	uint40Type, errType2 := abi.NewType("uint40", "uint40", nil)
-	uint64Type, errType3 := abi.NewType("uint64", "uint64", nil)
-	uint72Type, errType4 := abi.NewType("uint72", "uint72", nil)
-	uint96Type, errType5 := abi.NewType("uint96", "uint96", nil)
-	addressType, errType6 := abi.NewType("address", "address", nil)
-	bytes32Type, errType7 := abi.NewType("bytes32", "bytes32", nil)
-
-	if errType1 != nil || errType2 != nil || errType3 != nil || errType4 != nil || errType5 != nil || errType6 != nil || errType7 != nil {
-		c.lggr.Errorw("LogsToRequests: failed to initialize types", "errType1", errType1,
-			"errType2", errType2, "errType3", errType3, "errType4", errType4, "errType5", errType5, "errType6", errType6, "errType7", errType7,
-		)
-	}
-
 	parsingContract, err := functions_coordinator_1_1_0.NewFunctionsCoordinator110(c.address, c.client)
 	if err != nil {
 		return nil, errors.Errorf("LogsToRequests: creating a contract instance for NewFunctionsCoordinator110 parsing failed")

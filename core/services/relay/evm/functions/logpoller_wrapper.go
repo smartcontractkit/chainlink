@@ -2,10 +2,12 @@ package functions
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -69,6 +71,23 @@ const FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING = "Functions Coordinator v2"
 const logPollerCacheDurationSecDefault = 300
 const pastBlocksToPollDefault = 50
 const maxLogsToProcess = 1000
+
+var (
+	uint32Type  abi.Type
+	uint40Type  abi.Type
+	uint64Type  abi.Type
+	uint72Type  abi.Type
+	uint96Type  abi.Type
+	addressType abi.Type
+	bytes32Type abi.Type
+)
+
+func init() {
+	err := initAbiTypes()
+	if err != nil {
+		panic(err)
+	}
+}
 
 var _ evmRelayTypes.LogPollerWrapper = &logPollerWrapper{}
 
@@ -415,4 +434,38 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "err", err)
 		}
 	}
+}
+
+func initAbiTypes() error {
+	var err error
+	uint32Type, err = abi.NewType("uint32", "uint32", nil)
+	if err != nil {
+		return fmt.Errorf("LogsToRequests: failed to initialize uint32Type type: %w", err)
+	}
+	uint40Type, err = abi.NewType("uint40", "uint40", nil)
+	if err != nil {
+		return fmt.Errorf("LogsToRequests: failed to initialize uint40Type type: %w", err)
+	}
+	uint64Type, err = abi.NewType("uint64", "uint64", nil)
+	if err != nil {
+		return fmt.Errorf("LogsToRequests: failed to initialize uint64Type type: %w", err)
+	}
+	uint72Type, err = abi.NewType("uint72", "uint72", nil)
+	if err != nil {
+		return fmt.Errorf("LogsToRequests: failed to initialize uint72Type type: %w", err)
+	}
+	uint96Type, err = abi.NewType("uint96", "uint96", nil)
+	if err != nil {
+		return fmt.Errorf("LogsToRequests: failed to initialize uint96Type type: %w", err)
+	}
+	addressType, err = abi.NewType("address", "address", nil)
+	if err != nil {
+		return fmt.Errorf("LogsToRequests: failed to initialize addressType type: %w", err)
+	}
+	bytes32Type, err = abi.NewType("bytes32", "bytes32", nil)
+	if err != nil {
+		return fmt.Errorf("LogsToRequests: failed to initialize bytes32Type type: %w", err)
+	}
+
+	return nil
 }
