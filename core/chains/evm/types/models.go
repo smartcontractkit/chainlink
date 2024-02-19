@@ -171,6 +171,14 @@ func (h *Head) ChainHashes() []common.Hash {
 	return hashes
 }
 
+func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
+	for h != nil && !h.IsFinalized {
+		h = h.Parent
+	}
+
+	return h
+}
+
 func (h *Head) ChainID() *big.Int {
 	return h.EVMChainID.ToInt()
 }
