@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -159,17 +160,20 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
 	return report
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH, depth uint) (err error) {
-	if uint(headWithChain.ChainLength()) >= depth {
-		return nil
+func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain, latestFinalized HTH) (err error) {
+	if !latestFinalized.IsValid() {
+		return errors.New("can not perform backfill without a valid latestFinalized head")
 	}
 
-	baseHeight := headWithChain.BlockNumber() - int64(depth-1)
-	if baseHeight < 0 {
-		baseHeight = 0
+	if headWithChain.BlockNumber() < latestFinalized.BlockNumber() {
+		const errMsg = "invariant violation: expected head of canonical chain to be ahead of the latestFinalized"
+		ht.log.With("head_block_num", headWithChain.BlockNumber(),
+			"latest_finalized_block_number", latestFinalized.BlockNumber()).
+			Criticalf(errMsg)
+		return errors.New(errMsg)
 	}
 
-	return ht.backfill(ctx, headWithChain.EarliestHeadInChain(), baseHeight)
+	return ht.backfill(ctx, headWithChain, latestFinalized)
 }
 
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
@@ -290,7 +294,13 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 					break
 				}
 				{
-					err := ht.Backfill(ctx, head, uint(ht.config.FinalityDepth()))
+					latestFinalized, err := ht.calculateLatestFinalized(ctx, head.BlockNumber())
+					if err != nil {
+						ht.log.Warnw("Failed to calculate finalized block", "err", err)
+						continue
+					}
+
+					err = ht.Backfill(ctx, head, latestFinalized)
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
@@ -302,14 +312,26 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 	}
 }
 
-// backfill fetches all missing heads up until the base height
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head types.Head[BLOCK_HASH], baseHeight int64) (err error) {
-	headBlockNumber := head.BlockNumber()
-	if headBlockNumber <= baseHeight {
-		return nil
+// calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
+// canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
+// must be performed before usage.
+func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHeadNumber int64) (h HTH, err error) {
+	if ht.config.FinalityTagEnabled() {
+		return ht.client.LatestFinalizedBlock(ctx)
 	}
+	finalizedBlockNumber := currentHeadNumber - int64(ht.config.FinalityDepth())
+	if finalizedBlockNumber <= 0 {
+		finalizedBlockNumber = 0
+	}
+	return ht.client.HeadByNumber(ctx, big.NewInt(finalizedBlockNumber))
+}
+
+// backfill fetches all missing heads up until the base height
+func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head, latestFinalizedHead HTH) (err error) {
+	headBlockNumber := head.BlockNumber()
 	mark := time.Now()
 	fetched := 0
+	baseHeight := latestFinalizedHead.BlockNumber()
 	l := ht.log.With("blockNumber", headBlockNumber,
 		"n", headBlockNumber-baseHeight,
 		"fromBlockHeight", baseHeight,
@@ -341,6 +363,18 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 		} else if err != nil {
 			return fmt.Errorf("fetchAndSaveHead failed: %w", err)
 		}
+	}
+
+	if head.BlockHash() != latestFinalizedHead.BlockHash() {
+		const errMsg = "expected finalized block to be present in canonical chain"
+		ht.log.With("finalized_block_number", latestFinalizedHead.BlockNumber(), "finalized_hash", latestFinalizedHead.BlockHash(),
+			"canonical_chain_block_number", head.BlockNumber(), "canonical_chain_hash", head.BlockHash()).Criticalf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+
+	err = ht.headSaver.MarkFinalized(ctx, latestFinalizedHead.BlockHash())
+	if err != nil {
+		return fmt.Errorf("failed to mark head as finalized: %w", err)
 	}
 	return
 }

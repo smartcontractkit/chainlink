@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -107,4 +108,51 @@ func TestHeads_AddHeads(t *testing.T) {
 	head = heads.LatestHead()
 	require.NotNil(t, head)
 	require.Equal(t, 2, int(head.ChainLength()))
+}
+
+func TestHeads_MarkFinalized(t *testing.T) {
+	t.Parallel()
+
+	heads := headtracker.NewHeads()
+
+	// create chain
+	// H0 <- H1 <- H2 <- H3 <- H4
+	//         \
+	//           H2Uncle
+	//
+	newHead := func(num int, parent common.Hash) *evmtypes.Head {
+		h := evmtypes.NewHead(big.NewInt(int64(num)), utils.NewHash(), parent, uint64(time.Now().Unix()), ubig.NewI(0))
+		return &h
+	}
+	h0 := newHead(0, utils.NewHash())
+	h1 := newHead(1, h0.Hash)
+	h2 := newHead(2, h1.Hash)
+	h3 := newHead(3, h2.Hash)
+	h4 := newHead(4, h3.Hash)
+	h5 := newHead(5, h3.Hash)
+	h2Uncle := newHead(2, h1.Hash)
+
+	allHeads := []*evmtypes.Head{h0, h1, h2, h2Uncle, h3, h4, h5}
+	heads.AddHeads(1000, allHeads...)
+	// mark h3 and all ancestors as finalized
+	require.True(t, heads.MarkFinalized(h3.Hash), "expected MarkFinalized succeed")
+	for _, h := range allHeads {
+		assert.False(t, h.IsFinalized, "expected original heads to remain unfinalized")
+	}
+	require.False(t, heads.MarkFinalized(utils.NewHash()), "expected false if finalized hash was not found in existing LatestHead chain")
+	ensureProperFinalization := func(t *testing.T) {
+		t.Helper()
+		for _, head := range []*evmtypes.Head{h5, h4} {
+			require.False(t, heads.HeadByHash(head.Hash).IsFinalized, "expected h4-h5 not to be finalized", head.BlockNumber())
+		}
+		for _, head := range []*evmtypes.Head{h3, h2, h1, h0} {
+			require.True(t, heads.HeadByHash(head.Hash).IsFinalized, "expected h3 and all ancestors to be finalized", head.BlockNumber())
+		}
+		require.False(t, heads.HeadByHash(h2Uncle.Hash).IsFinalized, "expected uncle block not to be marked as finalized")
+
+	}
+	t.Run("blocks were correctly marked as finalized", ensureProperFinalization)
+	heads.AddHeads(1000, h0, h1, h2, h2Uncle, h3, h4, h5)
+	t.Run("blocks remain finalized after re adding them to the Heads", ensureProperFinalization)
+
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -34,11 +35,16 @@ func (h *headTrackerConfig) MaxBufferSize() uint32 {
 type config struct {
 	finalityDepth                     uint32
 	blockEmissionIdleWarningThreshold time.Duration
+	finalityTagEnabled                bool
 }
 
 func (c *config) FinalityDepth() uint32 { return c.finalityDepth }
 func (c *config) BlockEmissionIdleWarningThreshold() time.Duration {
 	return c.blockEmissionIdleWarningThreshold
+}
+
+func (c *config) FinalityTagEnabled() bool {
+	return c.finalityTagEnabled
 }
 
 func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {

@@ -294,7 +294,7 @@ func nodeStatus(n *evmtoml.Node, chainID string) (types.NodeStatus, error) {
 	return s, nil
 }
 
-func NewEthClientMock(t *testing.T) *evmclimocks.Client {
+func NewEthClientMock(t testing.TB) *evmclimocks.Client {
 	return evmclimocks.NewClient(t)
 }
 

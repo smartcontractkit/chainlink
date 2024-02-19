@@ -2,10 +2,12 @@ package headtracker
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -72,12 +74,21 @@ func (hs *headSaver) Chain(hash common.Hash) *evmtypes.Head {
 	return hs.heads.HeadByHash(hash)
 }
 
+func (hs *headSaver) MarkFinalized(ctx context.Context, finalized common.Hash) error {
+	if hs.heads.MarkFinalized(finalized) {
+		return nil
+	}
+
+	return fmt.Errorf("failed to find %s block in the latest chain to mark is as finalized", finalized)
+}
+
 var NullSaver httypes.HeadSaver = &nullSaver{}
 
 type nullSaver struct{}
 
-func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error          { return nil }
-func (*nullSaver) Load(ctx context.Context) (*evmtypes.Head, error)             { return nil, nil }
-func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error) { return nil, nil }
-func (*nullSaver) LatestChain() *evmtypes.Head                                  { return nil }
-func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                        { return nil }
+func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error            { return nil }
+func (*nullSaver) Load(ctx context.Context) (*evmtypes.Head, error)               { return nil, nil }
+func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error)   { return nil, nil }
+func (*nullSaver) LatestChain() *evmtypes.Head                                    { return nil }
+func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                          { return nil }
+func (*nullSaver) MarkFinalized(ctx context.Context, finalized common.Hash) error { return nil }

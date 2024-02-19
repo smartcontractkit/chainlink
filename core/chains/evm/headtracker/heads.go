@@ -20,6 +20,8 @@ type Heads interface {
 	AddHeads(historyDepth uint, newHeads ...*evmtypes.Head)
 	// Count returns number of heads in the collection.
 	Count() int
+	// MarkFinalized - finds `finalized` in the LatestHead and marks it and all direct ancestors as finalized
+	MarkFinalized(finalized common.Hash) bool
 }
 
 type heads struct {
@@ -60,6 +62,37 @@ func (h *heads) Count() int {
 	return len(h.heads)
 }
 
+func (h *heads) MarkFinalized(finalized common.Hash) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if len(h.heads) == 0 {
+		return false
+	}
+
+	// copy slice as we are going to modify it
+	newHeads := make([]*evmtypes.Head, len(h.heads))
+	for i := range h.heads {
+		headCopy := *h.heads[i]
+		newHeads[i] = &headCopy
+	}
+
+	head := newHeads[0]
+	foundFinalized := false
+	for head != nil {
+		if head.Hash == finalized {
+			foundFinalized = true
+		}
+
+		// we might see finalized to move back in chain due to request to lagging RPC,
+		// we should not override the flag in such cases
+		head.IsFinalized = head.IsFinalized || foundFinalized
+		head = head.Parent
+	}
+
+	return foundFinalized
+}
+
 func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -75,7 +108,10 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 		headCopy := *head
 		headCopy.Parent = nil // always build it from scratch in case it points to a head too old to be included
 		// map eliminates duplicates
-		headsMap[head.Hash] = &headCopy
+		// prefer head that was already in heads as it might have been marked as finalized on previous run
+		if _, ok := headsMap[head.Hash]; !ok {
+			headsMap[head.Hash] = &headCopy
+		}
 	}
 
 	heads := make([]*evmtypes.Head, len(headsMap))
