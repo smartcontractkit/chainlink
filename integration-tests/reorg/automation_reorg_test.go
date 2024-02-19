@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -127,10 +128,10 @@ func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0": ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional":  ethereum.RegistryVersion_2_2,
+		"registry_2_0":				ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional":	ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":	ethereum.RegistryVersion_2_1,
+		"registry_2_2_conditional": ethereum.RegistryVersion_2_2,
 		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2,
 	}
 
