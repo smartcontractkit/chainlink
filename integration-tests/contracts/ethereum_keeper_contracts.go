@@ -257,12 +257,20 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 
 		return encodedOnchainConfig, err
 	} else if rcs.RegistryVersion == ethereum.RegistryVersion_2_2 {
-		chainModuleBaseAddr, _, _, _ := client.DeployContract("ChainModuleBase", func(
+		chainModuleBaseAddr, _, _, err := client.DeployContract("ChainModuleBase", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return chain_module_base.DeployChainModuleBase(auth, backend)
 		})
+
+		if err != nil {
+			return nil, err
+		}
+		if err = client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
 		onchainConfigStruct := automation_registry_wrapper_2_2.AutomationRegistryBase22OnchainConfig{
 			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 			FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
