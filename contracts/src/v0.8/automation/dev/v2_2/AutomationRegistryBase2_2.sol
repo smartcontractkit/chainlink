@@ -45,14 +45,26 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
   uint8 internal constant UPKEEP_VERSION_BASE = 3;
 
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_400; // Used only in maxPayment estimation, and in capping overheads during actual payment.
-  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
-  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
+  // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
+  // These values are calibrated using hardhat tests which simulates various cases and verifies that
+  // the variables result in accurate estimation
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 60_000; // Fixed gas overhead for conditional upkeeps
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 85_000; // Fixed gas overhead for log upkeeps
+  uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_600; // Value scales with f
+  uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 24; // Per perform data byte overhead
 
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 28_100; // Used in actual payment. Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_SIGNER_GAS_OVERHEAD = 1_100; // Used in actual payment. overhead per signer
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_200; // Used in actual payment. overhead per upkeep performed
+  // The overhead (in bytes) in addition to perform data for upkeep sent in calldata
+  // This includes overhead for all struct encoding as well as report signatures
+  // There is a fixed component and a per signer component. This is calculated exactly by doing abi encoding
+  uint256 internal constant TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD = 932;
+  uint256 internal constant TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD = 64;
+
+  // Next block of constants are used in actual payment calculation. We calculate the exact gas used within the
+  // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
+  // to account for gas used in payment processing. These values are calibrated using hardhat tests which simulates various cases and verifies that
+  // the variables result in accurate estimation
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 22_000; // Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_000; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkNativeFeed;
@@ -104,7 +116,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
-  error InsufficientFunds();
   error InvalidDataLength();
   error InvalidTrigger();
   error InvalidPayee();
@@ -236,9 +247,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @member registrars addresses of the registrar contracts
    * @member upkeepPrivilegeManager address which can set privilege for upkeeps
    * @member reorgProtectionEnabled if this registry enables re-org protection checks
-   * @member chainSpecificModule the chain specific module
    * @member chainModule the chain specific module
-   * @member reorgProtectionEnabled if this registry will enable re-org protection checks
    */
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
@@ -387,21 +396,19 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @dev This struct is used to maintain run time information about an upkeep in transmit function
    * @member upkeep the upkeep struct
    * @member earlyChecksPassed whether the upkeep passed early checks before perform
-   * @member maxLinkPayment the max amount this upkeep could pay for work
    * @member performSuccess whether the perform was successful
    * @member triggerType the type of trigger
    * @member gasUsed gasUsed by this upkeep in perform
-   * @member gasOverhead gasOverhead for this upkeep
+   * @member calldataWeight weight assigned to this upkeep for its contribution to calldata. It is used to split L1 fee
    * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
     Upkeep upkeep;
     bool earlyChecksPassed;
-    uint96 maxLinkPayment;
     bool performSuccess;
     Trigger triggerType;
     uint256 gasUsed;
-    uint256 gasOverhead;
+    uint256 calldataWeight;
     bytes32 dedupID;
   }
 
@@ -592,18 +599,18 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param gasLimit the amount of gas used
    * @param gasOverhead the amount of gas overhead
+   * @param l1CostWei the amount to be charged for L1 fee in wei
    * @param fastGasWei the fast gas price
    * @param linkNative the exchange ratio between LINK and Native token
-   * @param numBatchedUpkeeps the number of upkeeps in this batch. Used to divide the L1 cost
    * @param isExecution if this is triggered by a perform upkeep function
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
     uint256 gasLimit,
     uint256 gasOverhead,
+    uint256 l1CostWei,
     uint256 fastGasWei,
     uint256 linkNative,
-    uint16 numBatchedUpkeeps,
     bool isExecution
   ) internal view returns (uint96, uint96) {
     uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
@@ -611,17 +618,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
     if (isExecution && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
-
-    uint256 l1CostWei = 0;
-    if (isExecution) {
-      l1CostWei = hotVars.chainModule.getCurrentL1Fee();
-    } else {
-      // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
-      l1CostWei = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(s_storage.maxPerformDataSize);
-    }
-    // Divide l1CostWei among all batched upkeeps. Spare change from division is not charged
-    l1CostWei = l1CostWei / numBatchedUpkeeps;
-
     uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / linkNative;
     uint256 premium = (((gasWei * gasLimit) + l1CostWei) * 1e9 * hotVars.paymentPremiumPPB) /
       linkNative +
@@ -633,48 +629,46 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   }
 
   /**
-   * @dev calculates the max LINK payment for an upkeep
+   * @dev calculates the max LINK payment for an upkeep. Called during checkUpkeep simulation and assumes
+   * maximum gas overhead, L1 fee
    */
   function _getMaxLinkPayment(
     HotVars memory hotVars,
     Trigger triggerType,
     uint32 performGas,
-    uint32 performDataLength,
     uint256 fastGasWei,
-    uint256 linkNative,
-    bool isExecution // Whether this is an actual perform execution or just a simulation
+    uint256 linkNative
   ) internal view returns (uint96) {
-    uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
-    (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
-      hotVars,
-      performGas,
-      gasOverhead,
-      fastGasWei,
-      linkNative,
-      1, // Consider only 1 upkeep in batch to get maxPayment
-      isExecution
-    );
-
-    return reimbursement + premium;
-  }
-
-  /**
-   * @dev returns the max gas overhead that can be charged for an upkeep
-   */
-  function _getMaxGasOverhead(Trigger triggerType, uint32 performDataLength, uint8 f) internal pure returns (uint256) {
-    // performData causes additional overhead in report length and memory operations
-    uint256 baseOverhead;
+    uint256 maxGasOverhead;
     if (triggerType == Trigger.CONDITION) {
-      baseOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
+      maxGasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
     } else if (triggerType == Trigger.LOG) {
-      baseOverhead = REGISTRY_LOG_OVERHEAD;
+      maxGasOverhead = REGISTRY_LOG_OVERHEAD;
     } else {
       revert InvalidTriggerType();
     }
-    return
-      baseOverhead +
-      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (f + 1)) +
-      (REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD * performDataLength);
+    uint256 maxCalldataSize = s_storage.maxPerformDataSize +
+      TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
+      (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
+    (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
+    maxGasOverhead +=
+      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
+      ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
+      chainModuleFixedOverhead;
+
+    uint256 maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
+
+    (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
+      hotVars,
+      performGas,
+      maxGasOverhead,
+      maxL1Fee,
+      fastGasWei,
+      linkNative,
+      false //isExecution
+    );
+
+    return reimbursement + premium;
   }
 
   /**
@@ -770,11 +764,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
       emit CancelledUpkeepReport(upkeepId, rawTrigger);
-      return (false, dedupID);
-    }
-    if (transmitInfo.upkeep.balance < transmitInfo.maxLinkPayment) {
-      // Can happen due to fluctuations in gas / link prices
-      emit InsufficientFundsUpkeepReport(upkeepId, rawTrigger);
       return (false, dedupID);
     }
     return (true, dedupID);
@@ -902,43 +891,40 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   function _postPerformPayment(
     HotVars memory hotVars,
     uint256 upkeepId,
-    UpkeepTransmitInfo memory upkeepTransmitInfo,
+    uint256 gasUsed,
     uint256 fastGasWei,
     uint256 linkNative,
-    uint16 numBatchedUpkeeps
+    uint256 gasOverhead,
+    uint256 l1Fee
   ) internal returns (uint96 gasReimbursement, uint96 premium) {
     (gasReimbursement, premium) = _calculatePaymentAmount(
       hotVars,
-      upkeepTransmitInfo.gasUsed,
-      upkeepTransmitInfo.gasOverhead,
+      gasUsed,
+      gasOverhead,
+      l1Fee,
       fastGasWei,
       linkNative,
-      numBatchedUpkeeps,
-      true
+      true // isExecution
     );
 
+    uint96 balance = s_upkeep[upkeepId].balance;
     uint96 payment = gasReimbursement + premium;
+
+    // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
+    // can't cover the amount owed
+    if (balance < gasReimbursement) {
+      payment = balance;
+      gasReimbursement = balance;
+      premium = 0;
+    } else if (balance < payment) {
+      payment = balance;
+      premium = payment - gasReimbursement;
+    }
+
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
 
     return (gasReimbursement, premium);
-  }
-
-  /**
-   * @dev Caps the gas overhead by the constant overhead used within initial payment checks in order to
-   * prevent a revert in payment processing.
-   */
-  function _getCappedGasOverhead(
-    uint256 calculatedGasOverhead,
-    Trigger triggerType,
-    uint32 performDataLength,
-    uint8 f
-  ) internal pure returns (uint256 cappedGasOverhead) {
-    cappedGasOverhead = _getMaxGasOverhead(triggerType, performDataLength, f);
-    if (calculatedGasOverhead < cappedGasOverhead) {
-      return calculatedGasOverhead;
-    }
-    return cappedGasOverhead;
   }
 
   /**
