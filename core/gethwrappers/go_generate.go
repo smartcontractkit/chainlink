@@ -155,6 +155,9 @@ package gethwrappers
 // Chainlink Functions
 //go:generate go generate ./functions
 
+// Chainlink Keystone
+//go:generate go generate ./keystone
+
 // Mercury
 //go:generate go generate ./llo-feeds
 
