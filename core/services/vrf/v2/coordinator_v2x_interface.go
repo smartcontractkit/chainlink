@@ -726,6 +726,10 @@ func (rwf *v2_5RandomWordsFulfilled) Raw() types.Log {
 	return rwf.event.Raw
 }
 
+func (rwf *v2_5RandomWordsFulfilled) NativePayment() bool {
+	return rwf.event.NativePayment
+}
+
 var (
 	_ SubscriptionCreatedIterator = (*v2SubscriptionCreatedIterator)(nil)
 	_ SubscriptionCreatedIterator = (*v2_5SubscriptionCreatedIterator)(nil)
