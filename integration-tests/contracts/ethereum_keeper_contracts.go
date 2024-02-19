@@ -712,25 +712,29 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			OffchainConfig:         uk.OffchainConfig,
 		}, nil
 	case ethereum.RegistryVersion_2_2:
-		uk, err := v.registry2_2.GetUpkeep(opts, id)
-		if err != nil {
-			return nil, err
-		}
-		return &UpkeepInfo{
-			Target:                 uk.Target.Hex(),
-			ExecuteGas:             uk.PerformGas,
-			CheckData:              uk.CheckData,
-			Balance:                uk.Balance,
-			Admin:                  uk.Admin.Hex(),
-			MaxValidBlocknumber:    uk.MaxValidBlocknumber,
-			LastPerformBlockNumber: uk.LastPerformedBlockNumber,
-			AmountSpent:            uk.AmountSpent,
-			Paused:                 uk.Paused,
-			OffchainConfig:         uk.OffchainConfig,
-		}, nil
+		return v.getUpkeepInfo22(opts, id)
 	}
 
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
+}
+
+func (v *EthereumKeeperRegistry) getUpkeepInfo22(opts *bind.CallOpts, id *big.Int) (*UpkeepInfo, error) {
+	uk, err := v.registry2_2.GetUpkeep(opts, id)
+	if err != nil {
+		return nil, err
+	}
+	return &UpkeepInfo{
+		Target:                 uk.Target.Hex(),
+		ExecuteGas:             uk.PerformGas,
+		CheckData:              uk.CheckData,
+		Balance:                uk.Balance,
+		Admin:                  uk.Admin.Hex(),
+		MaxValidBlocknumber:    uk.MaxValidBlocknumber,
+		LastPerformBlockNumber: uk.LastPerformedBlockNumber,
+		AmountSpent:            uk.AmountSpent,
+		Paused:                 uk.Paused,
+		OffchainConfig:         uk.OffchainConfig,
+	}, nil
 }
 
 func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr string) (*KeeperInfo, error) {

@@ -183,7 +183,7 @@ func CreateOCRKeeperJobs(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	var contractVersion string
-	// TODO: use v2.1 for registry 2.2 for now until
+	// TODO: use v2.1 for registry 2.2 for now until AUTO-9033 is done
 	if registryVersion == ethereum.RegistryVersion_2_1 || registryVersion == ethereum.RegistryVersion_2_2 {
 		contractVersion = "v2.1"
 	} else if registryVersion == ethereum.RegistryVersion_2_0 {

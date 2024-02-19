@@ -372,6 +372,7 @@ func (a *AutomationTest) AddBootstrapJob() error {
 
 func (a *AutomationTest) AddAutomationJobs() error {
 	var contractVersion string
+	// TODO: use v2.1 for registry 2.2 for now until AUTO-9033 is done
 	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 || a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		contractVersion = "v2.1"
 	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
