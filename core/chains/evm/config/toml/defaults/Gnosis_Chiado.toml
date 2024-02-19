@@ -2,7 +2,6 @@ ChainID = '10200'
 # Gnoisis Finality is approx 8 minutes @ 12 blocks per minute, so 96 blocks
 FinalityDepth = 100
 ChainType = 'xdai'
-LinkContractAddress = '0x57Cb1581A672Dfd9D34f12086B0495aD210FB98f'
 LogPollInterval = '5s'
 
 [GasEstimator]
