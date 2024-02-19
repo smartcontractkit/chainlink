@@ -130,6 +130,7 @@ type Packer interface {
 	PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error)
 	UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error)
 	DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error)
+	PackUserCheckErrorHandler(errCode encoding.ErrCode, extraData []byte) ([]byte, error)
 }
 
 type abiPacker struct {
@@ -186,4 +187,9 @@ func (p *abiPacker) UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error) 
 
 func (p *abiPacker) PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
 	return p.registryABI.Pack("getUpkeepPrivilegeConfig", upkeepId)
+}
+
+func (p *abiPacker) PackUserCheckErrorHandler(errCode encoding.ErrCode, extraData []byte) ([]byte, error) {
+	// TODO convert errCode to bigInt so it gets encoded as uint256
+	return p.streamsABI.Pack("checkErrorHandler", errCode, extraData)
 }
