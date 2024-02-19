@@ -4064,7 +4064,7 @@ LimitTransfer = 21000
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
@@ -4098,7 +4098,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
