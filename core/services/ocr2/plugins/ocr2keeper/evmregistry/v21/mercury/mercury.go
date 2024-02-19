@@ -46,6 +46,7 @@ var GenerateHMACFn = func(method string, path string, body []byte, clientId stri
 }
 
 // CalculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
+// TODO: Return false for conditionals
 var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
 	var retries int
 	totalAttempts, ok := mercuryConfig.GetPluginRetry(prk)
@@ -88,16 +89,13 @@ type HttpClient interface {
 
 type MercuryClient interface {
 	// DoRequest makes a data stream request, it manages retries and returns the following:
-	// state: the state of the pipeline execution, used by our components.
-	// upkeepFailureReason: the reason for the upkeep failure, used by our components.
-	// data: the data returned from the data stream.
-	// retryable: whether the request is retryable.
-	// retryInterval: the interval to wait before retrying the request, or RetryIntervalTimeout if no more retries are allowed.
-	// errCode: the error code of the request, to be passed to the user's error handler if applicable.
-	// error: the raw error that occurred during the request.
-	//
-	// Exploratory: consider to merge state/failureReason/errCode into a single object
-	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, encoding.ErrCode, error)
+	// state: the state of the pipeline execution. This field is coupled with err. If state is NoPipelineError then err is nil, otherwise err is non nil and appropriate state is returned
+	// data: the data returned from the data stream if there's NoPipelineError
+	// errCode: the errorCode of streams request is data is nil and there NoPipelineError
+	// retryable: whether the request is retryable. Only applicable for errored states.
+	// retryInterval: the interval to wait before retrying the request. Only applicable for errored states.
+	// err: non nil if some internal error occurs in pipeline
+	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, [][]byte, encoding.ErrCode, bool, time.Duration, error)
 }
 
 type StreamsLookupError struct {

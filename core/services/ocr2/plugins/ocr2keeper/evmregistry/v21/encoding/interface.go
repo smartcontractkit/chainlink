@@ -49,27 +49,27 @@ const (
 type ErrCode uint32
 
 const (
-	ErrCodeNil                 ErrCode = 0
-	ErrCodePartialContent      ErrCode = 808206
-	ErrCodeDataStreamsError    ErrCode = 808500
-	ErrCodeBadRequest          ErrCode = 808400
-	ErrCodeUnauthorized        ErrCode = 808401
-	ErrCodeEncodingError       ErrCode = 808600
-	ErrCodeStreamLookupTimeout ErrCode = 808603
+	ErrCodeNil                   ErrCode = 0
+	ErrCodeStreamsPartialContent ErrCode = 808206
+	ErrCodeStreamsBadRequest     ErrCode = 808400
+	ErrCodeStreamsUnauthorized   ErrCode = 808401
+	ErrCodeStreamsInternalError  ErrCode = 808500
+	ErrCodeStreamsEncodingError  ErrCode = 808600
+	ErrCodeStreamsTimeout        ErrCode = 808603
 )
 
-func HttpToErrCode(statusCode int) ErrCode {
+func HttpToStreamsErrCode(statusCode int) ErrCode {
 	switch statusCode {
 	case http.StatusOK:
 		return ErrCodeNil
 	case http.StatusPartialContent:
-		return ErrCodePartialContent
+		return ErrCodeStreamsPartialContent
 	case http.StatusBadRequest:
-		return ErrCodeBadRequest
+		return ErrCodeStreamsBadRequest
 	case http.StatusUnauthorized:
-		return ErrCodeUnauthorized
+		return ErrCodeStreamsUnauthorized
 	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-		return ErrCodeDataStreamsError
+		return ErrCodeStreamsInternalError
 	default:
 		return 0
 	}

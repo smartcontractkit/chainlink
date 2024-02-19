@@ -157,31 +157,31 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 			case http.StatusUnauthorized:
 				retryable = false
 				state = encoding.UpkeepNotAuthorized
-				errCode = encoding.HttpToErrCode(resp.StatusCode)
+				errCode = encoding.HttpToStreamsErrCode(resp.StatusCode)
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by unauthorized upkeep", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
 			case http.StatusBadRequest:
 				retryable = false
 				state = encoding.InvalidMercuryRequest
-				errCode = encoding.HttpToErrCode(resp.StatusCode)
+				errCode = encoding.HttpToStreamsErrCode(resp.StatusCode)
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by invalid format of timestamp", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
 			case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				errCode = encoding.HttpToErrCode(resp.StatusCode)
+				errCode = encoding.HttpToStreamsErrCode(resp.StatusCode)
 				return fmt.Errorf("%d", resp.StatusCode)
 			case http.StatusPartialContent:
 				// TODO (AUTO-5044): handle response code 206 entirely with errors field parsing
 				c.lggr.Warnf("at timestamp %s upkeep %s requested [%s] feeds but mercury v0.3 server returned 206 status, treating it as 404 and retrying", sl.Time.String(), sl.UpkeepId.String(), sl.Feeds)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				errCode = encoding.HttpToErrCode(resp.StatusCode)
+				errCode = encoding.HttpToStreamsErrCode(resp.StatusCode)
 				return fmt.Errorf("%d", http.StatusPartialContent)
 			case http.StatusOK:
 				// continue
 			default:
 				retryable = false
 				state = encoding.InvalidMercuryRequest
-				errCode = encoding.ErrCodeBadRequest
+				errCode = encoding.ErrCodeStreamsBadRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
 			}
 			c.lggr.Debugf("at block %s upkeep %s received status code %d from mercury v0.3 with BODY=%s", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode, hexutil.Encode(body))
@@ -191,7 +191,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Warnf("at timestamp %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.Time.String(), sl.UpkeepId.String(), err)
 				retryable = false
 				state = encoding.MercuryUnmarshalError
-				errCode = encoding.ErrCodeEncodingError
+				errCode = encoding.ErrCodeStreamsEncodingError
 				return err
 			}
 
@@ -205,7 +205,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server returned 206 status with [%s] reports while we requested [%s] feeds, retrying", sl.Time.String(), sl.UpkeepId.String(), receivedFeeds, sl.Feeds)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				errCode = encoding.HttpToErrCode(http.StatusPartialContent)
+				errCode = encoding.HttpToStreamsErrCode(http.StatusPartialContent)
 				return fmt.Errorf("%d", http.StatusNotFound)
 			}
 			var reportBytes [][]byte
@@ -215,7 +215,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 					c.lggr.Warnf("at timestamp %s upkeep %s failed to decode reportBlob %s: %v", sl.Time.String(), sl.UpkeepId.String(), rsp.FullReport, err)
 					retryable = false
 					state = encoding.InvalidMercuryResponse
-					errCode = encoding.ErrCodeEncodingError
+					errCode = encoding.ErrCodeStreamsEncodingError
 					return err
 				}
 				reportBytes = append(reportBytes, b)

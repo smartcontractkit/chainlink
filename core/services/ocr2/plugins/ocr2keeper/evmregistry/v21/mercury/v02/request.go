@@ -151,7 +151,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Warnf("at block %s upkeep %s received status code %d for feed %s", sl.Time.String(), sl.UpkeepId.String(), httpResponse.StatusCode, sl.Feeds[index])
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				errCode = encoding.HttpToErrCode(httpResponse.StatusCode)
+				errCode = encoding.HttpToStreamsErrCode(httpResponse.StatusCode)
 				return errors.New(strconv.FormatInt(int64(httpResponse.StatusCode), 10))
 			case http.StatusOK:
 				// continue
@@ -166,13 +166,13 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 			if err = json.Unmarshal(responseBody, &m); err != nil {
 				c.lggr.Warnf("at block %s upkeep %s failed to unmarshal body to MercuryV02Response for feed %s: %v", sl.Time.String(), sl.UpkeepId.String(), sl.Feeds[index], err)
 				state = encoding.MercuryUnmarshalError
-				errCode = encoding.ErrCodeEncodingError
+				errCode = encoding.ErrCodeStreamsEncodingError
 				return err
 			}
 			if blobBytes, err = hexutil.Decode(m.ChainlinkBlob); err != nil {
 				c.lggr.Warnf("at block %s upkeep %s failed to decode chainlinkBlob %s for feed %s: %v", sl.Time.String(), sl.UpkeepId.String(), m.ChainlinkBlob, sl.Feeds[index], err)
 				state = encoding.InvalidMercuryResponse
-				errCode = encoding.ErrCodeEncodingError
+				errCode = encoding.ErrCodeStreamsEncodingError
 				return err
 			}
 			ch <- mercury.MercuryData{
