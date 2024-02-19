@@ -613,7 +613,7 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 	) (common.Address, *types.Transaction, interface{}, error) {
 		la := common.HexToAddress(linkAddr)
 		auth.GasLimit = uint64(100000000000) // 11,885,630,143 | 100 000 000 000
-		auth.GasPrice = big.NewInt(1010000000)
+		auth.GasPrice = big.NewInt(101000000)
 		return offchainaggregator.DeployOffchainAggregator(auth,
 			backend,
 			offchainOptions.MaximumGasPrice,
@@ -1599,7 +1599,7 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
 	) (common.Address, *types.Transaction, interface{}, error) {
 		la := common.HexToAddress(linkAddr)
 		auth.GasLimit = uint64(100000000000) // 11,885,630,143 | 100 000 000 000
-		auth.GasPrice = big.NewInt(1010000000)
+		auth.GasPrice = big.NewInt(101000000)
 		return ocr2aggregator.DeployOCR2Aggregator(
 			auth,
 			backend,
