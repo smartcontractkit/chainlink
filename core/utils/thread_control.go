@@ -13,6 +13,8 @@ var _ ThreadControl = &threadControl{}
 type ThreadControl interface {
 	// Go starts a goroutine and tracks the lifetime of the goroutine.
 	Go(fn func(context.Context))
+	// GoCtx starts a goroutine with a given context and tracks the lifetime of the goroutine.
+	GoCtx(ctx context.Context, fn func(context.Context))
 	// Close cancels the goroutines and waits for all of them to exit.
 	Close()
 }
@@ -35,6 +37,18 @@ func (tc *threadControl) Go(fn func(context.Context)) {
 	go func() {
 		defer tc.threadsWG.Done()
 		ctx, cancel := tc.stop.NewCtx()
+		defer cancel()
+		fn(ctx)
+	}()
+}
+
+func (tc *threadControl) GoCtx(ctx context.Context, fn func(context.Context)) {
+	tc.threadsWG.Add(1)
+	go func() {
+		defer tc.threadsWG.Done()
+		c, cn := context.WithCancel(ctx)
+		defer cn()
+		ctx, cancel := tc.stop.CtxCancel(c, cn)
 		defer cancel()
 		fn(ctx)
 	}()
