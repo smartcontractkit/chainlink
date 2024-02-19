@@ -12,10 +12,107 @@ import (
 )
 
 func (m *Dashboard) addMainPanels() {
-	var podRestartPanel row.Option = nil
 	var ethBalancePanelSpanSize float32 = 6
+	var panelsIncluded []row.Option
+	var goVersionLegend string = "version"
+
 	if m.platform == "kubernetes" {
-		podRestartPanel = row.WithStat(
+		ethBalancePanelSpanSize = 4
+		goVersionLegend = "exported_version"
+	}
+
+	globalInfoPanels := []row.Option{
+		row.WithStat(
+			"App Version",
+			stat.DataSource(m.PrometheusDataSourceName),
+			stat.Text(stat.TextValueAndName),
+			stat.Orientation(stat.OrientationVertical),
+			stat.TitleFontSize(12),
+			stat.ValueFontSize(20),
+			stat.Span(2),
+			stat.Text("name"),
+			stat.Height("100px"),
+			stat.WithPrometheusTarget(
+				`version{`+m.panelOption.labelFilter+`=~"$instance"}`,
+				prometheus.Legend("{{version}}"),
+			),
+		),
+		row.WithStat(
+			"Go Version",
+			stat.DataSource(m.PrometheusDataSourceName),
+			stat.Text(stat.TextValueAndName),
+			stat.Orientation(stat.OrientationVertical),
+			stat.TitleFontSize(12),
+			stat.ValueFontSize(20),
+			stat.Span(2),
+			stat.Text("name"),
+			stat.Height("100px"),
+			stat.WithPrometheusTarget(
+				`go_info{`+m.panelOption.labelFilter+`=~"$instance"}`,
+				prometheus.Legend("{{"+goVersionLegend+"}}"),
+			),
+		),
+		row.WithStat(
+			"Uptime in days",
+			stat.DataSource(m.PrometheusDataSourceName),
+			stat.Text(stat.TextValueAndName),
+			stat.Orientation(stat.OrientationVertical),
+			stat.TitleFontSize(12),
+			stat.ValueFontSize(20),
+			stat.Span(2),
+			stat.Height("100px"),
+			stat.WithPrometheusTarget(
+				`uptime_seconds{`+m.panelOption.labelFilter+`=~"$instance"} / 86400`,
+				prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
+			),
+		),
+		row.WithStat(
+			"ETH Balance",
+			stat.DataSource(m.PrometheusDataSourceName),
+			stat.Text(stat.TextValueAndName),
+			stat.Orientation(stat.OrientationVertical),
+			stat.TitleFontSize(12),
+			stat.ValueFontSize(20),
+			stat.Span(ethBalancePanelSpanSize),
+			stat.Height("100px"),
+			stat.Decimals(2),
+			stat.WithPrometheusTarget(
+				`eth_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
+				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
+			),
+		),
+	}
+
+	additionalPanels := []row.Option{
+		row.WithTimeSeries(
+			"Service Components Health",
+			timeseries.Span(12),
+			timeseries.Height("200px"),
+			timeseries.DataSource(m.PrometheusDataSourceName),
+			timeseries.WithPrometheusTarget(
+				`health{`+m.panelOption.labelFilter+`=~"$instance"}`,
+				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{service_id}}"),
+			),
+		),
+		row.WithTimeSeries(
+			"ETH Balance",
+			timeseries.Span(12),
+			timeseries.Height("200px"),
+			timeseries.DataSource(m.PrometheusDataSourceName),
+			timeseries.Axis(
+				axis.Unit(""),
+				axis.Decimals(2),
+			),
+			timeseries.WithPrometheusTarget(
+				`eth_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
+				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
+			),
+		),
+	}
+
+	panelsIncluded = append(panelsIncluded, globalInfoPanels...)
+	if m.platform == "kubernetes" {
+		panelsIncluded = append(panelsIncluded, row.WithStat(
 			"Pod Restarts",
 			stat.Span(2),
 			stat.Height("100px"),
@@ -24,97 +121,14 @@ func (m *Dashboard) addMainPanels() {
 				`sum(increase(kube_pod_container_status_restarts_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
 				prometheus.Legend("{{pod}}"),
 			),
-		)
-		ethBalancePanelSpanSize = 4
+		))
 	}
+	panelsIncluded = append(panelsIncluded, additionalPanels...)
 
 	opts := []dashboard.Option{
 		dashboard.Row(
 			"Global health",
-			row.WithStat(
-				"App Version",
-				stat.DataSource(m.PrometheusDataSourceName),
-				stat.Text(stat.TextValueAndName),
-				stat.Orientation(stat.OrientationVertical),
-				stat.TitleFontSize(12),
-				stat.ValueFontSize(20),
-				stat.Span(2),
-				stat.Text("name"),
-				stat.Height("100px"),
-				stat.WithPrometheusTarget(
-					`version{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("{{version}}"),
-				),
-			),
-			row.WithStat(
-				"Go Version",
-				stat.DataSource(m.PrometheusDataSourceName),
-				stat.Text(stat.TextValueAndName),
-				stat.Orientation(stat.OrientationVertical),
-				stat.TitleFontSize(12),
-				stat.ValueFontSize(20),
-				stat.Span(2),
-				stat.Text("name"),
-				stat.Height("100px"),
-				stat.WithPrometheusTarget(
-					`go_info{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("{{exported_version}}"),
-				),
-			),
-			row.WithStat(
-				"Uptime in days",
-				stat.DataSource(m.PrometheusDataSourceName),
-				stat.Text(stat.TextValueAndName),
-				stat.Orientation(stat.OrientationVertical),
-				stat.TitleFontSize(12),
-				stat.ValueFontSize(20),
-				stat.Span(2),
-				stat.Height("100px"),
-				stat.WithPrometheusTarget(
-					`uptime_seconds{`+m.panelOption.labelFilter+`=~"$instance"} / 86400`,
-					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
-				),
-			),
-			row.WithStat(
-				"ETH Balance",
-				stat.DataSource(m.PrometheusDataSourceName),
-				stat.Text(stat.TextValueAndName),
-				stat.Orientation(stat.OrientationVertical),
-				stat.TitleFontSize(12),
-				stat.ValueFontSize(20),
-				stat.Span(ethBalancePanelSpanSize),
-				stat.Height("100px"),
-				stat.Decimals(2),
-				stat.WithPrometheusTarget(
-					`eth_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
-				),
-			),
-			podRestartPanel,
-			row.WithTimeSeries(
-				"Service Components Health",
-				timeseries.Span(12),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.WithPrometheusTarget(
-					`health{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{service_id}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"ETH Balance",
-				timeseries.Span(12),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.Axis(
-					axis.Unit(""),
-					axis.Decimals(2),
-				),
-				timeseries.WithPrometheusTarget(
-					`eth_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
-				),
-			),
+			panelsIncluded...,
 		),
 	}
 
@@ -127,11 +141,31 @@ func (m *Dashboard) addKubePanels() {
 			"Pod health",
 			row.WithTimeSeries(
 				"Pod Restarts",
-				timeseries.Span(12),
+				timeseries.Span(4),
 				timeseries.Height("200px"),
 				timeseries.DataSource(m.PrometheusDataSourceName),
 				timeseries.WithPrometheusTarget(
 					`sum(increase(kube_pod_container_status_restarts_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+					prometheus.Legend("{{pod}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"OOM Events",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`sum(increase(container_oom_events_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+					prometheus.Legend("{{pod}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"OOM Killed",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`sum(increase(kube_pod_container_status_last_terminated_reason{reason="OOMKilled", pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
 					prometheus.Legend("{{pod}}"),
 				),
 			),

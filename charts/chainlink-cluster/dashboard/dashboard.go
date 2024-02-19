@@ -57,7 +57,9 @@ func NewDashboard(
 	}
 	db.init()
 	db.addCoreVariables()
-	db.addCorePanels()
+	if Contains(db.panels, "core") {
+		db.addCorePanels()
+	}
 
 	switch db.platform {
 	case "kubernetes":
