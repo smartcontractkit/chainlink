@@ -73,8 +73,6 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 	}
 
 	lp := mocks.NewLogPoller(t)
-	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: rand.Int63()}, nil)
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			batchCaller := rpclibmocks.NewEvmBatchCaller(t)

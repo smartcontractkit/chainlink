@@ -54,7 +54,7 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 			return nil, cs.Close(pgOpts...)
 		}
 		return cs, cs.RegisterFilters(pgOpts...)
-	case ccipdata.V1_2_0, ccipdata.V1_4_0:
+	case ccipdata.V1_2_0:
 		cs, err := v1_2_0.NewCommitStore(lggr, evmAddr, ec, lp, estimator)
 		if err != nil {
 			return nil, err
@@ -82,7 +82,7 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 			}
 			return commitReportToEthTxMeta(commitReport)
 		}, nil
-	case ccipdata.V1_2_0, ccipdata.V1_4_0:
+	case ccipdata.V1_2_0:
 		commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			commitReport, err := v1_2_0.DecodeCommitReport(abihelpers.MustGetEventInputs(v1_0_0.ReportAccepted, commitStoreABI), report)

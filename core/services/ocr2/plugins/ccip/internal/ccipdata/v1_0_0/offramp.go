@@ -245,12 +245,7 @@ func (o *OffRamp) getDestinationTokensFromSourceTokens(ctx context.Context, toke
 		}
 	}
 
-	latestBlock, err := o.lp.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("get latest block: %w", err)
-	}
-
-	results, err := o.evmBatchCaller.BatchCall(ctx, uint64(latestBlock.BlockNumber), evmCalls)
+	results, err := o.evmBatchCaller.BatchCall(ctx, 0, evmCalls)
 	if err != nil {
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}
@@ -339,12 +334,7 @@ func (o *OffRamp) getPoolsByDestTokens(ctx context.Context, tokenAddrs []common.
 		))
 	}
 
-	latestBlock, err := o.lp.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("get latest block: %w", err)
-	}
-
-	results, err := o.evmBatchCaller.BatchCall(ctx, uint64(latestBlock.FinalizedBlockNumber), evmCalls)
+	results, err := o.evmBatchCaller.BatchCall(ctx, 0, evmCalls)
 	if err != nil {
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}

@@ -141,8 +141,8 @@ func TestOffRampReaderInit(t *testing.T) {
 			version: ccipdata.V1_2_0,
 		},
 		{
-			name:    "OffRampReader_V1_4_0-dev",
-			version: ccipdata.V1_4_0,
+			name:    "OffRampReader_V1_5_0",
+			version: ccipdata.V1_5_0,
 		},
 	}
 
@@ -174,8 +174,8 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 		offRampAddress = setupOffRampV1_0_0(t, user, bc)
 	case ccipdata.V1_2_0:
 		offRampAddress = setupOffRampV1_2_0(t, user, bc)
-	case ccipdata.V1_4_0:
-		offRampAddress = setupOffRampV1_4_0(t, user, bc)
+	case ccipdata.V1_5_0:
+		offRampAddress = setupOffRampV1_5_0(t, user, bc)
 	default:
 		require.Fail(t, "Unknown version: ", version)
 	}
@@ -264,7 +264,7 @@ func setupOffRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.Simula
 	return offRampAddr
 }
 
-func setupOffRampV1_4_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
+func setupOffRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
 
 	onRampAddr := utils.RandomAddress()
 	armAddr := deployMockArm(t, user, bc)
@@ -297,7 +297,7 @@ func setupOffRampV1_4_0(t *testing.T, user *bind.TransactOpts, bc *client.Simula
 		Context: testutils.Context(t),
 	})
 	require.NoError(t, err)
-	require.Equal(t, "EVM2EVMOffRamp 1.4.0-dev", tav)
+	require.Equal(t, "EVM2EVMOffRamp 1.5.0-dev", tav)
 	return offRampAddr
 }
 
