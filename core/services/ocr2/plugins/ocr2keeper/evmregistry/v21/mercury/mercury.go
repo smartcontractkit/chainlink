@@ -46,8 +46,8 @@ var GenerateHMACFn = func(method string, path string, body []byte, clientId stri
 	return userHmac
 }
 
-// CalculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
-var CalculateRetryConfigFn = func(upkeepType automationTypes.UpkeepType, prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
+// CalculateStreamsRetryConfig returns plugin retry interval based on how many times plugin has retried this work
+var CalculateStreamsRetryConfigFn = func(upkeepType automationTypes.UpkeepType, prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
 	var retries int
 	totalAttempts, ok := mercuryConfig.GetPluginRetry(prk)
 	if ok {

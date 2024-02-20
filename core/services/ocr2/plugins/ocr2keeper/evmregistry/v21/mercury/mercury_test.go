@@ -284,7 +284,7 @@ func Test_CalculateRetryConfigFn(t *testing.T) {
 			cfg := newMercuryConfigMock()
 			var result time.Duration
 			for i := 0; i < tc.times; i++ {
-				result = CalculateRetryConfigFn(automationTypes.ConditionTrigger, "prk", cfg)
+				result = CalculateStreamsRetryConfigFn(automationTypes.ConditionTrigger, "prk", cfg)
 			}
 			assert.Equal(t, tc.expected, result)
 		})

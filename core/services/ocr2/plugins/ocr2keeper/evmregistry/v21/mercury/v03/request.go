@@ -81,7 +81,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 			return m.State, nil, m.ErrCode, m.Retryable, 0 * time.Second, m.Error
 		}
 		// If errors were retryable then calculate retry interval
-		retryInterval := mercury.CalculateRetryConfigFn(upkeepType, pluginRetryKey, c.mercuryConfig)
+		retryInterval := mercury.CalculateStreamsRetryConfigFn(upkeepType, pluginRetryKey, c.mercuryConfig)
 		if retryInterval != mercury.RetryIntervalTimeout {
 			// Return the retyrable state with appropriate retry interval
 			return m.State, nil, m.ErrCode, m.Retryable, retryInterval, m.Error
