@@ -33,43 +33,42 @@ const (
 	UpkeepFailureReasonTxHashReorged           UpkeepFailureReason = 36
 
 	// pipeline execution error
-	NoPipelineError        PipelineExecutionState = 0
-	CheckBlockTooOld       PipelineExecutionState = 1
-	CheckBlockInvalid      PipelineExecutionState = 2
-	RpcFlakyFailure        PipelineExecutionState = 3
-	MercuryFlakyFailure    PipelineExecutionState = 4
-	PackUnpackDecodeFailed PipelineExecutionState = 5
-	MercuryUnmarshalError  PipelineExecutionState = 6
-	InvalidMercuryRequest  PipelineExecutionState = 7
-	InvalidMercuryResponse PipelineExecutionState = 8 // this will only happen if Mercury server sends bad responses
-	UpkeepNotAuthorized    PipelineExecutionState = 9
+	NoPipelineError               PipelineExecutionState = 0
+	CheckBlockTooOld              PipelineExecutionState = 1
+	CheckBlockInvalid             PipelineExecutionState = 2
+	RpcFlakyFailure               PipelineExecutionState = 3
+	MercuryFlakyFailure           PipelineExecutionState = 4
+	PackUnpackDecodeFailed        PipelineExecutionState = 5
+	PrivilegeConfigUnmarshalError PipelineExecutionState = 6
 )
 
 // ErrCode is used for invoking an error handler with a specific error code.
 type ErrCode uint32
 
 const (
-	ErrCodeNil                 ErrCode = 0
-	ErrCodePartialContent      ErrCode = 808206
-	ErrCodeDataStreamsError    ErrCode = 808500
-	ErrCodeBadRequest          ErrCode = 808400
-	ErrCodeUnauthorized        ErrCode = 808401
-	ErrCodeEncodingError       ErrCode = 808600
-	ErrCodeStreamLookupTimeout ErrCode = 808603
+	// TODO: Finalize these
+	ErrCodeNil                   ErrCode = 0
+	ErrCodeStreamsPartialContent ErrCode = 808206
+	ErrCodeStreamsBadRequest     ErrCode = 808400
+	ErrCodeStreamsUnauthorized   ErrCode = 808401
+	ErrCodeStreamsInternalError  ErrCode = 808500
+	ErrCodeStreamsBadResponse    ErrCode = 808600
+	ErrCodeStreamsTimeout        ErrCode = 808602
+	ErrCodeStreamsUnknownError   ErrCode = 808700
 )
 
-func HttpToErrCode(statusCode int) ErrCode {
+func HttpToStreamsErrCode(statusCode int) ErrCode {
 	switch statusCode {
 	case http.StatusOK:
 		return ErrCodeNil
 	case http.StatusPartialContent:
-		return ErrCodePartialContent
+		return ErrCodeStreamsPartialContent
 	case http.StatusBadRequest:
-		return ErrCodeBadRequest
+		return ErrCodeStreamsBadRequest
 	case http.StatusUnauthorized:
-		return ErrCodeUnauthorized
+		return ErrCodeStreamsUnauthorized
 	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-		return ErrCodeDataStreamsError
+		return ErrCodeStreamsInternalError
 	default:
 		return 0
 	}

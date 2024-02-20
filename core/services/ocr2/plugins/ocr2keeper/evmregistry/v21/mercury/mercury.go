@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -45,8 +46,8 @@ var GenerateHMACFn = func(method string, path string, body []byte, clientId stri
 	return userHmac
 }
 
-// CalculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
-var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
+// CalculateStreamsRetryConfig returns plugin retry interval based on how many times plugin has retried this work
+var CalculateStreamsRetryConfigFn = func(upkeepType automationTypes.UpkeepType, prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
 	var retries int
 	totalAttempts, ok := mercuryConfig.GetPluginRetry(prk)
 	if ok {
@@ -61,17 +62,21 @@ var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvide
 	} else {
 		retryInterval = 1 * time.Second
 	}
+	if upkeepType == automationTypes.ConditionTrigger {
+		// Conditional Upkees don't have any pipeline retries as they automatically get checked on a new block
+		retryInterval = RetryIntervalTimeout
+	}
 	mercuryConfig.SetPluginRetry(prk, retries+1, cache.DefaultExpiration)
 	return retryInterval
 }
 
 type MercuryData struct {
 	Index     int
-	Error     error
-	ErrCode   encoding.ErrCode
-	Retryable bool
-	Bytes     [][]byte
-	State     encoding.PipelineExecutionState
+	Bytes     [][]byte                        // Mercury values if request is successful
+	ErrCode   encoding.ErrCode                // Error code if mercury gives an error
+	State     encoding.PipelineExecutionState // NoPipelineError if no error during execution, otherwise appropriate error
+	Retryable bool                            // Applicable if State != NoPipelineError
+	Error     error                           // non nil if State != NoPipelineError
 }
 
 type MercuryConfigProvider interface {
@@ -88,16 +93,13 @@ type HttpClient interface {
 
 type MercuryClient interface {
 	// DoRequest makes a data stream request, it manages retries and returns the following:
-	// state: the state of the pipeline execution, used by our components.
-	// upkeepFailureReason: the reason for the upkeep failure, used by our components.
-	// data: the data returned from the data stream.
-	// retryable: whether the request is retryable.
-	// retryInterval: the interval to wait before retrying the request, or RetryIntervalTimeout if no more retries are allowed.
-	// errCode: the error code of the request, to be passed to the user's error handler if applicable.
-	// error: the raw error that occurred during the request.
-	//
-	// Exploratory: consider to merge state/failureReason/errCode into a single object
-	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, time.Duration, encoding.ErrCode, error)
+	// state: the state of the pipeline execution. This field is coupled with err. If state is NoPipelineError then err is nil, otherwise err is non nil and appropriate state is returned
+	// data: the data returned from the data stream if there's NoPipelineError
+	// errCode: the errorCode of streams request if data is nil and there's NoPipelineError
+	// retryable: whether the request is retryable. Only applicable for errored states.
+	// retryInterval: the interval to wait before retrying the request. Only applicable for errored states.
+	// err: non nil if some internal error occurs in pipeline
+	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, upkeepType automationTypes.UpkeepType, pluginRetryKey string) (encoding.PipelineExecutionState, [][]byte, encoding.ErrCode, bool, time.Duration, error)
 }
 
 type StreamsLookupError struct {
@@ -132,6 +134,7 @@ type Packer interface {
 	PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error)
 	UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error)
 	DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error)
+	PackUserCheckErrorHandler(errCode encoding.ErrCode, extraData []byte) ([]byte, error)
 }
 
 type abiPacker struct {
@@ -188,4 +191,10 @@ func (p *abiPacker) UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error) 
 
 func (p *abiPacker) PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
 	return p.registryABI.Pack("getUpkeepPrivilegeConfig", upkeepId)
+}
+
+func (p *abiPacker) PackUserCheckErrorHandler(errCode encoding.ErrCode, extraData []byte) ([]byte, error) {
+	// Convert errCode to bigInt as contract expects uint256
+	errCodeBigInt := new(big.Int).SetUint64(uint64(errCode))
+	return p.streamsABI.Pack("checkErrorHandler", errCodeBigInt, extraData)
 }

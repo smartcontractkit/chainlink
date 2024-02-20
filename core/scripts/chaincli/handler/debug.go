@@ -324,16 +324,17 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			checkResults := []ocr2keepers.CheckResult{automationCheckResult}
 
 			var values [][]byte
-			values, err = streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
+			var errCode encoding.ErrCode
+			values, errCode, err = streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
 
 			if checkResults[0].IneligibilityReason == uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
-			if checkResults[0].PipelineExecutionState == uint8(encoding.InvalidMercuryRequest) {
-				resolveIneligible("the data streams request data is invalid")
-			}
 			if err != nil {
-				failCheckConfig("failed to do data streams request ", err)
+				failCheckConfig("pipeline execution error, failed to do data streams request ", err)
+			}
+			if errCode != encoding.ErrCodeNil {
+				failCheckConfig(fmt.Sprintf("data streams error, failed to do data streams request with error code %d", errCode), nil)
 			}
 
 			// do checkCallback
