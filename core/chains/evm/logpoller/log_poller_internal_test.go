@@ -458,6 +458,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 			expectedLatestBlockNumber := int64(20)
 			expectedLastFinalizedBlockNumber := int64(12)
 			ec := evmclimocks.NewClient(t)
+			ec.On("ConfiguredChainID").Return(chainID, nil)
 			ec.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 				return len(b) == 2 &&
 					reflect.DeepEqual(b[0].Args, []interface{}{"latest", false}) &&

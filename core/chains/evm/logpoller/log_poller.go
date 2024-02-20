@@ -888,6 +888,10 @@ func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, e
 	}
 	latest := blocks[0]
 	finalized := blocks[1]
+
+	chainIdLabel := lp.ec.ConfiguredChainID().String()
+	lpLatestBlocksSeen.WithLabelValues(chainIdLabel, "latest").Set(float64(latest.Number))
+	lpLatestBlocksSeen.WithLabelValues(chainIdLabel, "finalized").Set(float64(finalized.Number))
 	return latest, finalized.Number, nil
 }
 

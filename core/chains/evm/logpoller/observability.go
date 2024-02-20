@@ -62,6 +62,10 @@ var (
 		Name: "log_poller_blocks_inserted",
 		Help: "Counter to track number of blocks inserted by Log Poller",
 	}, []string{"evmChainID"})
+	lpLatestBlocksSeen = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "log_poller_blocks_seen",
+		Help: "Gauge to track blocks seen by Log Poller",
+	}, []string{"evmChainID", "blockType"})
 )
 
 // ObservedORM is a decorator layer for ORM used by LogPoller, responsible for pushing Prometheus metrics reporting duration and size of result set for the queries.
