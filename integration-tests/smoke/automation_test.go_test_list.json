@@ -36,7 +36,7 @@
       "nodes": 2,
       "run":[
         {"name":"registry_2_2_with_mercury_v03"},
-        {"name":"registry_2_2_with_logtrigger_and_mercury_v02"},
+        {"name":"registry_2_2_with_logtrigger_and_mercury_v02"}
       ]
     },
     {
