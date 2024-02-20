@@ -2570,7 +2570,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'xdai'
+ChainType = 'gnosis'
 FinalityDepth = 50
 FinalityTagEnabled = false
 LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
@@ -4187,7 +4187,7 @@ GasLimit = 6500000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'xdai'
+ChainType = 'gnosis'
 FinalityDepth = 100
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
@@ -5758,18 +5758,18 @@ BlockBackfillSkip enables skipping of very long backfills.
 ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-Available types: arbitrum, metis, optimismBedrock, xdai, celo, kroma, wemix, zksync, scroll
+Available types: arbitrum, metis, optimismBedrock, gnosis, celo, kroma, wemix, zksync, scroll
 
 ### FinalityDepth
 ```toml
 FinalityDepth = 50 # Default
 ```
-FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID so it should not be necessary to change this under normal operation.
+FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID, so it should not be necessary to change this under normal operation.
 BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
 There is not a large performance penalty to setting this relatively high (on the order of hundreds)
 It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
 If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
-Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
+Therefore, this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 
 Special cases:
 `FinalityDepth`=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
@@ -6149,7 +6149,7 @@ TipCapMin = '1 wei' # Default
 ```
 TipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
 
-Only applies to EIP-1559 transactions)
+(Only applies to EIP-1559 transactions)
 
 ## EVM.GasEstimator.LimitJobType
 ```toml
@@ -6249,7 +6249,7 @@ EIP1559FeeCapBufferBlocks = 13 # Example
 ```
 EIP1559FeeCapBufferBlocks controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used.
 
-Only applies to EIP-1559 transactions)
+(Only applies to EIP-1559 transactions)
 
 ### TransactionPercentile
 ```toml

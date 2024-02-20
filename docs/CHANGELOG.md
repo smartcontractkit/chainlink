@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Changed
+
+- The `xdai` `ChainType` has been renamed to `gnosis` to match the chain's new name. The old name is not supported anymore and has to be changed before upgrading.
+
 ### Added
 
 - Gas bumping logic to the `SuggestedPriceEstimator`. The bumping mechanism for this estimator refetches the price from the RPC and adds a buffer on top using the greater of `BumpPercent` and `BumpMin`.

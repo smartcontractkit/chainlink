@@ -13,12 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -886,12 +886,12 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		require.Equal(t, assets.NewWeiI(70), price)
 	})
 
-	t.Run("takes into account zero priced transactions if chain is not xDai", func(t *testing.T) {
+	t.Run("takes into account zero priced transactions if chain is not Gnosis", func(t *testing.T) {
 		// Because everyone loves free gas!
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		cfg := gas.NewMockConfig()
-		bhCfg := newBlockHistoryConfig()
 
+		bhCfg := newBlockHistoryConfig()
 		bhCfg.TransactionPercentileF = uint16(50)
 
 		geCfg := &gas.MockGasEstimatorConfig{}
@@ -908,7 +908,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
-				Transactions: cltest.LegacyTransactionsFromGasPrices(0, 0, 0, 0, 100),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(0, 0, 25, 50, 100),
 			},
 		}
 
@@ -917,24 +917,22 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		bhe.Recalculate(cltest.Head(0))
 
 		price := gas.GetGasPrice(bhe)
-		require.Equal(t, assets.NewWeiI(0), price)
+		require.Equal(t, assets.NewWeiI(25), price)
 	})
 
-	t.Run("ignores zero priced transactions on xDai", func(t *testing.T) {
-		chainID := big.NewInt(100)
-
+	t.Run("ignores zero priced transactions only on Gnosis", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMock(t)
 		cfg := gas.NewMockConfig()
-		bhCfg := newBlockHistoryConfig()
 
+		bhCfg := newBlockHistoryConfig()
 		bhCfg.TransactionPercentileF = uint16(50)
 
 		geCfg := &gas.MockGasEstimatorConfig{}
 		geCfg.EIP1559DynamicFeesF = false
 		geCfg.PriceMaxF = maxGasPrice
-		geCfg.PriceMinF = assets.NewWeiI(100)
+		geCfg.PriceMinF = assets.NewWeiI(11) // Has to be set as Gnosis will only ignore transactions below this price
 
-		ibhe := newBlockHistoryEstimatorWithChainID(t, ethClient, cfg, geCfg, bhCfg, *chainID)
+		ibhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
 		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
 
 		b1Hash := utils.NewHash()
@@ -944,16 +942,19 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
-				Transactions: cltest.LegacyTransactionsFromGasPrices(0, 0, 0, 0, 100),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(0, 0, 0, 0, 80),
 			},
 		}
-
 		gas.SetRollingBlockHistory(bhe, blocks)
 
+		// chainType is not set - GasEstimator should not ignore zero priced transactions and instead default to PriceMin==11
 		bhe.Recalculate(cltest.Head(0))
+		require.Equal(t, assets.NewWeiI(11), gas.GetGasPrice(bhe))
 
-		price := gas.GetGasPrice(bhe)
-		require.Equal(t, assets.NewWeiI(100), price)
+		// Set chainType to Gnosis - GasEstimator should now ignore zero priced transactions
+		cfg.ChainTypeF = string(config.ChainGnosis)
+		bhe.Recalculate(cltest.Head(0))
+		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 	})
 
 	t.Run("handles unreasonably large gas prices (larger than a 64 bit int can hold)", func(t *testing.T) {
