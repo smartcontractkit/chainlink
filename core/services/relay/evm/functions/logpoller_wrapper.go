@@ -122,6 +122,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 
 	abiTypes, err := initAbiTypes()
 	if err != nil {
+		lggr.Errorf("failed to initialize abi types: %w", err)
 		return nil, err
 	}
 
@@ -233,11 +234,13 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debugw("LatestEvents: parsing logs", "nRequestLogs", len(requestLogs), "nResponseLogs", len(responseLogs), "coordinatorAddress", coordinator.Address().Hex())
 		requests, err := coordinator.LogsToRequests(requestLogs)
 		if err != nil {
+			l.lggr.Errorf("LatestEvents: fetched oracle request: %w", err)
 			return nil, nil, err
 		}
 		resultsReq = append(resultsReq, requests...)
 		responses, err := coordinator.LogsToResponses(responseLogs)
 		if err != nil {
+			l.lggr.Errorf("LatestEvents: fetched oracle response: %w", err)
 			return nil, nil, err
 		}
 		resultsResp = append(resultsResp, responses...)
@@ -474,31 +477,31 @@ func initAbiTypes() (*abiTypes, error) {
 	var err error
 	uint32Type, err := abi.NewType("uint32", "uint32", nil)
 	if err != nil {
-		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint32Type type: %w", err)
+		return nil, fmt.Errorf("failed to initialize uint32Type type: %w", err)
 	}
 	uint40Type, err := abi.NewType("uint40", "uint40", nil)
 	if err != nil {
-		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint40Type type: %w", err)
+		return nil, fmt.Errorf("failed to initialize uint40Type type: %w", err)
 	}
 	uint64Type, err := abi.NewType("uint64", "uint64", nil)
 	if err != nil {
-		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint64Type type: %w", err)
+		return nil, fmt.Errorf("failed to initialize uint64Type type: %w", err)
 	}
 	uint72Type, err := abi.NewType("uint72", "uint72", nil)
 	if err != nil {
-		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint72Type type: %w", err)
+		return nil, fmt.Errorf("failed to initialize uint72Type type: %w", err)
 	}
 	uint96Type, err := abi.NewType("uint96", "uint96", nil)
 	if err != nil {
-		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint96Type type: %w", err)
+		return nil, fmt.Errorf("failed to initialize uint96Type type: %w", err)
 	}
 	addressType, err := abi.NewType("address", "address", nil)
 	if err != nil {
-		return nil, fmt.Errorf("LogsToRequests: failed to initialize addressType type: %w", err)
+		return nil, fmt.Errorf("failed to initialize addressType type: %w", err)
 	}
 	bytes32Type, err := abi.NewType("bytes32", "bytes32", nil)
 	if err != nil {
-		return nil, fmt.Errorf("LogsToRequests: failed to initialize bytes32Type type: %w", err)
+		return nil, fmt.Errorf("failed to initialize bytes32Type type: %w", err)
 	}
 
 	at := &abiTypes{
