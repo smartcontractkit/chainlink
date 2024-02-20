@@ -43,7 +43,7 @@ func TestNewConnector_Success(t *testing.T) {
 	require.NoError(t, err)
 	listener := sfmocks.NewFunctionsListener(t)
 	offchainTransmitter := sfmocks.NewOffchainTransmitter(t)
-	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{keyV2}, nil)
+	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{keyV2}, nil)
 	config := &config.PluginConfig{
 		GatewayConnectorConfig: gwcCfg,
 	}
@@ -74,7 +74,7 @@ func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	require.NoError(t, err)
 	listener := sfmocks.NewFunctionsListener(t)
 	offchainTransmitter := sfmocks.NewOffchainTransmitter(t)
-	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{{Address: common.HexToAddress(addresses[1])}}, nil)
+	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{{Address: common.HexToAddress(addresses[1])}}, nil)
 	config := &config.PluginConfig{
 		GatewayConnectorConfig: gwcCfg,
 	}
