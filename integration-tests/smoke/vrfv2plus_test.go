@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -17,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -812,10 +815,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		*vrfv2PlusConfig.StalenessSeconds,
 		*vrfv2PlusConfig.GasAfterPaymentCalculation,
 		big.NewInt(*vrfv2PlusConfig.LinkNativeFeedResponse),
-		vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig{
-			FulfillmentFlatFeeLinkPPM:   *vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
-			FulfillmentFlatFeeNativePPM: *vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
-		},
+		*vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
+		*vrfv2PlusConfig.FulfillmentFlatFeeLinkDiscountPPM,
+		*vrfv2PlusConfig.NativePremiumPercentage,
+		*vrfv2PlusConfig.LinkPremiumPercentage,
 	)
 	require.NoError(t, err)
 
@@ -950,4 +953,278 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+}
+
+func TestVRFV2PlusWithBHS(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	require.NoError(t, err, "Error getting config")
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(network).
+		WithCLNodes(2).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err, "error creating test env")
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*config.VRFv2Plus.General.LinkNativeFeedResponse))
+
+	require.NoError(t, err)
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	require.NoError(t, err)
+
+	//Underfund Subscription
+	config.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
+
+	//decrease default span for checking blockhashes for unfulfilled requests
+	config.VRFv2Plus.General.BHSJobWaitBlocks = ptr.Ptr(2)
+	config.VRFv2Plus.General.BHSJobLookBackBlocks = ptr.Ptr(20)
+
+	numberOfTxKeysToCreate := 0
+	vrfContracts, subIDs, vrfKeyData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		env,
+		[]vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
+		&config,
+		linkToken,
+		mockETHLinkFeed,
+		numberOfTxKeysToCreate,
+		1,
+		1,
+		l,
+	)
+	require.NoError(t, err, "error setting up VRF v2_5 env")
+
+	subID := subIDs[0]
+
+	subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+	require.NoError(t, err, "error getting subscription information")
+
+	vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
+	var isNativeBilling = false
+	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
+		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
+		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
+		configCopy := config.MustCopy().(tc.TestConfig)
+		_, err := vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
+			vrfKeyData.KeyHash,
+			subID,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			isNativeBilling,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+		)
+		require.NoError(t, err, "error requesting randomness")
+
+		randomWordsRequestedEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsRequestedEvent(
+			[][32]byte{vrfKeyData.KeyHash},
+			[]*big.Int{subID},
+			[]common.Address{common.HexToAddress(vrfContracts.VRFV2PlusConsumer[0].Address())},
+			time.Minute*1,
+		)
+		require.NoError(t, err, "error waiting for randomness requested event")
+		vrfv2plus.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsRequestedEvent, isNativeBilling)
+		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
+		var wg sync.WaitGroup
+		wg.Add(1)
+		//Wait at least 256 blocks
+		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), env.EVMClient, &wg, time.Second*260, t)
+		wg.Wait()
+		require.NoError(t, err)
+		err = vrfv2plus.FundSubscriptions(
+			env,
+			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative),
+			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink),
+			linkToken,
+			vrfContracts.CoordinatorV2Plus,
+			subIDs,
+			vrfv2plus_config.BillingType_Link,
+		)
+		require.NoError(t, err, "error funding subscriptions")
+		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
+			[]*big.Int{subID},
+			[]*big.Int{randomWordsRequestedEvent.RequestId},
+			time.Second*30,
+		)
+		require.NoError(t, err, "error waiting for randomness fulfilled event")
+		vrfv2plus.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling)
+		status, err := vrfContracts.VRFV2PlusConsumer[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
+		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+	})
+
+	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
+		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
+		configCopy := config.MustCopy().(tc.TestConfig)
+		_, err := vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
+			vrfKeyData.KeyHash,
+			subID,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			isNativeBilling,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+		)
+		require.NoError(t, err, "error requesting randomness")
+
+		randomWordsRequestedEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsRequestedEvent(
+			[][32]byte{vrfKeyData.KeyHash},
+			[]*big.Int{subID},
+			[]common.Address{common.HexToAddress(vrfContracts.VRFV2PlusConsumer[0].Address())},
+			time.Minute*1,
+		)
+		require.NoError(t, err, "error waiting for randomness requested event")
+		vrfv2plus.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsRequestedEvent, isNativeBilling)
+		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
+		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+		require.Error(t, err, "error not occurred when getting blockhash for a blocknumber which was not stored in BHS contract")
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(*config.VRFv2Plus.General.BHSJobWaitBlocks+10), env.EVMClient, &wg, time.Minute*1, t)
+		wg.Wait()
+		require.NoError(t, err, "error waiting for blocknumber to be")
+
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
+		metrics, err := vrfContracts.VRFV2PlusConsumer[0].GetLoadTestMetrics(testcontext.Get(t))
+		require.Equal(t, 0, metrics.RequestCount.Cmp(big.NewInt(1)))
+		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)))
+
+		var clNodeTxs *client.TransactionsData
+		var txHash string
+		gom := gomega.NewGomegaWithT(t)
+		gom.Eventually(func(g gomega.Gomega) {
+			clNodeTxs, _, err = nodesMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
+			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
+			l.Debug().Int("Number of TXs", len(clNodeTxs.Data)).Msg("BHS Node txs")
+			g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
+			txHash = clNodeTxs.Data[0].Attributes.Hash
+		}, "2m", "1s").Should(gomega.Succeed())
+
+		require.Equal(t, strings.ToLower(vrfContracts.BHS.Address()), strings.ToLower(clNodeTxs.Data[0].Attributes.To))
+
+		bhsStoreTx, _, err := actions.GetTxByHash(testcontext.Get(t), env.EVMClient, common.HexToHash(txHash))
+		require.NoError(t, err, "error getting tx from hash")
+
+		bhsStoreTxInputData, err := actions.DecodeTxInputData(blockhash_store.BlockhashStoreABI, bhsStoreTx.Data())
+		l.Info().
+			Str("Block Number", bhsStoreTxInputData["n"].(*big.Int).String()).
+			Msg("BHS Node's Store Blockhash for Blocknumber Method TX")
+		require.Equal(t, randRequestBlockNumber, bhsStoreTxInputData["n"].(*big.Int).Uint64())
+
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
+
+		var randRequestBlockHash [32]byte
+		gom.Eventually(func(g gomega.Gomega) {
+			randRequestBlockHash, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting blockhash for a blocknumber which was stored in BHS contract")
+		}, "2m", "1s").Should(gomega.Succeed())
+		l.Info().
+			Str("Randomness Request's Blockhash", randomWordsRequestedEvent.Raw.BlockHash.String()).
+			Str("Block Hash stored by BHS contract", fmt.Sprintf("0x%x", randRequestBlockHash)).
+			Msg("BHS Contract's stored Blockhash for Randomness Request")
+		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
+	})
+}
+
+func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// override config with minConf = 0 and use pending block for simulation
+	config.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](0)
+	config.VRFv2Plus.General.VRFJobSimulationBlock = ptr.Ptr[string]("pending")
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(network).
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err, "error creating test env")
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2Plus.General.LinkNativeFeedResponse))
+	require.NoError(t, err, "error deploying mock ETH/LINK feed")
+
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	require.NoError(t, err, "error deploying LINK contract")
+
+	numberOfTxKeysToCreate := 2
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		env,
+		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
+		&config,
+		linkToken,
+		mockETHLinkFeed,
+		numberOfTxKeysToCreate,
+		1,
+		1,
+		l,
+	)
+	require.NoError(t, err, "error setting up VRF v2_5 env")
+
+	subID := subIDs[0]
+
+	subscription, err := vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+	require.NoError(t, err, "error getting subscription information")
+
+	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.CoordinatorV2Plus)
+
+	var isNativeBilling = false
+
+	jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+	require.NoError(t, err, "error reading job runs")
+
+	l.Info().Uint16("minimumConfirmationDelay", *config.VRFv2Plus.General.MinimumConfirmations).Msg("Minimum Confirmation Delay")
+
+	// test and assert
+	randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+		vrfv2PlusContracts.VRFV2PlusConsumer[0],
+		vrfv2PlusContracts.CoordinatorV2Plus,
+		vrfv2PlusData,
+		subID,
+		isNativeBilling,
+		*config.VRFv2Plus.General.MinimumConfirmations,
+		*config.VRFv2Plus.General.CallbackGasLimit,
+		*config.VRFv2Plus.General.NumberOfWords,
+		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+		config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+		l,
+	)
+	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+	jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+	require.NoError(t, err, "error reading job runs")
+	require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
+
+	status, err := vrfv2PlusContracts.VRFV2PlusConsumer[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+	require.NoError(t, err, "error getting rand request status")
+	require.True(t, status.Fulfilled)
+	l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 }

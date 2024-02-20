@@ -232,6 +232,21 @@ type General struct {
 	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`
 	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
 	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`
+
+	//VRF Job Config
+	VRFJobForwardingAllowed             *bool                   `toml:"vrf_job_forwarding_allowed"`
+	VRFJobEstimateGasMultiplier         *float64                `toml:"vrf_job_estimate_gas_multiplier"`
+	VRFJobBatchFulfillmentEnabled       *bool                   `toml:"vrf_job_batch_fulfillment_enabled"`
+	VRFJobBatchFulfillmentGasMultiplier *float64                `toml:"vrf_job_batch_fulfillment_gas_multiplier"`
+	VRFJobPollPeriod                    *blockchain.StrDuration `toml:"vrf_job_poll_period"`
+	VRFJobRequestTimeout                *blockchain.StrDuration `toml:"vrf_job_request_timeout"`
+	VRFJobSimulationBlock               *string                 `toml:"vrf_job_simulation_block"`
+
+	//BHS Job Config
+	BHSJobWaitBlocks     *int                    `toml:"bhs_job_wait_blocks"`
+	BHSJobLookBackBlocks *int                    `toml:"bhs_job_lookback_blocks"`
+	BHSJobPollPeriod     *blockchain.StrDuration `toml:"bhs_job_poll_period"`
+	BHSJobRunTimeout     *blockchain.StrDuration `toml:"bhs_job_run_timeout"`
 }
 
 func (c *General) Validate() error {
@@ -324,6 +339,48 @@ func (c *General) Validate() error {
 	}
 	if *c.RandomnessRequestCountPerRequest <= *c.RandomnessRequestCountPerRequestDeviation {
 		return errors.New(ErrDeviationShouldBeLessThanOriginal)
+	}
+
+	if c.VRFJobForwardingAllowed == nil {
+		return errors.New("vrf_job_forwarding_allowed must be set")
+	}
+
+	if c.VRFJobBatchFulfillmentEnabled == nil {
+		return errors.New("vrf_job_batch_fulfillment_enabled must be set")
+	}
+	if c.VRFJobEstimateGasMultiplier == nil || *c.VRFJobEstimateGasMultiplier < 0 {
+		return errors.New("vrf_job_estimate_gas_multiplier must be set to a non-negative value")
+	}
+	if c.VRFJobBatchFulfillmentGasMultiplier == nil || *c.VRFJobBatchFulfillmentGasMultiplier < 0 {
+		return errors.New("vrf_job_batch_fulfillment_gas_multiplier must be set to a non-negative value")
+	}
+
+	if c.VRFJobPollPeriod == nil || c.VRFJobPollPeriod.Duration == 0 {
+		return errors.New("vrf_job_poll_period must be set to a non-negative value")
+	}
+
+	if c.VRFJobRequestTimeout == nil || c.VRFJobRequestTimeout.Duration == 0 {
+		return errors.New("vrf_job_request_timeout must be set to a non-negative value")
+	}
+
+	if c.BHSJobLookBackBlocks == nil || *c.BHSJobLookBackBlocks < 0 {
+		return errors.New("bhs_job_lookback_blocks must be set to a non-negative value")
+	}
+
+	if c.BHSJobPollPeriod == nil || c.BHSJobPollPeriod.Duration == 0 {
+		return errors.New("bhs_job_poll_period must be set to a non-negative value")
+	}
+
+	if c.BHSJobRunTimeout == nil || c.BHSJobRunTimeout.Duration == 0 {
+		return errors.New("bhs_job_run_timeout must be set to a non-negative value")
+	}
+
+	if c.BHSJobWaitBlocks == nil || *c.BHSJobWaitBlocks < 0 {
+		return errors.New("bhs_job_wait_blocks must be set to a non-negative value")
+	}
+
+	if c.VRFJobSimulationBlock != nil && (*c.VRFJobSimulationBlock != "latest" && *c.VRFJobSimulationBlock != "pending") {
+		return errors.New("simulation_block must be nil or \"latest\" or \"pending\"")
 	}
 
 	return nil
