@@ -9,7 +9,7 @@ import (
 // chainSpecificIsUsable allows for additional logic specific to a particular
 // Config that determines whether a transaction should be used for gas estimation
 func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainType config.ChainType, minGasPriceWei *assets.Wei) bool {
-	if chainType == config.ChainGnosis {
+	if chainType == config.ChainGnosis || chainType == config.ChainXDai {
 		// GasPrice 0 on most chains is great since it indicates cheap/free transactions.
 		// However, Gnosis reserves a special type of "bridge" transaction with 0 gas
 		// price that is always processed at top priority. Ordinary transactions

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The `xdai` `ChainType` has been renamed to `gnosis` to match the chain's new name. The old name is not supported anymore and has to be changed before upgrading.
+- The `xdai` `ChainType` has been renamed to `gnosis` to match the chain's new name. The old value is still supported but has been deprecated and will be removed in v2.12.0.
 
 ### Added
 

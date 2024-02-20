@@ -21,8 +21,6 @@ func NewBlockTranslator(cfg Config, client evmclient.Client, lggr logger.Logger)
 	switch cfg.ChainType() {
 	case config.ChainArbitrum:
 		return NewArbitrumBlockTranslator(client, lggr)
-	case config.ChainGnosis, config.ChainMetis, config.ChainOptimismBedrock:
-		fallthrough
 	default:
 		return &l1BlockTranslator{}
 	}
