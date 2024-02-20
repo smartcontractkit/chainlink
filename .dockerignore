@@ -12,6 +12,7 @@ examples/
 
 integration/
 integration-scripts/
+integration-tests/
 
 tools/gethnet/datadir/geth
 tools/clroot/db.bolt
