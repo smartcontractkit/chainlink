@@ -332,7 +332,7 @@ contract VRFV2Plus is BaseTest {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
-    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
+    (uint256 loggedOutputSeed, , , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool, bool));
     assertEq(loggedOutputSeed, outputSeed);
     assertEq(loggedSuccess, true);
 
@@ -374,7 +374,7 @@ contract VRFV2Plus is BaseTest {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
-    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
+    (uint256 loggedOutputSeed, , , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool, bool));
     assertEq(loggedOutputSeed, outputSeed);
     assertEq(loggedSuccess, true);
 
@@ -624,7 +624,7 @@ contract VRFV2Plus is BaseTest {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
-    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
+    (uint256 loggedOutputSeed, , , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool, bool));
     assertEq(loggedOutputSeed, outputSeed);
     assertEq(loggedSuccess, true);
 
@@ -671,7 +671,7 @@ contract VRFV2Plus is BaseTest {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
-    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
+    (uint256 loggedOutputSeed, , , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool, bool));
     assertEq(loggedOutputSeed, outputSeed);
     assertEq(loggedSuccess, true);
 
