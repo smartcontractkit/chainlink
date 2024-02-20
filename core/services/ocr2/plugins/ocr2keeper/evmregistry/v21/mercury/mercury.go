@@ -91,7 +91,7 @@ type MercuryClient interface {
 	// DoRequest makes a data stream request, it manages retries and returns the following:
 	// state: the state of the pipeline execution. This field is coupled with err. If state is NoPipelineError then err is nil, otherwise err is non nil and appropriate state is returned
 	// data: the data returned from the data stream if there's NoPipelineError
-	// errCode: the errorCode of streams request is data is nil and there NoPipelineError
+	// errCode: the errorCode of streams request if data is nil and there's NoPipelineError
 	// retryable: whether the request is retryable. Only applicable for errored states.
 	// retryInterval: the interval to wait before retrying the request. Only applicable for errored states.
 	// err: non nil if some internal error occurs in pipeline

@@ -174,7 +174,7 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	lookups[i] = streamsLookupResponse
 }
 
-// Doees the requested lookup and sets appropriate fields on checkResult[i]
+// Does the requested lookup and sets appropriate fields on checkResult[i]
 func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *mercury.StreamsLookup, i int, checkResults []ocr2keepers.CheckResult) {
 	defer wg.Done()
 
@@ -207,28 +207,32 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 		return err
 	}
 
-	var mercuryBytes hexutil.Bytes
+	return s.makeEthCall(ctx, payload, lookup, checkResults, i)
+}
+
+// eth_call to checkCallback and checkErrorHandler and update checkResults[i] accordingly
+func (s *streams) makeEthCall(ctx context.Context, payload []byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
+	var responseBytes hexutil.Bytes
 	args := map[string]interface{}{
 		"to":   s.registry.Address().Hex(),
 		"data": hexutil.Bytes(payload),
 	}
 
-	// call checkCallback function at the block which OCR3 has agreed upon
-	if err = s.client.CallContext(ctx, &mercuryBytes, "eth_call", args, hexutil.EncodeUint64(lookup.Block)); err != nil {
+	if err := s.client.CallContext(ctx, &responseBytes, "eth_call", args, hexutil.EncodeUint64(lookup.Block)); err != nil {
 		checkResults[i].Retryable = true
 		checkResults[i].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
 		return err
 	}
 
-	s.lggr.Infof("at block %d upkeep %s requested time %s checkCallback mercuryBytes: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(mercuryBytes))
+	s.lggr.Infof("at block %d upkeep %s requested time %s responseBytes: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(responseBytes))
 
-	unpackCallBackState, needed, performData, failureReason, _, err := s.packer.UnpackCheckCallbackResult(mercuryBytes)
+	unpackCallBackState, needed, performData, failureReason, _, err := s.packer.UnpackCheckCallbackResult(responseBytes)
 	if err != nil {
 		checkResults[i].PipelineExecutionState = uint8(unpackCallBackState)
 		return err
 	}
 
-	s.lggr.Infof("at block %d upkeep %s requested time %s CheckCallback returns needed: %v, failure reason: %d, perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, needed, failureReason, hexutil.Encode(performData))
+	s.lggr.Infof("at block %d upkeep %s requested time %s returns needed: %v, failure reason: %d, perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, needed, failureReason, hexutil.Encode(performData))
 
 	checkResults[i].IneligibilityReason = uint8(failureReason)
 	checkResults[i].Eligible = needed
@@ -237,7 +241,7 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 	return nil
 }
 
-// Does the mercurt request for the checkResult. Returns either the looked up values or an error code if something is wrong with mercury
+// Does the mercury request for the checkResult. Returns either the looked up values or an error code if something is wrong with mercury
 // In case of any pipeline processing issues, returns an error and also sets approriate state on the checkResult itself
 func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) ([][]byte, encoding.ErrCode, error) {
 	var state, values, errCode, retryable, retryInterval = encoding.NoPipelineError, [][]byte{}, encoding.ErrCodeNil, false, 0 * time.Second
@@ -267,7 +271,7 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 	for j, v := range values {
 		s.lggr.Infof("at block %d upkeep %s requested time %s doMercuryRequest values[%d]: %s", lookup.Block, lookup.UpkeepId, lookup.Time, j, hexutil.Encode(v))
 	}
-	return values, encoding.ErrCodeNil, err
+	return values, encoding.ErrCodeNil, nil
 }
 
 func (s *streams) CheckErrorHandler(ctx context.Context, errCode encoding.ErrCode, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
@@ -285,35 +289,7 @@ func (s *streams) CheckErrorHandler(ctx context.Context, errCode encoding.ErrCod
 		return err
 	}
 
-	// TODO: refactor to share code with checkCallback
-	var responseBytes hexutil.Bytes
-	args := map[string]interface{}{
-		"to":   s.registry.Address().Hex(),
-		"data": hexutil.Bytes(payload),
-	}
-
-	// call checkErrorCallback function at the block which OCR3 has agreed upon
-	if err = s.client.CallContext(ctx, &responseBytes, "eth_call", args, hexutil.EncodeUint64(lookup.Block)); err != nil {
-		checkResults[i].Retryable = true
-		checkResults[i].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
-		return err
-	}
-
-	s.lggr.Infof("at block %d upkeep %s requested time %s checkErrorHandler responseBytes: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(responseBytes))
-
-	unpackCallBackState, needed, performData, failureReason, _, err := s.packer.UnpackCheckCallbackResult(responseBytes)
-	if err != nil {
-		checkResults[i].PipelineExecutionState = uint8(unpackCallBackState)
-		return err
-	}
-
-	s.lggr.Infof("at block %d upkeep %s requested time %s checkErrorHandler returns needed: %v, failure reason: %d, perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, needed, failureReason, hexutil.Encode(performData))
-
-	checkResults[i].IneligibilityReason = uint8(failureReason)
-	checkResults[i].Eligible = needed
-	checkResults[i].PerformData = performData
-
-	return nil
+	return s.makeEthCall(ctx, payload, lookup, checkResults, i)
 }
 
 // AllowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if

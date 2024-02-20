@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	clatypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/pkg/errors"
@@ -30,7 +28,6 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
@@ -820,108 +817,6 @@ func TestStreams_StreamsLookup(t *testing.T) {
 
 			got := s.Lookup(testutils.Context(t), tt.input)
 			assert.Equal(t, tt.expectedResults, got, tt.name)
-		})
-	}
-}
-
-func Test_HandleErrCode(t *testing.T) {
-	partialContentErr := errors.New("206")
-
-	tests := []struct {
-		name           string
-		checkResult    *ocr2keepers.CheckResult
-		errCode        encoding.ErrCode
-		err            error
-		expectedValues [][]byte
-		expectedErr    error
-	}{
-		{
-			name: "log trigger no error",
-			checkResult: &ocr2keepers.CheckResult{
-				UpkeepID: core.GenUpkeepID(clatypes.LogTrigger, "111"),
-			},
-			errCode:        encoding.ErrCodeNil,
-			err:            nil,
-			expectedValues: [][]byte{},
-			expectedErr:    nil,
-		},
-		{
-			name: "conditional trigger no error",
-			checkResult: &ocr2keepers.CheckResult{
-				UpkeepID: core.GenUpkeepID(clatypes.ConditionTrigger, "222"),
-			},
-			errCode:        encoding.ErrCodeNil,
-			err:            nil,
-			expectedValues: [][]byte{},
-			expectedErr:    nil,
-		},
-		{
-			name: "log trigger error code bad request",
-			checkResult: &ocr2keepers.CheckResult{
-				UpkeepID: core.GenUpkeepID(clatypes.LogTrigger, "111"),
-			},
-			errCode:        encoding.ErrCodeStreamsBadRequest,
-			err:            errors.New("400"),
-			expectedValues: [][]byte{},
-			expectedErr:    nil,
-		},
-		{
-			name: "conditional trigger bad request",
-			checkResult: &ocr2keepers.CheckResult{
-				UpkeepID: core.GenUpkeepID(clatypes.ConditionTrigger, "222"),
-			},
-			errCode:        encoding.ErrCodeStreamsBadRequest,
-			err:            errors.New("400"),
-			expectedValues: [][]byte{},
-			expectedErr:    nil,
-		},
-		{
-			name: "log trigger error code partial content with retry timeout",
-			checkResult: &ocr2keepers.CheckResult{
-				UpkeepID:      core.GenUpkeepID(clatypes.LogTrigger, "111"),
-				RetryInterval: mercury.RetryIntervalTimeout,
-				Retryable:     true,
-			},
-			errCode:        encoding.ErrCodeStreamsPartialContent,
-			err:            errors.New("206"),
-			expectedValues: [][]byte{},
-			expectedErr:    nil,
-		},
-		{
-			name: "log trigger error code partial content without retry timeout",
-			checkResult: &ocr2keepers.CheckResult{
-				UpkeepID:      core.GenUpkeepID(clatypes.LogTrigger, "111"),
-				RetryInterval: time.Second,
-				Retryable:     true,
-			},
-			errCode:        encoding.ErrCodeStreamsPartialContent,
-			err:            partialContentErr,
-			expectedValues: nil,
-			expectedErr:    partialContentErr,
-		},
-		{
-			name: "conditional trigger partial content",
-			checkResult: &ocr2keepers.CheckResult{
-				UpkeepID:      core.GenUpkeepID(clatypes.ConditionTrigger, "222"),
-				RetryInterval: time.Second,
-				Retryable:     true,
-			},
-			errCode:        encoding.ErrCodeStreamsPartialContent,
-			err:            errors.New("206"),
-			expectedValues: [][]byte{},
-			expectedErr:    nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := setupStreams(t)
-			defer s.Close()
-
-			// TODO: Fix this test
-			//values, err := s.handleErrCode(tt.checkResult, tt.errCode, tt.err)
-			//assert.Equal(t, len(tt.expectedValues), len(values))
-			//assert.Equal(t, tt.expectedErr, err)
 		})
 	}
 }
