@@ -406,7 +406,7 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 	}
 
 	if (l.activeCoordinator != nil && l.activeCoordinator.Address() == activeCoordinatorAddress) &&
-		(l.proposedCoordinator != nil && l.proposedCoordinator.Address() == proposedCoordinatorAddress) {
+		(l.proposedCoordinator == nil || l.proposedCoordinator.Address() == proposedCoordinatorAddress) {
 		l.lggr.Debug("LogPollerWrapper: no changes to routes")
 		return
 	}
