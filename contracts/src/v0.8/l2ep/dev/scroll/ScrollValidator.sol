@@ -61,6 +61,14 @@ contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     return s_gasLimit;
   }
 
+  /**
+   * @notice makes this contract payable
+   * @dev receives funds:
+   *  - to use them (if configured) to pay for L2 execution on L1
+   *  - when withdrawing funds from L2 xDomain alias address (pay for L2 execution on L2)
+   */
+  receive() external payable {}
+
   /// @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
   /// @dev A message is sent using the L1CrossDomainMessenger. This method is accessed controlled.
   /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
