@@ -359,7 +359,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 		fetched++
 		if ctx.Err() != nil {
 			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
-			break
+			return fmt.Errorf("fetchAndSaveHead failed: %w", ctx.Err())
 		} else if err != nil {
 			return fmt.Errorf("fetchAndSaveHead failed: %w", err)
 		}
