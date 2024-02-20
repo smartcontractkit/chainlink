@@ -24,7 +24,8 @@ func ValidatePluginConfig(config PluginConfig) error {
 		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
 	}
 
-	if config.JuelsPerFeeCoinCacheDuration < time.Minute || config.JuelsPerFeeCoinCacheDuration > 5*time.Minute {
+	if config.JuelsPerFeeCoinCacheDuration != 0 &&
+		(config.JuelsPerFeeCoinCacheDuration < time.Minute || config.JuelsPerFeeCoinCacheDuration > 5*time.Minute) {
 		return errors.Errorf("invalid juelsPerFeeCoinSource cache duration %s", config.JuelsPerFeeCoinCacheDuration.String())
 	}
 
