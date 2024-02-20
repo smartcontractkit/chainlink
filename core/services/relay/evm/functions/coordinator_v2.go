@@ -13,6 +13,8 @@ import (
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+const logPollerWrapperV2 = "FunctionsLogPollerWrapperV2"
+
 type CoordinatorV2 struct {
 	address common.Address
 	abiArgs abi.Arguments
@@ -43,7 +45,7 @@ func (c *CoordinatorV2) RegisterFilters() error {
 
 	return c.logPoller.RegisterFilter(
 		logpoller.Filter{
-			Name: logpoller.FilterName("FunctionsLogPollerWrapper", c.address.String(), "-v", "2"),
+			Name: logpoller.FilterName(logPollerWrapperV2, c.address.String()),
 			EventSigs: []common.Hash{
 				functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(),
 				functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(),
