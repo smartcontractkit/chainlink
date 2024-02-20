@@ -100,7 +100,7 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 }
 
 func NewInMemoryDataSourceCache(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, cacheExpiryDuration time.Duration, lggr logger.Logger) median.DataSource {
-	return &inMemoryDataSourceCache{
+	dsCache := &inMemoryDataSourceCache{
 		cacheExpiration: cacheExpiryDuration,
 		cacheUpdateMux:  new(sync.Mutex),
 		lastUpdate:      atomic.Pointer[time.Time]{},
@@ -111,6 +111,8 @@ func NewInMemoryDataSourceCache(pr pipeline.Runner, jb job.Job, spec pipeline.Sp
 			lggr:           lggr,
 		},
 	}
+	go func() { dsCache.updater() }()
+	return dsCache
 }
 
 var _ ocr1types.DataSource = (*dataSource)(nil)
@@ -215,23 +217,20 @@ type inMemoryDataSourceCache struct {
 
 // isUpdateOverdue atomically checks if update is overdue.
 func (ds *inMemoryDataSourceCache) isUpdateOverdue() bool {
-	timeSinceUpdate := time.Now().Sub(*ds.lastUpdate.Load())
-	isOverDue := timeSinceUpdate >= ds.cacheExpiration
-	return isOverDue
+	timeSinceUpdate := time.Since(*ds.lastUpdate.Load())
+	return timeSinceUpdate >= ds.cacheExpiration
 }
 
 // updater periodically updates data source cache.
 func (ds *inMemoryDataSourceCache) updater() {
 	ticker := time.NewTicker(ds.cacheExpiration)
-	for {
-		select {
-		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
-			if err := ds.updateCache(ctx); err != nil {
-				ds.lggr.Warnw("failed to update cache", "err", err)
-			}
-			cancel()
+	for range ticker.C {
+		// arbitrary timeout
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
+		if err := ds.updateCache(ctx); err != nil {
+			ds.lggr.Warnw("failed to update cache", "err", err)
 		}
+		cancel()
 	}
 }
 
