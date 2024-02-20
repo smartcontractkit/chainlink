@@ -117,6 +117,20 @@ func NewInMemoryDataSourceCache(pr pipeline.Runner, jb job.Job, spec pipeline.Sp
 
 var _ ocr1types.DataSource = (*dataSource)(nil)
 
+func setEATelemetry(ds inMemoryDataSource, trrs pipeline.TaskRunResults, finalResult pipeline.FinalResult, timestamp ObservationTimestamp) {
+	promSetBridgeParseMetrics(&ds, &trrs)
+	promSetFinalResultMetrics(&ds, &finalResult)
+	if ShouldCollectEnhancedTelemetry(&ds.jb) {
+		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
+			TaskRunResults: trrs,
+			FinalResults:   finalResult,
+			RepTimestamp:   timestamp,
+		})
+	} else {
+		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
+	}
+}
+
 func (ds *inMemoryDataSource) updateAnswer(a *big.Int) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
@@ -134,7 +148,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp ObservationTimestamp) (*pipeline.Run, pipeline.FinalResult, error) {
+func (ds *inMemoryDataSource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
 		ds.lggr.Warnw("unable to attach metadata for run", "err", err)
@@ -153,23 +167,10 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp Observat
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return nil, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
-	}
-	finalResult := trrs.FinalResult(ds.lggr)
-	promSetBridgeParseMetrics(ds, &trrs)
-	promSetFinalResultMetrics(ds, &finalResult)
-
-	if ShouldCollectEnhancedTelemetry(&ds.jb) {
-		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
-			TaskRunResults: trrs,
-			FinalResults:   finalResult,
-			RepTimestamp:   timestamp,
-		})
-	} else {
-		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
+		return nil, pipeline.TaskRunResults{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 
-	return run, finalResult, err
+	return run, trrs, err
 }
 
 // parse uses the FinalResult into a big.Int and stores it in the bridge metadata
@@ -193,14 +194,18 @@ func (ds *inMemoryDataSource) parse(finalResult pipeline.FinalResult) (*big.Int,
 
 // Observe without saving to DB
 func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
-	_, finalResult, err := ds.executeRun(ctx, ObservationTimestamp{
+	_, trrs, err := ds.executeRun(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	finalResult := trrs.FinalResult(ds.lggr)
+	setEATelemetry(*ds, trrs, finalResult, ObservationTimestamp{
 		Round:        timestamp.Round,
 		Epoch:        timestamp.Epoch,
 		ConfigDigest: timestamp.ConfigDigest.Hex(),
 	})
-	if err != nil {
-		return nil, err
-	}
+
 	return ds.parse(finalResult)
 }
 
@@ -239,23 +244,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	defer ds.cacheUpdateMux.Unlock()
 
 	if ds.isUpdateOverdue() {
-		md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
-		if err != nil {
-			ds.lggr.Warnw("unable to attach metadata for run", "err", err)
-		}
-
-		vars := pipeline.NewVarsFrom(map[string]interface{}{
-			"jb": map[string]interface{}{
-				"databaseID":    ds.jb.ID,
-				"externalJobID": ds.jb.ExternalJobID,
-				"name":          ds.jb.Name.ValueOrZero(),
-			},
-			"jobRun": map[string]interface{}{
-				"meta": md,
-			},
-		})
-
-		_, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
+		_, trrs, err := ds.executeRun(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 		}
@@ -270,38 +259,28 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
 	// if cache update is overdue revert to standard inMemoryDataSource Observe behaviour
 	if ds.isUpdateOverdue() {
-		done := make(chan error)
-		go func() { done <- ds.updateCache(ctx) }()
+		result := make(chan error)
+		go func() { result <- ds.updateCache(ctx) }()
 		select {
 		case <-ctx.Done():
-		case err := <-done:
+		case err := <-result:
 			if err != nil {
 				ds.lggr.Warnw("unable to update in memory data source cache during observe, returning most recent value", "err", err)
 			}
 		}
 	}
 
-	promSetBridgeParseMetrics(ds.inMemoryDataSource, &ds.latestTrrs)
-	promSetFinalResultMetrics(ds.inMemoryDataSource, &ds.latestResult)
-	if ShouldCollectEnhancedTelemetry(&ds.jb) {
-		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
-			TaskRunResults: ds.latestTrrs,
-			FinalResults:   ds.latestResult,
-			RepTimestamp: ObservationTimestamp{
-				Round:        timestamp.Round,
-				Epoch:        timestamp.Epoch,
-				ConfigDigest: timestamp.ConfigDigest.Hex(),
-			},
-		})
-	} else {
-		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
-	}
+	setEATelemetry(*ds.inMemoryDataSource, ds.latestTrrs, ds.latestResult, ObservationTimestamp{
+		Round:        timestamp.Round,
+		Epoch:        timestamp.Epoch,
+		ConfigDigest: timestamp.ConfigDigest.Hex(),
+	})
 
 	return ds.parse(ds.latestResult)
 }
 
 func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {
-	run, finalResult, err := ds.inMemoryDataSource.executeRun(ctx, timestamp)
+	run, trrs, err := ds.inMemoryDataSource.executeRun(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +292,9 @@ func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTime
 	// immediately return any result we have and do not want to have
 	// a db write block that.
 	ds.saver.Save(run)
+
+	finalResult := trrs.FinalResult(ds.lggr)
+	setEATelemetry(ds.inMemoryDataSource, trrs, finalResult, timestamp)
 
 	return ds.inMemoryDataSource.parse(finalResult)
 }
