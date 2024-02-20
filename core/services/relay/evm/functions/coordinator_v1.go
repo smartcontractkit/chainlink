@@ -14,18 +14,18 @@ import (
 )
 
 type CoordinatorV1 struct {
-	address  common.Address
-	abiTypes *abiTypes
+	address common.Address
+	abiArgs abi.Arguments
 
 	client    client.Client
 	logPoller logpoller.LogPoller
 	lggr      logger.Logger
 }
 
-func NewCoordinatorV1(address common.Address, abiTypes *abiTypes, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) *CoordinatorV1 {
+func NewCoordinatorV1(address common.Address, abiArgs abi.Arguments, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) *CoordinatorV1 {
 	return &CoordinatorV1{
 		address:   address,
-		abiTypes:  abiTypes,
+		abiArgs:   abiArgs,
 		client:    client,
 		logPoller: logPoller,
 		lggr:      lggr,
@@ -76,21 +76,7 @@ func (c *CoordinatorV1) LogsToRequests(requestLogs []logpoller.Log) ([]evmRelayT
 			continue
 		}
 
-		commitmentABIV1 := abi.Arguments{
-			{Type: c.abiTypes.bytes32Type}, // RequestId
-			{Type: c.abiTypes.addressType}, // Coordinator
-			{Type: c.abiTypes.uint96Type},  // EstimatedTotalCostJuels
-			{Type: c.abiTypes.addressType}, // Client
-			{Type: c.abiTypes.uint64Type},  // SubscriptionId
-			{Type: c.abiTypes.uint32Type},  // CallbackGasLimit
-			{Type: c.abiTypes.uint72Type},  // AdminFee
-			{Type: c.abiTypes.uint72Type},  // DonFee
-			{Type: c.abiTypes.uint40Type},  // GasOverheadBeforeCallback
-			{Type: c.abiTypes.uint40Type},  // GasOverheadAfterCallback
-			{Type: c.abiTypes.uint32Type},  // TimeoutTimestamp
-		}
-
-		commitmentBytesV1, err := commitmentABIV1.Pack(
+		commitmentBytesV1, err := c.abiArgs.Pack(
 			oracleRequest.Commitment.RequestId,
 			oracleRequest.Commitment.Coordinator,
 			oracleRequest.Commitment.EstimatedTotalCostJuels,

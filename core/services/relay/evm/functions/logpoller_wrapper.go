@@ -380,6 +380,23 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	commitmentABIV1 := abi.Arguments{
+		{Type: l.abiTypes.bytes32Type}, // RequestId
+		{Type: l.abiTypes.addressType}, // Coordinator
+		{Type: l.abiTypes.uint96Type},  // EstimatedTotalCostJuels
+		{Type: l.abiTypes.addressType}, // Client
+		{Type: l.abiTypes.uint64Type},  // SubscriptionId
+		{Type: l.abiTypes.uint32Type},  // CallbackGasLimit
+		{Type: l.abiTypes.uint72Type},  // AdminFee
+		{Type: l.abiTypes.uint72Type},  // DonFee
+		{Type: l.abiTypes.uint40Type},  // GasOverheadBeforeCallback
+		{Type: l.abiTypes.uint40Type},  // GasOverheadAfterCallback
+		{Type: l.abiTypes.uint32Type},  // TimeoutTimestamp
+	}
+
+	commitmentABIV2 := append(commitmentABIV1,
+		abi.Argument{Type: l.abiTypes.uint72Type}) // OperationFee
+
 	if activeCoordinatorAddress == (common.Address{}) {
 		l.lggr.Error("LogPollerWrapper: cannot update activeCoordinator to zero address")
 		return
@@ -399,9 +416,9 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 	var activeCoordinator Coordinator
 	switch {
 	case strings.Contains(activeCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING):
-		activeCoordinator = NewCoordinatorV1(activeCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
+		activeCoordinator = NewCoordinatorV1(activeCoordinatorAddress, commitmentABIV1, l.client, l.logPoller, l.lggr)
 	case strings.Contains(activeCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING):
-		activeCoordinator = NewCoordinatorV2(activeCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
+		activeCoordinator = NewCoordinatorV2(activeCoordinatorAddress, commitmentABIV2, l.client, l.logPoller, l.lggr)
 	default:
 		l.lggr.Errorf("LogPollerWrapper: Invalid active coordinator type and version: %q", activeCoordinatorTypeAndVersion)
 		return
@@ -427,11 +444,11 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 	switch {
 	// proposedCoordinatorTypeAndVersion can be empty due to an empty proposedCoordinatorAddress
 	case proposedCoordinatorTypeAndVersion == "":
-		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
+		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, commitmentABIV1, l.client, l.logPoller, l.lggr)
 	case strings.Contains(proposedCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING):
-		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
+		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, commitmentABIV1, l.client, l.logPoller, l.lggr)
 	case strings.Contains(proposedCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING):
-		proposedCoordinator = NewCoordinatorV2(proposedCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
+		proposedCoordinator = NewCoordinatorV2(proposedCoordinatorAddress, commitmentABIV2, l.client, l.logPoller, l.lggr)
 
 	}
 
