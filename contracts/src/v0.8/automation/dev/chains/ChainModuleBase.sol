@@ -4,6 +4,12 @@ pragma solidity 0.8.19;
 import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 contract ChainModuleBase is IChainModule {
+  //block number: 26,460
+  //block hash: 26,917
+  //get current l1 fee (0 bytes): 26,989
+  // => 80366
+  uint256 private constant FIXED_GAS_OVERHEAD = 20000;
+
   function blockNumber() external view virtual returns (uint256) {
     return block.number;
   }
@@ -29,6 +35,6 @@ contract ChainModuleBase is IChainModule {
     virtual
     returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead)
   {
-    return (0, 0);
+    return (FIXED_GAS_OVERHEAD, 0);
   }
 }

@@ -13,7 +13,17 @@ contract OptimismModule is ChainModuleBase {
   address private constant OVM_GASPRICEORACLE_ADDR = 0x420000000000000000000000000000000000000F;
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
+  //block number: 26,482
+  //block hash: 26,939
+  //get current l1 fee (0 bytes): 63,693
+  // => 117114
   uint256 private constant FIXED_GAS_OVERHEAD = 20000;
+
+  //get current l1 fee (0 bytes): 63,693
+  //get current l1 fee (100 bytes): 65,417
+  //get current l1 fee (500 bytes): 71,765
+  //get current l1 fee (1000 bytes): 79,813
+  // 17.24 => 16.12 per bytes
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 20;
 
   function getCurrentL1Fee() external view override returns (uint256) {

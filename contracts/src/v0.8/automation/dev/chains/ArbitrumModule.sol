@@ -16,7 +16,17 @@ contract ArbitrumModule is ChainModuleBase {
   address private constant ARB_GAS_ADDR = 0x000000000000000000000000000000000000006C;
   ArbGasInfo private constant ARB_GAS = ArbGasInfo(ARB_GAS_ADDR);
 
+  //block number: 27,653
+  //block hash: 28,088
+  //get current l1 fee (0 bytes): 28,136
+  // => 83877
   uint256 private constant FIXED_GAS_OVERHEAD = 20000;
+
+  //get current l1 fee (0 bytes): 28,136
+  //get current l1 fee (100 bytes): 29,860
+  //get current l1 fee (500 bytes): 36,208
+  //get current l1 fee (1000 bytes): 44,256
+  // 17.24 => 16.12
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 20;
 
   function blockHash(uint256 n) external view override returns (bytes32) {
