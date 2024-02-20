@@ -42,10 +42,12 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
   string public feedParamKey = "feedIdHex";
   string public timeParamKey = "blockNumber";
   uint256 public counter;
+  bool public checkErrReturnBool;
 
-  constructor(bool _useArbitrumBlockNum, bool _verify) {
+  constructor(bool _useArbitrumBlockNum, bool _verify, bool _checkErrReturnBool) {
     useArbitrumBlockNum = _useArbitrumBlockNum;
     verify = _verify;
+    checkErrReturnBool = _checkErrReturnBool;
     counter = 0;
   }
 
@@ -135,7 +137,7 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
     bytes memory extraData
   ) external view override returns (bool upkeepNeeded, bytes memory performData) {
     // dummy function with default values
-    return (false, new bytes(0));
+    return (checkErrReturnBool, new bytes(0));
   }
 
   function getBlockNumber() internal view returns (uint256) {
