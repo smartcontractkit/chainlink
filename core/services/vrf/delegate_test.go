@@ -701,7 +701,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
-	_, err = vd.ServicesForSpec(testutils.Context(t), jb)
+	_, err = vd.ServicesForSpec(jb)
 	require.Error(t, err)
 	require.Equal(t, "VRF Owner is not supported for VRF V2 Plus", err.Error())
 }

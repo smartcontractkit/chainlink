@@ -775,13 +775,13 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	require.NoError(t, ks.Enable(ctx, k3.Address, testutils.SimulatedChainID))
 
 	t.Run("enabling the same key multiple times does not create duplicate states", func(t *testing.T) {
-		ctx := context.Background()
-		require.NoError(t, ks.Enable(ctx, k1.Address, testutils.FixtureChainID))
-		require.NoError(t, ks.Enable(ctx, k1.Address, testutils.FixtureChainID))
-		require.NoError(t, ks.Enable(ctx, k1.Address, testutils.FixtureChainID))
-		require.NoError(t, ks.Enable(ctx, k1.Address, testutils.FixtureChainID))
+		ctx2 := context.Background()
+		require.NoError(t, ks.Enable(ctx2, k1.Address, testutils.FixtureChainID))
+		require.NoError(t, ks.Enable(ctx2, k1.Address, testutils.FixtureChainID))
+		require.NoError(t, ks.Enable(ctx2, k1.Address, testutils.FixtureChainID))
+		require.NoError(t, ks.Enable(ctx2, k1.Address, testutils.FixtureChainID))
 
-		states, err := ks.GetStatesForKeys(ctx, []ethkey.KeyV2{k1})
+		states, err := ks.GetStatesForKeys(ctx2, []ethkey.KeyV2{k1})
 		require.NoError(t, err)
 		assert.Len(t, states, 2)
 		var cids []*big.Int

@@ -348,20 +348,20 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ct
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			ctx, cancel := b.chStop.NewCtx()
+			ctx2, cancel := b.chStop.NewCtx()
 			defer cancel()
 			// Retry indefinitely on failure
 			backoff := iutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.broadcaster.startInternal(ctx); err != nil {
+					if err := b.broadcaster.startInternal(ctx2); err != nil {
 						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
 					return
-				case <-ctx.Done():
+				case <-ctx2.Done():
 					stopOnce.Do(func() { stopped = true })
 					return
 				}
