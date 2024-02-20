@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
@@ -131,6 +132,15 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	services.logRecoverer = logRecoverer
 	blockSubscriber := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)
 	services.blockSubscriber = blockSubscriber
+
+	go func() {
+		for {
+			numLogUpkeeps, fastExec := logProvider.GetConfig()
+			r.lggr.Debugw("log provider now running with", "num log upkeeps", numLogUpkeeps, "fast exec logs", fastExec)
+
+			<-time.After(time.Minute)
+		}
+	}()
 
 	al := evm.NewActiveUpkeepList()
 	services.payloadBuilder = evm.NewPayloadBuilder(al, logRecoverer, r.lggr)
