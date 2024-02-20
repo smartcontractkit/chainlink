@@ -247,11 +247,12 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 	var state, values, errCode, retryable, retryInterval = encoding.NoPipelineError, [][]byte{}, encoding.ErrCodeNil, false, 0 * time.Second
 	var err error
 	pluginRetryKey := generatePluginRetryKey(checkResults[i].WorkID, lookup.Block)
+	upkeepType := core.GetUpkeepType(checkResults[i].UpkeepID)
 
 	if lookup.IsMercuryV02() {
-		state, values, errCode, retryable, retryInterval, err = s.v02Client.DoRequest(ctx, lookup, pluginRetryKey)
+		state, values, errCode, retryable, retryInterval, err = s.v02Client.DoRequest(ctx, lookup, upkeepType, pluginRetryKey)
 	} else if lookup.IsMercuryV03() {
-		state, values, errCode, retryable, retryInterval, err = s.v03Client.DoRequest(ctx, lookup, pluginRetryKey)
+		state, values, errCode, retryable, retryInterval, err = s.v03Client.DoRequest(ctx, lookup, upkeepType, pluginRetryKey)
 	}
 
 	if err != nil {

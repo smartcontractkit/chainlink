@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -165,7 +166,7 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 			c.httpClient = hc
 
 			reason := encoding.UpkeepFailureReasonNone // TODO: Fix test
-			state, values, errCode, retryable, retryInterval, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, tt.pluginRetryKey)
+			state, values, errCode, retryable, retryInterval, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, automationTypes.ConditionTrigger, tt.pluginRetryKey)
 
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)

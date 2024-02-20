@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 )
 
@@ -282,7 +284,7 @@ func Test_CalculateRetryConfigFn(t *testing.T) {
 			cfg := newMercuryConfigMock()
 			var result time.Duration
 			for i := 0; i < tc.times; i++ {
-				result = CalculateRetryConfigFn("prk", cfg)
+				result = CalculateRetryConfigFn(automationTypes.ConditionTrigger, "prk", cfg)
 			}
 			assert.Equal(t, tc.expected, result)
 		})

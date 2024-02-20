@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -46,8 +47,7 @@ var GenerateHMACFn = func(method string, path string, body []byte, clientId stri
 }
 
 // CalculateRetryConfig returns plugin retry interval based on how many times plugin has retried this work
-// TODO: Return false for conditionals on first retry
-var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
+var CalculateRetryConfigFn = func(upkeepType automationTypes.UpkeepType, prk string, mercuryConfig MercuryConfigProvider) (retryInterval time.Duration) {
 	var retries int
 	totalAttempts, ok := mercuryConfig.GetPluginRetry(prk)
 	if ok {
@@ -61,6 +61,10 @@ var CalculateRetryConfigFn = func(prk string, mercuryConfig MercuryConfigProvide
 		}
 	} else {
 		retryInterval = 1 * time.Second
+	}
+	if upkeepType == automationTypes.ConditionTrigger {
+		// Conditional Upkees don't have any pipeline retries as they automatically get checked on a new block
+		retryInterval = RetryIntervalTimeout
 	}
 	mercuryConfig.SetPluginRetry(prk, retries+1, cache.DefaultExpiration)
 	return retryInterval
@@ -95,7 +99,7 @@ type MercuryClient interface {
 	// retryable: whether the request is retryable. Only applicable for errored states.
 	// retryInterval: the interval to wait before retrying the request. Only applicable for errored states.
 	// err: non nil if some internal error occurs in pipeline
-	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, [][]byte, encoding.ErrCode, bool, time.Duration, error)
+	DoRequest(ctx context.Context, streamsLookup *StreamsLookup, upkeepType automationTypes.UpkeepType, pluginRetryKey string) (encoding.PipelineExecutionState, [][]byte, encoding.ErrCode, bool, time.Duration, error)
 }
 
 type StreamsLookupError struct {

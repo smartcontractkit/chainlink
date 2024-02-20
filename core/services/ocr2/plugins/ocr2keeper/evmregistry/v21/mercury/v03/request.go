@@ -13,6 +13,8 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -61,7 +63,7 @@ func NewClient(mercuryConfig mercury.MercuryConfigProvider, httpClient mercury.H
 	}
 }
 
-func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLookup, pluginRetryKey string) (encoding.PipelineExecutionState, [][]byte, encoding.ErrCode, bool, time.Duration, error) {
+func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLookup, upkeepType automationTypes.UpkeepType, pluginRetryKey string) (encoding.PipelineExecutionState, [][]byte, encoding.ErrCode, bool, time.Duration, error) {
 	if len(streamsLookup.Feeds) == 0 {
 		return encoding.NoPipelineError, [][]byte{}, encoding.ErrCodeStreamsBadRequest, false, 0 * time.Second, nil
 	}
@@ -79,7 +81,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 			return m.State, nil, m.ErrCode, m.Retryable, 0 * time.Second, m.Error
 		}
 		// If errors were retryable then calculate retry interval
-		retryInterval := mercury.CalculateRetryConfigFn(pluginRetryKey, c.mercuryConfig)
+		retryInterval := mercury.CalculateRetryConfigFn(upkeepType, pluginRetryKey, c.mercuryConfig)
 		if retryInterval != mercury.RetryIntervalTimeout {
 			// Return the retyrable state with appropriate retry interval
 			return m.State, nil, m.ErrCode, m.Retryable, retryInterval, m.Error
