@@ -341,7 +341,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		{
 			name:   "failure - cannot unmarshal privilege config",
 			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
-			state:  encoding.MercuryUnmarshalError,
+			state:  encoding.PrivilegeConfigUnmarshalError,
 			config: []byte{0, 1},
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {

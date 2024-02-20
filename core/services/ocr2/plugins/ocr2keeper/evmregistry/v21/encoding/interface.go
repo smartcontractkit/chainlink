@@ -33,14 +33,13 @@ const (
 	UpkeepFailureReasonTxHashReorged           UpkeepFailureReason = 36
 
 	// pipeline execution error
-	NoPipelineError        PipelineExecutionState = 0
-	CheckBlockTooOld       PipelineExecutionState = 1
-	CheckBlockInvalid      PipelineExecutionState = 2
-	RpcFlakyFailure        PipelineExecutionState = 3
-	MercuryFlakyFailure    PipelineExecutionState = 4
-	PackUnpackDecodeFailed PipelineExecutionState = 5
-	MercuryUnmarshalError  PipelineExecutionState = 6
-	UpkeepNotAuthorized    PipelineExecutionState = 7
+	NoPipelineError               PipelineExecutionState = 0
+	CheckBlockTooOld              PipelineExecutionState = 1
+	CheckBlockInvalid             PipelineExecutionState = 2
+	RpcFlakyFailure               PipelineExecutionState = 3
+	MercuryFlakyFailure           PipelineExecutionState = 4
+	PackUnpackDecodeFailed        PipelineExecutionState = 5
+	PrivilegeConfigUnmarshalError PipelineExecutionState = 6
 )
 
 // ErrCode is used for invoking an error handler with a specific error code.
