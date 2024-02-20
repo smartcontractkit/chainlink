@@ -236,17 +236,17 @@ func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slac
 	for name, lane := range r.LaneStats {
 		if lane.FailedCountsByPhase[E2E] > 0 {
 			msgTexts = append(msgTexts,
-				fmt.Sprintf(":x: Run Failed for lane %s :x:", name),
+				fmt.Sprintf("lane %s :x:", name),
 				fmt.Sprintf(
 					"Run Duration = %.0fm "+
 						"\nNumber of ccip-send= %d"+
 						"\nNo of failed requests = %d", r.duration.Minutes(), lane.TotalRequests, lane.FailedCountsByPhase[E2E]))
 		} else {
 			msgTexts = append(msgTexts,
+				fmt.Sprintf("lane %s :white_check_mark:", name),
 				fmt.Sprintf(
 					"Run Duration = %.0fm "+
-						"\nNumber of ccip-send= %d"+
-						"\n All requests were successful", r.duration.Minutes(), lane.TotalRequests))
+						"\nNumber of ccip-send= %d", r.duration.Minutes(), lane.TotalRequests))
 		}
 	}
 
