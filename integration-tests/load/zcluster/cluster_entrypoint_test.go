@@ -4,7 +4,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
-	"os"
 	"testing"
 )
 
@@ -15,23 +14,23 @@ func TestClusterEntrypoint(t *testing.T) {
 	require.NoError(t, err)
 
 	p, err := wasp.NewClusterProfile(&wasp.ClusterConfig{
-		Namespace: "wasp",
-		KeepJobs:  true,
-		//UpdateImage:       true,
+		// you set up these only once, no need to configure through TOML
 		DockerCmdExecPath: "../../..",
 		BuildCtxPath:      "integration-tests/load",
+
+		Namespace:   *config.WaspConfig.Namespace,
+		KeepJobs:    config.WaspConfig.KeepJobs,
+		UpdateImage: config.WaspConfig.UpdateImage,
 		HelmValues: map[string]string{
-			"env.loki.url":        os.Getenv("LOKI_URL"),
-			"env.loki.token":      os.Getenv("LOKI_TOKEN"),
-			"env.loki.basic_auth": os.Getenv("LOKI_BASIC_AUTH"),
-			"env.loki.tenant_id":  os.Getenv("LOKI_TENANT_ID"),
-			"image":               os.Getenv("WASP_TEST_IMAGE"),
-			"test.binaryName":     os.Getenv("WASP_TEST_BIN"),
-			"test.name":           os.Getenv("WASP_TEST_NAME"),
-			"env.wasp.log_level":  "debug",
-			"jobs":                "3",
+			"env.loki.url":       *config.Logging.Loki.Endpoint,
+			"env.loki.tenant_id": *config.Logging.Loki.TenantId,
+			"image":              *config.WaspConfig.RepoImageVersionURI,
+			"test.binaryName":    *config.WaspConfig.TestBinaryName,
+			"test.name":          *config.WaspConfig.TestName,
+			"test.timeout":       *config.WaspConfig.TestTimeout,
+			"env.wasp.log_level": *config.WaspConfig.WaspLogLevel,
+			"jobs":               *config.WaspConfig.WaspJobs,
 			// other test vars pass through
-			"test.MY_CUSTOM_VAR":          "abc",
 			"test.BASE64_CONFIG_OVERRIDE": cfgBase64,
 		},
 	})

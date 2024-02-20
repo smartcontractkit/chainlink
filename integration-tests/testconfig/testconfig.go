@@ -31,6 +31,7 @@ import (
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
+	waspconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/wasp"
 )
 
 type GlobalTestConfig interface {
@@ -85,16 +86,17 @@ type TestConfig struct {
 	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
 	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
 
-	Common     *Common                  `toml:"Common"`
-	Automation *a_config.Config         `toml:"Automation"`
-	Functions  *f_config.Config         `toml:"Functions"`
-	Keeper     *keeper_config.Config    `toml:"Keeper"`
-	LogPoller  *lp_config.Config        `toml:"LogPoller"`
-	OCR        *ocr_config.Config       `toml:"OCR"`
-	OCR2       *ocr2_config.Config      `toml:"OCR2"`
-	VRF        *vrf_config.Config       `toml:"VRF"`
-	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
-	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
+	Common     *Common                         `toml:"Common"`
+	Automation *a_config.Config                `toml:"Automation"`
+	Functions  *f_config.Config                `toml:"Functions"`
+	Keeper     *keeper_config.Config           `toml:"Keeper"`
+	LogPoller  *lp_config.Config               `toml:"LogPoller"`
+	OCR        *ocr_config.Config              `toml:"OCR"`
+	OCR2       *ocr2_config.Config             `toml:"OCR2"`
+	VRF        *vrf_config.Config              `toml:"VRF"`
+	VRFv2      *vrfv2_config.Config            `toml:"VRFv2"`
+	VRFv2Plus  *vrfv2plus_config.Config        `toml:"VRFv2Plus"`
+	WaspConfig *waspconfig.WaspAutoBuildConfig `toml:"WaspAutoBuild"`
 
 	ConfigurationName string `toml:"-"`
 }
@@ -519,6 +521,11 @@ func (c *TestConfig) Validate() error {
 		}
 	}
 
+	if c.WaspConfig != nil {
+		if err := c.WaspConfig.Validate(); err != nil {
+			return errors.Wrapf(err, "WaspAutoBuildConfig validation failed")
+		}
+	}
 	return nil
 }
 

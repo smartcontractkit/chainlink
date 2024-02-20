@@ -5,6 +5,8 @@ go 1.21.4
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
+replace github.com/smartcontractkit/chainlink/integration-tests => ../
+
 require (
 	github.com/K-Phoen/grabana v0.22.1
 	github.com/ethereum/go-ethereum v1.13.8
@@ -19,7 +21,7 @@ require (
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240215150045-fe2ba71b2f0a
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wasp v0.4.4-0.20240218124649-2e645ed5ca6d
+	github.com/smartcontractkit/wasp v0.4.4
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/ratelimit v0.2.0
 )
