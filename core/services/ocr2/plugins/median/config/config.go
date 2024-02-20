@@ -18,11 +18,14 @@ type PluginConfig struct {
 	JuelsPerFeeCoinCacheDuration time.Duration `json:"juelsPerFeeCoinCacheDuration"`
 }
 
-// TODO add validation
 // ValidatePluginConfig validates the arguments for the Median plugin.
 func ValidatePluginConfig(config PluginConfig) error {
 	if _, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline); err != nil {
 		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
+	}
+
+	if config.JuelsPerFeeCoinCacheDuration < time.Minute || config.JuelsPerFeeCoinCacheDuration > 5*time.Minute {
+		return errors.Errorf("invalid juelsPerFeeCoinSource cache duration %s", config.JuelsPerFeeCoinCacheDuration.String())
 	}
 
 	return nil
