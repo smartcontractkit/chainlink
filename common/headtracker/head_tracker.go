@@ -337,6 +337,13 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", headBlockNumber-1)
 	l.Debug("Starting backfill")
+	if ht.htConfig.HistoryDepth() < uint32(headBlockNumber-baseHeight) {
+		l.Warnw("HistoryDepth is smaller than the actual finality depth (number of blocks from the latest "+
+			"finalized to the most recent bock). This might lead to making more RPC requests than necessary. "+
+			"Increase HistoryDepth.",
+			"history_depth", ht.htConfig.HistoryDepth(),
+			"actual_finality_depth", headBlockNumber-baseHeight)
+	}
 	defer func() {
 		if ctx.Err() != nil {
 			l.Warnw("Backfill context error", "err", ctx.Err())
@@ -376,6 +383,10 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	if err != nil {
 		return fmt.Errorf("failed to mark head as finalized: %w", err)
 	}
+
+	l.Debugw("marked block as finalized", "block_hash", latestFinalizedHead.BlockHash(),
+		"block_number", latestFinalizedHead.BlockNumber())
+
 	return
 }
 

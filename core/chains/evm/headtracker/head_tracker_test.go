@@ -920,14 +920,13 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		htu := newHeadTrackerUniverse(t, opts{Heads: heads})
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
 			Return(&head10, nil)
-		var cancel func()
-		ctx, cancel = context.WithCancel(ctx)
+		lctx, cancel := context.WithCancel(ctx)
 		htu.ethClient.On("HeadByHash", mock.Anything, head8.Hash).
 			Return(nil, context.DeadlineExceeded).Run(func(args mock.Arguments) {
 			cancel()
 		})
 
-		err := htu.headTracker.Backfill(ctx, &h12, &head8)
+		err := htu.headTracker.Backfill(lctx, &h12, &head8)
 		require.Error(t, err)
 		require.EqualError(t, err, "fetchAndSaveHead failed: context canceled")
 
