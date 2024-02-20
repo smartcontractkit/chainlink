@@ -339,8 +339,9 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	l.Debug("Starting backfill")
 	if ht.htConfig.HistoryDepth() < uint32(headBlockNumber-baseHeight) {
 		l.Warnw("HistoryDepth is smaller than the actual finality depth (number of blocks from the latest "+
-			"finalized to the most recent bock). This might lead to making more RPC requests than necessary. "+
-			"Increase HistoryDepth.",
+			"finalized to the most recent block). This might be caused by an out-of-sync RPC that returned an old "+
+			"finalized block or by HistoryDepth being too small. If you see this message too often, "+
+			"consider increasing HistoryDepth.",
 			"history_depth", ht.htConfig.HistoryDepth(),
 			"actual_finality_depth", headBlockNumber-baseHeight)
 	}

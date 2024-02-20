@@ -12,7 +12,7 @@ import (
 //go:generate mockery --quiet --name HeadTracker --output ../mocks/ --case=underscore
 type HeadTracker[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	services.Service
-	// Backfill given a head will fill in any missing heads up to latestFinalizedHead
+	// Backfill given a head will fill in any missing heads up to latestFinalized
 	Backfill(ctx context.Context, headWithChain, latestFinalized H) (err error)
 	LatestChain() H
 }

@@ -79,7 +79,7 @@ func (hs *headSaver) MarkFinalized(ctx context.Context, finalized common.Hash) e
 		return nil
 	}
 
-	return fmt.Errorf("failed to find %s block in the latest chain to mark is as finalized", finalized)
+	return fmt.Errorf("failed to find %s block in the canonical chain to mark it as finalized", finalized)
 }
 
 var NullSaver httypes.HeadSaver = &nullSaver{}
