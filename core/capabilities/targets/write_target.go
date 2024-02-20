@@ -114,7 +114,7 @@ func encodePayload(args []any, rawSelector string) ([]byte, error) {
 	// Based on https://github.com/ethereum/go-ethereum/blob/f1c27c286ea2d0e110a507e5749e92d0a6144f08/signer/fourbyte/abi.go#L77-L102
 
 	// NOTE: without having full ABI it's actually impossible to support function overloading
-	selector, err := abiutil.ParseSignature(rawSelector)
+	selector, err := abiutil.ParseSelector(rawSelector)
 	if err != nil {
 		return nil, err
 	}
