@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -253,6 +254,8 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 		jb, err = gateway.ValidatedGatewaySpec(tomlString)
 	case job.Stream:
 		jb, err = streams.ValidatedStreamSpec(tomlString)
+	case job.Workflow:
+		jb, err = workflows.ValidatedWorkflowSpec(tomlString)
 	default:
 		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)
 	}
