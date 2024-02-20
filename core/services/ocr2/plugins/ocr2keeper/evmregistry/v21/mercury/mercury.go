@@ -190,6 +190,7 @@ func (p *abiPacker) PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, err
 }
 
 func (p *abiPacker) PackUserCheckErrorHandler(errCode encoding.ErrCode, extraData []byte) ([]byte, error) {
-	// TODO convert errCode to bigInt so it gets encoded as uint256
-	return p.streamsABI.Pack("checkErrorHandler", errCode, extraData)
+	// Convert errCode to bigInt as contract expects uint256
+	errCodeBigInt := new(big.Int).SetUint64(uint64(errCode))
+	return p.streamsABI.Pack("checkErrorHandler", errCodeBigInt, extraData)
 }

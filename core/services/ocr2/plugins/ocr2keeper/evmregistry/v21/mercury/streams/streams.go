@@ -207,11 +207,11 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 		return err
 	}
 
-	return s.makeEthCall(ctx, payload, lookup, checkResults, i)
+	return s.makeCallbackEthCall(ctx, payload, lookup, checkResults, i)
 }
 
 // eth_call to checkCallback and checkErrorHandler and update checkResults[i] accordingly
-func (s *streams) makeEthCall(ctx context.Context, payload []byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
+func (s *streams) makeCallbackEthCall(ctx context.Context, payload []byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
 	var responseBytes hexutil.Bytes
 	args := map[string]interface{}{
 		"to":   s.registry.Address().Hex(),
@@ -289,7 +289,7 @@ func (s *streams) CheckErrorHandler(ctx context.Context, errCode encoding.ErrCod
 		return err
 	}
 
-	return s.makeEthCall(ctx, payload, lookup, checkResults, i)
+	return s.makeCallbackEthCall(ctx, payload, lookup, checkResults, i)
 }
 
 // AllowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
