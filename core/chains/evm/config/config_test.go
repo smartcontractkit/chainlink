@@ -335,7 +335,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		{"harmonyMainnet", 1666600000, 500000, "0.00001"},
 		{"harmonyTestnet", 1666700000, 500000, "0.00001"},
 
-		{"xDai", 100, 500000, "0.00001"},
+		{"gnosisMainnet", 100, 500000, "0.00001"},
 	}
 	for _, test := range tests {
 		tt := test

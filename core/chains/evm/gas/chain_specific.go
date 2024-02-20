@@ -11,7 +11,7 @@ import (
 func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainType config.ChainType, minGasPriceWei *assets.Wei) bool {
 	if chainType == config.ChainGnosis {
 		// GasPrice 0 on most chains is great since it indicates cheap/free transactions.
-		// However, xDai reserves a special type of "bridge" transaction with 0 gas
+		// However, Gnosis reserves a special type of "bridge" transaction with 0 gas
 		// price that is always processed at top priority. Ordinary transactions
 		// must be priced at least 1GWei, so we have to discard anything priced
 		// below that (unless the contract is whitelisted).
