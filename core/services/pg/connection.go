@@ -35,9 +35,8 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		uri = uuid.New().String()
 	}
 
-
 	// Initialize sql/sqlx
-	sqldb, err := otelsql.Open(string(dialect), uri, 
+	sqldb, err := otelsql.Open(string(dialect), uri,
 		otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
 		otelsql.WithTracerProvider(otel.GetTracerProvider()),
 		otelsql.WithSQLCommenter(true),
@@ -46,7 +45,7 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 			OmitConnPrepare:      true,
 			OmitRows:             true,
 			OmitConnectorConnect: true,
-			OmitConnQuery: false,
+			OmitConnQuery:        false,
 		}),
 	)
 	if err != nil {
