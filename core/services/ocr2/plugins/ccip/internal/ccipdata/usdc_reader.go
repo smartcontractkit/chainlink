@@ -2,6 +2,7 @@ package ccipdata
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -84,22 +85,33 @@ func (u *USDCReaderImpl) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Conte
 	return nil, errors.Errorf("no USDC message found prior to log index %d in tx %s", logIndex, txHash)
 }
 
-func NewUSDCReader(lggr logger.Logger, transmitter common.Address, lp logpoller.LogPoller) *USDCReaderImpl {
+func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool, qopts ...pg.QOpt) (*USDCReaderImpl, error) {
 	eventSig := utils.Keccak256Fixed([]byte("MessageSent(bytes)"))
-	filter := logpoller.Filter{
-		Name:      logpoller.FilterName(MESSAGE_SENT_FILTER_NAME, transmitter.Hex()),
-		EventSigs: []common.Hash{eventSig},
-		Addresses: []common.Address{transmitter},
-	}
-	return &USDCReaderImpl{
-		lggr:               lggr,
-		lp:                 lp,
-		usdcMessageSent:    eventSig,
-		filter:             filter,
+
+	r := &USDCReaderImpl{
+		lggr:            lggr,
+		lp:              lp,
+		usdcMessageSent: eventSig,
+		filter: logpoller.Filter{
+			Name:      logpoller.FilterName(MESSAGE_SENT_FILTER_NAME, jobID, transmitter.Hex()),
+			EventSigs: []common.Hash{eventSig},
+			Addresses: []common.Address{transmitter},
+		},
 		transmitterAddress: transmitter,
 	}
+
+	if registerFilters {
+		if err := r.RegisterFilters(qopts...); err != nil {
+			return nil, fmt.Errorf("register filters: %w", err)
+		}
+	}
+	return r, nil
 }
 
-func CloseUSDCReader(lggr logger.Logger, transmitter common.Address, lp logpoller.LogPoller, qopts ...pg.QOpt) error {
-	return NewUSDCReader(lggr, transmitter, lp).Close(qopts...)
+func CloseUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, qopts ...pg.QOpt) error {
+	r, err := NewUSDCReader(lggr, jobID, transmitter, lp, false)
+	if err != nil {
+		return err
+	}
+	return r.Close(qopts...)
 }

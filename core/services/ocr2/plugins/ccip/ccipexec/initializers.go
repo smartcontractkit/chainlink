@@ -99,7 +99,7 @@ func UnregisterExecPluginLpFilters(ctx context.Context, lggr logger.Logger, jb j
 			if usdcDisabled := params.pluginConfig.USDCConfig.AttestationAPI == ""; usdcDisabled {
 				return nil
 			}
-			return ccipdata.CloseUSDCReader(lggr, params.pluginConfig.USDCConfig.SourceMessageTransmitterAddress, params.sourceChain.LogPoller(), qopts...)
+			return ccipdata.CloseUSDCReader(lggr, jobIDToString(jb.ID), params.pluginConfig.USDCConfig.SourceMessageTransmitterAddress, params.sourceChain.LogPoller(), qopts...)
 		},
 	}
 
@@ -118,7 +118,7 @@ func ExecReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (fun
 	return factory.ExecReportToEthTxMeta(typ, ver)
 }
 
-func initTokenDataProviders(lggr logger.Logger, pluginConfig ccipconfig.ExecutionPluginJobSpecConfig, sourceLP logpoller.LogPoller, qopts ...pg.QOpt) (map[cciptypes.Address]tokendata.Reader, error) {
+func initTokenDataProviders(lggr logger.Logger, jobID string, pluginConfig ccipconfig.ExecutionPluginJobSpecConfig, sourceLP logpoller.LogPoller, qopts ...pg.QOpt) (map[cciptypes.Address]tokendata.Reader, error) {
 	tokenDataProviders := make(map[cciptypes.Address]tokendata.Reader)
 
 	// init usdc token data provider
@@ -134,10 +134,9 @@ func initTokenDataProviders(lggr logger.Logger, pluginConfig ccipconfig.Executio
 			return nil, errors.Wrap(err, "failed to parse USDC attestation API")
 		}
 
-		usdcReader := ccipdata.NewUSDCReader(lggr, pluginConfig.USDCConfig.SourceMessageTransmitterAddress, sourceLP)
-
-		if err := usdcReader.RegisterFilters(qopts...); err != nil {
-			return nil, err
+		usdcReader, err := ccipdata.NewUSDCReader(lggr, jobID, pluginConfig.USDCConfig.SourceMessageTransmitterAddress, sourceLP, true)
+		if err != nil {
+			return nil, errors.Wrap(err, "new usdc reader")
 		}
 
 		tokenDataProviders[cciptypes.Address(pluginConfig.USDCConfig.SourceTokenAddress.String())] =
@@ -200,7 +199,7 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 		return nil, nil, errors.Wrap(err, "could not load commitStoreReader reader")
 	}
 
-	tokenDataProviders, err := initTokenDataProviders(lggr, params.pluginConfig, params.sourceChain.LogPoller(), qopts...)
+	tokenDataProviders, err := initTokenDataProviders(lggr, jobIDToString(jb.ID), params.pluginConfig, params.sourceChain.LogPoller(), qopts...)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get token data providers")
 	}
@@ -315,4 +314,8 @@ func extractJobSpecParams(lggr logger.Logger, jb job.Job, chainSet legacyevm.Leg
 		sourceChain:   sourceChain,
 		destChain:     destChain,
 	}, nil
+}
+
+func jobIDToString(id int32) string {
+	return fmt.Sprintf("job_%d", id)
 }
