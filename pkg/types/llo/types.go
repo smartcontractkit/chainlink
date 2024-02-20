@@ -1,6 +1,9 @@
 package types
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -19,7 +22,61 @@ type LifeCycleStage string
 
 // ReportFormat represents different formats for different targets e.g. EVM,
 // Solana, JSON, kalechain etc
-type ReportFormat = uint32
+type ReportFormat uint32
+
+const (
+	_ ReportFormat = 0 // reserved
+
+	ReportFormatEVM      = 1
+	ReportFormatJSON     = 2
+	ReportFormatSolana   = 3
+	ReportFormatCosmos   = 4
+	ReportFormatStarknet = 5
+
+	_ ReportFormat = math.MaxUint32 // reserved
+)
+
+var ReportFormats = []ReportFormat{
+	ReportFormatEVM,
+	ReportFormatJSON,
+	ReportFormatSolana,
+	ReportFormatCosmos,
+	ReportFormatStarknet,
+}
+
+func (rf ReportFormat) String() string {
+	switch rf {
+	case ReportFormatEVM:
+		return "evm"
+	case ReportFormatJSON:
+		return "json"
+	case ReportFormatSolana:
+		return "solana"
+	case ReportFormatCosmos:
+		return "cosmos"
+	case ReportFormatStarknet:
+		return "starknet"
+	default:
+		return fmt.Sprintf("unknown(%d)", rf)
+	}
+}
+
+func ReportFormatFromString(s string) (ReportFormat, error) {
+	switch s {
+	case "evm":
+		return ReportFormatEVM, nil
+	case "json":
+		return ReportFormatJSON, nil
+	case "solana":
+		return ReportFormatSolana, nil
+	case "cosmos":
+		return ReportFormatCosmos, nil
+	case "starknet":
+		return ReportFormatStarknet, nil
+	default:
+		return 0, fmt.Errorf("unknown report format: %s", s)
+	}
+}
 
 type ReportInfo struct {
 	LifeCycleStage LifeCycleStage
