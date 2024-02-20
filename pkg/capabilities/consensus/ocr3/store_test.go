@@ -47,9 +47,8 @@ func TestOCR3Store(t *testing.T) {
 
 	t.Run("firstN, evicts removed items", func(t *testing.T) {
 		r, err := s.firstN(ctx, 1)
-		assert.Nil(t, r)
-		assert.ErrorContains(t, err, "queue is empty")
-		assert.Len(t, s.requestIDs, 0)
+		assert.NoError(t, err)
+		assert.Len(t, r, 0)
 	})
 
 	t.Run("firstN, zero batch size", func(t *testing.T) {

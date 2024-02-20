@@ -16,19 +16,20 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-func TestReportingPlugin_Query_QueueEmpty(t *testing.T) {
+func TestReportingPlugin_Query_ErrorInQueueCall(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
 	fc := clockwork.NewFakeClock()
 	s := newStore(0, fc)
-	rp, err := newReportingPlugin(s, nil, defaultBatchSize, ocr3types.ReportingPluginConfig{}, lggr)
+	batchSize := 0
+	rp, err := newReportingPlugin(s, nil, batchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
 
 	outcomeCtx := ocr3types.OutcomeContext{
 		PreviousOutcome: []byte(""),
 	}
 	_, err = rp.Query(ctx, outcomeCtx)
-	assert.ErrorIs(t, err, errQueueEmpty)
+	assert.Error(t, err)
 }
 
 func TestReportingPlugin_Query(t *testing.T) {
