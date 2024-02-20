@@ -102,7 +102,7 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 func NewInMemoryDataSourceCache(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, cacheExpiryDuration time.Duration, lggr logger.Logger) median.DataSource {
 	dsCache := &inMemoryDataSourceCache{
 		cacheExpiration: cacheExpiryDuration,
-		cacheUpdateMux:  new(sync.Mutex),
+		mu:              new(sync.RWMutex),
 		lastUpdate:      atomic.Pointer[time.Time]{},
 		inMemoryDataSource: &inMemoryDataSource{
 			pipelineRunner: pr,
@@ -117,9 +117,9 @@ func NewInMemoryDataSourceCache(pr pipeline.Runner, jb job.Job, spec pipeline.Sp
 
 var _ ocr1types.DataSource = (*dataSource)(nil)
 
-func setEATelemetry(ds inMemoryDataSource, trrs pipeline.TaskRunResults, finalResult pipeline.FinalResult, timestamp ObservationTimestamp) {
-	promSetBridgeParseMetrics(&ds, &trrs)
-	promSetFinalResultMetrics(&ds, &finalResult)
+func setEATelemetry(ds *inMemoryDataSource, trrs pipeline.TaskRunResults, finalResult pipeline.FinalResult, timestamp ObservationTimestamp) {
+	promSetBridgeParseMetrics(ds, &trrs)
+	promSetFinalResultMetrics(ds, &finalResult)
 	if ShouldCollectEnhancedTelemetry(&ds.jb) {
 		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
 			TaskRunResults: trrs,
@@ -200,7 +200,7 @@ func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.R
 	}
 
 	finalResult := trrs.FinalResult(ds.lggr)
-	setEATelemetry(*ds, trrs, finalResult, ObservationTimestamp{
+	setEATelemetry(ds, trrs, finalResult, ObservationTimestamp{
 		Round:        timestamp.Round,
 		Epoch:        timestamp.Epoch,
 		ConfigDigest: timestamp.ConfigDigest.Hex(),
@@ -213,7 +213,7 @@ func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.R
 // If cache update is overdue Observe defaults to standard inMemoryDataSource behaviour.
 type inMemoryDataSourceCache struct {
 	cacheExpiration time.Duration
-	cacheUpdateMux  *sync.Mutex
+	mu              *sync.RWMutex
 	lastUpdate      atomic.Pointer[time.Time]
 	latestTrrs      pipeline.TaskRunResults
 	latestResult    pipeline.FinalResult
@@ -240,17 +240,17 @@ func (ds *inMemoryDataSourceCache) updater() {
 }
 
 func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
-	ds.cacheUpdateMux.Lock()
-	defer ds.cacheUpdateMux.Unlock()
-
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
 	if ds.isUpdateOverdue() {
 		_, trrs, err := ds.executeRun(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 		}
+		lastUpdate := time.Now()
+
 		ds.latestResult = trrs.FinalResult(ds.lggr)
 		ds.latestTrrs = trrs
-		lastUpdate := time.Now()
 		ds.lastUpdate.Store(&lastUpdate)
 	}
 	return nil
@@ -258,25 +258,26 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 
 func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
 	// if cache update is overdue revert to standard inMemoryDataSource Observe behaviour
-	if ds.isUpdateOverdue() {
-		result := make(chan error)
-		go func() { result <- ds.updateCache(ctx) }()
-		select {
-		case <-ctx.Done():
-		case err := <-result:
-			if err != nil {
-				ds.lggr.Warnw("unable to update in memory data source cache during observe, returning most recent value", "err", err)
-			}
+	result := make(chan error)
+	go func() { result <- ds.updateCache(ctx) }()
+	select {
+	case <-ctx.Done():
+	case err := <-result:
+		if err != nil {
+			ds.lggr.Warnw("unable to update in memory data source cache during observe, returning most recent value", "err", err)
 		}
 	}
 
-	setEATelemetry(*ds.inMemoryDataSource, ds.latestTrrs, ds.latestResult, ObservationTimestamp{
+	ds.mu.RLock()
+	setEATelemetry(ds.inMemoryDataSource, ds.latestTrrs, ds.latestResult, ObservationTimestamp{
 		Round:        timestamp.Round,
 		Epoch:        timestamp.Epoch,
 		ConfigDigest: timestamp.ConfigDigest.Hex(),
 	})
+	observation, err := ds.parse(ds.latestResult)
+	ds.mu.RUnlock()
 
-	return ds.parse(ds.latestResult)
+	return observation, err
 }
 
 func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {
@@ -294,7 +295,7 @@ func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTime
 	ds.saver.Save(run)
 
 	finalResult := trrs.FinalResult(ds.lggr)
-	setEATelemetry(ds.inMemoryDataSource, trrs, finalResult, timestamp)
+	setEATelemetry(&ds.inMemoryDataSource, trrs, finalResult, timestamp)
 
 	return ds.inMemoryDataSource.parse(finalResult)
 }
