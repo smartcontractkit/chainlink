@@ -37,7 +37,11 @@ func main() {
 		if !ok {
 			panic("cannot find location of file")
 		}
-		location = location[strings.Index(location, "github.com"):]
+		chainlinkLoc := strings.Index(location, "chainlink-common/")
+		if chainlinkLoc == -1 {
+			panic("cannot find location of chainlink-common, repository must be in a folder named chainlink-common when cloned")
+		}
+		location = location[chainlinkLoc:]
 
 		res = []byte(
 			fmt.Sprintf(

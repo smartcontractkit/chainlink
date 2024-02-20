@@ -1,4 +1,4 @@
-// DO NOT MODIFY: automatically generated from github.com/smartcontractkit/chainlink-common/pkg/codec/encodings/binary/gen/main.go using the template int_gen_test.go
+// DO NOT MODIFY: automatically generated from chainlink-common/pkg/codec/encodings/binary/gen/main.go using the template int_gen_test.go
 
 package binary_test
 
