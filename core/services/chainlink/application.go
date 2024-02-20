@@ -185,7 +185,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
-	registry := capabilities.NewRegistry()
+	registry := capabilities.NewRegistry(globalLogger)
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
