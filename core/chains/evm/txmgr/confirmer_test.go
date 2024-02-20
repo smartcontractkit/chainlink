@@ -1747,7 +1747,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
-	nonce++
 	attempt1_1 := etx.TxAttempts[0]
 	var dbAttempt txmgr.DbEthTxAttempt
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
