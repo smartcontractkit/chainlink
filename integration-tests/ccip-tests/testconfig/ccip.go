@@ -43,6 +43,12 @@ type CCIPTestConfig struct {
 	TimeoutForPriceUpdate      *config.Duration   `toml:",omitempty"`
 }
 
+func (c *CCIPTestConfig) SetTestRunName(name string) {
+	if c.TestRunName == "" && name != "" {
+		c.TestRunName = name
+	}
+}
+
 func (c *CCIPTestConfig) Validate() error {
 	if c.PhaseTimeout != nil && (c.PhaseTimeout.Duration().Minutes() < 1 || c.PhaseTimeout.Duration().Minutes() > 50) {
 		return errors.Errorf("phase timeout should be between 1 and 50 minutes")

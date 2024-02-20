@@ -162,6 +162,12 @@ func (p *Common) Validate() error {
 	if p.Network == nil {
 		return errors.New("no networks specified")
 	}
+	// read the default network config, if specified
+	p.Network.UpperCaseNetworkNames()
+	err := p.Network.Default()
+	if err != nil {
+		return fmt.Errorf("error reading default network config %w", err)
+	}
 	if err := p.Network.Validate(); err != nil {
 		return fmt.Errorf("error validating networks config %w", err)
 	}
@@ -169,11 +175,6 @@ func (p *Common) Validate() error {
 }
 
 func (p *Common) EVMNetworks() ([]blockchain.EVMNetwork, []string, error) {
-	p.Network.UpperCaseNetworkNames()
-	err := p.Network.Default()
-	if err != nil {
-		return nil, p.Network.SelectedNetworks, fmt.Errorf("error reading default network config %w", err)
-	}
 	evmNetworks := networks.MustSetNetworks(*p.Network)
 	if len(p.Network.SelectedNetworks) != len(evmNetworks) {
 		return nil, p.Network.SelectedNetworks, fmt.Errorf("selected networks %v do not match evm networks %v", p.Network.SelectedNetworks, evmNetworks)

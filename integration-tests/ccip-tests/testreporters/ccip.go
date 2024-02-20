@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -164,7 +163,6 @@ func (testStats *CCIPLaneStats) Finalize(lane string) {
 						testStats.Aggregate(phase, phaseStat.Duration)
 					} else {
 						testStats.FailedCountsByPhase[phase]++
-						testStats.FailedCountsByPhase[E2E]++
 					}
 				}
 			}
@@ -200,19 +198,30 @@ func (testStats *CCIPLaneStats) Finalize(lane string) {
 }
 
 type CCIPTestReporter struct {
-	t              *testing.T
-	logger         zerolog.Logger
-	namespace      string
-	reportFilePath string
-	duration       time.Duration             // duration is the duration of the test
-	soakInterval   time.Duration             // soakInterval is the interval at which requests are triggered in soak tests
-	LaneStats      map[string]*CCIPLaneStats `json:"lane_stats"` // LaneStats is the statistics for each lane
-	mu             *sync.Mutex
+	t               *testing.T
+	logger          zerolog.Logger
+	namespace       string
+	reportFilePath  string
+	duration        time.Duration             // duration is the duration of the test
+	FailedLanes     map[string]Phase          `json:"failed_lanes_and_phases,omitempty"` // FailedLanes is the list of lanes that failed and the phase at which it failed
+	LaneStats       map[string]*CCIPLaneStats `json:"lane_stats"`                        // LaneStats is the statistics for each lane
+	mu              *sync.Mutex
+	sendSlackReport bool
+}
+
+func (r *CCIPTestReporter) SetSendSlackReport(sendSlackReport bool) {
+	r.sendSlackReport = sendSlackReport
 }
 
 func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client, _ testreporters.GrafanaURLProvider) error {
-	// do not send slack notification for soak and load tests
-	if !strings.Contains(strings.ToLower(r.t.Name()), "soak") && !strings.Contains(strings.ToLower(r.t.Name()), "load") {
+	if r.sendSlackReport {
+		r.logger.Info().Msg("Sending Slack notification")
+	} else {
+		r.logger.Info().Msg("Slack notification not enabled")
+		return nil
+	}
+	if testreporters.SlackAPIKey == "" || testreporters.SlackChannel == "" || testreporters.SlackUserID == "" {
+		r.logger.Warn().Msg("Slack API Key, Channel or User ID not set. Skipping Slack notification")
 		return nil
 	}
 	if slackClient == nil {
@@ -225,37 +234,19 @@ func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slac
 		headerText = ":x: CCIP Test FAILED :x:"
 	}
 	for name, lane := range r.LaneStats {
-		if strings.Contains(strings.ToLower(r.t.Name()), "load") {
-			if lane.FailedCountsByPhase[E2E] > 0 {
-				msgTexts = append(msgTexts,
-					fmt.Sprintf(":x: Run Failed for lane %s :x:", name),
-					fmt.Sprintf(
-						"Load sequence ran on lane %s for %.0fm sending a total of %d transactions."+
-							"\n No of failed requests %d",
-						name, r.duration.Minutes(), lane.TotalRequests, lane.FailedCountsByPhase[E2E]))
-			} else {
-				msgTexts = append(msgTexts,
-					fmt.Sprintf(
-						"Load sequence ran on lane %s for %.0fm sending a total of %d transactions."+
-							"\n All requests were successful",
-						name, r.duration.Minutes(), lane.TotalRequests))
-			}
-		}
-		if strings.Contains(strings.ToLower(r.t.Name()), "soak") {
-			if lane.FailedCountsByPhase[E2E] > 0 {
-				msgTexts = append(msgTexts,
-					fmt.Sprintf(":x: Run Failed for lane %s :x:", name),
-					fmt.Sprintf(
-						"Soak sequence ran on lane %s for %.0fm sending a total of %d transactions triggering transaction at every %f seconds."+
-							"\n No of failed requests %d",
-						name, r.duration.Minutes(), lane.TotalRequests, r.soakInterval.Seconds(), lane.FailedCountsByPhase[E2E]))
-			} else {
-				msgTexts = append(msgTexts,
-					fmt.Sprintf(
-						"Soak sequence ran on lane %s for %.0fm sending a total of %d transactions triggering transaction at every %f seconds"+
-							"\n All requests were successful",
-						name, r.duration.Minutes(), lane.TotalRequests, r.soakInterval.Seconds()))
-			}
+		if lane.FailedCountsByPhase[E2E] > 0 {
+			msgTexts = append(msgTexts,
+				fmt.Sprintf(":x: Run Failed for lane %s :x:", name),
+				fmt.Sprintf(
+					"Run Duration = %.0fm "+
+						"\nNumber of ccip-send= %d"+
+						"\nNo of failed requests = %d", r.duration.Minutes(), lane.TotalRequests, lane.FailedCountsByPhase[E2E]))
+		} else {
+			msgTexts = append(msgTexts,
+				fmt.Sprintf(
+					"Run Duration = %.0fm "+
+						"\nNumber of ccip-send= %d"+
+						"\n All requests were successful", r.duration.Minutes(), lane.TotalRequests))
 		}
 	}
 
@@ -299,6 +290,21 @@ func (r *CCIPTestReporter) WriteReport(folderPath string) error {
 	}
 	for k := range r.LaneStats {
 		r.LaneStats[k].Finalize(k)
+		// if E2E for the lane has failed
+		if _, ok := r.LaneStats[k].FailedCountsByPhase[E2E]; ok {
+			// find the phase at which it failed
+			for phase, count := range r.LaneStats[k].FailedCountsByPhase {
+				if count > 0 && phase != E2E {
+					r.FailedLanes[k] = phase
+					break
+				}
+			}
+		}
+	}
+	if len(r.FailedLanes) > 0 {
+		r.logger.Info().Interface("List of Failed Lanes", r.FailedLanes).Msg("Failed Lanes")
+	} else {
+		r.logger.Info().Msg("All Lanes Passed")
 	}
 	stats, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
@@ -321,11 +327,6 @@ func (r *CCIPTestReporter) SetDuration(d time.Duration) {
 	r.duration = d
 }
 
-// SetSoakRunInterval sets the interval at which requests are triggered in soak test
-func (r *CCIPTestReporter) SetSoakRunInterval(interval time.Duration) {
-	r.soakInterval = interval
-}
-
 func (r *CCIPTestReporter) AddNewLane(name string, lggr zerolog.Logger) *CCIPLaneStats {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -340,11 +341,19 @@ func (r *CCIPTestReporter) AddNewLane(name string, lggr zerolog.Logger) *CCIPLan
 	return i
 }
 
+func (r *CCIPTestReporter) SendReport(t *testing.T, namespace string, slackSend bool) error {
+	logsPath := filepath.Join("logs", fmt.Sprintf("%s-%s-%d", t.Name(), namespace, time.Now().Unix()))
+	r.SetNamespace(namespace)
+	r.SetSendSlackReport(namespace != "" && slackSend)
+	return testreporters.SendReport(t, namespace, logsPath, r, nil)
+}
+
 func NewCCIPTestReporter(t *testing.T, lggr zerolog.Logger) *CCIPTestReporter {
 	return &CCIPTestReporter{
-		LaneStats: make(map[string]*CCIPLaneStats),
-		logger:    lggr,
-		t:         t,
-		mu:        &sync.Mutex{},
+		LaneStats:   make(map[string]*CCIPLaneStats),
+		logger:      lggr,
+		t:           t,
+		mu:          &sync.Mutex{},
+		FailedLanes: make(map[string]Phase),
 	}
 }

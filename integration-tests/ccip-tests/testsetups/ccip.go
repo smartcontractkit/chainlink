@@ -662,17 +662,20 @@ func CCIPDefaultTestSetUp(
 	envConfig := createEnvironmentConfig(t, envName, testConfig)
 
 	configureCLNode := !testConfig.useExistingDeployment()
+	namespace := setUpArgs.Cfg.TestGroupInput.TestRunName
 	if configureCLNode {
 		if testConfig.localCluster() {
 			local, deployCL = DeployLocalCluster(t, testConfig)
 			ccipEnv = &actions.CCIPTestEnv{
 				LocalCluster: local,
 			}
+			namespace = "local-docker-deployment"
 		} else {
 			lggr.Info().Msg("Deploying test environment")
 			// deploy the env if configureCLNode is true
 			k8Env = DeployEnvironments(t, envConfig, testConfig)
 			ccipEnv = &actions.CCIPTestEnv{K8Env: k8Env}
+			namespace = ccipEnv.K8Env.Cfg.Namespace
 		}
 
 		ccipEnv.CLNodeWithKeyReady, _ = errgroup.WithContext(parent)
@@ -681,7 +684,7 @@ func CCIPDefaultTestSetUp(
 			return setUpArgs
 		}
 	} else {
-		// if configureCLNode is false, use a placeholder env to create remote runner
+		// if configureCLNode is false it means we don't need to deploy any additional pods, use a placeholder env to create just the remote runner
 		if value, set := os.LookupEnv(config.EnvVarJobImage); set && value != "" {
 			k8Env = environment.New(envConfig)
 			err = k8Env.Run()
@@ -692,7 +695,13 @@ func CCIPDefaultTestSetUp(
 			}
 		}
 	}
+	if namespace == "" {
+		if value, set := os.LookupEnv(config.EnvVarNamespace); set && value != "" {
+			namespace = value
+		}
+	}
 
+	setUpArgs.Cfg.TestGroupInput.SetTestRunName(namespace)
 	_, err = os.Stat(setUpArgs.LaneConfigFile)
 	if err == nil {
 		// remove the existing lane config file
@@ -732,23 +741,16 @@ func CCIPDefaultTestSetUp(
 			chainByChainID[n.ChainID] = ec
 		}
 	}
-	printStats := func() {
-		for k := range setUpArgs.Reporter.LaneStats {
-			setUpArgs.Reporter.LaneStats[k].Finalize(k)
-		}
-	}
 	t.Cleanup(func() {
 		if configureCLNode {
 			if ccipEnv.LocalCluster != nil {
 				err := ccipEnv.LocalCluster.Terminate()
 				require.NoError(t, err, "Local cluster termination shouldn't fail")
-				for k := range setUpArgs.Reporter.LaneStats {
-					setUpArgs.Reporter.LaneStats[k].Finalize(k)
-				}
+				require.NoError(t, setUpArgs.Reporter.SendReport(t, namespace, false), "Aggregating and sending report shouldn't fail")
 				return
 			}
 			if pointer.GetBool(testConfig.TestGroupInput.KeepEnvAlive) {
-				printStats()
+				require.NoError(t, setUpArgs.Reporter.SendReport(t, namespace, true), "Aggregating and sending report shouldn't fail")
 				return
 			}
 			lggr.Info().Msg("Tearing down the environment")
@@ -756,8 +758,8 @@ func CCIPDefaultTestSetUp(
 				zapcore.ErrorLevel, setUpArgs.Cfg.EnvInput, chains...)
 			require.NoError(t, err, "Environment teardown shouldn't fail")
 		} else {
-			//just print
-			printStats()
+			//just send the report
+			require.NoError(t, setUpArgs.Reporter.SendReport(t, namespace, true), "Aggregating and sending report shouldn't fail")
 		}
 	})
 
