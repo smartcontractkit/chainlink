@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	_ "embed"
-	"fmt"
 	"math"
 	"math/big"
 	"net"
@@ -1578,33 +1577,4 @@ func mustHexToBig(t *testing.T, hx string) *big.Int {
 	n, err := hex.ParseBig(hx)
 	require.NoError(t, err)
 	return n
-}
-
-func TestConfig_deprecationWarnings(t *testing.T) {
-	type fields struct {
-		Core     toml.Core
-		EVM      evmcfg.EVMConfigs
-		Cosmos   coscfg.TOMLConfigs
-		Solana   solana.TOMLConfigs
-		Starknet stkcfg.TOMLConfigs
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		wantErr assert.ErrorAssertionFunc
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &Config{
-				Core:     tt.fields.Core,
-				EVM:      tt.fields.EVM,
-				Cosmos:   tt.fields.Cosmos,
-				Solana:   tt.fields.Solana,
-				Starknet: tt.fields.Starknet,
-			}
-			tt.wantErr(t, c.deprecationWarnings(), fmt.Sprintf("deprecationWarnings()"))
-		})
-	}
 }

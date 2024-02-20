@@ -402,6 +402,8 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
+	default:
+		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()
 	if latestBlockHeight >= 0 {
