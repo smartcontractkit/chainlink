@@ -18,8 +18,7 @@ import (
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/stretchr/testify/require"
 	"math"
@@ -263,30 +262,33 @@ func TestAutomation(t *testing.T) {
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		}
 
-		var bytes1 = [32]byte{
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-		}
-
 		utilsABI, err := automation_utils_2_1.AutomationUtilsMetaData.GetAbi()
 		require.NoError(t, err, "Error getting automation utils abi")
-		upkeepCounterABI, err := upkeep_counter_wrapper.UpkeepCounterMetaData.GetAbi()
+		streamsLookupUpkeepABI, err := streams_lookup_upkeep_wrapper.StreamsLookupUpkeepMetaData.GetAbi()
 		require.NoError(t, err, "Error getting log emitter abi")
-		consumerABI, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
-		require.NoError(t, err, "Error getting consumer abi")
 
-		conditionalConsumer, err := automationTest.Deployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(math.MaxInt64), big.NewInt(10), false, true, false)
-		require.NoError(t, err, "Error deploying conditional consumer")
+		var conditionalConsumerAddress string
 
-		err = conditionalConsumer.SetFeeds([]string{"0x000200"})
-		require.NoError(t, err, "Error setting feeds")
+		if *config.ConnectDataStream == true {
+			conditionalConsumer, err := automationTest.Deployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(math.MaxInt64), big.NewInt(10), false, true, false)
+			require.NoError(t, err, "Error deploying streams lookup conditional consumer")
+			conditionalConsumerAddress = conditionalConsumer.Address()
+
+			err = conditionalConsumer.SetFeeds([]string{"0x000200"})
+			require.NoError(t, err, "Error setting feeds")
+		} else {
+			conditionalConsumer, err := automationTest.Deployer.DeployUpkeepCounter(big.NewInt(math.MaxInt64), big.NewInt(10))
+			require.NoError(t, err, "Error deploying conditional consumer")
+			conditionalConsumerAddress = conditionalConsumer.Address()
+		}
 
 		logTriggerConsumer, err := automationTest.Deployer.DeployAutomationLogTriggerConsumer(big.NewInt(1))
 		require.NoError(t, err, "Error deploying log trigger consumer")
 
 		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
-			ContractAddress: common.HexToAddress(conditionalConsumer.Address()),
+			ContractAddress: common.HexToAddress(conditionalConsumerAddress),
 			FilterSelector:  0,
-			Topic0:          upkeepCounterABI.Events["PerformingUpkeep"].ID,
+			Topic0:          streamsLookupUpkeepABI.Events["Trigger"].ID,
 			Topic1:          bytes0,
 			Topic2:          bytes0,
 			Topic3:          bytes0,
@@ -295,20 +297,10 @@ func TestAutomation(t *testing.T) {
 		require.NoError(t, err, "Error encoding log trigger config")
 		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
 
-		checkDataStruct := simple_log_upkeep_counter_wrapper.CheckData{
-			CheckBurnAmount:   big.NewInt(10000),
-			PerformBurnAmount: big.NewInt(1000),
-			EventSig:          bytes1,
-		}
-
-		encodedCheckDataStruct, err := consumerABI.Methods["_checkDataConfig"].Inputs.Pack(&checkDataStruct)
-		require.NoError(t, err, "Error encoding check data struct")
-		l.Debug().Bytes("Encoded Check Data Struct", encodedCheckDataStruct).Msg("Encoded Check Data Struct")
-
 		upkeepConfig := automationv2.UpkeepConfig{
 			UpkeepName:     fmt.Sprintf("ConditionalUpkeep-%d", 0),
 			EncryptedEmail: []byte("test@mail.com"),
-			UpkeepContract: common.HexToAddress(conditionalConsumer.Address()),
+			UpkeepContract: common.HexToAddress(conditionalConsumerAddress),
 			GasLimit:       1_000_000,
 			AdminAddress:   common.HexToAddress(automationTest.ChainClient.GetDefaultWallet().Address()),
 			TriggerType:    uint8(0),
@@ -327,13 +319,13 @@ func TestAutomation(t *testing.T) {
 			GasLimit:       1_000_000,
 			AdminAddress:   common.HexToAddress(automationTest.ChainClient.GetDefaultWallet().Address()),
 			TriggerType:    uint8(1),
-			CheckData:      encodedCheckDataStruct,
+			CheckData:      []byte("0"),
 			TriggerConfig:  encodedLogTriggerConfig,
 			OffchainConfig: []byte("0"),
 			FundingAmount:  automationDefaultLinkFunds,
 		}
 		l.Debug().Interface("Upkeep Config", upkeepConfig).Msg("LogTrigger Upkeep Config")
-		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
+		//upkeepConfigs = append(upkeepConfigs, upkeepConfig)
 
 		registrationTxHashes, err := automationTest.RegisterUpkeeps(upkeepConfigs)
 		require.NoError(t, err, "Error registering upkeeps")
