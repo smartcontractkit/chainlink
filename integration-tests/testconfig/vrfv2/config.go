@@ -240,6 +240,7 @@ type General struct {
 	VRFJobBatchFulfillmentGasMultiplier *float64                `toml:"vrf_job_batch_fulfillment_gas_multiplier"`
 	VRFJobPollPeriod                    *blockchain.StrDuration `toml:"vrf_job_poll_period"`
 	VRFJobRequestTimeout                *blockchain.StrDuration `toml:"vrf_job_request_timeout"`
+	VRFJobSimulationBlock               *string                 `toml:"vrf_job_simulation_block"`
 
 	//BHS Job Config
 	BHSJobWaitBlocks     *int                    `toml:"bhs_job_wait_blocks"`
@@ -376,6 +377,10 @@ func (c *General) Validate() error {
 
 	if c.BHSJobWaitBlocks == nil || *c.BHSJobWaitBlocks < 0 {
 		return errors.New("bhs_job_wait_blocks must be set to a non-negative value")
+	}
+
+	if c.VRFJobSimulationBlock != nil && (*c.VRFJobSimulationBlock != "latest" && *c.VRFJobSimulationBlock != "pending") {
+		return errors.New("simulation_block must be nil or \"latest\" or \"pending\"")
 	}
 
 	return nil
