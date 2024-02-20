@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# This script is used as a temp fix the ldd linking of cosm lib for binary
+# Currently there is an issue with the go linker not working with zig
+# https://github.com/ziglang/zig/issues/18922
+
+chainlink_path="/usr/local/bin/chainlink"
+libs_path="/usr/local/bin/libs"
+
+line=$(ldd ${chainlink_path} | grep "github.com/!cosm!wasm/wasmvm")
+
+if [ -z "$line" ]; then
+  echo "Error: Path containing 'github.com/!cosm!wasm/wasmvm' not found in the ldd output."
+  exit 1
+fi
+
+path=$(echo "$line" | awk '{print $1}')
+
+if [ -z "$path" ]; then
+  echo "Error: Failed to extract the path from the line."
+  exit 1
+fi
+
+trimmed_path=${path%.so*}.so
+cosm_file=$(ls ${libs_path} | grep "\.so$" | head -n 1)
+
+patchelf --remove-needed "${trimmed_path}" "$chainlink_path"
+patchelf --add-needed "$cosm_file" "$chainlink_path"
