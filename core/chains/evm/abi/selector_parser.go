@@ -22,12 +22,9 @@ package abi
 import (
 	"errors"
 	"fmt"
-	"regexp"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
-
-var alphaRegex = regexp.MustCompile(`[a-zA-Z]`)
 
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
@@ -47,8 +44,8 @@ func parseToken(unescapedSelector string, isIdent bool) (string, string, error) 
 	}
 
 	firstChar := unescapedSelector[0]
-	if !(alphaRegex.MatchString(string(firstChar)) || (isIdent && isIdentifierSymbol(firstChar))) {
-		return "", "", fmt.Errorf("invalid token start. Expected: %s, received: %c", alphaRegex, firstChar)
+	if !(isAlpha(firstChar) || (isIdent && isIdentifierSymbol(firstChar))) {
+		return "", "", fmt.Errorf("invalid token start. Expected: [a-zA-Z], received: %c", firstChar)
 	}
 
 	position := 1
