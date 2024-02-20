@@ -52,12 +52,12 @@ func (c *CoordinatorV1) RegisterFilters() error {
 		})
 }
 
-func (c *CoordinatorV1) OracleRequestLogTopic() (common.Hash, error) {
-	return functions_coordinator_1_1_0.FunctionsCoordinator110OracleRequest{}.Topic(), nil
+func (c *CoordinatorV1) OracleRequestLogTopic() common.Hash {
+	return functions_coordinator_1_1_0.FunctionsCoordinator110OracleRequest{}.Topic()
 }
 
-func (c *CoordinatorV1) OracleResponseLogTopic() (common.Hash, error) {
-	return functions_coordinator_1_1_0.FunctionsCoordinator110OracleResponse{}.Topic(), nil
+func (c *CoordinatorV1) OracleResponseLogTopic() common.Hash {
+	return functions_coordinator_1_1_0.FunctionsCoordinator110OracleResponse{}.Topic()
 }
 
 func (c *CoordinatorV1) LogsToRequests(requestLogs []logpoller.Log) ([]evmRelayTypes.OracleRequest, error) {

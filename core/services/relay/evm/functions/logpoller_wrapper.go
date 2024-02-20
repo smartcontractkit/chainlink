@@ -70,8 +70,8 @@ type abiTypes struct {
 type Coordinator interface {
 	Address() common.Address
 	RegisterFilters() error
-	OracleRequestLogTopic() (common.Hash, error)
-	OracleResponseLogTopic() (common.Hash, error)
+	OracleRequestLogTopic() common.Hash
+	OracleResponseLogTopic() common.Hash
 	LogsToRequests(requestLogs []logpoller.Log) ([]evmRelayTypes.OracleRequest, error)
 	LogsToResponses(responseLogs []logpoller.Log) ([]evmRelayTypes.OracleResponse, error)
 }
@@ -205,12 +205,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 
 	for _, coordinator := range coordinators {
 		requestEndBlock := latestBlockNum - l.requestBlockOffset
-		requestLogTopic, err := coordinator.OracleRequestLogTopic()
-		if err != nil {
-			l.lggr.Errorw("LatestEvents: ", err)
-			return nil, nil, err
-		}
-		requestLogs, err := l.logPoller.Logs(startBlockNum, requestEndBlock, requestLogTopic, coordinator.Address())
+		requestLogs, err := l.logPoller.Logs(startBlockNum, requestEndBlock, coordinator.OracleRequestLogTopic(), coordinator.Address())
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", requestEndBlock)
 			return nil, nil, err
@@ -218,12 +213,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", requestEndBlock)
 		requestLogs = l.filterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
 		responseEndBlock := latestBlockNum - l.responseBlockOffset
-		responseLogTopic, err := coordinator.OracleResponseLogTopic()
-		if err != nil {
-			l.lggr.Errorw("LatestEvents: ", err)
-			return nil, nil, err
-		}
-		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, responseLogTopic, coordinator.Address())
+		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, coordinator.OracleResponseLogTopic(), coordinator.Address())
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", responseEndBlock)
 			return nil, nil, err

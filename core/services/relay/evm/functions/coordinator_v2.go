@@ -51,11 +51,11 @@ func (c *CoordinatorV2) RegisterFilters() error {
 			Addresses: []common.Address{c.address},
 		})
 }
-func (c *CoordinatorV2) OracleRequestLogTopic() (common.Hash, error) {
-	return functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), nil
+func (c *CoordinatorV2) OracleRequestLogTopic() common.Hash {
+	return functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic()
 }
-func (c *CoordinatorV2) OracleResponseLogTopic() (common.Hash, error) {
-	return functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), nil
+func (c *CoordinatorV2) OracleResponseLogTopic() common.Hash {
+	return functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic()
 }
 func (c *CoordinatorV2) LogsToRequests(requestLogs []logpoller.Log) ([]evmRelayTypes.OracleRequest, error) {
 	var requests []evmRelayTypes.OracleRequest
