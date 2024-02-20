@@ -500,7 +500,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := a.RegistrySettings.EncodeOnChainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.ChainClient)
+	onchainConfig, err := a.RegistrySettings.EncodeOnChainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress())
 	if err != nil {
 		return errors.Join(err, fmt.Errorf("failed to encode onchain config"))
 	}

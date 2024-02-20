@@ -17,7 +17,6 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -34,9 +33,9 @@ func BuildAutoOCR2ConfigVarsLocal(
 	registrar string,
 	deltaStage time.Duration,
 	registryOwnerAddress common.Address,
-	evmClient blockchain.EVMClient,
+	chainModuleAddress common.Address,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress, evmClient)
+	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress, chainModuleAddress)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
@@ -47,7 +46,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 	deltaStage time.Duration,
 	keyIndex int,
 	registryOwnerAddress common.Address,
-	evmClient blockchain.EVMClient,
+	chainModuleAddress common.Address,
 ) (contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndexLocal(chainlinkNodes, keyIndex)
 	if err != nil {
@@ -151,7 +150,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, evmClient)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, chainModuleAddress)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
 	}

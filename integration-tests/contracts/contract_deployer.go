@@ -24,12 +24,14 @@ import (
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/arbitrum_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 	registrylogica22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_a_wrapper_2_2"
 	registrylogicb22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_b_wrapper_2_2"
 	registry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_module_base"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
@@ -37,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
 	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
@@ -61,8 +64,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/optimism_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/scroll_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
@@ -1212,6 +1217,46 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			address:     address,
 		}, err
 	case eth_contracts.RegistryVersion_2_2:
+		var chainModuleAddr *common.Address
+		var err error
+		chainId := e.client.GetChainID().Int64()
+
+		if chainId == 534352 || chainId == 534351 { // Scroll / Scroll Sepolia
+			chainModuleAddr, _, _, err = e.client.DeployContract("ScrollModule", func(
+				auth *bind.TransactOpts,
+				backend bind.ContractBackend,
+			) (common.Address, *types.Transaction, interface{}, error) {
+				return scroll_module.DeployScrollModule(auth, backend)
+			})
+		} else if chainId == 42161 || chainId == 421614 || chainId == 421613 { // Arbitrum One / Sepolia / Goerli
+			chainModuleAddr, _, _, err = e.client.DeployContract("ArbitrumModule", func(
+				auth *bind.TransactOpts,
+				backend bind.ContractBackend,
+			) (common.Address, *types.Transaction, interface{}, error) {
+				return arbitrum_module.DeployArbitrumModule(auth, backend)
+			})
+		} else if chainId == 10 || chainId == 11155420 { // Optimism / Optimism Sepolia
+			chainModuleAddr, _, _, err = e.client.DeployContract("OptimismModule", func(
+				auth *bind.TransactOpts,
+				backend bind.ContractBackend,
+			) (common.Address, *types.Transaction, interface{}, error) {
+				return optimism_module.DeployOptimismModule(auth, backend)
+			})
+		} else {
+			chainModuleAddr, _, _, err = e.client.DeployContract("ChainModuleBase", func(
+				auth *bind.TransactOpts,
+				backend bind.ContractBackend,
+			) (common.Address, *types.Transaction, interface{}, error) {
+				return chain_module_base.DeployChainModuleBase(auth, backend)
+			})
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err = e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
 		automationForwarderLogicAddr, err := deployAutomationForwarderLogic(e.client)
 		if err != nil {
 			return nil, err
@@ -1282,10 +1327,20 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		if err != nil {
 			return nil, err
 		}
+
+		chainModule, err := i_chain_module.NewIChainModule(
+			*chainModuleAddr,
+			e.client.Backend(),
+		)
+		if err != nil {
+			return nil, err
+		}
+
 		return &EthereumKeeperRegistry{
 			client:      e.client,
 			version:     eth_contracts.RegistryVersion_2_2,
 			registry2_2: registryMaster,
+			chainModule: chainModule,
 			address:     address,
 		}, err
 	default:

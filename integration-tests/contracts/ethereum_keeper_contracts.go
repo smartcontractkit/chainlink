@@ -28,8 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_module_base"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
@@ -91,6 +91,7 @@ type KeeperRegistry interface {
 	SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) error
 	SetUpkeepPrivilegeConfig(id *big.Int, privilegeConfig []byte) error
 	RegistryOwnerAddress() common.Address
+	ChainModuleAddress() common.Address
 }
 
 type KeeperConsumer interface {
@@ -217,8 +218,16 @@ type EthereumKeeperRegistry struct {
 	registry2_0 *keeper_registry_wrapper2_0.KeeperRegistry
 	registry2_1 *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMaster
 	registry2_2 *i_automation_registry_master_wrapper_2_2.IAutomationRegistryMaster
+	chainModule *i_chain_module.IChainModule
 	address     *common.Address
 	l           zerolog.Logger
+}
+
+func (v *EthereumKeeperRegistry) ChainModuleAddress() common.Address {
+	if v.version == ethereum.RegistryVersion_2_2 {
+		return v.chainModule.Address()
+	}
+	return common.Address{}
 }
 
 func (v *EthereumKeeperRegistry) Address() string {
@@ -233,7 +242,7 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress common.Address, client blockchain.EVMClient) ([]byte, error) {
+func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address) ([]byte, error) {
 	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
 		onchainConfigStruct := registry21.KeeperRegistryBase21OnchainConfig{
 			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
@@ -257,21 +266,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 
 		return encodedOnchainConfig, err
 	} else if rcs.RegistryVersion == ethereum.RegistryVersion_2_2 {
-		chainModuleBaseAddr, _, _, err := client.DeployContract("ChainModuleBase", func(
-			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
-			return chain_module_base.DeployChainModuleBase(auth, backend)
-		})
-
-		if err != nil {
-			return nil, err
-		}
-		if err = client.WaitForEvents(); err != nil {
-			return nil, err
-		}
-
-		return rcs.encode22OnchainConfig(registrar, registryOwnerAddress, *chainModuleBaseAddr)
+		return rcs.encode22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress)
 	}
 	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
 	onchainConfig, err := goabi.Encode(map[string]interface{}{
@@ -293,7 +288,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 
 }
 
-func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, registryOwnerAddress, chainModuleBaseAddr common.Address) ([]byte, error) {
+func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddr common.Address) ([]byte, error) {
 	onchainConfigStruct := automation_registry_wrapper_2_2.AutomationRegistryBase22OnchainConfig{
 		PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 		FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
@@ -310,7 +305,7 @@ func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, regis
 		Transcoder:             common.Address{},
 		Registrars:             []common.Address{common.HexToAddress(registrar)},
 		UpkeepPrivilegeManager: registryOwnerAddress,
-		ChainModule:            chainModuleBaseAddr,
+		ChainModule:            chainModuleAddr,
 		ReorgProtectionEnabled: true,
 	}
 

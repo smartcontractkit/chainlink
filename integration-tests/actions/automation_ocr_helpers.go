@@ -37,9 +37,9 @@ func BuildAutoOCR2ConfigVars(
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
-	evmClient blockchain.EVMClient,
+	chainModuleAddress common.Address,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, evmClient)
+	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, chainModuleAddress)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndex(
@@ -50,7 +50,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	deltaStage time.Duration,
 	keyIndex int,
 	registryOwnerAddress common.Address,
-	evmClient blockchain.EVMClient,
+	chainModuleAddress common.Address,
 ) (contracts.OCRv2Config, error) {
 	l := logging.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
@@ -151,7 +151,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, evmClient)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, chainModuleAddress)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
 	}
