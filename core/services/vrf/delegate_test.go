@@ -167,7 +167,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
-	vl, err := vd.ServicesForSpec(testutils.Context(t), jb)
+	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
 	listener := vl[0].(*v1.Listener)

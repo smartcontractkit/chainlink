@@ -34,6 +34,7 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		// txdb.Register
 		uri = uuid.New().String()
 	}
+
 	// Initialize sql/sqlx
 	sqldb, err := otelsql.Open(string(dialect), uri,
 		otelsql.WithAttributes(semconv.DBSystemPostgreSQL),

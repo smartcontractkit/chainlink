@@ -142,10 +142,10 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 }
 
 func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
-	
+
 	// commontypes.Relayer doesn't wire context through
 	ctx := context.Background()
-	
+
 	lggr := r.lggr.Named("PluginProvider").Named(rargs.ExternalJobID.String())
 
 	configWatcher, err := newStandardConfigProvider(r.lggr, r.chain, types.NewRelayOpts(rargs))

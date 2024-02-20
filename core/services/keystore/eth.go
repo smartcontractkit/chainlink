@@ -200,7 +200,7 @@ func (ks *eth) addKey(ctx context.Context, address common.Address, chainID *big.
 			RETURNING *;`
 	q := ks.q.WithOpts(qopts...)
 	q = q.WithOpts(pg.WithParentCtx(ctx))
-	
+
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
 		return errors.Wrap(err, "failed to insert evm_key_state")
 	}

@@ -87,10 +87,10 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 }
 
 func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error) {
-	
+
 	// commontypes.Relay doesn't wire context through
 	ctx := context.Background()
-	
+
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
