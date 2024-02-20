@@ -306,7 +306,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
 		if allLogsCounter >= MaxProposals {
-			// we have enough proposals, pushed the rest are pushed back to pending
+			// we have enough proposals, the rest are pushed back to pending
 			pending = append(pending, payload)
 			continue
 		}
@@ -322,6 +322,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	}
 
 	r.pending = pending
+	prommetrics.AutomationRecovererPendingPayloads.Set(float64(len(r.pending)))
 
 	r.lggr.Debugf("found %d recoverable payloads", len(results))
 
@@ -676,6 +677,7 @@ func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 	if !exist {
 		r.pending = append(pending, payload)
 	}
+	prommetrics.AutomationRecovererPendingPayloads.Set(float64(len(r.pending)))
 	return nil
 }
 
@@ -689,6 +691,7 @@ func (r *logRecoverer) removePending(workID string) {
 		}
 	}
 	r.pending = updated
+	prommetrics.AutomationRecovererPendingPayloads.Set(float64(len(r.pending)))
 }
 
 // sortPending sorts the pending list by a random order based on the normalized latest block number.
