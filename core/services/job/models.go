@@ -87,6 +87,7 @@ var (
 		Stream:                  true,
 		VRF:                     true,
 		Webhook:                 true,
+		Workflow:                false,
 	}
 	supportsAsync = map[Type]bool{
 		BlockHeaderFeeder:       false,
@@ -104,6 +105,7 @@ var (
 		Stream:                  true,
 		VRF:                     true,
 		Webhook:                 true,
+		Workflow:                false,
 	}
 	schemaVersions = map[Type]uint32{
 		BlockHeaderFeeder:       1,
@@ -121,6 +123,7 @@ var (
 		Stream:                  1,
 		VRF:                     1,
 		Webhook:                 1,
+		Workflow:                1,
 	}
 )
 
