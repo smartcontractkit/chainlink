@@ -124,8 +124,10 @@ func (p *logEventProvider) GetConfig() (uint32, uint32) {
 }
 
 func (p *logEventProvider) SetConfig(ctx context.Context, numOfLogUpkeeps, fastExecLogsHigh uint32) error {
+	p.lggr.Infow("SetConfig called with", "numOfLogUpkeeps", numOfLogUpkeeps, "fastExecLogsHigh", fastExecLogsHigh)
 	p.numOfLogUpkeeps = numOfLogUpkeeps
 	p.fastExecLogsHigh = fastExecLogsHigh
+	p.lggr.Infow("SetConfig applied", "p.numOfLogUpkeeps", p.numOfLogUpkeeps, "p.fastExecLogsHigh", p.fastExecLogsHigh)
 
 	return nil
 }
