@@ -14,16 +14,18 @@ import (
 )
 
 type CoordinatorV2 struct {
-	address common.Address
+	address  common.Address
+	abiTypes *abiTypes
 
 	client    client.Client
 	logPoller logpoller.LogPoller
 	lggr      logger.Logger
 }
 
-func NewCoordinatorV2(address common.Address, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) *CoordinatorV2 {
+func NewCoordinatorV2(address common.Address, abiTypes *abiTypes, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) *CoordinatorV2 {
 	return &CoordinatorV2{
 		address:   address,
+		abiTypes:  abiTypes,
 		client:    client,
 		logPoller: logPoller,
 		lggr:      lggr,
@@ -72,18 +74,18 @@ func (c *CoordinatorV2) LogsToRequests(requestLogs []logpoller.Log) ([]evmRelayT
 		}
 
 		commitmentABIV2 := abi.Arguments{
-			{Type: bytes32Type}, // RequestId
-			{Type: addressType}, // Coordinator
-			{Type: uint96Type},  // EstimatedTotalCostJuels
-			{Type: addressType}, // Client
-			{Type: uint64Type},  // SubscriptionId
-			{Type: uint32Type},  // CallbackGasLimit
-			{Type: uint72Type},  // AdminFee
-			{Type: uint72Type},  // DonFee
-			{Type: uint40Type},  // GasOverheadBeforeCallback
-			{Type: uint40Type},  // GasOverheadAfterCallback
-			{Type: uint32Type},  // TimeoutTimestamp
-			{Type: uint72Type},  // OperationFee
+			{Type: c.abiTypes.bytes32Type}, // RequestId
+			{Type: c.abiTypes.addressType}, // Coordinator
+			{Type: c.abiTypes.uint96Type},  // EstimatedTotalCostJuels
+			{Type: c.abiTypes.addressType}, // Client
+			{Type: c.abiTypes.uint64Type},  // SubscriptionId
+			{Type: c.abiTypes.uint32Type},  // CallbackGasLimit
+			{Type: c.abiTypes.uint72Type},  // AdminFee
+			{Type: c.abiTypes.uint72Type},  // DonFee
+			{Type: c.abiTypes.uint40Type},  // GasOverheadBeforeCallback
+			{Type: c.abiTypes.uint40Type},  // GasOverheadAfterCallback
+			{Type: c.abiTypes.uint32Type},  // TimeoutTimestamp
+			{Type: c.abiTypes.uint72Type},  // OperationFee
 		}
 
 		commitmentBytesV2, err := commitmentABIV2.Pack(

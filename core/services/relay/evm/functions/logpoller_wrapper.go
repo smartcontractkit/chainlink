@@ -40,6 +40,7 @@ type logPollerWrapper struct {
 	logPollerCacheDurationSec int64
 	detectedRequests          detectedEvents
 	detectedResponses         detectedEvents
+	abiTypes                  *abiTypes
 	mu                        sync.Mutex
 	closeWait                 sync.WaitGroup
 	stopCh                    services.StopChan
@@ -54,6 +55,16 @@ type detectedEvent struct {
 type detectedEvents struct {
 	isPreviouslyDetected  map[[32]byte]struct{}
 	detectedEventsOrdered []detectedEvent
+}
+
+type abiTypes struct {
+	uint32Type  abi.Type
+	uint40Type  abi.Type
+	uint64Type  abi.Type
+	uint72Type  abi.Type
+	uint96Type  abi.Type
+	addressType abi.Type
+	bytes32Type abi.Type
 }
 
 type Coordinator interface {
@@ -71,23 +82,6 @@ const FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING = "Functions Coordinator v2"
 const logPollerCacheDurationSecDefault = 300
 const pastBlocksToPollDefault = 50
 const maxLogsToProcess = 1000
-
-var (
-	uint32Type  abi.Type
-	uint40Type  abi.Type
-	uint64Type  abi.Type
-	uint72Type  abi.Type
-	uint96Type  abi.Type
-	addressType abi.Type
-	bytes32Type abi.Type
-)
-
-func init() {
-	err := initAbiTypes()
-	if err != nil {
-		panic(err)
-	}
-}
 
 var _ evmRelayTypes.LogPollerWrapper = &logPollerWrapper{}
 
@@ -126,6 +120,11 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		return nil, errors.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll")
 	}
 
+	abiTypes, err := initAbiTypes()
+	if err != nil {
+		return nil, err
+	}
+
 	return &logPollerWrapper{
 		routerContract:            routerContract,
 		pluginConfig:              pluginConfig,
@@ -135,6 +134,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		logPollerCacheDurationSec: logPollerCacheDurationSec,
 		detectedRequests:          detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})},
 		detectedResponses:         detectedEvents{isPreviouslyDetected: make(map[[32]byte]struct{})},
+		abiTypes:                  abiTypes,
 		logPoller:                 logPoller,
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
@@ -399,9 +399,9 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 	var activeCoordinator Coordinator
 	switch {
 	case strings.Contains(activeCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING):
-		activeCoordinator = NewCoordinatorV1(activeCoordinatorAddress, l.client, l.logPoller, l.lggr)
+		activeCoordinator = NewCoordinatorV1(activeCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
 	case strings.Contains(activeCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING):
-		activeCoordinator = NewCoordinatorV2(activeCoordinatorAddress, l.client, l.logPoller, l.lggr)
+		activeCoordinator = NewCoordinatorV2(activeCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
 	default:
 		l.lggr.Errorf("LogPollerWrapper: Invalid active coordinator type and version: %q", activeCoordinatorTypeAndVersion)
 		return
@@ -427,11 +427,11 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 	switch {
 	// proposedCoordinatorTypeAndVersion can be empty due to an empty proposedCoordinatorAddress
 	case proposedCoordinatorTypeAndVersion == "":
-		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, l.client, l.logPoller, l.lggr)
+		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
 	case strings.Contains(proposedCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_1_SUBSTRING):
-		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, l.client, l.logPoller, l.lggr)
+		proposedCoordinator = NewCoordinatorV1(proposedCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
 	case strings.Contains(proposedCoordinatorTypeAndVersion, FUNCTIONS_COORDINATOR_VERSION_2_SUBSTRING):
-		proposedCoordinator = NewCoordinatorV2(proposedCoordinatorAddress, l.client, l.logPoller, l.lggr)
+		proposedCoordinator = NewCoordinatorV2(proposedCoordinatorAddress, l.abiTypes, l.client, l.logPoller, l.lggr)
 
 	}
 
@@ -453,36 +453,46 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinatorAddress common.Add
 	}
 }
 
-func initAbiTypes() error {
+func initAbiTypes() (*abiTypes, error) {
 	var err error
-	uint32Type, err = abi.NewType("uint32", "uint32", nil)
+	uint32Type, err := abi.NewType("uint32", "uint32", nil)
 	if err != nil {
-		return fmt.Errorf("LogsToRequests: failed to initialize uint32Type type: %w", err)
+		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint32Type type: %w", err)
 	}
-	uint40Type, err = abi.NewType("uint40", "uint40", nil)
+	uint40Type, err := abi.NewType("uint40", "uint40", nil)
 	if err != nil {
-		return fmt.Errorf("LogsToRequests: failed to initialize uint40Type type: %w", err)
+		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint40Type type: %w", err)
 	}
-	uint64Type, err = abi.NewType("uint64", "uint64", nil)
+	uint64Type, err := abi.NewType("uint64", "uint64", nil)
 	if err != nil {
-		return fmt.Errorf("LogsToRequests: failed to initialize uint64Type type: %w", err)
+		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint64Type type: %w", err)
 	}
-	uint72Type, err = abi.NewType("uint72", "uint72", nil)
+	uint72Type, err := abi.NewType("uint72", "uint72", nil)
 	if err != nil {
-		return fmt.Errorf("LogsToRequests: failed to initialize uint72Type type: %w", err)
+		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint72Type type: %w", err)
 	}
-	uint96Type, err = abi.NewType("uint96", "uint96", nil)
+	uint96Type, err := abi.NewType("uint96", "uint96", nil)
 	if err != nil {
-		return fmt.Errorf("LogsToRequests: failed to initialize uint96Type type: %w", err)
+		return nil, fmt.Errorf("LogsToRequests: failed to initialize uint96Type type: %w", err)
 	}
-	addressType, err = abi.NewType("address", "address", nil)
+	addressType, err := abi.NewType("address", "address", nil)
 	if err != nil {
-		return fmt.Errorf("LogsToRequests: failed to initialize addressType type: %w", err)
+		return nil, fmt.Errorf("LogsToRequests: failed to initialize addressType type: %w", err)
 	}
-	bytes32Type, err = abi.NewType("bytes32", "bytes32", nil)
+	bytes32Type, err := abi.NewType("bytes32", "bytes32", nil)
 	if err != nil {
-		return fmt.Errorf("LogsToRequests: failed to initialize bytes32Type type: %w", err)
+		return nil, fmt.Errorf("LogsToRequests: failed to initialize bytes32Type type: %w", err)
 	}
 
-	return nil
+	at := &abiTypes{
+		uint32Type:  uint32Type,
+		uint40Type:  uint40Type,
+		uint64Type:  uint64Type,
+		uint72Type:  uint72Type,
+		uint96Type:  uint96Type,
+		addressType: addressType,
+		bytes32Type: bytes32Type,
+	}
+
+	return at, nil
 }
