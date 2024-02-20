@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -129,7 +128,6 @@ func TestVRFv2Plus(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 	})
-
 	t.Run("Native Billing", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		testConfig := configCopy.VRFv2Plus.General
@@ -308,7 +306,6 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusContracts.CoordinatorV2Plus,
 			vrfv2PlusContracts.VRFV2PlusConsumer,
 			1,
-			vrfv2plus_config.BillingType(*configCopy.GetVRFv2PlusConfig().General.SubscriptionBillingType),
 		)
 		require.NoError(t, err)
 		subIDForCancelling := subIDsForCancelling[0]
@@ -408,7 +405,6 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusContracts.CoordinatorV2Plus,
 			vrfv2PlusContracts.VRFV2PlusConsumer,
 			1,
-			vrfv2plus_config.BillingType(*configCopy.GetVRFv2PlusConfig().General.SubscriptionBillingType),
 		)
 		require.NoError(t, err)
 
@@ -556,7 +552,6 @@ func TestVRFv2Plus(t *testing.T) {
 			"Active subscription ids should not contain sub id after sub cancellation",
 		)
 	})
-
 	t.Run("Owner Withdraw", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		subIDsForWithdraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
@@ -567,7 +562,6 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusContracts.CoordinatorV2Plus,
 			vrfv2PlusContracts.VRFV2PlusConsumer,
 			1,
-			vrfv2plus_config.BillingType(*configCopy.GetVRFv2PlusConfig().General.SubscriptionBillingType),
 		)
 		require.NoError(t, err)
 		subIDForWithdraw := subIDsForWithdraw[0]
@@ -700,7 +694,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-		var isNativeBilling = false
+		var isNativeBilling = true
 		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
 
@@ -1011,7 +1005,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	require.NoError(t, err, "error getting subscription information")
 
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
-	var isNativeBilling = false
+	var isNativeBilling = true
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
 		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
@@ -1049,7 +1043,6 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			linkToken,
 			vrfContracts.CoordinatorV2Plus,
 			subIDs,
-			vrfv2plus_config.BillingType_Link,
 		)
 		require.NoError(t, err, "error funding subscriptions")
 		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
@@ -1196,7 +1189,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.CoordinatorV2Plus)
 
-	var isNativeBilling = false
+	var isNativeBilling = true
 
 	jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
 	require.NoError(t, err, "error reading job runs")

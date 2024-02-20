@@ -227,7 +227,7 @@ func SetupVRFV2_5Environment(
 		linkToken,
 		vrfContracts.CoordinatorV2Plus, vrfContracts.VRFV2PlusConsumer,
 		numberOfSubToCreate,
-		vrfv2plus_config.BillingType(*configGeneral.SubscriptionBillingType))
+	)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -272,6 +272,11 @@ func SetupVRFV2_5Environment(
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+	}
+
 	nodesMap[vrfcommon.VRF].TXKeyAddressStrings = vrfTXKeyAddressStrings
 
 	g := errgroup.Group{}
@@ -369,7 +374,6 @@ func CreateFundSubsAndAddConsumers(
 	coordinator contracts.VRFCoordinatorV2_5,
 	consumers []contracts.VRFv2PlusLoadTestConsumer,
 	numberOfSubToCreate int,
-	subscriptionBillingType vrfv2plus_config.BillingType,
 ) ([]*big.Int, error) {
 	subIDs, err := CreateSubsAndFund(
 		env,
@@ -378,7 +382,6 @@ func CreateFundSubsAndAddConsumers(
 		linkToken,
 		coordinator,
 		numberOfSubToCreate,
-		subscriptionBillingType,
 	)
 	if err != nil {
 		return nil, err
@@ -412,7 +415,6 @@ func CreateSubsAndFund(
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
-	subscriptionBillingType vrfv2plus_config.BillingType,
 ) ([]*big.Int, error) {
 	subs, err := CreateSubs(env, coordinator, subAmountToCreate)
 	if err != nil {
@@ -429,7 +431,6 @@ func CreateSubsAndFund(
 		linkToken,
 		coordinator,
 		subs,
-		subscriptionBillingType,
 	)
 	if err != nil {
 		return nil, err
@@ -497,45 +498,22 @@ func FundSubscriptions(
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subIDs []*big.Int,
-	subscriptionBillingType vrfv2plus_config.BillingType,
 ) error {
 	for _, subID := range subIDs {
-		switch subscriptionBillingType {
-		case vrfv2plus_config.BillingType_Native:
-			//Native Billing
-			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
-			err := coordinator.FundSubscriptionWithNative(
-				subID,
-				amountWei,
-			)
-			if err != nil {
-				return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
-			}
-		case vrfv2plus_config.BillingType_Link:
-			//Link Billing
-			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-			err := FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
-			if err != nil {
-				return fmt.Errorf("%s, err %w", vrfcommon.ErrFundSubWithLinkToken, err)
-			}
-		case vrfv2plus_config.BillingType_Link_and_Native:
-			//Native Billing
-			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
-			err := coordinator.FundSubscriptionWithNative(
-				subID,
-				amountWei,
-			)
-			if err != nil {
-				return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
-			}
-			//Link Billing
-			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-			err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
-			if err != nil {
-				return fmt.Errorf("%s, err %w", vrfcommon.ErrFundSubWithLinkToken, err)
-			}
-		default:
-			return fmt.Errorf("invalid billing type: %s", subscriptionBillingType)
+		//Native Billing
+		amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
+		err := coordinator.FundSubscriptionWithNative(
+			subID,
+			amountWei,
+		)
+		if err != nil {
+			return fmt.Errorf("%s, err %w", ErrFundSubWithNativeToken, err)
+		}
+		//Link Billing
+		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
+		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
+		if err != nil {
+			return fmt.Errorf("%s, err %w", vrfcommon.ErrFundSubWithLinkToken, err)
 		}
 	}
 	err := env.EVMClient.WaitForEvents()
@@ -742,7 +720,14 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 
-	err = FundSubscriptions(env, big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative), big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink), linkToken, coordinator, []*big.Int{wrapperSubID}, vrfv2plus_config.BillingType(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionBillingType))
+	err = FundSubscriptions(
+		env,
+		big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
+		big.NewFloat(*vrfv2PlusTestConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
+		linkToken,
+		coordinator,
+		[]*big.Int{wrapperSubID},
+	)
 	if err != nil {
 		return nil, nil, err
 	}

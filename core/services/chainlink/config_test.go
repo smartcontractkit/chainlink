@@ -1124,6 +1124,14 @@ func TestConfig_full(t *testing.T) {
 	require.NoError(t, config.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
 	for c := range got.EVM {
+		addr, err := ethkey.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
+		require.NoError(t, err)
+		if got.EVM[c].ChainWriter.FromAddress == nil {
+			got.EVM[c].ChainWriter.FromAddress = &addr
+		}
+		if got.EVM[c].ChainWriter.ForwarderAddress == nil {
+			got.EVM[c].ChainWriter.ForwarderAddress = &addr
+		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
 				got.EVM[c].Nodes[n].WSURL = new(commonconfig.URL)
@@ -1149,7 +1157,8 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 6 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 7 errors:
+	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
 		- LDAP.BaseDN: invalid value (<nil>): LDAP BaseDN can not be empty

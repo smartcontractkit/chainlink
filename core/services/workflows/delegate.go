@@ -2,6 +2,8 @@ package workflows
 
 import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -35,6 +37,9 @@ func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{engine}, nil
 }
 
-func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry) *Delegate {
+func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) *Delegate {
+	// NOTE: we temporarily do registration inside NewDelegate, this will be moved out of job specs in the future
+	_ = targets.InitializeWrite(registry, legacyEVMChains)
+
 	return &Delegate{logger: logger, registry: registry}
 }

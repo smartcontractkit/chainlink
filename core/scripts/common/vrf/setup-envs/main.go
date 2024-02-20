@@ -330,6 +330,10 @@ func fundNodesIfNeeded(node model.Node, key string, e helpers.Environment) {
 	if node.SendingKeyFundingAmount.Cmp(big.NewInt(0)) == 1 {
 		fmt.Println("\nFunding", key, "Node's Sending Keys. Need to fund each key with", node.SendingKeyFundingAmount, "wei")
 		for _, sendingKey := range node.SendingKeys {
+			fmt.Println("Funding", sendingKey.Address, "with", node.SendingKeyFundingAmount, "wei", "BalanceEth:", sendingKey.BalanceEth.String())
+			if sendingKey.BalanceEth == nil {
+				sendingKey.BalanceEth = big.NewInt(0)
+			}
 			fundingToSendWei := new(big.Int).Sub(node.SendingKeyFundingAmount, sendingKey.BalanceEth)
 			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
 				helpers.FundNode(e, sendingKey.Address, fundingToSendWei)

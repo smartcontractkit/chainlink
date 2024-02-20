@@ -148,14 +148,14 @@ type General struct {
 	UseExistingEnv                *bool    `toml:"use_existing_env"`
 	CLNodeMaxGasPriceGWei         *int64   `toml:"cl_node_max_gas_price_gwei"`       // Max gas price in GWei for the chainlink node
 	LinkNativeFeedResponse        *int64   `toml:"link_native_feed_response"`        // Response of the LINK/ETH feed
-	MinimumConfirmations          *uint16  `toml:"minimum_confirmations" `           // Minimum number of confirmations for the VRF Coordinator
+	MinimumConfirmations          *uint16  `toml:"minimum_confirmations"`            // Minimum number of confirmations for the VRF Coordinator
 	SubscriptionFundingAmountLink *float64 `toml:"subscription_funding_amount_link"` // Amount of LINK to fund the subscription with
-	NumberOfWords                 *uint32  `toml:"number_of_words" `                 // Number of words to request
-	CallbackGasLimit              *uint32  `toml:"callback_gas_limit" `              // Gas limit for the callback
+	NumberOfWords                 *uint32  `toml:"number_of_words"`                  // Number of words to request
+	CallbackGasLimit              *uint32  `toml:"callback_gas_limit"`               // Gas limit for the callback
 	MaxGasLimitCoordinatorConfig  *uint32  `toml:"max_gas_limit_coordinator_config"` // Max gas limit for the VRF Coordinator config
 	FallbackWeiPerUnitLink        *int64   `toml:"fallback_wei_per_unit_link"`       // Fallback wei per unit LINK for the VRF Coordinator config
-	StalenessSeconds              *uint32  `toml:"staleness_seconds" `               // Staleness in seconds for the VRF Coordinator config
-	GasAfterPaymentCalculation    *uint32  `toml:"gas_after_payment_calculation" `   // Gas after payment calculation for the VRF Coordinator
+	StalenessSeconds              *uint32  `toml:"staleness_seconds"`                // Staleness in seconds for the VRF Coordinator config
+	GasAfterPaymentCalculation    *uint32  `toml:"gas_after_payment_calculation"`    // Gas after payment calculation for the VRF Coordinator
 
 	NumberOfSubToCreate *int `toml:"number_of_sub_to_create"` // Number of subscriptions to create
 
@@ -198,7 +198,7 @@ func (c *General) Validate() error {
 	if c.LinkNativeFeedResponse == nil || *c.LinkNativeFeedResponse == 0 {
 		return errors.New("link_native_feed_response must be set to a positive value")
 	}
-	if c.MinimumConfirmations == nil {
+	if c.MinimumConfirmations == nil || *c.MinimumConfirmations < 0 {
 		return errors.New("minimum_confirmations must be set to a non-negative value")
 	}
 	if c.SubscriptionFundingAmountLink == nil || *c.SubscriptionFundingAmountLink < 0 {
