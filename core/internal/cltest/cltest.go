@@ -236,7 +236,7 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
 	chainID := *ubig.New(&FixtureChainID)

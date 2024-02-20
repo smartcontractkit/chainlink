@@ -2,7 +2,6 @@ package types_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -92,7 +91,6 @@ func TestEthTx_GetID(t *testing.T) {
 }
 
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
-	ctx := context.Background()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
@@ -101,7 +99,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := ethKeyStore.SignTx(ctx, fromAddress, tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(testutils.Context(t), fromAddress, tx, chainID)
 	require.NoError(t, err)
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))

@@ -104,7 +104,7 @@ func NewResender[
 // Start is a comment which satisfies the linter
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.txConfig.ResendAfterThreshold())
-	go er.runLoop(ctx)
+	go er.runLoop(er.ctx)
 }
 
 // Stop is a comment which satisfies the linter

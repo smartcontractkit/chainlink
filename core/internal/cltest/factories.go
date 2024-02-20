@@ -259,7 +259,7 @@ type RandomKey struct {
 }
 
 func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	if r.chainIDs == nil {
 		r.chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
 	}

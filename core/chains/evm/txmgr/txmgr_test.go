@@ -481,11 +481,11 @@ func TestTxm_Lifecycle(t *testing.T) {
 	evmConfig.ReaperThreshold = 1 * time.Hour
 	evmConfig.ReaperInterval = 1 * time.Hour
 
-	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]common.Address{}, nil)
+	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return([]common.Address{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
-	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
+	kst.On("SubscribeToKeyChanges", mock.Anything).Return(keyChangeCh, unsub.ItHappened)
 	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
 	require.NoError(t, err)
@@ -506,7 +506,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
 	addr := []common.Address{keyState.Address.Address()}
-	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
+	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addr, nil)
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), common.Address{}).Return(uint64(0), nil).Maybe()
 	keyChangeCh <- struct{}{}
 

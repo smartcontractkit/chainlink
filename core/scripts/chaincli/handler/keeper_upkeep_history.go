@@ -267,7 +267,7 @@ func printResultsToConsole(parsedResults []result) {
 
 func turnBlockHashBinary(ctx context.Context, blockNum, bcpt, lookback uint64, ethClient *ethclient.Client) (string, error) {
 	turnBlock := blockNum - (blockNum % bcpt) - lookback
-	block, err := ethClient.BlockByNumber(context.Background(), big.NewInt(int64(turnBlock)))
+	block, err := ethClient.BlockByNumber(ctx, big.NewInt(int64(turnBlock)))
 	if err != nil {
 		return "", err
 	}
