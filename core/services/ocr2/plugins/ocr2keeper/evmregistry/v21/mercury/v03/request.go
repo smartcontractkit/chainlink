@@ -95,7 +95,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		return m.State, nil, m.ErrCode, false, 0 * time.Second, m.Error
 	}
 
-	return encoding.NoPipelineError, m.Bytes, encoding.ErrCodeNil, false, 0 * time.Second, nil
+	return encoding.NoPipelineError, m.Bytes, m.ErrCode, false, 0 * time.Second, nil
 }
 
 func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.MercuryData, sl *mercury.StreamsLookup) {
