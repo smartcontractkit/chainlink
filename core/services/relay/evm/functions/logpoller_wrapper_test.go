@@ -88,7 +88,7 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	lp, lpWrapper, client := setUp(t, 100_000) // check only once
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 
-	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil)
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
@@ -125,13 +125,13 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	lpWrapper.SubscribeToUpdates("mock_subscriber", subscriber)
 	mockedLog := getMockedRequestLog(t)
 	// All logPoller queries for responses return none
-	lp.On("Logs", mock.Anything, mock.Anything, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), mock.Anything).Return([]logpoller.Log{}, nil)
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), mock.Anything).Return([]logpoller.Log{}, nil)
 	// On the first logPoller query for requests, the request log appears
-	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
 	// On the 2nd query, the request log disappears
-	lp.On("Logs", mock.Anything, mock.Anything, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), mock.Anything).Return([]logpoller.Log{}, nil).Once()
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), mock.Anything).Return([]logpoller.Log{}, nil).Once()
 	// On the 3rd query, the original request log appears again
-	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{mockedLog}, nil).Once()
 
 	servicetest.Run(t, lpWrapper)
 	subscriber.updates.Wait()
