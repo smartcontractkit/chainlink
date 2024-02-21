@@ -303,7 +303,7 @@ func (s *SendError) IsL2Full() bool {
 	return s.is(L2Full)
 }
 
-// IsServiceUnavailable indicates if the error was caused by an service being unavailable
+// IsServiceUnavailable indicates if the error was caused by a service being unavailable
 func (s *SendError) IsServiceUnavailable() bool {
 	return s.is(ServiceUnavailable)
 }
