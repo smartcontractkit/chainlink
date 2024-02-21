@@ -1,3 +1,4 @@
+# this is a static configuration to connect with CRIB k8s environment (Default Geth)
 namespace = "cl-cluster"
 network_name = "geth"
 network_chain_id = 1337

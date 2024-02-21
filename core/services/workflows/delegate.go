@@ -1,7 +1,14 @@
 package workflows
 
 import (
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/pelletier/go-toml"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -35,6 +42,29 @@ func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{engine}, nil
 }
 
-func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry) *Delegate {
+func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) *Delegate {
+	// NOTE: we temporarily do registration inside NewDelegate, this will be moved out of job specs in the future
+	_ = targets.InitializeWrite(registry, legacyEVMChains)
+
 	return &Delegate{logger: logger, registry: registry}
+}
+
+func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
+	var jb = job.Job{ExternalJobID: uuid.New()}
+
+	tree, err := toml.Load(tomlString)
+	if err != nil {
+		return jb, fmt.Errorf("toml error on load: %w", err)
+	}
+
+	err = tree.Unmarshal(&jb)
+	if err != nil {
+		return jb, fmt.Errorf("toml unmarshal error on spec: %w", err)
+	}
+
+	if jb.Type != job.Workflow {
+		return jb, fmt.Errorf("unsupported type %s", jb.Type)
+	}
+
+	return jb, nil
 }
