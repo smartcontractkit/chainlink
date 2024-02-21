@@ -36,6 +36,7 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 	dstLinkAddr := ccipTH.Dest.LinkToken.Address()
 	srcNativeAddr, err := ccipTH.Source.Router.GetWrappedNative(nil)
 	require.NoError(t, err)
+	aggDstNativeAddr := ccipTH.Dest.WrappedNative.Address()
 
 	aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(2e18))
 	require.NoError(t, err)
@@ -63,6 +64,14 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 	require.Equal(t, big.NewInt(50), tmp.RoundId)
 	require.Equal(t, big.NewInt(8000000), tmp.Answer)
 
+	// deploy dest wrapped native aggregator
+	aggDstNativeAggrAddr, _, aggDstNativeAggr, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain, 18, big.NewInt(3e18))
+	require.NoError(t, err)
+	ccipTH.Dest.Chain.Commit()
+	_, err = aggDstNativeAggr.UpdateRoundData(ccipTH.Dest.User, big.NewInt(50), big.NewInt(500000), big.NewInt(1000), big.NewInt(1000))
+	require.NoError(t, err)
+	ccipTH.Dest.Chain.Commit()
+
 	priceGetterConfig := config.DynamicPriceGetterConfig{
 		AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{
 			srcLinkAddr: {
@@ -76,6 +85,10 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 			dstLinkAddr: {
 				ChainID:                   ccipTH.Dest.ChainID,
 				AggregatorContractAddress: aggDstLnkAddr,
+			},
+			aggDstNativeAddr: {
+				ChainID:                   ccipTH.Dest.ChainID,
+				AggregatorContractAddress: aggDstNativeAggrAddr,
 			},
 		},
 		StaticPrices: map[common.Address]config.StaticPriceConfig{},

@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+var ErrEmptyOutput = errors.New("rpc call output is empty (make sure that the contract method exists and rpc is healthy)")
+
 //go:generate mockery --quiet --name EvmBatchCaller --output ./rpclibmocks --outpkg rpclibmocks --filename evm_mock.go --case=underscore
 type EvmBatchCaller interface {
 	// BatchCall executes all the provided EvmCall and returns the results in the same order
@@ -125,8 +127,11 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 		}
 
 		if packedOutputs[i] == "" {
-			return nil, fmt.Errorf("%s: RPC did not properly set any output and also did not set an error", call)
+			// Some RPCs instead of returning "0x" are returning an empty string.
+			// We are overriding this behaviour for consistent handling of this scenario.
+			packedOutputs[i] = "0x"
 		}
+
 		b, err := hexutil.Decode(packedOutputs[i])
 		if err != nil {
 			return nil, fmt.Errorf("decode result %s: packedOutputs %s: %w", call, packedOutputs[i], err)
@@ -134,8 +139,14 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 
 		unpackedOutputs, err := call.abi.Unpack(call.methodName, b)
 		if err != nil {
-			return nil, fmt.Errorf("unpack result %s: %w", call, err)
+			if len(b) == 0 {
+				results[i].Err = fmt.Errorf("unpack result %s: %s: %w", call, err.Error(), ErrEmptyOutput)
+			} else {
+				results[i].Err = fmt.Errorf("unpack result %s: %w", call, err)
+			}
+			continue
 		}
+
 		results[i].Outputs = unpackedOutputs
 	}
 
