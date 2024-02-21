@@ -55,33 +55,33 @@ bhs_job_run_timeout = "24h"
 # PERFORMANCE test specific config
 
 [VRFv2.ExistingEnv]
-coordinator_address = "0x9Ff8b0fe6563288d6b43ca705268BD99DfD4d2bF"
+coordinator_address = ""
 consumer_address = ""
 sub_id = 1
-key_hash = "0x904d5d3a5fd0b02acc61c7a16773cbb9342e30979766972ef9e90fc6e11b4415"
+key_hash = ""
 create_fund_subs_and_add_consumers = true
-link_address = "0xCf989972eec71939D6BA98c0E2BB04A647b68190"
+link_address = ""
 node_sending_key_funding_min = 10
 node_sending_keys = [
-    "0x4096CeEC6590725fA30cAf93826728A00a0E91ab",
-    "0xB3f4B3F0A83126157FcC482C5d183f0fBF005ee5",
-    "0xdBA0C98cf907DAA4243487817A642313977Cd971"
+    "",
+    "",
+    ""
 ]
 
 [VRFv2.Common]
 cancel_subs_after_test_run = true
 
 #SOAK TEST CONFIG
-[SOAK.Common]
+[Soak.Common]
 chainlink_node_funding = 0.1
 
-[SOAK.VRFv2.General]
+[Soak.VRFv2.General]
 randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
 subscription_funding_amount_link = 5.0
 
-[SOAK.VRFv2.Performance]
+[Soak.VRFv2.Performance]
 test_duration = "1m"
 rate_limit_unit_duration = "3s"
 rps = 1

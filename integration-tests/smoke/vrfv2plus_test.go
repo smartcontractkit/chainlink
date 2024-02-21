@@ -87,7 +87,7 @@ func TestVRFv2Plus(t *testing.T) {
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
-		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+		jobRunsBeforeTest, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
@@ -107,13 +107,17 @@ func TestVRFv2Plus(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
+		require.False(t, randomWordsFulfilledEvent.OnlyPremium)
+		require.Equal(t, isNativeBilling, randomWordsFulfilledEvent.NativePayment)
+		require.True(t, randomWordsFulfilledEvent.Success)
+
 		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
 		subscription, err = vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 		require.NoError(t, err, "error getting subscription information")
 		subBalanceAfterRequest := subscription.Balance
 		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
 
-		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+		jobRuns, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
@@ -134,7 +138,7 @@ func TestVRFv2Plus(t *testing.T) {
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
-		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+		jobRunsBeforeTest, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
@@ -153,13 +157,16 @@ func TestVRFv2Plus(t *testing.T) {
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+		require.False(t, randomWordsFulfilledEvent.OnlyPremium)
+		require.Equal(t, isNativeBilling, randomWordsFulfilledEvent.NativePayment)
+		require.True(t, randomWordsFulfilledEvent.Success)
 		expectedSubBalanceWei := new(big.Int).Sub(subNativeTokenBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
 		subscription, err = vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 		require.NoError(t, err)
 		subBalanceAfterRequest := subscription.NativeBalance
 		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
-		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+		jobRuns, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
@@ -672,7 +679,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	require.NoError(t, err, "error deploying LINK contract")
 
 	numberOfTxKeysToCreate := 2
-	vrfv2PlusContracts, subIDs, vrfv2PlusData, _, err := vrfv2plus.SetupVRFV2_5Environment(
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 		&config,
@@ -695,7 +702,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = true
-		txKeys, _, err := env.ClCluster.Nodes[0].API.ReadTxKeys("evm")
+		txKeys, _, err := nodesMap[vrfcommon.VRF].CLNode.API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
 
 		require.Equal(t, numberOfTxKeysToCreate+1, len(txKeys.Data))
@@ -823,21 +830,21 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
 	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
-		ForwardingAllowed:             false,
+		ForwardingAllowed:             *vrfv2PlusConfig.VRFJobForwardingAllowed,
 		CoordinatorAddress:            newCoordinator.Address(),
 		FromAddresses:                 nodesMap[vrfcommon.VRF].TXKeyAddressStrings,
 		EVMChainID:                    env.EVMClient.GetChainID().String(),
 		MinIncomingConfirmations:      int(*vrfv2PlusConfig.MinimumConfirmations),
 		PublicKey:                     vrfv2PlusData.VRFKey.Data.ID,
-		EstimateGasMultiplier:         1,
-		BatchFulfillmentEnabled:       false,
-		BatchFulfillmentGasMultiplier: 1.15,
-		PollPeriod:                    time.Second * 1,
-		RequestTimeout:                time.Hour * 24,
+		EstimateGasMultiplier:         *vrfv2PlusConfig.VRFJobEstimateGasMultiplier,
+		BatchFulfillmentEnabled:       *vrfv2PlusConfig.VRFJobBatchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: *vrfv2PlusConfig.VRFJobBatchFulfillmentGasMultiplier,
+		PollPeriod:                    vrfv2PlusConfig.VRFJobPollPeriod.Duration,
+		RequestTimeout:                vrfv2PlusConfig.VRFJobRequestTimeout.Duration,
 	}
 
 	_, err = vrfv2plus.CreateVRFV2PlusJob(
-		env.ClCluster.NodeAPIs()[0],
+		nodesMap[vrfcommon.VRF].CLNode.API,
 		vrfJobSpecConfig,
 	)
 	require.NoError(t, err, vrfv2plus.ErrCreateVRFV2PlusJobs)
@@ -1007,7 +1014,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
 	var isNativeBilling = true
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
-		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
+		//t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
 		_, err := vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
@@ -1056,6 +1063,13 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+
+		randRequestBlockHash, err := vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+		l.Info().
+			Str("Randomness Request's Blockhash", randomWordsRequestedEvent.Raw.BlockHash.String()).
+			Str("Block Hash stored by BHS contract", fmt.Sprintf("0x%x", randRequestBlockHash)).
+			Msg("BHS Contract's stored Blockhash for Randomness Request")
+		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
 	})
 
 	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
@@ -1191,7 +1205,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 
 	var isNativeBilling = true
 
-	jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+	jobRunsBeforeTest, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
 	require.NoError(t, err, "error reading job runs")
 
 	l.Info().Uint16("minimumConfirmationDelay", *config.VRFv2Plus.General.MinimumConfirmations).Msg("Minimum Confirmation Delay")
@@ -1213,7 +1227,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-	jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
+	jobRuns, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
 	require.NoError(t, err, "error reading job runs")
 	require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 

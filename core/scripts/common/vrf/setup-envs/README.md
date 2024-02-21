@@ -44,6 +44,7 @@ go run . \
 --request-timeout="30m0s" \
 --reverts-pipeline-enabled="true" \
 --min-confs=3 \
+--simulation-block="latest" \
 --bhs-job-wait-blocks=30 \
 --bhs-job-look-back-blocks=200 \
 --bhs-job-poll-period="1s" \
@@ -84,6 +85,7 @@ go run . \
 --poll-period="5s" \
 --request-timeout="30m0s" \
 --min-confs=3 \
+--simulation-block="latest" \
 --proving-key-max-gas-price="1e12" \
 --flat-fee-native-ppm=500 \
 --flat-fee-link-discount-ppm=100 \

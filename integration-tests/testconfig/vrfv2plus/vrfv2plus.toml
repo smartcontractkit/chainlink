@@ -65,17 +65,17 @@ node_sending_keys = []
 cancel_subs_after_test_run = true
 
 #SOAK TEST CONFIG
-[SOAK.Common]
+[Soak.Common]
 chainlink_node_funding = 0.1
 
-[SOAK.VRFv2Plus.General]
+[Soak.VRFv2Plus.General]
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
 subscription_funding_amount_link = 5.0
 subscription_funding_amount_native=1
 
-[SOAK.VRFv2Plus.Performance]
+[Soak.VRFv2Plus.Performance]
 test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1
