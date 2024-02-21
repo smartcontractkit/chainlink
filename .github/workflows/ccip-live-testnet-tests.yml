@@ -1,7 +1,7 @@
 name: CCIP On-Demand Live Testnet Tests
 on:
   schedule:
-    - cron: '0 */12 * * *'
+    - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
       base64_test_input : # base64 encoded toml for test input
