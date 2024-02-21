@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,7 +27,7 @@ const (
 	defaultStoredAllowlistBatchSize      = 1000
 	defaultOnchainAllowlistBatchSize     = 100
 	defaultFetchingDelayInRangeSec       = 1
-	tosContractMinBatchProcessingVersion = "1.1.0"
+	tosContractMinBatchProcessingVersion = "v1.1.0"
 )
 
 type OnchainAllowlistConfig struct {
@@ -220,12 +219,22 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		return errors.Wrap(err, "failed to fetch the tos contract type and version")
 	}
 
-	version, err := extractContractVersion(typeAndVersion)
+	batchProcessingAllowed, err := ContractVersionIsSmallerOrEqual(tosContractMinBatchProcessingVersion, typeAndVersion)
 	if err != nil {
-		return errors.Wrap(err, "failed to extract version")
+		return errors.Wrap(err, "failed to compare contract version")
 	}
 
-	if version < strings.ReplaceAll(tosContractMinBatchProcessingVersion, ".", "") {
+	if batchProcessingAllowed {
+		err = a.syncBlockedSenders(ctx, tosContract, blockNum)
+		if err != nil {
+			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
+		}
+
+		allowedSenderList, err = a.getAllowedSendersBatched(ctx, tosContract, blockNum)
+		if err != nil {
+			return errors.Wrap(err, "failed to get allowed senders in rage")
+		}
+	} else {
 		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
 			Pending:     false,
 			BlockNumber: blockNum,
@@ -243,17 +252,6 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		err = a.orm.CreateAllowedSenders(allowedSenderList)
 		if err != nil {
 			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
-		}
-
-	} else {
-		err = a.syncBlockedSenders(ctx, tosContract, blockNum)
-		if err != nil {
-			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
-		}
-
-		allowedSenderList, err = a.getAllowedSendersBatched(ctx, tosContract, blockNum)
-		if err != nil {
-			return errors.Wrap(err, "failed to get allowed senders in rage")
 		}
 	}
 
@@ -369,6 +367,22 @@ func (a *onchainAllowlist) loadStoredAllowedSenderList() {
 	}
 
 	a.update(allowedList)
+}
+
+// ContractVersionIsSmallerOrEqual receives two stringify contract versions s1 and s2 with the following format: `v(\d+).(\d+).(\d+)`
+// and returns true in case s1 <= s2
+func ContractVersionIsSmallerOrEqual(s1 string, s2 string) (bool, error) {
+	versionS1, err := extractContractVersion(s1)
+	if err != nil {
+		return false, fmt.Errorf("failed to extract version: %w", err)
+	}
+
+	versionS2, err := extractContractVersion(s2)
+	if err != nil {
+		return false, fmt.Errorf("failed to extract version: %w", err)
+	}
+
+	return (versionS1 <= versionS2), nil
 }
 
 func extractContractVersion(str string) (string, error) {

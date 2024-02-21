@@ -316,6 +316,62 @@ func TestUpdateFromContract(t *testing.T) {
 
 }
 
+func TestContractVersionIsSmallerOrEqual(t *testing.T) {
+
+	type tc struct {
+		name           string
+		version1       string
+		version2       string
+		expectedResult bool
+		expectedError  *string
+	}
+
+	var errInvalidVersion = "failed to extract version: version not found in string: invalid_version"
+	tcs := []tc{
+		{
+			name:           "OK-bigger_version",
+			version1:       "v1.0.1",
+			version2:       "v1.0.0",
+			expectedResult: false,
+			expectedError:  nil,
+		},
+		{
+			name:           "OK-smaller_version",
+			version1:       "v1.1.0",
+			version2:       "v2.0.0",
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:           "OK-same_version",
+			version1:       "v1.2.0",
+			version2:       "v1.2.0",
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:           "NOK-invalid_version",
+			version1:       "invalid_version",
+			version2:       "v1.1.0",
+			expectedResult: false,
+			expectedError:  &errInvalidVersion,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			actualResult, actualError := allowlist.ContractVersionIsSmallerOrEqual(tc.version1, tc.version2)
+			require.Equal(t, tc.expectedResult, actualResult)
+
+			if tc.expectedError != nil {
+				require.EqualError(t, actualError, *tc.expectedError)
+			} else {
+				require.NoError(t, actualError)
+			}
+		})
+	}
+}
+
 func encodeTypeAndVersionResponse(typeAndVersion string) ([]byte, error) {
 	codecName := "my_codec"
 	evmEncoderConfig := `[{"Name":"typeAndVersion","Type":"string"}]`
