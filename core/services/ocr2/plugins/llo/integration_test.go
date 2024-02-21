@@ -50,7 +50,7 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	backend.Commit()                                  // ensure starting block number at least 1
+	backend.Commit() // ensure starting block number at least 1
 
 	// Deploy contracts
 	verifierProxyAddr, _, _, err := verifier_proxy.DeployVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
@@ -364,7 +364,7 @@ func setChannelDefinitions(t *testing.T, steve *bind.TransactOpts, backend *back
 	channelDefinitions[channels[2]] = channel2Def
 	channelDefinitions[channels[3]] = channel3Def
 
-	backend.Commit()                                 
+	backend.Commit()
 
 	return channelDefinitions
 }
