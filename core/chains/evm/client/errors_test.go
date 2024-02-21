@@ -211,7 +211,7 @@ func Test_Eth_Errors(t *testing.T) {
 
 	t.Run("IsServiceUnavailable", func(t *testing.T) {
 		tests := []errorCase{
-			{"call failed: 503 Service Unavailable", true, "Nethermind"},
+			{"call failed: 503 Service Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Nethermind"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)

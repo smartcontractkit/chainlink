@@ -198,7 +198,7 @@ var nethermind = ClientErrors{
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
 	InsufficientEth:    regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+|, Balance is \d+ less than sending value \+ gas \d+)?$`),
-	ServiceUnavailable: regexp.MustCompile(`(: |^)503 Service Unavailable$`),
+	ServiceUnavailable: regexp.MustCompile(`(: |^)503 Service Unavailable: [\s\S]*$`),
 	Fatal:              nethermindFatal,
 }
 
