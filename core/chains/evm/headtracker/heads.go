@@ -70,14 +70,9 @@ func (h *heads) MarkFinalized(finalized common.Hash) bool {
 		return false
 	}
 
-	// copy slice as we are going to modify it
-	newHeads := make([]*evmtypes.Head, len(h.heads))
-	for i := range h.heads {
-		headCopy := *h.heads[i]
-		newHeads[i] = &headCopy
-	}
+	h.heads = deepCopyUpTo(h.heads, uint(len(h.heads)))
 
-	head := newHeads[0]
+	head := h.heads[0]
 	foundFinalized := false
 	for head != nil {
 		if head.Hash == finalized {
@@ -93,12 +88,9 @@ func (h *heads) MarkFinalized(finalized common.Hash) bool {
 	return foundFinalized
 }
 
-func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	headsMap := make(map[common.Hash]*evmtypes.Head, len(h.heads)+len(newHeads))
-	for _, head := range append(h.heads, newHeads...) {
+func deepCopyUpTo(oldHeads []*evmtypes.Head, depth uint) []*evmtypes.Head {
+	headsMap := make(map[common.Hash]*evmtypes.Head, len(oldHeads))
+	for _, head := range oldHeads {
 		if head.Hash == head.ParentHash {
 			// shouldn't happen but it is untrusted input
 			continue
@@ -131,8 +123,8 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 	})
 
 	// cut off the oldest
-	if uint(len(heads)) > historyDepth {
-		heads = heads[:historyDepth]
+	if uint(len(heads)) > depth {
+		heads = heads[:depth]
 	}
 
 	// assign parents
@@ -144,6 +136,12 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 		}
 	}
 
-	// set
-	h.heads = heads
+	return heads
+}
+
+func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.heads = deepCopyUpTo(append(h.heads, newHeads...), historyDepth)
 }
