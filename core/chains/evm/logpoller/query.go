@@ -142,11 +142,11 @@ func (q *queryArgs) withRetention(retention time.Duration) *queryArgs {
 	return q.withCustomArg("retention", retention)
 }
 
-func (q *queryArgs) withLogsPerBlock(logsPerBlock *ubig.Big) *queryArgs {
+func (q *queryArgs) withLogsPerBlock(logsPerBlock uint64) *queryArgs {
 	return q.withCustomArg("logs_per_block", logsPerBlock)
 }
 
-func (q *queryArgs) withMaxLogsKept(maxLogsKept *ubig.Big) *queryArgs {
+func (q *queryArgs) withMaxLogsKept(maxLogsKept uint64) *queryArgs {
 	return q.withCustomArg("max_logs_kept", maxLogsKept)
 }
 
