@@ -283,8 +283,8 @@ func integration_MercuryV1(t *testing.T) {
 		2*time.Second,        // DeltaProgress
 		20*time.Second,       // DeltaResend
 		400*time.Millisecond, // DeltaInitial
-		100*time.Millisecond, // DeltaRound
-		0,                    // DeltaGrace
+		200*time.Millisecond, // DeltaRound
+		100*time.Millisecond, // DeltaGrace
 		300*time.Millisecond, // DeltaCertifiedCommitRequest
 		1*time.Minute,        // DeltaStage
 		100,                  // rMax
