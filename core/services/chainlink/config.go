@@ -71,6 +71,12 @@ func (c *Config) valueWarnings() (err error) {
 			}
 		}
 	}
+	return
+}
+
+// deprecationWarnings returns an error if the Config contains deprecated fields.
+// This is typically used before defaults have been applied, with input from the user.
+func (c *Config) deprecationWarnings() (err error) {
 	// ChainType xdai is deprecated and has been renamed to gnosis
 	for _, evm := range c.EVM {
 		if evm.ChainType != nil && *evm.ChainType == string(commoncfg.ChainXDai) {
@@ -81,13 +87,6 @@ func (c *Config) valueWarnings() (err error) {
 			})
 		}
 	}
-	return
-}
-
-// deprecationWarnings returns an error if the Config contains deprecated fields.
-// This is typically used before defaults have been applied, with input from the user.
-func (c *Config) deprecationWarnings() (err error) {
-	// none
 	return
 }
 
