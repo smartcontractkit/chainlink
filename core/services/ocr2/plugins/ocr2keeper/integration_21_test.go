@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -457,7 +458,6 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(output))
 	})
-
 	defer mercuryServer.Stop()
 
 	_, err = linkToken.Transfer(linkOwner, upkeepOwner.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeepCount+1))))
@@ -470,9 +470,10 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 
 	// deploy multiple upkeeps that listen to a log emitter and need to be
 	// performed for each log event
-	require.NoError(t, feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount, func(i int) bool {
+	checkResultsProvider := func(i int) bool {
 		return i%2 == 1
-	}))
+	}
+	require.NoError(t, feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount, checkResultsProvider))
 	require.NoError(t, feeds.RegisterAndFund(t, registry, registryOwner, backend, linkToken))
 	require.NoError(t, feeds.EnableMercury(t, backend, registry, registryOwner))
 	require.NoError(t, feeds.VerifyEnv(t, backend, registry, registryOwner))
@@ -488,10 +489,66 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 		})
 	}()
 
-	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIds(), int64(1))
-	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
+	topic := log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookupIgnoringErrorHandlerData{}.Topic()
+	addrsToCheck := make([]common.Address, 0)
+	idsToCheck := make([]*big.Int, 0)
+	for i, uid := range feeds.UpkeepsIds() {
+		if checkResultsProvider(i) {
+			addrsToCheck = append(addrsToCheck, feeds.addresses[i])
+			idsToCheck = append(idsToCheck, uid)
+		}
+	}
+	errHandlerListener, errHandlerDone := listenEvents(t, backend, addrsToCheck, topic, int64(1), 1)
+	g.Eventually(errHandlerListener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
+	errHandlerDone()
 
+	listener, done := listenPerformed(t, backend, registry, idsToCheck, int64(1))
+	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
+}
+
+func listenEvents(t *testing.T, backend *backends.SimulatedBackend, addrs []common.Address, topic common.Hash, startBlock int64, count int) (func() bool, func()) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	visited := make(map[string]bool)
+	cache := &sync.Map{}
+	start := startBlock
+
+	go func() {
+		for ctx.Err() == nil {
+			currentBlock := backend.Blockchain().CurrentBlock().Number
+			logs, err := backend.FilterLogs(ctx, ethereum.FilterQuery{
+				Addresses: addrs,
+				Topics:    [][]common.Hash{{topic}},
+				FromBlock: currentBlock,
+				ToBlock:   big.NewInt(start),
+			})
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				t.Logf("Error fetching logs: %v", err)
+				continue
+			}
+			for _, log := range logs {
+				visitedID := fmt.Sprintf("%s:%s:%d", log.BlockHash.Hex(), log.TxHash.Hex(), log.Index)
+				if visited[visitedID] {
+					continue
+				}
+				visited[visitedID] = true
+				cacheID := log.Address.Hex()
+				count, ok := cache.Load(cacheID)
+				if !ok {
+					cache.Store(cacheID, 1)
+					continue
+				}
+				countI := count.(int)
+				cache.Store(cacheID, countI+1)
+			}
+			time.Sleep(time.Second)
+		}
+	}()
+
+	return mapListener(cache, count), cancel
 }
 
 func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) {
