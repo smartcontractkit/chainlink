@@ -17,7 +17,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   /// @inheritdoc ITypeAndVersion
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "Functions Coordinator v1.2.0";
+  string public constant override typeAndVersion = "Functions Coordinator v1.3.0";
 
   event OracleRequest(
     bytes32 indexed requestId,
@@ -43,8 +43,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   constructor(
     address router,
     FunctionsBillingConfig memory config,
-    address linkToNativeFeed
-  ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed) {}
+    address linkToNativeFeed,
+    address linkToUsdFeed
+  ) OCR2Base() FunctionsBilling(router, config, linkToNativeFeed, linkToUsdFeed) {}
 
   /// @inheritdoc IFunctionsCoordinator
   function getThresholdPublicKey() external view override returns (bytes memory) {
@@ -80,10 +81,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   /// @dev check if node is in current transmitter list
   function _isTransmitter(address node) internal view returns (bool) {
-    address[] memory nodes = s_transmitters;
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
-    for (uint256 i = 0; i < nodes.length; ++i) {
-      if (nodes[i] == node) {
+    for (uint256 i = 0; i < s_transmitters.length; ++i) {
+      if (s_transmitters[i] == node) {
         return true;
       }
     }
@@ -94,7 +94,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   function startRequest(
     FunctionsResponse.RequestMeta calldata request
   ) external override onlyRouter returns (FunctionsResponse.Commitment memory commitment) {
-    commitment = _startBilling(request);
+    uint72 operationFee;
+    (commitment, operationFee) = _startBilling(request);
 
     emit OracleRequest(
       commitment.requestId,
@@ -107,7 +108,21 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       request.dataVersion,
       request.flags,
       request.callbackGasLimit,
-      commitment
+      FunctionsResponse.Commitment({
+        coordinator: commitment.coordinator,
+        client: commitment.client,
+        subscriptionId: commitment.subscriptionId,
+        callbackGasLimit: commitment.callbackGasLimit,
+        estimatedTotalCostJuels: commitment.estimatedTotalCostJuels,
+        timeoutTimestamp: commitment.timeoutTimestamp,
+        requestId: commitment.requestId,
+        donFee: commitment.donFee,
+        gasOverheadBeforeCallback: commitment.gasOverheadBeforeCallback,
+        gasOverheadAfterCallback: commitment.gasOverheadAfterCallback,
+        // The following line is done to use the Coordinator's operationFee in place of the Router's operation fee
+        // With this in place the Router.adminFee must be set to 0 in the Router.
+        adminFee: operationFee
+      })
     );
 
     return commitment;
@@ -204,5 +219,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /// @dev Used in FunctionsBilling.sol
   function _onlyOwner() internal view override {
     _validateOwnership();
+  }
+
+  /// @dev Used in FunctionsBilling.sol
+  function _owner() internal view override returns (address owner) {
+    return this.owner();
   }
 }
