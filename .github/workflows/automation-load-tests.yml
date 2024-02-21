@@ -80,7 +80,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          suites: benchmark load/automationv2_1 chaos reorg
+          suites: benchmark load chaos reorg
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
         env:
@@ -94,7 +94,7 @@ jobs:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd integration-tests && go test -timeout 1h -v -run TestLogTrigger ./load/automationv2_1 -count=1
+          test_command_to_run: cd integration-tests/load && go test -timeout 1h -v -run TestLogTrigger ./automationv2_1 -count=1
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
