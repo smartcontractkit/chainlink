@@ -83,7 +83,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mp := new(mocks.LogPoller)
-			mp.On("RegisterFilter", mock.Anything).Return(nil)
+			mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 			mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 			scanner := NewPerformedEventsScanner(lggr, mp, registryAddr, 100)
 

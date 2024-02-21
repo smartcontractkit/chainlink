@@ -48,7 +48,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(digestAndEpochDontScanLogs, nil).Once()
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	require.NoError(t, err)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
 	functionsTransmitter, err := functions.NewFunctionsContractTransmitter(c, contractABI, &mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
@@ -71,7 +71,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	c := evmclimocks.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
 	ocrTransmitter := mockTransmitter{}
 	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
@@ -114,7 +114,7 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	c := evmclimocks.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
 	ocrTransmitter := mockTransmitter{}
 	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {

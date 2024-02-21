@@ -169,7 +169,7 @@ func TestConfigPoller(t *testing.T) {
 	t.Run("LatestConfigDetails, when logs have been pruned and config store contract is configured", func(t *testing.T) {
 		// Give it a log poller that will never return logs
 		mp := new(mocks.LogPoller)
-		mp.On("RegisterFilter", mock.Anything).Return(nil)
+		mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
@@ -244,7 +244,7 @@ func TestConfigPoller(t *testing.T) {
 	t.Run("LatestConfig, when logs have been pruned and config store contract is configured", func(t *testing.T) {
 		// Give it a log poller that will never return logs
 		mp := mocks.NewLogPoller(t)
-		mp.On("RegisterFilter", mock.Anything).Return(nil)
+		mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 		mp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 

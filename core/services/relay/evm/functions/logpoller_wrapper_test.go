@@ -90,7 +90,7 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 
 	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
 	subscriber := newSubscriber(1)
 	lpWrapper.SubscribeToUpdates("mock_subscriber", subscriber)
@@ -120,7 +120,7 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	lp, lpWrapper, client := setUp(t, 100_000)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	subscriber := newSubscriber(1)
 	lpWrapper.SubscribeToUpdates("mock_subscriber", subscriber)
 	mockedLog := getMockedRequestLog(t)

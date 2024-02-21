@@ -58,8 +58,8 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 
 	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,
