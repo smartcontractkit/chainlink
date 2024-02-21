@@ -104,6 +104,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			cfg := tc.MustCopy(automationTestConfig)
 			l := logging.GetTestLogger(t)
 
@@ -244,6 +245,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
 				t.Fatal(err)
@@ -426,6 +428,7 @@ func TestAutomationAddFunds(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
 				t.Fatal(err)
@@ -492,6 +495,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
@@ -591,6 +595,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
@@ -679,6 +684,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
 				t.Fatal(err)
@@ -752,6 +758,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
@@ -856,6 +863,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
 				t.Fatal(err)
@@ -923,6 +931,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
@@ -1041,6 +1050,7 @@ func TestUpdateCheckData(t *testing.T) {
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig("Smoke", tc.Automation)
 			if err != nil {
