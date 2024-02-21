@@ -1268,6 +1268,12 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return nil, err
 		}
 
+		var allowedReadOnlyAddress common.Address
+		if chainId == 1101 || chainId == 1442 || chainId == 2442 {
+			allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
+		} else {
+			allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+		}
 		registryLogicBAddr, _, _, err := e.client.DeployContract("AutomationRegistryLogicB2_2", func(
 			auth *bind.TransactOpts,
 			backend bind.ContractBackend,
@@ -1280,7 +1286,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),
 				*automationForwarderLogicAddr,
-				common.HexToAddress("0x0000000000000000000000000000000000000000"),
+				allowedReadOnlyAddress,
 			)
 		})
 		if err != nil {
