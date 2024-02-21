@@ -510,6 +510,6 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		)
 		return commonclient.ExceedsMaxFee
 	}
-	lggr.Errorw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
+	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
 }
