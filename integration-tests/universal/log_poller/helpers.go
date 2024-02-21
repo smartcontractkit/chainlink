@@ -36,6 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -43,10 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 )
 
 var (
@@ -147,7 +145,7 @@ func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_
 	}
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
-	return logpoller.NewORM(chainID, db, logger, pg.NewQConfig(false)), db, nil
+	return logpoller.NewORM(chainID, db, logger), db, nil
 }
 
 type ExpectedFilter struct {
@@ -178,7 +176,7 @@ func NodeHasExpectedFilters(expectedFilters []ExpectedFilter, logger core_logger
 	}
 
 	defer db.Close()
-	knownFilters, err := orm.LoadFilters()
+	knownFilters, err := orm.LoadFilters(context.Background())
 	if err != nil {
 		return false, "", err
 	}
@@ -318,7 +316,7 @@ func LogPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.L
 
 				defer db.Close()
 
-				latestBlock, err := orm.SelectLatestBlock()
+				latestBlock, err := orm.SelectLatestBlock(ctx)
 				if err != nil {
 					r <- boolQueryResult{
 						nodeName:     clNode.ContainerName,
@@ -415,7 +413,7 @@ func ClNodesHaveExpectedLogCount(startBlock, endBlock int64, chainID *big.Int, e
 				foundLogsCount := 0
 
 				for _, filter := range expectedFilters {
-					logs, err := orm.SelectLogs(startBlock, endBlock, filter.emitterAddress, filter.topic)
+					logs, err := orm.SelectLogs(ctx, startBlock, endBlock, filter.emitterAddress, filter.topic)
 					if err != nil {
 						resultChan <- logQueryResult{
 							nodeName:         clNode.ContainerName,
@@ -541,7 +539,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 
 					for _, event := range cfg.General.EventsToEmit {
 						l.Trace().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching single emitter's logs")
-						result, err := orm.SelectLogs(startBlock, endBlock, address, event.ID)
+						result, err := orm.SelectLogs(ctx, startBlock, endBlock, address, event.ID)
 						if err != nil {
 							r <- dbQueryResult{
 								err:      err,

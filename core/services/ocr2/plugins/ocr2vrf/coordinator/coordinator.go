@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -183,7 +182,9 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	err = logPoller.RegisterFilter(logpoller.Filter{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
 		EventSigs: []common.Hash{
 			t.randomnessRequestedTopic,
@@ -226,7 +227,7 @@ func New(
 }
 
 func (c *coordinator) CurrentChainHeight(ctx context.Context) (uint64, error) {
-	head, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
+	head, err := c.lp.LatestBlock(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -257,14 +258,14 @@ func (c *coordinator) ReportIsOnchain(
 
 	c.lggr.Info(fmt.Sprintf("epoch and round: %s %s", epochAndRound.String(), enrTopic.String()))
 	logs, err := c.lp.IndexedLogs(
+		ctx,
 		c.topics.newTransmissionTopic,
 		c.beaconAddress,
 		2,
 		[]common.Hash{
 			enrTopic,
 		},
-		1,
-		pg.WithParentCtx(ctx))
+		1)
 	if err != nil {
 		return false, errors.Wrap(err, "log poller IndexedLogs")
 	}
@@ -342,6 +343,7 @@ func (c *coordinator) ReportBlocks(
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
+		ctx,
 		int64(currentHeight-c.coordinatorConfig.LookbackBlocks),
 		int64(currentHeight),
 		[]common.Hash{
@@ -350,8 +352,7 @@ func (c *coordinator) ReportBlocks(
 			c.randomWordsFulfilledTopic,
 			c.outputsServedTopic,
 		},
-		c.coordinatorAddress,
-		pg.WithParentCtx(ctx))
+		c.coordinatorAddress)
 	if err != nil {
 		err = errors.Wrapf(err, "logs with topics. address: %s", c.coordinatorAddress)
 		return
@@ -547,7 +548,7 @@ func (c *coordinator) getBlockhashesMapping(
 		return blockNumbers[a] < blockNumbers[b]
 	})
 
-	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers, pg.WithParentCtx(ctx))
+	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers)
 	if err != nil {
 		return nil, errors.Wrap(err, "logpoller.GetBlocks")
 	}
@@ -911,10 +912,10 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	defer c.logAndEmitFunctionDuration("DKGVRFCommittees", startTime)
 
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
+		ctx,
 		c.configSetTopic,
 		c.beaconAddress,
 		logpoller.Confirmations(c.finalityDepth),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest vrf ConfigSet by sig with confs")
@@ -922,10 +923,10 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	}
 
 	latestDKG, err := c.lp.LatestLogByEventSigWithConfs(
+		ctx,
 		c.configSetTopic,
 		c.dkgAddress,
 		logpoller.Confirmations(c.finalityDepth),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest dkg ConfigSet by sig with confs")

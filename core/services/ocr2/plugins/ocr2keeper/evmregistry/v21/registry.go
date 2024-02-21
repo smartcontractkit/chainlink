@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -339,11 +338,13 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 	}
 
-	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	unpausedLogs, err := r.poller.IndexedLogs(ctx, iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
 	if err != nil {
 		return err
 	}
-	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	configSetLogs, err := r.poller.IndexedLogs(ctx, iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
 	if err != nil {
 		return err
 	}
@@ -406,7 +407,7 @@ func (r *EvmRegistry) pollUpkeepStateLogs() error {
 	var end logpoller.LogPollerBlock
 	var err error
 
-	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
+	if end, err = r.poller.LatestBlock(r.ctx); err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
@@ -421,12 +422,14 @@ func (r *EvmRegistry) pollUpkeepStateLogs() error {
 	}
 
 	var logs []logpoller.Log
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	if logs, err = r.poller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-logEventLookback,
 		end.BlockNumber,
 		upkeepStateEvents,
 		r.addr,
-		pg.WithParentCtx(r.ctx),
 	); err != nil {
 		return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
 	}
@@ -505,7 +508,9 @@ func RegistryUpkeepFilterName(addr common.Address) string {
 // registerEvents registers upkeep state events from keeper registry on log poller
 func (r *EvmRegistry) registerEvents(_ uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that we need
-	return r.poller.RegisterFilter(logpoller.Filter{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return r.poller.RegisterFilter(ctx, logpoller.Filter{
 		Name:      RegistryUpkeepFilterName(addr),
 		EventSigs: upkeepStateEvents,
 		Addresses: []common.Address{addr},

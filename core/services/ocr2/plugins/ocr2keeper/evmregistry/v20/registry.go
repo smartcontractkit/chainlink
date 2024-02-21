@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -351,7 +350,7 @@ func (r *EvmRegistry) pollLogs() error {
 	var end logpoller.LogPollerBlock
 	var err error
 
-	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
+	if end, err = r.poller.LatestBlock(r.ctx); err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
@@ -368,12 +367,14 @@ func (r *EvmRegistry) pollLogs() error {
 	{
 		var logs []logpoller.Log
 
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		if logs, err = r.poller.LogsWithSigs(
+			ctx,
 			end.BlockNumber-logEventLookback,
 			end.BlockNumber,
 			upkeepStateEvents,
 			r.addr,
-			pg.WithParentCtx(r.ctx),
 		); err != nil {
 			return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
 		}
@@ -393,7 +394,9 @@ func UpkeepFilterName(addr common.Address) string {
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	return r.poller.RegisterFilter(logpoller.Filter{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return r.poller.RegisterFilter(ctx, logpoller.Filter{
 		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},

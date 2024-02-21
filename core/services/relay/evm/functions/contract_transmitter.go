@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -228,8 +227,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
-	latest, err := oc.lp.LatestLogByEventSigWithConfs(
-		oc.transmittedEventSig, *contractAddr, 1, pg.WithParentCtx(ctx))
+	latest, err := oc.lp.LatestLogByEventSigWithConfs(ctx, oc.transmittedEventSig, *contractAddr, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet
@@ -262,7 +260,9 @@ func (oc *contractTransmitter) UpdateRoutes(activeCoordinator common.Address, pr
 		return nil
 	}
 	oc.lggr.Debugw("FunctionsContractTransmitter: updating routes", "previousContract", previousContract, "activeCoordinator", activeCoordinator)
-	err := oc.lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err := oc.lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
 	if err != nil {
 		return err
 	}

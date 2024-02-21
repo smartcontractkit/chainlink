@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -68,7 +67,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
-	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	o := logpoller.NewORM(chainID, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
 	ethDB := rawdb.NewMemoryDatabase()
 	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
@@ -126,7 +125,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 
 	// Filter registration is idempotent, so we can just call it every time
 	// and retry on errors using the ticker.
-	err = lp.RegisterFilter(logpoller.Filter{
+	err = lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: fmt.Sprintf("vrf_%s_keyhash_%s_job_%d", "v2", listener.job.VRFSpec.PublicKey.MustHash().String(), listener.job.ID),
 		EventSigs: evmtypes.HashArray{
 			vrf_log_emitter.VRFLogEmitterRandomWordsRequested{}.Topic(),
@@ -138,7 +137,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		},
 	})
 	require.Nil(t, err)
-	require.NoError(t, lp.RegisterFilter(logpoller.Filter{
+	require.NoError(t, lp.RegisterFilter(ctx, logpoller.Filter{
 		Name:      "Integration test",
 		EventSigs: []common.Hash{emitterABI.Events["Log1"].ID},
 		Addresses: []common.Address{emitterAddress1},
@@ -211,8 +210,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
 
 	// Should return logs from block 5 to 7 (inclusive)
-	logs, err := th.LogPoller.Logs(4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress,
-		pg.WithParentCtx(testutils.Context(t)))
+	logs, err := th.LogPoller.Logs(testutils.Context(t), 4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(logs))
 

@@ -151,7 +151,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	if l.proposedCoordinator != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
-	latest, err := l.logPoller.LatestBlock()
+	latest, err := l.logPoller.LatestBlock(context.Background())
 	if err != nil {
 		l.mu.Unlock()
 		return nil, nil, err
@@ -171,9 +171,12 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		return resultsReq, resultsResp, errors.New("no non-zero coordinators to check")
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	for _, coordinator := range coordinators {
 		requestEndBlock := latestBlockNum - l.requestBlockOffset
-		requestLogs, err := l.logPoller.Logs(startBlockNum, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
+		requestLogs, err := l.logPoller.Logs(ctx, startBlockNum, requestEndBlock, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", requestEndBlock)
 			return nil, nil, err
@@ -181,7 +184,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debugw("LatestEvents: fetched request logs", "nRequestLogs", len(requestLogs), "latestBlock", latest, "startBlock", startBlockNum, "endBlock", requestEndBlock)
 		requestLogs = l.filterPreviouslyDetectedEvents(requestLogs, &l.detectedRequests, "requests")
 		responseEndBlock := latestBlockNum - l.responseBlockOffset
-		responseLogs, err := l.logPoller.Logs(startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
+		responseLogs, err := l.logPoller.Logs(ctx, startBlockNum, responseEndBlock, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
 			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", responseEndBlock)
 			return nil, nil, err
@@ -428,7 +431,10 @@ func (l *logPollerWrapper) registerFilters(coordinatorAddress common.Address) er
 	if (coordinatorAddress == common.Address{}) {
 		return nil
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	return l.logPoller.RegisterFilter(
+		ctx,
 		logpoller.Filter{
 			Name: filterName(coordinatorAddress),
 			EventSigs: []common.Hash{

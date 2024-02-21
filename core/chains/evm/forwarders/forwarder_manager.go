@@ -213,6 +213,7 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 	}
 
 	err := f.logpoller.RegisterFilter(
+		f.ctx,
 		evmlogpoller.Filter{
 			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
@@ -253,11 +254,11 @@ func (f *FwdMgr) runLoop() {
 			}
 
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
+				f.ctx,
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
 				evmlogpoller.Confirmations(f.cfg.FinalityDepth()),
-				pg.WithParentCtx(f.ctx),
 			)
 			if err != nil {
 				f.logger.Errorw("Failed to retrieve latest log round", "err", err)
