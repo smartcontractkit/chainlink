@@ -18,7 +18,7 @@ import (
 )
 
 var info = capabilities.MustNewCapabilityInfo(
-	"ocr3",
+	"offchain_reporting",
 	capabilities.CapabilityTypeConsensus,
 	"OCR3 consensus exposed as a capability.",
 	"v1.0.0",
@@ -76,10 +76,10 @@ func (o *capability) Close() error {
 }
 
 type workflowConfig struct {
-	AggregationMethod       string `mapstructure:"aggregation_method"`
-	AggregationMethodConfig map[string]any
-	Encoder                 string
-	EncoderConfig           map[string]any
+	AggregationMethod string         `mapstructure:"aggregation_method"`
+	AggregationConfig map[string]any `mapstructure:"aggregation_config"`
+	Encoder           string         `mapstructure:"encoder"`
+	EncoderConfig     map[string]any `mapstructure:"encoder_config"`
 }
 
 func (o *capability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -97,9 +97,18 @@ func (o *capability) RegisterToWorkflow(ctx context.Context, request capabilitie
 		return err
 	}
 
+	if c.AggregationConfig == nil {
+		o.lggr.Warn("aggregation_config is empty")
+		c.AggregationConfig = map[string]any{}
+	}
+	if c.EncoderConfig == nil {
+		o.lggr.Warn("encoder_config is empty")
+		c.EncoderConfig = map[string]any{}
+	}
+
 	switch c.AggregationMethod {
 	case "data_feeds_2_0":
-		cm, err := values.NewMap(c.AggregationMethodConfig)
+		cm, err := values.NewMap(c.AggregationConfig)
 		if err != nil {
 			return err
 		}

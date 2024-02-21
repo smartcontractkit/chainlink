@@ -30,8 +30,10 @@ type factoryService struct {
 }
 
 const (
-	defaultRequestExpiry time.Duration = 1 * time.Hour
-	defaultBatchSize                   = 1000
+	defaultRequestExpiry       time.Duration = 1 * time.Hour
+	defaultBatchSize                         = 1000
+	defaultMaxPhaseOutputBytes               = 100000
+	defaultMaxReportCount                    = 20
 )
 
 func newFactoryService(config *config) (*factoryService, error) {
@@ -60,7 +62,16 @@ func newFactoryService(config *config) (*factoryService, error) {
 
 func (o *factoryService) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[[]byte], ocr3types.ReportingPluginInfo, error) {
 	rp, err := newReportingPlugin(o.store, o.capability, o.batchSize, config, o.lggr)
-	info := ocr3types.ReportingPluginInfo{Name: "OCR3 Capability Plugin"}
+	info := ocr3types.ReportingPluginInfo{
+		Name: "OCR3 Capability Plugin",
+		Limits: ocr3types.ReportingPluginLimits{
+			MaxQueryLength:       defaultMaxPhaseOutputBytes,
+			MaxObservationLength: defaultMaxPhaseOutputBytes,
+			MaxOutcomeLength:     defaultMaxPhaseOutputBytes,
+			MaxReportLength:      defaultMaxPhaseOutputBytes,
+			MaxReportCount:       defaultMaxReportCount,
+		},
+	}
 	return rp, info, err
 }
 

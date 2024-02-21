@@ -38,14 +38,14 @@ func newReportingPlugin(s *store, r capabilityIface, batchSize int, config ocr3t
 		r:         r,
 		batchSize: batchSize,
 		config:    config,
-		lggr:      lggr,
+		lggr:      logger.Named(lggr, "OCR3ConsensusReportingPlugin"),
 	}, nil
 }
 
 func (r *reportingPlugin) Query(ctx context.Context, outctx ocr3types.OutcomeContext) (types.Query, error) {
 	batch, err := r.s.firstN(ctx, r.batchSize)
 	if err != nil {
-		r.lggr.Error("could not retrieve batch", err)
+		r.lggr.Errorw("could not retrieve batch", "error", err)
 		return nil, err
 	}
 
@@ -57,6 +57,7 @@ func (r *reportingPlugin) Query(ctx context.Context, outctx ocr3types.OutcomeCon
 		})
 	}
 
+	r.lggr.Debugw("Query complete", "len", len(ids))
 	return proto.Marshal(&pbtypes.Query{
 		Ids: ids,
 	})
@@ -83,7 +84,7 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 	for _, rq := range reqs {
 		obsPb, err := rq.Observations.Proto()
 		if err != nil {
-			r.lggr.Error("could not marshal observation to proto", err, rq)
+			r.lggr.Errorw("could not marshal observation to proto", "error", err, "request", rq)
 			continue
 		}
 
@@ -98,6 +99,7 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 		obs.Observations = append(obs.Observations, r)
 	}
 
+	r.lggr.Debugw("Observation complete", "len", len(obs.Observations))
 	return proto.Marshal(obs)
 }
 
@@ -110,12 +112,13 @@ func (r *reportingPlugin) ObservationQuorum(outctx ocr3types.OutcomeContext, que
 }
 
 func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Query, aos []types.AttributedObservation) (ocr3types.Outcome, error) {
+	// execution ID -> oracle ID -> list of observations
 	m := map[string]map[ocrcommon.OracleID][]values.Value{}
 	for _, o := range aos {
 		obs := &pbtypes.Observations{}
 		err := proto.Unmarshal(o.Observation, obs)
 		if err != nil {
-			r.lggr.Error("could not unmarshal observation", err, obs)
+			r.lggr.Errorw("could not unmarshal observation", "error", err, "observation", obs)
 			continue
 		}
 
@@ -127,7 +130,7 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 
 			val, err := values.FromProto(rq.Observation)
 			if err != nil {
-				r.lggr.Error("could not unmarshal observation", err, rq)
+				r.lggr.Errorw("could not unmarshal observation payload", "error", err, "payload", rq)
 				continue
 			}
 
@@ -146,39 +149,41 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 	if err != nil {
 		return nil, err
 	}
+	if o.Outcomes == nil {
+		o.Outcomes = map[string]*pbtypes.AggregationOutcome{}
+	}
 
 	// Wipe out the ReportsToGenerate. This gets regenerated
 	// every time since we only want to transmit reports that
 	// are part of the current Query.
-	o.ReportsToGenerate = o.ReportsToGenerate[:]
+	o.ReportsToGenerate = []*pbtypes.Report{}
 
 	for _, weid := range q.Ids {
 		obs, ok := m[weid.WorkflowExecutionId]
 		if !ok {
-			r.lggr.Error("could not find observations matching weid", weid.WorkflowExecutionId)
+			r.lggr.Debugw("could not find any observations matching weid requested in the query", "weid", weid.WorkflowExecutionId)
 			continue
 		}
 
 		workflowOutcome, ok := o.Outcomes[weid.WorkflowId]
 		if !ok {
-			r.lggr.Error("could not find outcome for workflow", weid.WorkflowId)
-			continue
+			r.lggr.Debugw("could not find existing outcome for workflow, aggregator will create a new one", "workflowID", weid.WorkflowId)
 		}
 
 		if len(obs) < (2*r.config.F + 1) {
-			r.lggr.Error("insufficient observations for workflow execution id", weid.WorkflowExecutionId)
+			r.lggr.Debugw("insufficient observations for workflow execution id", "weid", weid.WorkflowExecutionId)
 			continue
 		}
 
 		agg, err := r.r.getAggregator(weid.WorkflowId)
 		if err != nil {
-			r.lggr.Error("could not retrieve aggregator for workflow", err, weid.WorkflowId)
+			r.lggr.Errorw("could not retrieve aggregator for workflow", "error", err, "workflowID", weid.WorkflowId)
 			continue
 		}
 
 		outcome, err := agg.Aggregate(workflowOutcome, obs)
 		if err != nil {
-			r.lggr.Error("error aggregating outcome", err, weid.WorkflowId)
+			r.lggr.Errorw("error aggregating outcome", "error", err, "workflowID", weid.WorkflowId)
 			return nil, err
 		}
 
@@ -193,6 +198,7 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 		o.Outcomes[weid.WorkflowId] = outcome
 	}
 
+	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes))
 	return proto.Marshal(o)
 }
 
@@ -210,25 +216,25 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 		outcome, id := report.Outcome, report.Id
 		mv, err := values.FromMapValueProto(outcome.EncodableOutcome)
 		if err != nil {
-			r.lggr.Error("could not convert outcome to value", id.WorkflowId)
+			r.lggr.Errorw("could not convert outcome to value", "workflowID", id.WorkflowId)
 			continue
 		}
 
 		enc, err := r.r.getEncoder(id.WorkflowId)
 		if err != nil {
-			r.lggr.Error("could not retrieve encoder for workflow", err, id.WorkflowId)
+			r.lggr.Errorw("could not retrieve encoder for workflow", "error", err, "workflowID", id.WorkflowId)
 			continue
 		}
 
 		report, err := enc.Encode(context.Background(), *mv)
 		if err != nil {
-			r.lggr.Error("could not encode report for workflow", err, id.WorkflowId)
+			r.lggr.Errorw("could not encode report for workflow", "error", err, "workflowID", id.WorkflowId)
 			continue
 		}
 
 		p, err := proto.Marshal(id)
 		if err != nil {
-			r.lggr.Error("could not marshal id into ReportWithInfo", err, id)
+			r.lggr.Errorw("could not marshal id into ReportWithInfo", "error", err, "workflowID", id.WorkflowId)
 			continue
 		}
 
@@ -244,7 +250,7 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte]) (bool, error) {
 	b, err := values.NewBytes(rwi.Report)
 	if err != nil {
-		r.lggr.Error("could not convert report bytes into value", err)
+		r.lggr.Errorw("could not convert report bytes into value", "error", err)
 		return false, err
 	}
 
@@ -260,7 +266,7 @@ func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr 
 		WorkflowExecutionID: id.WorkflowId,
 	})
 	if err != nil {
-		r.lggr.Error("could not transmit response", err, id.WorkflowExecutionId)
+		r.lggr.Errorw("could not transmit response", "error", err, "weid", id.WorkflowExecutionId)
 		return false, err
 	}
 
