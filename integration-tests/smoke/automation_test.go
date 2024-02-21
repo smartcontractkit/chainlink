@@ -1018,7 +1018,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
 
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, a.Registrar.Address(), 30*time.Second, a.Registry.RegistryOwnerAddress(), a.Registry.ChainModuleAddress())
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, a.Registrar.Address(), 30*time.Second, a.Registry.RegistryOwnerAddress(), a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 			require.NoError(t, err, "Error building OCR config")
 
 			err = a.Registry.SetConfig(highCheckGasLimit, ocrConfig)

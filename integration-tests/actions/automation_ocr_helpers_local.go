@@ -34,8 +34,9 @@ func BuildAutoOCR2ConfigVarsLocal(
 	deltaStage time.Duration,
 	registryOwnerAddress common.Address,
 	chainModuleAddress common.Address,
+	reorgProtectionEnabled bool,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress, chainModuleAddress)
+	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
@@ -47,6 +48,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 	keyIndex int,
 	registryOwnerAddress common.Address,
 	chainModuleAddress common.Address,
+	reorgProtectionEnabled bool,
 ) (contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndexLocal(chainlinkNodes, keyIndex)
 	if err != nil {
@@ -150,7 +152,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, chainModuleAddress)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
 	}

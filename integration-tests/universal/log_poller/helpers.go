@@ -1201,7 +1201,7 @@ func SetupLogPollerTestDocker(
 
 	err = actions.CreateOCRKeeperJobsLocal(l, nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress(), registry.ChainModuleAddress())
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress(), registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 	require.NoError(t, err, "Error building OCR config vars")
 	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")

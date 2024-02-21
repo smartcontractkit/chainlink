@@ -92,6 +92,7 @@ type KeeperRegistry interface {
 	SetUpkeepPrivilegeConfig(id *big.Int, privilegeConfig []byte) error
 	RegistryOwnerAddress() common.Address
 	ChainModuleAddress() common.Address
+	ReorgProtectionEnabled() bool
 }
 
 type KeeperConsumer interface {
@@ -223,6 +224,12 @@ type EthereumKeeperRegistry struct {
 	l           zerolog.Logger
 }
 
+func (v *EthereumKeeperRegistry) ReorgProtectionEnabled() bool {
+	chainId := v.client.GetChainID().Uint64()
+	// reorg protection is disabled in polygon zkEVM and Scroll bc currently there is no way to get the block hash onchain
+	return v.version != ethereum.RegistryVersion_2_2 || (chainId != 1101 && chainId != 1442 && chainId != 2442 && chainId != 534352 && chainId != 534351)
+}
+
 func (v *EthereumKeeperRegistry) ChainModuleAddress() common.Address {
 	if v.version == ethereum.RegistryVersion_2_2 {
 		return v.chainModule.Address()
@@ -242,7 +249,7 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address) ([]byte, error) {
+func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) ([]byte, error) {
 	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
 		onchainConfigStruct := registry21.KeeperRegistryBase21OnchainConfig{
 			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
@@ -266,7 +273,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 
 		return encodedOnchainConfig, err
 	} else if rcs.RegistryVersion == ethereum.RegistryVersion_2_2 {
-		return rcs.encode22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress)
+		return rcs.encode22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 	}
 	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
 	onchainConfig, err := goabi.Encode(map[string]interface{}{
@@ -288,7 +295,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 
 }
 
-func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddr common.Address) ([]byte, error) {
+func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddr common.Address, reorgProtectionEnabled bool) ([]byte, error) {
 	onchainConfigStruct := automation_registry_wrapper_2_2.AutomationRegistryBase22OnchainConfig{
 		PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 		FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
@@ -306,7 +313,7 @@ func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, regis
 		Registrars:             []common.Address{common.HexToAddress(registrar)},
 		UpkeepPrivilegeManager: registryOwnerAddress,
 		ChainModule:            chainModuleAddr,
-		ReorgProtectionEnabled: true,
+		ReorgProtectionEnabled: reorgProtectionEnabled,
 	}
 
 	encodedOnchainConfig, err := utilsABI22.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
