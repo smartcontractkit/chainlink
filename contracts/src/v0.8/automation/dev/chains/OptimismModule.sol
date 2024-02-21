@@ -5,36 +5,23 @@ import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/v0.8.9
 import {ChainModuleBase} from "./ChainModuleBase.sol";
 
 contract OptimismModule is ChainModuleBase {
-  /// @dev OP_L1_DATA_FEE_PADDING includes 35 bytes for L1 data padding for Optimism and BASE
-  bytes private constant OP_L1_DATA_FEE_PADDING =
-    hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
   /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
   address private constant OVM_GASPRICEORACLE_ADDR = 0x420000000000000000000000000000000000000F;
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
-  //block number: 26,482
-  //block hash: 26,939
-  //get current l1 fee (0 bytes): 63,693
-  // => 117114
-  uint256 private constant FIXED_GAS_OVERHEAD = 20000;
-
-  //get current l1 fee (0 bytes): 63,693
-  //get current l1 fee (100 bytes): 65,417
-  //get current l1 fee (500 bytes): 71,765
-  //get current l1 fee (1000 bytes): 79,813
-  // 17.24 => 16.12 per bytes
+  uint256 private constant FIXED_GAS_OVERHEAD = 60000;
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 20;
 
   function getCurrentL1Fee() external view override returns (uint256) {
-    return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(msg.data, OP_L1_DATA_FEE_PADDING));
+    return OVM_GASPRICEORACLE.getL1Fee(msg.data);
   }
 
   function getMaxL1Fee(uint256 dataSize) external view override returns (uint256) {
     // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have all non zero-bytes.
     // Instead of setting bytes to non-zero, we initialize 'new bytes' of length 4*dataSize to cover for zero bytes.
     bytes memory txCallData = new bytes(4 * dataSize);
-    return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(txCallData, OP_L1_DATA_FEE_PADDING));
+    return OVM_GASPRICEORACLE.getL1Fee(txCallData);
   }
 
   function getGasOverhead()
