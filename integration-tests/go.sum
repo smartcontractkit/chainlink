@@ -164,6 +164,8 @@ github.com/VividCortex/gohistogram v1.0.0 h1:6+hBz+qvs0JOrrNhhmR7lFxo5sINxBCGXrd
 github.com/VividCortex/gohistogram v1.0.0/go.mod h1:Pf5mBqqDxYaXu3hDrrU+w6nw50o/4+TcAqDqk/vUH7g=
 github.com/Workiva/go-datastructures v1.1.0 h1:hu20UpgZneBhQ3ZvwiOGlqJSKIosin2Rd5wAKUHEO/k=
 github.com/Workiva/go-datastructures v1.1.0/go.mod h1:1yZL+zfsztete+ePzZz/Zb1/t5BnDuE2Ya2MMGhzP6A=
+github.com/XSAM/otelsql v0.27.0 h1:i9xtxtdcqXV768a5C6SoT/RkG+ue3JTOgkYInzlTOqs=
+github.com/XSAM/otelsql v0.27.0/go.mod h1:0mFB3TvLa7NCuhm/2nU7/b2wEtsczkj8Rey8ygO7V+A=
 github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
 github.com/akavel/rsrc v0.8.0/go.mod h1:uLoCtb9J+EyAqh+26kdrTgmzRBFPGOolLWKpdxkKq+c=
 github.com/alecthomas/participle/v2 v2.0.0-alpha7 h1:cK4vjj0VSgb3lN1nuKA5F7dw+1s1pWBe5bx7nNCnN+c=
@@ -1517,8 +1519,8 @@ github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240216142700-c5869534c19
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240216142700-c5869534c19e/go.mod h1:JiykN+8W5TA4UD2ClrzQCVvcH3NcyLEVv7RwY0busrw=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240213121419-1272736c2ac0 h1:7m9PVtccb8/pvKTXMaGuyceFno1icRyC2SFH7KG7+70=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240213121419-1272736c2ac0/go.mod h1:SZ899lZYQ0maUulWbZg+SWqabHQ1wTbyk3jT8wJfyo8=
-github.com/smartcontractkit/chainlink-testing-framework v1.23.5 h1:bymN/mr4Tbx3DQ7EMB/z81+pCLhJkiYgxJDgAeTo9/w=
-github.com/smartcontractkit/chainlink-testing-framework v1.23.5/go.mod h1:lGaqSnCB36n49fZNdTGXMrxhPu9w5+2n3c9V1Fqz1hM=
+github.com/smartcontractkit/chainlink-testing-framework v1.23.6 h1:krjJswtgQ/J4kBgFpC7Tyh8wSFfWiGGUsADg6BG/EGw=
+github.com/smartcontractkit/chainlink-testing-framework v1.23.6/go.mod h1:lGaqSnCB36n49fZNdTGXMrxhPu9w5+2n3c9V1Fqz1hM=
 github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868 h1:FFdvEzlYwcuVHkdZ8YnZR/XomeMGbz5E2F2HZI3I3w8=
 github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868/go.mod h1:Kn1Hape05UzFZ7bOUnm3GVsHzP0TNrVmpfXYNHdqGGs=
 github.com/smartcontractkit/go-plugin v0.0.0-20240208201424-b3b91517de16 h1:TFe+FvzxClblt6qRfqEhUfa4kFQx5UobuoFGO2W4mMo=
@@ -1531,8 +1533,8 @@ github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:G5Sd/yzHWf26rQ+X0nG9E0buKPqRGPMJAfk2gwCzOOw=
-github.com/smartcontractkit/wasp v0.4.2 h1:MPErzwcOW84MKnA6/BjMnlsspQ0681XfoanGsJHOI7c=
-github.com/smartcontractkit/wasp v0.4.2/go.mod h1:eVhBVLbVv0qORUlN7aR5C4aTN/lTYO3KnN1erO4ROOI=
+github.com/smartcontractkit/wasp v0.4.5 h1:pgiXwBci2m15eo33AzspzhpNG/gxg+8QGxl+I5LpfsQ=
+github.com/smartcontractkit/wasp v0.4.5/go.mod h1:eVhBVLbVv0qORUlN7aR5C4aTN/lTYO3KnN1erO4ROOI=
 github.com/smartcontractkit/wsrpc v0.7.2 h1:iBXzMeg7vc5YoezIQBq896y25BARw7OKbhrb6vPbtRQ=
 github.com/smartcontractkit/wsrpc v0.7.2/go.mod h1:sj7QX2NQibhkhxTfs3KOhAj/5xwgqMipTvJVSssT9i0=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
@@ -1756,6 +1758,8 @@ go.opentelemetry.io/otel/metric v1.21.0 h1:tlYWfeo+Bocx5kLEloTjbcDwBuELRrIFxwdQ3
 go.opentelemetry.io/otel/metric v1.21.0/go.mod h1:o1p3CA8nNHW8j5yuQLdc1eeqEaPfzug24uvsyIEJRWM=
 go.opentelemetry.io/otel/sdk v1.21.0 h1:FTt8qirL1EysG6sTQRZ5TokkU8d0ugCj8htOgThZXQ8=
 go.opentelemetry.io/otel/sdk v1.21.0/go.mod h1:Nna6Yv7PWTdgJHVRD9hIYywQBRx7pbox6nwBnZIxl/E=
+go.opentelemetry.io/otel/sdk/metric v1.21.0 h1:smhI5oD714d6jHE6Tie36fPx4WDFIg+Y6RfAY4ICcR0=
+go.opentelemetry.io/otel/sdk/metric v1.21.0/go.mod h1:FJ8RAsoPGv/wYMgBdUJXOm+6pzFY3YdljnXtv1SBE8Q=
 go.opentelemetry.io/otel/trace v1.21.0 h1:WD9i5gzvoUPuXIXH24ZNBudiarZDKuekPqi/E8fpfLc=
 go.opentelemetry.io/otel/trace v1.21.0/go.mod h1:LGbsEB0f9LGjN+OZaQQ26sohbOmiMR+BaslueVtS/qQ=
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=

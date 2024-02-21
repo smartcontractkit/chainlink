@@ -718,7 +718,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Fin
 				oldestBlocksBehind = blockNum - *oldestBlockNum
 			}
 		} else {
-			logger.Sugared(lggr).AssumptionViolationf("Expected tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
+			logger.Sugared(lggr).AssumptionViolationw("Expected tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 		}
 		lggr.Infow(fmt.Sprintf("Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, label.NodeConnectivityProblemWarning), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
 	}
@@ -858,10 +858,19 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
 	case client.ExceedsMaxFee:
-		// Confirmer: The gas price was bumped too high. This transaction attempt cannot be accepted.
-		// Best thing we can do is to re-send the previous attempt at the old
-		// price and discard this bumped version.
-		fallthrough
+		// Confirmer: Note it is not guaranteed that all nodes share the same tx fee cap.
+		// So it is very likely that this attempt was successful on another node since
+		// it was already successfully broadcasted. So we assume it is successful and
+		// warn the operator that the RPC node is misconfigured.
+		// This failure scenario is a strong indication that the RPC node
+		// is misconfigured. This is a critical error and should be resolved by the
+		// node operator.
+		// If there is only one RPC node, or all RPC nodes have the same
+		// configured cap, this transaction will get stuck and keep repeating
+		// forever until the issue is resolved.
+		lggr.Criticalw(`RPC node rejected this tx as outside Fee Cap but it may have been accepted by another Node`, "attempt", attempt)
+		timeout := ec.dbConfig.DefaultQueryTimeout()
+		return ec.txStore.SaveSentAttempt(ctx, timeout, &attempt, now)
 	case client.Fatal:
 		// WARNING: This should never happen!
 		// Should NEVER be fatal this is an invariant violation. The
