@@ -327,7 +327,7 @@ func TestAutomation(t *testing.T) {
 			FundingAmount:  automationDefaultLinkFunds,
 		}
 		l.Debug().Interface("Upkeep Config", upkeepConfig).Msg("LogTrigger Upkeep Config")
-		//upkeepConfigs = append(upkeepConfigs, upkeepConfig)
+		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
 
 		registrationTxHashes, err := automationTest.RegisterUpkeeps(upkeepConfigs)
 		require.NoError(t, err, "Error registering upkeeps")
