@@ -286,9 +286,7 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 			},
-			blob:           "0xab2123dc",
 			responseBytes:  "invalid response",
-			statusCode:     http.StatusOK,
 			streamsErrCode: encoding.ErrCodeStreamsBadResponse,
 		},
 		{
@@ -304,7 +302,6 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 				UpkeepId: upkeepId,
 			},
 			blob:           "0xgz", // Invalid hex
-			statusCode:     http.StatusOK,
 			streamsErrCode: encoding.ErrCodeStreamsBadResponse,
 		},
 	}
