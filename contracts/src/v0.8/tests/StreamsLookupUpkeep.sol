@@ -37,6 +37,7 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
   bool public verify;
   bool public shouldRevertCallback;
   bool public callbackReturnBool;
+  bool public shouldRetryOnError;
 
   constructor(uint256 _testRange, uint256 _interval, bool _useArbBlock, bool _staging, bool _verify) {
     testRange = _testRange;
@@ -56,6 +57,7 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     staging = _staging;
     verify = _verify;
     callbackReturnBool = true;
+    shouldRetryOnError = true;
   }
 
   function setParamKeys(string memory _feedParamKey, string memory _timeParamKey) external {
@@ -75,6 +77,10 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     callbackReturnBool = value;
   }
 
+  function setShouldRetryOnErrorBool(bool value) public {
+    shouldRetryOnError = value;
+  }
+
   function reset() public {
     previousPerformBlock = 0;
     initialBlock = 0;
@@ -86,6 +92,17 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (callbackReturnBool, performData);
+  }
+
+  function checkErrorHandler(
+    uint256 errCode,
+    bytes memory extraData
+  ) external view returns (bool upkeepNeeded, bytes memory performData) {
+    bytes[] memory values = new bytes[](2);
+    values[0] = abi.encode(errCode);
+    values[1] = abi.encode(extraData);
+    bytes memory performData = abi.encode(values, extraData);
+    return (shouldRetryOnError, performData);
   }
 
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
