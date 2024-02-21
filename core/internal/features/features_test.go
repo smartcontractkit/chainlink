@@ -773,9 +773,9 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
+	forwarderORM := forwarders.NewORM(app.GetSqlxDB())
 	chainID := ubig.Big(*b.Blockchain().Config().ChainID)
-	_, err = forwarderORM.CreateForwarder(forwarder, chainID)
+	_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarder, chainID)
 	require.NoError(t, err)
 
 	return app, p2pKey.PeerID().Raw(), transmitter, forwarder, key

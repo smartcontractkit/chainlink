@@ -5,17 +5,17 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	"github.com/jmoiron/sqlx"
 )
 
 type TestORM struct {
@@ -27,9 +27,8 @@ func setupORM(t *testing.T) *TestORM {
 	t.Helper()
 
 	var (
-		db   = pgtest.NewSqlxDB(t)
-		lggr = logger.Test(t)
-		orm  = NewORM(db, lggr, pgtest.NewQConfig(true))
+		db  = pgtest.NewSqlxDB(t)
+		orm = NewORM(db)
 	)
 
 	return &TestORM{ORM: orm, db: db}
@@ -41,8 +40,9 @@ func Test_DeleteForwarder(t *testing.T) {
 	orm := setupORM(t)
 	addr := testutils.NewAddress()
 	chainID := testutils.FixtureChainID
+	ctx := testutils.Context(t)
 
-	fwd, err := orm.CreateForwarder(addr, *big.New(chainID))
+	fwd, err := orm.CreateForwarder(ctx, addr, *big.New(chainID))
 	require.NoError(t, err)
 	assert.Equal(t, addr, fwd.Address)
 
@@ -56,14 +56,14 @@ func Test_DeleteForwarder(t *testing.T) {
 	rets := []error{ErrCleaningUp, nil, nil, ErrCleaningUp}
 	expected := []error{ErrCleaningUp, nil, sql.ErrNoRows, sql.ErrNoRows}
 
-	testCleanupFn := func(q pg.Queryer, evmChainID int64, addr common.Address) error {
+	testCleanupFn := func(q sqlutil.Queryer, evmChainID int64, addr common.Address) error {
 		require.Less(t, cleanupCalled, len(rets))
 		cleanupCalled++
 		return rets[cleanupCalled-1]
 	}
 
 	for _, expect := range expected {
-		err = orm.DeleteForwarder(fwd.ID, testCleanupFn)
+		err = orm.DeleteForwarder(ctx, fwd.ID, testCleanupFn)
 		assert.ErrorIs(t, err, expect)
 	}
 	assert.Equal(t, 2, cleanupCalled)
