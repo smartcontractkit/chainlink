@@ -49,7 +49,7 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
 	startDate := time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	for j := 1; j < 100; j++ {
 		var logs []logpoller.Log
@@ -86,7 +86,7 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 
 func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 	chainId := big.NewInt(137)
-	ctx := context.Background()
+	ctx := testutils.Context(b)
 	_, db := heavyweight.FullTestDBV2(b, nil)
 	o := logpoller.NewORM(chainId, db, logger.Test(b))
 	event, address, _ := populateDatabase(b, o, chainId)
