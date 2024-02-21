@@ -269,8 +269,8 @@ func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.Simulat
 		2*time.Second,        // DeltaProgress
 		20*time.Second,       // DeltaResend
 		400*time.Millisecond, // DeltaInitial
-		100*time.Millisecond, // DeltaRound
-		0,                    // DeltaGrace
+		200*time.Millisecond, // DeltaRound
+		100*time.Millisecond, // DeltaGrace
 		300*time.Millisecond, // DeltaCertifiedCommitRequest
 		1*time.Minute,        // DeltaStage
 		100,                  // rMax
