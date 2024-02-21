@@ -89,10 +89,14 @@ func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blo
 	return c.multiNode.BalanceAt(ctx, account, blockNumber)
 }
 
+// Request specific errors for batch calls are returned to the individual BatchElem.
+// Ensure the same BatchElem slice provided by the caller is passed through the call stack 
+// to ensure the caller has access to the errors.
 func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return c.multiNode.BatchCallContext(ctx, b)
 }
 
+// Similar to BatchCallContext, ensure the provided BatchElem slice is passed through
 func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
 	return c.multiNode.BatchCallContextAll(ctx, b)
 }
