@@ -126,7 +126,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	err = lp.UnregisterFilter(testutils.Context(t), "Emitter Log 1")
 	require.NoError(t, err)
 	assert.Len(t, lp.filters, 0)
-	filters, err := lp.orm.LoadFilters(lp.ctx)
+	filters, err := lp.orm.LoadFilters(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Len(t, filters, 0)
 
@@ -262,7 +262,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// process 1 log in block 3
 	lp.PollAndSaveLogs(testutils.Context(t), 4)
-	latest, err := lp.LatestBlock(lp.ctx)
+	latest, err := lp.LatestBlock(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, int64(4), latest.BlockNumber)
 
