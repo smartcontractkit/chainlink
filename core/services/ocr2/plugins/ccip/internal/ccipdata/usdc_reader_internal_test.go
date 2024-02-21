@@ -3,18 +3,23 @@ package ccipdata
 import (
 	"context"
 	"fmt"
-	"slices"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -80,37 +85,33 @@ func TestParse(t *testing.T) {
 
 func TestFilters(t *testing.T) {
 	t.Run("filters of different jobs should be distinct", func(t *testing.T) {
-		lp := lpmocks.NewLogPoller(t)
 		lggr := logger.TestLogger(t)
+		chainID := testutils.NewRandomEVMChainID()
+		db := pgtest.NewSqlxDB(t)
+		o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{}, 10e6)
+		esc := client.NewSimulatedBackendClient(t, ec, chainID)
+		lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, false, 1, 1, 1, 100)
 
 		jobID1 := "job-1"
 		jobID2 := "job-2"
 		transmitter := utils.RandomAddress()
 
-		var registeredFilters []string   // filters registered by job-1
-		var deregisteredFilters []string // should not exist in filters deregistered by job-2
+		f1 := logpoller.FilterName("USDC message sent", jobID1, transmitter.Hex())
+		f2 := logpoller.FilterName("USDC message sent", jobID2, transmitter.Hex())
 
-		// job-1 registers filters
-		lp.On("RegisterFilter", mock.Anything).Run(func(args mock.Arguments) {
-			f := args.Get(0).(logpoller.Filter)
-			registeredFilters = append(registeredFilters, f.Name)
-		}).Return(nil)
 		_, err := NewUSDCReader(lggr, jobID1, transmitter, lp, true)
 		assert.NoError(t, err)
+		assert.True(t, lp.HasFilter(f1))
 
-		// job-2 de-registers filters
-		lp.On("UnregisterFilter", mock.Anything).Run(func(args mock.Arguments) {
-			name := args.Get(0).(string)
-			deregisteredFilters = append(deregisteredFilters, name)
-		}).Return(nil)
+		_, err = NewUSDCReader(lggr, jobID2, transmitter, lp, true)
+		assert.NoError(t, err)
+		assert.True(t, lp.HasFilter(f2))
+
 		err = CloseUSDCReader(lggr, jobID2, transmitter, lp)
 		assert.NoError(t, err)
-
-		assert.NotEmpty(t, deregisteredFilters)
-		assert.NotEmpty(t, registeredFilters)
-		for _, f := range registeredFilters {
-			assert.False(t, slices.Contains(deregisteredFilters, f))
-		}
+		assert.True(t, lp.HasFilter(f1))
+		assert.False(t, lp.HasFilter(f2))
 	})
 
 }
