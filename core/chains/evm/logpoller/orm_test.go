@@ -2,7 +2,6 @@ package logpoller_test
 
 import (
 	"bytes"
-	"context"
 	"database/sql"
 	"fmt"
 	"math"
@@ -67,7 +66,7 @@ func GenLogWithData(chainID *big.Int, address common.Address, eventSig common.Ha
 
 func TestLogPoller_Batching(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	var logs []logpoller.Log
 	// Inserts are limited to 65535 parameters. A log being 10 parameters this results in
@@ -86,7 +85,7 @@ func TestLogPoller_Batching(t *testing.T) {
 func TestORM_GetBlocks_From_Range(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	// Insert many blocks and read them back together
 	blocks := []block{
 		{
@@ -142,7 +141,7 @@ func TestORM_GetBlocks_From_Range(t *testing.T) {
 func TestORM_GetBlocks_From_Range_Recent_Blocks(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	// Insert many blocks and read them back together
 	var recentBlocks []block
 	for i := 1; i <= 256; i++ {
@@ -176,7 +175,7 @@ func TestORM(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
 	o2 := th.ORM2
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	// Insert and read back a block.
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1234"), 10, time.Now(), 0))
 	b, err := o1.SelectBlockByHash(ctx, common.HexToHash("0x1234"))
@@ -466,13 +465,13 @@ func insertLogsTopicValueRange(t *testing.T, chainID *big.Int, o *logpoller.DbOR
 			Data:        []byte("hello"),
 		})
 	}
-	require.NoError(t, o.InsertLogs(context.Background(), lgs))
+	require.NoError(t, o.InsertLogs(testutils.Context(t), lgs))
 }
 
 func TestORM_IndexedLogs(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	eventSig := common.HexToHash("0x1599")
 	addr := common.HexToAddress("0x1234")
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1"), 1, time.Now(), 0))
@@ -534,7 +533,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 	th := SetupTH(t, false, 0, 3, 2, 1000)
 	o1 := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	eventSig := common.HexToHash("0x1599")
 	txHash := common.HexToHash("0x1888")
 	addr := common.HexToAddress("0x1234")
@@ -601,7 +600,7 @@ func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
 func TestORM_DataWords(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	eventSig := common.HexToHash("0x1599")
 	addr := common.HexToAddress("0x1234")
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1"), 1, time.Now(), 0))
@@ -665,7 +664,7 @@ func TestORM_DataWords(t *testing.T) {
 func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	// Insert logs on different topics, should be able to read them
 	// back using SelectLogsWithSigs and specifying
@@ -760,7 +759,7 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 func TestORM_DeleteBlocksBefore(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	o1 := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1234"), 1, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1235"), 2, time.Now(), 0))
 	require.NoError(t, o1.DeleteBlocksBefore(ctx, 1))
@@ -783,7 +782,7 @@ func TestORM_DeleteBlocksBefore(t *testing.T) {
 func TestLogPoller_Logs(t *testing.T) {
 	t.Parallel()
 	th := SetupTH(t, false, 2, 3, 2, 1000)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
@@ -833,7 +832,7 @@ func TestLogPoller_Logs(t *testing.T) {
 func BenchmarkLogs(b *testing.B) {
 	th := SetupTH(b, false, 2, 3, 2, 1000)
 	o := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(b)
 	var lgs []logpoller.Log
 	addr := common.HexToAddress("0x1234")
 	for i := 0; i < 10_000; i++ {
@@ -862,7 +861,7 @@ func BenchmarkLogs(b *testing.B) {
 func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	orm := th.ORM
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	addressA := common.HexToAddress("0x11111")
 	addressB := common.HexToAddress("0x22222")
 	addressC := common.HexToAddress("0x33333")
@@ -1108,7 +1107,7 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 
 func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
 	address1 := utils.RandomAddress()
@@ -1206,7 +1205,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 
 func TestSelectLogsCreatedAfter(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	event := EmitterABI.Events["Log1"].ID
 	address := utils.RandomAddress()
 
@@ -1311,7 +1310,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 
 func TestNestedLogPollerBlocksQuery(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	event := EmitterABI.Events["Log1"].ID
 	address := utils.RandomAddress()
 
@@ -1342,7 +1341,7 @@ func TestInsertLogsWithBlock(t *testing.T) {
 	chainID := testutils.NewRandomEVMChainID()
 	event := utils.RandomBytes32()
 	address := utils.RandomAddress()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	// We need full db here, because we want to test transaction rollbacks.
 	// Using pgtest.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
@@ -1421,7 +1420,7 @@ func TestInsertLogsInTx(t *testing.T) {
 	event := utils.RandomBytes32()
 	address := utils.RandomAddress()
 	maxLogsSize := 9000
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	// We need full db here, because we want to test transaction rollbacks.
 	_, db := heavyweight.FullTestDBV2(t, nil)
@@ -1471,7 +1470,7 @@ func TestInsertLogsInTx(t *testing.T) {
 }
 
 func TestSelectLogsDataWordBetween(t *testing.T) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	address := utils.RandomAddress()
 	eventSig := utils.RandomBytes32()
 	th := SetupTH(t, false, 2, 3, 2, 1000)
@@ -1537,7 +1536,7 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 	chainId := big.NewInt(137)
 	_, db := heavyweight.FullTestDBV2(b, nil)
 	o := logpoller.NewORM(chainId, db, logger.Test(b))
-	ctx := context.Background()
+	ctx := testutils.Context(b)
 
 	numberOfReports := 100_000
 	numberOfMessagesPerReport := 256
