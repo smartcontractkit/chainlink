@@ -182,6 +182,63 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 			errorMessage: "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
 		},
 		{
+			name:  "failure StatusGatewayTimeout - returns retryable",
+			index: 0,
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			blob:         "0xab2123dc",
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusGatewayTimeout,
+			state:        encoding.MercuryFlakyFailure,
+			retryable:    true,
+			errorMessage: "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 504\n#2: 504\n#3: 504",
+		},
+		{
+			name:  "failure StatusServiceUnavailable - returns retryable",
+			index: 0,
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			blob:         "0xab2123dc",
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusServiceUnavailable,
+			state:        encoding.MercuryFlakyFailure,
+			retryable:    true,
+			errorMessage: "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 503\n#2: 503\n#3: 503",
+		},
+		{
+			name:  "failure StatusBadGateway - returns retryable",
+			index: 0,
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			blob:         "0xab2123dc",
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusBadGateway,
+			state:        encoding.MercuryFlakyFailure,
+			retryable:    true,
+			errorMessage: "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 502\n#2: 502\n#3: 502",
+		},
+		{
 			name:  "failure - returns retryable and then non-retryable",
 			index: 0,
 			lookup: &mercury.StreamsLookup{
