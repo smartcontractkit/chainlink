@@ -195,7 +195,7 @@ func (p *logEventProvider) ReadLogs(pctx context.Context, ids ...*big.Int) error
 	ctx, cancel := context.WithTimeout(pctx, readLogsTimeout)
 	defer cancel()
 
-	latest, err := p.poller.LatestBlock(pctx)
+	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
