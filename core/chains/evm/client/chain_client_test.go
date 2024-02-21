@@ -58,9 +58,10 @@ func TestChainClient_BatchCallContext(t *testing.T) {
 		}).Return(nil).Once()
 
 		client := client.NewChainClientWithMockedRpc(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID, mockRpc)
-		client.Dial(ctx)
+		err := client.Dial(ctx)
+		require.NoError(t, err)
 
-		err := client.BatchCallContext(ctx, b)
+		err = client.BatchCallContext(ctx, b)
 		require.NoError(t, err)
 		for _, elem := range b {
 			require.Equal(t, rpcError, elem.Error.Error())
