@@ -3,6 +3,9 @@ package workflows
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -12,49 +15,91 @@ import (
 )
 
 const (
-	mockedWorkflowID = "ef7c8168-f4d1-422f-a4b2-8ce0a1075f0a"
-	mockedTriggerID  = "bd727a82-5cac-4071-be62-0152dd9adb0f"
+	mockedWorkflowID  = "aaaaaaaa-f4d1-422f-a4b2-8ce0a1075f0a"
+	mockedExecutionID = "bbbbbbbb-f4d1-422f-a4b2-8ce0a1075f0a"
+	mockedTriggerID   = "cccccccc-5cac-4071-be62-0152dd9adb0f"
 )
 
 type Engine struct {
 	services.StateMachine
-	logger     logger.Logger
-	registry   types.CapabilitiesRegistry
-	trigger    capabilities.TriggerCapability
-	consensus  capabilities.ConsensusCapability
-	target     capabilities.TargetCapability
-	callbackCh chan capabilities.CapabilityResponse
-	cancel     func()
+	logger          logger.Logger
+	registry        types.CapabilitiesRegistry
+	triggerType     string
+	triggerConfig   *values.Map
+	trigger         capabilities.TriggerCapability
+	consensusType   string
+	consensusConfig *values.Map
+	consensus       capabilities.ConsensusCapability
+	targetType      string
+	targetConfig    *values.Map
+	target          capabilities.TargetCapability
+	callbackCh      chan capabilities.CapabilityResponse
+	cancel          func()
 }
 
 func (e *Engine) Start(ctx context.Context) error {
 	return e.StartOnce("Engine", func() error {
-		err := e.registerTrigger(ctx)
-		if err != nil {
-			return err
-		}
-
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, cancel := context.WithCancel(context.Background())
 		e.cancel = cancel
-		go e.loop(ctx)
+		go e.init(ctx)
+		go e.triggerHandlerLoop(ctx)
 		return nil
 	})
 }
 
-func (e *Engine) registerTrigger(ctx context.Context) error {
-	triggerConf, err := values.NewMap(
-		map[string]any{
-			"feedlist": []any{
-				// ETHUSD, LINKUSD, USDBTC
-				123, 456, 789,
-			},
-		},
-	)
-	if err != nil {
-		return err
+func (e *Engine) init(ctx context.Context) {
+	retrySec := 5
+	ticker := time.NewTicker(time.Duration(retrySec) * time.Second)
+	defer ticker.Stop()
+	var err error
+LOOP:
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			e.trigger, err = e.registry.GetTrigger(ctx, e.triggerType)
+			if err != nil {
+				e.logger.Errorf("failed to get trigger capability: %s, retrying in %d seconds", err, retrySec)
+				break
+			}
+			e.consensus, err = e.registry.GetConsensus(ctx, e.consensusType)
+			if err != nil {
+				e.logger.Errorf("failed to get consensus capability: %s, retrying in %d seconds", err, retrySec)
+				break
+			}
+			e.target, err = e.registry.GetTarget(ctx, e.targetType)
+			if err != nil {
+				e.logger.Errorf("failed to get target capability: %s, retrying in %d seconds", err, retrySec)
+				break
+			}
+			break LOOP
+		}
 	}
 
+	// we have all needed capabilities, now we can register for trigger events
+	err = e.registerTrigger(ctx)
+	if err != nil {
+		e.logger.Errorf("failed to register trigger: %s", err)
+	}
+
+	// also register for consensus
+	reg := capabilities.RegisterToWorkflowRequest{
+		Metadata: capabilities.RegistrationMetadata{
+			WorkflowID: mockedWorkflowID,
+		},
+		Config: e.consensusConfig,
+	}
+	err = e.consensus.RegisterToWorkflow(ctx, reg)
+	if err != nil {
+		e.logger.Errorf("failed to register consensus: %s", err)
+	}
+
+	e.logger.Info("engine initialized")
+}
+
+func (e *Engine) registerTrigger(ctx context.Context) error {
 	triggerInputs, err := values.NewMap(
 		map[string]any{
 			"triggerId": mockedTriggerID,
@@ -68,7 +113,7 @@ func (e *Engine) registerTrigger(ctx context.Context) error {
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID: mockedWorkflowID,
 		},
-		Config: triggerConf,
+		Config: e.triggerConfig,
 		Inputs: triggerInputs,
 	}
 	err = e.trigger.RegisterTrigger(ctx, e.callbackCh, triggerRegRequest)
@@ -78,7 +123,7 @@ func (e *Engine) registerTrigger(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) loop(ctx context.Context) {
+func (e *Engine) triggerHandlerLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -92,8 +137,9 @@ func (e *Engine) loop(ctx context.Context) {
 	}
 }
 
-func (e *Engine) handleExecution(ctx context.Context, resp capabilities.CapabilityResponse) error {
-	results, err := e.handleConsensus(ctx, resp)
+func (e *Engine) handleExecution(ctx context.Context, event capabilities.CapabilityResponse) error {
+	e.logger.Debugw("executing on a trigger event", "event", event)
+	results, err := e.handleConsensus(ctx, event)
 	if err != nil {
 		return err
 	}
@@ -103,27 +149,14 @@ func (e *Engine) handleExecution(ctx context.Context, resp capabilities.Capabili
 }
 
 func (e *Engine) handleTarget(ctx context.Context, resp *values.List) (*values.List, error) {
-	report, err := resp.Unwrap()
-	if err != nil {
-		return nil, err
-	}
+
 	inputs := map[string]values.Value{
 		"report": resp,
-	}
-	config, err := values.NewMap(map[string]any{
-		"address": "0xaabbcc",
-		"method":  "updateFeedValues(report bytes, role uint8)",
-		"params": []any{
-			report, 1,
-		},
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	tr := capabilities.CapabilityRequest{
 		Inputs: &values.Map{Underlying: inputs},
-		Config: config,
+		Config: e.targetConfig,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID: mockedWorkflowID,
 		},
@@ -132,39 +165,17 @@ func (e *Engine) handleTarget(ctx context.Context, resp *values.List) (*values.L
 }
 
 func (e *Engine) handleConsensus(ctx context.Context, resp capabilities.CapabilityResponse) (*values.List, error) {
+	e.logger.Debugw("running consensus", "resp", resp)
 	inputs := map[string]values.Value{
 		"observations": resp.Value,
 	}
-	config, err := values.NewMap(map[string]any{
-		"aggregation_method": "data_feeds_2_0",
-		"aggregation_config": map[string]any{
-			// ETHUSD
-			"123": map[string]any{
-				"deviation": "0.005",
-				"heartbeat": "24h",
-			},
-			// LINKUSD
-			"456": map[string]any{
-				"deviation": "0.001",
-				"heartbeat": "24h",
-			},
-			// BTCUSD
-			"789": map[string]any{
-				"deviation": "0.002",
-				"heartbeat": "6h",
-			},
-		},
-		"encoder": "EVM",
-	})
-	if err != nil {
-		return nil, nil
-	}
 	cr := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: mockedWorkflowID,
+			WorkflowID:          mockedWorkflowID,
+			WorkflowExecutionID: mockedExecutionID,
 		},
 		Inputs: &values.Map{Underlying: inputs},
-		Config: config,
+		Config: e.consensusConfig,
 	}
 	return capabilities.ExecuteSync(ctx, e.consensus, cr)
 }
@@ -191,26 +202,65 @@ func (e *Engine) Close() error {
 	})
 }
 
-func NewEngine(lggr logger.Logger, registry types.CapabilitiesRegistry) (*Engine, error) {
-	ctx := context.Background()
-	trigger, err := registry.GetTrigger(ctx, "on_mercury_report")
-	if err != nil {
-		return nil, err
-	}
-	consensus, err := registry.GetConsensus(ctx, "off-chain-reporting")
-	if err != nil {
-		return nil, err
-	}
-	target, err := registry.GetTarget(ctx, "write_polygon_mainnet")
-	if err != nil {
-		return nil, err
-	}
-	return &Engine{
-		logger:     lggr,
+func NewEngine(lggr logger.Logger, registry types.CapabilitiesRegistry) (engine *Engine, err error) {
+	engine = &Engine{
+		logger:     lggr.Named("WorkflowEngine"),
 		registry:   registry,
-		trigger:    trigger,
-		consensus:  consensus,
-		target:     target,
 		callbackCh: make(chan capabilities.CapabilityResponse),
-	}, nil
+	}
+
+	// Trigger
+	engine.triggerType = "on_mercury_report"
+	engine.triggerConfig, err = values.NewMap(
+		map[string]any{
+			"feedlist": []any{
+				123, 456, 789, // ETHUSD, LINKUSD, USDBTC
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Consensus
+	engine.consensusType = "offchain_reporting"
+	engine.consensusConfig, err = values.NewMap(map[string]any{
+		"aggregation_method": "data_feeds_2_0",
+		"aggregation_config": map[string]any{
+			// ETHUSD
+			"0x1111111111111111111100000000000000000000000000000000000000000000": map[string]any{
+				"deviation": decimal.NewFromFloat(0.003),
+				"heartbeat": 24,
+			},
+			// LINKUSD
+			"0x2222222222222222222200000000000000000000000000000000000000000000": map[string]any{
+				"deviation": decimal.NewFromFloat(0.001),
+				"heartbeat": 24,
+			},
+			// BTCUSD
+			"0x3333333333333333333300000000000000000000000000000000000000000000": map[string]any{
+				"deviation": decimal.NewFromFloat(0.002),
+				"heartbeat": 6,
+			},
+		},
+		"encoder": "EVM",
+		"encoder_config": map[string]any{
+			"abi": "mercury_reports bytes[]",
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Target
+	engine.targetType = "write_polygon-testnet-mumbai"
+	engine.targetConfig, err = values.NewMap(map[string]any{
+		"address": "0xaabbcc",
+		"params":  []any{"$(report)"},
+		"abi":     "receive(report bytes)",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return
 }
