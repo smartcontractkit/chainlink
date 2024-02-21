@@ -114,12 +114,12 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	if filterStoreHasFilter {
 		// removing filter in case of an update so we can recreate it with updated values
 		lggr.Debugw("Upserting upkeep filter")
-		err := p.poller.UnregisterFilter(lpFilter.Name)
+		err := p.poller.UnregisterFilter(ctx, lpFilter.Name)
 		if err != nil {
 			return fmt.Errorf("failed to upsert (unregister) upkeep filter %s: %w", ufilter.upkeepID.String(), err)
 		}
 	}
-	if err := p.poller.RegisterFilter(lpFilter); err != nil {
+	if err := p.poller.RegisterFilter(ctx, lpFilter); err != nil {
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
@@ -146,7 +146,9 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 	// Filter might have been unregistered already, only try to unregister if it exists
 	if p.poller.HasFilter(p.filterName(upkeepID)) {
-		if err := p.poller.UnregisterFilter(p.filterName(upkeepID)); err != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		if err := p.poller.UnregisterFilter(ctx, p.filterName(upkeepID)); err != nil {
 			return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
 		}
 	}

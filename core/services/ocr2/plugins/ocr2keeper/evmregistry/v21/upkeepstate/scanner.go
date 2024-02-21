@@ -49,8 +49,8 @@ func NewPerformedEventsScanner(
 	}
 }
 
-func (s *performedEventsScanner) Start(_ context.Context) error {
-	return s.poller.RegisterFilter(logpoller.Filter{
+func (s *performedEventsScanner) Start(ctx context.Context) error {
+	return s.poller.RegisterFilter(ctx, logpoller.Filter{
 		Name: dedupFilterName(s.registryAddress),
 		EventSigs: []common.Hash{
 			// listening to dedup key added event
@@ -78,7 +78,7 @@ func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...stri
 			end = len(ids)
 		}
 		batch := ids[i:end]
-		batchLogs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, logpoller.Confirmations(s.finalityDepth))
+		batchLogs, err := s.poller.IndexedLogs(ctx, iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, logpoller.Confirmations(s.finalityDepth))
 		if err != nil {
 			return nil, fmt.Errorf("error fetching logs: %w", err)
 		}

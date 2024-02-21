@@ -3,9 +3,10 @@ package headtracker
 import (
 	"context"
 	"database/sql"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"

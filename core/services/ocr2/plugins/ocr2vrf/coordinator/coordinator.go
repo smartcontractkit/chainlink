@@ -182,7 +182,9 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	err = logPoller.RegisterFilter(logpoller.Filter{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
 		EventSigs: []common.Hash{
 			t.randomnessRequestedTopic,
@@ -256,6 +258,7 @@ func (c *coordinator) ReportIsOnchain(
 
 	c.lggr.Info(fmt.Sprintf("epoch and round: %s %s", epochAndRound.String(), enrTopic.String()))
 	logs, err := c.lp.IndexedLogs(
+		ctx,
 		c.topics.newTransmissionTopic,
 		c.beaconAddress,
 		2,
@@ -340,6 +343,7 @@ func (c *coordinator) ReportBlocks(
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
+		ctx,
 		int64(currentHeight-c.coordinatorConfig.LookbackBlocks),
 		int64(currentHeight),
 		[]common.Hash{
@@ -908,6 +912,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	defer c.logAndEmitFunctionDuration("DKGVRFCommittees", startTime)
 
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
+		ctx,
 		c.configSetTopic,
 		c.beaconAddress,
 		logpoller.Confirmations(c.finalityDepth),
@@ -918,6 +923,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	}
 
 	latestDKG, err := c.lp.LatestLogByEventSigWithConfs(
+		ctx,
 		c.configSetTopic,
 		c.dkgAddress,
 		logpoller.Confirmations(c.finalityDepth),

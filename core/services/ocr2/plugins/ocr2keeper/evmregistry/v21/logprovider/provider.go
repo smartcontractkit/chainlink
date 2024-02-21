@@ -377,7 +377,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			start = configUpdateBlock
 		}
 		// query logs based on contract address, event sig, and blocks
-		logs, err := p.poller.LogsWithSigs(start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr))
+		logs, err := p.poller.LogsWithSigs(ctx, start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr))
 		if err != nil {
 			// cancel limit reservation as we failed to get logs
 			resv.Cancel()

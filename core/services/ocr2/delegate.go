@@ -332,10 +332,11 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 	}
 
 	filters = append(filters, relayFilters...)
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(filter)
+		err = lp.UnregisterFilter(ctx, filter)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
 		}

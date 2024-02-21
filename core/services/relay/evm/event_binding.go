@@ -52,7 +52,9 @@ func (e *eventBinding) Register() error {
 		return nil
 	}
 
-	if err := e.lp.RegisterFilter(logpoller.Filter{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := e.lp.RegisterFilter(ctx, logpoller.Filter{
 		Name:      e.id,
 		EventSigs: evmtypes.HashArray{e.hash},
 		Addresses: evmtypes.AddressArray{e.address},
@@ -70,7 +72,9 @@ func (e *eventBinding) Unregister() error {
 		return nil
 	}
 
-	if err := e.lp.UnregisterFilter(e.id); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := e.lp.UnregisterFilter(ctx, e.id); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 	return nil
@@ -109,7 +113,7 @@ func (e *eventBinding) Bind(binding commontypes.BoundContract) error {
 }
 
 func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs logpoller.Confirmations, into any) error {
-	log, err := e.lp.LatestLogByEventSigWithConfs(e.hash, e.address, confs)
+	log, err := e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, e.address, confs)
 	if err = wrapInternalErr(err); err != nil {
 		return err
 	}
@@ -142,7 +146,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 	fai := filtersAndIndices[0]
 	remainingFilters := filtersAndIndices[1:]
 
-	logs, err := e.lp.IndexedLogs(e.hash, e.address, 1, []common.Hash{fai}, confs)
+	logs, err := e.lp.IndexedLogs(ctx, e.hash, e.address, 1, []common.Hash{fai}, confs)
 	if err != nil {
 		return wrapInternalErr(err)
 	}

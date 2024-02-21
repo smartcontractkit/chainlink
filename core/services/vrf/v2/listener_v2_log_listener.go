@@ -40,7 +40,7 @@ func (lsn *listenerV2) runLogListener(
 			lsn.l.Debugw("log listener loop")
 			// Filter registration is idempotent, so we can just call it every time
 			// and retry on errors using the ticker.
-			err := lsn.chain.LogPoller().RegisterFilter(logpoller.Filter{
+			err := lsn.chain.LogPoller().RegisterFilter(ctx, logpoller.Filter{
 				Name: logpoller.FilterName(
 					"VRFListener",
 					"version", lsn.coordinator.Version(),
@@ -130,6 +130,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	// get randomness requested logs with the appropriate keyhash
 	// keyhash is specified in topic1
 	requests, err := lp.IndexedLogsCreatedAfter(
+		ctx,
 		lsn.coordinator.RandomWordsRequestedTopic(), // event sig
 		lsn.coordinator.Address(),                   // address
 		1,                                           // topic index
@@ -144,6 +145,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	// fulfillments don't have keyhash indexed, we'll have to get all of them
 	// TODO: can we instead write a single query that joins on request id's somehow?
 	fulfillments, err := lp.LogsCreatedAfter(
+		ctx,
 		lsn.coordinator.RandomWordsFulfilledTopic(), // event sig
 		lsn.coordinator.Address(),                   // address
 		fromTimestamp,                               // from time
@@ -186,6 +188,7 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 	}()
 
 	logs, err := lp.LogsWithSigs(
+		ctx,
 		currLastProcessedBlock,
 		latestBlock.FinalizedBlockNumber,
 		[]common.Hash{lsn.coordinator.RandomWordsFulfilledTopic(), lsn.coordinator.RandomWordsRequestedTopic()},
@@ -244,6 +247,7 @@ func (lsn *listenerV2) pollLogs(ctx context.Context, minConfs uint32, lastProces
 	// We don't specify confs because each request can have a different conf above
 	// the minimum. So we do all conf handling in getConfirmedAt.
 	logs, err := lp.LogsWithSigs(
+		ctx,
 		lastProcessedBlock,
 		latestBlock.BlockNumber,
 		[]common.Hash{lsn.coordinator.RandomWordsFulfilledTopic(), lsn.coordinator.RandomWordsRequestedTopic()},

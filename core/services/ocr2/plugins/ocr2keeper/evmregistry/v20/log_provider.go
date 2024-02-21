@@ -68,7 +68,9 @@ func NewLogProvider(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	err = logPoller.RegisterFilter(logpoller.Filter{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: LogProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
@@ -151,6 +153,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
 	logs, err := c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
@@ -193,6 +196,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// ReorgedUpkeepReportLogs
 	logs, err := c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
@@ -210,6 +214,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// StaleUpkeepReportLogs
 	logs, err = c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
@@ -227,6 +232,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// InsufficientFundsUpkeepReportLogs
 	logs, err = c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{

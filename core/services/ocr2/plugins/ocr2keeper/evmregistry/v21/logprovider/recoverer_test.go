@@ -887,7 +887,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return nil, errors.New("logs with sigs boom")
 				},
 			},
@@ -922,7 +922,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 80,
@@ -970,7 +970,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 80,
@@ -1021,7 +1021,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							EvmChainId:     ubig.New(big.NewInt(1)),
@@ -1200,11 +1200,11 @@ func (s *mockFilterStore) Has(id *big.Int) bool {
 type mockLogPoller struct {
 	logpoller.LogPoller
 	LatestBlockFn  func(ctx context.Context) (int64, error)
-	LogsWithSigsFn func(start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
+	LogsWithSigsFn func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
 }
 
-func (p *mockLogPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
-	return p.LogsWithSigsFn(start, end, eventSigs, address)
+func (p *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+	return p.LogsWithSigsFn(ctx, start, end, eventSigs, address)
 }
 func (p *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
 	block, err := p.LatestBlockFn(ctx)

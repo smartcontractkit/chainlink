@@ -259,7 +259,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		return nil, fmt.Errorf("log block %d is before the filter configUpdateBlock %d for upkeepID %s", logBlock, filter.configUpdateBlock, proposal.UpkeepID.String())
 	}
 
-	logs, err := r.poller.LogsWithSigs(logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr))
+	logs, err := r.poller.LogsWithSigs(ctx, logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr))
 	if err != nil {
 		return nil, fmt.Errorf("could not read logs: %w", err)
 	}
@@ -386,7 +386,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		end = offsetBlock
 	}
 	// we expect start to be > offsetBlock in any case
-	logs, err := r.poller.LogsWithSigs(start, end, f.topics, common.BytesToAddress(f.addr))
+	logs, err := r.poller.LogsWithSigs(ctx, start, end, f.topics, common.BytesToAddress(f.addr))
 	if err != nil {
 		return fmt.Errorf("could not read logs: %w", err)
 	}

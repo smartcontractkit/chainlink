@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"math/big"
 	"net/http"
 
@@ -91,7 +92,9 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 			// handle same as non-existent chain id
 			return nil
 		}
-		return chain.LogPoller().UnregisterFilter(forwarders.FilterName(addr))
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		return chain.LogPoller().UnregisterFilter(ctx, forwarders.FilterName(addr))
 	}
 
 	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())

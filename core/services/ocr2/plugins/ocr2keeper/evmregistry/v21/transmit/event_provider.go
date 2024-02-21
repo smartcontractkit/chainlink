@@ -60,7 +60,9 @@ func NewTransmitEventProvider(
 	if err != nil {
 		return nil, err
 	}
-	err = logPoller.RegisterFilter(logpoller.Filter{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: EventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			// These are the events that are emitted when a node transmits a report
@@ -143,6 +145,7 @@ func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.Tran
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
 	logs, err := c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{

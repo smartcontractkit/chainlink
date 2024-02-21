@@ -71,7 +71,7 @@ type V1Coordinator struct {
 
 // NewV1Coordinator creates a new V1Coordinator from the given contract.
 func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
-	err := lp.RegisterFilter(logpoller.Filter{
+	err := lp.RegisterFilter(context.Background(), logpoller.Filter{
 		Name: logpoller.FilterName("VRFv1CoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
@@ -91,6 +91,7 @@ func (v *V1Coordinator) Requests(
 	toBlock uint64,
 ) ([]Event, error) {
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
@@ -125,6 +126,7 @@ func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 	}
 
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		toBlock.BlockNumber,
 		[]common.Hash{
@@ -158,7 +160,7 @@ type V2Coordinator struct {
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
 func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
-	err := lp.RegisterFilter(logpoller.Filter{
+	err := lp.RegisterFilter(context.Background(), logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2CoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
@@ -180,6 +182,7 @@ func (v *V2Coordinator) Requests(
 	toBlock uint64,
 ) ([]Event, error) {
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
@@ -214,6 +217,7 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 	}
 
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		toBlock.BlockNumber,
 		[]common.Hash{
@@ -247,7 +251,7 @@ type V2PlusCoordinator struct {
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
 func NewV2PlusCoordinator(c v2plus.IVRFCoordinatorV2PlusInternalInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
-	err := lp.RegisterFilter(logpoller.Filter{
+	err := lp.RegisterFilter(context.Background(), logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2PlusCoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
@@ -269,6 +273,7 @@ func (v *V2PlusCoordinator) Requests(
 	toBlock uint64,
 ) ([]Event, error) {
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
@@ -303,6 +308,7 @@ func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) 
 	}
 
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		toBlock.BlockNumber,
 		[]common.Hash{

@@ -211,6 +211,7 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
 	}
 
 	err := f.logpoller.RegisterFilter(
+		f.ctx,
 		evmlogpoller.Filter{
 			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
@@ -251,6 +252,7 @@ func (f *FwdMgr) runLoop() {
 			}
 
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
+				f.ctx,
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
