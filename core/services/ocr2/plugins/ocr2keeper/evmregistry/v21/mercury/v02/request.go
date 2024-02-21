@@ -114,22 +114,19 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 			return state, nil, errCode, retryable, retryInterval, reqErr
 		}
 
-		// Now we have exhausted all retries and we have an error code to expose to user expose it with noPipelineError
-		// otherwise expose the last pipeline error to pipeline runner (not the user)
-		if errCode != encoding.ErrCodeNil {
-			return encoding.NoPipelineError, nil, errCode, false, 0 * time.Second, nil
-		}
-		return state, nil, errCode, false, 0 * time.Second, reqErr
+		// Now we have exhausted all our retries. We treat it as not a pipeline error
+		// and expose error code to the user
+		return encoding.NoPipelineError, nil, errCode, false, 0 * time.Second, nil
 	}
 
 	// All feeds faced no pipeline error
 	// If any feed request returned an error code, return the error code with empty values, else return the values
 	if !allFeedsReturnedValues {
-		return encoding.NoPipelineError, nil, errCode, false, 0 * time.Second, reqErr
+		return encoding.NoPipelineError, nil, errCode, false, 0 * time.Second, nil
 	}
 
 	// All success, return the results
-	return state, results, encoding.ErrCodeNil, false, 0 * time.Second, nil
+	return encoding.NoPipelineError, results, encoding.ErrCodeNil, false, 0 * time.Second, nil
 }
 
 func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.MercuryData, index int, sl *mercury.StreamsLookup) {
