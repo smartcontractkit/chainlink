@@ -69,7 +69,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 24h -run TestVRFV2Performance/vrfv2_performance_test ./load/vrfv2
+          test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run TestVRFV2Performance/vrfv2_performance_test ./vrfv2
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
