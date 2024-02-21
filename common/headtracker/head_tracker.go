@@ -294,7 +294,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 					break
 				}
 				{
-					latestFinalized, err := ht.calculateLatestFinalized(ctx, head.BlockNumber())
+					latestFinalized, err := ht.calculateLatestFinalized(ctx, head)
 					if err != nil {
 						ht.log.Warnw("Failed to calculate finalized block", "err", err)
 						continue
@@ -315,11 +315,15 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 // calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
 // canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
 // must be performed before usage.
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHeadNumber int64) (h HTH, err error) {
+func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (h HTH, err error) {
 	if ht.config.FinalityTagEnabled() {
 		return ht.client.LatestFinalizedBlock(ctx)
 	}
-	finalizedBlockNumber := currentHeadNumber - int64(ht.config.FinalityDepth())
+	// no need to make an additional RPC calls on chains with instant finality
+	if ht.config.FinalityDepth() == 0 {
+		return currentHead, nil
+	}
+	finalizedBlockNumber := currentHead.BlockNumber() - int64(ht.config.FinalityDepth())
 	if finalizedBlockNumber <= 0 {
 		finalizedBlockNumber = 0
 	}
