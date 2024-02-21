@@ -76,6 +76,9 @@ jobs:
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
           go install ./cmd/chainlink-feeds
           popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams)
+          go install ./mercury/cmd/chainlink-mercury
+          popd
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
           go install ./pkg/solana/cmd/chainlink-solana
           popd
@@ -257,6 +260,8 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
+      - name: Install protoc-gen-go-wsrpc
+        run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - run: make generate # generate install go deps

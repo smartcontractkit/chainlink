@@ -62,10 +62,9 @@ chainlink-local-start:
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
 
-.PHONY: install-mercury-loop
-install-mercury-loop: ## Build & install the chainlink-medianpoc binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-mercury
-
+.PHONY: install-ocr3-capability
+install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -88,7 +87,7 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery ## Execute all go:generate commands.
+generate: abigen codecgen mockery protoc ## Execute all go:generate commands.
 	go generate -x ./...
 
 .PHONY: testscripts
@@ -123,6 +122,11 @@ mockery: $(mockery) ## Install mockery.
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
+
+.PHONY: protoc
+protoc: ## Install protoc
+	core/scripts/install-protoc.sh 25.1 /
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.

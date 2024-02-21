@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -33,6 +34,7 @@ type ETHCallTask struct {
 	GasUnlimited        string `json:"gasUnlimited"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
+	Block               string `json:"block"`
 
 	specGasLimit *uint32
 	legacyChains legacyevm.LegacyChainContainer
@@ -78,6 +80,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasFeeCap    MaybeBigIntParam
 		gasUnlimited BoolParam
 		chainID      StringParam
+		block        StringParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
@@ -89,6 +92,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
 		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID"),
 		errors.Wrap(ResolveParam(&gasUnlimited, From(VarExpr(t.GasUnlimited, vars), NonemptyString(t.GasUnlimited), false)), "gasUnlimited"),
+		errors.Wrap(ResolveParam(&block, From(VarExpr(t.Block, vars), t.Block)), "block"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -131,7 +135,15 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		With("gasFeeCap", call.GasFeeCap)
 
 	start := time.Now()
-	resp, err := chain.Client().CallContract(ctx, call, nil)
+
+	var resp []byte
+	blockStr := block.String()
+	if blockStr == "" || strings.ToLower(blockStr) == "latest" {
+		resp, err = chain.Client().CallContract(ctx, call, nil)
+	} else if strings.ToLower(blockStr) == "pending" {
+		resp, err = chain.Client().PendingCallContract(ctx, call)
+	}
+
 	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
@@ -149,6 +161,5 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	}
 
 	promETHCallTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
-
 	return Result{Value: resp}, runInfo
 }

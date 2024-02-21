@@ -32,7 +32,7 @@ func TestOCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 	pubKeyConfig := key.ConfigEncryptionPublicKey()
 	pubKey := key.OffchainPublicKey()
 	p := cmd.OCR2KeyBundlePresenter{
-		JAID: cmd.JAID{ID: bundleID},
+		JAID: cmd.NewJAID(bundleID),
 		OCR2KeysBundleResource: presenters.OCR2KeysBundleResource{
 			JAID:              presenters.NewJAID(key.ID()),
 			ChainType:         "evm",
