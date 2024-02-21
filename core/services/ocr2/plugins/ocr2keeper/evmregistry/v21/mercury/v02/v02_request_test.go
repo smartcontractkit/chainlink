@@ -111,6 +111,7 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 		retryable      bool
 		errorMessage   string
 		streamsErrCode encoding.ErrCode
+		state          encoding.PipelineExecutionState
 	}{
 		{
 			name:  "success - mercury responds in the first try",
@@ -175,6 +176,7 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 			blob:         "0xab2123dc",
 			retryNumber:  totalAttempt,
 			statusCode:   http.StatusNotFound,
+			state:        encoding.MercuryFlakyFailure,
 			retryable:    true,
 			errorMessage: "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
 		},
@@ -266,6 +268,7 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 			m := <-ch
 			assert.Equal(t, tt.index, m.Index)
 			assert.Equal(t, tt.retryable, m.Retryable)
+			assert.Equal(t, tt.state, m.State)
 			if tt.streamsErrCode != encoding.ErrCodeNil {
 				assert.Equal(t, tt.streamsErrCode, m.ErrCode)
 				assert.Equal(t, [][]byte{}, m.Bytes)
