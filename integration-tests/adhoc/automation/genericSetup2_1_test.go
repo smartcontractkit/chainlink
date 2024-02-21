@@ -18,7 +18,8 @@ import (
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/stretchr/testify/require"
 	"math"
@@ -266,7 +267,8 @@ func TestAutomation(t *testing.T) {
 
 		utilsABI, err := automation_utils_2_1.AutomationUtilsMetaData.GetAbi()
 		require.NoError(t, err, "Error getting automation utils abi")
-		streamsLookupUpkeepABI, err := streams_lookup_upkeep_wrapper.StreamsLookupUpkeepMetaData.GetAbi()
+		logTriggerUpkeepABI, err := log_upkeep_counter_wrapper.LogUpkeepCounterMetaData.GetAbi()
+		logTriggerStreamsLookupUpkeepABI, err := log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookupMetaData.GetAbi()
 		require.NoError(t, err, "Error getting log emitter abi")
 
 		var conditionalConsumerAddress string
@@ -284,21 +286,6 @@ func TestAutomation(t *testing.T) {
 			conditionalConsumerAddress = conditionalConsumer.Address()
 		}
 
-		logTriggerConsumer, err := automationTest.Deployer.DeployAutomationLogTriggerConsumer(big.NewInt(1))
-		require.NoError(t, err, "Error deploying log trigger consumer")
-
-		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
-			ContractAddress: common.HexToAddress(conditionalConsumerAddress),
-			FilterSelector:  0,
-			Topic0:          streamsLookupUpkeepABI.Events["Trigger"].ID,
-			Topic1:          bytes0,
-			Topic2:          bytes0,
-			Topic3:          bytes0,
-		}
-		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
-		require.NoError(t, err, "Error encoding log trigger config")
-		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
-
 		upkeepConfig := automationv2.UpkeepConfig{
 			UpkeepName:     fmt.Sprintf("ConditionalUpkeep-%d", 0),
 			EncryptedEmail: []byte("test@mail.com"),
@@ -313,6 +300,34 @@ func TestAutomation(t *testing.T) {
 		}
 		l.Debug().Interface("Upkeep Config", upkeepConfig).Msg("Conditional Upkeep Config")
 		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
+
+		logTriggerConsumer := *new(contracts.KeeperConsumer)
+		topic0Match := [32]byte{}
+
+		if *config.ConnectDataStream == true {
+			logTriggerConsumerA, err := automationTest.Deployer.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer()
+			require.NoError(t, err, "Error deploying log trigger consumer")
+			err = logTriggerConsumerA.SetFeeds([]string{"0x000200"})
+			require.NoError(t, err, "Error setting feeds")
+			logTriggerConsumer = logTriggerConsumerA
+			topic0Match = logTriggerStreamsLookupUpkeepABI.Events["LimitOrderExecuted"].ID
+		} else {
+			logTriggerConsumer, err = automationTest.Deployer.DeployAutomationLogTriggerConsumer(big.NewInt(1))
+			require.NoError(t, err, "Error deploying log trigger consumer")
+			topic0Match = logTriggerUpkeepABI.Events["Trigger"].ID
+		}
+
+		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+			ContractAddress: common.HexToAddress(logTriggerConsumer.Address()),
+			FilterSelector:  0,
+			Topic0:          topic0Match,
+			Topic1:          bytes0,
+			Topic2:          bytes0,
+			Topic3:          bytes0,
+		}
+		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+		require.NoError(t, err, "Error encoding log trigger config")
+		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
 
 		upkeepConfig = automationv2.UpkeepConfig{
 			UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", 0),
@@ -340,6 +355,11 @@ func TestAutomation(t *testing.T) {
 
 		l.Info().Msg("Successfully registered all Automation Upkeeps")
 		l.Info().Interface("Upkeep IDs", upkeepIds).Msg("Upkeeps Registered")
+
+		l.Info().Msg("Waiting 30s for config to be picked/ up")
+		time.Sleep(30 * time.Second)
+		err = logTriggerConsumer.Start()
+		require.NoError(t, err, "Error starting log trigger consumer")
 	}
 
 	if *config.TearDownDeployment == true {

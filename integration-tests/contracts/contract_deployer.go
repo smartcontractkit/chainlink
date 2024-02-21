@@ -109,7 +109,7 @@ type ContractDeployer interface {
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error)
 	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (DataStreamsConsumer, error)
-	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
+	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (DataStreamsConsumer, error)
 	DeployKeeperConsumerPerformance(
 		testBlockRange,
 		averageCadence,
@@ -1556,7 +1556,7 @@ func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(t
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error) {
+func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (DataStreamsConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("LogTriggeredStreamsLookupUpkeep", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
