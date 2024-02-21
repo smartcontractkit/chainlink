@@ -362,4 +362,10 @@ Order = 100 # Default
 
 [EVM.OCR2.Automation]
 # GasLimit controls the gas limit for transmit transactions from ocr2automation job.
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
+
+[EVM.ChainWriter]
+# FromAddress is Address of the transmitter key to use for workflow writes.
+FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+# ForwarderAddress is the keystone forwarder contract address on chain.
+ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example

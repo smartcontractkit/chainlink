@@ -73,7 +73,10 @@ func NewChainClient(
 		chainID,
 		chainType,
 		"EVM",
-		ClassifySendOnlyError,
+		func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
+			return ClassifySendError(err, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
+		},
+		0, // use the default value provided by the implementation
 	)
 	return &chainClient{
 		multiNode: multiNode,
@@ -125,6 +128,10 @@ func (c *chainClient) CallContext(ctx context.Context, result interface{}, metho
 
 func (c *chainClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	return c.multiNode.CallContract(ctx, msg, blockNumber)
+}
+
+func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	return c.multiNode.PendingCallContract(ctx, msg)
 }
 
 // TODO-1663: change this to actual ChainID() call once client.go is deprecated.

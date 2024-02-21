@@ -60,30 +60,30 @@ Name = 'primary'
 URL = 'http://stark.node'
 
 -- out.txt --
--Cosmos.Foo.Chain
--Cosmos.Foo.Txm
--EVM.1
--EVM.1.BalanceMonitor
--EVM.1.HeadBroadcaster
--EVM.1.HeadTracker
-!EVM.1.HeadTracker.HeadListener
+ok Cosmos.Foo.Chain
+ok Cosmos.Foo.Txm
+ok EVM.1
+ok EVM.1.BalanceMonitor
+ok EVM.1.HeadBroadcaster
+ok EVM.1.HeadTracker
+!  EVM.1.HeadTracker.HeadListener
 	Listener is not connected
--EVM.1.LogBroadcaster
--EVM.1.Txm
--EVM.1.Txm.BlockHistoryEstimator
--EVM.1.Txm.Broadcaster
--EVM.1.Txm.Confirmer
--EVM.1.Txm.WrappedEvmEstimator
--JobSpawner
--Mailbox.Monitor
--Mercury.WSRPCPool
--Mercury.WSRPCPool.CacheSet
--PipelineORM
--PipelineRunner
--PromReporter
--Solana.Bar
--StarkNet.Baz
--TelemetryManager
+ok EVM.1.LogBroadcaster
+ok EVM.1.Txm
+ok EVM.1.Txm.BlockHistoryEstimator
+ok EVM.1.Txm.Broadcaster
+ok EVM.1.Txm.Confirmer
+ok EVM.1.Txm.WrappedEvmEstimator
+ok JobSpawner
+ok Mailbox.Monitor
+ok Mercury.WSRPCPool
+ok Mercury.WSRPCPool.CacheSet
+ok PipelineORM
+ok PipelineRunner
+ok PromReporter
+ok Solana.Bar
+ok StarkNet.Baz
+ok TelemetryManager
 
 -- out.json --
 {

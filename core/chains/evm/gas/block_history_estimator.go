@@ -340,11 +340,10 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 		// reverse order since we want to go highest -> lowest block number and bail out early
 		for i := l - 1; i >= 0; i-- {
 			block := blockHistory[i]
-			if block.Number >= broadcastBeforeBlockNum {
-				blocks = append(blocks, block)
-			} else {
+			if block.Number < broadcastBeforeBlockNum {
 				break
 			}
+			blocks = append(blocks, block)
 		}
 		var eip1559 bool
 		switch attempt.TxType {
@@ -364,27 +363,26 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 			b.logger.AssumptionViolationw("unexpected error while verifying transaction inclusion", "err", err, "txHash", attempt.TxHash.String())
 			return nil
 		}
-		if eip1559 {
-			sufficientFeeCap := true
-			for _, b := range blocks {
-				// feecap must >= tipcap+basefee for the block, otherwise there
-				// is no way this could have been included, and we must bail
-				// out of the check
-				attemptFeeCap := attempt.DynamicFee.FeeCap
-				attemptTipCap := attempt.DynamicFee.TipCap
-				if attemptFeeCap.Cmp(attemptTipCap.Add(b.BaseFeePerGas)) < 0 {
-					sufficientFeeCap = false
-					break
-				}
-			}
-			if sufficientFeeCap && attempt.DynamicFee.TipCap.Cmp(tipCap) > 0 {
-				return errors.Wrapf(commonfee.ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
-			}
-		} else {
+		if !eip1559 {
 			if attempt.GasPrice.Cmp(gasPrice) > 0 {
 				return errors.Wrapf(commonfee.ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.GasPrice, percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
-
 			}
+			continue
+		}
+		sufficientFeeCap := true
+		for _, b := range blocks {
+			// feecap must >= tipcap+basefee for the block, otherwise there
+			// is no way this could have been included, and we must bail
+			// out of the check
+			attemptFeeCap := attempt.DynamicFee.FeeCap
+			attemptTipCap := attempt.DynamicFee.TipCap
+			if attemptFeeCap.Cmp(attemptTipCap.Add(b.BaseFeePerGas)) < 0 {
+				sufficientFeeCap = false
+				break
+			}
+		}
+		if sufficientFeeCap && attempt.DynamicFee.TipCap.Cmp(tipCap) > 0 {
+			return errors.Wrapf(commonfee.ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 		}
 	}
 	return nil
@@ -560,20 +558,20 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	b.setPercentileGasPrice(percentileGasPrice)
 	promBlockHistoryEstimatorSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(percentileGasPrice.Int64()))
 
-	if eip1559 {
-		float = new(big.Float).SetInt(percentileTipCap.ToInt())
-		gwei, _ = big.NewFloat(0).Quo(float, big.NewFloat(1000000000)).Float64()
-		tipCapGwei := fmt.Sprintf("%.2f", gwei)
-		lggrFields = append(lggrFields, []interface{}{
-			"tipCapWei", percentileTipCap,
-			"tipCapGwei", tipCapGwei,
-		}...)
-		lggr.Debugw(fmt.Sprintf("Setting new default prices, GasPrice: %v Gwei, TipCap: %v Gwei", gasPriceGwei, tipCapGwei), lggrFields...)
-		b.setPercentileTipCap(percentileTipCap)
-		promBlockHistoryEstimatorSetTipCap.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(percentileTipCap.Int64()))
-	} else {
+	if !eip1559 {
 		lggr.Debugw(fmt.Sprintf("Setting new default gas price: %v Gwei", gasPriceGwei), lggrFields...)
+		return
 	}
+	float = new(big.Float).SetInt(percentileTipCap.ToInt())
+	gwei, _ = big.NewFloat(0).Quo(float, big.NewFloat(1000000000)).Float64()
+	tipCapGwei := fmt.Sprintf("%.2f", gwei)
+	lggrFields = append(lggrFields, []interface{}{
+		"tipCapWei", percentileTipCap,
+		"tipCapGwei", tipCapGwei,
+	}...)
+	lggr.Debugw(fmt.Sprintf("Setting new default prices, GasPrice: %v Gwei, TipCap: %v Gwei", gasPriceGwei, tipCapGwei), lggrFields...)
+	b.setPercentileTipCap(percentileTipCap)
+	promBlockHistoryEstimatorSetTipCap.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(percentileTipCap.Int64()))
 }
 
 // FetchBlocks fetches block history leading up to the given head.
@@ -774,21 +772,20 @@ func (b *BlockHistoryEstimator) getPricesFromBlocks(blocks []evmtypes.Block, eip
 		for _, tx := range block.Transactions {
 			if b.IsUsable(tx, block, b.config.ChainType(), b.eConfig.PriceMin(), b.logger) {
 				gp := b.EffectiveGasPrice(block, tx)
-				if gp != nil {
-					gasPrices = append(gasPrices, gp)
-				} else {
+				if gp == nil {
 					b.logger.Warnw("Unable to get gas price for tx", "tx", tx, "block", block)
 					continue
 				}
-				if eip1559 {
-					tc := b.EffectiveTipCap(block, tx)
-					if tc != nil {
-						tipCaps = append(tipCaps, tc)
-					} else {
-						b.logger.Warnw("Unable to get tip cap for tx", "tx", tx, "block", block)
-						continue
-					}
+				gasPrices = append(gasPrices, gp)
+				if !eip1559 {
+					continue
 				}
+				tc := b.EffectiveTipCap(block, tx)
+				if tc == nil {
+					b.logger.Warnw("Unable to get tip cap for tx", "tx", tx, "block", block)
+					continue
+				}
+				tipCaps = append(tipCaps, tc)
 			}
 		}
 	}

@@ -152,6 +152,9 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	ForceFulfilled          *bool   `json:"ForceFulfilled,omitempty"`
 	ForceFulfillmentAttempt *uint64 `json:"ForceFulfillmentAttempt,omitempty"`
 
+	// Used for Keystone Workflows
+	WorkflowExecutionID *string `json:"WorkflowExecutionID,omitempty"`
+
 	// Used only for forwarded txs, tracks the original destination address.
 	// When this is set, it indicates tx is forwarded through To address.
 	FwdrDestAddress *ADDR `json:"ForwarderDestAddress,omitempty"`

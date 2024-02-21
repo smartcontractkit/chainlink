@@ -1721,6 +1721,73 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 	})
 }
 
+func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
+	})
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+	_, _ = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+
+	kst := ksmocks.NewEth(t)
+	addresses := []gethCommon.Address{fromAddress}
+	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
+	// Use a mock keystore for this test
+	ec := newEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
+	currentHead := int64(30)
+	oldEnough := int64(19)
+	nonce := int64(0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
+	attempt1_1 := etx.TxAttempts[0]
+	var dbAttempt txmgr.DbEthTxAttempt
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
+
+	t.Run("treats an exceeds max fee attempt as a success", func(t *testing.T) {
+		ethTx := *types.NewTx(&types.LegacyTx{})
+		kst.On("SignTx",
+			fromAddress,
+			mock.MatchedBy(func(tx *types.Transaction) bool {
+				if tx.Nonce() != uint64(*etx.Sequence) {
+					return false
+				}
+				ethTx = *tx
+				return true
+			}),
+			mock.MatchedBy(func(chainID *big.Int) bool {
+				return chainID.Cmp(evmcfg.EVM().ChainID()) == 0
+			})).Return(&ethTx, nil).Once()
+
+		// Once for the bumped attempt which exceeds limit
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return tx.Nonce() == uint64(*etx.Sequence) && tx.GasPrice().Int64() == int64(20000000000)
+		}), fromAddress).Return(commonclient.ExceedsMaxFee, errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
+
+		// Do the thing
+		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
+		var err error
+		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		// Check that the attempt is saved
+		require.Len(t, etx.TxAttempts, 2)
+
+		// broadcast_at did change
+		require.Greater(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+		require.Equal(t, etx.InitialBroadcastAt.Unix(), originalBroadcastAt.Unix())
+	})
+}
+
 func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	t.Parallel()
 
@@ -1803,43 +1870,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, etx.TxAttempts, 1)
-	})
-
-	ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
-	ec.XXXTestSetClient(txmgr.NewEvmTxmClient(ethClient))
-
-	t.Run("does nothing and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
-		ethTx := *types.NewTx(&types.LegacyTx{})
-		kst.On("SignTx",
-			fromAddress,
-			mock.MatchedBy(func(tx *types.Transaction) bool {
-				if tx.Nonce() != uint64(*etx.Sequence) {
-					return false
-				}
-				ethTx = *tx
-				return true
-			}),
-			mock.MatchedBy(func(chainID *big.Int) bool {
-				return chainID.Cmp(evmcfg.EVM().ChainID()) == 0
-			})).Return(&ethTx, nil).Once()
-
-		// Once for the bumped attempt which exceeds limit
-		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence) && tx.GasPrice().Int64() == int64(20000000000)
-		}), fromAddress).Return(commonclient.ExceedsMaxFee, errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
-
-		// Do the thing
-		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-		var err error
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
-		require.NoError(t, err)
-
-		// Did not create an additional attempt
-		require.Len(t, etx.TxAttempts, 1)
-
-		// broadcast_at did not change
-		require.Equal(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
-		require.Equal(t, etx.InitialBroadcastAt.Unix(), originalBroadcastAt.Unix())
 	})
 
 	var attempt1_2 txmgr.TxAttempt
