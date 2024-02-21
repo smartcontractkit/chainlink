@@ -126,6 +126,7 @@ func TestAutomationChaos(t *testing.T) {
 	registryVersions := map[string]eth_contracts.KeeperRegistryVersion{
 		"registry_2_0": eth_contracts.RegistryVersion_2_0,
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
+		"registry_2_2": eth_contracts.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -276,7 +277,7 @@ func TestAutomationChaos(t *testing.T) {
 
 					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
 					nodesWithoutBootstrap := chainlinkNodes[1:]
-					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second)
+					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 					require.NoError(t, err, "Error building OCR config vars")
 					err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 					require.NoError(t, err, "Registry config should be be set successfully")
