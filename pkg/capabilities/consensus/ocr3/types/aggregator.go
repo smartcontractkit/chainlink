@@ -27,7 +27,7 @@ func AppendWorkflowIDs(outcome *AggregationOutcome, workflowID string, workflowE
 		return nil, err
 	}
 	outcome.EncodableOutcome.Fields[WorkflowIDFieldName] = protoWID
-	valueWEID, err := values.Wrap(workflowID)
+	valueWEID, err := values.Wrap(workflowExecutionID)
 	if err != nil {
 		return nil, err
 	}
