@@ -1008,7 +1008,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 	var isNativeBilling = true
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
-		//t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
+		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
 
 		subID := subIDs[0]
 
