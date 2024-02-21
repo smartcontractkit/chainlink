@@ -39,7 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/mock_l2_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/mock_l1_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/bridge/testonlybridge"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 
@@ -61,7 +62,7 @@ var (
 )
 
 func TestRebalancer_Integration(t *testing.T) {
-	newTestUniverse(t, 3)
+	newTestUniverse(t, 2)
 }
 
 type ocr3Node struct {
@@ -77,7 +78,7 @@ type onchainUniverse struct {
 	wethToken       *weth9.WETH9
 	lockReleasePool *lock_release_token_pool.LockReleaseTokenPool
 	rebalancer      *rebalancer.Rebalancer
-	bridgeAdapter   *mock_l2_bridge_adapter.MockL2BridgeAdapter
+	bridgeAdapter   *mock_l1_bridge_adapter.MockL1BridgeAdapter
 }
 
 func setupNodeOCR3(
@@ -374,10 +375,7 @@ liquidityManagerAddress = "%s"
 liquidityManagerNetwork = "%d"
 closePluginTimeoutSec = 10
 [pluginConfig.rebalancerConfig]
-type = "random"
-[pluginConfig.rebalancerConfig.randomRebalancerConfig]
-maxNumTransfers = 5
-checkSourceDestEqual = false
+type = "ping-pong"
 `,
 			mainContract.Hex(),
 			kbs[i].ID(),
@@ -405,19 +403,12 @@ func waitForTransmissions(
 	universes map[int64]onchainUniverse,
 ) {
 	start := uint64(1)
-	transmittedSink := make(chan *rebalancer.RebalancerTransmitted)
-	ltSink := make(chan *rebalancer.RebalancerLiquidityTransferred)
+	liquidityTransferredSink := make(chan *rebalancer.RebalancerLiquidityTransferred)
 	var subs []event.Subscription
 	for _, uni := range universes {
-		sub, err := uni.rebalancer.WatchTransmitted(&bind.WatchOpts{
+		sub, err := uni.rebalancer.WatchLiquidityTransferred(&bind.WatchOpts{
 			Start: &start,
-		}, transmittedSink)
-		require.NoError(t, err, "failed to create subscription")
-		subs = append(subs, sub)
-
-		sub, err = uni.rebalancer.WatchLiquidityTransferred(&bind.WatchOpts{
-			Start: &start,
-		}, ltSink, nil, nil, nil)
+		}, liquidityTransferredSink, nil, nil, nil)
 		require.NoError(t, err, "failed to create subscription")
 		subs = append(subs, sub)
 	}
@@ -427,15 +418,31 @@ func waitForTransmissions(
 		}
 	}()
 	ticker := time.NewTicker(1 * time.Second)
-outer:
+	defer ticker.Stop()
+	sentEvents := map[string]struct{}{}
 	for {
 		select {
-		case te := <-transmittedSink:
-			t.Log("got transmission event, config digest:", hexutil.Encode(te.ConfigDigest[:]), "seqNr:", te.SequenceNumber)
-			break outer
-		case lt := <-ltSink:
-			t.Log("got liquidity transferred event, from:", lt.FromChainSelector, "to:", lt.ToChainSelector, "amount:", lt.Amount)
-			break outer
+		case lt := <-liquidityTransferredSink:
+			// determine if it's a send or receive event based on the BridgeReturnData field
+			// if it's a send event, then the BridgeReturnData will not be empty
+			if len(lt.BridgeReturnData) > 0 {
+				// for the test bridges, bridge return data is just a nonce
+				nonce, err := testonlybridge.UnpackBridgeSendReturnData(lt.BridgeReturnData)
+				require.NoError(t, err)
+				t.Log("received send event with nonce:", nonce, "tx hash:", lt.Raw.TxHash.String())
+				sentEvents[nonce.String()] = struct{}{}
+			} else {
+				// for the test bridges, the bridge specific data is an amount and a nonce
+				amount, nonce, err := testonlybridge.UnpackFinalizeBridgePayload(lt.BridgeSpecificData)
+				require.NoError(t, err)
+				t.Log("received receive event with amount:", amount, "nonce:", nonce, "tx hash:", lt.Raw.TxHash.String())
+				if _, ok := sentEvents[nonce.String()]; !ok {
+					t.Fatal("received receive event without corresponding send event")
+				} else {
+					t.Log("received corresponding receive event")
+					return
+				}
+			}
 		case <-ticker.C:
 			t.Log("waiting for transmission or liquidity transferred event")
 		}
@@ -477,7 +484,7 @@ func setRebalancerConfig(
 		50*time.Millisecond, // maxDurationQuery
 		5*time.Second,       // maxDurationObservation
 		10*time.Second,      // maxDurationShouldAcceptAttestedReport
-		1*time.Second,       // maxDurationShouldTransmitAcceptedReport
+		10*time.Second,      // maxDurationShouldTransmitAcceptedReport
 		int(f),
 		onchainConfig)
 	require.NoError(t, err, "failed to create contract config")
@@ -596,7 +603,7 @@ func createChains(t *testing.T, numChains int) (owner *bind.TransactOpts, chains
 
 	chains[mainChainID] = backends.NewSimulatedBackend(core.GenesisAlloc{
 		owner.From: core.GenesisAccount{
-			Balance: assets.Ether(10000).ToInt(),
+			Balance: assets.Ether(10_000).ToInt(),
 		},
 	}, 30e6)
 
@@ -623,7 +630,6 @@ func deployContracts(
 ) {
 	universes = make(map[int64]onchainUniverse)
 	for chainID, backend := range chains {
-		// TODO @makram
 		// Deploy wrapped ether contract
 		// will act as the ERC-20 being bridged
 		wethAddress, _, _, err := weth9.DeployWETH9(owner, backend)
@@ -670,7 +676,7 @@ func deployContracts(
 		rebalancer, err := rebalancer.NewRebalancer(rebalancerAddr, backend)
 		require.NoError(t, err, "failed to create Rebalancer wrapper")
 
-		// set the rebalancer of the lock release pool to be the previously deployed rebalancer
+		// set the rebalancer of the lock release pool to be the just deployed rebalancer
 		_, err = lockReleasePool.SetRebalancer(owner, rebalancerAddr)
 		require.NoError(t, err, "failed to set rebalancer on lock/release pool")
 		backend.Commit()
@@ -679,10 +685,10 @@ func deployContracts(
 		require.Equal(t, rebalancerAddr, actualRebalancer)
 
 		// deploy the bridge adapter to point to the weth contract address
-		bridgeAdapterAddress, _, _, err := mock_l2_bridge_adapter.DeployMockL2BridgeAdapter(owner, backend)
+		bridgeAdapterAddress, _, _, err := mock_l1_bridge_adapter.DeployMockL1BridgeAdapter(owner, backend, wethAddress)
 		require.NoError(t, err, "failed to deploy mock l1 bridge adapter")
 		backend.Commit()
-		bridgeAdapter, err := mock_l2_bridge_adapter.NewMockL2BridgeAdapter(bridgeAdapterAddress, backend)
+		bridgeAdapter, err := mock_l1_bridge_adapter.NewMockL1BridgeAdapter(bridgeAdapterAddress, backend)
 		require.NoError(t, err)
 
 		universes[chainID] = onchainUniverse{
@@ -693,6 +699,13 @@ func deployContracts(
 			rebalancer:      rebalancer,
 			bridgeAdapter:   bridgeAdapter,
 		}
+
+		t.Log("deployed contracts for chain:", chainID,
+			"weth:", wethAddress.Hex(),
+			"lockReleasePool:", lockReleasePool.Address().Hex(),
+			"rebalancer:", rebalancerAddr.Hex(),
+			"bridgeAdapter:", bridgeAdapterAddress.Hex(),
+		)
 	}
 	return
 }

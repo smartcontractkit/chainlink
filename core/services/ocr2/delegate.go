@@ -1636,11 +1636,17 @@ func (d *Delegate) newServicesRebalancer(ctx context.Context, lggr logger.Sugare
 	if err != nil {
 		return nil, fmt.Errorf("failed to create rebalancer provider: %w", err)
 	}
-	factory, err := rebalancer.NewPluginFactory(lggr, spec.PluginConfig.Bytes(), rebalancerProvider.LiquidityManagerFactory())
+	factory, err := rebalancer.NewPluginFactory(
+		lggr,
+		spec.PluginConfig.Bytes(),
+		rebalancerProvider.LiquidityManagerFactory(),
+		rebalancerProvider.DiscovererFactory(),
+		rebalancerProvider.BridgeFactory(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create rebalancer plugin factory: %w", err)
 	}
-	oracleArgsNoPlugin := libocr2.OCR3OracleArgs[rebalancermodels.ReportMetadata]{
+	oracleArgsNoPlugin := libocr2.OCR3OracleArgs[rebalancermodels.Report]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          rebalancerProvider.ContractTransmitterOCR3(),
@@ -1655,7 +1661,7 @@ func (d *Delegate) newServicesRebalancer(ctx context.Context, lggr logger.Sugare
 		),
 		OffchainConfigDigester: rebalancerProvider.OffchainConfigDigester(),
 		OffchainKeyring:        kb,
-		OnchainKeyring:         ocr3impls.NewOnchainKeyring[rebalancermodels.ReportMetadata](kb, lggr),
+		OnchainKeyring:         ocr3impls.NewOnchainKeyring[rebalancermodels.Report](kb, lggr),
 		ReportingPluginFactory: factory,
 		Logger: commonlogger.NewOCRWrapper(lggr.Named("RebalancerOracle"), d.cfg.OCR2().TraceLogging(), func(msg string) {
 			lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")

@@ -7,7 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
 
@@ -31,7 +32,7 @@ func TestPingPong(t *testing.T) {
 				{netA, netB}, {netB, netA}, // A <--> B
 			},
 			expTransfers: []models.Transfer{
-				{From: netA, To: netB, Amount: big.NewInt(100)},
+				{From: netA, To: netB, Amount: ubig.NewI(100)},
 			},
 		},
 		{
@@ -41,7 +42,7 @@ func TestPingPong(t *testing.T) {
 				{netA, netB}, {netB, netA}, // A <--> B
 			},
 			expTransfers: []models.Transfer{
-				{From: netA, To: netB, Amount: big.NewInt(100)},
+				{From: netA, To: netB, Amount: ubig.NewI(100)},
 			},
 		},
 		{
@@ -64,8 +65,8 @@ func TestPingPong(t *testing.T) {
 				{netC, netA}, {netA, netC}, // A <--> C
 			},
 			expTransfers: []models.Transfer{
-				{From: netB, To: netA, Amount: big.NewInt(15)},
-				{From: netB, To: netC, Amount: big.NewInt(15)},
+				{From: netB, To: netA, Amount: ubig.NewI(15)},
+				{From: netB, To: netC, Amount: ubig.NewI(15)},
 			},
 		},
 		{
@@ -81,9 +82,9 @@ func TestPingPong(t *testing.T) {
 				{netC, netA}, {netA, netC}, // A <--> C
 			},
 			expTransfers: []models.Transfer{
-				{From: netA, To: netB, Amount: big.NewInt(7)},
-				{From: netA, To: netC, Amount: big.NewInt(7)},
-				{From: netC, To: netB, Amount: big.NewInt(15)},
+				{From: netA, To: netB, Amount: ubig.NewI(7)},
+				{From: netA, To: netC, Amount: ubig.NewI(7)},
+				{From: netC, To: netB, Amount: ubig.NewI(15)},
 			},
 		},
 		{
@@ -108,7 +109,7 @@ func TestPingPong(t *testing.T) {
 				{netC, netA}, {netA, netC}, // C <--> A
 			},
 			expTransfers: []models.Transfer{
-				{From: netB, To: netA, Amount: big.NewInt(30)},
+				{From: netB, To: netA, Amount: ubig.NewI(30)},
 			},
 		},
 		{
@@ -123,7 +124,7 @@ func TestPingPong(t *testing.T) {
 				{netC, netA}, {netA, netC}, // A <--> C
 			},
 			expTransfers: []models.Transfer{
-				{From: netA, To: netB, Amount: big.NewInt(1)},
+				{From: netA, To: netB, Amount: ubig.NewI(1)},
 			},
 		},
 	}
@@ -212,7 +213,13 @@ func runPingPongInfinitySimulation(t *testing.T, rounds, maxNets, maxLanes int) 
 
 		pendingTransfers := make([]models.PendingTransfer, len(transfersToBalance))
 		for i, tr := range transfersToBalance {
-			pendingTransfers[i] = models.NewPendingTransfer(tr)
+			pendingTransfers[i] = models.PendingTransfer{
+				Transfer: models.Transfer{
+					From:   tr.From,
+					To:     tr.To,
+					Amount: tr.Amount,
+				},
+			}
 		}
 
 		// Find some random inflight transfers and mark them as done by applying them to the graph.
@@ -229,8 +236,8 @@ func runPingPongInfinitySimulation(t *testing.T, rounds, maxNets, maxLanes int) 
 			destLiq, err := g.GetLiquidity(inf.To)
 			assert.NoError(t, err)
 
-			newSourceLiq := big.NewInt(0).Sub(sourceLiq, inf.Amount)
-			newDestLiq := big.NewInt(0).Add(destLiq, inf.Amount)
+			newSourceLiq := big.NewInt(0).Sub(sourceLiq, inf.Amount.ToInt())
+			newDestLiq := big.NewInt(0).Add(destLiq, inf.Amount.ToInt())
 
 			g.SetLiquidity(inf.From, newSourceLiq)
 			g.SetLiquidity(inf.To, newDestLiq)
@@ -245,10 +252,12 @@ func runPingPongInfinitySimulation(t *testing.T, rounds, maxNets, maxLanes int) 
 }
 
 // Generates a graph from the provided lanes and balances.
-func genGraph(t testing.TB, balances map[models.NetworkSelector]int64, lanes [][2]models.NetworkSelector) *liquiditygraph.Graph {
-	g := liquiditygraph.NewGraph()
+func genGraph(t testing.TB, balances map[models.NetworkSelector]int64, lanes [][2]models.NetworkSelector) graph.Graph {
+	g := graph.NewGraph()
 	for netSel, balance := range balances {
-		g.AddNetwork(netSel, big.NewInt(balance))
+		g.AddNetwork(netSel, graph.Data{
+			Liquidity: big.NewInt(balance),
+		})
 	}
 
 	for _, lane := range lanes {

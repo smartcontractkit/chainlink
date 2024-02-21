@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type NetworkLiquidity struct {
 	Network   NetworkSelector
-	Liquidity *big.Int
+	Liquidity *ubig.Big
 }
 
 func (n NetworkLiquidity) String() string {
@@ -18,21 +20,30 @@ func (n NetworkLiquidity) String() string {
 func NewNetworkLiquidity(chain NetworkSelector, liq *big.Int) NetworkLiquidity {
 	return NetworkLiquidity{
 		Network:   chain,
-		Liquidity: liq,
+		Liquidity: ubig.New(liq),
 	}
 }
 
 type Observation struct {
+	// LiquidityPerChain is the liquidity per chain that is known in the rebalancer graph.
 	LiquidityPerChain []NetworkLiquidity
-	PendingTransfers  []PendingTransfer
-	Edges             []Edge
+	// ResolvedTransfers are the resolved versions of the proposed transfers in the last outcome.
+	ResolvedTransfers []Transfer
+	// PendingTransfers are transfers that are in one of the TransferStatus states.
+	PendingTransfers []PendingTransfer
+	// Edges are the edges of the rebalancer graph.
+	Edges []Edge
+	// ConfigDigests contains the config digests for each chain and rebalancer.
+	ConfigDigests []ConfigDigestWithMeta
 }
 
-func NewObservation(liqPerChain []NetworkLiquidity, pendingTransfers []PendingTransfer, edges []Edge) Observation {
+func NewObservation(liqPerChain []NetworkLiquidity, resolvedTransfers []Transfer, pendingTransfers []PendingTransfer, edges []Edge, configDigests []ConfigDigestWithMeta) Observation {
 	return Observation{
 		LiquidityPerChain: liqPerChain,
 		PendingTransfers:  pendingTransfers,
+		ResolvedTransfers: resolvedTransfers,
 		Edges:             edges,
+		ConfigDigests:     configDigests,
 	}
 }
 
@@ -51,14 +62,36 @@ func DecodeObservation(b []byte) (Observation, error) {
 }
 
 type Outcome struct {
-	TransfersToReachBalance []Transfer
-	PendingTransfers        []PendingTransfer
+	// These are transfers proposed by the rebalancing algorithm to reach a balanced state
+	// in terms of liquidity.
+	// These are not yet ready to execute by the plugin because they have not been resolved.
+	// Proposed transfers are only resolved in the Observation stage of OCR3.
+	ProposedTransfers []ProposedTransfer
+
+	// These are transfers that have been proposed by the rebalancing algorithm and have been
+	// resolved in the last observation.
+	// Since these are "send" operations, they are ready to execute onchain.
+	ResolvedTransfers []Transfer
+
+	// These are transfers that are in one of the TransferStatus states.
+	// Depending on their state they may be ready to execute onchain.
+	PendingTransfers []PendingTransfer
+
+	// ConfigDigests contains the config digests for each chain and rebalancer.
+	ConfigDigests []ConfigDigestWithMeta
 }
 
-func NewOutcome(transfersToReachBalance []Transfer, pendingTransfers []PendingTransfer) Outcome {
+func NewOutcome(
+	proposedTransfers []ProposedTransfer,
+	resolvedTransfers []Transfer,
+	pendingTransfers []PendingTransfer,
+	configDigests []ConfigDigestWithMeta,
+) Outcome {
 	return Outcome{
-		TransfersToReachBalance: transfersToReachBalance,
-		PendingTransfers:        pendingTransfers,
+		ProposedTransfers: proposedTransfers,
+		ResolvedTransfers: resolvedTransfers,
+		PendingTransfers:  pendingTransfers,
+		ConfigDigests:     configDigests,
 	}
 }
 
@@ -74,4 +107,10 @@ func DecodeOutcome(b []byte) (Outcome, error) {
 	var decodedOutcome Outcome
 	err := json.Unmarshal(b, &decodedOutcome)
 	return decodedOutcome, err
+}
+
+type ConfigDigestWithMeta struct {
+	Digest         ConfigDigest
+	NetworkSel     NetworkSelector
+	RebalancerAddr Address
 }

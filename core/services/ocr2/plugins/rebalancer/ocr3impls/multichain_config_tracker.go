@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/no_op_ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/discoverer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -74,7 +74,7 @@ func NewMultichainConfigTracker(
 	logPollers map[relay.ID]logpoller.LogPoller,
 	masterClient evmclient.Client,
 	masterContract common.Address,
-	lmFactory liquiditymanager.Factory,
+	discovererFactory discoverer.Factory,
 	combiner CombinerFn,
 	fromBlocks map[string]int64,
 ) (*multichainConfigTracker, error) {
@@ -89,7 +89,7 @@ func NewMultichainConfigTracker(
 	}
 
 	// Ensure factory is not nil
-	if lmFactory == nil {
+	if discovererFactory == nil {
 		return nil, fmt.Errorf("provide non-nil liquidity manager factory")
 	}
 
@@ -105,27 +105,27 @@ func NewMultichainConfigTracker(
 		return nil, fmt.Errorf("chain selector for chain %d not found", masterChainID)
 	}
 
-	masterLM, err := lmFactory.NewRebalancer(
+	discoverer, err := discovererFactory.NewDiscoverer(
 		models.NetworkSelector(chain.Selector),
-		models.Address(masterContract))
+		models.Address(masterContract),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create master liquidity manager: %w", err)
+		return nil, fmt.Errorf("failed to create discoverer: %w", err)
 	}
 
 	// Discover all the liquidity managers
 	lggr.Infow("Discovering all liquidity managers", "masterLM", masterContract.Hex())
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	lms, _, err := masterLM.Discover(ctx, lmFactory)
+	grph, err := discoverer.Discover(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover liquidity managers: %w", err)
 	}
-	all := lms.GetAll()
-	lggr.Infow("Finished discovering all liquidity managers", "numLiquidityManagers", len(all), "lms", lms)
+	lggr.Infow("Finished discovering all liquidity managers", "graph", grph)
 
 	// sanity check, there should be only one liquidity manager per-chain per-asset
-	if len(all) != len(logPollers) {
-		return nil, fmt.Errorf("expected %d liquidity managers but found %d", len(logPollers), len(all))
+	if grph.Len() != len(logPollers) {
+		return nil, fmt.Errorf("expected %d liquidity managers but found %d", len(logPollers), grph.Len())
 	}
 
 	// Register filters on all log pollers
@@ -141,9 +141,9 @@ func NewMultichainConfigTracker(
 			return nil, fmt.Errorf("chain %d not found", nid)
 		}
 
-		address, ok := all[models.NetworkSelector(ch.Selector)]
-		if !ok {
-			return nil, fmt.Errorf("no liquidity manager found for network selector %d", ch.Selector)
+		address, err2 := grph.GetRebalancerAddress(models.NetworkSelector(ch.Selector))
+		if err2 != nil {
+			return nil, fmt.Errorf("no rebalancer found for network selector %d", ch.Selector)
 		}
 		fName := configTrackerFilterName(id, common.Address(address))
 		err2 = lp.RegisterFilter(logpoller.Filter{

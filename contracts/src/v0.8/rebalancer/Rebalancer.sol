@@ -34,10 +34,19 @@ contract Rebalancer is IRebalancer, OCR3Base {
     uint64 indexed fromChainSelector,
     uint64 indexed toChainSelector,
     address to,
-    uint256 amount
+    uint256 amount,
+    bytes bridgeSpecificData,
+    bytes bridgeReturnData
   );
   event LiquidityAdded(address indexed provider, uint256 indexed amount);
   event LiquidityRemoved(address indexed remover, uint256 indexed amount);
+
+  event FinalizationFailed(
+    uint64 indexed ocrSeqNum,
+    uint64 indexed remoteChainSelector,
+    bytes bridgeSpecificData,
+    bytes reason
+  );
 
   struct CrossChainRebalancer {
     address remoteRebalancer;
@@ -125,22 +134,35 @@ contract Rebalancer is IRebalancer, OCR3Base {
   function rebalanceLiquidity(
     uint64 chainSelector,
     uint256 amount,
+    uint256 nativeBridgeFee,
     bytes calldata bridgeSpecificPayload
   ) external onlyOwner {
-    _rebalanceLiquidity(chainSelector, amount, type(uint64).max, bridgeSpecificPayload);
+    _rebalanceLiquidity(chainSelector, amount, nativeBridgeFee, type(uint64).max, bridgeSpecificPayload);
+  }
+
+  /// @notice Finalizes liquidity from another chain.
+  /// @dev This function is a public version of the internal _receiveLiquidity function.
+  /// to allow the owner to also initiate a finalization when needed.
+  function receiveLiquidity(
+    uint64 remoteChainSelector,
+    uint256 amount,
+    bytes calldata bridgeSpecificPayload
+  ) external onlyOwner {
+    _receiveLiquidity(remoteChainSelector, amount, bridgeSpecificPayload, type(uint64).max);
   }
 
   /// @notice Transfers liquidity to another chain.
   /// @dev Called by both the owner and the DON.
   function _rebalanceLiquidity(
     uint64 chainSelector,
-    uint256 amount,
+    uint256 tokenAmount,
+    uint256 nativeBridgeFee,
     uint64 ocrSeqNum,
     bytes memory bridgeSpecificPayload
   ) internal {
     uint256 currentBalance = getLiquidity();
-    if (currentBalance < amount) {
-      revert InsufficientLiquidity(amount, currentBalance);
+    if (currentBalance < tokenAmount) {
+      revert InsufficientLiquidity(tokenAmount, currentBalance);
     }
 
     CrossChainRebalancer memory remoteLiqManager = s_crossChainRebalancer[chainSelector];
@@ -149,17 +171,15 @@ contract Rebalancer is IRebalancer, OCR3Base {
       revert InvalidRemoteChain(chainSelector);
     }
 
-    uint256 nativeBridgeFee = remoteLiqManager.localBridge.getBridgeFeeInNative();
+    // XXX: Could be optimized by withdrawing once and then sending to all destinations
+    s_localLiquidityContainer.withdrawLiquidity(tokenAmount);
+    i_localToken.approve(address(remoteLiqManager.localBridge), tokenAmount);
 
-    // Could be optimized by withdrawing once and then sending to all destinations
-    s_localLiquidityContainer.withdrawLiquidity(amount);
-    i_localToken.approve(address(remoteLiqManager.localBridge), amount);
-
-    remoteLiqManager.localBridge.sendERC20{value: nativeBridgeFee}(
+    bytes memory bridgeReturnData = remoteLiqManager.localBridge.sendERC20{value: nativeBridgeFee}(
       address(i_localToken),
       remoteLiqManager.remoteToken,
       remoteLiqManager.remoteRebalancer,
-      amount,
+      tokenAmount,
       bridgeSpecificPayload
     );
 
@@ -168,14 +188,16 @@ contract Rebalancer is IRebalancer, OCR3Base {
       i_localChainSelector,
       chainSelector,
       remoteLiqManager.remoteRebalancer,
-      amount
+      tokenAmount,
+      bridgeSpecificPayload,
+      bridgeReturnData
     );
   }
 
   function _receiveLiquidity(
     uint64 remoteChainSelector,
     uint256 amount,
-    bytes memory, //bridgeData,
+    bytes memory bridgeSpecificPayload,
     uint64 ocrSeqNum
   ) internal {
     // check if the remote chain is supported
@@ -185,8 +207,21 @@ contract Rebalancer is IRebalancer, OCR3Base {
     }
 
     // finalize the withdrawal through the bridge adapter
-    // TODO: handle edge case where withdrawal is done already
-    // TODO: remoteRebalancer.localBridge.finalizeWithdrawERC20(amount, bridgeData);
+    try
+      remoteRebalancer.localBridge.finalizeWithdrawERC20(
+        remoteRebalancer.remoteRebalancer, // remoteSender: the remote rebalancer
+        address(this), // localReceiver: us
+        bridgeSpecificPayload
+      )
+    {
+      // successfully finalized the withdrawal
+    } catch (bytes memory lowLevelData) {
+      // failed to finalize the withdrawal.
+      // this could mean that the withdrawal was already finalized
+      // or that the withdrawal failed.
+      // we assume the former and continue
+      emit FinalizationFailed(ocrSeqNum, remoteChainSelector, bridgeSpecificPayload, lowLevelData);
+    }
 
     // inject liquidity into the liquidity container
     // approve and liquidity container should transferFrom
@@ -197,8 +232,10 @@ contract Rebalancer is IRebalancer, OCR3Base {
       ocrSeqNum,
       remoteChainSelector,
       i_localChainSelector,
-      address(s_localLiquidityContainer),
-      amount
+      address(this),
+      amount,
+      bridgeSpecificPayload,
+      bytes("") // no bridge return data when receiving
     );
   }
 
@@ -210,6 +247,7 @@ contract Rebalancer is IRebalancer, OCR3Base {
       _rebalanceLiquidity(
         instructions.sendLiquidityParams[i].remoteChainSelector,
         instructions.sendLiquidityParams[i].amount,
+        instructions.sendLiquidityParams[i].nativeBridgeFee,
         ocrSeqNum,
         instructions.sendLiquidityParams[i].bridgeData
       );

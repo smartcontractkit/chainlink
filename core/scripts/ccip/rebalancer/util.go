@@ -62,7 +62,7 @@ func deployUniverse(
 	helpers.PanicErr(err)
 
 	// deploy token pool targeting l1TokenAddress
-	l1TokenPool, l1Rebalancer := deployTokenPoolAndRebalancer(l1Transactor, l1Client, l1TokenAddress, l1ArmProxy.Address(), l1ChainID, l1RouterAddress)
+	l1TokenPool, l1Rebalancer := deployTokenPoolAndRebalancer(l1Transactor, l1Client, l1TokenAddress, l1ArmProxy.Address(), l1ChainSelector, l1RouterAddress)
 
 	// deploy the L1 bridge adapter to point to the token address
 	_, tx, _, err := arbitrum_l1_bridge_adapter.DeployArbitrumL1BridgeAdapter(
@@ -83,7 +83,7 @@ func deployUniverse(
 	helpers.PanicErr(err)
 
 	// deploy token pool targeting l2TokenAddress
-	l2TokenPool, l2Rebalancer := deployTokenPoolAndRebalancer(l2Transactor, l2Client, l2TokenAddress, l2ArmProxy.Address(), l2ChainID, l2RouterAddress)
+	l2TokenPool, l2Rebalancer := deployTokenPoolAndRebalancer(l2Transactor, l2Client, l2TokenAddress, l2ArmProxy.Address(), l2ChainSelector, l2RouterAddress)
 
 	// deploy the L2 bridge adapter to point to the token address
 	_, tx, _, err = arbitrum_l2_bridge_adapter.DeployArbitrumL2BridgeAdapter(

@@ -86,7 +86,7 @@ func main() {
 		deltaRound := cmd.Duration("delta-round", 2*time.Second, "delta round")
 		deltaGrace := cmd.Duration("delta-grace", 20*time.Second, "delta grace")
 		deltaCertifiedCommitRequest := cmd.Duration("delta-certified-commit-request", 10*time.Second, "delta certified commit request")
-		deltaStage := cmd.Duration("delta-stage", 10*time.Second, "delta stage")
+		deltaStage := cmd.Duration("delta-stage", 40*time.Second, "delta stage")
 		rMax := cmd.Uint64("r-max", 3, "r max")
 		maxDurationQuery := cmd.Duration("max-duration-query", 50*time.Millisecond, "max duration query")
 		maxDurationObservation := cmd.Duration("max-duration-observation", 1*time.Minute, "max duration observation")
@@ -148,9 +148,9 @@ func main() {
 		l2TokenAddress := cmd.String("l2-token-address", "", "L2 Token Address")
 		l1TokenPoolAddress := cmd.String("l1-token-pool-address", "", "L1 Token Pool Address")
 		l2TokenPoolAddress := cmd.String("l2-token-pool-address", "", "L2 Token Pool Address")
-		l1TokenPoolAmount := cmd.String("l1-token-pool-amount", "100000000000000", "L1 Token Pool Amount")
-		l2TokenPoolAmount := cmd.String("l2-token-pool-amount", "100000000000000", "L2 Token Pool Amount")
-		l1RebalancerAmount := cmd.String("l1-rebalancer-amount", "70000000000000000", "Rebalancer Amount")
+		l1TokenPoolAmount := cmd.String("l1-token-pool-amount", "1000000000", "L1 Token Pool Amount")      // 1 Gwei
+		l2TokenPoolAmount := cmd.String("l2-token-pool-amount", "1000000000", "L2 Token Pool Amount")      // 1 Gwei
+		l1RebalancerAmount := cmd.String("l1-rebalancer-amount", "70000000000000000", "Rebalancer Amount") // 0.07 ETH
 		l2RebalancerAmount := cmd.String("l2-rebalancer-amount", "0", "Rebalancer Amount")
 
 		helpers.ParseArgs(cmd, os.Args[2:],
@@ -276,6 +276,8 @@ func main() {
 		amount := cmd.String("amount", "1", "Amount")
 		l2ToAddress := cmd.String("l2-to-address", "", "L2 Address")
 		l1TokenAddress := cmd.String("l1-token-address", "", "L1 Token Address")
+		l1RefundAddress := cmd.String("l1-refund-address", "", "L1 Refund Address")
+		l2RefundAddress := cmd.String("l2-refund-address", "", "L2 Refund Address")
 
 		helpers.ParseArgs(cmd, os.Args[2:],
 			"l1-chain-id", "l2-chain-id", "l1-bridge-adapter-address", "l2-to-address", "l1-token-address")
@@ -287,6 +289,8 @@ func main() {
 			*l2ChainID,
 			common.HexToAddress(*l1BridgeAdapterAddress),
 			common.HexToAddress(*l1TokenAddress),
+			common.HexToAddress(*l1RefundAddress),
+			common.HexToAddress(*l2RefundAddress),
 			common.HexToAddress(*l2ToAddress),
 			decimal.RequireFromString(*amount).BigInt(),
 		)

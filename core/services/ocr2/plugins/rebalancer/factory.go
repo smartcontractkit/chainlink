@@ -8,7 +8,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/bridge"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/discoverer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquidityrebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
@@ -19,32 +20,35 @@ const (
 )
 
 type PluginFactory struct {
-	lggr      logger.Logger
-	config    models.PluginConfig
-	lmFactory liquiditymanager.Factory
+	lggr              logger.Logger
+	config            models.PluginConfig
+	lmFactory         liquiditymanager.Factory
+	discovererFactory discoverer.Factory
+	bridgeFactory     bridge.Factory
 }
 
-func NewPluginFactory(lggr logger.Logger, pluginConfigBytes []byte, lmFactory liquiditymanager.Factory) (*PluginFactory, error) {
+func NewPluginFactory(
+	lggr logger.Logger,
+	pluginConfigBytes []byte,
+	lmFactory liquiditymanager.Factory,
+	discovererFactory discoverer.Factory,
+	bridgeFactory bridge.Factory,
+) (*PluginFactory, error) {
 	var pluginConfig models.PluginConfig
 	if err := json.Unmarshal(pluginConfigBytes, &pluginConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal plugin config: %w", err)
 	}
 	return &PluginFactory{
-		lggr:      lggr.Named(PluginName),
-		config:    pluginConfig,
-		lmFactory: lmFactory,
+		lggr:              lggr.Named(PluginName),
+		config:            pluginConfig,
+		lmFactory:         lmFactory,
+		discovererFactory: discovererFactory,
+		bridgeFactory:     bridgeFactory,
 	}, nil
 }
 
 func (p PluginFactory) buildRebalancer() (liquidityrebalancer.Rebalancer, error) {
 	switch p.config.RebalancerConfig.Type {
-	case models.RebalancerTypeDummy:
-		return liquidityrebalancer.NewDummyRebalancer(), nil
-	case models.RebalancerTypeRandom:
-		return liquidityrebalancer.NewRandomRebalancer(
-			p.config.RebalancerConfig.RandomRebalancerConfig.MaxNumTransfers,
-			p.config.RebalancerConfig.RandomRebalancerConfig.CheckSourceDestEqual,
-			p.lggr), nil
 	case models.RebalancerTypePingPong:
 		return liquidityrebalancer.NewPingPong(), nil
 	default:
@@ -52,13 +56,11 @@ func (p PluginFactory) buildRebalancer() (liquidityrebalancer.Rebalancer, error)
 	}
 }
 
-func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[models.ReportMetadata], ocr3types.ReportingPluginInfo, error) {
+func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[models.Report], ocr3types.ReportingPluginInfo, error) {
 	liquidityRebalancer, err := p.buildRebalancer()
 	if err != nil {
 		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("failed to build rebalancer: %w", err)
 	}
-
-	liquidityGraph := liquiditygraph.NewGraph()
 
 	closePluginTimeout := 30 * time.Second
 	if p.config.ClosePluginTimeoutSec > 0 {
@@ -71,7 +73,8 @@ func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig
 			p.config.LiquidityManagerNetwork,
 			p.config.LiquidityManagerAddress,
 			p.lmFactory,
-			liquidityGraph,
+			p.discovererFactory,
+			p.bridgeFactory,
 			liquidityRebalancer,
 			p.lggr,
 		),

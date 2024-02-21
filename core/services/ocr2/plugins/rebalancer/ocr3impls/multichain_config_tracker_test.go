@@ -2,6 +2,7 @@ package ocr3impls_test
 
 import (
 	"encoding/hex"
+	"math/big"
 	"strconv"
 	"testing"
 	"time"
@@ -19,12 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
-	lm_mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager/mocks"
+	discoverermocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/discoverer/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/ocr3impls"
-	mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/rebalancermocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -54,14 +53,14 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 			Network: relay.EVM,
 			ChainID: testutils.SimulatedChainID.String(),
 		}
-		mockLMFactory := mocks.NewFactory(t)
+		mockDiscovererFactory := discoverermocks.NewFactory(t)
 		_, err := ocr3impls.NewMultichainConfigTracker(
 			masterChain,
 			logger.TestLogger(t),
 			map[relay.ID]logpoller.LogPoller{},
 			uni.simClient,
 			uni.wrapper.Address(),
-			mockLMFactory,
+			mockDiscovererFactory,
 			ocr3impls.TransmitterCombiner,
 			nil,
 		)
@@ -76,14 +75,14 @@ func TestMultichainConfigTracker_New(t *testing.T) {
 			Network: relay.EVM,
 			ChainID: testutils.SimulatedChainID.String(),
 		}
-		mockLMFactory := mocks.NewFactory(t)
+		mockDiscovererFactory := discoverermocks.NewFactory(t)
 		_, err := ocr3impls.NewMultichainConfigTracker(
 			masterChain,
 			logger.TestLogger(t),
 			map[relay.ID]logpoller.LogPoller{masterChain: lp},
 			uni.simClient,
 			uni.wrapper.Address(),
-			mockLMFactory,
+			mockDiscovererFactory,
 			nil,
 			nil,
 		)
@@ -128,22 +127,25 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 
 	// for this test only one LM is "deployed"
 	// so the discovery will return a single LM which is the master LM
-	reg := liquiditymanager.NewRegistry()
-	reg.Add(models.NetworkSelector(ch.Selector), models.Address(uni.wrapper.Address()))
-	mockMasterLM := lm_mocks.NewRebalancer(t)
-	mockMasterLM.On("Discover", mock.Anything, mock.Anything).Return(reg, liquiditygraph.NewGraph(), nil)
-	defer mockMasterLM.AssertExpectations(t)
-	mockLMFactory := mocks.NewFactory(t)
-	mockLMFactory.On("NewRebalancer", models.NetworkSelector(ch.Selector), models.Address(uni.wrapper.Address())).
-		Return(mockMasterLM, nil)
-	defer mockLMFactory.AssertExpectations(t)
+	g := graph.NewGraph()
+	g.AddNetwork(models.NetworkSelector(ch.Selector), graph.Data{
+		Liquidity:         big.NewInt(1234), // liquidity doesn't matter for this test
+		RebalancerAddress: models.Address(uni.wrapper.Address()),
+	})
+	mockDiscoverer := discoverermocks.NewDiscoverer(t)
+	mockDiscoverer.On("Discover", mock.Anything).Return(g, nil)
+	defer mockDiscoverer.AssertExpectations(t)
+	mockDiscovererFactory := discoverermocks.NewFactory(t)
+	mockDiscovererFactory.On("NewDiscoverer", models.NetworkSelector(ch.Selector), models.Address(uni.wrapper.Address())).
+		Return(mockDiscoverer, nil)
+	defer mockDiscovererFactory.AssertExpectations(t)
 	tracker, err := ocr3impls.NewMultichainConfigTracker(
 		masterChain,
 		logger.TestLogger(t),
 		map[relay.ID]logpoller.LogPoller{masterChain: lp},
 		uni.simClient,
 		uni.wrapper.Address(),
-		mockLMFactory,
+		mockDiscovererFactory,
 		ocr3impls.TransmitterCombiner,
 		nil,
 	)
@@ -229,16 +231,23 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 	chain2, exists := chainsel.ChainByEvmChainID(uint64(mustStrToI64(t, secondChain.ChainID)))
 	assert.True(t, exists)
 
-	reg := liquiditymanager.NewRegistry()
-	reg.Add(models.NetworkSelector(chain1.Selector), models.Address(uni1.wrapper.Address()))
-	reg.Add(models.NetworkSelector(chain2.Selector), models.Address(uni2.wrapper.Address()))
-	mockMasterLM := lm_mocks.NewRebalancer(t)
-	mockMasterLM.On("Discover", mock.Anything, mock.Anything).Return(reg, liquiditygraph.NewGraph(), nil)
-	defer mockMasterLM.AssertExpectations(t)
-	mockLMFactory := mocks.NewFactory(t)
-	mockLMFactory.On("NewRebalancer", models.NetworkSelector(chain1.Selector), models.Address(uni1.wrapper.Address())).
-		Return(mockMasterLM, nil)
-	defer mockLMFactory.AssertExpectations(t)
+	// this test doesn't care about the connections, just the vertices themselves
+	g := graph.NewGraph()
+	g.AddNetwork(models.NetworkSelector(chain1.Selector), graph.Data{
+		Liquidity:         big.NewInt(1234), // liquidity doesn't matter for this test
+		RebalancerAddress: models.Address(uni1.wrapper.Address()),
+	})
+	g.AddNetwork(models.NetworkSelector(chain2.Selector), graph.Data{
+		Liquidity:         big.NewInt(1234), // liquidity doesn't matter for this test
+		RebalancerAddress: models.Address(uni2.wrapper.Address()),
+	})
+	mockDiscoverer := discoverermocks.NewDiscoverer(t)
+	mockDiscoverer.On("Discover", mock.Anything).Return(g, nil)
+	defer mockDiscoverer.AssertExpectations(t)
+	mockDiscovererFactory := discoverermocks.NewFactory(t)
+	mockDiscovererFactory.On("NewDiscoverer", models.NetworkSelector(chain1.Selector), models.Address(uni1.wrapper.Address())).
+		Return(mockDiscoverer, nil)
+	defer mockDiscovererFactory.AssertExpectations(t)
 	tracker, err := ocr3impls.NewMultichainConfigTracker(
 		masterChain,
 		logger.TestLogger(t),
@@ -248,7 +257,7 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 		},
 		uni1.simClient,
 		uni1.wrapper.Address(),
-		mockLMFactory,
+		mockDiscovererFactory,
 		ocr3impls.TransmitterCombiner,
 		nil, // we call replay explicitly below
 	)

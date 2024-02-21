@@ -46,10 +46,6 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
   IL1GatewayRouter internal immutable i_l1GatewayRouter;
   IOutbox internal immutable i_l1Outbox;
 
-  // Nonce to use for L2 deposits to allow for better tracking offchain.
-  // TODO: increment and emit event w/ nonce
-  uint64 private s_nonce = 0;
-
   error NoGatewayForToken(address token);
   error Unimplemented();
 
@@ -97,20 +93,21 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
       revert MsgValueDoesNotMatchAmount(msg.value, expectedMsgValue);
     }
 
-    // TODO: return data bombs?
-    // TODO: increment nonce and emit event
     // The router will route the call to the gateway that we approved
     // above. The gateway will then transfer the tokens to the L2.
-    return
-      i_l1GatewayRouter.outboundTransferCustomRefund{value: msg.value}(
-        localToken,
-        recipient,
-        recipient,
-        amount,
-        params.gasLimit,
-        params.maxFeePerGas,
-        abi.encode(params.maxSubmissionCost, bytes(""))
-      );
+    // outboundTransferCustomRefund will return the abi encoded inbox sequence number
+    // which is 256 bits, so we can cap the return data to 256 bits.
+    bytes memory inboxSequenceNumber = i_l1GatewayRouter.outboundTransferCustomRefund{value: msg.value}(
+      localToken,
+      recipient,
+      recipient,
+      amount,
+      params.gasLimit,
+      params.maxFeePerGas,
+      abi.encode(params.maxSubmissionCost, bytes(""))
+    );
+
+    return inboxSequenceNumber;
   }
 
   /// @dev This function is so that we can easily abi-encode the arbitrum-specific
@@ -125,6 +122,8 @@ contract ArbitrumL1BridgeAdapter is IBridgeAdapter {
 
   /// @param proof Merkle proof of message inclusion in send root
   /// @param index Merkle path to message
+  /// @param l2Sender sender if original message (i.e., caller of ArbSys.sendTxToL1)
+  /// @param to destination address for L1 contract call
   /// @param l2Block l2 block number at which sendTxToL1 call was made
   /// @param l1Block l1 block number at which sendTxToL1 call was made
   /// @param l2Timestamp l2 Timestamp at which sendTxToL1 call was made

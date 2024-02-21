@@ -6,14 +6,9 @@ import (
 	context "context"
 	big "math/big"
 
-	liquiditygraph "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
-	liquiditymanager "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditymanager"
-
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
-
-	time "time"
 
 	types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -71,45 +66,6 @@ func (_m *Rebalancer) ConfigDigest(ctx context.Context) (types.ConfigDigest, err
 	return r0, r1
 }
 
-// Discover provides a mock function with given fields: ctx, lmFactory
-func (_m *Rebalancer) Discover(ctx context.Context, lmFactory liquiditymanager.Factory) (*liquiditymanager.Registry, liquiditygraph.LiquidityGraph, error) {
-	ret := _m.Called(ctx, lmFactory)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Discover")
-	}
-
-	var r0 *liquiditymanager.Registry
-	var r1 liquiditygraph.LiquidityGraph
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, liquiditymanager.Factory) (*liquiditymanager.Registry, liquiditygraph.LiquidityGraph, error)); ok {
-		return rf(ctx, lmFactory)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, liquiditymanager.Factory) *liquiditymanager.Registry); ok {
-		r0 = rf(ctx, lmFactory)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*liquiditymanager.Registry)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, liquiditymanager.Factory) liquiditygraph.LiquidityGraph); ok {
-		r1 = rf(ctx, lmFactory)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(liquiditygraph.LiquidityGraph)
-		}
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, liquiditymanager.Factory) error); ok {
-		r2 = rf(ctx, lmFactory)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
 // GetBalance provides a mock function with given fields: ctx
 func (_m *Rebalancer) GetBalance(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
@@ -140,29 +96,27 @@ func (_m *Rebalancer) GetBalance(ctx context.Context) (*big.Int, error) {
 	return r0, r1
 }
 
-// GetPendingTransfers provides a mock function with given fields: ctx, since
-func (_m *Rebalancer) GetPendingTransfers(ctx context.Context, since time.Time) ([]models.PendingTransfer, error) {
-	ret := _m.Called(ctx, since)
+// GetLatestSequenceNumber provides a mock function with given fields: ctx
+func (_m *Rebalancer) GetLatestSequenceNumber(ctx context.Context) (uint64, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetPendingTransfers")
+		panic("no return value specified for GetLatestSequenceNumber")
 	}
 
-	var r0 []models.PendingTransfer
+	var r0 uint64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time) ([]models.PendingTransfer, error)); ok {
-		return rf(ctx, since)
+	if rf, ok := ret.Get(0).(func(context.Context) (uint64, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time) []models.PendingTransfer); ok {
-		r0 = rf(ctx, since)
+	if rf, ok := ret.Get(0).(func(context.Context) uint64); ok {
+		r0 = rf(ctx)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]models.PendingTransfer)
-		}
+		r0 = ret.Get(0).(uint64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
-		r1 = rf(ctx, since)
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -188,6 +142,36 @@ func (_m *Rebalancer) GetRebalancers(ctx context.Context) (map[models.NetworkSel
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(map[models.NetworkSelector]models.Address)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetTokenAddress provides a mock function with given fields: ctx
+func (_m *Rebalancer) GetTokenAddress(ctx context.Context) (models.Address, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTokenAddress")
+	}
+
+	var r0 models.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (models.Address, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) models.Address); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(models.Address)
 		}
 	}
 

@@ -18,7 +18,7 @@ func TestKeyring(t *testing.T) {
 		t.Parallel()
 		bundle, err := ocr2key.New(chaintype.EVM)
 		require.NoError(t, err, "failed to create key bundle")
-		keyring := NewOnchainKeyring[models.ReportMetadata](bundle, logger.TestLogger(t))
+		keyring := NewOnchainKeyring[models.Report](bundle, logger.TestLogger(t))
 		require.Equal(t, bundle.PublicKey(), keyring.PublicKey())
 	})
 
@@ -26,7 +26,7 @@ func TestKeyring(t *testing.T) {
 		t.Parallel()
 		bundle, err := ocr2key.New(chaintype.EVM)
 		require.NoError(t, err, "failed to create key bundle")
-		keyring := NewOnchainKeyring[models.ReportMetadata](bundle, logger.TestLogger(t))
+		keyring := NewOnchainKeyring[models.Report](bundle, logger.TestLogger(t))
 		require.Equal(t, 65, keyring.MaxSignatureLength())
 	})
 
@@ -34,12 +34,12 @@ func TestKeyring(t *testing.T) {
 		t.Parallel()
 		bundle, err := ocr2key.New(chaintype.EVM)
 		require.NoError(t, err, "failed to create key bundle")
-		keyring := NewOnchainKeyring[models.ReportMetadata](bundle, logger.TestLogger(t))
+		keyring := NewOnchainKeyring[models.Report](bundle, logger.TestLogger(t))
 		digest := testutils.Random32Byte()
 		seqNr := uint64(1)
 		report := testutils.Random32Byte()
-		sig, err := keyring.Sign(digest, seqNr, ocr3types.ReportWithInfo[models.ReportMetadata]{
-			Info: models.ReportMetadata{
+		sig, err := keyring.Sign(digest, seqNr, ocr3types.ReportWithInfo[models.Report]{
+			Info: models.Report{
 				ConfigDigest: models.ConfigDigest{
 					ConfigDigest: digest,
 				},
@@ -51,8 +51,8 @@ func TestKeyring(t *testing.T) {
 			keyring.PublicKey(),
 			digest,
 			seqNr,
-			ocr3types.ReportWithInfo[models.ReportMetadata]{
-				Info: models.ReportMetadata{
+			ocr3types.ReportWithInfo[models.Report]{
+				Info: models.Report{
 					ConfigDigest: models.ConfigDigest{
 						ConfigDigest: digest,
 					},
@@ -69,8 +69,8 @@ func TestKeyring(t *testing.T) {
 			keyring.PublicKey(),
 			digest,
 			seqNr,
-			ocr3types.ReportWithInfo[models.ReportMetadata]{
-				Info: models.ReportMetadata{
+			ocr3types.ReportWithInfo[models.Report]{
+				Info: models.Report{
 					ConfigDigest: models.ConfigDigest{
 						ConfigDigest: digest,
 					},
@@ -87,8 +87,8 @@ func TestKeyring(t *testing.T) {
 			keyring.PublicKey(),
 			digest,
 			seqNr,
-			ocr3types.ReportWithInfo[models.ReportMetadata]{
-				Info: models.ReportMetadata{
+			ocr3types.ReportWithInfo[models.Report]{
+				Info: models.Report{
 					ConfigDigest: models.ConfigDigest{
 						ConfigDigest: digest,
 					},
@@ -104,8 +104,8 @@ func TestKeyring(t *testing.T) {
 			keyring.PublicKey(),
 			digest,
 			seqNr,
-			ocr3types.ReportWithInfo[models.ReportMetadata]{
-				Info: models.ReportMetadata{
+			ocr3types.ReportWithInfo[models.Report]{
+				Info: models.Report{
 					ConfigDigest: models.ConfigDigest{
 						ConfigDigest: digest,
 					},

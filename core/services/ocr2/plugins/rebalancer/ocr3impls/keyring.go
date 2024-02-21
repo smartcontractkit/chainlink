@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
 
-var _ ocr3types.OnchainKeyring[models.ReportMetadata] = &onchainKeyringV3Wrapper[models.ReportMetadata]{}
+var _ ocr3types.OnchainKeyring[models.Report] = &onchainKeyringV3Wrapper[models.Report]{}
 
 type onchainKeyringV3Wrapper[RI MultichainMeta] struct {
 	core types.OnchainKeyring

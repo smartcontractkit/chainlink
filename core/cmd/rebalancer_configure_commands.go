@@ -38,7 +38,6 @@ type rebalancerTemplateArgs struct {
 	ChainID                 int64
 	LiquidityManagerAddress string
 	LiquidityManagerNetwork uint64
-	MaxNumTransfers         int64
 	P2PV2BootstrapperPeerID string
 	P2PV2BootstrapperPort   string
 }
@@ -57,7 +56,6 @@ func (s *Shell) ConfigureRebalancerNode(
 		contractIDArg              = "contractID"
 		liquidityManagerAddressArg = "liquidityManagerAddress"
 		liquidityManagerNetworkArg = "liquidityManagerNetwork"
-		maxNumTransfersArg         = "maxNumTransfers"
 		bootstrapPortArg           = "bootstrapPort"
 	)
 	ctx := s.ctx()
@@ -175,7 +173,6 @@ func (s *Shell) ConfigureRebalancerNode(
 			ChainID:                 chainID,
 			LiquidityManagerAddress: c.String(liquidityManagerAddressArg),
 			LiquidityManagerNetwork: c.Uint64(liquidityManagerNetworkArg),
-			MaxNumTransfers:         c.Int64(maxNumTransfersArg),
 			P2PV2BootstrapperPeerID: peerID,
 			P2PV2BootstrapperPort:   c.String(bootstrapPortArg),
 		})
@@ -231,10 +228,7 @@ liquidityManagerAddress = "%s"
 liquidityManagerNetwork = "%d"
 closePluginTimeoutSec = 10
 [pluginConfig.rebalancerConfig]
-type = "random"
-[pluginConfig.rebalancerConfig.randomRebalancerConfig]
-maxNumTransfers = %d
-checkSourceDestEqual = false
+type = "ping-pong"
 `
 	lggr.Info("Liquidity manager network:", args.LiquidityManagerNetwork)
 	sp := fmt.Sprintf(RebalancerTemplate,
@@ -246,7 +240,6 @@ checkSourceDestEqual = false
 		args.ChainID,
 		args.LiquidityManagerAddress,
 		args.LiquidityManagerNetwork,
-		args.MaxNumTransfers,
 	)
 
 	var jb job.Job

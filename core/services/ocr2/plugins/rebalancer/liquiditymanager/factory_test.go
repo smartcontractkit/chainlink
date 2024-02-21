@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -20,9 +20,9 @@ func TestNewBaseLiquidityManagerFactory(t *testing.T) {
 	net2 := models.NetworkSelector(2)
 
 	t.Run("base constructor test", func(t *testing.T) {
-		lp1 := mocks.NewLogPoller(t)
-		lp2 := mocks.NewLogPoller(t)
-		lmf := NewBaseRebalancerFactory(lggr, WithEvmDep(net1, lp1, nil), WithEvmDep(net2, lp2, nil))
+		client1 := mocks.NewClient(t)
+		client2 := mocks.NewClient(t)
+		lmf := NewBaseRebalancerFactory(lggr, WithEvmDep(net1, client1), WithEvmDep(net2, client2))
 		assert.Len(t, lmf.evmDeps, 2)
 	})
 

@@ -14,32 +14,28 @@ contract MockL1BridgeAdapter is IBridgeAdapter, ILiquidityContainer {
   using SafeERC20 for IERC20;
 
   error InsufficientLiquidity();
+  error NonceAlreadyUsed(uint256 nonce);
 
   IERC20 internal immutable i_token;
+  uint256 internal s_nonce = 1;
+  mapping(uint256 => bool) internal s_nonceUsed;
 
   constructor(IERC20 token) {
     i_token = token;
   }
 
-  /// @notice Simply transferFrom msg.sender the tokens that are to be bridged.
+  /// @notice Simply transferFrom msg.sender the tokens that are to be bridged to address(this).
   function sendERC20(
     address localToken,
     address /* remoteToken */,
-    address /* receiver */,
+    address /* remoteReceiver */,
     uint256 amount,
     bytes calldata /* bridgeSpecificPayload */
   ) external payable override returns (bytes memory) {
     IERC20(localToken).transferFrom(msg.sender, address(this), amount);
-    return "";
+    bytes memory encodedNonce = abi.encode(s_nonce++);
+    return encodedNonce;
   }
-
-  /// @notice Mock function to finalize a withdrawal from L2
-  /// @dev Does nothing as the indented action cannot be inferred from the inputs
-  function finalizeWithdrawERC20FromL2(
-    address l2Sender,
-    address l1Receiver,
-    bytes calldata bridgeSpecificPayload
-  ) external {}
 
   function getBridgeFeeInNative() external pure returns (uint256) {
     return 0;
@@ -56,12 +52,21 @@ contract MockL1BridgeAdapter is IBridgeAdapter, ILiquidityContainer {
     emit LiquidityRemoved(msg.sender, amount);
   }
 
-  // No-op
+  /// @dev Test setup is trusted, so just transfer the tokens to the localReceiver,
+  /// @dev which should be the local rebalancer.
+  /// @dev Infer the amount from the bridgeSpecificPayload
+  /// @dev Note that this means that this bridge adapter will need to have some tokens,
+  /// @dev however this is ok in a test environment since we will have infinite tokens.
   function finalizeWithdrawERC20(
     address /* remoteSender */,
-    address /* localReceiver */,
-    bytes calldata /* bridgeSpecificData */
-  ) external {}
+    address localReceiver,
+    bytes calldata bridgeSpecificPayload
+  ) external {
+    (uint256 amount, uint256 nonce) = abi.decode(bridgeSpecificPayload, (uint256, uint256));
+    if (s_nonceUsed[nonce]) revert NonceAlreadyUsed(nonce);
+    s_nonceUsed[nonce] = true;
+    i_token.safeTransfer(localReceiver, amount);
+  }
 }
 
 /// @notice Mock L2 Bridge adapter

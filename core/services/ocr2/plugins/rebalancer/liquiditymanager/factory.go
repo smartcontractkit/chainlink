@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
@@ -30,7 +29,6 @@ type Factory interface {
 }
 
 type evmDep struct {
-	lp        logpoller.LogPoller
 	ethClient client.Client
 }
 
@@ -53,10 +51,9 @@ func NewBaseRebalancerFactory(lggr logger.Logger, opts ...Opt) *BaseRebalancerFa
 	return f
 }
 
-func WithEvmDep(networkID models.NetworkSelector, lp logpoller.LogPoller, ethClient client.Client) Opt {
+func WithEvmDep(networkID models.NetworkSelector, ethClient client.Client) Opt {
 	return func(f *BaseRebalancerFactory) {
 		f.evmDeps[networkID] = evmDep{
-			lp:        lp,
 			ethClient: ethClient,
 		}
 	}
@@ -81,7 +78,7 @@ func (b *BaseRebalancerFactory) initRebalancer(networkSel models.NetworkSelector
 			return nil, fmt.Errorf("evm dependencies not found for selector %d", networkSel)
 		}
 
-		rb, err = NewEvmRebalancer(address, networkSel, evmDeps.ethClient, evmDeps.lp, b.lggr)
+		rb, err = NewEvmRebalancer(address, networkSel, evmDeps.ethClient, b.lggr)
 		if err != nil {
 			return nil, err
 		}

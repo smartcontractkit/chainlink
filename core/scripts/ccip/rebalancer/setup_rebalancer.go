@@ -124,7 +124,6 @@ func setupRebalancerNodes(e multienv.Env) {
 
 		flagSet.String("liquidityManagerAddress", uni.L1.Rebalancer.Hex(), "the liquidity manager address")
 		flagSet.Uint64("liquidityManagerNetwork", mustGetChainByEvmID(*l1ChainID).Selector, "the liquidity manager network")
-		flagSet.Int64("maxNumTransfers", 4, "the max number of transfers")
 
 		// used by bootstrap template instantiation
 		flagSet.String("contractID", uni.L1.Rebalancer.Hex(), "the contract to get peers from")

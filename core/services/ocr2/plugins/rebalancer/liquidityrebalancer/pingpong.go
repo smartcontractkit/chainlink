@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/liquiditygraph"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
 
@@ -16,7 +16,7 @@ func NewPingPong() *PingPong {
 	return &PingPong{}
 }
 
-func (p *PingPong) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, inflightTransfers []models.PendingTransfer) ([]models.Transfer, error) {
+func (p *PingPong) ComputeTransfersToBalance(g graph.Graph, inflightTransfers []models.PendingTransfer) ([]models.ProposedTransfer, error) {
 	newTransfers := make([]models.PendingTransfer, 0)
 	for _, netSel := range g.GetNetworks() {
 		balance, err := g.GetLiquidity(netSel)
@@ -27,7 +27,7 @@ func (p *PingPong) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, in
 		// subtract inflight transfers from the balance
 		for _, tr := range inflightTransfers {
 			if tr.From == netSel && tr.Status != models.TransferStatusExecuted {
-				balance = big.NewInt(0).Sub(balance, tr.Amount)
+				balance = big.NewInt(0).Sub(balance, tr.Amount.ToInt())
 			}
 		}
 		if balance.Cmp(big.NewInt(0)) <= 0 {
@@ -48,14 +48,18 @@ func (p *PingPong) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, in
 		}
 
 		for _, neighborNetSel := range neighbors {
-			newTransfer := models.NewTransfer(netSel, neighborNetSel, amountToSend, time.Now(), nil)
+			newTransfer := models.NewTransfer(netSel, neighborNetSel, amountToSend, time.Now().UTC(), nil)
 			newTransfers = append(newTransfers, models.NewPendingTransfer(newTransfer))
 		}
 	}
 
-	results := make([]models.Transfer, len(newTransfers))
+	results := make([]models.ProposedTransfer, len(newTransfers))
 	for i, tr := range newTransfers {
-		results[i] = tr.Transfer
+		results[i] = models.ProposedTransfer{
+			From:   tr.From,
+			To:     tr.To,
+			Amount: tr.Amount,
+		}
 	}
 	return results, nil
 }
@@ -63,7 +67,7 @@ func (p *PingPong) ComputeTransfersToBalance(g liquiditygraph.LiquidityGraph, in
 // eligibleNeighbors returns the neighbors that:
 // 1. Can transfer back (bidirectional graph connection).
 // 2. There is no inflight transfer in either direction.
-func (p *PingPong) eligibleNeighbors(g liquiditygraph.LiquidityGraph, netSel models.NetworkSelector, inflight []models.PendingTransfer) []models.NetworkSelector {
+func (p *PingPong) eligibleNeighbors(g graph.Graph, netSel models.NetworkSelector, inflight []models.PendingTransfer) []models.NetworkSelector {
 	allNeighbors, exists := g.GetNeighbors(netSel)
 	if !exists {
 		panic(fmt.Errorf("critical internal graph issue: neighbors of %d not found", netSel))

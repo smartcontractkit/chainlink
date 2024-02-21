@@ -16,13 +16,7 @@ type PluginConfig struct {
 }
 
 type RebalancerConfig struct {
-	Type                   string                 `json:"type"`
-	RandomRebalancerConfig RandomRebalancerConfig `json:"randomRebalancerConfig"`
-}
-
-type RandomRebalancerConfig struct {
-	MaxNumTransfers      int  `json:"maxNumTransfers"`
-	CheckSourceDestEqual bool `json:"checkSourceDestEqual"`
+	Type string `json:"type"`
 }
 
 func ValidateRebalancerConfig(config RebalancerConfig) error {
@@ -34,31 +28,16 @@ func ValidateRebalancerConfig(config RebalancerConfig) error {
 		return fmt.Errorf("rebalancerType %s is not supported, supported types are %+v", config.Type, AllRebalancerTypes)
 	}
 
-	if config.Type == RebalancerTypeRandom {
-		return validateRandomRebalancerConfig(config.RandomRebalancerConfig)
-	}
-
-	return nil
-}
-
-func validateRandomRebalancerConfig(cfg RandomRebalancerConfig) error {
-	if cfg.MaxNumTransfers <= 0 {
-		return errors.New("maxNumTransfers must be positive")
-	}
-
 	return nil
 }
 
 const (
-	RebalancerTypeRandom   = "random"
-	RebalancerTypeDummy    = "dummy"
 	RebalancerTypePingPong = "ping-pong"
 )
 
 var (
 	AllRebalancerTypes = []string{
-		RebalancerTypeRandom,
-		RebalancerTypeDummy,
+		RebalancerTypePingPong,
 	}
 )
 
