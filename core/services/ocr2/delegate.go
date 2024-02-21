@@ -602,7 +602,7 @@ func (d *Delegate) newServicesGenericPlugin(
 
 		ps, err2 := relay.NewProviderServer(provider, types.OCR2PluginType(pCfg.ProviderType), d.lggr)
 		if err2 != nil {
-			return nil, fmt.Errorf("cannot start EVM provider server: %s", err)
+			return nil, fmt.Errorf("cannot start EVM provider server: %s", err2)
 		}
 		providerClientConn, err2 = ps.GetConn()
 		if err2 != nil {
