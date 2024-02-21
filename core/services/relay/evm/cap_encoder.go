@@ -2,14 +2,11 @@ package evm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	abiutil "github.com/smartcontractkit/chainlink/v2/core/chains/evm/abi"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 const (
@@ -19,7 +16,7 @@ const (
 )
 
 type capEncoder struct {
-	codec commontypes.RemoteCodec
+	selector abiutil.Selector
 }
 
 var _ consensustypes.Encoder = (*capEncoder)(nil)
@@ -38,20 +35,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	jsonSelector, err := json.Marshal(selector.Inputs)
-	if err != nil {
-		return nil, err
-	}
-
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
-		encoderName: {TypeABI: string(jsonSelector)},
-	}}
-	c, err := NewCodec(codecConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &capEncoder{codec: c}, nil
+	return &capEncoder{selector: selector}, nil
 }
 
 func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, error) {
@@ -63,7 +47,7 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 	if !ok {
 		return nil, fmt.Errorf("expected unwrapped input to be a map")
 	}
-	userPayload, err := c.codec.Encode(ctx, unwrappedMap, encoderName)
+	userPayload, err := c.selector.Inputs.Pack(unwrappedMap)
 	if err != nil {
 		return nil, err
 	}

@@ -26,6 +26,22 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
+// Lightweight wrapper around abi.Method to represent a single selector
+type Selector struct {
+	Name string
+	abi.Method
+}
+
+// Matches behaviour of abi.Pack
+func (s *Selector) Pack(args ...interface{}) ([]byte, error) {
+	arguments, err := s.Method.Inputs.Pack(args...)
+	if err != nil {
+		return nil, err
+	}
+	// Pack up the method ID too and return
+	return append(s.Method.ID, arguments...), nil
+}
+
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
 }
@@ -176,10 +192,10 @@ func assembleArg(name string, arg any) (abi.ArgumentMarshaling, error) {
 // and consumed by other functions in this package.
 // Note, although uppercase letters are not part of the ABI spec, this function
 // still accepts it as the general format is valid.
-func ParseSelector(unescapedSelector string) (abi.SelectorMarshaling, error) {
+func ParseSelector(unescapedSelector string) (Selector, error) {
 	name, rest, err := parseIdentifier(unescapedSelector)
 	if err != nil {
-		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector identifier '%s': %v", unescapedSelector, err)
+		return Selector{}, fmt.Errorf("failed to parse selector identifier '%s': %v", unescapedSelector, err)
 	}
 	args := []abi.ArgumentMarshaling{}
 	if len(rest) >= 2 && rest[0] == '(' && rest[1] == ')' {
@@ -187,12 +203,35 @@ func ParseSelector(unescapedSelector string) (abi.SelectorMarshaling, error) {
 	} else {
 		args, rest, err = parseCompositeType(rest)
 		if err != nil {
-			return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector args '%s': %v", unescapedSelector, err)
+			return Selector{}, fmt.Errorf("failed to parse selector args '%s': %v", unescapedSelector, err)
 		}
 	}
 	if len(rest) > 0 {
-		return abi.SelectorMarshaling{}, fmt.Errorf("failed to parse selector '%s': unexpected string '%s'", unescapedSelector, rest)
+		return Selector{}, fmt.Errorf("failed to parse selector '%s': unexpected string '%s'", unescapedSelector, rest)
 	}
 
-	return abi.SelectorMarshaling{Name: name, Type: "function", Inputs: args}, nil
+	inputs := []abi.Argument{}
+	for _, arg := range args {
+		ty, err := abi.NewType(arg.Type, arg.InternalType, arg.Components)
+		if err != nil {
+			return Selector{}, fmt.Errorf("failed to construct type '%s': %v", arg.Type, err)
+		}
+		inputs = append(inputs, abi.Argument{
+			Name:    arg.Name,
+			Type:    ty,
+			Indexed: false,
+		})
+	}
+
+	method := abi.NewMethod(name, name, abi.Function,
+		// the rest of params use defaults, this matches what we'd receive if we decoded via ArgumentMarshaling -> abi.JSON
+		// none of these fields impact encoding or function selector calculation
+		"",    // mutability
+		false, // constant (deprecated and removed past v0.6.0)
+		false, // payable (deprecated and removed past v0.6.0)
+		inputs,
+		nil, // function selectors don't include outputs
+	)
+
+	return Selector{Name: name, Method: method}, nil
 }

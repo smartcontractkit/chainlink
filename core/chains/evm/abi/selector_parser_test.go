@@ -19,8 +19,10 @@
 package abi
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -87,11 +89,11 @@ func TestParseSelector(t *testing.T) {
 		},
 		{
 			description: "Simple named args",
-			input:       "simple(uint256 a, address b, byte c)",
+			input:       "simple(uint256 a, address b, bytes1 c)",
 			expectedOutput: abi.SelectorMarshaling{
 				Name:   "simple",
 				Type:   "function",
-				Inputs: mkType(parameter{"uint256", "a"}, parameter{"address", "b"}, parameter{"byte", "c"}),
+				Inputs: mkType(parameter{"uint256", "a"}, parameter{"address", "b"}, parameter{"bytes1", "c"}),
 			},
 		},
 		// FAILING
@@ -245,7 +247,16 @@ func TestParseSelector(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			selector, err := ParseSelector(tc.input)
 			require.NoError(t, err)
-			assert.Equal(t, tc.expectedOutput, selector)
+
+			// temp workaround: convert SelectorMarshaling -> JSON -> fetch abi.Method to construct Selector
+			abidata, err := json.Marshal([]abi.SelectorMarshaling{tc.expectedOutput})
+			require.NoError(t, err)
+			spec, err := abi.JSON(strings.NewReader(string(abidata)))
+			require.NoError(t, err)
+			name := tc.expectedOutput.Name
+			expected := Selector{Name: name, Method: spec.Methods[name]}
+
+			assert.Equal(t, expected, selector)
 		})
 	}
 }

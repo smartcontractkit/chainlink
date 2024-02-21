@@ -2,11 +2,8 @@ package targets
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -111,45 +108,13 @@ func evaluateParams(params []any, inputs map[string]any) ([]any, error) {
 func encodePayload(args []any, rawSelector string) ([]byte, error) {
 	// TODO: do spec parsing as part of parseConfig()
 
-	// Based on https://github.com/ethereum/go-ethereum/blob/f1c27c286ea2d0e110a507e5749e92d0a6144f08/signer/fourbyte/abi.go#L77-L102
-
 	// NOTE: without having full ABI it's actually impossible to support function overloading
 	selector, err := abiutil.ParseSelector(rawSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	abidata, err := json.Marshal([]abi.SelectorMarshaling{selector})
-	if err != nil {
-		return nil, err
-	}
-
-	spec, err := abi.JSON(strings.NewReader(string(abidata)))
-	if err != nil {
-		return nil, err
-	}
-
-	return spec.Pack(selector.Name, args...)
-
-	// NOTE: could avoid JSON encoding/decoding the selector
-	// var args abi.Arguments
-	// for _, arg := range selector.Inputs {
-	// 	ty, err := abi.NewType(arg.Type, arg.InternalType, arg.Components)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	args = append(args, abi.Argument{Name: arg.Name, Type: ty})
-	// }
-	// // we only care about the name + inputs so we can compute the method ID
-	// method := abi.NewMethod(selector.Name, selector.Name, abi.Function, "nonpayable", false, false, args, nil)
-	//
-	// https://github.com/ethereum/go-ethereum/blob/f1c27c286ea2d0e110a507e5749e92d0a6144f08/accounts/abi/abi.go#L77-L82
-	// arguments, err := method.Inputs.Pack(args...)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// // Pack up the method ID too if not a constructor and return
-	// return append(method.ID, arguments...), nil
+	return selector.Pack(args...)
 }
 
 func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, request capabilities.CapabilityRequest) error {

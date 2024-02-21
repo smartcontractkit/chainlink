@@ -21,7 +21,7 @@ var (
 
 func TestEVMEncoder(t *testing.T) {
 	config := map[string]any{
-		"abi": "mercury_reports bytes[]",
+		"abi": "bytes[] mercury_reports",
 	}
 	wrapped, err := values.NewMap(config)
 	require.NoError(t, err)
