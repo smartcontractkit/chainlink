@@ -23,7 +23,7 @@ for x in $tosplit
 do
     if [ "$x" = "load" ]; then
       echo "Changing directory and executing go test -c ./... for 'load' package"
-      cd "load" && go test -c ./...
+      cd "load" && go test -c -tags embed -o .. ./...
     else
       go test -c -tags embed ./"${x}"
     fi
