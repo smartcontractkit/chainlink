@@ -250,6 +250,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 				RpcBatchSize:             int64(cfg.EVM().RPCDefaultBatchSize()),
 				KeepFinalizedBlocksDepth: int64(cfg.EVM().LogKeepBlocksDepth()),
 				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
+				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
 			}
 			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, db, l, cfg.Database()), client, l, lpOpts)
 		}

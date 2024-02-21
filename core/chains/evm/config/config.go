@@ -36,6 +36,7 @@ type EVM interface {
 	LinkContractAddress() string
 	LogBackfillBatchSize() uint32
 	LogKeepBlocksDepth() uint32
+	BackupLogPollerBlockDelay() uint64
 	LogPollInterval() time.Duration
 	LogPrunePageSize() uint32
 	MinContractPayment() *commonassets.Link

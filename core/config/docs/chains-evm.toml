@@ -57,6 +57,9 @@ LogKeepBlocksDepth = 100000 # Default
 # **ADVANCED**
 # LogPrunePageSize defines size of the page for pruning logs. Controls how many logs/blocks (at most) are deleted in a single prune tick. Default value 0 means no paging, delete everything at once.
 LogPrunePageSize = 0 # Default
+# BackupLogPollerBlockDelay works in conjunction with Feature.LogPoller. Controls the block delay of Backup LogPoller, affecting how far behind the latest finalized block it starts and how often it runs.
+# BackupLogPollerDelay=0 will disable Backup LogPoller (_not recommended for production environment_).
+BackupLogPollerBlockDelay = 100 #Default
 # MinContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 MinContractPayment = '10000000000000 juels' # Default
 # MinIncomingConfirmations is the minimum required confirmations before a log event will be consumed.
