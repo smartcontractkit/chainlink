@@ -43,7 +43,7 @@ func TestContractTransmitter(t *testing.T) {
 			"0000000000000000000000000000000000000000000000000000000000000002") // epoch
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(digestAndEpochDontScanLogs, nil).Once()
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	ot, err := NewOCRContractTransmitter(gethcommon.Address{}, c, contractABI, mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
 	})

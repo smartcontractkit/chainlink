@@ -29,7 +29,7 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 
 	lp := new(mocks.LogPoller)
 
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
 	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.TestLogger(t)), 32)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 
 func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 	lp := new(mocks.LogPoller)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	client := evmClientMocks.NewClient(t)
 
 	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)

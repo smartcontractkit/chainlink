@@ -108,8 +108,8 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 
 			if tc.mockPoller {
 				lp := new(mocks.LogPoller)
-				lp.On("RegisterFilter", mock.Anything).Return(nil)
-				lp.On("UnregisterFilter", mock.Anything).Return(nil)
+				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+				lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 				lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 				hasFitlerTimes := 1
 				if tc.unregister {
@@ -146,8 +146,8 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	ctx := testutils.Context(t)
 	mp := new(mocks.LogPoller)
-	mp.On("RegisterFilter", mock.Anything).Return(nil)
-	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
