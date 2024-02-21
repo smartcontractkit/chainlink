@@ -369,5 +369,5 @@ func (client *client) IsL2() bool {
 }
 
 func (client *client) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, error) {
-	return nil, fmt.Errorf("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives")
+	return nil, errors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives")
 }
