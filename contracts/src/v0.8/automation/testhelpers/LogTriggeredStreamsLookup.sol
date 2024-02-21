@@ -38,9 +38,10 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
   // for mercury config
   bool public useArbitrumBlockNum;
   bool public verify;
-  string[] public feedsHex = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"];
-  string public feedParamKey = "feedIdHex";
-  string public timeParamKey = "blockNumber";
+  bool public shouldRetryOnError;
+  string[] public feedsHex = ["0x000200"];
+  string public feedParamKey = "feedIDs";
+  string public timeParamKey = "timestamp";
   uint256 public counter;
 
   constructor(bool _useArbitrumBlockNum, bool _verify) {
@@ -64,6 +65,10 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;
+  }
+
+  function setShouldRetryOnErrorBool(bool value) public {
+    shouldRetryOnError = value;
   }
 
   function checkLog(
@@ -128,6 +133,17 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
+  }
+
+  function checkErrorHandler(
+    uint256 errCode,
+    bytes memory extraData
+  ) external view returns (bool upkeepNeeded, bytes memory performData) {
+    bytes[] memory values = new bytes[](2);
+    values[0] = abi.encode(errCode);
+    values[1] = abi.encode(extraData);
+    bytes memory performData = abi.encode(values, extraData);
+    return (shouldRetryOnError, performData);
   }
 
   function getBlockNumber() internal view returns (uint256) {
