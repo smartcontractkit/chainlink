@@ -51,8 +51,6 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit()                                  // ensure starting block number at least 1
-	stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
-	t.Cleanup(stopMining)
 
 	// Deploy contracts
 	verifierProxyAddr, _, _, err := verifier_proxy.DeployVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
@@ -151,6 +149,15 @@ func TestIntegration_LLO(t *testing.T) {
 
 	configDigest := setConfig(t, steve, backend, verifierContract, verifierAddress, nodes, oracles)
 	channelDefinitions := setChannelDefinitions(t, steve, backend, configStoreContract, streams)
+
+	// Bury everything with finality depth
+	ch, err := nodes[0].App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
 	addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, "job-1")
 	addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, chainID, fromBlock)
 
@@ -292,14 +299,6 @@ func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.Simulat
 
 	backend.Commit()
 
-	// Bury it with finality depth
-	ch, err := nodes[0].App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
-	}
-
 	accounts := make([]ocr2types.Account, len(offchainTransmitters))
 	for i := range offchainTransmitters {
 		accounts[i] = ocr2types.Account(fmt.Sprintf("%x", offchainTransmitters[i]))
@@ -364,6 +363,8 @@ func setChannelDefinitions(t *testing.T, steve *bind.TransactOpts, backend *back
 	channelDefinitions[channels[1]] = channel1Def
 	channelDefinitions[channels[2]] = channel2Def
 	channelDefinitions[channels[3]] = channel3Def
+
+	backend.Commit()                                 
 
 	return channelDefinitions
 }
