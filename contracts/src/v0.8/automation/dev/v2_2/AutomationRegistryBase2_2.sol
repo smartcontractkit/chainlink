@@ -48,8 +48,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
   // These values are calibrated using hardhat tests which simulates various cases and verifies that
   // the variables result in accurate estimation
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 60_000; // Fixed gas overhead for conditional upkeeps
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 85_000; // Fixed gas overhead for log upkeeps
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 30_000; // Fixed gas overhead for conditional upkeeps
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 58_000; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_600; // Value scales with f
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 24; // Per perform data byte overhead
 
