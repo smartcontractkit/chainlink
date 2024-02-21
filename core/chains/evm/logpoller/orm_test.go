@@ -1623,23 +1623,4 @@ func Benchmark_DeleteExpiredLogs(b *testing.B) {
 		err1 = tx.Rollback()
 		assert.NoError(b, err1)
 	}
-	//
-	//for i := 0; i < b.N; i++ {
-	//	tx, err1 := db.Beginx()
-	//	assert.NoError(b, err1)
-	//
-	//	for {
-	//		start := time.Now()
-	//		removed, err1 := o.DeleteExpiredLogs(10_000, pg.WithQueryer(tx))
-	//		assert.NoError(b, err1)
-	//		fmt.Println("Removed", removed, "logs in", time.Since(start))
-	//
-	//		if removed == 0 {
-	//			break
-	//		}
-	//	}
-	//
-	//	err1 = tx.Rollback()
-	//	assert.NoError(b, err1)
-	//}
 }

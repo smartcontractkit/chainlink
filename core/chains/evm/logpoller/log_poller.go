@@ -952,6 +952,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 }
 
 // PruneOldBlocks removes blocks that are > lp.keepFinalizedBlocksDepth behind the latest finalized block.
+// Returns whether all blocks eligible for pruning were removed. When logPrunePageSize is set to 0, it will always return true.
 func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 	latestBlock, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
@@ -975,6 +976,8 @@ func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
 }
 
+// PruneExpiredLogs logs that are older than their retention period defined in Filter.
+// Returns whether all logs eligible for pruning were removed. When logPrunePageSize is set to 0, it will always return true.
 func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
 	rowsRemoved, err := lp.orm.DeleteExpiredLogs(lp.logPrunePageSize, pg.WithParentCtx(ctx))
 	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
