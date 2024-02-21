@@ -266,15 +266,15 @@ func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.Simulat
 	require.NoError(t, err)
 
 	signers, _, _, _, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
-		2*time.Second,        // DeltaProgress
-		20*time.Second,       // DeltaResend
-		400*time.Millisecond, // DeltaInitial
-		200*time.Millisecond, // DeltaRound
-		100*time.Millisecond, // DeltaGrace
-		300*time.Millisecond, // DeltaCertifiedCommitRequest
-		1*time.Minute,        // DeltaStage
-		100,                  // rMax
-		[]int{len(nodes)},    // S
+		2*time.Second,         // DeltaProgress
+		20*time.Second,        // DeltaResend
+		400*time.Millisecond,  // DeltaInitial
+		1000*time.Millisecond, // DeltaRound
+		500*time.Millisecond,  // DeltaGrace
+		300*time.Millisecond,  // DeltaCertifiedCommitRequest
+		1*time.Minute,         // DeltaStage
+		100,                   // rMax
+		[]int{len(nodes)},     // S
 		oracles,
 		reportingPluginConfig, // reportingPluginConfig []byte,
 		0,                     // maxDurationQuery
