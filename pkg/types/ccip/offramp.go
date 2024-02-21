@@ -10,26 +10,27 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
+// all methods need to accept a context and return an error
 type OffRampReader interface {
 	// EncodeExecutionReport will error if messages are not a compatible version.
-	EncodeExecutionReport(report ExecReport) ([]byte, error)
+	EncodeExecutionReport(ctx context.Context, report ExecReport) ([]byte, error)
 
 	// DecodeExecutionReport will error if messages are not a compatible version.
-	DecodeExecutionReport(report []byte) (ExecReport, error)
+	DecodeExecutionReport(ctx context.Context, report []byte) (ExecReport, error)
 
 	// GetExecutionStateChangesBetweenSeqNums returns all the execution state change events for the provided message sequence numbers (inclusive).
 	GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confirmations int) ([]ExecutionStateChangedWithTxMeta, error)
 
-	Address() Address
+	Address(ctx context.Context) (Address, error)
 
 	// ChangeConfig notifies the reader that the config has changed onchain
-	ChangeConfig(onchainConfig []byte, offchainConfig []byte) (Address, Address, error)
+	ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (Address, Address, error)
 
-	OffchainConfig() ExecOffchainConfig
+	OffchainConfig(ctx context.Context) (ExecOffchainConfig, error)
 
-	OnchainConfig() ExecOnchainConfig
+	OnchainConfig(ctx context.Context) (ExecOnchainConfig, error)
 
-	GasPriceEstimator() GasPriceEstimatorExec
+	GasPriceEstimator(ctx context.Context) (GasPriceEstimatorExec, error)
 
 	GetSenderNonce(ctx context.Context, sender Address) (uint64, error)
 

@@ -28,3 +28,15 @@ type CCIPExecProvider interface {
 	SourceNativeToken(ctx context.Context) (ccip.Address, error)
 	NewTokenPoolBatchedReader(ctx context.Context) (ccip.TokenPoolBatchedReader, error)
 }
+
+type CCIPCommitFactoryGenerator interface {
+	NewCommitFactory(ctx context.Context, provider CCIPCommitProvider) (ReportingPluginFactory, error)
+}
+
+type CCIPExecFactoryGenerator interface {
+	NewExecFactory(ctx context.Context, provider CCIPExecProvider) (ReportingPluginFactory, error)
+}
+type CCIPFactoryGenerator interface {
+	CCIPCommitFactoryGenerator
+	CCIPExecFactoryGenerator
+}

@@ -20,21 +20,21 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	OffRampReader_EncodeExecutionReport_FullMethodName       = "/loop.internal.pb.ccip.OffRampReader/EncodeExecutionReport"
-	OffRampReader_DecodeExecutionReport_FullMethodName       = "/loop.internal.pb.ccip.OffRampReader/DecodeExecutionReport"
-	OffRampReader_GetExecutionStateChanges_FullMethodName    = "/loop.internal.pb.ccip.OffRampReader/GetExecutionStateChanges"
-	OffRampReader_GetTookenPoolRateLimits_FullMethodName     = "/loop.internal.pb.ccip.OffRampReader/GetTookenPoolRateLimits"
-	OffRampReader_Address_FullMethodName                     = "/loop.internal.pb.ccip.OffRampReader/Address"
-	OffRampReader_ChangeConfig_FullMethodName                = "/loop.internal.pb.ccip.OffRampReader/ChangeConfig"
-	OffRampReader_OffchainConfig_FullMethodName              = "/loop.internal.pb.ccip.OffRampReader/OffchainConfig"
-	OffRampReader_OnchainConfig_FullMethodName               = "/loop.internal.pb.ccip.OffRampReader/OnchainConfig"
-	OffRampReader_GasPriceEstimator_FullMethodName           = "/loop.internal.pb.ccip.OffRampReader/GasPriceEstimator"
-	OffRampReader_GetSenderNonce_FullMethodName              = "/loop.internal.pb.ccip.OffRampReader/GetSenderNonce"
-	OffRampReader_CurrentRateLimiterState_FullMethodName     = "/loop.internal.pb.ccip.OffRampReader/CurrentRateLimiterState"
-	OffRampReader_GetExecutionState_FullMethodName           = "/loop.internal.pb.ccip.OffRampReader/GetExecutionState"
-	OffRampReader_GetStaticConfig_FullMethodName             = "/loop.internal.pb.ccip.OffRampReader/GetStaticConfig"
-	OffRampReader_GetSourceToDestTokenMapping_FullMethodName = "/loop.internal.pb.ccip.OffRampReader/GetSourceToDestTokenMapping"
-	OffRampReader_GetTokens_FullMethodName                   = "/loop.internal.pb.ccip.OffRampReader/GetTokens"
+	OffRampReader_EncodeExecutionReport_FullMethodName        = "/loop.internal.pb.ccip.OffRampReader/EncodeExecutionReport"
+	OffRampReader_DecodeExecutionReport_FullMethodName        = "/loop.internal.pb.ccip.OffRampReader/DecodeExecutionReport"
+	OffRampReader_GetExecutionStateChanges_FullMethodName     = "/loop.internal.pb.ccip.OffRampReader/GetExecutionStateChanges"
+	OffRampReader_GetTokenPoolRateLimits_FullMethodName       = "/loop.internal.pb.ccip.OffRampReader/GetTokenPoolRateLimits"
+	OffRampReader_Address_FullMethodName                      = "/loop.internal.pb.ccip.OffRampReader/Address"
+	OffRampReader_ChangeConfig_FullMethodName                 = "/loop.internal.pb.ccip.OffRampReader/ChangeConfig"
+	OffRampReader_OffchainConfig_FullMethodName               = "/loop.internal.pb.ccip.OffRampReader/OffchainConfig"
+	OffRampReader_OnchainConfig_FullMethodName                = "/loop.internal.pb.ccip.OffRampReader/OnchainConfig"
+	OffRampReader_GasPriceEstimator_FullMethodName            = "/loop.internal.pb.ccip.OffRampReader/GasPriceEstimator"
+	OffRampReader_GetSenderNonce_FullMethodName               = "/loop.internal.pb.ccip.OffRampReader/GetSenderNonce"
+	OffRampReader_CurrentRateLimiterState_FullMethodName      = "/loop.internal.pb.ccip.OffRampReader/CurrentRateLimiterState"
+	OffRampReader_GetExecutionState_FullMethodName            = "/loop.internal.pb.ccip.OffRampReader/GetExecutionState"
+	OffRampReader_GetStaticConfig_FullMethodName              = "/loop.internal.pb.ccip.OffRampReader/GetStaticConfig"
+	OffRampReader_GetSourceToDestTokensMapping_FullMethodName = "/loop.internal.pb.ccip.OffRampReader/GetSourceToDestTokensMapping"
+	OffRampReader_GetTokens_FullMethodName                    = "/loop.internal.pb.ccip.OffRampReader/GetTokens"
 )
 
 // OffRampReaderClient is the client API for OffRampReader service.
@@ -44,7 +44,7 @@ type OffRampReaderClient interface {
 	EncodeExecutionReport(ctx context.Context, in *EncodeExecutionReportRequest, opts ...grpc.CallOption) (*EncodeExecutionReportResponse, error)
 	DecodeExecutionReport(ctx context.Context, in *DecodeExecutionReportRequest, opts ...grpc.CallOption) (*DecodeExecutionReportResponse, error)
 	GetExecutionStateChanges(ctx context.Context, in *GetExecutionStateChangesRequest, opts ...grpc.CallOption) (*GetExecutionStateChangesResponse, error)
-	GetTookenPoolRateLimits(ctx context.Context, in *GetTokenPoolRateLimitsRequest, opts ...grpc.CallOption) (*GetTokenPoolRateLimitsResponse, error)
+	GetTokenPoolRateLimits(ctx context.Context, in *GetTokenPoolRateLimitsRequest, opts ...grpc.CallOption) (*GetTokenPoolRateLimitsResponse, error)
 	Address(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OffRampAddressResponse, error)
 	ChangeConfig(ctx context.Context, in *ChangeConfigRequest, opts ...grpc.CallOption) (*ChangeConfigResponse, error)
 	OffchainConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OffchainConfigResponse, error)
@@ -54,7 +54,7 @@ type OffRampReaderClient interface {
 	CurrentRateLimiterState(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CurrentRateLimiterStateResponse, error)
 	GetExecutionState(ctx context.Context, in *GetExecutionStateRequest, opts ...grpc.CallOption) (*GetExecutionStateResponse, error)
 	GetStaticConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetStaticConfigResponse, error)
-	GetSourceToDestTokenMapping(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSourceToDestTokenMappingResponse, error)
+	GetSourceToDestTokensMapping(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSourceToDestTokensMappingResponse, error)
 	GetTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetTokensResponse, error)
 }
 
@@ -93,9 +93,9 @@ func (c *offRampReaderClient) GetExecutionStateChanges(ctx context.Context, in *
 	return out, nil
 }
 
-func (c *offRampReaderClient) GetTookenPoolRateLimits(ctx context.Context, in *GetTokenPoolRateLimitsRequest, opts ...grpc.CallOption) (*GetTokenPoolRateLimitsResponse, error) {
+func (c *offRampReaderClient) GetTokenPoolRateLimits(ctx context.Context, in *GetTokenPoolRateLimitsRequest, opts ...grpc.CallOption) (*GetTokenPoolRateLimitsResponse, error) {
 	out := new(GetTokenPoolRateLimitsResponse)
-	err := c.cc.Invoke(ctx, OffRampReader_GetTookenPoolRateLimits_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, OffRampReader_GetTokenPoolRateLimits_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -183,9 +183,9 @@ func (c *offRampReaderClient) GetStaticConfig(ctx context.Context, in *emptypb.E
 	return out, nil
 }
 
-func (c *offRampReaderClient) GetSourceToDestTokenMapping(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSourceToDestTokenMappingResponse, error) {
-	out := new(GetSourceToDestTokenMappingResponse)
-	err := c.cc.Invoke(ctx, OffRampReader_GetSourceToDestTokenMapping_FullMethodName, in, out, opts...)
+func (c *offRampReaderClient) GetSourceToDestTokensMapping(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSourceToDestTokensMappingResponse, error) {
+	out := new(GetSourceToDestTokensMappingResponse)
+	err := c.cc.Invoke(ctx, OffRampReader_GetSourceToDestTokensMapping_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ type OffRampReaderServer interface {
 	EncodeExecutionReport(context.Context, *EncodeExecutionReportRequest) (*EncodeExecutionReportResponse, error)
 	DecodeExecutionReport(context.Context, *DecodeExecutionReportRequest) (*DecodeExecutionReportResponse, error)
 	GetExecutionStateChanges(context.Context, *GetExecutionStateChangesRequest) (*GetExecutionStateChangesResponse, error)
-	GetTookenPoolRateLimits(context.Context, *GetTokenPoolRateLimitsRequest) (*GetTokenPoolRateLimitsResponse, error)
+	GetTokenPoolRateLimits(context.Context, *GetTokenPoolRateLimitsRequest) (*GetTokenPoolRateLimitsResponse, error)
 	Address(context.Context, *emptypb.Empty) (*OffRampAddressResponse, error)
 	ChangeConfig(context.Context, *ChangeConfigRequest) (*ChangeConfigResponse, error)
 	OffchainConfig(context.Context, *emptypb.Empty) (*OffchainConfigResponse, error)
@@ -218,7 +218,7 @@ type OffRampReaderServer interface {
 	CurrentRateLimiterState(context.Context, *emptypb.Empty) (*CurrentRateLimiterStateResponse, error)
 	GetExecutionState(context.Context, *GetExecutionStateRequest) (*GetExecutionStateResponse, error)
 	GetStaticConfig(context.Context, *emptypb.Empty) (*GetStaticConfigResponse, error)
-	GetSourceToDestTokenMapping(context.Context, *emptypb.Empty) (*GetSourceToDestTokenMappingResponse, error)
+	GetSourceToDestTokensMapping(context.Context, *emptypb.Empty) (*GetSourceToDestTokensMappingResponse, error)
 	GetTokens(context.Context, *emptypb.Empty) (*GetTokensResponse, error)
 	mustEmbedUnimplementedOffRampReaderServer()
 }
@@ -236,8 +236,8 @@ func (UnimplementedOffRampReaderServer) DecodeExecutionReport(context.Context, *
 func (UnimplementedOffRampReaderServer) GetExecutionStateChanges(context.Context, *GetExecutionStateChangesRequest) (*GetExecutionStateChangesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetExecutionStateChanges not implemented")
 }
-func (UnimplementedOffRampReaderServer) GetTookenPoolRateLimits(context.Context, *GetTokenPoolRateLimitsRequest) (*GetTokenPoolRateLimitsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetTookenPoolRateLimits not implemented")
+func (UnimplementedOffRampReaderServer) GetTokenPoolRateLimits(context.Context, *GetTokenPoolRateLimitsRequest) (*GetTokenPoolRateLimitsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTokenPoolRateLimits not implemented")
 }
 func (UnimplementedOffRampReaderServer) Address(context.Context, *emptypb.Empty) (*OffRampAddressResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Address not implemented")
@@ -266,8 +266,8 @@ func (UnimplementedOffRampReaderServer) GetExecutionState(context.Context, *GetE
 func (UnimplementedOffRampReaderServer) GetStaticConfig(context.Context, *emptypb.Empty) (*GetStaticConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStaticConfig not implemented")
 }
-func (UnimplementedOffRampReaderServer) GetSourceToDestTokenMapping(context.Context, *emptypb.Empty) (*GetSourceToDestTokenMappingResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetSourceToDestTokenMapping not implemented")
+func (UnimplementedOffRampReaderServer) GetSourceToDestTokensMapping(context.Context, *emptypb.Empty) (*GetSourceToDestTokensMappingResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSourceToDestTokensMapping not implemented")
 }
 func (UnimplementedOffRampReaderServer) GetTokens(context.Context, *emptypb.Empty) (*GetTokensResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTokens not implemented")
@@ -339,20 +339,20 @@ func _OffRampReader_GetExecutionStateChanges_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _OffRampReader_GetTookenPoolRateLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _OffRampReader_GetTokenPoolRateLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetTokenPoolRateLimitsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(OffRampReaderServer).GetTookenPoolRateLimits(ctx, in)
+		return srv.(OffRampReaderServer).GetTokenPoolRateLimits(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: OffRampReader_GetTookenPoolRateLimits_FullMethodName,
+		FullMethod: OffRampReader_GetTokenPoolRateLimits_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OffRampReaderServer).GetTookenPoolRateLimits(ctx, req.(*GetTokenPoolRateLimitsRequest))
+		return srv.(OffRampReaderServer).GetTokenPoolRateLimits(ctx, req.(*GetTokenPoolRateLimitsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -519,20 +519,20 @@ func _OffRampReader_GetStaticConfig_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _OffRampReader_GetSourceToDestTokenMapping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _OffRampReader_GetSourceToDestTokensMapping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(OffRampReaderServer).GetSourceToDestTokenMapping(ctx, in)
+		return srv.(OffRampReaderServer).GetSourceToDestTokensMapping(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: OffRampReader_GetSourceToDestTokenMapping_FullMethodName,
+		FullMethod: OffRampReader_GetSourceToDestTokensMapping_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OffRampReaderServer).GetSourceToDestTokenMapping(ctx, req.(*emptypb.Empty))
+		return srv.(OffRampReaderServer).GetSourceToDestTokensMapping(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -575,8 +575,8 @@ var OffRampReader_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _OffRampReader_GetExecutionStateChanges_Handler,
 		},
 		{
-			MethodName: "GetTookenPoolRateLimits",
-			Handler:    _OffRampReader_GetTookenPoolRateLimits_Handler,
+			MethodName: "GetTokenPoolRateLimits",
+			Handler:    _OffRampReader_GetTokenPoolRateLimits_Handler,
 		},
 		{
 			MethodName: "Address",
@@ -615,8 +615,8 @@ var OffRampReader_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _OffRampReader_GetStaticConfig_Handler,
 		},
 		{
-			MethodName: "GetSourceToDestTokenMapping",
-			Handler:    _OffRampReader_GetSourceToDestTokenMapping_Handler,
+			MethodName: "GetSourceToDestTokensMapping",
+			Handler:    _OffRampReader_GetSourceToDestTokensMapping_Handler,
 		},
 		{
 			MethodName: "GetTokens",
