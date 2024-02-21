@@ -695,12 +695,6 @@ func CCIPDefaultTestSetUp(
 			}
 		}
 	}
-	if namespace == "" {
-		if value, set := os.LookupEnv(config.EnvVarNamespace); set && value != "" {
-			namespace = value
-		}
-	}
-
 	setUpArgs.Cfg.TestGroupInput.SetTestRunName(namespace)
 	_, err = os.Stat(setUpArgs.LaneConfigFile)
 	if err == nil {

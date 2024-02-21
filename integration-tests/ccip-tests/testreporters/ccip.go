@@ -241,22 +241,19 @@ func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slac
 					"Run Duration = %.0fm "+
 						"\nNumber of ccip-send= %d"+
 						"\nNo of failed requests = %d", r.duration.Minutes(), lane.TotalRequests, lane.FailedCountsByPhase[E2E]))
-		} else {
-			msgTexts = append(msgTexts,
-				fmt.Sprintf("lane %s :white_check_mark:", name),
-				fmt.Sprintf(
-					"Run Duration = %.0fm "+
-						"\nNumber of ccip-send= %d", r.duration.Minutes(), lane.TotalRequests))
 		}
 	}
 
 	msgTexts = append(msgTexts, fmt.Sprintf(
 		"\nTest Run Summary created on _remote-test-runner_ at _%s_\nNotifying <@%s>",
 		r.reportFilePath, testreporters.SlackUserID))
+	if r.namespace == "" {
+		r.SetNamespace("ccip")
+	}
 	messageBlocks := testreporters.SlackNotifyBlocks(headerText, r.namespace, msgTexts)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send slack message: %w messageBlocks = %v", err, messageBlocks)
 	}
 
 	return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
