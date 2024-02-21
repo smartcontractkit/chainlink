@@ -80,7 +80,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          suites: benchmark load chaos reorg
+          suites: benchmark chaos reorg load
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
         env:
