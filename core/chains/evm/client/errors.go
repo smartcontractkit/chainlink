@@ -62,6 +62,7 @@ const (
 	L2Full
 	TransactionAlreadyMined
 	Fatal
+	ServiceUnavailable
 )
 
 type ClientErrors = map[int]*regexp.Regexp
@@ -196,8 +197,9 @@ var nethermind = ClientErrors{
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)$`),
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
-	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+)?$`),
-	Fatal:           nethermindFatal,
+	InsufficientEth:    regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+|, Balance is \d+ less than sending value \+ gas \d+)?$`),
+	ServiceUnavailable: regexp.MustCompile(`(: |^)503 Service Unavailable$`),
+	Fatal:              nethermindFatal,
 }
 
 // Harmony
@@ -299,6 +301,11 @@ func (s *SendError) IsL2FeeTooHigh() bool {
 // IsL2Full is an l2-specific error returned when the queue or mempool is full.
 func (s *SendError) IsL2Full() bool {
 	return s.is(L2Full)
+}
+
+// IsServiceUnavailable indicates if the error was caused by an service being unavailable
+func (s *SendError) IsServiceUnavailable() bool {
+	return s.is(ServiceUnavailable)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -482,6 +489,10 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
 		), "err", sendError, "etx", tx)
 		return commonclient.InsufficientFunds
+	}
+	if sendError.IsServiceUnavailable() {
+		lggr.Errorw("service unavailable while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		return commonclient.Retryable
 	}
 	if sendError.IsTimeout() {
 		lggr.Errorw("timeout while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
