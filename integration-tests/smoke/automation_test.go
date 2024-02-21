@@ -104,8 +104,8 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
 			cfg := tc.MustCopy(automationTestConfig)
+			t.Parallel()
 			l := logging.GetTestLogger(t)
 
 			var err error
