@@ -2,6 +2,7 @@ package batchreader
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -45,10 +46,17 @@ func TestTokenPoolFactory(t *testing.T) {
 
 		var batchCallResult []rpclib.DataAndErr
 		for _, poolType := range poolTypes {
-			batchCallResult = append(batchCallResult, rpclib.DataAndErr{
-				Outputs: []any{poolType + " " + versionStr},
-				Err:     nil,
-			})
+			if versionStr == ccipdata.V1_0_0 {
+				// simulating the behaviour for 1.0.0 pools where typeAndVersion method does not exist
+				batchCallResult = append(batchCallResult, rpclib.DataAndErr{
+					Err: fmt.Errorf("unpack result: %w", rpclib.ErrEmptyOutput),
+				})
+			} else {
+				batchCallResult = append(batchCallResult, rpclib.DataAndErr{
+					Outputs: []any{poolType + " " + versionStr},
+					Err:     nil,
+				})
+			}
 		}
 
 		batchCallerMock.On("BatchCall", ctx, uint64(0), mock.Anything).Return(batchCallResult, nil).Once()

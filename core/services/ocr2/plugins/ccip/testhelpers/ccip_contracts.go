@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
@@ -52,15 +53,15 @@ import (
 
 var (
 	// Source
-	SourcePool   = "source pool"
-	SourcePrices = "source prices"
-	OnRamp       = "onramp"
-	OnRampNative = "onramp-native"
-	SourceRouter = "source router"
+	SourcePool          = "source Link pool"
+	SourcePriceRegistry = "source PriceRegistry"
+	OnRamp              = "onramp"
+	OnRampNative        = "onramp-native"
+	SourceRouter        = "source router"
 
 	// Dest
 	OffRamp  = "offramp"
-	DestPool = "dest pool"
+	DestPool = "dest Link pool"
 
 	Receiver            = "receiver"
 	Sender              = "sender"
@@ -180,11 +181,11 @@ type Common struct {
 	User              *bind.TransactOpts
 	Chain             *backends.SimulatedBackend
 	LinkToken         *link_token_interface.LinkToken
-	Pool              *lock_release_token_pool.LockReleaseTokenPool
+	LinkTokenPool     *lock_release_token_pool.LockReleaseTokenPool
 	CustomPool        *custom_token_pool.CustomTokenPool
 	CustomToken       *link_token_interface.LinkToken
 	WrappedNative     *weth9.WETH9
-	WrappedNativePool *lock_release_token_pool.LockReleaseTokenPool
+	WrappedNativePool *lock_release_token_pool_1_0_0.LockReleaseTokenPool
 	ARM               *mock_arm_contract.MockARMContract
 	ARMProxy          *arm_proxy_contract.ARMProxyContract
 	PriceRegistry     *price_registry.PriceRegistry
@@ -253,8 +254,8 @@ func (c *CCIPContracts) DeployNewOffRamp(t *testing.T) {
 			PrevOffRamp:         prevOffRamp,
 			ArmProxy:            c.Dest.ARMProxy.Address(),
 		},
-		[]common.Address{c.Source.LinkToken.Address()}, // source tokens
-		[]common.Address{c.Dest.Pool.Address()},        // pools
+		[]common.Address{c.Source.LinkToken.Address()},   // source tokens
+		[]common.Address{c.Dest.LinkTokenPool.Address()}, // pools
 		evm_2_evm_offramp.RateLimiterConfig{
 			IsEnabled: true,
 			Capacity:  LinkUSDValue(100),
@@ -327,7 +328,7 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 		[]evm_2_evm_onramp.InternalPoolUpdate{
 			{
 				Token: c.Source.LinkToken.Address(),
-				Pool:  c.Source.Pool.Address(),
+				Pool:  c.Source.LinkTokenPool.Address(),
 			},
 		},
 		evm_2_evm_onramp.RateLimiterConfig{
@@ -415,7 +416,6 @@ func (c *CCIPContracts) DeployNewPriceRegistry(t *testing.T) {
 	c.Dest.Chain.Commit()
 	c.Dest.PriceRegistry, err = price_registry.NewPriceRegistry(destPricesAddress, c.Dest.Chain)
 	require.NoError(t, err)
-	t.Logf("New Price Registry deployed at %s", destPricesAddress.String())
 
 	priceUpdates := price_registry.InternalPriceUpdates{
 		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
@@ -440,6 +440,8 @@ func (c *CCIPContracts) DeployNewPriceRegistry(t *testing.T) {
 
 	c.Source.Chain.Commit()
 	c.Dest.Chain.Commit()
+
+	t.Logf("New Price Registry deployed at %s", destPricesAddress.String())
 }
 
 func (c *CCIPContracts) SetNopsOnRamp(t *testing.T, nopsAndWeights []evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight) {
@@ -691,25 +693,21 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 		return [20]byte{}, nil, err
 	}
 
-	// native token is used as fee token
+	//native token is used as fee token
 	_, err = c.Source.PriceRegistry.UpdatePrices(c.Source.User, price_registry.InternalPriceUpdates{
 		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
 			{
-				SourceToken: wrappedNativeAddress,
-				UsdPerToken: big.NewInt(1e18), // 1usd
+				SourceToken: sourceTokenAddress,
+				UsdPerToken: big.NewInt(5),
 			},
 		},
-		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
-			{
-				DestChainSelector: c.Dest.ChainSelector,
-				UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9,
-			},
-		},
+		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{},
 	})
 	if err != nil {
 		return [20]byte{}, nil, err
 	}
 	c.Source.Chain.Commit()
+
 	_, err = c.Source.PriceRegistry.ApplyFeeTokensUpdates(c.Source.User, []common.Address{wrappedNativeAddress}, nil)
 	if err != nil {
 		return [20]byte{}, nil, err
@@ -727,48 +725,10 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 		return [20]byte{}, nil, err
 	}
 
-	_, err = c.Source.PriceRegistry.UpdatePrices(c.Source.User, price_registry.InternalPriceUpdates{
-		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
-			{
-				SourceToken: sourceTokenAddress,
-				UsdPerToken: big.NewInt(5),
-			},
-		},
-		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
-			{
-				DestChainSelector: c.Source.ChainSelector,
-				UsdPerUnitGas:     big.NewInt(0),
-			},
-		},
-	})
-	if err != nil {
-		return [20]byte{}, nil, err
-	}
-	c.Source.Chain.Commit()
-
 	_, err = c.Dest.OffRamp.ApplyPoolUpdates(c.Dest.User, nil, []evm_2_evm_offramp.InternalPoolUpdate{
 		{
 			Token: sourceTokenAddress,
 			Pool:  destPoolAddress,
-		},
-	})
-	if err != nil {
-		return [20]byte{}, nil, err
-	}
-	c.Dest.Chain.Commit()
-
-	_, err = c.Dest.PriceRegistry.UpdatePrices(c.Dest.User, price_registry.InternalPriceUpdates{
-		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
-			{
-				SourceToken: destPoolAddress,
-				UsdPerToken: big.NewInt(5),
-			},
-		},
-		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
-			{
-				DestChainSelector: 0,
-				UsdPerUnitGas:     big.NewInt(0),
-			},
 		},
 	})
 	if err != nil {
@@ -889,19 +849,17 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	sourceChain.Commit()
 
-	sourceWeth9PoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
+	sourceWeth9PoolAddress, _, _, err := lock_release_token_pool_1_0_0.DeployLockReleaseTokenPool(
 		sourceUser,
 		sourceChain,
 		sourceWeth9addr,
 		[]common.Address{},
 		armProxySourceAddress,
-		true,
-		sourceRouterAddress,
 	)
 	require.NoError(t, err)
 	sourceChain.Commit()
 
-	sourceWeth9Pool, err := lock_release_token_pool.NewLockReleaseTokenPool(sourceWeth9PoolAddress, sourceChain)
+	sourceWeth9Pool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(sourceWeth9PoolAddress, sourceChain)
 	require.NoError(t, err)
 
 	sourcePoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
@@ -945,26 +903,24 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	srcPriceRegistry, err := price_registry.NewPriceRegistry(sourcePricesAddress, sourceChain)
 	require.NoError(t, err)
 
-	prices := price_registry.InternalPriceUpdates{
+	_, err = srcPriceRegistry.UpdatePrices(sourceUser, price_registry.InternalPriceUpdates{
 		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
 			{
 				SourceToken: sourceLinkTokenAddress,
-				UsdPerToken: big.NewInt(8e18), // 8usd
+				UsdPerToken: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(20)),
 			},
 			{
 				SourceToken: sourceWeth9addr,
-				UsdPerToken: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2)), // TODO make this 2000USD and once we figure out the fee and exec cost discrepancy
+				UsdPerToken: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2000)),
 			},
 		},
 		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
 			{
 				DestChainSelector: destChainSelector,
-				UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
+				UsdPerUnitGas:     big.NewInt(20000e9),
 			},
 		},
-	}
-
-	_, err = srcPriceRegistry.UpdatePrices(sourceUser, prices)
+	})
 	require.NoError(t, err)
 
 	onRampAddress, _, _, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
@@ -1055,21 +1011,15 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		}},
 	)
 	require.NoError(t, err)
-	_, err = sourceWeth9Pool.ApplyChainUpdates(sourceUser,
-		[]lock_release_token_pool.TokenPoolChainUpdate{{
-			RemoteChainSelector: destChainSelector,
-			Allowed:             true,
-			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
-				IsEnabled: true,
-				Capacity:  HundredLink,
-				Rate:      big.NewInt(1e18),
-			},
-			InboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
+	_, err = sourceWeth9Pool.ApplyRampUpdates(sourceUser,
+		[]lock_release_token_pool_1_0_0.TokenPoolRampUpdate{{Ramp: onRampAddress, Allowed: true,
+			RateLimiterConfig: lock_release_token_pool_1_0_0.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
 				Rate:      big.NewInt(1e18),
 			},
 		}},
+		[]lock_release_token_pool_1_0_0.TokenPoolRampUpdate{},
 	)
 	require.NoError(t, err)
 	sourceChain.Commit()
@@ -1077,13 +1027,13 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	sourceChain.Commit()
 
-	destWeth9addr, _, _, err := weth9.DeployWETH9(destUser, destChain)
+	destWethaddr, _, _, err := weth9.DeployWETH9(destUser, destChain)
 	require.NoError(t, err)
-	destWrapped, err := weth9.NewWETH9(destWeth9addr, destChain)
+	destWrapped, err := weth9.NewWETH9(destWethaddr, destChain)
 	require.NoError(t, err)
 
 	// Create dest router
-	destRouterAddress, _, _, err := router.DeployRouter(destUser, destChain, destWeth9addr, armProxyDestAddress)
+	destRouterAddress, _, _, err := router.DeployRouter(destUser, destChain, destWethaddr, armProxyDestAddress)
 	require.NoError(t, err)
 	destChain.Commit()
 	destRouter, err := router.NewRouter(destRouterAddress, destChain)
@@ -1122,18 +1072,28 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	destChain.Commit()
 
-	destWrappedPoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
+	destWrappedPoolAddress, _, _, err := lock_release_token_pool_1_0_0.DeployLockReleaseTokenPool(
 		destUser,
 		destChain,
-		destWeth9addr,
+		destWethaddr,
 		[]common.Address{},
 		armProxyDestAddress,
-		true,
-		destRouterAddress,
 	)
 	require.NoError(t, err)
-	destWrappedPool, err := lock_release_token_pool.NewLockReleaseTokenPool(destWrappedPoolAddress, destChain)
+	destWrappedPool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(destWrappedPoolAddress, destChain)
 	require.NoError(t, err)
+
+	poolFloatValue := big.NewInt(1e18)
+
+	destUser.Value = poolFloatValue
+	_, err = destWrapped.Deposit(destUser)
+	require.NoError(t, err)
+	destChain.Commit()
+	destUser.Value = nil
+
+	_, err = destWrapped.Transfer(destUser, destWrappedPool.Address(), poolFloatValue)
+	require.NoError(t, err)
+	destChain.Commit()
 
 	// Deploy and configure ge offramp.
 	destPricesAddress, _, _, err := price_registry.DeployPriceRegistry(
@@ -1145,23 +1105,6 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	destPriceRegistry, err := price_registry.NewPriceRegistry(destPricesAddress, destChain)
-	require.NoError(t, err)
-
-	destPrices := price_registry.InternalPriceUpdates{
-		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
-			{SourceToken: destLinkTokenAddress, UsdPerToken: big.NewInt(8e18)},   // 8usd
-			{SourceToken: destCustomTokenAddress, UsdPerToken: big.NewInt(5e18)}, // 5usd
-			{SourceToken: destWeth9addr, UsdPerToken: big.NewInt(2e18)},          // 2usd
-		},
-		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
-			{
-				DestChainSelector: sourceChainSelector,
-				UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
-			},
-		},
-	}
-
-	_, err = destPriceRegistry.UpdatePrices(destUser, destPrices)
 	require.NoError(t, err)
 
 	// Deploy commit store.
@@ -1193,8 +1136,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			PrevOffRamp:         common.HexToAddress(""),
 			ArmProxy:            armProxyDestAddress,
 		},
-		[]common.Address{sourceLinkTokenAddress},
-		[]common.Address{destPoolAddress},
+		[]common.Address{sourceLinkTokenAddress, sourceWeth9addr},
+		[]common.Address{destPoolAddress, destWrappedPool.Address()},
 		evm_2_evm_offramp.RateLimiterConfig{
 			IsEnabled: true,
 			Capacity:  LinkUSDValue(100),
@@ -1221,6 +1164,21 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		}},
 	)
 	require.NoError(t, err)
+
+	_, err = destWrappedPool.ApplyRampUpdates(destUser,
+		[]lock_release_token_pool_1_0_0.TokenPoolRampUpdate{},
+		[]lock_release_token_pool_1_0_0.TokenPoolRampUpdate{{
+			Ramp:    offRampAddress,
+			Allowed: true,
+			RateLimiterConfig: lock_release_token_pool_1_0_0.RateLimiterConfig{
+				IsEnabled: true,
+				Capacity:  HundredLink,
+				Rate:      big.NewInt(1e18),
+			},
+		}},
+	)
+	require.NoError(t, err)
+
 	destChain.Commit()
 	_, err = destPriceRegistry.ApplyPriceUpdatersUpdates(destUser, []common.Address{commitStoreAddress}, []common.Address{})
 	require.NoError(t, err)
@@ -1252,7 +1210,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			User:              sourceUser,
 			Chain:             sourceChain,
 			LinkToken:         sourceLinkToken,
-			Pool:              sourcePool,
+			LinkTokenPool:     sourcePool,
 			CustomPool:        nil,
 			CustomToken:       sourceCustomToken,
 			ARM:               sourceARM,
@@ -1271,7 +1229,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			User:              destUser,
 			Chain:             destChain,
 			LinkToken:         destLinkToken,
-			Pool:              destPool,
+			LinkTokenPool:     destPool,
 			CustomPool:        nil,
 			CustomToken:       destCustomToken,
 			ARM:               destARM,
@@ -1313,7 +1271,7 @@ func (c *CCIPContracts) AssertExecState(t *testing.T, log logpoller.Log, state M
 	executionStateChanged, err := offRamp.ParseExecutionStateChanged(log.ToGethLog())
 	require.NoError(t, err)
 	if MessageExecutionState(executionStateChanged.State) != state {
-		t.Log("Execution failed")
+		t.Log("Execution failed", hexutil.Encode(executionStateChanged.ReturnData))
 		t.Fail()
 	}
 }
