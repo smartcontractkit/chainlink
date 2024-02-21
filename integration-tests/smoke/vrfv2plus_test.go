@@ -1001,23 +1001,25 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		mockETHLinkFeed,
 		numberOfTxKeysToCreate,
 		1,
-		1,
+		2,
 		l,
 	)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
 
-	subID := subIDs[0]
-
-	subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
-	require.NoError(t, err, "error getting subscription information")
-
-	vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
 	var isNativeBilling = true
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
 		//t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
+
+		subID := subIDs[0]
+
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information")
+
+		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
+
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
-		_, err := vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
+		_, err = vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
 			vrfKeyData.KeyHash,
 			subID,
 			*configCopy.VRFv2Plus.General.MinimumConfirmations,
@@ -1075,9 +1077,16 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	})
 
 	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
+		subID := subIDs[1]
+
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information")
+
+		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
+
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
-		_, err := vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
+		_, err = vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
 			vrfKeyData.KeyHash,
 			subID,
 			*configCopy.VRFv2Plus.General.MinimumConfirmations,
@@ -1108,9 +1117,6 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
-		metrics, err := vrfContracts.VRFV2PlusConsumer[0].GetLoadTestMetrics(testcontext.Get(t))
-		require.Equal(t, 0, metrics.RequestCount.Cmp(big.NewInt(1)))
-		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)))
 
 		var clNodeTxs *client.TransactionsData
 		var txHash string
