@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -637,6 +638,39 @@ pluginName = "median"
 			},
 		},
 		{
+			name: "Generic plugin config validation - invalid useDatabase value sets useDatabase to false",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+name = "dkg"
+externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
+maxTaskDuration = "1s"
+contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
+ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
+p2pv2Bootstrappers = [
+	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
+
+[relayConfig]
+chainID = 4
+
+[pluginConfig]
+pluginName = "median"
+telemetryType = "median"
+useDatabase = "true"
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				pCfg := validate.OCR2GenericPluginConfig{}
+				err1 := json.Unmarshal(os.OCR2OracleSpec.PluginConfig.Bytes(), &pCfg)
+				require.NoError(t, err1)
+				require.False(t, pCfg.UseDatabase)
+				require.NoError(t, err)
+			},
+		},
+		{
 			name: "Generic plugin config validation - all provided",
 			toml: `
 type = "offchainreporting2"
@@ -659,6 +693,7 @@ chainID = 4
 [pluginConfig]
 pluginName = "median"
 telemetryType = "median"
+useDatabase = true
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)

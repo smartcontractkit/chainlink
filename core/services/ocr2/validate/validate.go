@@ -12,6 +12,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
@@ -141,6 +142,7 @@ type innerConfig struct {
 	PluginName    string            `json:"pluginName"`
 	TelemetryType string            `json:"telemetryType"`
 	OCRVersion    int               `json:"OCRVersion"`
+	UseDatabase   bool              `json:"useDatabase"`
 	Config
 }
 
