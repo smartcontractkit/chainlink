@@ -105,6 +105,7 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 		index          int
 		lookup         *mercury.StreamsLookup
 		blob           string
+		responseBytes  string
 		statusCode     int
 		lastStatusCode int
 		retryNumber    int
@@ -215,6 +216,39 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 			streamsErrCode: encoding.ErrCodeStreamsUnknownError,
 			errorMessage:   "failed to request feed for 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000: All attempts fail:\n#1: at block 123456 upkeep 123456789 received status code 409 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
+		{
+			name:  "failure invalid json response - returns err code",
+			index: 0,
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			blob:           "0xab2123dc",
+			responseBytes:  "invalid response",
+			statusCode:     http.StatusOK,
+			streamsErrCode: encoding.ErrCodeStreamsBadResponse,
+		},
+		{
+			name:  "failure invalid blob - returns err code",
+			index: 0,
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			blob:           "0xgz", // Invalid hex
+			statusCode:     http.StatusOK,
+			streamsErrCode: encoding.ErrCodeStreamsBadResponse,
+		},
 	}
 
 	for _, tt := range tests {
@@ -226,6 +260,10 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 			mr := MercuryV02Response{ChainlinkBlob: tt.blob}
 			b, err := json.Marshal(mr)
 			assert.Nil(t, err)
+
+			if tt.responseBytes != "" {
+				b = []byte(tt.responseBytes)
+			}
 
 			if tt.retryNumber == 0 {
 				if tt.errorMessage != "" {
