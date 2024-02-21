@@ -567,7 +567,6 @@ func (lp *logPoller) backgroundWorkerRun() {
 			}
 		case <-logPruneTick:
 			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
-
 			if allRemoved, err := lp.PruneExpiredLogs(lp.ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune expired logs", "err", err)
 			} else if !allRemoved {
@@ -952,7 +951,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 }
 
 // PruneOldBlocks removes blocks that are > lp.keepFinalizedBlocksDepth behind the latest finalized block.
-// Returns whether all blocks eligible for pruning were removed. When logPrunePageSize is set to 0, it will always return true.
+// Returns whether all blocks eligible for pruning were removed. If logPrunePageSize is set to 0, it will always return true.
 func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 	latestBlock, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
@@ -977,7 +976,7 @@ func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 }
 
 // PruneExpiredLogs logs that are older than their retention period defined in Filter.
-// Returns whether all logs eligible for pruning were removed. When logPrunePageSize is set to 0, it will always return true.
+// Returns whether all logs eligible for pruning were removed. If logPrunePageSize is set to 0, it will always return true.
 func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
 	rowsRemoved, err := lp.orm.DeleteExpiredLogs(lp.logPrunePageSize, pg.WithParentCtx(ctx))
 	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
