@@ -99,7 +99,7 @@ contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInt
   function performUpkeep(bytes calldata performData) external override {
     if (performData.length == 0) {
       emit IgnoringErrorHandlerData();
-      return
+      return;
     }
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 orderId, uint256 amount, address exchange, bytes32 logTopic0) = abi.decode(
