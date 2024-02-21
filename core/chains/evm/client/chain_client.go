@@ -36,6 +36,7 @@ type chainClient struct {
 		*assets.Wei,
 		*evmtypes.Head,
 		RPCCLient,
+		rpc.BatchElem,
 	]
 	logger logger.SugaredLogger
 }
@@ -89,19 +90,11 @@ func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blo
 }
 
 func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	batch := make([]any, len(b))
-	for i, arg := range b {
-		batch[i] = any(arg)
-	}
-	return c.multiNode.BatchCallContext(ctx, batch)
+	return c.multiNode.BatchCallContext(ctx, b)
 }
 
 func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
-	batch := make([]any, len(b))
-	for i, arg := range b {
-		batch[i] = any(arg)
-	}
-	return c.multiNode.BatchCallContextAll(ctx, batch)
+	return c.multiNode.BatchCallContextAll(ctx, b)
 }
 
 // TODO-1663: return custom Block type instead of geth's once client.go is deprecated.
