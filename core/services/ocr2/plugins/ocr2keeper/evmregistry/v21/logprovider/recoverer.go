@@ -676,8 +676,8 @@ func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 	}
 	if !exist {
 		r.pending = append(pending, payload)
+		prommetrics.AutomationRecovererPendingPayloads.Inc()
 	}
-	prommetrics.AutomationRecovererPendingPayloads.Set(float64(len(r.pending)))
 	return nil
 }
 
@@ -688,10 +688,11 @@ func (r *logRecoverer) removePending(workID string) {
 	for _, p := range r.pending {
 		if p.WorkID != workID {
 			updated = append(updated, p)
+		} else {
+			prommetrics.AutomationRecovererPendingPayloads.Dec()
 		}
 	}
 	r.pending = updated
-	prommetrics.AutomationRecovererPendingPayloads.Set(float64(len(r.pending)))
 }
 
 // sortPending sorts the pending list by a random order based on the normalized latest block number.
