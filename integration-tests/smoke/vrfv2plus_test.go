@@ -1065,6 +1065,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		randRequestBlockHash, err := vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+		require.NoError(t, err, "error getting blockhash for a blocknumber which was stored in BHS contract")
+
 		l.Info().
 			Str("Randomness Request's Blockhash", randomWordsRequestedEvent.Raw.BlockHash.String()).
 			Str("Block Hash stored by BHS contract", fmt.Sprintf("0x%x", randRequestBlockHash)).

@@ -198,7 +198,7 @@ func (c *General) Validate() error {
 	if c.LinkNativeFeedResponse == nil || *c.LinkNativeFeedResponse == 0 {
 		return errors.New("link_native_feed_response must be set to a positive value")
 	}
-	if c.MinimumConfirmations == nil || *c.MinimumConfirmations < 0 {
+	if c.MinimumConfirmations == nil {
 		return errors.New("minimum_confirmations must be set to a non-negative value")
 	}
 	if c.SubscriptionFundingAmountLink == nil || *c.SubscriptionFundingAmountLink < 0 {
