@@ -352,10 +352,130 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 	// deploy multiple upkeeps that listen to a log emitter and need to be
 	// performed for each log event
-	_ = feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount)
+	_ = feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount, func(int) bool {
+		return false
+	})
 	_ = feeds.RegisterAndFund(t, registry, registryOwner, backend, linkToken)
 	_ = feeds.EnableMercury(t, backend, registry, registryOwner)
 	_ = feeds.VerifyEnv(t, backend, registry, registryOwner)
+
+	// start emitting events in a separate go-routine
+	// feed lookup relies on a single contract event log to perform multiple
+	// listener contracts
+	go func() {
+		// only 1 event is necessary to make all 10 upkeeps eligible
+		_ = feeds.EmitEvents(t, backend, 1, func() {
+			// pause per emit for expected block production time
+			time.Sleep(3 * time.Second)
+		})
+	}()
+
+	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIds(), int64(1))
+	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
+
+	done()
+}
+
+func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	// setup blockchain
+	linkOwner := testutils.MustNewSimTransactor(t)     // owns all the link
+	registryOwner := testutils.MustNewSimTransactor(t) // registry owner
+	upkeepOwner := testutils.MustNewSimTransactor(t)   // upkeep owner
+	genesisData := core.GenesisAlloc{
+		linkOwner.From:     {Balance: assets.Ether(10000).ToInt()},
+		registryOwner.From: {Balance: assets.Ether(10000).ToInt()},
+		upkeepOwner.From:   {Balance: assets.Ether(10000).ToInt()},
+	}
+
+	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
+	var nodeKeys [5]ethkey.KeyV2
+	for i := int64(0); i < 5; i++ {
+		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
+		genesisData[nodeKeys[i].Address] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
+	}
+
+	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	defer stopMining()
+
+	// Deploy registry
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(linkOwner, backend)
+	require.NoError(t, err)
+
+	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend, 18, big.NewInt(60000000000))
+	require.NoError(t, err)
+
+	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend, 18, big.NewInt(2000000000000000000))
+	require.NoError(t, err)
+
+	registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+
+	_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner)
+
+	const upkeepCount = 10
+	const mercuryFailRounds = 7
+	const mercuryFailCount = upkeepCount * 3 * mercuryFailRounds
+
+	// testing with the mercury server involves mocking responses. currently,
+	// there is not a way to connect a mercury call to an upkeep id (though we
+	// could add custom headers) so the test must be fairly basic and just
+	// count calls before switching to successes
+	var (
+		mu    sync.Mutex
+		count int
+	)
+
+	mercuryServer.RegisterHandler(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		count++
+
+		_ = r.ParseForm()
+
+		t.Logf("MercuryHTTPServe:RequestURI: %s", r.RequestURI)
+
+		for key, value := range r.Form {
+			t.Logf("MercuryHTTPServe:FormValue: key: %s; value: %s;", key, value)
+		}
+
+		// the streams lookup retries against the remote server 3 times before
+		// returning a result as retryable.
+		// the simulation here should force the streams lookup process to return
+		// retryable 2 times.
+		// the total count of failures should be (upkeepCount * 3 * tryCount)
+		if count <= mercuryFailCount {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		// start sending success messages
+		output := `{"chainlinkBlob":"0x0001c38d71fed6c320b90e84b6f559459814d068e2a1700adc931ca9717d4fe70000000000000000000000000000000000000000000000000000000001a80b52b4bf1233f9cb71144a253a1791b202113c4ab4a92fa1b176d684b4959666ff8200000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001004254432d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000645570be000000000000000000000000000000000000000000000000000002af2b818dc5000000000000000000000000000000000000000000000000000002af2426faf3000000000000000000000000000000000000000000000000000002af32dc209700000000000000000000000000000000000000000000000000000000012130f8df0a9745bb6ad5e2df605e158ba8ad8a33ef8a0acf9851f0f01668a3a3f2b68600000000000000000000000000000000000000000000000000000000012130f60000000000000000000000000000000000000000000000000000000000000002c4a7958dce105089cf5edb68dad7dcfe8618d7784eb397f97d5a5fade78c11a58275aebda478968e545f7e3657aba9dcbe8d44605e4c6fde3e24edd5e22c94270000000000000000000000000000000000000000000000000000000000000002459c12d33986018a8959566d145225f0c4a4e61a9a3f50361ccff397899314f0018162cf10cd89897635a0bb62a822355bd199d09f4abe76e4d05261bb44733d"}`
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(output))
+	})
+
+	defer mercuryServer.Stop()
+
+	_, err = linkToken.Transfer(linkOwner, upkeepOwner.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeepCount+1))))
+	require.NoError(t, err)
+
+	backend.Commit()
+
+	feeds, err := newFeedLookupUpkeepController(backend, registryOwner)
+	require.NoError(t, err, "no error expected from creating a feed lookup controller")
+
+	// deploy multiple upkeeps that listen to a log emitter and need to be
+	// performed for each log event
+	require.NoError(t, feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount, func(i int) bool {
+		return i%2 == 1
+	}))
+	require.NoError(t, feeds.RegisterAndFund(t, registry, registryOwner, backend, linkToken))
+	require.NoError(t, feeds.EnableMercury(t, backend, registry, registryOwner))
+	require.NoError(t, feeds.VerifyEnv(t, backend, registry, registryOwner))
 
 	// start emitting events in a separate go-routine
 	// feed lookup relies on a single contract event log to perform multiple
@@ -789,17 +909,23 @@ func (c *feedLookupUpkeepController) DeployUpkeeps(
 	backend *backends.SimulatedBackend,
 	owner *bind.TransactOpts,
 	count int,
+	checkErrResultsProvider func(i int) bool,
 ) error {
 	addresses := make([]common.Address, count)
 	contracts := make([]*log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookup, count)
 
 	// deploy n upkeep contracts
 	for x := 0; x < count; x++ {
+		var checkErrResult bool
+		if checkErrResultsProvider != nil {
+			checkErrResult = checkErrResultsProvider(x)
+		}
 		addr, _, contract, err := log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
 			owner,
 			backend,
 			false,
 			false,
+			checkErrResult,
 		)
 
 		if err != nil {
