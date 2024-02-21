@@ -129,6 +129,8 @@ func setupEnvironment(t *testing.T, loadedTestConfig tc.TestConfig) (*automation
 
 	if *loadedTestConfig.Automation.Adhoc.ConnectDataStream == true {
 		secretsTOML = fmt.Sprintf(secretsTOML, *loadedTestConfig.Automation.Adhoc.DataStreamURL, *loadedTestConfig.Automation.Adhoc.DataStreamURL)
+	} else {
+		secretsTOML = ""
 	}
 
 	numberOfNodes := *loadedTestConfig.Automation.General.NumberOfNodes
