@@ -150,7 +150,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
 
-	require.NoError(t, th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}, 0}))
+	require.NoError(t, th.LogPoller.RegisterFilter(logpoller.Filter{Name: "Integration test", EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID}, Addresses: []common.Address{th.EmitterAddress1}}))
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
 
@@ -188,8 +188,9 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// Now let's update the Filter and replay to get Log2 logs.
 	err = th.LogPoller.RegisterFilter(logpoller.Filter{
-		"Emitter - log2", []common.Hash{EmitterABI.Events["Log2"].ID},
-		[]common.Address{th.EmitterAddress1}, 0,
+		Name:      "Emitter - log2",
+		EventSigs: []common.Hash{EmitterABI.Events["Log2"].ID},
+		Addresses: []common.Address{th.EmitterAddress1},
 	})
 	require.NoError(t, err)
 	// Replay an invalid block should error
@@ -254,11 +255,13 @@ func Test_BackupLogPoller(t *testing.T) {
 
 			ctx := testutils.Context(t)
 
-			filter1 := logpoller.Filter{"filter1", []common.Hash{
-				EmitterABI.Events["Log1"].ID,
-				EmitterABI.Events["Log2"].ID},
-				[]common.Address{th.EmitterAddress1},
-				0}
+			filter1 := logpoller.Filter{
+				Name: "filter1",
+				EventSigs: []common.Hash{
+					EmitterABI.Events["Log1"].ID,
+					EmitterABI.Events["Log2"].ID},
+				Addresses: []common.Address{th.EmitterAddress1},
+			}
 			err := th.LogPoller.RegisterFilter(filter1)
 			require.NoError(t, err)
 
@@ -268,9 +271,11 @@ func Test_BackupLogPoller(t *testing.T) {
 			require.Equal(t, filter1, filters["filter1"])
 
 			err = th.LogPoller.RegisterFilter(
-				logpoller.Filter{"filter2",
-					[]common.Hash{EmitterABI.Events["Log1"].ID},
-					[]common.Address{th.EmitterAddress2}, 0})
+				logpoller.Filter{
+					Name:      "filter2",
+					EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+					Addresses: []common.Address{th.EmitterAddress2},
+				})
 			require.NoError(t, err)
 
 			defer func() {
@@ -569,9 +574,9 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 
 	addresses := []common.Address{th.EmitterAddress1, th.EmitterAddress2}
-	topics := []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}
+	events := []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}
 
-	err := th.LogPoller.RegisterFilter(logpoller.Filter{"convertLogs", topics, addresses, 0})
+	err := th.LogPoller.RegisterFilter(logpoller.Filter{Name: "convertLogs", EventSigs: events, Addresses: addresses})
 	require.NoError(t, err)
 
 	blk, err := th.Client.BlockByNumber(ctx, nil)
@@ -619,7 +624,7 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(2),
 		ToBlock:   big.NewInt(5),
-		Topics:    [][]common.Hash{topics},
+		Topics:    [][]common.Hash{events},
 		Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2}}
 
 	gethLogs, err := th.Client.FilterLogs(ctx, query)
@@ -762,8 +767,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 
 			// Set up a log poller listening for log emitter logs.
 			err := th.LogPoller.RegisterFilter(logpoller.Filter{
-				"Test Emitter 1 & 2", []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
-				[]common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0,
+				Name:      "Test Emitter 1 & 2",
+				EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
+				Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2},
 			})
 			require.NoError(t, err)
 
@@ -1068,12 +1074,22 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 	t.Parallel()
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 
-	filter1 := logpoller.Filter{"first Filter", []common.Hash{
-		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0}
-	filter2 := logpoller.Filter{"second Filter", []common.Hash{
-		EmitterABI.Events["Log2"].ID, EmitterABI.Events["Log3"].ID}, []common.Address{th.EmitterAddress2}, 0}
-	filter3 := logpoller.Filter{"third Filter", []common.Hash{
-		EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0}
+	filter1 := logpoller.Filter{
+		Name: "first Filter",
+		EventSigs: []common.Hash{
+			EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
+		Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2},
+	}
+	filter2 := logpoller.Filter{
+		Name:      "second Filter",
+		EventSigs: []common.Hash{EmitterABI.Events["Log2"].ID, EmitterABI.Events["Log3"].ID},
+		Addresses: []common.Address{th.EmitterAddress2},
+	}
+	filter3 := logpoller.Filter{
+		Name:      "third Filter",
+		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+		Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2},
+	}
 
 	assert.True(t, filter1.Contains(nil))
 	assert.False(t, filter1.Contains(&filter2))
@@ -1119,9 +1135,11 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	t.Parallel()
 	th := SetupTH(t, false, 2, 3, 2, 1000)
 
-	err := th.LogPoller.RegisterFilter(logpoller.Filter{"GetBlocks Test", []common.Hash{
-		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0},
-	)
+	err := th.LogPoller.RegisterFilter(logpoller.Filter{
+		Name:      "GetBlocks Test",
+		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
+		Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2},
+	})
 	require.NoError(t, err)
 
 	// LP retrieves 0 blocks
@@ -1365,7 +1383,11 @@ func TestTooManyLogResults(t *testing.T) {
 	})
 
 	addr := testutils.NewAddress()
-	err := lp.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{addr}, 0})
+	err := lp.RegisterFilter(logpoller.Filter{
+		Name:      "Integration test",
+		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+		Addresses: []common.Address{addr},
+	})
 	require.NoError(t, err)
 	lp.PollAndSaveLogs(ctx, 5)
 	block, err2 := o.SelectLatestBlock()
