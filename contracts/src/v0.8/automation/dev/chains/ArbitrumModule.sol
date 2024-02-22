@@ -16,7 +16,7 @@ contract ArbitrumModule is ChainModuleBase {
   address private constant ARB_GAS_ADDR = 0x000000000000000000000000000000000000006C;
   ArbGasInfo private constant ARB_GAS = ArbGasInfo(ARB_GAS_ADDR);
 
-  uint256 private constant FIXED_GAS_OVERHEAD = 30000;
+  uint256 private constant FIXED_GAS_OVERHEAD = 5000;
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 20;
 
   function blockHash(uint256 n) external view override returns (bytes32) {

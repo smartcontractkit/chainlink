@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 contract ChainModuleBase is IChainModule {
-  uint256 private constant FIXED_GAS_OVERHEAD = 30000;
+  uint256 private constant FIXED_GAS_OVERHEAD = 300;
 
   function blockNumber() external view virtual returns (uint256) {
     return block.number;
