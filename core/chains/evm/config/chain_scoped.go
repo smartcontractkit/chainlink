@@ -94,6 +94,10 @@ func (e *evmConfig) OCR2() OCR2 {
 	return &ocr2Config{c: e.c.OCR2}
 }
 
+func (e *evmConfig) ChainWriter() ChainWriter {
+	return &chainWriterConfig{c: e.c.ChainWriter}
+}
+
 func (e *evmConfig) GasEstimator() GasEstimator {
 	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay, transactionsMaxInFlight: e.c.Transactions.MaxInFlight, k: e.c.KeySpecific}
 }

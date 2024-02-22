@@ -46,6 +46,12 @@ test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
 # We cannot turn on deny_warnings = true as that will hide any CI failure
 
+[profile.keystone]
+solc_version = '0.8.19'
+src = 'src/v0.8/keystone'
+test = 'src/v0.8/keystone/test'
+optimizer_runs = 10_000
+
 [profile.shared]
 optimizer_runs = 1000000
 src = 'src/v0.8/shared'

@@ -406,6 +406,10 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			// main node is used at the end for the return value
 			continue
 		}
+
+		if n.State() != nodeStateAlive {
+			continue
+		}
 		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
 		go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
@@ -459,6 +463,17 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return rpcErr, err
 	}
 	return n.RPC().CallContract(ctx, attempt, blockNumber)
+}
+
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) PendingCallContract(
+	ctx context.Context,
+	attempt interface{},
+) (rpcErr []byte, extractErr error) {
+	n, err := c.selectNode()
+	if err != nil {
+		return rpcErr, err
+	}
+	return n.RPC().PendingCallContract(ctx, attempt)
 }
 
 // ChainID makes a direct RPC call. In most cases it should be better to use the configured chain id instead by
@@ -575,11 +590,14 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 }
 
 // collectTxResults - refer to SendTransaction comment for implementation details,
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) collectTxResults(ctx context.Context, tx TX, txResults <-chan sendTxResult) error {
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) collectTxResults(ctx context.Context, tx TX, healthyNodesNum int, txResults <-chan sendTxResult) error {
+	if healthyNodesNum == 0 {
+		return ErroringNodeError
+	}
 	// combine context and stop channel to ensure we stop, when signal received
 	ctx, cancel := c.chStop.Ctx(ctx)
 	defer cancel()
-	requiredResults := int(math.Ceil(float64(len(c.nodes)) * sendTxQuorum))
+	requiredResults := int(math.Ceil(float64(healthyNodesNum) * sendTxQuorum))
 	errorsByCode := map[SendTxReturnCode][]error{}
 	var softTimeoutChan <-chan time.Time
 	var resultsCount int
@@ -685,12 +703,16 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return ErroringNodeError
 	}
 
+	healthyNodesNum := 0
 	txResults := make(chan sendTxResult, len(c.nodes))
 	// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
 	ok := c.IfNotStopped(func() {
-		c.wg.Add(len(c.sendonlys))
 		// fire-n-forget, as sendOnlyNodes can not be trusted with result reporting
 		for _, n := range c.sendonlys {
+			if n.State() != nodeStateAlive {
+				continue
+			}
+			c.wg.Add(1)
 			go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
 				defer c.wg.Done()
 				c.broadcastTxAsync(ctx, n, tx)
@@ -698,9 +720,14 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		}
 
 		var primaryBroadcastWg sync.WaitGroup
-		primaryBroadcastWg.Add(len(c.nodes))
 		txResultsToReport := make(chan sendTxResult, len(c.nodes))
 		for _, n := range c.nodes {
+			if n.State() != nodeStateAlive {
+				continue
+			}
+
+			healthyNodesNum++
+			primaryBroadcastWg.Add(1)
 			go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
 				defer primaryBroadcastWg.Done()
 				result := c.broadcastTxAsync(ctx, n, tx)
@@ -727,7 +754,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return fmt.Errorf("aborted while broadcasting tx - multiNode is stopped: %w", context.Canceled)
 	}
 
-	return c.collectTxResults(ctx, tx, txResults)
+	return c.collectTxResults(ctx, tx, healthyNodesNum, txResults)
 }
 
 // findFirstIn - returns first existing value for the slice of keys
