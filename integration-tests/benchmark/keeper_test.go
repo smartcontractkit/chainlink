@@ -302,6 +302,11 @@ var networkConfig = map[string]NetworkConfig{
 		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
+	"GnosisChiado": {
+		upkeepSLA:  int64(120),
+		blockTime:  6 * time.Second,
+		deltaStage: 20 * time.Second,
+	},
 }
 
 func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
