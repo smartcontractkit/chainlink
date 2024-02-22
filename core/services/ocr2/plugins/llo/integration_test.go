@@ -258,7 +258,6 @@ func TestIntegration_LLO(t *testing.T) {
 func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.SimulatedBackend, verifierContract *channel_verifier.ChannelVerifier, verifierAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
 	// Setup config on contract
 	rawOnchainConfig := datastreamsllo.OnchainConfig{}
-	// TODO: Move away from JSON
 	onchainConfig, err := (&datastreamsllo.JSONOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
