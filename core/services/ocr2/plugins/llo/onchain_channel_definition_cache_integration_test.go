@@ -77,7 +77,14 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with zero fromblock", func(t *testing.T) {
-		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 1, 3, 2, 1000, 0)
+		lpOpts := logpoller.Opts{
+			PollPeriod:        100 * time.Millisecond,
+			FinalityDepth:     1,
+			BackfillBatchSize: 3,
+			RpcBatchSize:      2,
+		}
+		lp := logpoller.NewLogPoller(
+			logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)
 		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, 0)
 
@@ -141,8 +148,14 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 	t.Run("loads from ORM", func(t *testing.T) {
 		// Override logpoller to always return no logs
+		lpOpts := logpoller.Opts{
+			PollPeriod:        100 * time.Millisecond,
+			FinalityDepth:     1,
+			BackfillBatchSize: 3,
+			RpcBatchSize:      2,
+		}
 		lp := &mockLogPoller{
-			LogPoller: logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 1, 3, 2, 1000, 0),
+			LogPoller: logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, lpOpts),
 			LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
 				return 0, nil
 			},
@@ -176,7 +189,13 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	pgtest.MustExec(t, db, `DELETE FROM channel_definitions`)
 
 	t.Run("with non-zero fromBlock", func(t *testing.T) {
-		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 1, 3, 2, 1000, 0)
+		lpOpts := logpoller.Opts{
+			PollPeriod:        100 * time.Millisecond,
+			FinalityDepth:     1,
+			BackfillBatchSize: 3,
+			RpcBatchSize:      2,
+		}
+		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)
 		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, channel2Block.Number().Int64()+1)
 
