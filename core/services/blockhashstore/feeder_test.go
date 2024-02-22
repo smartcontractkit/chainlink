@@ -456,18 +456,16 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(requestLogs, nil)
 	lp.On(
-		mock.Anything,
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		latest,
 		[]common.Hash{
 			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(fulfillmentLogs, nil)
 
 	// Instantiate feeder.

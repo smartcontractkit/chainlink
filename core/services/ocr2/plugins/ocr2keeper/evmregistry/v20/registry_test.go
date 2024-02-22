@@ -195,7 +195,7 @@ func TestPollLogs(t *testing.T) {
 
 			if test.LogsWithSigs != nil {
 				fc := test.LogsWithSigs
-				mp.On("LogsWithSigs", fc.InputStart, fc.InputEnd, upkeepStateEvents, test.Address, mock.Anything).Return(fc.OutputLogs, fc.OutputErr)
+				mp.On("LogsWithSigs", mock.Anything, fc.InputStart, fc.InputEnd, upkeepStateEvents, test.Address).Return(fc.OutputLogs, fc.OutputErr)
 			}
 
 			rg := &EvmRegistry{
