@@ -274,7 +274,7 @@ func (o *DbORM) DeleteExpiredLogs(limit int64, qopts ...pg.QOpt) (int64, error) 
 				GROUP BY evm_chain_id, address, event
 				HAVING NOT 0 = ANY(ARRAY_AGG(retention))
 			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
-			AND l.created_at <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
+			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
 			LIMIT $2
 		)`,
 			ubig.New(o.chainID), limit)
