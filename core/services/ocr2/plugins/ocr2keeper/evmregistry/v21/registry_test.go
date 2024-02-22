@@ -8,13 +8,16 @@ import (
 	"testing"
 	"time"
 
-	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/patrickmn/go-cache"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	types3 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -29,6 +32,54 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
+
+func TestCredentials_RemoveTrailingSlash(t *testing.T) {
+	tests := []struct {
+		Name      string
+		URL       string
+		LegacyURL string
+	}{
+		{
+			Name:      "Both have trailing slashes",
+			URL:       "http://example.com/",
+			LegacyURL: "http://legacy.example.com/",
+		},
+		{
+			Name:      "One has trailing slashes",
+			URL:       "http://example.com",
+			LegacyURL: "http://legacy.example.com/",
+		},
+		{
+			Name:      "Neither has trailing slashes",
+			URL:       "http://example.com",
+			LegacyURL: "http://legacy.example.com",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			mockConfig := &MercuryConfig{
+				cred: &types.MercuryCredentials{
+					URL:       test.URL,
+					LegacyURL: test.LegacyURL,
+					Username:  "user",
+					Password:  "pass",
+				},
+				Abi:              core.StreamsCompatibleABI,
+				AllowListCache:   cache.New(defaultPluginRetryExpiration, cleanupInterval),
+				pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
+			}
+
+			result := mockConfig.Credentials()
+
+			// Assert that trailing slashes are removed
+			assert.Equal(t, "http://example.com", result.URL)
+			assert.Equal(t, "http://legacy.example.com", result.LegacyURL)
+			assert.Equal(t, "user", result.Username)
+			assert.Equal(t, "pass", result.Password)
+		})
+	}
+}
 
 func TestPollLogs(t *testing.T) {
 	tests := []struct {

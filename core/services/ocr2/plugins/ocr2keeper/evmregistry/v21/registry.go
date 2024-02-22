@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -149,6 +150,9 @@ func NewMercuryConfig(credentials *types.MercuryCredentials, abi abi.ABI) *Mercu
 }
 
 func (c *MercuryConfig) Credentials() *types.MercuryCredentials {
+	// remove the trailing slash from the URL if it exists
+	c.cred.URL = strings.TrimRight(c.cred.URL, "/")
+	c.cred.LegacyURL = strings.TrimRight(c.cred.LegacyURL, "/")
 	return c.cred
 }
 
