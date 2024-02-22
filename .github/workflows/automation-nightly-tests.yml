@@ -65,19 +65,19 @@ jobs:
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             network: SIMULATED
-            command: -run ^TestAutomationNodeUpgrade/registry2_0 ./smoke
+            command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
           - name: Upgrade 2.1
             suite: smoke
             nodes: 5
             os: ubuntu20.04-8cores-32GB
             network: SIMULATED
-            command: -run ^TestAutomationNodeUpgrade/registry2_1 ./smoke
+            command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
           - name: Upgrade 2.2
             suite: smoke
             nodes: 5
             os: ubuntu20.04-8cores-32GB
             network: SIMULATED
-            command: -run ^TestAutomationNodeUpgrade/registry2_2 ./smoke
+            command: -run ^TestAutomationNodeUpgrade/registry_2_2 ./smoke
     runs-on: ${{ matrix.tests.os }}
     name: Automation ${{ matrix.tests.name }} Test
     steps:
