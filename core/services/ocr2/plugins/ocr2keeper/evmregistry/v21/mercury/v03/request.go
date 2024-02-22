@@ -145,6 +145,9 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				errCode = encoding.ErrCodeStreamsUnknownError
+				if ctx.Err() != nil {
+					errCode = encoding.ErrCodeStreamsTimeout
+				}
 				return err
 			}
 			defer resp.Body.Close()
