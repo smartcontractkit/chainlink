@@ -44,7 +44,8 @@ RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
   && apt-get update && apt-get install -y postgresql-client-15 \
-  && apt-get clean all
+  && apt-get clean all \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 

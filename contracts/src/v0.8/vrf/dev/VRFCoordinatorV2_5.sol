@@ -75,6 +75,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 outputSeed,
     uint256 indexed subId,
     uint96 payment,
+    bool nativePayment,
     bool success,
     bool onlyPremium
   );
@@ -457,28 +458,23 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       }
     }
 
-    uint256 requestId = output.requestId;
-    delete s_requestCommitments[requestId];
-    bool success = _deliverRandomness(requestId, rc, randomWords);
+    delete s_requestCommitments[output.requestId];
+    bool success = _deliverRandomness(output.requestId, rc, randomWords);
 
     // Increment the req count for the subscription.
-    uint256 subId = rc.subId;
-    ++s_subscriptions[subId].reqCount;
+    ++s_subscriptions[rc.subId].reqCount;
 
-    // stack too deep error
-    {
-      bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
+    bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
 
-      // We want to charge users exactly for how much gas they use in their callback.
-      // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-      // decrement the subscription balance and increment the oracles withdrawable balance.
-      payment = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+    // We want to charge users exactly for how much gas they use in their callback.
+    // The gasAfterPaymentCalculation is meant to cover these additional operations where we
+    // decrement the subscription balance and increment the oracles withdrawable balance.
+    payment = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
 
-      _chargePayment(payment, nativePayment, subId);
-    }
+    _chargePayment(payment, nativePayment, rc.subId);
 
     // Include payment in the event for tracking costs.
-    emit RandomWordsFulfilled(requestId, randomness, subId, payment, success, onlyPremium);
+    emit RandomWordsFulfilled(output.requestId, randomness, rc.subId, payment, nativePayment, success, onlyPremium);
 
     return payment;
   }
