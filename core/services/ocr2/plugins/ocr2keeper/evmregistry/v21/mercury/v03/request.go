@@ -87,14 +87,12 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 			return m.State, nil, m.ErrCode, m.Retryable, retryInterval, m.Error
 		}
 
-		// Now we have exhausted all retries and we have an error code to expose to user expose it with noPipelineError
-		// otherwise expose the pipeline error to pipeline runner (not the user) as non retryable
-		if m.ErrCode != encoding.ErrCodeNil {
-			return encoding.NoPipelineError, nil, m.ErrCode, false, 0 * time.Second, nil
-		}
-		return m.State, nil, m.ErrCode, false, 0 * time.Second, m.Error
+		// Now we have exhausted all our retries. We treat it as not a pipeline error
+		// and expose error code to the user
+		return encoding.NoPipelineError, nil, m.ErrCode, false, 0 * time.Second, nil
 	}
 
+	// No pipeline error, return bytes and error code out of which one should be null
 	return encoding.NoPipelineError, m.Bytes, m.ErrCode, false, 0 * time.Second, nil
 }
 
@@ -146,6 +144,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Warnf("at timestamp %s upkeep %s GET request fails from mercury v0.3: %v", sl.Time.String(), sl.UpkeepId.String(), err)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
+				errCode = encoding.ErrCodeStreamsUnknownError
 				return err
 			}
 			defer resp.Body.Close()
@@ -168,7 +167,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by unauthorized upkeep", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
 				ch <- mercury.MercuryData{
 					Index:   0,
-					ErrCode: encoding.ErrCodeStreamsUnauthorized,
+					ErrCode: encoding.HttpToStreamsErrCode(resp.StatusCode),
 					State:   encoding.NoPipelineError,
 				}
 				sent = true

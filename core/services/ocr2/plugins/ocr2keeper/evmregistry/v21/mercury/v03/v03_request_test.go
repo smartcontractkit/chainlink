@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -113,7 +111,6 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 		expectedErrCode       encoding.ErrCode
 		expectedError         error
 		state                 encoding.PipelineExecutionState
-		reason                encoding.UpkeepFailureReason
 	}{
 		{
 			name: "success v0.3",
@@ -165,20 +162,195 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 			}
 			c.httpClient = hc
 
-			reason := encoding.UpkeepFailureReasonNone // TODO: Fix test
 			state, values, errCode, retryable, retryInterval, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, automationTypes.ConditionTrigger, tt.pluginRetryKey)
 
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
 			assert.Equal(t, tt.expectedRetryInterval, retryInterval)
 			assert.Equal(t, tt.state, state)
-			assert.Equal(t, tt.reason, reason)
 			assert.Equal(t, tt.expectedErrCode, errCode)
 			if tt.expectedError != nil {
 				assert.Equal(t, tt.expectedError.Error(), reqErr.Error())
 			}
 		})
 	}
+}
+
+func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
+	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
+	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
+
+	c := setupClient(t)
+	defer c.Close()
+
+	c.mercuryConfig.SetPluginRetry(pluginRetryKey, 0, cache.DefaultExpiration)
+	hc := new(MockHttpClient)
+
+	for i := 0; i <= 3; i++ {
+		mr := MercuryV03Response{
+			Reports: []MercuryV03Report{
+				{
+					FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+					ValidFromTimestamp:    123456,
+					ObservationsTimestamp: 123456,
+					FullReport:            "0xab2123dc00000012",
+				},
+			},
+		}
+		b, err := json.Marshal(mr)
+		assert.Nil(t, err)
+
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(b)),
+		}
+		hc.On("Do", mock.Anything).Return(resp, nil).Once()
+	}
+
+	c.httpClient = hc
+
+	lookup := &mercury.StreamsLookup{
+		StreamsLookupError: &mercury.StreamsLookupError{
+			FeedParamKey: mercury.FeedIdHex,
+			Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+			TimeParamKey: mercury.BlockNumber,
+			Time:         big.NewInt(25880526),
+			ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+		},
+		UpkeepId: upkeepId,
+	}
+
+	state, _, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.ConditionTrigger, pluginRetryKey)
+	assert.Equal(t, false, retryable)
+	assert.Equal(t, 0*time.Second, retryInterval)
+	assert.Equal(t, encoding.ErrCodeNil, errCode)
+	assert.Equal(t, encoding.NoPipelineError, state)
+}
+
+func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T) {
+	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
+	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
+
+	c := setupClient(t)
+	defer c.Close()
+
+	c.mercuryConfig.SetPluginRetry(pluginRetryKey, 0, cache.DefaultExpiration)
+	hc := new(MockHttpClient)
+
+	// First request success
+	mr := MercuryV03Response{
+		Reports: []MercuryV03Report{
+			{
+				FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+				ValidFromTimestamp:    123456,
+				ObservationsTimestamp: 123456,
+				FullReport:            "0xab2123dc00000012",
+			},
+		},
+	}
+	b, err := json.Marshal(mr)
+	assert.Nil(t, err)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(b)),
+	}
+	hc.On("Do", mock.Anything).Return(resp, nil).Once()
+	// Second request returns MercuryFlakyError
+	resp = &http.Response{
+		StatusCode: http.StatusBadGateway,
+		Body:       io.NopCloser(bytes.NewReader(b)),
+	}
+	hc.On("Do", mock.Anything).Return(resp, nil).Times(totalAttempt)
+	c.httpClient = hc
+
+	lookup := &mercury.StreamsLookup{
+		StreamsLookupError: &mercury.StreamsLookupError{
+			FeedParamKey: mercury.FeedIdHex,
+			Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+			TimeParamKey: mercury.BlockNumber,
+			Time:         big.NewInt(25880526),
+			ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+		},
+		UpkeepId: upkeepId,
+	}
+
+	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.LogTrigger, pluginRetryKey)
+	assert.Equal(t, true, retryable)
+	assert.Equal(t, 1*time.Second, retryInterval)
+	assert.Equal(t, encoding.ErrCodeStreamsInternalError, errCode)
+	assert.Equal(t, encoding.MercuryFlakyFailure, state)
+	assert.Equal(t, [][]byte(nil), values)
+}
+
+func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
+	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
+	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
+
+	c := setupClient(t)
+	defer c.Close()
+
+	c.mercuryConfig.SetPluginRetry(pluginRetryKey, 0, cache.DefaultExpiration)
+	hc := new(MockHttpClient)
+
+	// First request success
+	mr := MercuryV03Response{
+		Reports: []MercuryV03Report{
+			{
+				FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+				ValidFromTimestamp:    123456,
+				ObservationsTimestamp: 123456,
+				FullReport:            "0xab2123dc00000012",
+			},
+		},
+	}
+	b, err := json.Marshal(mr)
+	assert.Nil(t, err)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(b)),
+	}
+	hc.On("Do", mock.Anything).Return(resp, nil).Once()
+
+	// Second request returns invalid response
+	invalidResponse := MercuryV03Response{
+		Reports: []MercuryV03Report{
+			{
+				FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+				ValidFromTimestamp:    123456,
+				ObservationsTimestamp: 123456,
+				FullReport:            "random", // invalid hex
+			},
+		},
+	}
+	b, err = json.Marshal(invalidResponse)
+	assert.Nil(t, err)
+
+	resp = &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(b)),
+	}
+	hc.On("Do", mock.Anything).Return(resp, nil).Times(totalAttempt)
+	c.httpClient = hc
+
+	lookup := &mercury.StreamsLookup{
+		StreamsLookupError: &mercury.StreamsLookupError{
+			FeedParamKey: mercury.FeedIdHex,
+			Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+			TimeParamKey: mercury.BlockNumber,
+			Time:         big.NewInt(25880526),
+			ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+		},
+		UpkeepId: upkeepId,
+	}
+
+	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.LogTrigger, pluginRetryKey)
+	assert.Equal(t, [][]byte(nil), values)
+	assert.Equal(t, false, retryable)
+	assert.Equal(t, 0*time.Second, retryInterval)
+	assert.Equal(t, encoding.ErrCodeStreamsBadResponse, errCode)
+	assert.Equal(t, encoding.NoPipelineError, state)
 }
 
 func TestV03_MultiFeedRequest(t *testing.T) {
@@ -195,6 +367,8 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 		errorMessage   string
 		firstResponse  *MercuryV03Response
 		response       *MercuryV03Response
+		streamsErrCode encoding.ErrCode
+		state          encoding.PipelineExecutionState
 	}{
 		{
 			name: "success - mercury responds in the first try",
@@ -327,7 +501,7 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "failure - fail to decode reportBlob",
+			name: "failure - invalid response and fail to decode reportBlob",
 			lookup: &mercury.StreamsLookup{
 				StreamsLookupError: &mercury.StreamsLookupError{
 					FeedParamKey: mercury.FeedIDs,
@@ -353,9 +527,11 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 					},
 				},
 			},
-			statusCode:   http.StatusOK,
-			retryable:    false,
-			errorMessage: "All attempts fail:\n#1: hex string without 0x prefix",
+			statusCode:     http.StatusOK,
+			retryable:      false,
+			errorMessage:   "All attempts fail:\n#1: hex string without 0x prefix",
+			streamsErrCode: encoding.ErrCodeStreamsBadResponse,
+			state:          encoding.NoPipelineError,
 		},
 		{
 			name: "failure - returns retryable with 1s plugin retry interval",
@@ -404,7 +580,8 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 			retryNumber:    1,
 			statusCode:     http.StatusInternalServerError,
 			lastStatusCode: http.StatusUnauthorized,
-			errorMessage:   "All attempts fail:\n#1: 500\n#2: at timestamp 123456 upkeep 123456789 received status code 401 from mercury v0.3, most likely this is caused by unauthorized upkeep",
+			streamsErrCode: encoding.ErrCodeStreamsUnauthorized,
+			state:          encoding.NoPipelineError,
 		},
 		{
 			name: "failure - returns status code 422 not retryable",
@@ -417,8 +594,60 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 			},
-			statusCode:   http.StatusUnprocessableEntity,
-			errorMessage: "All attempts fail:\n#1: at timestamp 123456 upkeep 123456789 received status code 422 from mercury v0.3",
+			statusCode:     http.StatusUnprocessableEntity,
+			streamsErrCode: encoding.ErrCodeStreamsUnknownError,
+			state:          encoding.NoPipelineError,
+		},
+		{
+			name: "failure - StatusGatewayTimeout - returns retryable",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.Timestamp,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusGatewayTimeout,
+			state:        encoding.MercuryFlakyFailure,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 504\n#2: 504\n#3: 504",
+		},
+		{
+			name: "failure - StatusServiceUnavailable - returns retryable",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.Timestamp,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusServiceUnavailable,
+			state:        encoding.MercuryFlakyFailure,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 503\n#2: 503\n#3: 503",
+		},
+		{
+			name: "failure - StatusBadGateway - returns retryable",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.Timestamp,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusBadGateway,
+			state:        encoding.MercuryFlakyFailure,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 502\n#2: 502\n#3: 502",
 		},
 		{
 			name: "success - retry when reports length does not match feeds length",
@@ -524,7 +753,11 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 			m := <-ch
 			assert.Equal(t, 0, m.Index)
 			assert.Equal(t, tt.retryable, m.Retryable)
-			if tt.retryNumber >= totalAttempt || tt.errorMessage != "" {
+			if tt.streamsErrCode != encoding.ErrCodeNil {
+				assert.Equal(t, tt.streamsErrCode, m.ErrCode)
+				assert.Equal(t, tt.state, m.State)
+				assert.Equal(t, [][]byte(nil), m.Bytes)
+			} else if tt.retryNumber >= totalAttempt || tt.errorMessage != "" {
 				assert.Equal(t, tt.errorMessage, m.Error.Error())
 				assert.Equal(t, [][]byte{}, m.Bytes)
 			} else {
