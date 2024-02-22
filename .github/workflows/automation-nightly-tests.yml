@@ -196,7 +196,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [ Upgrade ]
+        name: [ Upgrade 2.0, Upgrade 2.1, Upgrade 2.2
     steps:
       - name: Get Results
         id: test-results
