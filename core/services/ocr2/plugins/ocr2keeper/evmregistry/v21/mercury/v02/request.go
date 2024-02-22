@@ -64,7 +64,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	for i := range streamsLookup.Feeds {
 		// TODO (AUTO-7209): limit the number of concurrent requests
 		i := i
-		c.threadCtrl.Go(func(ctx context.Context) {
+		c.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 			c.singleFeedRequest(ctx, ch, i, streamsLookup)
 		})
 	}
