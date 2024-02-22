@@ -33,7 +33,7 @@ func TestChainClient_BatchCallContext(t *testing.T) {
 
 	t.Run("batch requests return errors", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		rpcError := "something went wrong"
+		rpcError := errors.New("something went wrong")
 		blockNumResp := ""
 		blockNum := hexutil.EncodeBig(big.NewInt(42))
 		b := []rpc.BatchElem{
@@ -53,7 +53,7 @@ func TestChainClient_BatchCallContext(t *testing.T) {
 			reqs := args.Get(1).([]rpc.BatchElem)
 			for i := 0; i < len(reqs); i++ {
 				elem := &reqs[i]
-				elem.Error = errors.New(rpcError)
+				elem.Error = rpcError
 			}
 		}).Return(nil).Once()
 
@@ -64,7 +64,7 @@ func TestChainClient_BatchCallContext(t *testing.T) {
 		err = client.BatchCallContext(ctx, b)
 		require.NoError(t, err)
 		for _, elem := range b {
-			require.Equal(t, rpcError, elem.Error.Error())
+			require.ErrorIs(t, rpcError, elem.Error)
 		}
 	})
 }
