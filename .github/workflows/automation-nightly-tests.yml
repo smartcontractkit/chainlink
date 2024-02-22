@@ -54,7 +54,7 @@ jobs:
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
+      TEST_LOG_LEVEL: info
       SELECTED_NETWORKS: "SIMULATED"
     strategy:
       fail-fast: false
@@ -62,7 +62,7 @@ jobs:
         tests:
           - name: Upgrade
             suite: smoke
-            nodes: 6
+            nodes: 11
             os: ubuntu20.04-8cores-32GB
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade$ ./smoke
