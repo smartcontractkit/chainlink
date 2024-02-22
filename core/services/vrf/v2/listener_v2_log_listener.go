@@ -63,11 +63,12 @@ func (lsn *listenerV2) runLogListener(
 
 			// on startup we want to initialize the last processed block
 			if startingUp {
+				var err2 error
 				lsn.l.Debugw("initializing last processed block on startup")
-				lastProcessedBlock, err := lsn.initializeLastProcessedBlock(ctx)
-				if err != nil {
+				lastProcessedBlock, err2 = lsn.initializeLastProcessedBlock(ctx)
+				if err2 != nil {
 					lsn.l.Errorw("error initializing last processed block, retrying",
-						"err", err,
+						"err", err2,
 						"elapsed", time.Since(start))
 					continue
 				}
