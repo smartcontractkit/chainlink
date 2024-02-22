@@ -456,18 +456,16 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(requestLogs, nil)
 	lp.On(
-		mock.Anything,
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		latest,
 		[]common.Hash{
 			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(fulfillmentLogs, nil)
 
 	// Instantiate feeder.
@@ -556,7 +554,6 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(requestLogs, nil)
 	lp.On(
 		"LogsWithSigs",
@@ -567,7 +564,6 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(fulfillmentLogs, nil)
 
 	// Instantiate feeder.
@@ -649,13 +645,13 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
+		mock.Anything,
 		fromBlock,
 		toBlock,
 		[]common.Hash{
 			vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(requestLogs, nil)
 	lp.On(
 		"LogsWithSigs",
@@ -666,7 +662,6 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 			vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
 		},
 		coordinatorAddress,
-		mock.Anything,
 	).Return(fulfillmentLogs, nil)
 
 	// Instantiate feeder.
