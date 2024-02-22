@@ -31,6 +31,7 @@ gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
+	cd ./integration-tests/load && go mod tidy
 
 .PHONY: godoc
 godoc: ## Install and run godoc
