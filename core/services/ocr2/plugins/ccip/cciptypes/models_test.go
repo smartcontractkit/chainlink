@@ -1,7 +1,15 @@
 package cciptypes
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 func TestHash_String(t *testing.T) {
@@ -33,4 +41,29 @@ func TestHash_String(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAddress_JSON(t *testing.T) {
+	addr1 := utils.RandomAddress()
+
+	addrArr := []Address{Address(addr1.String())}
+	evmAddrArr := []common.Address{addr1}
+
+	b, err := json.Marshal(addrArr)
+	assert.NoError(t, err)
+	assert.Equal(t, fmt.Sprintf(`["%s"]`, strings.ToLower(addr1.String())), string(b))
+
+	b2, err := json.Marshal(evmAddrArr)
+	assert.NoError(t, err)
+	assert.Equal(t, string(b), string(b2), "marshal should produce the same result for common.Address and cciptypes.Address")
+
+	var unmarshalledAddr []Address
+	err = json.Unmarshal(b, &unmarshalledAddr)
+	assert.NoError(t, err)
+	assert.Equal(t, addrArr[0], unmarshalledAddr[0])
+
+	var unmarshalledEvmAddr []common.Address
+	err = json.Unmarshal(b, &unmarshalledEvmAddr)
+	assert.NoError(t, err)
+	assert.Equal(t, evmAddrArr[0], unmarshalledEvmAddr[0])
 }
