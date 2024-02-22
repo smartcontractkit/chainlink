@@ -248,34 +248,51 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 
 func Test_CalculateRetryConfigFn(t *testing.T) {
 	tests := []struct {
-		name     string
-		times    int
-		expected time.Duration
+		name       string
+		times      int
+		upkeepType automationTypes.UpkeepType
+		expected   time.Duration
 	}{
 		{
-			name:     "first retry",
-			times:    1,
-			expected: 1 * time.Second,
+			name:       "log trigger first retry",
+			times:      1,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   1 * time.Second,
 		},
 		{
-			name:     "second retry",
-			times:    2,
-			expected: 1 * time.Second,
+			name:       "log trigger second retry",
+			times:      2,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   1 * time.Second,
 		},
 		{
-			name:     "fifth retry",
-			times:    5,
-			expected: 1 * time.Second,
+			name:       "log trigger fifth retry",
+			times:      5,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   1 * time.Second,
 		},
 		{
-			name:     "sixth retry",
-			times:    6,
-			expected: 5 * time.Second,
+			name:       "log trigger sixth retry",
+			times:      6,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   5 * time.Second,
 		},
 		{
-			name:     "timeout",
+			name:     "log trigger timeout",
 			times:    totalMediumPluginRetries + 1,
 			expected: RetryIntervalTimeout,
+		},
+		{
+			name:       "conditional trigger first retry",
+			times:      1,
+			upkeepType: automationTypes.ConditionTrigger,
+			expected:   RetryIntervalTimeout,
+		},
+		{
+			name:       "conditional trigger timeout",
+			times:      totalMediumPluginRetries + 1,
+			upkeepType: automationTypes.ConditionTrigger,
+			expected:   RetryIntervalTimeout,
 		},
 	}
 
@@ -284,7 +301,7 @@ func Test_CalculateRetryConfigFn(t *testing.T) {
 			cfg := newMercuryConfigMock()
 			var result time.Duration
 			for i := 0; i < tc.times; i++ {
-				result = CalculateStreamsRetryConfigFn(automationTypes.ConditionTrigger, "prk", cfg)
+				result = CalculateStreamsRetryConfigFn(tc.upkeepType, "prk", cfg)
 			}
 			assert.Equal(t, tc.expected, result)
 		})
