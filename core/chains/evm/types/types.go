@@ -332,7 +332,11 @@ func (a *AddressArray) Scan(src interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "Expected BYTEA[] column for AddressArray")
 	}
-	if baArray.Status != pgtype.Present || len(baArray.Dimensions) > 1 {
+	if baArray.Status != pgtype.Present {
+		*a = nil
+		return nil
+	}
+	if len(baArray.Dimensions) > 1 {
 		return errors.Errorf("Expected AddressArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
 	}
 
@@ -359,14 +363,18 @@ func (h *HashArray) Scan(src interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "Expected BYTEA[] column for HashArray")
 	}
-	if baArray.Status != pgtype.Present || len(baArray.Dimensions) > 1 {
+	if baArray.Status != pgtype.Present {
+		*h = nil
+		return nil
+	}
+	if len(baArray.Dimensions) > 1 {
 		return errors.Errorf("Expected HashArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
 	}
 
 	for i, ba := range baArray.Elements {
 		hash := common.Hash{}
 		if ba.Status != pgtype.Present {
-			return errors.Errorf("Expected all addresses in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
+			return errors.Errorf("Expected all hashes in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
 		}
 		err = hash.Scan(ba.Bytes)
 		if err != nil {
