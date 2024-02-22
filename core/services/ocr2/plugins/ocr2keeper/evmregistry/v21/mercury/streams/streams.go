@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	requestTimeout = 15 * time.Second
+	requestTimeout = 10 * time.Second
 )
 
 type Lookup interface {
