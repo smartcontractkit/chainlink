@@ -104,7 +104,7 @@ func NewResender[
 // Start is a comment which satisfies the linter
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.txConfig.ResendAfterThreshold())
-	go er.runLoop(er.ctx)
+	go er.runLoop()
 }
 
 // Stop is a comment which satisfies the linter
@@ -113,10 +113,10 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Stop() {
 	<-er.chDone
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx context.Context) {
+func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer close(er.chDone)
 
-	if err := er.resendUnconfirmed(ctx); err != nil {
+	if err := er.resendUnconfirmed(er.ctx); err != nil {
 		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
@@ -127,7 +127,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ct
 		case <-er.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := er.resendUnconfirmed(ctx); err != nil {
+			if err := er.resendUnconfirmed(er.ctx); err != nil {
 				er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
 		}
