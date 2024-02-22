@@ -171,6 +171,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Warnf("at block %s upkeep %s GET request fails for feed %s: %v", sl.Time.String(), sl.UpkeepId.String(), sl.Feeds[index], err)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
+				errCode = encoding.ErrCodeStreamsUnknownError
 				return err
 			}
 			defer httpResponse.Body.Close()
