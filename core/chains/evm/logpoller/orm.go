@@ -262,8 +262,8 @@ func (o *DbORM) DeleteExpiredLogs(limit int64, qopts ...pg.QOpt) (int64, error) 
 	if limit > 0 {
 		return q.ExecQWithRowsAffected(`
 		DELETE FROM evm.logs
-		WHERE (block_hash, log_index, evm_chain_id) IN (
-			SELECT l.block_hash, l.log_index, l.evm_chain_id
+		WHERE (evm_chain_id, address, event_sig, block_number) IN (
+			SELECT l.evm_chain_id, l.address, l.event_sig, l.block_number
 			FROM evm.logs l
 			INNER JOIN (
 				SELECT address, event, MAX(retention) AS retention
@@ -272,7 +272,7 @@ func (o *DbORM) DeleteExpiredLogs(limit int64, qopts ...pg.QOpt) (int64, error) 
 				GROUP BY evm_chain_id, address, event
 				HAVING NOT 0 = ANY(ARRAY_AGG(retention))
 			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
-			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
+			AND l.created_at <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
 			LIMIT $2
 		)`,
 			ubig.New(o.chainID), limit)
