@@ -11,11 +11,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/avast/retry-go/v4"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/avast/retry-go/v4"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
@@ -63,7 +64,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	for i := range streamsLookup.Feeds {
 		// TODO (AUTO-7209): limit the number of concurrent requests
 		i := i
-		c.threadCtrl.Go(func(ctx context.Context) {
+		c.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 			c.singleFeedRequest(ctx, ch, i, streamsLookup)
 		})
 	}
@@ -172,6 +173,9 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				errCode = encoding.ErrCodeStreamsUnknownError
+				if ctx.Err() != nil {
+					errCode = encoding.ErrCodeStreamsTimeout
+				}
 				return err
 			}
 			defer httpResponse.Body.Close()

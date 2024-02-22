@@ -69,7 +69,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	}
 	resultLen := 1 // Only 1 multi-feed request is made for all feeds
 	ch := make(chan mercury.MercuryData, resultLen)
-	c.threadCtrl.Go(func(ctx context.Context) {
+	c.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 		c.multiFeedsRequest(ctx, ch, streamsLookup)
 	})
 
@@ -145,6 +145,9 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				errCode = encoding.ErrCodeStreamsUnknownError
+				if ctx.Err() != nil {
+					errCode = encoding.ErrCodeStreamsTimeout
+				}
 				return err
 			}
 			defer resp.Body.Close()

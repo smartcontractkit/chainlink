@@ -9,10 +9,12 @@ import (
 	"testing"
 	"time"
 
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
-	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
