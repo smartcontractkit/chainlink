@@ -478,6 +478,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	require.NoError(t, feeds.EnableMercury(t, backend, registry, registryOwner))
 	require.NoError(t, feeds.VerifyEnv(t, backend, registry, registryOwner))
 
+	startBlock := backend.Blockchain().CurrentBlock().Number.Int64()
 	// start emitting events in a separate go-routine
 	// feed lookup relies on a single contract event log to perform multiple
 	// listener contracts
@@ -498,11 +499,11 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 			idsToCheck = append(idsToCheck, uid)
 		}
 	}
-	errHandlerListener, errHandlerDone := listenEvents(t, backend, addrsToCheck, topic, int64(1), 1)
+	errHandlerListener, errHandlerDone := listenEvents(t, backend, addrsToCheck, topic, startBlock, 1)
 	g.Eventually(errHandlerListener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	errHandlerDone()
 
-	listener, done := listenPerformed(t, backend, registry, idsToCheck, int64(1))
+	listener, done := listenPerformed(t, backend, registry, idsToCheck, startBlock)
 	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
 }
