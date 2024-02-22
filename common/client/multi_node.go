@@ -69,7 +69,8 @@ type MultiNode[
 	NodeStates() map[string]string
 	SelectNodeRPC() (RPC_CLIENT, error)
 
-	BatchCallContextAll(ctx context.Context, b []any) error
+	DoAll(ctx context.Context,
+		do func(ctx context.Context, rpc RPC_CLIENT) error) error
 	ConfiguredChainID() CHAIN_ID
 	IsL2() bool
 }
@@ -391,7 +392,8 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 // sendonlys.
 // CAUTION: This should only be used for mass re-transmitting transactions, it
 // might have unexpected effects to use it for anything else.
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BatchCallContextAll(ctx context.Context, b []any) error {
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) DoAll(ctx context.Context,
+	do func(ctx context.Context, rpc RPC_CLIENT) error) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
@@ -414,7 +416,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		wg.Add(1)
 		go func(n SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
 			defer wg.Done()
-			err := n.RPC().BatchCallContext(ctx, b)
+			err := do(ctx, n.RPC())
 			if err != nil {
 				c.lggr.Debugw("Secondary node BatchCallContext failed", "err", err)
 			} else {
@@ -426,7 +428,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	if selectionErr != nil {
 		return selectionErr
 	}
-	return main.RPC().BatchCallContext(ctx, b)
+	return do(ctx, main.RPC())
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BlockByHash(ctx context.Context, hash BLOCK_HASH) (h HEAD, err error) {

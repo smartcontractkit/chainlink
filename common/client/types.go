@@ -118,7 +118,6 @@ type clientAPI[
 	FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error)
 
 	// Misc
-	BatchCallContext(ctx context.Context, b []any) error
 	CallContract(
 		ctx context.Context,
 		msg interface{},
