@@ -1753,7 +1753,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 
 	t.Run("treats an exceeds max fee attempt as a success", func(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
-		kst.On("SignTx",
+		kst.On("SignTx", mock.Anything,
 			fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				if tx.Nonce() != uint64(*etx.Sequence) {
@@ -1868,43 +1868,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, etx.TxAttempts, 1)
-	})
-
-	ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
-	ec.XXXTestSetClient(txmgr.NewEvmTxmClient(ethClient))
-
-	t.Run("does nothing and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
-		ethTx := *types.NewTx(&types.LegacyTx{})
-		kst.On("SignTx", mock.Anything,
-			fromAddress,
-			mock.MatchedBy(func(tx *types.Transaction) bool {
-				if tx.Nonce() != uint64(*etx.Sequence) {
-					return false
-				}
-				ethTx = *tx
-				return true
-			}),
-			mock.MatchedBy(func(chainID *big.Int) bool {
-				return chainID.Cmp(evmcfg.EVM().ChainID()) == 0
-			})).Return(&ethTx, nil).Once()
-
-		// Once for the bumped attempt which exceeds limit
-		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence) && tx.GasPrice().Int64() == int64(20000000000)
-		}), fromAddress).Return(commonclient.ExceedsMaxFee, errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
-
-		// Do the thing
-		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-		var err error
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
-		require.NoError(t, err)
-
-		// Did not create an additional attempt
-		require.Len(t, etx.TxAttempts, 1)
-
-		// broadcast_at did not change
-		require.Equal(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
-		require.Equal(t, etx.InitialBroadcastAt.Unix(), originalBroadcastAt.Unix())
 	})
 
 	var attempt1_2 txmgr.TxAttempt
@@ -2050,7 +2013,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_1.ID))
 	var attempt2_2 txmgr.TxAttempt
 
-	t.Run("saves in_progress attempt on temporary error and returns error", func(t *testing.T) {
+	t.Run("saves in-progress attempt on temporary error and returns error", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.TxFee.Legacy.ToInt().Int64())
 
