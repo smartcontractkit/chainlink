@@ -14,7 +14,6 @@ import (
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
 type PluginConfig struct {
 	JuelsPerFeeCoinPipeline      string        `json:"juelsPerFeeCoinSource"`
-	JuelsPerFeeCoinCaching       bool          `json:"juelsPerFeeCoinCaching"`
 	JuelsPerFeeCoinCacheDuration time.Duration `json:"juelsPerFeeCoinCacheDuration"`
 }
 
