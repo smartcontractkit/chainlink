@@ -2,7 +2,16 @@ package automation
 
 import (
 	"fmt"
+	"math"
+	"math/big"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/stretchr/testify/require"
+
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -20,13 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"github.com/stretchr/testify/require"
-	"math"
-	"math/big"
-	"strings"
-	"testing"
-	"time"
 )
 
 var (
@@ -128,7 +130,7 @@ func setupEnvironment(t *testing.T, loadedTestConfig tc.TestConfig) (*automation
 		loadedTestConfig.Pyroscope.Environment = &testEnvironment.Cfg.Namespace
 	}
 
-	if *loadedTestConfig.Automation.Adhoc.ConnectDataStream == true {
+	if *loadedTestConfig.Automation.Adhoc.ConnectDataStream {
 		secretsTOML = fmt.Sprintf(secretsTOML, *loadedTestConfig.Automation.Adhoc.DataStreamURL, *loadedTestConfig.Automation.Adhoc.DataStreamURL)
 	} else {
 		secretsTOML = ""
@@ -235,11 +237,11 @@ func TestAutomation(t *testing.T) {
 
 	config := loadedTestConfig.Automation.Adhoc
 
-	if *config.ConnectDataStream == true {
+	if *config.ConnectDataStream {
 		automationTest.MercuryCredentialName = "cred1"
 	}
 
-	if *config.DeployContracts == true {
+	if *config.DeployContracts {
 		automationTest.SetupAutomationDeployment(t)
 		err = actions.FundChainlinkNodesAddress(
 			automationTest.ChainlinkNodesk8s[1:], automationTest.ChainClient,
@@ -247,8 +249,8 @@ func TestAutomation(t *testing.T) {
 		require.NoError(t, err, "Error funding chainlink nodes")
 	}
 
-	if *config.LoadContracts == true {
-		if *config.DeleteExistingJobs == true {
+	if *config.LoadContracts {
+		if *config.DeleteExistingJobs {
 			err = automationTest.CollectNodeDetails()
 			require.NoError(t, err, "Error collecting node details")
 			err = actions.DeleteAllJobs(automationTest.ChainlinkNodesk8s)
@@ -258,7 +260,7 @@ func TestAutomation(t *testing.T) {
 			*config.FastGasFeedAddress, *config.TranscoderAddress, *config.RegistryAddress, *config.RegistrarAddress)
 	}
 
-	if *config.SetupUpkeeps == true {
+	if *config.SetupUpkeeps {
 		upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
 
 		var bytes0 = [32]byte{
@@ -268,12 +270,13 @@ func TestAutomation(t *testing.T) {
 		utilsABI, err := automation_utils_2_1.AutomationUtilsMetaData.GetAbi()
 		require.NoError(t, err, "Error getting automation utils abi")
 		logTriggerUpkeepABI, err := log_upkeep_counter_wrapper.LogUpkeepCounterMetaData.GetAbi()
+		require.NoError(t, err, "Error getting log upkeep abi")
 		logTriggerStreamsLookupUpkeepABI, err := log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookupMetaData.GetAbi()
-		require.NoError(t, err, "Error getting log emitter abi")
+		require.NoError(t, err, "Error getting log triggered streams lookup upkeep abi")
 
 		var conditionalConsumerAddress string
 
-		if *config.ConnectDataStream == true {
+		if *config.ConnectDataStream {
 			conditionalConsumer, err := automationTest.Deployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(math.MaxInt64), big.NewInt(10), false, true, false)
 			require.NoError(t, err, "Error deploying streams lookup conditional consumer")
 			conditionalConsumerAddress = conditionalConsumer.Address()
@@ -302,9 +305,8 @@ func TestAutomation(t *testing.T) {
 		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
 
 		logTriggerConsumer := *new(contracts.KeeperConsumer)
-		topic0Match := [32]byte{}
-
-		if *config.ConnectDataStream == true {
+		var topic0Match [32]byte
+		if *config.ConnectDataStream {
 			logTriggerConsumerA, err := automationTest.Deployer.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer()
 			require.NoError(t, err, "Error deploying log trigger consumer")
 			err = logTriggerConsumerA.SetFeeds([]string{"0x000200"})
@@ -362,7 +364,7 @@ func TestAutomation(t *testing.T) {
 		require.NoError(t, err, "Error starting log trigger consumer")
 	}
 
-	if *config.TearDownDeployment == true {
+	if *config.TearDownDeployment {
 		err = automationTest.CollectNodeDetails()
 		require.NoError(t, err, "Error collecting node details")
 		err = actions.DeleteAllJobs(automationTest.ChainlinkNodesk8s)

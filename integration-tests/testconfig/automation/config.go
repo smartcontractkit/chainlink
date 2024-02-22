@@ -120,7 +120,7 @@ func (c *Adhoc) Validate() error {
 	if c.TearDownDeployment == nil {
 		return errors.New("tear_down_deployment must be set")
 	}
-	if *c.LoadContracts == true {
+	if *c.LoadContracts {
 		if c.DeleteExistingJobs == nil {
 			return errors.New("delete_existing_jobs must be set")
 		}
@@ -144,7 +144,7 @@ func (c *Adhoc) Validate() error {
 		}
 
 	}
-	if *c.ConnectDataStream == true {
+	if *c.ConnectDataStream {
 		if c.DataStreamURL == nil {
 			return errors.New("data_stream_url must be set")
 		}
