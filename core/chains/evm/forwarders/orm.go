@@ -51,13 +51,11 @@ func (o *DbORM) CreateForwarder(ctx context.Context, addr common.Address, evmCha
 // If cleanup is non-nil, it can be used to perform any chain- or contract-specific cleanup that need to happen atomically
 // on forwarder deletion.  If cleanup returns an error, forwarder deletion will be aborted.
 func (o *DbORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.Queryer, evmChainID int64, addr common.Address) error) (err error) {
-	var dest struct {
-		EvmChainId int64
-		Address    common.Address
-	}
-
-	var rowsAffected int64
 	return o.Transaction(ctx, func(orm *DbORM) error {
+		var dest struct {
+			EvmChainId int64
+			Address    common.Address
+		}
 		err := orm.db.GetContext(ctx, &dest, `SELECT evm_chain_id, address FROM evm.forwarders WHERE id = $1`, id)
 		if err != nil {
 			return err
@@ -75,7 +73,7 @@ func (o *DbORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx s
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
-		rowsAffected, err = result.RowsAffected()
+		rowsAffected, err := result.RowsAffected()
 		if err == nil && rowsAffected == 0 {
 			err = sql.ErrNoRows
 		}
