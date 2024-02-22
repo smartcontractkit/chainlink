@@ -69,7 +69,7 @@ require (
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240219152510-85226a0fbdc1
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240221153538-1ea85cf3dc6c
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240213120401-01a23955f9f8
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240214203158-47dae5de1336
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240119021347-3c541a78cdb8
