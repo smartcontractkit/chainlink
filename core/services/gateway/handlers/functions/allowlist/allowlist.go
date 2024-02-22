@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"golang.org/x/mod/semver"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -219,12 +220,12 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		return errors.Wrap(err, "failed to fetch the tos contract type and version")
 	}
 
-	batchProcessingAllowed, err := ContractVersionIsSmallerOrEqual(tosContractMinBatchProcessingVersion, typeAndVersion)
+	currentVersion, err := ExtractContractVersion(typeAndVersion)
 	if err != nil {
-		return errors.Wrap(err, "failed to compare contract version")
+		return fmt.Errorf("failed to extract version: %w", err)
 	}
 
-	if batchProcessingAllowed {
+	if semver.Compare(tosContractMinBatchProcessingVersion, currentVersion) <= 0 {
 		err = a.syncBlockedSenders(ctx, tosContract, blockNum)
 		if err != nil {
 			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
@@ -369,23 +370,7 @@ func (a *onchainAllowlist) loadStoredAllowedSenderList() {
 	a.update(allowedList)
 }
 
-// ContractVersionIsSmallerOrEqual receives two stringify contract versions s1 and s2 with the following format: `v(\d+).(\d+).(\d+)`
-// and returns true in case s1 <= s2
-func ContractVersionIsSmallerOrEqual(s1 string, s2 string) (bool, error) {
-	versionS1, err := extractContractVersion(s1)
-	if err != nil {
-		return false, fmt.Errorf("failed to extract version: %w", err)
-	}
-
-	versionS2, err := extractContractVersion(s2)
-	if err != nil {
-		return false, fmt.Errorf("failed to extract version: %w", err)
-	}
-
-	return (versionS1 <= versionS2), nil
-}
-
-func extractContractVersion(str string) (string, error) {
+func ExtractContractVersion(str string) (string, error) {
 	pattern := `v(\d+).(\d+).(\d+)`
 	re := regexp.MustCompile(pattern)
 
@@ -393,5 +378,5 @@ func extractContractVersion(str string) (string, error) {
 	if len(match) != 4 {
 		return "", fmt.Errorf("version not found in string: %s", str)
 	}
-	return match[1] + match[2] + match[3], nil
+	return fmt.Sprintf("v%s.%s.%s", match[1], match[2], match[3]), nil
 }

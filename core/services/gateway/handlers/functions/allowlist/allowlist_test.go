@@ -3,6 +3,7 @@ package allowlist_test
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -316,51 +317,50 @@ func TestUpdateFromContract(t *testing.T) {
 
 }
 
-func TestContractVersionIsSmallerOrEqual(t *testing.T) {
+func TestExtractContractVersion(t *testing.T) {
 
 	type tc struct {
 		name           string
-		version1       string
-		version2       string
-		expectedResult bool
+		versionStr     string
+		expectedResult string
 		expectedError  *string
 	}
 
-	var errInvalidVersion = "failed to extract version: version not found in string: invalid_version"
+	var errInvalidVersion = func(v string) *string {
+		ev := fmt.Sprintf("version not found in string: %s", v)
+		return &ev
+	}
+
 	tcs := []tc{
 		{
-			name:           "OK-bigger_version",
-			version1:       "v1.0.1",
-			version2:       "v1.0.0",
-			expectedResult: false,
+			name:           "OK-Tos_type_and_version",
+			versionStr:     "Functions Terms of Service Allow List v1.1.0",
+			expectedResult: "v1.1.0",
 			expectedError:  nil,
 		},
 		{
-			name:           "OK-smaller_version",
-			version1:       "v1.1.0",
-			version2:       "v2.0.0",
-			expectedResult: true,
-			expectedError:  nil,
-		},
-		{
-			name:           "OK-same_version",
-			version1:       "v1.2.0",
-			version2:       "v1.2.0",
-			expectedResult: true,
+			name:           "OK-double_digits_minor",
+			versionStr:     "Functions Terms of Service Allow List v1.20.0",
+			expectedResult: "v1.20.0",
 			expectedError:  nil,
 		},
 		{
 			name:           "NOK-invalid_version",
-			version1:       "invalid_version",
-			version2:       "v1.1.0",
-			expectedResult: false,
-			expectedError:  &errInvalidVersion,
+			versionStr:     "invalid_version",
+			expectedResult: "",
+			expectedError:  errInvalidVersion("invalid_version"),
+		},
+		{
+			name:           "NOK-incomplete_version",
+			versionStr:     "v2.0",
+			expectedResult: "",
+			expectedError:  errInvalidVersion("v2.0"),
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			actualResult, actualError := allowlist.ContractVersionIsSmallerOrEqual(tc.version1, tc.version2)
+			actualResult, actualError := allowlist.ExtractContractVersion(tc.versionStr)
 			require.Equal(t, tc.expectedResult, actualResult)
 
 			if tc.expectedError != nil {
