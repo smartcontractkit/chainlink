@@ -120,25 +120,86 @@ func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, bloc
 
 func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
 	var reqs []rpc.BatchElem
-	for _, attempt := range attempts {
+	reqs, txReceipt, txErr = newGetBatchReceiptsReq(attempts)
+
+	if err := c.client.BatchCallContext(ctx, reqs); err != nil {
+		return nil, nil, fmt.Errorf("EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext: %w", err)
+	}
+
+	for i, req := range reqs {
+		txErr[i] = req.Error
+	}
+	return txReceipt, txErr, nil
+}
+
+func newGetBatchReceiptsReq(attempts []TxAttempt) (reqs []rpc.BatchElem, txReceipts []*evmtypes.Receipt, txErrs []error) {
+	reqs = make([]rpc.BatchElem, len(attempts))
+	txReceipts = make([]*evmtypes.Receipt, len(attempts))
+	txErrs = make([]error, len(attempts))
+	for i, attempt := range attempts {
 		res := &evmtypes.Receipt{}
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
 			Args:   []interface{}{attempt.Hash},
 			Result: res,
 		}
-		txReceipt = append(txReceipt, res)
-		reqs = append(reqs, req)
+		txReceipts[i] = res
+		reqs[i] = req
 	}
+
+	return reqs, txReceipts, txErrs
+}
+
+// FinalizedBlockHash - returns hash and block number of latest finalized block.
+// Must not be called on chains that do not support finality tag.
+func (c *evmTxmClient) FinalizedBlockHash(ctx context.Context) (common.Hash, *big.Int, error) {
+	head, err := c.client.FinalizedBlock(ctx)
+	if err != nil || head == nil {
+		return common.Hash{}, big.NewInt(0), err
+	}
+
+	return head.Hash, big.NewInt(head.BlockNumber()), nil
+}
+
+// BatchGetReceiptsWithFinalizedHeight - returns most recently finalized block and receipts for the attempts.
+// If finality tag is enabled - uses corresponding RPC request to get finalizaed block.
+// Otherwise calculates it based on finalityDepth and latest block number.
+func (c *evmTxmClient) BatchGetReceiptsWithFinalizedHeight(ctx context.Context, attempts []TxAttempt, useFinalityTag bool, finalityDepth uint32) (
+	finalizedBlock *big.Int, receipts []*evmtypes.Receipt, receiptErrs []error, funcErr error) {
+
+	var reqs []rpc.BatchElem
+	reqs, receipts, receiptErrs = newGetBatchReceiptsReq(attempts)
+
+	blockNumber := rpc.LatestBlockNumber
+	if useFinalityTag {
+		blockNumber = rpc.FinalizedBlockNumber
+	}
+
+	var head evmtypes.Head
+	blockRequest := rpc.BatchElem{
+		Method: "eth_getBlockByNumber",
+		Args:   []interface{}{blockNumber, false},
+		Result: &head,
+	}
+	reqs = append(reqs, blockRequest)
 
 	if err := c.client.BatchCallContext(ctx, reqs); err != nil {
-		return nil, nil, fmt.Errorf("EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext: %w", err)
+		return nil, nil, nil, fmt.Errorf("BatchGetReceiptsWithFinalizedHeight error fetching receipts with BatchCallContext: %w", err)
 	}
 
-	for _, req := range reqs {
-		txErr = append(txErr, req.Error)
+	if blockRequest.Error != nil {
+		return nil, nil, nil, fmt.Errorf("failed to fetch finalized block with BatchCallContext: %w", blockRequest.Error)
 	}
-	return txReceipt, txErr, nil
+
+	for i := range receiptErrs {
+		receiptErrs[i] = reqs[i].Error
+	}
+
+	finalizedBlock = big.NewInt(head.BlockNumber() - int64(finalityDepth))
+	if useFinalityTag {
+		finalizedBlock = big.NewInt(head.BlockNumber())
+	}
+	return finalizedBlock, receipts, receiptErrs, nil
 }
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address

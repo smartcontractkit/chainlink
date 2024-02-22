@@ -168,7 +168,7 @@ func NewTxm[
 		b.logger.Info("Resender: Disabled")
 	}
 	if txCfg.ReaperThreshold() > 0 && txCfg.ReaperInterval() > 0 {
-		b.reaper = NewReaper[CHAIN_ID](lggr, b.txStore, cfg, txCfg, chainId)
+		b.reaper = NewReaper[CHAIN_ID](lggr, b.txStore, txCfg, chainId)
 	} else {
 		b.logger.Info("TxReaper: Disabled")
 	}

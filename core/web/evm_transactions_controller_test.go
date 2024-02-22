@@ -32,15 +32,21 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 2, from) // tx2
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 4, from)        // tx3
 
-	// add second tx attempt for tx2
-	blockNum := int64(3)
-	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
-	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
-	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	// add second tx attempt for tx2 with higher block num
+	newAttempt := func(txID int64, block int64) {
+		attempt := cltest.NewLegacyEthTxAttempt(t, txID)
+		attempt.State = txmgrtypes.TxAttemptBroadcast
+		attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
+		attempt.BroadcastBeforeBlockNum = &block
+		require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	}
+	newAttempt(tx2.ID, 3)
+
+	tx3 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 4, from) // tx3
+	// add second tx attempt for tx3 with higher block num, but finalized first one
+	newAttempt(tx3.ID, 5)
+	require.NoError(t, txStore.MarkFinalized(testutils.Context(t), []int64{tx3.TxAttempts[0].ID}))
 
 	_, count, err := txStore.TransactionsWithAttempts(0, 100)
 	require.NoError(t, err)

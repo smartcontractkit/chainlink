@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -98,7 +99,7 @@ func NewEvmResender(
 
 // NewEvmReaper instantiates a new EVM-specific reaper object
 func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], config EvmReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig, chainID *big.Int) *Reaper {
-	return txmgr.NewReaper(lggr, store, config, txConfig, chainID)
+	return txmgr.NewReaper(lggr, store, txConfig, chainID)
 }
 
 // NewEvmConfirmer instantiates a new EVM confirmer

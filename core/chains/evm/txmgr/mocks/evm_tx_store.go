@@ -199,6 +199,36 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	return r0
 }
 
+// FindConfirmedTransactions provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindConfirmedTransactions(ctx context.Context, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindConfirmedTransactions")
+	}
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
 func (_m *EvmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (null.Time, error) {
 	ret := _m.Called(ctx, chainID)
@@ -299,36 +329,6 @@ func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Contex
 	}
 
 	return r0
-}
-
-// FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
-func (_m *EvmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(ctx, highBlockNumber, lowBlockNumber, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindTransactionsConfirmedInBlockRange")
-	}
-
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(ctx, highBlockNumber, lowBlockNumber, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(ctx, highBlockNumber, lowBlockNumber, chainID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, *big.Int) error); ok {
-		r1 = rf(ctx, highBlockNumber, lowBlockNumber, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // FindTxAttempt provides a mock function with given fields: hash
@@ -957,34 +957,6 @@ func (_m *EvmTxStore) HasInProgressTransaction(ctx context.Context, account comm
 	return r0, r1
 }
 
-// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID, chainID
-func (_m *EvmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (bool, error) {
-	ret := _m.Called(ctx, blockHeight, txID, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsTxFinalized")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) (bool, error)); ok {
-		return rf(ctx, blockHeight, txID, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) bool); ok {
-		r0 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, *big.Int) error); ok {
-		r1 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // LoadTxAttempts provides a mock function with given fields: ctx, etx
 func (_m *EvmTxStore) LoadTxAttempts(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, etx)
@@ -1014,6 +986,24 @@ func (_m *EvmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainI
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) error); ok {
 		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MarkFinalized provides a mock function with given fields: ctx, attempts
+func (_m *EvmTxStore) MarkFinalized(ctx context.Context, attempts []int64) error {
+	ret := _m.Called(ctx, attempts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkFinalized")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
+		r0 = rf(ctx, attempts)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1087,17 +1077,17 @@ func (_m *EvmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint3
 	return r0, r1
 }
 
-// ReapTxHistory provides a mock function with given fields: ctx, minBlockNumberToKeep, timeThreshold, chainID
-func (_m *EvmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
-	ret := _m.Called(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+// ReapTxHistory provides a mock function with given fields: ctx, timeThreshold, chainID
+func (_m *EvmTxStore) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID *big.Int) error {
+	ret := _m.Called(ctx, timeThreshold, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ReapTxHistory")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, time.Time, *big.Int) error); ok {
-		r0 = rf(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, *big.Int) error); ok {
+		r0 = rf(ctx, timeThreshold, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1129,6 +1119,24 @@ func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, receipts []*evmty
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFetchedReceipts")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, *big.Int) error); ok {
+		r0 = rf(ctx, receipts, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SaveFinalizedReceipts provides a mock function with given fields: ctx, receipts, chainID
+func (_m *EvmTxStore) SaveFinalizedReceipts(ctx context.Context, receipts []*evmtypes.Receipt, chainID *big.Int) error {
+	ret := _m.Called(ctx, receipts, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveFinalizedReceipts")
 	}
 
 	var r0 error

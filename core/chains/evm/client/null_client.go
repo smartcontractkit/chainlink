@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -64,6 +65,11 @@ func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.H
 
 func (nc *NullClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
 	nc.lggr.Debug("HeadByHash")
+	return nil, nil
+}
+
+func (nc *NullClient) FinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	nc.lggr.Debug("FinalizedBlock")
 	return nil, nil
 }
 

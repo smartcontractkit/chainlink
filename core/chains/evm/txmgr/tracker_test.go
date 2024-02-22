@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -99,7 +102,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 		t.Skip("BCI-2638 tracker disabled")
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
+		etx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 
 		err := tracker.Start(context.Background())
 		require.NoError(t, err)
@@ -108,15 +111,21 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 			require.NoError(t, err)
 		}(tracker)
 
-		addrs := tracker.GetAbandonedAddresses()
-		require.Contains(t, addrs, confirmedAddr)
+		// nothing happens - still tracking confirmed tx
+		require.NoError(t, tracker.HandleTxesByState(testutils.Context(t), 10))
+		require.Contains(t, tracker.GetAbandonedAddresses(), confirmedAddr)
 
-		// deliver block past minConfirmations to finalize tx
-		tracker.XXXDeliverBlock(10)
-		time.Sleep(waitTime)
+		// mark finalized
+		require.NoError(t, txStore.SaveFinalizedReceipts(testutils.Context(t), []*evmtypes.Receipt{&evmtypes.Receipt{
+			TxHash:           etx.TxAttempts[0].Hash,
+			BlockHash:        utils.NewHash(),
+			BlockNumber:      big.NewInt(123),
+			TransactionIndex: uint(1),
+		}}, etx.ChainID))
 
-		addrs = tracker.GetAbandonedAddresses()
-		require.NotContains(t, addrs, confirmedAddr)
+		// remove transaction as it's now finalized
+		require.NoError(t, tracker.HandleTxesByState(testutils.Context(t), 11))
+		require.NotContains(t, tracker.GetAbandonedAddresses(), confirmedAddr)
 	})
 }
 

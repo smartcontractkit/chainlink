@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 // TxmClient is a superset of all the methods needed for the txm
+//
+//go:generate mockery --quiet --name TxmClient --output ./mocks/ --case=underscore
 type TxmClient[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
@@ -30,6 +33,11 @@ type TxmClient[
 		ctx context.Context,
 		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	) (txReceipt []R, txErr []error, err error)
+	BatchGetReceiptsWithFinalizedHeight(ctx context.Context,
+		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+		useFinalityTag bool, finalityDepth uint32) (
+		finalizedBlock *big.Int, txReceipt []R, txErr []error, funcErr error)
+	FinalizedBlockHash(ctx context.Context) (BLOCK_HASH, *big.Int, error)
 }
 
 // TransactionClient contains the methods for building, simulating, broadcasting transactions

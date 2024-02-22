@@ -76,6 +76,7 @@ type TestEvmTxStore interface {
 	CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error)
 	FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error)
 	UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error
+	DeleteAll(ctx context.Context) error
 }
 
 type evmTxStore struct {
@@ -820,7 +821,7 @@ ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas
 	return
 }
 
-func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error) {
+func (o *evmTxStore) saveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int, txState txmgrtypes.TxState, attemptState txmgrtypes.TxAttemptState) (err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -884,25 +885,55 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 	updated_eth_tx_attempts AS (
 		UPDATE evm.tx_attempts
 		SET
-			state = 'broadcast',
+			state = '%s',
 			broadcast_before_block_num = COALESCE(evm.tx_attempts.broadcast_before_block_num, inserted_receipts.block_number)
 		FROM inserted_receipts
 		WHERE inserted_receipts.tx_hash = evm.tx_attempts.hash
 		RETURNING evm.tx_attempts.eth_tx_id
 	)
 	UPDATE evm.txes
-	SET state = 'confirmed'
+	SET state = '%s'
 	FROM updated_eth_tx_attempts
 	WHERE updated_eth_tx_attempts.eth_tx_id = evm.txes.id
 	AND evm_chain_id = ?
 	`
 
-	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
+	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","), attemptState, txState)
 
 	stmt = sqlx.Rebind(sqlx.DOLLAR, stmt)
 
 	err = qq.ExecQ(stmt, valueArgs...)
 	return pkgerrors.Wrap(err, "SaveFetchedReceipts failed to save receipts")
+}
+
+func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) error {
+	return o.saveFetchedReceipts(ctx, r, chainID, "confirmed", txmgrtypes.TxAttemptBroadcast)
+}
+
+func (o *evmTxStore) SaveFinalizedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) error {
+	return o.saveFetchedReceipts(ctx, r, chainID, "finalized", txmgrtypes.TxAttemptFinalized)
+}
+
+func (o *evmTxStore) MarkFinalized(ctx context.Context, attempts []int64) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	if len(attempts) == 0 {
+		return nil
+	}
+
+	stmt := `
+	WITH updated_eth_tx_attempts AS (
+		UPDATE evm.tx_attempts SET state = 'finalized' WHERE id = ANY ($1) RETURNING evm.tx_attempts.eth_tx_id
+	)
+	UPDATE evm.txes
+	SET state = 'finalized'
+	FROM updated_eth_tx_attempts
+	WHERE updated_eth_tx_attempts.eth_tx_id = evm.txes.id
+	`
+	err := qq.ExecQ(stmt, pq.Array(attempts))
+	return pkgerrors.Wrap(err, "MarkFinalized failed to update state")
 }
 
 // MarkAllConfirmedMissingReceipt
@@ -1109,7 +1140,7 @@ func (o *evmTxStore) UpdateTxForRebroadcast(ctx context.Context, etx Tx, etxAtte
 	})
 }
 
-func (o *evmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber, lowBlockNumber int64, chainID *big.Int) (etxs []*Tx, err error) {
+func (o *evmTxStore) FindConfirmedTransactions(ctx context.Context, chainID *big.Int) (etxs []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1120,21 +1151,21 @@ func (o *evmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, 
 SELECT DISTINCT evm.txes.* FROM evm.txes
 INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.tx_attempts.state = 'broadcast'
 INNER JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
-WHERE evm.txes.state IN ('confirmed', 'confirmed_missing_receipt') AND block_number BETWEEN $1 AND $2 AND evm_chain_id = $3
+WHERE evm.txes.state IN ('confirmed') AND evm_chain_id = $1
 ORDER BY nonce ASC
-`, lowBlockNumber, highBlockNumber, chainID.String())
+`, chainID.String())
 		if err != nil {
-			return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.txes")
+			return pkgerrors.Wrap(err, "FindConfirmedTransactions failed to load evm.txes")
 		}
 		etxs = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
 		if err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(ctx), pg.WithQueryer(tx)); err != nil {
-			return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.tx_attempts")
+			return pkgerrors.Wrap(err, "FindConfirmedTransactions failed to load evm.tx_attempts")
 		}
 		err = loadEthTxesAttemptsReceipts(tx, etxs)
-		return pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed to load evm.receipts")
+		return pkgerrors.Wrap(err, "FindConfirmedTransactions failed to load evm.receipts")
 	}, pg.OptReadOnlyTx())
-	return etxs, pkgerrors.Wrap(err, "FindTransactionsConfirmedInBlockRange failed")
+	return etxs, pkgerrors.Wrap(err, "FindConfirmedTransactions failed")
 }
 
 func (o *evmTxStore) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID *big.Int) (broadcastAt nullv4.Time, err error) {
@@ -1168,25 +1199,6 @@ AND evm_chain_id = $1`, chainID.String()).Scan(&earliestUnconfirmedTxBlock)
 		return nil
 	}, pg.OptReadOnlyTx())
 	return earliestUnconfirmedTxBlock, err
-}
-
-func (o *evmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (finalized bool, err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
-	defer cancel()
-
-	var count int32
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	err = qq.GetContext(ctx, &count, `
-    SELECT COUNT(evm.receipts.receipt) FROM evm.txes
-    INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
-    INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
-    WHERE evm.receipts.block_number <= ($1 - evm.txes.min_confirmations)
-    AND evm.txes.id = $2 AND evm.txes.evm_chain_id = $3`, blockHeight, txID, chainID.String())
-	if err != nil {
-		return false, fmt.Errorf("failed to retrieve transaction reciepts: %w", err)
-	}
-	return count > 0, nil
 }
 
 func saveAttemptWithNewState(ctx context.Context, q pg.Queryer, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
@@ -1877,7 +1889,7 @@ id < (
 	return
 }
 
-func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
+func (o *evmTxStore) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1887,19 +1899,18 @@ func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int
 	// the evm.tx_attempts and evm.receipts linked to every eth_tx
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		res, err := qq.Exec(`
-WITH old_enough_receipts AS (
-	SELECT tx_hash FROM evm.receipts
-	WHERE block_number < $1
-	ORDER BY block_number ASC, id ASC
-	LIMIT $2
+WITH old_enough_finalized_txs AS (
+	SELECT evm.txes.id FROM evm.txes
+	WHERE evm.txes.state = 'finalized'
+	AND evm_chain_id = $1
+	AND evm.txes.created_at < $2
+	ORDER BY evm.txes.id ASC
+	LIMIT $3
 )
 DELETE FROM evm.txes
-USING old_enough_receipts, evm.tx_attempts
-WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
-AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
-AND evm.txes.created_at < $3
-AND evm.txes.state = 'confirmed'
-AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.String())
+USING old_enough_finalized_txs
+WHERE evm.txes.id = old_enough_finalized_txs.id
+`, chainID.String(), timeThreshold, limit)
 		if err != nil {
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
 		}
@@ -2082,4 +2093,14 @@ func (o *evmTxStore) mergeContexts(ctx context.Context) (context.Context, contex
 		stop()
 		cancel(context.Canceled)
 	}
+}
+
+// DeleteAll - removes all of the transactions and child entities. Only for tests
+func (o *evmTxStore) DeleteAll(ctx context.Context) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	_, err := qq.Exec(`DELETE FROM evm.txes`)
+	return err
 }

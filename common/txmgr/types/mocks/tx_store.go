@@ -196,6 +196,36 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteInPro
 	return r0
 }
 
+// FindConfirmedTransactions provides a mock function with given fields: ctx, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindConfirmedTransactions(ctx context.Context, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindConfirmedTransactions")
+	}
+
+	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (null.Time, error) {
 	ret := _m.Called(ctx, chainID)
@@ -296,36 +326,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUns
 	}
 
 	return r0
-}
-
-// FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(ctx, highBlockNumber, lowBlockNumber, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindTransactionsConfirmedInBlockRange")
-	}
-
-	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(ctx, highBlockNumber, lowBlockNumber, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(ctx, highBlockNumber, lowBlockNumber, chainID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, CHAIN_ID) error); ok {
-		r1 = rf(ctx, highBlockNumber, lowBlockNumber, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // FindTxAttemptsConfirmedMissingReceipt provides a mock function with given fields: ctx, chainID
@@ -836,34 +836,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasInProgre
 	return r0, r1
 }
 
-// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (bool, error) {
-	ret := _m.Called(ctx, blockHeight, txID, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsTxFinalized")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) (bool, error)); ok {
-		return rf(ctx, blockHeight, txID, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) bool); ok {
-		r0 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, CHAIN_ID) error); ok {
-		r1 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // LoadTxAttempts provides a mock function with given fields: ctx, etx
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadTxAttempts(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ret := _m.Called(ctx, etx)
@@ -893,6 +865,24 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConf
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) error); ok {
 		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MarkFinalized provides a mock function with given fields: ctx, attempts
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkFinalized(ctx context.Context, attempts []int64) error {
+	ret := _m.Called(ctx, attempts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkFinalized")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
+		r0 = rf(ctx, attempts)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -966,17 +956,17 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstar
 	return r0, r1
 }
 
-// ReapTxHistory provides a mock function with given fields: ctx, minBlockNumberToKeep, timeThreshold, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+// ReapTxHistory provides a mock function with given fields: ctx, timeThreshold, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, timeThreshold, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ReapTxHistory")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, time.Time, CHAIN_ID) error); ok {
-		r0 = rf(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, CHAIN_ID) error); ok {
+		r0 = rf(ctx, timeThreshold, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1008,6 +998,24 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetched
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFetchedReceipts")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []R, CHAIN_ID) error); ok {
+		r0 = rf(ctx, receipts, chainID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SaveFinalizedReceipts provides a mock function with given fields: ctx, receipts, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFinalizedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, receipts, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveFinalizedReceipts")
 	}
 
 	var r0 error

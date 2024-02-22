@@ -367,6 +367,36 @@ func (_m *Client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]typ
 	return r0, r1
 }
 
+// FinalizedBlock provides a mock function with given fields: ctx
+func (_m *Client) FinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FinalizedBlock")
+	}
+
+	var r0 *evmtypes.Head
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*evmtypes.Head, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *evmtypes.Head); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evmtypes.Head)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // HeadByHash provides a mock function with given fields: ctx, n
 func (_m *Client) HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error) {
 	ret := _m.Called(ctx, n)
