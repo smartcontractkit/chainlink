@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -20,7 +18,7 @@ import (
 
 type TestORM struct {
 	ORM
-	db *sqlx.DB
+	db sqlutil.Queryer
 }
 
 func setupORM(t *testing.T) *TestORM {

@@ -4,9 +4,9 @@ import (
 	"math/big"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -27,9 +27,7 @@ type EVMForwardersController struct {
 // Index lists EVM forwarders.
 func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int) {
 	orm := forwarders.NewORM(cc.App.GetSqlxDB())
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	fwds, count, err := orm.FindForwarders(ctx, 0, size)
+	fwds, count, err := orm.FindForwarders(c.Request.Context(), 0, size)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -59,9 +57,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 		return
 	}
 	orm := forwarders.NewORM(cc.App.GetSqlxDB())
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	fwd, err := orm.CreateForwarder(ctx, request.Address, *request.EVMChainID)
+	fwd, err := orm.CreateForwarder(c.Request.Context(), request.Address, *request.EVMChainID)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -100,9 +96,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 	}
 
 	orm := forwarders.NewORM(cc.App.GetSqlxDB())
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	err = orm.DeleteForwarder(ctx, id, filterCleanup)
+	err = orm.DeleteForwarder(c.Request.Context(), id, filterCleanup)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
