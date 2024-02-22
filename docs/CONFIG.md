@@ -5758,7 +5758,7 @@ BlockBackfillSkip enables skipping of very long backfills.
 ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
-Available types: `arbitrum`, `metis`, `optimismBedrock`, `gnosis`, `celo`, `kroma`, `wemix`, `zksync`, `scroll`
+Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `zksync`
 
 `xdai` has been deprecated and will be removed in v2.12.0, use `gnosis` instead.
 
