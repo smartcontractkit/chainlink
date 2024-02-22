@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 2.9.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.9.0 - 2024-02-22
 
 ### Added
 
@@ -39,8 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   URL = '...'
   ServerPubKey = '...'
 ```
-
-<!-- unreleasedstop -->
 
 ## 2.8.0 - 2024-01-24
 
