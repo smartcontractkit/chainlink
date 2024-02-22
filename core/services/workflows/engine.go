@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	mockedWorkflowID  = "aaaaaaaa-f4d1-422f-a4b2-8ce0a1075f0a"
-	mockedExecutionID = "bbbbbbbb-f4d1-422f-a4b2-8ce0a1075f0a"
-	mockedTriggerID   = "cccccccc-5cac-4071-be62-0152dd9adb0f"
+	// NOTE: max 32 bytes per ID - consider enforcing exactly 32 bytes?
+	mockedWorkflowID  = "aaaaaaaaaa0000000000000000000000"
+	mockedExecutionID = "bbbbbbbbbb0000000000000000000000"
+	mockedTriggerID   = "cccccccccc0000000000000000000000"
 )
 
 type Engine struct {
@@ -143,13 +144,20 @@ func (e *Engine) handleExecution(ctx context.Context, event capabilities.Capabil
 	if err != nil {
 		return err
 	}
+	if len(results.Underlying) == 0 {
+		return fmt.Errorf("consensus returned no reports")
+	}
+	if len(results.Underlying) > 1 {
+		e.logger.Debugw("consensus returned more than one report")
+	}
 
-	_, err = e.handleTarget(ctx, results)
+	// we're expecting exactly one report
+	_, err = e.handleTarget(ctx, results.Underlying[0])
 	return err
 }
 
-func (e *Engine) handleTarget(ctx context.Context, resp *values.List) (*values.List, error) {
-
+func (e *Engine) handleTarget(ctx context.Context, resp values.Value) (*values.List, error) {
+	e.logger.Debugw("handle target")
 	inputs := map[string]values.Value{
 		"report": resp,
 	}
@@ -158,23 +166,28 @@ func (e *Engine) handleTarget(ctx context.Context, resp *values.List) (*values.L
 		Inputs: &values.Map{Underlying: inputs},
 		Config: e.targetConfig,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: mockedWorkflowID,
+			WorkflowID:          mockedWorkflowID,
+			WorkflowExecutionID: mockedExecutionID,
 		},
 	}
 	return capabilities.ExecuteSync(ctx, e.target, tr)
 }
 
-func (e *Engine) handleConsensus(ctx context.Context, resp capabilities.CapabilityResponse) (*values.List, error) {
-	e.logger.Debugw("running consensus", "resp", resp)
-	inputs := map[string]values.Value{
-		"observations": resp.Value,
-	}
+func (e *Engine) handleConsensus(ctx context.Context, event capabilities.CapabilityResponse) (*values.List, error) {
+	e.logger.Debugw("running consensus", "event", event)
 	cr := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          mockedWorkflowID,
 			WorkflowExecutionID: mockedExecutionID,
 		},
-		Inputs: &values.Map{Underlying: inputs},
+		Inputs: &values.Map{
+			Underlying: map[string]values.Value{
+				// each node provides a single observation - outputs of mercury trigger
+				"observations": &values.List{
+					Underlying: []values.Value{event.Value},
+				},
+			},
+		},
 		Config: e.consensusConfig,
 	}
 	return capabilities.ExecuteSync(ctx, e.consensus, cr)
