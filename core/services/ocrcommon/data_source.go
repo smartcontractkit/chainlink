@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -108,7 +107,6 @@ func NewInMemoryDataSourceCache(ds median.DataSource, cacheExpiryDuration time.D
 	dsCache := &inMemoryDataSourceCache{
 		cacheExpiration:    cacheExpiryDuration,
 		mu:                 new(sync.RWMutex),
-		lastUpdate:         atomic.Pointer[time.Time]{},
 		inMemoryDataSource: inMemoryDS,
 	}
 	go func() { dsCache.updater() }()
@@ -117,9 +115,9 @@ func NewInMemoryDataSourceCache(ds median.DataSource, cacheExpiryDuration time.D
 
 var _ ocr1types.DataSource = (*dataSource)(nil)
 
-func setEATelemetry(ds *inMemoryDataSource, trrs pipeline.TaskRunResults, finalResult pipeline.FinalResult, timestamp ObservationTimestamp) {
-	promSetBridgeParseMetrics(ds, &trrs)
+func setEATelemetry(ds *inMemoryDataSource, finalResult pipeline.FinalResult, trrs pipeline.TaskRunResults, timestamp ObservationTimestamp) {
 	promSetFinalResultMetrics(ds, &finalResult)
+	promSetBridgeParseMetrics(ds, &trrs)
 	if ShouldCollectEnhancedTelemetry(&ds.jb) {
 		EnqueueEnhancedTelem(ds.chEnhancedTelemetry, EnhancedTelemetryData{
 			TaskRunResults: trrs,
@@ -200,7 +198,7 @@ func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.R
 	}
 
 	finalResult := trrs.FinalResult(ds.lggr)
-	setEATelemetry(ds, trrs, finalResult, ObservationTimestamp{
+	setEATelemetry(ds, finalResult, trrs, ObservationTimestamp{
 		Round:        timestamp.Round,
 		Epoch:        timestamp.Epoch,
 		ConfigDigest: timestamp.ConfigDigest.Hex(),
@@ -212,18 +210,12 @@ func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.R
 // inMemoryDataSourceCache is a time based cache wrapper for inMemoryDataSource.
 // If cache update is overdue Observe defaults to standard inMemoryDataSource behaviour.
 type inMemoryDataSourceCache struct {
+	*inMemoryDataSource
 	cacheExpiration time.Duration
 	mu              *sync.RWMutex
-	lastUpdate      atomic.Pointer[time.Time]
+	latestUpdateErr error
 	latestTrrs      pipeline.TaskRunResults
 	latestResult    pipeline.FinalResult
-	*inMemoryDataSource
-}
-
-// isUpdateOverdue atomically checks if update is overdue.
-func (ds *inMemoryDataSourceCache) isUpdateOverdue() bool {
-	timeSinceUpdate := time.Since(*ds.lastUpdate.Load())
-	return timeSinceUpdate >= ds.cacheExpiration
 }
 
 // updater periodically updates data source cache.
@@ -242,42 +234,42 @@ func (ds *inMemoryDataSourceCache) updater() {
 func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
-	if ds.isUpdateOverdue() {
-		_, trrs, err := ds.executeRun(ctx)
-		if err != nil {
-			return errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
-		}
-		lastUpdate := time.Now()
-
-		ds.latestResult = trrs.FinalResult(ds.lggr)
-		ds.latestTrrs = trrs
-		ds.lastUpdate.Store(&lastUpdate)
+	_, ds.latestTrrs, ds.latestUpdateErr = ds.executeRun(ctx)
+	if ds.latestUpdateErr != nil {
+		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
 	}
+
+	ds.latestResult = ds.latestTrrs.FinalResult(ds.lggr)
 	return nil
 }
 
-func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
-	// if cache update is overdue revert to standard inMemoryDataSource Observe behaviour
-	result := make(chan error)
-	go func() { result <- ds.updateCache(ctx) }()
-	select {
-	case <-ctx.Done():
-	case err := <-result:
-		if err != nil {
-			ds.lggr.Warnw("unable to update in memory data source cache during observe, returning most recent value", "err", err)
-		}
+func (ds *inMemoryDataSourceCache) get(ctx context.Context) (pipeline.FinalResult, pipeline.TaskRunResults) {
+	ds.mu.RLock()
+	// updater didn't error, so we know that the latestResult is fresh
+	if ds.latestUpdateErr == nil {
+		defer ds.mu.RUnlock()
+		return ds.latestResult, ds.latestTrrs
+	}
+	ds.mu.RUnlock()
+
+	if err := ds.updateCache(ctx); err != nil {
+		ds.lggr.Errorw("failed to update cache, returning stale result now", "err", err)
 	}
 
 	ds.mu.RLock()
-	setEATelemetry(ds.inMemoryDataSource, ds.latestTrrs, ds.latestResult, ObservationTimestamp{
+	defer ds.mu.RUnlock()
+	return ds.latestResult, ds.latestTrrs
+}
+
+func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	latestResult, latestTrrs := ds.get(ctx)
+	setEATelemetry(ds.inMemoryDataSource, latestResult, latestTrrs, ObservationTimestamp{
 		Round:        timestamp.Round,
 		Epoch:        timestamp.Epoch,
 		ConfigDigest: timestamp.ConfigDigest.Hex(),
 	})
-	observation, err := ds.parse(ds.latestResult)
-	ds.mu.RUnlock()
 
-	return observation, err
+	return ds.parse(latestResult)
 }
 
 func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTimestamp) (*big.Int, error) {
@@ -295,7 +287,7 @@ func (ds *dataSourceBase) observe(ctx context.Context, timestamp ObservationTime
 	ds.saver.Save(run)
 
 	finalResult := trrs.FinalResult(ds.lggr)
-	setEATelemetry(&ds.inMemoryDataSource, trrs, finalResult, timestamp)
+	setEATelemetry(&ds.inMemoryDataSource, finalResult, trrs, timestamp)
 
 	return ds.inMemoryDataSource.parse(finalResult)
 }
