@@ -48,6 +48,7 @@ type EvmTxStore interface {
 	// redeclare TxStore for mockery
 	txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	TxStoreWebApi
+	TxStoreInMemory
 }
 
 // TxStoreWebApi encapsulates the methods that are not used by the txmgr and only used by the various web controllers and readers
@@ -59,6 +60,11 @@ type TxStoreWebApi interface {
 	TransactionsWithAttempts(offset, limit int) ([]Tx, int, error)
 	FindTxAttempt(hash common.Hash) (*TxAttempt, error)
 	FindTxWithAttempts(etxID int64) (etx Tx, err error)
+}
+
+// TxStoreInMemory encapsulates the methods that are used by the txmgr to initialize the in memory tx store.
+type TxStoreInMemory interface {
+	AllTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (txs []Tx, err error)
 }
 
 type TestEvmTxStore interface {
@@ -461,6 +467,22 @@ func (o *evmTxStore) TransactionsWithAttempts(offset, limit int) (txs []Tx, coun
 		return
 	}
 	txs = dbEthTxsToEvmEthTxs(dbTxs)
+	err = o.preloadTxAttempts(txs)
+	return
+}
+
+// AllTransactions returns all eth transactions
+func (o *evmTxStore) AllTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (txs []Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := `SELECT * FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 ORDER BY id desc`
+	if err = qq.Select(&dbEtxs, sql, fromAddress, chainID.String()); err != nil {
+		return
+	}
+	txs = dbEthTxsToEvmEthTxs(dbEtxs)
 	err = o.preloadTxAttempts(txs)
 	return
 }
@@ -1018,8 +1040,11 @@ func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	sql := `SELECT nonce FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 AND nonce IS NOT NULL ORDER BY nonce DESC LIMIT 1`
-	err = qq.Get(&nonce, sql, fromAddress, chainId.String())
+	stmt := `SELECT nonce FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 AND nonce IS NOT NULL ORDER BY nonce DESC LIMIT 1`
+	err = qq.Get(&nonce, stmt, fromAddress, chainId.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return nonce, txmgr.ErrSequenceNotFound
+	}
 	return
 }
 
@@ -1552,8 +1577,14 @@ func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	var dbEtx DbEthTx
 	err := qq.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return sql.ErrNoRows
+		}
+		return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+	}
 	dbEtx.ToTx(etx)
-	return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+	return nil
 }
 
 func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {

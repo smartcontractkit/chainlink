@@ -46,6 +46,36 @@ func (_m *EvmTxStore) Abandon(ctx context.Context, id *big.Int, addr common.Addr
 	return r0
 }
 
+// AllTransactions provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *EvmTxStore) AllTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AllTransactions")
+	}
+
+	var r0 []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) ([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, fromAddress, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) []types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, fromAddress, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, fromAddress, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CheckTxQueueCapacity provides a mock function with given fields: ctx, fromAddress, maxQueuedTransactions, chainID
 func (_m *EvmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress common.Address, maxQueuedTransactions uint64, chainID *big.Int) error {
 	ret := _m.Called(ctx, fromAddress, maxQueuedTransactions, chainID)

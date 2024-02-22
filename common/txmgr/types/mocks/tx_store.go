@@ -43,6 +43,36 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Abandon(ctx
 	return r0
 }
 
+// AllTransactions provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AllTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AllTransactions")
+	}
+
+	var r0 []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) ([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, fromAddress, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, fromAddress, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ADDR, CHAIN_ID) error); ok {
+		r1 = rf(ctx, fromAddress, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CheckTxQueueCapacity provides a mock function with given fields: ctx, fromAddress, maxQueuedTransactions, chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CheckTxQueueCapacity(ctx context.Context, fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAIN_ID) error {
 	ret := _m.Called(ctx, fromAddress, maxQueuedTransactions, chainID)
