@@ -196,11 +196,13 @@ func (o *DbORM) DeleteBlocksBefore(end int64, limit int64, qopts ...pg.QOpt) (in
 	if limit > 0 {
 		return q.ExecQWithRowsAffected(
 			`DELETE FROM evm.log_poller_blocks
-        				WHERE (block_number, evm_chain_id) IN (
-            				SELECT block_number, evm_chain_id FROM evm.log_poller_blocks
-            				WHERE block_number <= $1 AND evm_chain_id = $2
+        				WHERE block_number IN (
+            				SELECT block_number FROM evm.log_poller_blocks
+            				WHERE block_number <= $1 
+            				AND evm_chain_id = $2
 							LIMIT $3
-						)`,
+						)
+						AND evm_chain_id = $2`,
 			end, ubig.New(o.chainID), limit,
 		)
 	}
