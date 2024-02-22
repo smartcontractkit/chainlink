@@ -101,6 +101,30 @@ func (_m *ORM) GetAllowedSenders(offset uint, limit uint, qopts ...pg.QOpt) ([]c
 	return r0, r1
 }
 
+// PurgeAllowedSenders provides a mock function with given fields: qopts
+func (_m *ORM) PurgeAllowedSenders(qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PurgeAllowedSenders")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(...pg.QOpt) error); ok {
+		r0 = rf(qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewORM creates a new instance of ORM. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewORM(t interface {
