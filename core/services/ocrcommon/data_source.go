@@ -99,20 +99,20 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
-func NewInMemoryDataSourceCache(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, cacheExpiryDuration time.Duration, lggr logger.Logger) median.DataSource {
+func NewInMemoryDataSourceCache(ds median.DataSource, cacheExpiryDuration time.Duration) (median.DataSource, error) {
+	inMemoryDS, ok := ds.(*inMemoryDataSource)
+	if !ok {
+		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
+	}
+
 	dsCache := &inMemoryDataSourceCache{
-		cacheExpiration: cacheExpiryDuration,
-		mu:              new(sync.RWMutex),
-		lastUpdate:      atomic.Pointer[time.Time]{},
-		inMemoryDataSource: &inMemoryDataSource{
-			pipelineRunner: pr,
-			jb:             jb,
-			spec:           spec,
-			lggr:           lggr,
-		},
+		cacheExpiration:    cacheExpiryDuration,
+		mu:                 new(sync.RWMutex),
+		lastUpdate:         atomic.Pointer[time.Time]{},
+		inMemoryDataSource: inMemoryDS,
 	}
 	go func() { dsCache.updater() }()
-	return dsCache
+	return dsCache, nil
 }
 
 var _ ocr1types.DataSource = (*dataSource)(nil)
