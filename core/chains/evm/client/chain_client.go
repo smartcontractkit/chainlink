@@ -95,8 +95,8 @@ func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 }
 
 func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
-	return c.multiNode.DoAll(ctx, func(rpc RPCCLient) error {
-		rpc.BatchCallContext()
+	return c.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPCCLient) error {
+		return rpc.BatchCallContext(ctx, b)
 	})
 }
 
