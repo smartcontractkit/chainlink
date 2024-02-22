@@ -128,21 +128,21 @@ jobs:
         tests:
           - name: chaos
             suite: chaos
-            nodes: 5
+            nodes: 15
             os: ubuntu-latest
             pyroscope_env: ci-automation-on-demand-chaos
             network: SIMULATED
             command: -run ^TestAutomationChaos$ ./chaos
           - name: reorg
             suite: reorg
-            nodes: 1
+            nodes: 5
             os: ubuntu-latest
             pyroscope_env: ci-automation-on-demand-reorg
             network: SIMULATED_NONDEV
             command: -run ^TestAutomationReorg$ ./reorg
           - name: upgrade
             suite: smoke
-            nodes: 6
+            nodes: 11
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED
