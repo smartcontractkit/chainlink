@@ -467,34 +467,40 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 }
 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
-func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
-	if spec.PluginType == types.Mercury {
-		_, err := keyStore.CSA().Get(key)
+func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) (err error) {
+	switch spec.PluginType {
+	case types.Mercury, types.LLO:
+		_, err = keyStore.CSA().Get(key)
 		if err != nil {
-			return errors.Errorf("no CSA key matching: %q", key)
+			err = errors.Errorf("no CSA key matching: %q", key)
 		}
-	} else {
-		switch spec.Relay {
-		case relay.EVM:
-			_, err := keyStore.Eth().Get(key)
-			if err != nil {
-				return errors.Errorf("no EVM key matching: %q", key)
-			}
-		case relay.Cosmos:
-			_, err := keyStore.Cosmos().Get(key)
-			if err != nil {
-				return errors.Errorf("no Cosmos key matching: %q", key)
-			}
-		case relay.Solana:
-			_, err := keyStore.Solana().Get(key)
-			if err != nil {
-				return errors.Errorf("no Solana key matching: %q", key)
-			}
-		case relay.StarkNet:
-			_, err := keyStore.StarkNet().Get(key)
-			if err != nil {
-				return errors.Errorf("no Starknet key matching: %q", key)
-			}
+	default:
+		err = validateKeyStoreMatchForRelay(spec.Relay, keyStore, key)
+	}
+	return
+}
+
+func validateKeyStoreMatchForRelay(network relay.Network, keyStore keystore.Master, key string) error {
+	switch network {
+	case relay.EVM:
+		_, err := keyStore.Eth().Get(key)
+		if err != nil {
+			return errors.Errorf("no EVM key matching: %q", key)
+		}
+	case relay.Cosmos:
+		_, err := keyStore.Cosmos().Get(key)
+		if err != nil {
+			return errors.Errorf("no Cosmos key matching: %q", key)
+		}
+	case relay.Solana:
+		_, err := keyStore.Solana().Get(key)
+		if err != nil {
+			return errors.Errorf("no Solana key matching: %q", key)
+		}
+	case relay.StarkNet:
+		_, err := keyStore.StarkNet().Get(key)
+		if err != nil {
+			return errors.Errorf("no Starknet key matching: %q", key)
 		}
 	}
 	return nil
