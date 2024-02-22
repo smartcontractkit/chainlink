@@ -51,6 +51,7 @@ func (o *orm) LoadChannelDefinitions(ctx context.Context, addr common.Address) (
 }
 
 // TODO: Test this method
+// https://smartcontract-it.atlassian.net/jira/software/c/projects/MERC/issues/MERC-3653
 func (o *orm) StoreChannelDefinitions(ctx context.Context, addr common.Address, dfns llotypes.ChannelDefinitions, blockNum int64) error {
 	_, err := o.q.ExecContext(ctx, `
 INSERT INTO channel_definitions (evm_chain_id, addr, definitions, block_num, updated_at)
