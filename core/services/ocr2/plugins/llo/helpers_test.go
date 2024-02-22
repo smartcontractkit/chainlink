@@ -289,8 +289,7 @@ channelDefinitionsContractAddress = "%[9]s"
 
 [relayConfig]
 chainID = %[10]s
-
-		`,
+fromBlock = 1`,
 		jobName,
 		verifierAddress.Hex(),
 		node.KeyBundle.ID(),
