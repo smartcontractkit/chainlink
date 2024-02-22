@@ -46,15 +46,18 @@ const (
 type ErrCode uint32
 
 const (
-	// TODO: Finalize these
-	ErrCodeNil                   ErrCode = 0
-	ErrCodeStreamsPartialContent ErrCode = 808206
-	ErrCodeStreamsBadRequest     ErrCode = 808400
-	ErrCodeStreamsUnauthorized   ErrCode = 808401
-	ErrCodeStreamsInternalError  ErrCode = 808500
-	ErrCodeStreamsBadResponse    ErrCode = 808600
-	ErrCodeStreamsTimeout        ErrCode = 808602
-	ErrCodeStreamsUnknownError   ErrCode = 808700
+	ErrCodeNil                         ErrCode = 0
+	ErrCodeStreamsPartialContent       ErrCode = 808206
+	ErrCodeStreamsBadRequest           ErrCode = 808400
+	ErrCodeStreamsUnauthorized         ErrCode = 808401
+	ErrCodeStreamsNotFound             ErrCode = 808404
+	ErrCodeStreamsInternalError        ErrCode = 808500
+	ErrCodeStreamsBadGateway           ErrCode = 808502
+	ErrCodeStreamsServiceUnavailable   ErrCode = 808503
+	ErrCodeStreamsStatusGatewayTimeout ErrCode = 808504
+	ErrCodeStreamsBadResponse          ErrCode = 808600
+	ErrCodeStreamsTimeout              ErrCode = 808601
+	ErrCodeStreamsUnknownError         ErrCode = 808700
 )
 
 func HttpToStreamsErrCode(statusCode int) ErrCode {
@@ -67,10 +70,18 @@ func HttpToStreamsErrCode(statusCode int) ErrCode {
 		return ErrCodeStreamsBadRequest
 	case http.StatusUnauthorized:
 		return ErrCodeStreamsUnauthorized
-	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+	case http.StatusNotFound:
+		return ErrCodeStreamsNotFound
+	case http.StatusInternalServerError:
 		return ErrCodeStreamsInternalError
+	case http.StatusBadGateway:
+		return ErrCodeStreamsBadGateway
+	case http.StatusServiceUnavailable:
+		return ErrCodeStreamsServiceUnavailable
+	case http.StatusGatewayTimeout:
+		return ErrCodeStreamsStatusGatewayTimeout
 	default:
-		return 0
+		return ErrCodeStreamsUnknownError
 	}
 }
 

@@ -280,7 +280,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T
 	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.LogTrigger, pluginRetryKey)
 	assert.Equal(t, true, retryable)
 	assert.Equal(t, 1*time.Second, retryInterval)
-	assert.Equal(t, encoding.ErrCodeStreamsInternalError, errCode)
+	assert.Equal(t, encoding.ErrCodeStreamsBadGateway, errCode)
 	assert.Equal(t, encoding.MercuryFlakyFailure, state)
 	assert.Equal(t, [][]byte(nil), values)
 }
@@ -611,11 +611,12 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 			},
-			retryNumber:  totalAttempt,
-			statusCode:   http.StatusGatewayTimeout,
-			state:        encoding.MercuryFlakyFailure,
-			retryable:    true,
-			errorMessage: "All attempts fail:\n#1: 504\n#2: 504\n#3: 504",
+			retryNumber:    totalAttempt,
+			statusCode:     http.StatusGatewayTimeout,
+			state:          encoding.MercuryFlakyFailure,
+			retryable:      true,
+			streamsErrCode: encoding.ErrCodeStreamsStatusGatewayTimeout,
+			errorMessage:   "All attempts fail:\n#1: 504\n#2: 504\n#3: 504",
 		},
 		{
 			name: "failure - StatusServiceUnavailable - returns retryable",
@@ -628,11 +629,12 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 			},
-			retryNumber:  totalAttempt,
-			statusCode:   http.StatusServiceUnavailable,
-			state:        encoding.MercuryFlakyFailure,
-			retryable:    true,
-			errorMessage: "All attempts fail:\n#1: 503\n#2: 503\n#3: 503",
+			retryNumber:    totalAttempt,
+			statusCode:     http.StatusServiceUnavailable,
+			state:          encoding.MercuryFlakyFailure,
+			retryable:      true,
+			streamsErrCode: encoding.ErrCodeStreamsServiceUnavailable,
+			errorMessage:   "All attempts fail:\n#1: 503\n#2: 503\n#3: 503",
 		},
 		{
 			name: "failure - StatusBadGateway - returns retryable",
@@ -645,11 +647,12 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 				},
 				UpkeepId: upkeepId,
 			},
-			retryNumber:  totalAttempt,
-			statusCode:   http.StatusBadGateway,
-			state:        encoding.MercuryFlakyFailure,
-			retryable:    true,
-			errorMessage: "All attempts fail:\n#1: 502\n#2: 502\n#3: 502",
+			retryNumber:    totalAttempt,
+			statusCode:     http.StatusBadGateway,
+			streamsErrCode: encoding.ErrCodeStreamsBadGateway,
+			state:          encoding.MercuryFlakyFailure,
+			retryable:      true,
+			errorMessage:   "All attempts fail:\n#1: 502\n#2: 502\n#3: 502",
 		},
 
 		{
@@ -673,11 +676,12 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 					},
 				},
 			},
-			statusCode:   http.StatusOK,
-			retryNumber:  totalAttempt,
-			retryable:    true,
-			errorMessage: "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
-			state:        encoding.MercuryFlakyFailure,
+			statusCode:     http.StatusOK,
+			retryNumber:    totalAttempt,
+			retryable:      true,
+			streamsErrCode: encoding.ErrCodeStreamsPartialContent,
+			errorMessage:   "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
+			state:          encoding.MercuryFlakyFailure,
 		},
 		{
 			name: "failure - partial content three times with status partial content",
@@ -818,7 +822,7 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 				assert.Equal(t, [][]byte(nil), m.Bytes)
 			} else if tt.retryNumber >= totalAttempt || tt.errorMessage != "" {
 				assert.Equal(t, tt.errorMessage, m.Error.Error())
-				assert.Equal(t, [][]byte{}, m.Bytes)
+				assert.Equal(t, [][]byte(nil), m.Bytes)
 			} else {
 				assert.Nil(t, m.Error)
 				var reports [][]byte

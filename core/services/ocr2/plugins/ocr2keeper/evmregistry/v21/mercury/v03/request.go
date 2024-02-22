@@ -65,7 +65,7 @@ func NewClient(mercuryConfig mercury.MercuryConfigProvider, httpClient mercury.H
 
 func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLookup, upkeepType automationTypes.UpkeepType, pluginRetryKey string) (encoding.PipelineExecutionState, [][]byte, encoding.ErrCode, bool, time.Duration, error) {
 	if len(streamsLookup.Feeds) == 0 {
-		return encoding.NoPipelineError, [][]byte{}, encoding.ErrCodeStreamsBadRequest, false, 0 * time.Second, nil
+		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsBadRequest, false, 0 * time.Second, nil
 	}
 	resultLen := 1 // Only 1 multi-feed request is made for all feeds
 	ch := make(chan mercury.MercuryData, resultLen)
@@ -203,7 +203,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
 				ch <- mercury.MercuryData{
 					Index:   0,
-					ErrCode: encoding.ErrCodeStreamsUnknownError,
+					ErrCode: encoding.HttpToStreamsErrCode(resp.StatusCode),
 					State:   encoding.NoPipelineError,
 				}
 				sent = true
@@ -234,7 +234,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				errCode = encoding.HttpToStreamsErrCode(http.StatusPartialContent)
-				return fmt.Errorf("%d", http.StatusNotFound)
+				return fmt.Errorf("%d", http.StatusPartialContent)
 			}
 			var reportBytes [][]byte
 			for _, rsp := range response.Reports {
@@ -271,7 +271,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 	if !sent {
 		ch <- mercury.MercuryData{
 			Index:     0,
-			Bytes:     [][]byte{},
+			Bytes:     nil,
 			Retryable: retryable,
 			Error:     retryErr,
 			ErrCode:   errCode,

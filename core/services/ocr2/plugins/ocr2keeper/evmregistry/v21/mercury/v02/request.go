@@ -59,7 +59,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	resultLen := len(streamsLookup.Feeds)
 	ch := make(chan mercury.MercuryData, resultLen)
 	if len(streamsLookup.Feeds) == 0 {
-		return encoding.NoPipelineError, [][]byte{}, encoding.ErrCodeStreamsBadRequest, false, 0 * time.Second, nil
+		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsBadRequest, false, 0 * time.Second, nil
 	}
 	for i := range streamsLookup.Feeds {
 		// TODO (AUTO-7209): limit the number of concurrent requests
@@ -184,7 +184,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				// Not a pipeline error, a bad streams response, send back error code
 				ch <- mercury.MercuryData{
 					Index:   index,
-					Bytes:   [][]byte{},
+					Bytes:   nil,
 					ErrCode: encoding.ErrCodeStreamsBadResponse,
 					State:   encoding.NoPipelineError,
 				}
@@ -207,8 +207,8 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Errorf("at block %s upkeep %s received unhandled status code %d for feed %s", sl.Time.String(), sl.UpkeepId.String(), httpResponse.StatusCode, sl.Feeds[index])
 				ch <- mercury.MercuryData{
 					Index:   index,
-					Bytes:   [][]byte{},
-					ErrCode: encoding.ErrCodeStreamsUnknownError,
+					Bytes:   nil,
+					ErrCode: encoding.HttpToStreamsErrCode(httpResponse.StatusCode),
 					State:   encoding.NoPipelineError,
 				}
 				sent = true
@@ -222,7 +222,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Warnf("at block %s upkeep %s failed to unmarshal body to MercuryV02Response for feed %s: %v", sl.Time.String(), sl.UpkeepId.String(), sl.Feeds[index], err)
 				ch <- mercury.MercuryData{
 					Index:   index,
-					Bytes:   [][]byte{},
+					Bytes:   nil,
 					ErrCode: encoding.ErrCodeStreamsBadResponse,
 					State:   encoding.NoPipelineError,
 				}
@@ -233,7 +233,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				c.lggr.Warnf("at block %s upkeep %s failed to decode chainlinkBlob %s for feed %s: %v", sl.Time.String(), sl.UpkeepId.String(), m.ChainlinkBlob, sl.Feeds[index], err)
 				ch <- mercury.MercuryData{
 					Index:   index,
-					Bytes:   [][]byte{},
+					Bytes:   nil,
 					ErrCode: encoding.ErrCodeStreamsBadResponse,
 					State:   encoding.NoPipelineError,
 				}
@@ -261,7 +261,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 	if !sent {
 		ch <- mercury.MercuryData{
 			Index:     index,
-			Bytes:     [][]byte{},
+			Bytes:     nil,
 			ErrCode:   errCode,
 			State:     state,
 			Retryable: retryable,
