@@ -121,8 +121,19 @@ geth:
   version: v1.12.0
   wsrpc-port: 8546
   httprpc-port: 8544
-  networkid: 1337
   blocktime: 1
+  chains:
+    - networkId: 1337
+    # use to inject custom configuration for each chain, e.g. GasEstimator
+    # - customEVMConfigToml: |
+    #     [EVM.GasEstimator]
+    #     PriceMax = '200 gwei'
+    #     LimitDefault = 6000000
+    #     FeeCapDefault = '200 gwei'
+    #     [EVM.GasEstimator.BlockHistory]
+    #     BlockHistorySize = 200
+    #     EIP1559FeeCapBufferBlocks = 0
+    - networkId: 2337
   resources:
     requests:
       cpu: 1
@@ -283,6 +294,9 @@ podAnnotations:
 nodeSelector:
 tolerations:
 affinity:
+
+networkPolicies:
+  enabled: true
 
 # Configure the default network policy.
 networkPolicyDefault:

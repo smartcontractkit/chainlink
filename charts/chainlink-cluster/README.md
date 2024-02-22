@@ -5,6 +5,7 @@ Install `kubefwd` (no nixpkg for it yet, planned)
 ```
 brew install txn2/tap/kubefwd
 ```
+If you want to build images you need [docker](https://docs.docker.com/engine/install/) service running
 
 Enter the shell (from the root project dir)
 ```
@@ -18,15 +19,31 @@ We are using [devspace](https://www.devspace.sh/docs/getting-started/installatio
 
 Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments for more details
 
-Enter the shell and deploy
+Configure your `cluster` setup (one time setup, internal usage only)
 ```
-# set your unique namespace if it's a new cluster
-devspace use namespace cl-cluster
+export DEVSPACE_IMAGE="..."
+cd charts/chainlink-cluster
+./setup.sh ${my-personal-namespace-name-crib}
+```
+
+Build and deploy current commit
+```
 devspace deploy
 ```
+
 If you don't need a build use
 ```
 devspace deploy --skip-build
+```
+
+To deploy particular commit (must be in registry) use
+```
+devspace deploy --skip-build ${short_sha_of_image}
+```
+
+Forward ports to check UI or run tests
+```
+devspace run connect ${my-personal-namespace-name-crib}
 ```
 
 Connect to your environment, by replacing container with label `node-1` with your local repository files
