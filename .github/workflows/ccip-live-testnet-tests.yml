@@ -140,9 +140,6 @@ jobs:
         run: |
           SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
           echo ::add-mask::$SLACK_USER
-          if [[ -z "$SLACK_USER" ]]; then
-              SLACK_USER="${{ secrets.QA_SLACK_USER }}"
-          fi
           echo "SLACK_USER=$SLACK_USER" >> "$GITHUB_ENV"
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
@@ -155,6 +152,7 @@ jobs:
             echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
             echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
             echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
+            echo "SLACK_USER=${{ secrets.QA_SLACK_USER }}" >> $GITHUB_ENV
           fi
       - name: step summary
         shell: bash
@@ -244,9 +242,6 @@ jobs:
         run: |
           SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
           echo ::add-mask::$SLACK_USER
-          if [[ -z "$SLACK_USER" ]]; then
-              SLACK_USER="${{ secrets.QA_SLACK_USER }}"
-          fi
           echo "SLACK_USER=$SLACK_USER" >> "$GITHUB_ENV"
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
