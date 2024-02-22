@@ -99,7 +99,7 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 		obs.Observations = append(obs.Observations, r)
 	}
 
-	r.lggr.Debugw("Observation complete", "len", len(obs.Observations))
+	r.lggr.Debugw("Observation complete", "len", len(obs.Observations), "queryLen", len(queryReq.Ids))
 	return proto.Marshal(obs)
 }
 
@@ -198,7 +198,7 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 		o.Outcomes[weid.WorkflowId] = outcome
 	}
 
-	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes))
+	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes), "nReportsToGenerate", len(o.ReportsToGenerate))
 	return proto.Marshal(o)
 }
 
@@ -214,6 +214,11 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 	// This doesn't handle a query which contains the same workflowId multiple times.
 	for _, report := range o.ReportsToGenerate {
 		outcome, id := report.Outcome, report.Id
+		outcome, err := pbtypes.AppendWorkflowIDs(outcome, id.WorkflowId, id.WorkflowExecutionId)
+		if err != nil {
+			r.lggr.Errorw("could not append IDs")
+			continue
+		}
 		mv, err := values.FromMapValueProto(outcome.EncodableOutcome)
 		if err != nil {
 			r.lggr.Errorw("could not convert outcome to value", "workflowID", id.WorkflowId)
@@ -244,6 +249,7 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 		})
 	}
 
+	r.lggr.Debugw("Reports complete", "len", len(reports))
 	return reports, nil
 }
 
@@ -261,9 +267,10 @@ func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr 
 		return false, err
 	}
 
+	r.lggr.Debugw("ShouldAcceptAttestedReport transmitting", "len", len(b.Underlying))
 	err = r.r.transmitResponse(ctx, response{
 		Value:               b,
-		WorkflowExecutionID: id.WorkflowId,
+		WorkflowExecutionID: id.WorkflowExecutionId,
 	})
 	if err != nil {
 		r.lggr.Errorw("could not transmit response", "error", err, "weid", id.WorkflowExecutionId)

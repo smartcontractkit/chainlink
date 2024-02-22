@@ -33,6 +33,9 @@ func (s *store) add(ctx context.Context, req *request) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if _, ok := s.requests[req.WorkflowExecutionID]; ok {
+		return fmt.Errorf("request with id %s already exists", req.WorkflowExecutionID)
+	}
 	now := s.clock.Now()
 	req.ExpiresAt = now.Add(s.requestTimeout)
 	s.requestIDs = append(s.requestIDs, req.WorkflowExecutionID)

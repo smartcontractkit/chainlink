@@ -30,6 +30,11 @@ func TestOCR3Store(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("add duplicate", func(t *testing.T) {
+		err := s.add(ctx, req)
+		require.Error(t, err)
+	})
+
 	t.Run("get", func(t *testing.T) {
 		got, err := s.get(ctx, rid)
 		require.NoError(t, err)

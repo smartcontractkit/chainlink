@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -55,11 +56,24 @@ type Codec struct {
 }
 
 func (m Codec) Unwrap(raw values.Value) (ReportSet, error) {
+	now := uint32(time.Now().Unix())
 	return ReportSet{
 		Reports: map[FeedID]Report{
-			FeedID("012345678901234567890123456789012345678901234567890123456789000000"): {
+			FeedID("0x1111111111111111111100000000000000000000000000000000000000000000"): {
 				Info: ReportInfo{
-					Timestamp: 42,
+					Timestamp: now,
+					Price:     100.00,
+				},
+			},
+			FeedID("0x2222222222222222222200000000000000000000000000000000000000000000"): {
+				Info: ReportInfo{
+					Timestamp: now,
+					Price:     100.00,
+				},
+			},
+			FeedID("0x3333333333333333333300000000000000000000000000000000000000000000"): {
+				Info: ReportInfo{
+					Timestamp: now,
 					Price:     100.00,
 				},
 			},
@@ -70,7 +84,7 @@ func (m Codec) Unwrap(raw values.Value) (ReportSet, error) {
 func (m Codec) Wrap(reportSet ReportSet) (values.Value, error) {
 	return values.NewMap(
 		map[string]any{
-			"0123456789": map[string]any{
+			"0x1111111111111111111100000000000000000000000000000000000000000000": map[string]any{
 				"timestamp": 42,
 				"price":     decimal.NewFromFloat(100.00),
 			},

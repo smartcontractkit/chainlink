@@ -68,6 +68,7 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 			}
 		}
 	}
+	a.lggr.Debugw("collected latestReportPerFeed", "len", len(latestReportPerFeed))
 
 	currentState := &DataFeedsOutcomeMetadata{}
 	if previousOutcome != nil {
@@ -117,6 +118,7 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		return nil, err
 	}
 
+	a.lggr.Debugw("Aggregate complete", "nReportsNeedingUpdate", len(reportsNeedingUpdate))
 	return &types.AggregationOutcome{
 		EncodableOutcome: reportsProto.GetMapValue(),
 		Metadata:         marshalledState,
@@ -143,7 +145,7 @@ func NewDataFeedsAggregator(config values.Map, mercuryCodec MercuryCodec, lggr l
 	return &dataFeedsAggregator{
 		config:       parsedConfig,
 		mercuryCodec: mercuryCodec,
-		lggr:         lggr,
+		lggr:         logger.Named(lggr, "DataFeedsAggregator"),
 	}, nil
 }
 
