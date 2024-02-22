@@ -227,7 +227,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 				for _, f := range response.Reports {
 					receivedFeeds = append(receivedFeeds, f.FeedID)
 				}
-				c.lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server returned 206 status with [%s] reports while we requested [%s] feeds, retrying", sl.Time.String(), sl.UpkeepId.String(), receivedFeeds, sl.Feeds)
+				c.lggr.Warnf("at timestamp %s upkeep %s mercury v0.3 server returned less reports [%s] while we requested [%s] feeds, retrying", sl.Time.String(), sl.UpkeepId.String(), receivedFeeds, sl.Feeds)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				errCode = encoding.HttpToStreamsErrCode(http.StatusPartialContent)

@@ -649,6 +649,61 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 			retryable:    true,
 			errorMessage: "All attempts fail:\n#1: 502\n#2: 502\n#3: 502",
 		},
+
+		{
+			name: "failure - partial content three times with status ok",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			response: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+				},
+			},
+			statusCode:   http.StatusOK,
+			retryNumber:  totalAttempt,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
+			state:        encoding.MercuryFlakyFailure,
+		},
+		{
+			name: "failure - partial content three times with status partial content",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(123456),
+				},
+				UpkeepId: upkeepId,
+			},
+			response: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+				},
+			},
+			statusCode:   http.StatusPartialContent,
+			retryNumber:  totalAttempt,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 206\n#2: 206\n#3: 206",
+			state:        encoding.MercuryFlakyFailure,
+		},
 		{
 			name: "success - retry when reports length does not match feeds length",
 			lookup: &mercury.StreamsLookup{
@@ -739,11 +794,13 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 					hc.On("Do", mock.Anything).Return(resp, nil).Once()
 				}
 			} else {
-				resp := &http.Response{
-					StatusCode: tt.statusCode,
-					Body:       io.NopCloser(bytes.NewReader(b)),
+				for i := 1; i <= tt.retryNumber; i++ {
+					resp := &http.Response{
+						StatusCode: tt.statusCode,
+						Body:       io.NopCloser(bytes.NewReader(b)),
+					}
+					hc.On("Do", mock.Anything).Return(resp, nil).Once()
 				}
-				hc.On("Do", mock.Anything).Return(resp, nil).Times(tt.retryNumber)
 			}
 			c.httpClient = hc
 
