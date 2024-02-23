@@ -25,7 +25,7 @@ type RPC[
 	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
-
+	BATCH_ELEM any,
 ] interface {
 	NodeClient[
 		CHAIN_ID,
@@ -43,6 +43,7 @@ type RPC[
 		TX_RECEIPT,
 		FEE,
 		HEAD,
+		BATCH_ELEM,
 	]
 }
 
@@ -85,6 +86,7 @@ type clientAPI[
 	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
+	BATCH_ELEM any,
 ] interface {
 	connection[CHAIN_ID, HEAD]
 
@@ -120,7 +122,7 @@ type clientAPI[
 	FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error)
 
 	// Misc
-	BatchCallContext(ctx context.Context, b []any) error
+	BatchCallContext(ctx context.Context, b []BATCH_ELEM) error
 	CallContract(
 		ctx context.Context,
 		msg interface{},

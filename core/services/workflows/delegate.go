@@ -44,7 +44,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 
 func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) *Delegate {
 	// NOTE: we temporarily do registration inside NewDelegate, this will be moved out of job specs in the future
-	_ = targets.InitializeWrite(registry, legacyEVMChains)
+	_ = targets.InitializeWrite(registry, legacyEVMChains, logger)
 
 	return &Delegate{logger: logger, registry: registry}
 }
