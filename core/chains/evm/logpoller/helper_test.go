@@ -35,7 +35,7 @@ type TestHarness struct {
 	Lggr logger.Logger
 	// Chain2/ORM2 is just a dummy second chain, doesn't have a client.
 	ChainID, ChainID2                *big.Int
-	ORM, ORM2                        *logpoller.DbORM
+	ORM, ORM2                        logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
 	Client                           *backends.SimulatedBackend
 	Owner                            *bind.TransactOpts

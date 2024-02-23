@@ -450,7 +450,7 @@ func TestORM(t *testing.T) {
 	require.Zero(t, len(logs))
 }
 
-func insertLogsTopicValueRange(t *testing.T, chainID *big.Int, o *logpoller.DbORM, addr common.Address, blockNumber int, eventSig common.Hash, start, stop int) {
+func insertLogsTopicValueRange(t *testing.T, chainID *big.Int, o logpoller.ORM, addr common.Address, blockNumber int, eventSig common.Hash, start, stop int) {
 	var lgs []logpoller.Log
 	for i := start; i <= stop; i++ {
 		lgs = append(lgs, logpoller.Log{

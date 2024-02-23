@@ -469,7 +469,7 @@ func TestDatabaseBackFillWithMigration202(t *testing.T) {
 		name                   string
 		blockNumber            int64
 		expectedFinalizedBlock int64
-		orm                    *logpoller.DbORM
+		orm                    logpoller.ORM
 	}{
 		{
 			name:                   "last finalized block not changed if finality is too deep",

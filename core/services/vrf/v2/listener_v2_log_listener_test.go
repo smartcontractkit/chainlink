@@ -43,7 +43,7 @@ var (
 type vrfLogPollerListenerTH struct {
 	Lggr              logger.Logger
 	ChainID           *big.Int
-	ORM               *logpoller.DbORM
+	ORM               logpoller.ORM
 	LogPoller         logpoller.LogPollerTest
 	Client            *backends.SimulatedBackend
 	Emitter           *log_emitter.LogEmitter
