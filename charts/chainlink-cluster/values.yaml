@@ -233,7 +233,7 @@ opentelemetry-collector:
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [file,otlp]
+          exporters: [file, otlp]
 
 tempo:
   enabled: true
@@ -260,9 +260,9 @@ tempo:
     runAsGroup: 10001
   storage:
     trace:
-      backend: local            # backend configuration to use
+      backend: local # backend configuration to use
       wal:
-        path: /tmp/tempo/wal    # where to store the the wal locally
+        path: /tmp/tempo/wal # where to store the the wal locally
       local:
         path: /tmp/tempo/blocks
 
@@ -274,20 +274,20 @@ grafana:
     datasources.yaml:
       apiVersion: 1
       datasources:
-      - name: Tempo
-        type: tempo
-        access: proxy
-        orgId: 1
-        url: http://tempo:3200
-        basicAuth: false
-        isDefault: true
-        version: 1
-        editable: false
-        uid: tempo
-        jsonData:
-          httpMethod: GET
-          serviceMap:
-            datasourceUid: prometheus
+        - name: Tempo
+          type: tempo
+          access: proxy
+          orgId: 1
+          url: http://tempo:3200
+          basicAuth: false
+          isDefault: true
+          version: 1
+          editable: false
+          uid: tempo
+          jsonData:
+            httpMethod: GET
+            serviceMap:
+              datasourceUid: prometheus
   env:
     GF_AUTH_ANONYMOUS_ENABLED: "true"
     GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
