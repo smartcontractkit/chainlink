@@ -142,12 +142,6 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 		return
 	}
 
-	if len(streamsLookupResponse.Feeds) == 0 {
-		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
-		lookupLggr.Debugf("at block %s upkeep %s has empty feeds array", block, upkeepId)
-		return
-	}
-
 	// mercury permission checking for v0.3 is done by mercury server, so no need to check here
 	if streamsLookupResponse.IsMercuryV02() {
 		// check permission on the registry for mercury v0.2

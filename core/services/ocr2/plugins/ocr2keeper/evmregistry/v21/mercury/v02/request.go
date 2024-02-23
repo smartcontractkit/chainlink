@@ -56,11 +56,11 @@ func NewClient(mercuryConfig mercury.MercuryConfigProvider, httpClient mercury.H
 }
 
 func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLookup, upkeepType automationTypes.UpkeepType, pluginRetryKey string) (encoding.PipelineExecutionState, [][]byte, encoding.ErrCode, bool, time.Duration, error) {
-	resultLen := len(streamsLookup.Feeds)
-	ch := make(chan mercury.MercuryData, resultLen)
 	if len(streamsLookup.Feeds) == 0 {
 		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsBadRequest, false, 0 * time.Second, nil
 	}
+	resultLen := len(streamsLookup.Feeds)
+	ch := make(chan mercury.MercuryData, resultLen)
 	for i := range streamsLookup.Feeds {
 		// TODO (AUTO-7209): limit the number of concurrent requests
 		i := i
