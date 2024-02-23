@@ -427,7 +427,7 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 }
 
 // LatestFinalizedBlock provides a mock function with given fields: ctx
-func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) {
+func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
