@@ -82,10 +82,6 @@ func (c *ExistingEnvConfig) Validate() error {
 	if *c.KeyHash == "" {
 		return errors.New("key_hash must be a non-empty string")
 	}
-	if c.LinkAddress != nil && !common.IsHexAddress(*c.LinkAddress) {
-		return errors.New("link_address must be a valid hex address")
-	}
-
 	if *c.CreateFundSubsAndAddConsumers {
 		if err := c.Funding.Validate(); err != nil {
 			return err
