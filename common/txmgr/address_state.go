@@ -166,6 +166,11 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 
 // PruneUnstartedTxQueue removes the transactions with the given IDs from the unstarted transaction queue.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstartedTxQueue(ids []int64) {
+	as.Lock()
+	defer as.Unlock()
+
+	txs := as.unstartedTxs.PruneByTxIDs(ids)
+	as.deleteTxs(txs...)
 }
 
 // DeleteTxs removes the transactions with the given IDs from the address state.
@@ -251,4 +256,22 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveIn
 // MoveConfirmedToUnconfirmed moves the confirmed transaction to the unconfirmed state.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveConfirmedToUnconfirmed(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	return nil
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	for _, tx := range txs {
+		if tx.IdempotencyKey != nil {
+			delete(as.idempotencyKeyToTx, *tx.IdempotencyKey)
+		}
+		txID := tx.ID
+		if as.inprogressTx != nil && as.inprogressTx.ID == txID {
+			as.inprogressTx = nil
+		}
+		delete(as.allTxs, txID)
+		delete(as.unconfirmedTxs, txID)
+		delete(as.confirmedMissingReceiptTxs, txID)
+		delete(as.confirmedTxs, txID)
+		delete(as.fatalErroredTxs, txID)
+		as.unstartedTxs.RemoveTxByID(txID)
+	}
 }
