@@ -28,8 +28,10 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-// RPCCLient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
-type RPCCLient interface {
+// RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
+//
+//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
+type RPCClient interface {
 	commonclient.RPC[
 		*big.Int,
 		evmtypes.Nonce,
@@ -89,7 +91,7 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
-) RPCCLient {
+) RPCClient {
 	r := new(rpcClient)
 	r.name = name
 	r.id = id

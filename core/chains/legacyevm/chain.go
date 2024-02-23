@@ -471,19 +471,19 @@ func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimato
 
 func newEthClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType commonconfig.ChainType, nodes []*toml.Node) evmclient.Client {
 	var empty url.URL
-	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, evmclient.RPCCLient]
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCCLient]
+	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, evmclient.RPCClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCClient]
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
 				commonclient.Secondary)
-			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCCLient](lggr, (url.URL)(*node.HTTPURL),
+			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCClient](lggr, (url.URL)(*node.HTTPURL),
 				*node.Name, chainID, rpc)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
 			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i),
 				chainID, commonclient.Primary)
-			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCCLient](cfg, noNewHeadsThreshold,
+			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCClient](cfg, noNewHeadsThreshold,
 				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,
 				rpc, "EVM")
 			primaries = append(primaries, primaryNode)

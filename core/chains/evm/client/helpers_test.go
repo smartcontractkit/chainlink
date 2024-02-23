@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -89,18 +90,18 @@ func NewChainClientWithTestNode(
 	lggr := logger.Test(t)
 	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
 		nodeCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient]{n}
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
 		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
-		s := commonclient.NewSendOnlyNode[*big.Int, RPCCLient](
+		s := commonclient.NewSendOnlyNode[*big.Int, RPCClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
@@ -133,7 +134,7 @@ func NewChainClientWithMockedRpc(
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
 	chainID *big.Int,
-	rpc RPCCLient,
+	rpc RPCClient,
 ) Client {
 
 	lggr := logger.Test(t)
@@ -145,9 +146,9 @@ func NewChainClientWithMockedRpc(
 	}
 	parsed, _ := url.ParseRequestURI("ws://test")
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
 		cfg, noNewHeadsThreshold, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient]{n}
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
 	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType)
 	t.Cleanup(c.Close)
 	return c

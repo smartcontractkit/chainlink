@@ -35,7 +35,7 @@ type chainClient struct {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		RPCCLient,
+		RPCClient,
 		rpc.BatchElem,
 	]
 	logger logger.SugaredLogger
@@ -46,8 +46,8 @@ func NewChainClient(
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
-	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient],
+	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
@@ -63,7 +63,7 @@ func NewChainClient(
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		RPCCLient,
+		RPCClient,
 	](
 		lggr,
 		selectionMode,
