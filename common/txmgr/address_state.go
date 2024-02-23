@@ -124,19 +124,19 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountT
 
 	switch txState {
 	case TxUnstarted:
-		return as.unstarted.Len()
+		return as.unstartedTxs.Len()
 	case TxInProgress:
-		if as.inprogress != nil {
+		if as.inprogressTx != nil {
 			return 1
 		}
 	case TxUnconfirmed:
-		return len(as.unconfirmed)
+		return len(as.unconfirmedTxs)
 	case TxConfirmedMissingReceipt:
-		return len(as.confirmedMissingReceipt)
+		return len(as.confirmedMissingReceiptTxs)
 	case TxConfirmed:
-		return len(as.confirmed)
+		return len(as.confirmedTxs)
 	case TxFatalError:
-		return len(as.fatalErrored)
+		return len(as.fatalErroredTxs)
 	}
 
 	return 0
@@ -165,24 +165,24 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyT
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		as.applyToTxs(as.allTransactions, fn, txIDs...)
+		as.applyToTxs(as.allTxs, fn, txIDs...)
 		return
 	}
 
 	for _, txState := range txStates {
 		switch txState {
 		case TxInProgress:
-			if as.inprogress != nil {
-				fn(as.inprogress)
+			if as.inprogressTx != nil {
+				fn(as.inprogressTx)
 			}
 		case TxUnconfirmed:
-			as.applyToTxs(as.unconfirmed, fn, txIDs...)
+			as.applyToTxs(as.unconfirmedTxs, fn, txIDs...)
 		case TxConfirmedMissingReceipt:
-			as.applyToTxs(as.confirmedMissingReceipt, fn, txIDs...)
+			as.applyToTxs(as.confirmedMissingReceiptTxs, fn, txIDs...)
 		case TxConfirmed:
-			as.applyToTxs(as.confirmed, fn, txIDs...)
+			as.applyToTxs(as.confirmedTxs, fn, txIDs...)
 		case TxFatalError:
-			as.applyToTxs(as.fatalErrored, fn, txIDs...)
+			as.applyToTxs(as.fatalErroredTxs, fn, txIDs...)
 		}
 	}
 }
@@ -203,29 +203,29 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTx
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		return as.findTxAttempts(as.allTransactions, txFilter, txAttemptFilter, txIDs...)
+		return as.findTxAttempts(as.allTxs, txFilter, txAttemptFilter, txIDs...)
 	}
 
 	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	for _, txState := range txStates {
 		switch txState {
 		case TxInProgress:
-			if as.inprogress != nil && txFilter(as.inprogress) {
-				for i := 0; i < len(as.inprogress.TxAttempts); i++ {
-					txAttempt := as.inprogress.TxAttempts[i]
+			if as.inprogressTx != nil && txFilter(as.inprogressTx) {
+				for i := 0; i < len(as.inprogressTx.TxAttempts); i++ {
+					txAttempt := as.inprogressTx.TxAttempts[i]
 					if txAttemptFilter(&txAttempt) {
 						txAttempts = append(txAttempts, txAttempt)
 					}
 				}
 			}
 		case TxUnconfirmed:
-			txAttempts = append(txAttempts, as.findTxAttempts(as.unconfirmed, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.findTxAttempts(as.unconfirmedTxs, txFilter, txAttemptFilter, txIDs...)...)
 		case TxConfirmedMissingReceipt:
-			txAttempts = append(txAttempts, as.findTxAttempts(as.confirmedMissingReceipt, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.findTxAttempts(as.confirmedMissingReceiptTxs, txFilter, txAttemptFilter, txIDs...)...)
 		case TxConfirmed:
-			txAttempts = append(txAttempts, as.findTxAttempts(as.confirmed, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.findTxAttempts(as.confirmedTxs, txFilter, txAttemptFilter, txIDs...)...)
 		case TxFatalError:
-			txAttempts = append(txAttempts, as.findTxAttempts(as.fatalErrored, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.findTxAttempts(as.fatalErroredTxs, txFilter, txAttemptFilter, txIDs...)...)
 		}
 	}
 
@@ -246,24 +246,24 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTx
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		return as.findTxs(as.allTransactions, filter, txIDs...)
+		return as.findTxs(as.allTxs, filter, txIDs...)
 	}
 
 	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	for _, txState := range txStates {
 		switch txState {
 		case TxInProgress:
-			if as.inprogress != nil && filter(as.inprogress) {
-				txs = append(txs, *as.inprogress)
+			if as.inprogressTx != nil && filter(as.inprogressTx) {
+				txs = append(txs, *as.inprogressTx)
 			}
 		case TxUnconfirmed:
-			txs = append(txs, as.findTxs(as.unconfirmed, filter, txIDs...)...)
+			txs = append(txs, as.findTxs(as.unconfirmedTxs, filter, txIDs...)...)
 		case TxConfirmedMissingReceipt:
-			txs = append(txs, as.findTxs(as.confirmedMissingReceipt, filter, txIDs...)...)
+			txs = append(txs, as.findTxs(as.confirmedMissingReceiptTxs, filter, txIDs...)...)
 		case TxConfirmed:
-			txs = append(txs, as.findTxs(as.confirmed, filter, txIDs...)...)
+			txs = append(txs, as.findTxs(as.confirmedTxs, filter, txIDs...)...)
 		case TxFatalError:
-			txs = append(txs, as.findTxs(as.fatalErrored, filter, txIDs...)...)
+			txs = append(txs, as.findTxs(as.fatalErroredTxs, filter, txIDs...)...)
 		}
 	}
 
