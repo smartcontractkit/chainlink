@@ -243,7 +243,33 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txIDs ...int64,
 ) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	return nil
+	as.RLock()
+	defer as.RUnlock()
+
+	// if txStates is empty then apply the filter to only the as.allTransactions map
+	if len(txStates) == 0 {
+		return as.fetchTxs(as.allTransactions, filter, txIDs...)
+	}
+
+	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, txState := range txStates {
+		switch txState {
+		case TxInProgress:
+			if as.inprogress != nil && filter(as.inprogress) {
+				txs = append(txs, *as.inprogress)
+			}
+		case TxUnconfirmed:
+			txs = append(txs, as.fetchTxs(as.unconfirmed, filter, txIDs...)...)
+		case TxConfirmedMissingReceipt:
+			txs = append(txs, as.fetchTxs(as.confirmedMissingReceipt, filter, txIDs...)...)
+		case TxConfirmed:
+			txs = append(txs, as.fetchTxs(as.confirmed, filter, txIDs...)...)
+		case TxFatalError:
+			txs = append(txs, as.fetchTxs(as.fatalErrored, filter, txIDs...)...)
+		}
+	}
+
+	return txs
 }
 
 // PruneUnstartedTxQueue removes the transactions with the given IDs from the unstarted transaction queue.
@@ -394,4 +420,34 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchT
 	}
 
 	return txAttempts
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxs(
+	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
+	txIDs ...int64,
+) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	// if txIDs is not empty then only apply the filter to those transactions
+	if len(txIDs) > 0 {
+		for _, txID := range txIDs {
+			tx := txIDsToTx[txID]
+			if tx != nil && filter(tx) {
+				txs = append(txs, *tx)
+			}
+		}
+		return txs
+	}
+
+	// if txIDs is empty then apply the filter to all transactions
+	for _, tx := range txIDsToTx {
+		if filter(tx) {
+			txs = append(txs, *tx)
+		}
+	}
+
+	return txs
 }
