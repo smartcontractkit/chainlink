@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	sfmocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -54,7 +55,7 @@ func TestNewConnector_Success(t *testing.T) {
 func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	addresses := []string{
 		"0x00000000DE801ceE9471ADf23370c48b011f82a6",

@@ -531,7 +531,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 }
 
 func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
-	// commontypes.Relayer interface in common don't wire through Context
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
 	lggr := r.lggr.Named("MedianProvider").Named(rargs.ExternalJobID.String())

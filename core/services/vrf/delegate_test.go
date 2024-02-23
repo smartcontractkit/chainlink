@@ -167,7 +167,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
-	vl, err := vd.ServicesForSpec(jb)
+	vl, err := vd.ServicesForSpec(testutils.Context(t), jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
 	listener := vl[0].(*v1.Listener)
@@ -701,7 +701,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
-	_, err = vd.ServicesForSpec(jb)
+	_, err = vd.ServicesForSpec(testutils.Context(t), jb)
 	require.Error(t, err)
 	require.Equal(t, "VRF Owner is not supported for VRF V2 Plus", err.Error())
 }
