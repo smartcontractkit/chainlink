@@ -175,6 +175,10 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneU
 
 // DeleteTxs removes the transactions with the given IDs from the address state.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	as.Lock()
+	defer as.Unlock()
+
+	as.deleteTxs(txs...)
 }
 
 // PeekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
