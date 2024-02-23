@@ -7,9 +7,7 @@ name: "Build and Publish from PR"
 ##
 
 on:
-  push:
-    branches:
-      - this-workflow-is-disabled-for-ccip
+  pull_request:
 
 jobs:
   build-publish-untrusted:
@@ -20,7 +18,7 @@ jobs:
       id-token: write
       contents: read
     env:
-      ECR_IMAGE_NAME: crib-chainlink-untrusted
+      ECR_IMAGE_NAME: crib-ccip-untrusted
     steps:
       - name: Checkout repository
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -34,7 +32,7 @@ jobs:
 
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@912bed7e07a1df4d06ea53a031e9773bb65dc7bd # v2.3.0
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
         with:
           repository: ${{ env.ECR_IMAGE_NAME}}
           tag: sha-${{ env.GIT_SHORT_SHA }}
@@ -52,8 +50,6 @@ jobs:
           sign-images: false
           ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
 
       - name: Get PR labels
         id: pr-labels
@@ -98,7 +94,7 @@ jobs:
             --plaintext \
             --grpc-web \
             --async \
-            "crib-chainlink-${PR_NUMBER}"
+            "crib-ccip-${PR_NUMBER}"
 
       - name: Collect Metrics
         if: always()
