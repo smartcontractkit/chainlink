@@ -33,7 +33,7 @@ func TestOCRLoad(t *testing.T) {
 
 	sethCfg := config.GetSethConfig()
 	require.NotNil(t, sethCfg, "Seth config shouldn't be nil")
-	utils.MustDecorateSethConfigWithNetwork(evmNetwork, sethCfg)
+	utils.MustDecorateSethConfigWithNetwork(l, evmNetwork, sethCfg)
 
 	seth, err := seth.NewClientWithConfig(sethCfg)
 	require.NoError(t, err, "Error creating seth client")
@@ -73,7 +73,7 @@ func TestOCRVolume(t *testing.T) {
 
 	sethCfg := config.GetSethConfig()
 	require.NotNil(t, sethCfg, "Seth config shouldn't be nil")
-	utils.MustDecorateSethConfigWithNetwork(evmNetwork, sethCfg)
+	utils.MustDecorateSethConfigWithNetwork(l, evmNetwork, sethCfg)
 
 	seth, err := seth.NewClientWithConfig(sethCfg)
 	require.NoError(t, err, "Error creating seth client")

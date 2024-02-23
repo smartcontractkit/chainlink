@@ -175,7 +175,7 @@ func TestOCRChaos(t *testing.T) {
 				panic("no network settings for Simulated Geth")
 			}
 			network.URLs = testEnvironment.URLs["Simulated Geth"]
-			utils.MustDecorateSethConfigWithNetwork(&network, sethCfg)
+			utils.MustDecorateSethConfigWithNetwork(l, &network, sethCfg)
 			seth, err := seth.NewClientWithConfig(sethCfg)
 			require.NoError(t, err, "Error creating seth client")
 

@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/seth"
 )
@@ -11,7 +12,7 @@ import (
 // already has Network settings, it will return without doing anything. If the network is simulated, it will
 // use Geth-specific settings. Otherwise it will use the chain ID to find the correct network settings.
 // If no match is found it will return an error.
-func MustDecorateSethConfigWithNetwork(evmNetwork *blockchain.EVMNetwork, sethConfig *seth.Config) error {
+func MustDecorateSethConfigWithNetwork(l zerolog.Logger, evmNetwork *blockchain.EVMNetwork, sethConfig *seth.Config) error {
 	if evmNetwork == nil {
 		panic("evmNetwork must not be nil")
 	}
@@ -47,7 +48,22 @@ func MustDecorateSethConfigWithNetwork(evmNetwork *blockchain.EVMNetwork, sethCo
 	}
 
 	if sethNetwork == nil {
-		return fmt.Errorf("Could not find any Seth network settings for chain ID %d", evmNetwork.ChainID)
+		//TODO in the future we could run gas estimator here
+		l.Warn().
+			Int64("chainID", evmNetwork.ChainID).
+			Msg("Could not find any Seth network settings for chain ID. Using default network settings")
+		sethNetwork = &seth.Network{}
+		sethNetwork.PrivateKeys = evmNetwork.PrivateKeys
+		sethNetwork.URLs = evmNetwork.URLs
+		sethNetwork.EIP1559DynamicFees = evmNetwork.SupportsEIP1559
+		sethNetwork.ChainID = fmt.Sprint(evmNetwork.ChainID)
+		// Sepolia settings
+		sethNetwork.GasLimit = 14_000_000
+		sethNetwork.GasPrice = 1_000_000_000
+		sethNetwork.GasFeeCap = 25_000_000_000
+		sethNetwork.GasTipCap = 5_000_000_000
+		sethNetwork.TransferGasFee = 21_000
+		sethNetwork.TxnTimeout = seth.MustMakeDuration(evmNetwork.Timeout.Duration)
 	}
 
 	sethConfig.Network = sethNetwork

@@ -177,7 +177,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	sethCfg := ocrTestConfig.GetSethConfig()
 	require.NotNil(o.t, sethCfg, "Seth config shouldn't be nil")
 
-	utils.MustDecorateSethConfigWithNetwork(&network, sethCfg)
+	utils.MustDecorateSethConfigWithNetwork(o.log, &network, sethCfg)
 
 	seth, err := seth.NewClientWithConfig(sethCfg)
 	require.NoError(o.t, err, "Error creating seth client")
