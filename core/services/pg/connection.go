@@ -33,8 +33,6 @@ func init() {
 		MinRequiredPGVersion = 150000
 	} else if now.Year() > 2027 {
 		MinRequiredPGVersion = 160000
-	} else if now.Year() > 2028 {
-		panic("Please add new minimum required PostgreSQL versions")
 	}
 }
 
