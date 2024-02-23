@@ -26,7 +26,6 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     AutomationRegistryLogicB2_2 logicB
   )
     AutomationRegistryBase2_2(
-      logicB.getMode(),
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
       logicB.getFastGasFeedAddress(),
@@ -72,15 +71,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
 
     (fastGasWei, linkNative) = _getFeedData(hotVars);
-    uint96 maxLinkPayment = _getMaxLinkPayment(
-      hotVars,
-      triggerType,
-      upkeep.performGas,
-      s_storage.maxPerformDataSize,
-      fastGasWei,
-      linkNative,
-      false
-    );
+    uint96 maxLinkPayment = _getMaxLinkPayment(hotVars, triggerType, upkeep.performGas, fastGasWei, linkNative);
     if (upkeep.balance < maxLinkPayment) {
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
     }
@@ -287,10 +278,10 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bool canceled = upkeep.maxValidBlocknumber != UINT32_MAX;
     bool isOwner = msg.sender == owner();
 
-    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > _blockNum())) revert CannotCancel();
+    uint256 height = s_hotVars.chainModule.blockNumber();
+    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > height)) revert CannotCancel();
     if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
-    uint256 height = _blockNum();
     if (!isOwner) {
       height = height + CANCELLATION_DELAY;
     }

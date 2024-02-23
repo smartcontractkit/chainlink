@@ -152,8 +152,8 @@ contract Gas_SendRequest is FunctionsSubscriptionSetup {
   }
 }
 
-/// @notice #fulfillRequest
-contract FunctionsClient_FulfillRequest is FunctionsClientRequestSetup {
+// Setup Fulfill Gas tests
+contract Gas_FulfillRequest_Setup is FunctionsClientRequestSetup {
   mapping(uint256 reportNumber => Report) s_reports;
 
   FunctionsClientTestHelper s_functionsClientWithMaximumReturnData;
@@ -163,8 +163,6 @@ contract FunctionsClient_FulfillRequest is FunctionsClientRequestSetup {
   }
 
   function setUp() public virtual override {
-    vm.pauseGasMetering();
-
     FunctionsSubscriptionSetup.setUp();
 
     {
@@ -271,9 +269,18 @@ contract FunctionsClient_FulfillRequest is FunctionsClientRequestSetup {
     vm.stopPrank();
     vm.startPrank(NOP_TRANSMITTER_ADDRESS_1);
   }
+}
+
+/// @notice #fulfillRequest
+contract Gas_FulfillRequest_Success is Gas_FulfillRequest_Setup {
+  function setUp() public virtual override {
+    vm.pauseGasMetering();
+
+    Gas_FulfillRequest_Setup.setUp();
+  }
 
   /// @dev The order of these test cases matters as the first test will consume more gas by writing over default values
-  function test_FulfillRequest_MaximumGas() public {
+  function test_FulfillRequest_Success_MaximumGas() public {
     // Pull storage variables into memory
     uint8 reportNumber = 1;
     bytes32[] memory rs = s_reports[reportNumber].rs;
@@ -291,7 +298,66 @@ contract FunctionsClient_FulfillRequest is FunctionsClientRequestSetup {
     s_functionsCoordinator.transmit(reportContext, report, rs, ss, vs);
   }
 
-  function test_FulfillRequest_MinimumGas() public {
+  function test_FulfillRequest_Success_MinimumGas() public {
+    // Pull storage variables into memory
+    uint8 reportNumber = 2;
+    bytes32[] memory rs = s_reports[reportNumber].rs;
+    bytes32[] memory ss = s_reports[reportNumber].ss;
+    bytes32 vs = s_reports[reportNumber].vs;
+    bytes memory report = s_reports[reportNumber].report;
+    bytes32[3] memory reportContext = s_reports[reportNumber].reportContext;
+    vm.resumeGasMetering();
+
+    // max fulfillments in the report, cost of validation split between all
+    // minimal request
+    // minimum NOPs
+    // no return data
+    // not storage writing default values
+    s_functionsCoordinator.transmit(reportContext, report, rs, ss, vs);
+  }
+}
+
+/// @notice #fulfillRequest
+contract Gas_FulfillRequest_DuplicateRequestID is Gas_FulfillRequest_Setup {
+  function setUp() public virtual override {
+    vm.pauseGasMetering();
+
+    // Send requests
+    Gas_FulfillRequest_Setup.setUp();
+    // Fulfill request #1 & #2
+    for (uint256 i = 1; i < 3; i++) {
+      uint256 reportNumber = i;
+      bytes32[] memory rs = s_reports[reportNumber].rs;
+      bytes32[] memory ss = s_reports[reportNumber].ss;
+      bytes32 vs = s_reports[reportNumber].vs;
+      bytes memory report = s_reports[reportNumber].report;
+      bytes32[3] memory reportContext = s_reports[reportNumber].reportContext;
+      s_functionsCoordinator.transmit(reportContext, report, rs, ss, vs);
+    }
+
+    // Now tests will attempt to transmit reports with respones to requests that have already been fulfilled
+  }
+
+  /// @dev The order of these test cases matters as the first test will consume more gas by writing over default values
+  function test_FulfillRequest_DuplicateRequestID_MaximumGas() public {
+    // Pull storage variables into memory
+    uint8 reportNumber = 1;
+    bytes32[] memory rs = s_reports[reportNumber].rs;
+    bytes32[] memory ss = s_reports[reportNumber].ss;
+    bytes32 vs = s_reports[reportNumber].vs;
+    bytes memory report = s_reports[reportNumber].report;
+    bytes32[3] memory reportContext = s_reports[reportNumber].reportContext;
+    vm.resumeGasMetering();
+
+    // 1 fulfillment in the report, single request takes on all report validation cost
+    // maximum request
+    // maximum NOPs
+    // maximum return data
+    // first storage write to change default values
+    s_functionsCoordinator.transmit(reportContext, report, rs, ss, vs);
+  }
+
+  function test_FulfillRequest_DuplicateRequestID_MinimumGas() public {
     // Pull storage variables into memory
     uint8 reportNumber = 2;
     bytes32[] memory rs = s_reports[reportNumber].rs;

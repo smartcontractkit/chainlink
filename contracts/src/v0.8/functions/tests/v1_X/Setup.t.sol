@@ -20,17 +20,22 @@ contract FunctionsRouterSetup is BaseTest {
   FunctionsRouterHarness internal s_functionsRouter;
   FunctionsCoordinatorHarness internal s_functionsCoordinator;
   MockV3Aggregator internal s_linkEthFeed;
+  MockV3Aggregator internal s_linkUsdFeed;
   TermsOfServiceAllowList internal s_termsOfServiceAllowList;
   MockLinkToken internal s_linkToken;
 
   uint16 internal s_maxConsumersPerSubscription = 3;
-  uint72 internal s_adminFee = 100;
-  uint72 internal s_donFee = 100;
+  uint72 internal s_adminFee = 0; // Keep as 0. Setting this to anything else will cause fulfillments to fail with INVALID_COMMITMENT
+  uint16 internal s_donFee = 100; // $1
+  uint16 internal s_operationFee = 100; // $1
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
   uint16 s_subscriptionDepositMinimumRequests = 1;
   uint72 s_subscriptionDepositJuels = 11 * JUELS_PER_LINK;
 
-  int256 internal LINK_ETH_RATE = 6000000000000000;
+  int256 internal LINK_ETH_RATE = 6_000_000_000_000_000;
+  uint8 internal LINK_ETH_DECIMALS = 18;
+  int256 internal LINK_USD_RATE = 1_500_000_000;
+  uint8 internal LINK_USD_DECIMALS = 8;
 
   uint256 internal TOS_SIGNER_PRIVATE_KEY = 0x3;
   address internal TOS_SIGNER = vm.addr(TOS_SIGNER_PRIVATE_KEY);
@@ -39,13 +44,21 @@ contract FunctionsRouterSetup is BaseTest {
     BaseTest.setUp();
     s_linkToken = new MockLinkToken();
     s_functionsRouter = new FunctionsRouterHarness(address(s_linkToken), getRouterConfig());
-    s_linkEthFeed = new MockV3Aggregator(0, LINK_ETH_RATE);
+    s_linkEthFeed = new MockV3Aggregator(LINK_ETH_DECIMALS, LINK_ETH_RATE);
+    s_linkUsdFeed = new MockV3Aggregator(LINK_USD_DECIMALS, LINK_USD_RATE);
     s_functionsCoordinator = new FunctionsCoordinatorHarness(
       address(s_functionsRouter),
       getCoordinatorConfig(),
-      address(s_linkEthFeed)
+      address(s_linkEthFeed),
+      address(s_linkUsdFeed)
     );
-    s_termsOfServiceAllowList = new TermsOfServiceAllowList(getTermsOfServiceConfig());
+    address[] memory initialAllowedSenders;
+    address[] memory initialBlockedSenders;
+    s_termsOfServiceAllowList = new TermsOfServiceAllowList(
+      getTermsOfServiceConfig(),
+      initialAllowedSenders,
+      initialBlockedSenders
+    );
   }
 
   function getRouterConfig() public view returns (FunctionsRouter.Config memory) {
@@ -73,10 +86,13 @@ contract FunctionsRouterSetup is BaseTest {
         gasOverheadAfterCallback: 93_942,
         gasOverheadBeforeCallback: 105_000,
         requestTimeoutSeconds: 60 * 5, // 5 minutes
-        donFee: s_donFee,
+        donFeeCentsUsd: s_donFee,
+        operationFeeCentsUsd: s_operationFee,
         maxSupportedRequestDataVersion: 1,
         fulfillmentGasPriceOverEstimationBP: 5000,
         fallbackNativePerUnitLink: 5000000000000000,
+        fallbackUsdPerUnitLink: 1400000000,
+        fallbackUsdPerUnitLinkDecimals: 8,
         minimumEstimateGasPriceWei: 1000000000 // 1 gwei
       });
   }
@@ -88,22 +104,22 @@ contract FunctionsRouterSetup is BaseTest {
 
 /// @notice Set up to set the OCR configuration of the Coordinator contract
 contract FunctionsDONSetup is FunctionsRouterSetup {
-  uint256 internal NOP_SIGNER_PRIVATE_KEY_1 = 0x100;
+  uint256 internal NOP_SIGNER_PRIVATE_KEY_1 = 0x400;
   address internal NOP_SIGNER_ADDRESS_1 = vm.addr(NOP_SIGNER_PRIVATE_KEY_1);
-  uint256 internal NOP_SIGNER_PRIVATE_KEY_2 = 0x101;
+  uint256 internal NOP_SIGNER_PRIVATE_KEY_2 = 0x401;
   address internal NOP_SIGNER_ADDRESS_2 = vm.addr(NOP_SIGNER_PRIVATE_KEY_2);
-  uint256 internal NOP_SIGNER_PRIVATE_KEY_3 = 0x102;
+  uint256 internal NOP_SIGNER_PRIVATE_KEY_3 = 0x402;
   address internal NOP_SIGNER_ADDRESS_3 = vm.addr(NOP_SIGNER_PRIVATE_KEY_3);
-  uint256 internal NOP_SIGNER_PRIVATE_KEY_4 = 0x103;
+  uint256 internal NOP_SIGNER_PRIVATE_KEY_4 = 0x403;
   address internal NOP_SIGNER_ADDRESS_4 = vm.addr(NOP_SIGNER_PRIVATE_KEY_4);
 
-  uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_1 = 0x104;
+  uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_1 = 0x404;
   address internal NOP_TRANSMITTER_ADDRESS_1 = vm.addr(NOP_TRANSMITTER_PRIVATE_KEY_1);
-  uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_2 = 0x105;
+  uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_2 = 0x405;
   address internal NOP_TRANSMITTER_ADDRESS_2 = vm.addr(NOP_TRANSMITTER_PRIVATE_KEY_2);
-  uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_3 = 0x106;
+  uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_3 = 0x406;
   address internal NOP_TRANSMITTER_ADDRESS_3 = vm.addr(NOP_TRANSMITTER_PRIVATE_KEY_3);
-  uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_4 = 0x107;
+  uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_4 = 0x407;
   address internal NOP_TRANSMITTER_ADDRESS_4 = vm.addr(NOP_TRANSMITTER_PRIVATE_KEY_4);
 
   address[] internal s_signers;
@@ -245,7 +261,8 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
   struct Request {
     RequestData requestData;
     bytes32 requestId;
-    FunctionsResponse.Commitment commitment;
+    FunctionsResponse.Commitment commitment; // Offchain commitment that contains operation fee in the place of admin fee
+    FunctionsResponse.Commitment commitmentOnchain; // Commitment that is persisted as a hash in the Router
   }
 
   mapping(uint256 requestNumber => Request) s_requests;
@@ -258,6 +275,8 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
 
   uint96 s_fulfillmentRouterOwnerBalance = 0;
   uint96 s_fulfillmentCoordinatorBalance = 0;
+  uint8 s_requestsSent = 0;
+  uint8 s_requestsFulfilled = 0;
 
   function setUp() public virtual override {
     FunctionsSubscriptionSetup.setUp();
@@ -283,7 +302,13 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     uint96 gasOverheadJuels = juelsPerGas *
       ((getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback));
     uint96 callbackGasCostJuels = uint96(juelsPerGas * callbackGas);
-    return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels;
+    bytes memory emptyData = new bytes(0);
+    return
+      gasOverheadJuels +
+      s_functionsCoordinator.getDONFeeJuels(emptyData) +
+      s_adminFee +
+      s_functionsCoordinator.getOperationFeeJuels() +
+      callbackGasCostJuels;
   }
 
   /// @notice Predicts the actual cost of a request
@@ -293,7 +318,13 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     uint96 gasOverheadJuels = juelsPerGas *
       (getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback);
     uint96 callbackGasCostJuels = uint96(juelsPerGas * gasUsed);
-    return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels;
+    bytes memory emptyData = new bytes(0);
+    return
+      gasOverheadJuels +
+      s_functionsCoordinator.getDONFeeJuels(emptyData) +
+      s_adminFee +
+      s_functionsCoordinator.getOperationFeeJuels() +
+      callbackGasCostJuels;
   }
 
   /// @notice Send a request and store information about it in s_requests
@@ -344,8 +375,22 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
         callbackGasLimit: callbackGasLimit
       }),
       requestId: requestId,
-      commitment: commitment
+      commitment: commitment, // Has operationFee in place of adminFee
+      commitmentOnchain: FunctionsResponse.Commitment({
+        coordinator: commitment.coordinator,
+        client: commitment.client,
+        subscriptionId: commitment.subscriptionId,
+        callbackGasLimit: commitment.callbackGasLimit,
+        estimatedTotalCostJuels: commitment.estimatedTotalCostJuels,
+        timeoutTimestamp: commitment.timeoutTimestamp,
+        requestId: commitment.requestId,
+        donFee: commitment.donFee,
+        gasOverheadBeforeCallback: commitment.gasOverheadBeforeCallback,
+        gasOverheadAfterCallback: commitment.gasOverheadAfterCallback,
+        adminFee: s_adminFee
+      })
     });
+    s_requestsSent += 1;
   }
 
   /// @notice Send a request and store information about it in s_requests
@@ -499,7 +544,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
 
     // Send as transmitter
     vm.stopPrank();
-    vm.startPrank(transmitter);
+    vm.startPrank(transmitter, transmitter);
 
     // Send report
     vm.recordLogs();
@@ -524,6 +569,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
       // TODO: handle multiple requests
       s_fulfillmentCoordinatorBalance += totalCostJuels - s_adminFee;
     }
+    s_requestsFulfilled += 1;
 
     // Return prank to Owner
     vm.stopPrank();
@@ -626,7 +672,7 @@ contract FunctionsMultipleFulfillmentsSetup is FunctionsFulfillmentSetup {
   function setUp() public virtual override {
     FunctionsFulfillmentSetup.setUp();
 
-    // Make 2 additional requests (1 already complete)
+    // Make 3 additional requests (1 already complete)
 
     //  *** Request #2 ***
     // Send
@@ -656,5 +702,17 @@ contract FunctionsMultipleFulfillmentsSetup is FunctionsFulfillmentSetup {
     bytes[] memory errors2 = new bytes[](1);
     errors2[0] = new bytes(0);
     _reportAndStore(requestNumberKeys2, results2, errors2, NOP_TRANSMITTER_ADDRESS_3, true);
+
+    //  *** Request #4 ***
+    // Send
+    _sendAndStoreRequest(4, sourceCode, secrets, args, bytesArgs, callbackGasLimit);
+    // Fulfill as transmitter #1
+    uint256[] memory requestNumberKeys3 = new uint256[](1);
+    requestNumberKeys3[0] = 4;
+    string[] memory results3 = new string[](1);
+    results3[0] = "hello world!";
+    bytes[] memory errors3 = new bytes[](1);
+    errors3[0] = new bytes(0);
+    _reportAndStore(requestNumberKeys3, results3, errors3, NOP_TRANSMITTER_ADDRESS_1, true);
   }
 }

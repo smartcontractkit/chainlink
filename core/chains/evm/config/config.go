@@ -11,6 +11,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 type EVM interface {
@@ -20,6 +21,7 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
+	ChainWriter() ChainWriter
 	NodePool() NodePool
 
 	AutoCreateKey() bool
@@ -35,6 +37,7 @@ type EVM interface {
 	LogBackfillBatchSize() uint32
 	LogKeepBlocksDepth() uint32
 	LogPollInterval() time.Duration
+	LogPrunePageSize() uint32
 	MinContractPayment() *commonassets.Link
 	MinIncomingConfirmations() uint32
 	NonceAutoSync() bool
@@ -123,6 +126,11 @@ type BlockHistory interface {
 	CheckInclusionPercentile() uint16
 	EIP1559FeeCapBufferBlocks() uint16
 	TransactionPercentile() uint16
+}
+
+type ChainWriter interface {
+	FromAddress() *ethkey.EIP55Address
+	ForwarderAddress() *ethkey.EIP55Address
 }
 
 type NodePool interface {

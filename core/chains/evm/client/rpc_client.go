@@ -792,6 +792,34 @@ func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumb
 
 }
 
+func (r *rpcClient) PendingCallContract(ctx context.Context, msg interface{}) (val []byte, err error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := r.newRqLggr().With("callMsg", msg)
+	message := msg.(ethereum.CallMsg)
+
+	lggr.Debug("RPC call: evmclient.Client#PendingCallContract")
+	start := time.Now()
+	if http != nil {
+		val, err = http.geth.PendingCallContract(ctx, message)
+		err = r.wrapHTTP(err)
+	} else {
+		val, err = ws.geth.PendingCallContract(ctx, message)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "PendingCallContract",
+		"val", val,
+	)
+
+	return
+
+}
+
 func (r *rpcClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 	var height big.Int
 	h, err := r.BlockNumber(ctx)

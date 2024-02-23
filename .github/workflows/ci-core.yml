@@ -76,6 +76,9 @@ jobs:
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
           go install ./cmd/chainlink-feeds
           popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams)
+          go install ./mercury/cmd/chainlink-mercury
+          popd
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
           go install ./pkg/solana/cmd/chainlink-solana
           popd
@@ -95,7 +98,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
@@ -257,6 +260,8 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
+      - name: Install protoc-gen-go-wsrpc
+        run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - run: make generate # generate install go deps

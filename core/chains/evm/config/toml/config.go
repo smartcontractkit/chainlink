@@ -352,6 +352,7 @@ type Chain struct {
 	LogBackfillBatchSize     *uint32
 	LogPollInterval          *commonconfig.Duration
 	LogKeepBlocksDepth       *uint32
+	LogPrunePageSize         *uint32
 	MinIncomingConfirmations *uint32
 	MinContractPayment       *commonassets.Link
 	NonceAutoSync            *bool
@@ -368,6 +369,7 @@ type Chain struct {
 	NodePool       NodePool          `toml:",omitempty"`
 	OCR            OCR               `toml:",omitempty"`
 	OCR2           OCR2              `toml:",omitempty"`
+	ChainWriter    ChainWriter       `toml:",omitempty"`
 }
 
 func (c *Chain) ValidateConfig() (err error) {
@@ -444,6 +446,20 @@ type Automation struct {
 func (a *Automation) setFrom(f *Automation) {
 	if v := f.GasLimit; v != nil {
 		a.GasLimit = v
+	}
+}
+
+type ChainWriter struct {
+	FromAddress      *ethkey.EIP55Address `toml:",omitempty"`
+	ForwarderAddress *ethkey.EIP55Address `toml:",omitempty"`
+}
+
+func (m *ChainWriter) setFrom(f *ChainWriter) {
+	if v := f.FromAddress; v != nil {
+		m.FromAddress = v
+	}
+	if v := f.ForwarderAddress; v != nil {
+		m.ForwarderAddress = v
 	}
 }
 

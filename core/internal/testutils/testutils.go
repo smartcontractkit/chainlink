@@ -448,3 +448,12 @@ func MustDecodeBase64(s string) (b []byte) {
 func SkipFlakey(t *testing.T, ticketURL string) {
 	t.Skip("Flakey", ticketURL)
 }
+
+func MustRandBytes(n int) (b []byte) {
+	b = make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return
+}

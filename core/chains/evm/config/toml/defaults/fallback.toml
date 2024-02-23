@@ -6,6 +6,7 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
 MinContractPayment = '.00001 link'
 MinIncomingConfirmations = 3
 NonceAutoSync = true
