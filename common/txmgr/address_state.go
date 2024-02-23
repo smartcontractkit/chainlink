@@ -213,6 +213,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 	tx.BroadcastAt = &broadcastAt
 	tx.InitialBroadcastAt = &initialBroadcastAt
 
+	as.attemptHashToTxAttempt[txAttempt.Hash] = txAttempt
 	as.inprogressTx = tx
 
 	return nil
