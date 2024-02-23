@@ -122,6 +122,26 @@ func NewAddressState[
 
 // CountTransactionsByState returns the number of transactions that are in the given state
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(txState txmgrtypes.TxState) int {
+	as.RLock()
+	defer as.RUnlock()
+
+	switch txState {
+	case TxUnstarted:
+		return as.unstarted.Len()
+	case TxInProgress:
+		if as.inprogress != nil {
+			return 1
+		}
+	case TxUnconfirmed:
+		return len(as.unconfirmed)
+	case TxConfirmedMissingReceipt:
+		return len(as.confirmedMissingReceipt)
+	case TxConfirmed:
+		return len(as.confirmed)
+	case TxFatalError:
+		return len(as.fatalErrored)
+	}
+
 	return 0
 }
 
