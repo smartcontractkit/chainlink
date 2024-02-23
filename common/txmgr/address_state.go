@@ -191,8 +191,12 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekNe
 }
 
 // PeekInProgressTx returns the in-progress transaction without removing it from the in-progress state.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekInProgressTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return nil, nil
+// If there is no in-progress transaction, nil is returned.
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekInProgressTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	return as.inprogressTx
 }
 
 // AddTxToUnstarted adds the given transaction to the unstarted queue.
