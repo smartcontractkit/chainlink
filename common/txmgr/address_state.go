@@ -325,6 +325,32 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveIn
 }
 
 // MoveConfirmedToUnconfirmed moves the confirmed transaction to the unconfirmed state.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveConfirmedToUnconfirmed(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveConfirmedToUnconfirmed(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	as.Lock()
+	defer as.Unlock()
+
+	if txAttempt.State != txmgrtypes.TxAttemptBroadcast {
+		return fmt.Errorf("move_confirmed_to_unconfirmed: attempt must be in broadcast state")
+	}
+
+	tx, ok := as.confirmedTxs[txAttempt.TxID]
+	if !ok || tx == nil {
+		return fmt.Errorf("move_confirmed_to_unconfirmed: no confirmed transaction with ID %d", txAttempt.TxID)
+	}
+	tx.State = TxUnconfirmed
+
+	// Delete the receipt from the attempt
+	txAttempt.Receipts = nil
+	// Reset the broadcast information for the attempt
+	txAttempt.State = txmgrtypes.TxAttemptInProgress
+	txAttempt.BroadcastBeforeBlockNum = nil
+	if len(tx.TxAttempts) == 0 {
+		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
+
+	as.unconfirmedTxs[tx.ID] = tx
+	delete(as.confirmedTxs, tx.ID)
+
 	return nil
 }
