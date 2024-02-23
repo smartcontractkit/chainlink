@@ -18,6 +18,7 @@ contract RebalancerBaseTest is Test {
   uint64 internal immutable i_remoteChainSelector = 9876;
 
   address internal constant OWNER = address(0x00000078772732723782873283);
+  address internal constant STRANGER = address(0x00000999999911111111222222);
 
   function setUp() public virtual {
     s_l1Token = new ERC20("l1", "L1");
@@ -25,5 +26,6 @@ contract RebalancerBaseTest is Test {
 
     vm.startPrank(OWNER);
     vm.label(OWNER, "Owner");
+    vm.label(STRANGER, "Stranger");
   }
 }
