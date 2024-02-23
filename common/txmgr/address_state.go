@@ -201,7 +201,37 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 	txAttemptFilter func(*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txIDs ...int64,
 ) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	return nil
+	as.RLock()
+	defer as.RUnlock()
+
+	// if txStates is empty then apply the filter to only the as.allTransactions map
+	if len(txStates) == 0 {
+		return as.fetchTxAttempts(as.allTransactions, txFilter, txAttemptFilter, txIDs...)
+	}
+
+	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, txState := range txStates {
+		switch txState {
+		case TxInProgress:
+			if as.inprogress != nil && txFilter(as.inprogress) {
+				for _, txAttempt := range as.inprogress.TxAttempts {
+					if txAttemptFilter(&txAttempt) {
+						txAttempts = append(txAttempts, txAttempt)
+					}
+				}
+			}
+		case TxUnconfirmed:
+			txAttempts = append(txAttempts, as.fetchTxAttempts(as.unconfirmed, txFilter, txAttemptFilter, txIDs...)...)
+		case TxConfirmedMissingReceipt:
+			txAttempts = append(txAttempts, as.fetchTxAttempts(as.confirmedMissingReceipt, txFilter, txAttemptFilter, txIDs...)...)
+		case TxConfirmed:
+			txAttempts = append(txAttempts, as.fetchTxAttempts(as.confirmed, txFilter, txAttemptFilter, txIDs...)...)
+		case TxFatalError:
+			txAttempts = append(txAttempts, as.fetchTxAttempts(as.fatalErrored, txFilter, txAttemptFilter, txIDs...)...)
+		}
+	}
+
+	return txAttempts
 }
 
 // FetchTxs returns all transactions that match the given filters.
@@ -325,4 +355,43 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 	for _, tx := range txIDsToTx {
 		fn(tx)
 	}
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxAttempts(
+	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	txFilter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
+	txAttemptFilter func(*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
+	txIDs ...int64,
+) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	// if txIDs is not empty then only apply the filter to those transactions
+	if len(txIDs) > 0 {
+		for _, txID := range txIDs {
+			tx := txIDsToTx[txID]
+			if tx != nil && txFilter(tx) {
+				for _, txAttempt := range tx.TxAttempts {
+					if txAttemptFilter(&txAttempt) {
+						txAttempts = append(txAttempts, txAttempt)
+					}
+				}
+			}
+		}
+		return txAttempts
+	}
+
+	// if txIDs is empty then apply the filter to all transactions
+	for _, tx := range txIDsToTx {
+		if txFilter(tx) {
+			for _, txAttempt := range tx.TxAttempts {
+				if txAttemptFilter(&txAttempt) {
+					txAttempts = append(txAttempts, txAttempt)
+				}
+			}
+		}
+	}
+
+	return txAttempts
 }
