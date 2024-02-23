@@ -36,15 +36,14 @@ type HeadSaver[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	// Save updates the latest block number, if indeed the latest, and persists
 	// this number in case of reboot.
 	Save(ctx context.Context, head H) error
-	// Load loads latest EvmHeadTrackerHistoryDepth heads, returns the latest chain.
-	Load(ctx context.Context) (H, error)
+	// Load loads latest heads up to latestFinalized - historyDepth, returns the latest chain.
+	Load(ctx context.Context, latestFinalized H) (H, error)
 	// LatestChain returns the block header with the highest number that has been seen, or nil.
 	LatestChain() H
 	// Chain returns a head for the specified hash, or nil.
 	Chain(hash BLOCK_HASH) H
-	// MarkFinalized - marks matching block and all it's direct ancestors as finalized. Returns error if failed to find
-	// finalized block in the LatestChain
-	MarkFinalized(ctx context.Context, finalized BLOCK_HASH) error
+	// MarkFinalized - marks matching block and all it's direct ancestors as finalized
+	MarkFinalized(ctx context.Context, latestFinalized H) error
 }
 
 // HeadListener is a chain agnostic interface that manages connection of Client that receives heads from the blockchain node

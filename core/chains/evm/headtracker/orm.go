@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -21,11 +22,11 @@ type ORM interface {
 	// No advisory lock required because this is thread safe.
 	IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error
 	// TrimOldHeads deletes heads such that only the top N block numbers remain
-	TrimOldHeads(ctx context.Context, n uint) (err error)
+	TrimOldHeads(ctx context.Context, minBlockNumber int64) (err error)
 	// LatestHead returns the highest seen head
 	LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
-	// LatestHeads returns the latest heads up to given limit
-	LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error)
+	// LatestHeads returns the latest heads with blockNumbers > minBlockNumber
+	LatestHeads(ctx context.Context, minBlockNumber int64) (heads []*evmtypes.Head, err error)
 	// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
 	HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error)
 }
@@ -50,19 +51,11 @@ func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) e
 	return errors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
-func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
+func (orm *orm) TrimOldHeads(ctx context.Context, minBlockNumber int64) (err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	return q.ExecQ(`
 	DELETE FROM evm.heads
-	WHERE evm_chain_id = $1 AND number < (
-		SELECT min(number) FROM (
-			SELECT number
-			FROM evm.heads
-			WHERE evm_chain_id = $1
-			ORDER BY number DESC
-			LIMIT $2
-		) numbers
-	)`, orm.chainID, n)
+	WHERE evm_chain_id = $1 AND number < $2`, orm.chainID, minBlockNumber)
 }
 
 func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error) {
@@ -76,9 +69,9 @@ func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
 	return
 }
 
-func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
+func (orm *orm) LatestHeads(ctx context.Context, minBlockNumber int64) (heads []*evmtypes.Head, err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Select(&heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
+	err = q.Select(&heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND number >= $2 ORDER BY number DESC, created_at DESC, id DESC`, orm.chainID, minBlockNumber)
 	err = errors.Wrap(err, "LatestHeads failed")
 	return
 }

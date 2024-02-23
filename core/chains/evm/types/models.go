@@ -118,16 +118,27 @@ func (h *Head) IsInChain(blockHash common.Hash) bool {
 // HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 // If not in chain, returns the zero hash
 func (h *Head) HashAtHeight(blockNum int64) common.Hash {
+	head := h.HeadAtHeight(blockNum)
+	if head == nil {
+		return common.Hash{}
+	}
+
+	return head.Hash
+}
+
+// HeadAtHeight returns the head at the given height, if it is in the chain.
+// If not in chain, returns nil
+func (h *Head) HeadAtHeight(blockNum int64) *Head {
 	for {
 		if h.Number == blockNum {
-			return h.Hash
+			return h
 		}
 		if h.Parent == nil {
 			break
 		}
 		h = h.Parent
 	}
-	return common.Hash{}
+	return nil
 }
 
 // ChainLength returns the length of the chain followed by recursively looking up parents

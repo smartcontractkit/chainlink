@@ -97,18 +97,6 @@ func NewHeadTracker[
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error {
 	return ht.StartOnce("HeadTracker", func() error {
 		ht.log.Debugw("Starting HeadTracker", "chainID", ht.chainID)
-		latestChain, err := ht.headSaver.Load(ctx)
-		if err != nil {
-			return err
-		}
-		if latestChain.IsValid() {
-			ht.log.Debugw(
-				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", latestChain.BlockNumber(), latestChain.BlockHash()),
-				"blockNumber", latestChain.BlockNumber(),
-				"blockHash", latestChain.BlockHash(),
-			)
-		}
-
 		// NOTE: Always try to start the head tracker off with whatever the
 		// latest head is, without waiting for the subscription to send us one.
 		//
@@ -116,18 +104,12 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 		// anyway when we connect (but we should not rely on this because it is
 		// not specced). If it happens this is fine, and the head will be
 		// ignored as a duplicate.
-		initialHead, err := ht.getInitialHead(ctx)
+		err := ht.loadInitialHead(ctx)
 		if err != nil {
-			if errors.Is(err, ctx.Err()) {
-				return nil
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
 			ht.log.Errorw("Error getting initial head", "err", err)
-		} else if initialHead.IsValid() {
-			if err := ht.handleNewHead(ctx, initialHead); err != nil {
-				return fmt.Errorf("error handling initial head: %w", err)
-			}
-		} else {
-			ht.log.Debug("Got nil initial head")
 		}
 
 		ht.wgDone.Add(3)
@@ -139,6 +121,45 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 
 		return nil
 	})
+}
+
+func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) loadInitialHead(ctx context.Context) error {
+	initialHead, err := ht.client.HeadByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to fetch initial head: %w", err)
+	}
+
+	if !initialHead.IsValid() {
+		ht.log.Warnw("Got nil initial head", "head", initialHead)
+		return nil
+	}
+	ht.log.Debugw("Got initial head", "head", initialHead, "blockNumber", initialHead.BlockNumber(), "blockHash", initialHead.BlockHash())
+
+	latestFinalized, err := ht.calculateLatestFinalized(ctx, initialHead)
+	if err != nil {
+		return fmt.Errorf("failed to calculate latest finalized head: %w", err)
+	}
+
+	latestChain, err := ht.headSaver.Load(ctx, latestFinalized)
+	if err != nil {
+		return fmt.Errorf("failed to initialzed headSaver: %w", err)
+	}
+
+	if latestChain.IsValid() {
+		earliest := latestChain.EarliestHeadInChain()
+		ht.log.Debugw(
+			"Loaded chain from DB",
+			"latest_blockNumber", latestChain.BlockNumber(),
+			"latest_blockHash", latestChain.BlockHash(),
+			"earliest_blockNumber", earliest.BlockNumber(),
+			"earliest_blockHash", earliest.BlockHash(),
+		)
+	}
+	if err := ht.handleNewHead(ctx, initialHead); err != nil {
+		return fmt.Errorf("error handling initial head: %w", err)
+	}
+
+	return nil
 }
 
 // Close stops HeadTracker service.
@@ -178,19 +199,6 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, hea
 
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
 	return ht.headSaver.LatestChain()
-}
-
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) getInitialHead(ctx context.Context) (HTH, error) {
-	head, err := ht.client.HeadByNumber(ctx, nil)
-	if err != nil {
-		return ht.getNilHead(), fmt.Errorf("failed to fetch initial head: %w", err)
-	}
-	loggerFields := []interface{}{"head", head}
-	if head.IsValid() {
-		loggerFields = append(loggerFields, "blockNumber", head.BlockNumber(), "blockHash", head.BlockHash())
-	}
-	ht.log.Debugw("Got initial head", loggerFields...)
-	return head, nil
 }
 
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, head HTH) error {
@@ -341,14 +349,6 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", headBlockNumber-1)
 	l.Debug("Starting backfill")
-	if ht.htConfig.HistoryDepth() < uint32(headBlockNumber-baseHeight) {
-		l.Warnw("HistoryDepth is smaller than the actual finality depth (number of blocks from the latest "+
-			"finalized to the most recent block). This might be caused by an out-of-sync RPC that returned an old "+
-			"finalized block or by HistoryDepth being too small. If you see this message too often, "+
-			"consider increasing HistoryDepth.",
-			"history_depth", ht.htConfig.HistoryDepth(),
-			"actual_finality_depth", headBlockNumber-baseHeight)
-	}
 	defer func() {
 		if ctx.Err() != nil {
 			l.Warnw("Backfill context error", "err", ctx.Err())
@@ -384,7 +384,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 		return fmt.Errorf(errMsg)
 	}
 
-	err = ht.headSaver.MarkFinalized(ctx, latestFinalizedHead.BlockHash())
+	err = ht.headSaver.MarkFinalized(ctx, latestFinalizedHead)
 	if err != nil {
 		return fmt.Errorf("failed to mark head as finalized: %w", err)
 	}
