@@ -20,8 +20,9 @@ type Heads interface {
 	AddHeads(newHeads ...*evmtypes.Head)
 	// Count returns number of heads in the collection.
 	Count() int
-	// MarkFinalized - finds `finalized` in the LatestHead and marks it and all direct ancestors as finalized
-	MarkFinalized(finalized common.Hash, deepestToKeep int64) bool
+	// MarkFinalized - finds `finalized` in the LatestHead and marks it and all direct ancestors as finalized.
+	// Trims old blocks whose height is smaller than minBlockToKeep
+	MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool
 }
 
 type heads struct {
@@ -63,8 +64,8 @@ func (h *heads) Count() int {
 }
 
 // MarkFinalized - marks block with has equal to finalized and all it's direct ancestors as finalized.
-// Trims old blocks whose height is smaller than deepestToKeep
-func (h *heads) MarkFinalized(finalized common.Hash, deepestToKeep int64) bool {
+// Trims old blocks whose height is smaller than minBlockToKeep
+func (h *heads) MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -73,7 +74,7 @@ func (h *heads) MarkFinalized(finalized common.Hash, deepestToKeep int64) bool {
 	}
 
 	// deep copy to avoid race
-	h.heads = deepCopy(h.heads)
+	h.heads = deepCopy(h.heads, minBlockToKeep)
 
 	head := h.heads[0]
 	foundFinalized := false
@@ -88,40 +89,10 @@ func (h *heads) MarkFinalized(finalized common.Hash, deepestToKeep int64) bool {
 		head = head.Parent
 	}
 
-	// trim blocks that are too deep
-	h.trimRedundantBlocks(deepestToKeep)
-
 	return foundFinalized
 }
 
-// trimRedundantBlocks - trims all the blocks whose blockNumber < deepestToKeep
-// Not thread safe. Must be called on fresh copy of h.heads
-func (h *heads) trimRedundantBlocks(deepestToKeep int64) {
-	if len(h.heads) == 0 {
-		return
-	}
-
-	deepestBlock := h.heads[0].HeadAtHeight(deepestToKeep)
-	if deepestBlock == nil {
-		return
-	}
-
-	for i, head := range h.heads {
-		// ensure that uncle chains and canonical chain do not go deeper than deepestToKeep
-		if deepestBlock.Parent == head.Parent {
-			head.Parent = nil
-		}
-		// trim slice
-		if head == deepestBlock {
-			h.heads = h.heads[:i+1]
-			return
-		}
-	}
-
-	panic("invariant violation: expected deepestToKeep to present in the heads slice since we've seen it before")
-}
-
-func deepCopy(oldHeads []*evmtypes.Head) []*evmtypes.Head {
+func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) []*evmtypes.Head {
 	headsMap := make(map[common.Hash]*evmtypes.Head, len(oldHeads))
 	for _, head := range oldHeads {
 		if head.Hash == head.ParentHash {
@@ -155,11 +126,20 @@ func deepCopy(oldHeads []*evmtypes.Head) []*evmtypes.Head {
 		return heads[i].Number > heads[j].Number
 	})
 
+	// yeah, we could have used binarySearch here, but the code was much longer and more complex and did not
+	// solve any performance issues
+	for i := range heads {
+		if heads[i].BlockNumber() < minBlockToKeep {
+			heads = heads[:i]
+			break
+		}
+	}
+
 	// assign parents
 	for i := 0; i < len(heads)-1; i++ {
 		head := heads[i]
 		parent, exists := headsMap[head.ParentHash]
-		if exists {
+		if exists && parent.BlockNumber() >= minBlockToKeep {
 			head.Parent = parent
 		}
 	}
@@ -172,5 +152,5 @@ func (h *heads) AddHeads(newHeads ...*evmtypes.Head) {
 	defer h.mu.Unlock()
 
 	// deep copy to avoid race
-	h.heads = deepCopy(append(h.heads, newHeads...))
+	h.heads = deepCopy(append(h.heads, newHeads...), 0)
 }

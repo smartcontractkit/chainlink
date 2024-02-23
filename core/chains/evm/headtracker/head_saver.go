@@ -44,7 +44,7 @@ func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
 }
 
 func (hs *headSaver) Load(ctx context.Context, latestFinalized *evmtypes.Head) (chain *evmtypes.Head, err error) {
-	minBlockNumber := hs.calculateDeepestToKeep(latestFinalized.BlockNumber())
+	minBlockNumber := hs.calculateMinBlockToKeep(latestFinalized.BlockNumber())
 	heads, err := hs.orm.LatestHeads(ctx, minBlockNumber)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (hs *headSaver) Load(ctx context.Context, latestFinalized *evmtypes.Head) (
 	return hs.heads.LatestHead(), nil
 }
 
-func (hs *headSaver) calculateDeepestToKeep(latestFinalized int64) int64 {
+func (hs *headSaver) calculateMinBlockToKeep(latestFinalized int64) int64 {
 	return latestFinalized - int64(hs.htConfig.HistoryDepth())
 }
 
@@ -78,12 +78,12 @@ func (hs *headSaver) Chain(hash common.Hash) *evmtypes.Head {
 }
 
 func (hs *headSaver) MarkFinalized(ctx context.Context, finalized *evmtypes.Head) error {
-	deepestToKeep := hs.calculateDeepestToKeep(finalized.BlockNumber())
-	if !hs.heads.MarkFinalized(finalized.BlockHash(), deepestToKeep) {
+	minBlockToKeep := hs.calculateMinBlockToKeep(finalized.BlockNumber())
+	if !hs.heads.MarkFinalized(finalized.BlockHash(), minBlockToKeep) {
 		return fmt.Errorf("failed to find %s block in the canonical chain to mark it as finalized", finalized)
 	}
 
-	return hs.orm.TrimOldHeads(ctx, deepestToKeep)
+	return hs.orm.TrimOldHeads(ctx, minBlockToKeep)
 }
 
 var NullSaver httypes.HeadSaver = &nullSaver{}
