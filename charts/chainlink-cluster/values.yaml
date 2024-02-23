@@ -205,6 +205,12 @@ opentelemetry-collector:
   extraVolumeMounts:
     - name: trace-data
       mountPath: /tracing
+  podSecurityContext:
+    fsGroup: 10001
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
   config:
     receivers:
       otlp:
@@ -248,6 +254,10 @@ tempo:
       port: 3200
     initialDelaySeconds: 20
     periodSeconds: 10
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
 
 grafana:
   enabled: true
