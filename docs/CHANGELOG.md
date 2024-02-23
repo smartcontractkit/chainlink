@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `P2P.V2` is required in configuration when either `OCR` or `OCR2` are enabled. The node will fail to boot if `P2P.V2` is not enabled.
 
+### Changed
+
+- Minimum required version of Postgres is now >= 12. Postgres 11 was EOL'd in November 2023.
+
 ## 2.9.0 - UNRELEASED
 
 ### Added
