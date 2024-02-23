@@ -84,7 +84,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 							Str("Network Name", env.EVMClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
-						if *testConfig.VRFv2Plus.Common.CancelSubsAfterTestRun {
+						if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
 							//cancel subs and return funds to sub owner
 							cancelSubsAndReturnFunds(subIDs, l)
 						}
@@ -162,7 +162,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 							Str("Network Name", env.EVMClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
-						if *testConfig.VRFv2Plus.Common.CancelSubsAfterTestRun {
+						if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
 							//cancel subs and return funds to sub owner
 							cancelSubsAndReturnFunds(subIDs, l)
 						}
