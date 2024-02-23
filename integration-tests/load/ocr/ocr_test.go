@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
 )
@@ -33,7 +33,7 @@ func TestOCRLoad(t *testing.T) {
 
 	sethCfg := config.GetSethConfig()
 	require.NotNil(t, sethCfg, "Seth config shouldn't be nil")
-	testsetups.MustDecorateSethConfigWithNetwork(evmNetwork, sethCfg)
+	utils.MustDecorateSethConfigWithNetwork(evmNetwork, sethCfg)
 
 	seth, err := seth.NewClientWithConfig(sethCfg)
 	require.NoError(t, err, "Error creating seth client")
@@ -73,7 +73,7 @@ func TestOCRVolume(t *testing.T) {
 
 	sethCfg := config.GetSethConfig()
 	require.NotNil(t, sethCfg, "Seth config shouldn't be nil")
-	testsetups.MustDecorateSethConfigWithNetwork(evmNetwork, sethCfg)
+	utils.MustDecorateSethConfigWithNetwork(evmNetwork, sethCfg)
 
 	seth, err := seth.NewClientWithConfig(sethCfg)
 	require.NoError(t, err, "Error creating seth client")

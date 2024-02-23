@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
@@ -22,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
-	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -176,7 +175,7 @@ func TestOCRChaos(t *testing.T) {
 				panic("no network settings for Simulated Geth")
 			}
 			network.URLs = testEnvironment.URLs["Simulated Geth"]
-			testsetups.MustDecorateSethConfigWithNetwork(&network, sethCfg)
+			utils.MustDecorateSethConfigWithNetwork(&network, sethCfg)
 			seth, err := seth.NewClientWithConfig(sethCfg)
 			require.NoError(t, err, "Error creating seth client")
 
@@ -191,13 +190,10 @@ func TestOCRChaos(t *testing.T) {
 			ms, err := ctfClient.ConnectMockServer(testEnvironment)
 			require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
-			// Deploy LINK
-			linkTokenAbi, err := link_token.LinkTokenMetaData.GetAbi()
-			require.NoError(t, err, "Error retrieving LINK token ABI")
-			linkDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token.LinkTokenMetaData.Bin))
-			require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+			linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
+			require.NoError(t, err, "Error deploying link token contract")
 
-			err = actions_seth.FundChainlinkNodes(l, seth, chainlinkNodes, 0, big.NewFloat(10))
+			err = actions_seth.FundChainlinkNodes(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithAddress(chainlinkNodes), 0, big.NewFloat(10))
 			require.NoError(t, err)
 
 			ocrInstances, err := actions.DeployOCRContracts(l, seth, 1, linkDeploymentData.Address, workerNodes)

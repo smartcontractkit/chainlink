@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -573,4 +574,17 @@ func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 
 func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error) {
 	return e.contract.ParseAnswerUpdated(log)
+}
+
+func DeployLinkTokenContract(client *seth.Client) (seth.DeploymentData, error) {
+	linkTokenAbi, err := link_token.LinkTokenMetaData.GetAbi()
+	if err != nil {
+		return seth.DeploymentData{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
+	}
+	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token.LinkTokenMetaData.Bin))
+	if err != nil {
+		return seth.DeploymentData{}, fmt.Errorf("LinkToken instance deployment have failed: %w", err)
+	}
+
+	return linkDeploymentData, nil
 }

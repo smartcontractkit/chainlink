@@ -39,7 +39,7 @@ import (
 // Example: When deploying 1000 contracts, stop every ContractDeploymentInterval have been deployed to wait before continuing
 var ContractDeploymentInterval = 200
 
-// FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amount of native currency
+// FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amountCreateOCRv2Jobs of native currency
 func FundChainlinkNodes(
 	nodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,

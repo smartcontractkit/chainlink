@@ -15,19 +15,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/seth"
 )
 
+var ContractDeploymentInterval = 200
+
 func FundChainlinkNodes(
 	logger zerolog.Logger,
 	client *seth.Client,
-	nodes []*client.ChainlinkK8sClient,
+	nodes []contracts.ChainlinkNodeWithAddress,
 	fromKeyNum int,
 	amount *big.Float,
 ) error {
@@ -117,7 +119,7 @@ func DeployForwarderContracts(
 	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
-func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []*client.ChainlinkK8sClient) error {
+func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeys) error {
 	if seth == nil {
 		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
 	}
@@ -158,13 +160,16 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []*client
 
 // I think this is the same as the original WatchNewRound
 func WatchNewRound(
-	logger zerolog.Logger,
+	l zerolog.Logger,
 	seth *seth.Client,
 	roundNumber int64,
-	ocrInstances []contracts.OffchainAggregator,
+	ocrInstances []contracts.OffChainAggregatorWithRounds,
+	timeout time.Duration,
 ) error {
-	endTime := time.Now().Add(seth.Cfg.Network.TxnTimeout.Duration())
+	endTime := time.Now().Add(timeout)
 	confirmed := make(map[string]bool)
+
+	l.Info().Msgf("Waiting for round %d to be confirmed by all nodes", roundNumber)
 
 	for {
 		if time.Now().After(endTime) {
@@ -175,12 +180,13 @@ func WatchNewRound(
 				continue
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), seth.Cfg.Network.TxnTimeout.Duration())
-			defer cancel()
 			roundData, err := ocrInstances[i].GetLatestRound(ctx)
 			if err != nil {
 				return fmt.Errorf("getting latest round from OCR instance %d have failed: %w", i+1, err)
 			}
+			cancel()
 			if roundData.RoundId.Cmp(big.NewInt(roundNumber)) >= 0 {
+				l.Debug().Msgf("OCR instance %d/%d confirmed round %d", i+1, len(ocrInstances), roundNumber)
 				confirmed[ocrInstances[i].Address()] = true
 			}
 		}
@@ -256,7 +262,7 @@ func DeployOCRv2Contracts(
 			return nil, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)
 		}
 		ocrInstances = append(ocrInstances, &ocrInstance)
-		if (contractCount+1)%actions.ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -273,7 +279,7 @@ func DeployOCRv2Contracts(
 		if err != nil {
 			return nil, fmt.Errorf("error settings OCR payees: %w", err)
 		}
-		if (contractCount+1)%actions.ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -290,7 +296,7 @@ func ConfigureOCRv2AggregatorContracts(
 		if err != nil {
 			return fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
 		}
-		if (contractCount+1)%actions.ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
 			time.Sleep(2 * time.Second)
 		}
 	}
@@ -311,12 +317,12 @@ func TeardownRemoteSuite(
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
-	err = actions.DeleteAllJobs(chainlinkNodes)
+	// err = actions.DeleteAllJobs(chainlinkNodes)
 	if err != nil {
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if err = ReturnFunds(l, client, chainlinkNodes); err != nil {
+	if err = ReturnFunds(l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeys(chainlinkNodes)); err != nil {
 		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")

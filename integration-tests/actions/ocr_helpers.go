@@ -288,10 +288,7 @@ func CreateOCRJobsWithForwarder(
 
 // StartNewRound requests a new round from the ocr contracts and waits for confirmation
 func StartNewRound(
-	logger zerolog.Logger,
-	seth *seth.Client,
-	roundNumber int64,
-	ocrInstances []contracts.OffchainAggregator,
+	ocrInstances []contracts.OffChainAggregatorWithRounds,
 ) error {
 	for i := 0; i < len(ocrInstances); i++ {
 		err := ocrInstances[i].RequestNewRound()

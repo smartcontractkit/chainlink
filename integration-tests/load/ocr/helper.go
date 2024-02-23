@@ -16,7 +16,6 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
 func SetupCluster(
@@ -24,15 +23,11 @@ func SetupCluster(
 	seth *seth.Client,
 	workerNodes []*client.ChainlinkK8sClient,
 ) (common.Address, error) {
-	err := actions_seth.FundChainlinkNodes(l, seth, workerNodes, 0, big.NewFloat(3))
+	err := actions_seth.FundChainlinkNodes(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithAddress(workerNodes), 0, big.NewFloat(3))
 	if err != nil {
 		return common.Address{}, err
 	}
-	linkTokenAbi, err := link_token.LinkTokenMetaData.GetAbi()
-	if err != nil {
-		return common.Address{}, err
-	}
-	linkDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token.LinkTokenMetaData.Bin))
+	linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
 	if err != nil {
 		return common.Address{}, err
 	}

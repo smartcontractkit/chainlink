@@ -40,6 +40,7 @@ type GlobalTestConfig interface {
 	GetNetworkConfig() *ctf_config.NetworkConfig
 	GetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
 	GetPyroscopeConfig() *ctf_config.PyroscopeConfig
+	SethConfig
 }
 
 type UpgradeableChainlinkTestConfig interface {

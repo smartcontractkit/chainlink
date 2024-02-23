@@ -139,6 +139,16 @@ type ChainlinkNodeWithKeys interface {
 	MustReadP2PKeys() (*client.P2PKeys, error)
 }
 
+type ChainlinkNodeWithAddress interface {
+	PrimaryEthAddress() (string, error)
+}
+
+type OffChainAggregatorWithRounds interface {
+	Address() string
+	GetLatestRound(ctx context.Context) (*RoundData, error)
+	RequestNewRound() error
+}
+
 type OffchainAggregator interface {
 	Address() string
 	SetConfig(chainlinkNodes []ChainlinkNodeWithKeys, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error

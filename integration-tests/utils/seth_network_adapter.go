@@ -1,4 +1,4 @@
-package testsetups
+package utils
 
 import (
 	"fmt"

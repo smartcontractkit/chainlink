@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
@@ -47,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -177,7 +177,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	sethCfg := ocrTestConfig.GetSethConfig()
 	require.NotNil(o.t, sethCfg, "Seth config shouldn't be nil")
 
-	MustDecorateSethConfigWithNetwork(&network, sethCfg)
+	utils.MustDecorateSethConfigWithNetwork(&network, sethCfg)
 
 	seth, err := seth.NewClientWithConfig(sethCfg)
 	require.NoError(o.t, err, "Error creating seth client")
@@ -191,14 +191,12 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
 	// Deploy LINK
-	linkTokenAbi, err := link_token.LinkTokenMetaData.GetAbi()
-	require.NoError(o.t, err, "Error retrieving LINK token ABI")
-	linkDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token.LinkTokenMetaData.Bin))
-	require.NoError(o.t, err, "Deploying Link Token Contract shouldn't fail")
+	linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
+	require.NoError(o.t, err, "Error deploying LINK contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
-	err = actions_seth.FundChainlinkNodes(o.log, seth, o.workerNodes, 0, big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
+	err = actions_seth.FundChainlinkNodes(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithAddress(o.workerNodes), 0, big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	if o.OperatorForwarderFlow {

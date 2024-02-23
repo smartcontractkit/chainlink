@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
@@ -2466,4 +2467,49 @@ func (e *EthereumWERC20Mock) Mint(account common.Address, amount *big.Int) (*typ
 		return tx, err
 	}
 	return tx, e.client.ProcessTransaction(tx)
+}
+
+func ChainlinkK8sClientToChainlinkNodeWithKeys(k8sNodes []*client.ChainlinkK8sClient) []ChainlinkNodeWithKeys {
+	var nodesAsInterface = make([]ChainlinkNodeWithKeys, len(k8sNodes))
+	for i, node := range k8sNodes {
+		nodesAsInterface[i] = node
+	}
+
+	return nodesAsInterface
+}
+
+func ChainlinkClientToChainlinkNodeWithKeys(k8sNodes []*client.ChainlinkClient) []ChainlinkNodeWithKeys {
+	var nodesAsInterface = make([]ChainlinkNodeWithKeys, len(k8sNodes))
+	for i, node := range k8sNodes {
+		nodesAsInterface[i] = node
+	}
+
+	return nodesAsInterface
+}
+
+func ChainlinkK8sClientToChainlinkNodeWithAddress(k8sNodes []*client.ChainlinkK8sClient) []ChainlinkNodeWithAddress {
+	var nodesAsInterface = make([]ChainlinkNodeWithAddress, len(k8sNodes))
+	for i, node := range k8sNodes {
+		nodesAsInterface[i] = node
+	}
+
+	return nodesAsInterface
+}
+
+func ChainlinkClientToChainlinkNodeWithAddress(k8sNodes []*client.ChainlinkClient) []ChainlinkNodeWithAddress {
+	var nodesAsInterface = make([]ChainlinkNodeWithAddress, len(k8sNodes))
+	for i, node := range k8sNodes {
+		nodesAsInterface[i] = node
+	}
+
+	return nodesAsInterface
+}
+
+func V2OffChainAgrregatorToOffChainAggregatorWithRounds(contracts []OffchainAggregatorV2) []OffChainAggregatorWithRounds {
+	var contractsAsInterface = make([]OffChainAggregatorWithRounds, len(contracts))
+	for i, contract := range contracts {
+		contractsAsInterface[i] = contract
+	}
+
+	return contractsAsInterface
 }
