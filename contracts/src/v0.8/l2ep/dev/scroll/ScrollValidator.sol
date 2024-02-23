@@ -9,10 +9,11 @@ import {IL1ScrollMessenger} from "@scroll-tech/contracts/L1/IL1ScrollMessenger.s
 
 /// @title ScrollValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
 contract ScrollValidator is GasLimitValidator {
-  string public constant override typeAndVersion = "ScrollValidator 1.0.0";
-
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_MSG_QUEUE_ADDR;
+
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
+  string public constant override typeAndVersion = "ScrollValidator 1.0.0";
 
   /// @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address
   /// @param l2UptimeFeedAddr the address of the SequencerUptimeFeed contract address

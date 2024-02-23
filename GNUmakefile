@@ -31,6 +31,7 @@ gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
+	cd ./integration-tests/load && go mod tidy
 
 .PHONY: godoc
 godoc: ## Install and run godoc
@@ -61,6 +62,10 @@ chainlink-local-start:
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
+
+.PHONY: install-ocr3-capability
+install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
