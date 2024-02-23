@@ -42,6 +42,7 @@ type RPCCLient interface {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
+		rpc.BatchElem,
 	]
 	BlockByHashGeth(ctx context.Context, hash common.Hash) (b *types.Block, err error)
 	BlockByNumberGeth(ctx context.Context, number *big.Int) (b *types.Block, err error)
@@ -315,14 +316,10 @@ func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method 
 	return err
 }
 
-func (r *rpcClient) BatchCallContext(ctx context.Context, b []any) error {
+func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return err
-	}
-	batch := make([]rpc.BatchElem, len(b))
-	for i, arg := range b {
-		batch[i] = arg.(rpc.BatchElem)
 	}
 	defer cancel()
 	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
@@ -330,9 +327,9 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []any) error {
 	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
 	if http != nil {
-		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, batch))
+		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
 	} else {
-		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, batch))
+		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, b))
 	}
 	duration := time.Since(start)
 
