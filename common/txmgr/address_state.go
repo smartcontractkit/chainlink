@@ -219,9 +219,22 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 }
 
 // MoveConfirmedMissingReceiptToUnconfirmed moves the confirmed missing receipt transaction to the unconfirmed state.
+// It returns an error if there is no confirmed missing receipt transaction with the given ID.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveConfirmedMissingReceiptToUnconfirmed(
 	txID int64,
 ) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx, ok := as.confirmedMissingReceiptTxs[txID]
+	if !ok || tx == nil {
+		return fmt.Errorf("move_confirmed_missing_receipt_to_unconfirmed: no confirmed_missing_receipt transaction with ID %d", txID)
+	}
+
+	tx.State = TxUnconfirmed
+	as.unconfirmedTxs[tx.ID] = tx
+	delete(as.confirmedMissingReceiptTxs, tx.ID)
+
 	return nil
 }
 
