@@ -239,10 +239,42 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveCo
 }
 
 // MoveInProgressToUnconfirmed moves the in-progress transaction to the unconfirmed state.
+// It returns an error if there is no transaction in progress.
+// It returns an error if the transaction in progress does not have an attempt with the given ID.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToUnconfirmed(
-	etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	txError null.String, broadcastAt time.Time, initialBroadcastAt time.Time,
+	txAttemptID int64,
 ) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx := as.inprogressTx
+	if tx == nil {
+		return fmt.Errorf("move_in_progress_to_unconfirmed: no transaction in progress")
+	}
+
+	tx.State = TxUnconfirmed
+	tx.Error = txError
+	tx.BroadcastAt = &broadcastAt
+	tx.InitialBroadcastAt = &initialBroadcastAt
+
+	found := false
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		txAttempt := tx.TxAttempts[i]
+		if txAttempt.ID == txAttemptID {
+			txAttempt.State = txmgrtypes.TxAttemptBroadcast
+			tx.TxAttempts[i] = txAttempt
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("move_in_progress_to_unconfirmed: transaction in progress does not have an attempt with ID %d", txAttemptID)
+	}
+
+	as.unconfirmedTxs[tx.ID] = tx
+	as.inprogressTx = nil
+
 	return nil
 }
 
