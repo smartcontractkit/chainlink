@@ -9,7 +9,7 @@ contract ScrollModule is ChainModuleBase {
   /// @dev according to testing, this padding allows automation registry to properly estimates L1 data fee with 3-5% buffer
   /// @dev this MAY NOT work for a different product and this may get out of date if transmit function is changed
   bytes private constant SCROLL_L1_FEE_DATA_PADDING =
-  hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   /// @dev SCROLL_ORACLE_ADDR is the address of the ScrollL1GasPriceOracle precompile on Scroll.
   /// @dev reference: https://docs.scroll.io/en/developers/transaction-fees-on-scroll/#estimating-the-l1-data-fee
   address private constant SCROLL_ORACLE_ADDR = 0x5300000000000000000000000000000000000002;

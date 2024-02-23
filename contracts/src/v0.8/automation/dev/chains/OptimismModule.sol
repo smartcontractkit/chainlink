@@ -7,7 +7,7 @@ import {ChainModuleBase} from "./ChainModuleBase.sol";
 contract OptimismModule is ChainModuleBase {
   /// @dev OP_L1_DATA_FEE_PADDING includes 80 bytes for L1 data padding for Optimism and BASE
   bytes private constant OP_L1_DATA_FEE_PADDING =
-  hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
   /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
   address private constant OVM_GASPRICEORACLE_ADDR = 0x420000000000000000000000000000000000000F;
