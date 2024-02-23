@@ -287,7 +287,7 @@ contract CommitStore_resetUnblessedRoots is CommitStoreRealARMSetup {
     IARM.TaggedRoot[] memory blessedTaggedRoots = new IARM.TaggedRoot[](1);
     blessedTaggedRoots[0] = IARM.TaggedRoot({commitStore: address(s_commitStore), root: rootsToReset[1]});
 
-    changePrank(BLESS_VOTE_ADDR);
+    vm.startPrank(BLESS_VOTE_ADDR);
     s_arm.voteToBless(blessedTaggedRoots);
 
     vm.expectEmit(false, false, false, true);
@@ -296,7 +296,7 @@ contract CommitStore_resetUnblessedRoots is CommitStoreRealARMSetup {
     vm.expectEmit(false, false, false, true);
     emit RootRemoved(rootsToReset[2]);
 
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
     s_commitStore.resetUnblessedRoots(rootsToReset);
 
     assertEq(0, s_commitStore.getMerkleRoot(rootsToReset[0]));
@@ -599,7 +599,7 @@ contract CommitStore_verify is CommitStoreRealARMSetup {
     // Bless that root.
     IARM.TaggedRoot[] memory taggedRoots = new IARM.TaggedRoot[](1);
     taggedRoots[0] = IARM.TaggedRoot({commitStore: address(s_commitStore), root: leaves[0]});
-    changePrank(BLESS_VOTE_ADDR);
+    vm.startPrank(BLESS_VOTE_ADDR);
     s_arm.voteToBless(taggedRoots);
     bytes32[] memory proofs = new bytes32[](0);
     uint256 timestamp = s_commitStore.verify(leaves, proofs, 0);

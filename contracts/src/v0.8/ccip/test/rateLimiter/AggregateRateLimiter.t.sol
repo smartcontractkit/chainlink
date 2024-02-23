@@ -67,7 +67,7 @@ contract AggregateTokenLimiter_setAdmin is AggregateTokenLimiterSetup {
   // Reverts
 
   function testOnlyOwnerOrAdminReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert(RateLimiter.OnlyCallableByAdminOrOwner.selector);
 
     s_rateLimiter.setAdmin(STRANGER);
@@ -131,7 +131,7 @@ contract AggregateTokenLimiter_setRateLimiterConfig is AggregateTokenLimiterSetu
   }
 
   function testTokenLimitAdminSuccess() public {
-    changePrank(ADMIN);
+    vm.startPrank(ADMIN);
     setConfig();
   }
 
@@ -160,7 +160,7 @@ contract AggregateTokenLimiter_setRateLimiterConfig is AggregateTokenLimiterSetu
   // Reverts
 
   function testOnlyOnlyCallableByAdminOrOwnerReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
 
     vm.expectRevert(RateLimiter.OnlyCallableByAdminOrOwner.selector);
 

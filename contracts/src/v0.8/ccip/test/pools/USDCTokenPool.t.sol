@@ -152,7 +152,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
     uint256 amount = 1;
     s_token.transfer(address(s_usdcTokenPool), amount);
-    changePrank(s_routerAllowedOnRamp);
+    vm.startPrank(s_routerAllowedOnRamp);
 
     USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_SELECTOR);
 
@@ -189,7 +189,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.assume(destinationReceiver != bytes32(0));
     amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
     s_token.transfer(address(s_usdcTokenPool), amount);
-    changePrank(s_routerAllowedOnRamp);
+    vm.startPrank(s_routerAllowedOnRamp);
 
     USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_SELECTOR);
 
@@ -226,7 +226,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.assume(destinationReceiver != bytes32(0));
     amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
     s_token.transfer(address(s_usdcTokenPoolWithAllowList), amount);
-    changePrank(s_routerAllowedOnRamp);
+    vm.startPrank(s_routerAllowedOnRamp);
 
     USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPoolWithAllowList.getDomain(DEST_CHAIN_SELECTOR);
 
@@ -276,7 +276,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     s_usdcTokenPool.applyChainUpdates(chainUpdates);
 
     uint256 amount = 1000;
-    changePrank(s_routerAllowedOnRamp);
+    vm.startPrank(s_routerAllowedOnRamp);
     deal(address(s_token), s_routerAllowedOnRamp, amount);
     s_token.approve(address(s_usdcTokenPool), amount);
 
@@ -292,7 +292,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
   }
 
   function testLockOrBurnWithAllowListReverts() public {
-    changePrank(s_routerAllowedOnRamp);
+    vm.startPrank(s_routerAllowedOnRamp);
 
     vm.expectRevert(abi.encodeWithSelector(SenderNotAllowed.selector, STRANGER));
 
@@ -341,7 +341,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       abi.encodeWithSelector(MockUSDCTransmitter.receiveMessage.selector, message, attestation)
     );
 
-    changePrank(s_routerAllowedOffRamp);
+    vm.startPrank(s_routerAllowedOffRamp);
     s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), recipient, amount, SOURCE_CHAIN_SELECTOR, extraData);
   }
 
@@ -364,13 +364,13 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       abi.encodeWithSelector(MockUSDCTransmitter.receiveMessage.selector, encodedUsdcMessage, attestation)
     );
 
-    changePrank(s_routerAllowedOffRamp);
+    vm.startPrank(s_routerAllowedOffRamp);
     s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), OWNER, 100, SOURCE_CHAIN_SELECTOR, extraData);
   }
 
   // Reverts
   function testUnlockingUSDCFailedReverts() public {
-    changePrank(s_routerAllowedOffRamp);
+    vm.startPrank(s_routerAllowedOffRamp);
     s_mockUSDCTransmitter.setShouldSucceed(false);
 
     uint256 amount = 13255235235;
@@ -404,7 +404,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     uint256 capacity = getInboundRateLimiterConfig().capacity;
     uint256 amount = 10 * capacity;
     address recipient = address(1);
-    changePrank(s_routerAllowedOffRamp);
+    vm.startPrank(s_routerAllowedOffRamp);
 
     bytes memory extraData = abi.encode(
       USDCTokenPool.MessageAndAttestation({message: bytes(""), attestation: bytes("")})
@@ -476,7 +476,7 @@ contract USDCTokenPool_setDomains is USDCTokenPoolSetup {
   function testOnlyOwnerReverts() public {
     USDCTokenPool.DomainUpdate[] memory domainUpdates = new USDCTokenPool.DomainUpdate[](0);
 
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
 
     s_usdcTokenPool.setDomains(domainUpdates);

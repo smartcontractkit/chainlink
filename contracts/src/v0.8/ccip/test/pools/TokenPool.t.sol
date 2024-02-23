@@ -148,7 +148,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
   // Reverts
 
   function testOnlyCallableByOwnerReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
     s_tokenPool.applyChainUpdates(new TokenPool.ChainUpdate[](0));
   }
@@ -329,7 +329,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
   // Reverts
 
   function testOnlyOwnerReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
 
     vm.expectRevert("Only callable by owner");
     s_tokenPool.setChainRateLimiterConfig(

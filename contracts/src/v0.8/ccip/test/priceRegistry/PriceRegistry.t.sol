@@ -180,7 +180,7 @@ contract PriceRegistry_applyPriceUpdatersUpdates is PriceRegistrySetup {
   function testOnlyCallableByOwnerReverts() public {
     address[] memory priceUpdaters = new address[](1);
     priceUpdaters[0] = STRANGER;
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
     s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
   }
@@ -220,7 +220,7 @@ contract PriceRegistry_applyFeeTokensUpdates is PriceRegistrySetup {
   function testOnlyCallableByOwnerReverts() public {
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = STRANGER;
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
     s_priceRegistry.applyFeeTokensUpdates(feeTokens, new address[](0));
   }
@@ -331,7 +331,7 @@ contract PriceRegistry_updatePrices is PriceRegistrySetup {
       gasPriceUpdates: new Internal.GasPriceUpdate[](0)
     });
 
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert(abi.encodeWithSelector(PriceRegistry.OnlyCallableByUpdaterOrOwner.selector));
     s_priceRegistry.updatePrices(priceUpdates);
   }

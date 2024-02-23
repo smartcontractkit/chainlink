@@ -83,10 +83,10 @@ contract EVM2EVMOnRamp_payNops_fuzz is EVM2EVMOnRampSetup {
 
     // Set Nop fee juels
     deal(s_sourceFeeToken, address(s_onRamp), nopFeesJuels);
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), nopFeesJuels, OWNER);
 
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     uint256 totalJuels = s_onRamp.getNopFeesJuels();
     s_onRamp.payNops();
@@ -104,7 +104,7 @@ contract EVM2EVMNopsFeeSetup is EVM2EVMOnRampSetup {
     // Since we'll mostly be testing for valid calls from the router we'll
     // mock all calls to be originating from the router and re-mock in
     // tests that require failure.
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
 
     uint256 feeAmount = 1234567890;
     uint256 numberOfMessages = 5;
@@ -122,7 +122,7 @@ contract EVM2EVMNopsFeeSetup is EVM2EVMOnRampSetup {
 
 contract EVM2EVMOnRamp_payNops is EVM2EVMNopsFeeSetup {
   function testOwnerPayNopsSuccess() public {
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     uint256 totalJuels = s_onRamp.getNopFeesJuels();
     s_onRamp.payNops();
@@ -134,7 +134,7 @@ contract EVM2EVMOnRamp_payNops is EVM2EVMNopsFeeSetup {
   }
 
   function testAdminPayNopsSuccess() public {
-    changePrank(ADMIN);
+    vm.startPrank(ADMIN);
 
     uint256 totalJuels = s_onRamp.getNopFeesJuels();
     s_onRamp.payNops();
@@ -146,7 +146,7 @@ contract EVM2EVMOnRamp_payNops is EVM2EVMNopsFeeSetup {
   }
 
   function testNopPayNopsSuccess() public {
-    changePrank(getNopsAndWeights()[0].nop);
+    vm.startPrank(getNopsAndWeights()[0].nop);
 
     uint256 totalJuels = s_onRamp.getNopFeesJuels();
     s_onRamp.payNops();
@@ -158,7 +158,7 @@ contract EVM2EVMOnRamp_payNops is EVM2EVMNopsFeeSetup {
   }
 
   function testPayNopsSuccessAfterSetNops() public {
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     // set 2 nops, 1 from previous, 1 new
     address prevNop = getNopsAndWeights()[0].nop;
@@ -169,12 +169,12 @@ contract EVM2EVMOnRamp_payNops is EVM2EVMNopsFeeSetup {
     s_onRamp.setNops(nopsAndWeights);
 
     // refill OnRamp nops fees
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
     uint256 feeAmount = 1234567890;
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), feeAmount, OWNER);
 
-    changePrank(newNop);
+    vm.startPrank(newNop);
     uint256 prevNopBalance = IERC20(s_sourceFeeToken).balanceOf(prevNop);
     uint256 totalJuels = s_onRamp.getNopFeesJuels();
 
@@ -187,29 +187,29 @@ contract EVM2EVMOnRamp_payNops is EVM2EVMNopsFeeSetup {
   // Reverts
 
   function testInsufficientBalanceReverts() public {
-    changePrank(address(s_onRamp));
+    vm.startPrank(address(s_onRamp));
     IERC20(s_sourceFeeToken).transfer(OWNER, IERC20(s_sourceFeeToken).balanceOf(address(s_onRamp)));
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
     vm.expectRevert(EVM2EVMOnRamp.InsufficientBalance.selector);
     s_onRamp.payNops();
   }
 
   function testWrongPermissionsReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
 
     vm.expectRevert(EVM2EVMOnRamp.OnlyCallableByOwnerOrAdminOrNop.selector);
     s_onRamp.payNops();
   }
 
   function testNoFeesToPayReverts() public {
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
     s_onRamp.payNops();
     vm.expectRevert(EVM2EVMOnRamp.NoFeesToPay.selector);
     s_onRamp.payNops();
   }
 
   function testNoNopsToPayReverts() public {
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
     EVM2EVMOnRamp.NopAndWeight[] memory nopsAndWeights = new EVM2EVMOnRamp.NopAndWeight[](0);
     s_onRamp.setNops(nopsAndWeights);
     vm.expectRevert(EVM2EVMOnRamp.NoNopsToPay.selector);
@@ -225,7 +225,7 @@ contract EVM2EVMOnRamp_linkAvailableForPayment is EVM2EVMNopsFeeSetup {
 
     assertEq(int256(linkBalance - totalJuels), s_onRamp.linkAvailableForPayment());
 
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
     s_onRamp.payNops();
 
     assertEq(int256(linkBalance - totalJuels), s_onRamp.linkAvailableForPayment());
@@ -235,12 +235,12 @@ contract EVM2EVMOnRamp_linkAvailableForPayment is EVM2EVMNopsFeeSetup {
     uint256 totalJuels = s_onRamp.getNopFeesJuels();
     uint256 linkBalance = IERC20(s_sourceFeeToken).balanceOf(address(s_onRamp));
 
-    changePrank(address(s_onRamp));
+    vm.startPrank(address(s_onRamp));
 
     uint256 linkRemaining = 1;
     IERC20(s_sourceFeeToken).transfer(OWNER, linkBalance - linkRemaining);
 
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     assertEq(int256(linkRemaining) - int256(totalJuels), s_onRamp.linkAvailableForPayment());
   }
 }
@@ -262,7 +262,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     // Since we'll mostly be testing for valid calls from the router we'll
     // mock all calls to be originating from the router and re-mock in
     // tests that require failure.
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
   }
 
   function testForwardFromRouterSuccessCustomExtraArgs() public {
@@ -390,7 +390,8 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
 
   function testPausedReverts() public {
     // We pause by disabling the whitelist
-    changePrank(OWNER);
+    vm.stopPrank();
+    vm.startPrank(OWNER);
     address router = address(0);
     s_onRamp.setDynamicConfig(generateDynamicOnRampConfig(router, address(2)));
     vm.expectRevert(EVM2EVMOnRamp.MustBeCalledByRouter.selector);
@@ -413,7 +414,8 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
   }
 
   function testPermissionsReverts() public {
-    changePrank(OWNER);
+    vm.stopPrank();
+    vm.startPrank(OWNER);
     vm.expectRevert(EVM2EVMOnRamp.MustBeCalledByRouter.selector);
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, OWNER);
   }
@@ -458,13 +460,14 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
 
     // We need to set the price of this new token to be able to reach
     // the proper revert point. This must be called by the owner.
-    changePrank(OWNER);
+    vm.stopPrank();
+    vm.startPrank(OWNER);
 
     Internal.PriceUpdates memory priceUpdates = getSingleTokenPriceUpdateStruct(wrongToken, 1);
     s_priceRegistry.updatePrices(priceUpdates);
 
     // Change back to the router
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.UnsupportedToken.selector, wrongToken));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
@@ -560,7 +563,8 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
 
   function testSourceTokenDataTooLargeReverts() public {
     address sourceETH = s_sourceTokens[1];
-    changePrank(OWNER);
+    vm.stopPrank();
+    vm.startPrank(OWNER);
 
     MaybeRevertingBurnMintTokenPool newPool = new MaybeRevertingBurnMintTokenPool(
       BurnMintERC677(sourceETH),
@@ -607,7 +611,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(address(sourceETH), 1000);
 
     // only call OnRamp from Router
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.SourceTokenDataTooLarge.selector, sourceETH));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
@@ -647,7 +651,7 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
       abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, address(s_onRamp))
     );
 
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
   }
 
   function testV2Success() public {
@@ -1403,7 +1407,7 @@ contract EVM2EVMOnRamp_setNops is EVM2EVMOnRampSetup {
   function testAdminCanSetNopsSuccess() public {
     EVM2EVMOnRamp.NopAndWeight[] memory nopsAndWeights = getNopsAndWeights();
     // Should not revert
-    changePrank(ADMIN);
+    vm.startPrank(ADMIN);
     s_onRamp.setNops(nopsAndWeights);
   }
 
@@ -1421,9 +1425,9 @@ contract EVM2EVMOnRamp_setNops is EVM2EVMOnRampSetup {
     uint96 nopFeesJuels = totalWeight * 5;
     // Set Nop fee juels
     deal(s_sourceFeeToken, address(s_onRamp), nopFeesJuels);
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), nopFeesJuels, OWNER);
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     // We don't care about the fee calculation logic in this test
     // so we don't verify the amounts. We do verify the addresses to
@@ -1450,7 +1454,7 @@ contract EVM2EVMOnRamp_setNops is EVM2EVMOnRampSetup {
     assertEq(totalWeight, 0);
 
     address prevNop = getNopsAndWeights()[0].nop;
-    changePrank(prevNop);
+    vm.startPrank(prevNop);
 
     // prev nop should not have permission to call payNops
     vm.expectRevert(EVM2EVMOnRamp.OnlyCallableByOwnerOrAdminOrNop.selector);
@@ -1463,9 +1467,9 @@ contract EVM2EVMOnRamp_setNops is EVM2EVMOnRampSetup {
     uint96 nopFeesJuels = MAX_NOP_FEES_JUELS;
     // Set Nop fee juels but don't transfer LINK. This can happen when users
     // pay in non-link tokens.
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), nopFeesJuels, OWNER);
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     vm.expectRevert(EVM2EVMOnRamp.InsufficientBalance.selector);
 
@@ -1474,7 +1478,7 @@ contract EVM2EVMOnRamp_setNops is EVM2EVMOnRampSetup {
 
   function testNonOwnerOrAdminReverts() public {
     EVM2EVMOnRamp.NopAndWeight[] memory nopsAndWeights = getNopsAndWeights();
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert(EVM2EVMOnRamp.OnlyCallableByOwnerOrAdmin.selector);
     s_onRamp.setNops(nopsAndWeights);
   }
@@ -1527,9 +1531,9 @@ contract EVM2EVMOnRamp_withdrawNonLinkFees is EVM2EVMOnRampSetup {
   function testSettlingBalanceSuccess() public {
     // Set Nop fee juels
     uint96 nopFeesJuels = 10000000;
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), nopFeesJuels, OWNER);
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     vm.expectRevert(EVM2EVMOnRamp.LinkBalanceNotSettled.selector);
     s_onRamp.withdrawNonLinkFees(address(s_token), address(this));
@@ -1546,9 +1550,9 @@ contract EVM2EVMOnRamp_withdrawNonLinkFees is EVM2EVMOnRampSetup {
     nopFeeJuels = uint96(bound(nopFeeJuels, 1, MAX_NOP_FEES_JUELS));
 
     // Set Nop fee juels
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), nopFeeJuels, OWNER);
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     vm.expectRevert(EVM2EVMOnRamp.LinkBalanceNotSettled.selector);
     s_onRamp.withdrawNonLinkFees(address(s_token), address(this));
@@ -1573,9 +1577,9 @@ contract EVM2EVMOnRamp_withdrawNonLinkFees is EVM2EVMOnRampSetup {
   function testLinkBalanceNotSettledReverts() public {
     // Set Nop fee juels
     uint96 nopFeesJuels = 10000000;
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), nopFeesJuels, OWNER);
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     vm.expectRevert(EVM2EVMOnRamp.LinkBalanceNotSettled.selector);
 
@@ -1583,7 +1587,7 @@ contract EVM2EVMOnRamp_withdrawNonLinkFees is EVM2EVMOnRampSetup {
   }
 
   function testNonOwnerOrAdminReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
 
     vm.expectRevert(EVM2EVMOnRamp.OnlyCallableByOwnerOrAdmin.selector);
     s_onRamp.withdrawNonLinkFees(address(s_token), address(this));
@@ -1611,7 +1615,7 @@ contract EVM2EVMOnRamp_setFeeTokenConfig is EVM2EVMOnRampSetup {
   function testSetFeeTokenConfigByAdminSuccess() public {
     EVM2EVMOnRamp.FeeTokenConfigArgs[] memory feeConfig;
 
-    changePrank(ADMIN);
+    vm.startPrank(ADMIN);
 
     vm.expectEmit();
     emit FeeConfigSet(feeConfig);
@@ -1623,7 +1627,7 @@ contract EVM2EVMOnRamp_setFeeTokenConfig is EVM2EVMOnRampSetup {
 
   function testOnlyCallableByOwnerOrAdminReverts() public {
     EVM2EVMOnRamp.FeeTokenConfigArgs[] memory feeConfig;
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
 
     vm.expectRevert(EVM2EVMOnRamp.OnlyCallableByOwnerOrAdmin.selector);
 
@@ -1681,7 +1685,7 @@ contract EVM2EVMOnRamp_setTokenTransferFeeConfig is EVM2EVMOnRampSetup {
 
   function testSetFeeTokenConfigByAdminSuccess() public {
     EVM2EVMOnRamp.TokenTransferFeeConfigArgs[] memory transferFeeConfig;
-    changePrank(ADMIN);
+    vm.startPrank(ADMIN);
 
     vm.expectEmit();
     emit TokenTransferFeeConfigSet(transferFeeConfig);
@@ -1693,7 +1697,7 @@ contract EVM2EVMOnRamp_setTokenTransferFeeConfig is EVM2EVMOnRampSetup {
 
   function testOnlyCallableByOwnerOrAdminReverts() public {
     EVM2EVMOnRamp.TokenTransferFeeConfigArgs[] memory transferFeeConfig;
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
 
     vm.expectRevert(EVM2EVMOnRamp.OnlyCallableByOwnerOrAdmin.selector);
 
@@ -1770,10 +1774,10 @@ contract EVM2EVMOnRamp_applyPoolUpdates is EVM2EVMOnRampSetup {
 
   // Reverts
   function testOnlyCallableByOwnerReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
     s_onRamp.applyPoolUpdates(new Internal.PoolUpdate[](0), new Internal.PoolUpdate[](0));
-    changePrank(ADMIN);
+    vm.startPrank(ADMIN);
     vm.expectRevert("Only callable by owner");
     s_onRamp.applyPoolUpdates(new Internal.PoolUpdate[](0), new Internal.PoolUpdate[](0));
   }
@@ -1937,10 +1941,10 @@ contract EVM2EVMOnRamp_setDynamicConfig is EVM2EVMOnRampSetup {
   }
 
   function testSetConfigOnlyOwnerReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
     s_onRamp.setDynamicConfig(generateDynamicOnRampConfig(address(1), address(2)));
-    changePrank(ADMIN);
+    vm.startPrank(ADMIN);
     vm.expectRevert("Only callable by owner");
     s_onRamp.setDynamicConfig(generateDynamicOnRampConfig(address(1), address(2)));
   }

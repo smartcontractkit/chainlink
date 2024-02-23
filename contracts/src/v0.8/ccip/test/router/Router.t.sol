@@ -49,7 +49,7 @@ contract Router_recoverTokens is EVM2EVMOnRampSetup {
 
   function testRecoverTokensNonOwnerReverts() public {
     // Reverts if not owner
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
     s_sourceRouter.recoverTokens(address(0), STRANGER, 1);
   }
@@ -400,7 +400,7 @@ contract Router_applyRampUpdates is RouterSetup {
   }
 
   function assertOffRampRouteSucceeds(Router.OffRamp memory offRamp) internal {
-    changePrank(offRamp.offRamp);
+    vm.startPrank(offRamp.offRamp);
 
     Client.Any2EVMMessage memory message = generateReceiverMessage(offRamp.sourceChainSelector);
     vm.expectCall(address(s_receiver), abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message));
@@ -408,7 +408,7 @@ contract Router_applyRampUpdates is RouterSetup {
   }
 
   function assertOffRampRouteReverts(Router.OffRamp memory offRamp) internal {
-    changePrank(offRamp.offRamp);
+    vm.startPrank(offRamp.offRamp);
 
     vm.expectRevert(IRouter.OnlyOffRamp.selector);
     s_sourceRouter.routeMessage(
@@ -488,7 +488,7 @@ contract Router_applyRampUpdates is RouterSetup {
       assertOffRampRouteSucceeds(offRampUpdates[i]);
     }
 
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     // 2nd test scenario: partially remove existing offramps, add new offramps.
     // Check offramps are removed correctly. Removed offramps cannot route messages.
@@ -532,7 +532,7 @@ contract Router_applyRampUpdates is RouterSetup {
       assertOffRampRouteSucceeds(offRampUpdates[i]);
     }
 
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     // 3rd test scenario: remove all offramps.
     // Check all offramps have been removed, no offramp is able to route messages.
@@ -566,7 +566,7 @@ contract Router_applyRampUpdates is RouterSetup {
       assertOffRampRouteReverts(offRampUpdates[i]);
     }
 
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     // 4th test scenario: add initial onramps back.
     // Check the offramps are added correctly, and can route messages.
@@ -699,7 +699,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
 
   function setUp() public virtual override {
     EVM2EVMOffRampSetup.setUp();
-    changePrank(address(s_offRamp));
+    vm.startPrank(address(s_offRamp));
   }
 
   function testManualExecSuccess() public {
@@ -867,7 +867,8 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
 
   // Reverts
   function testOnlyOffRampReverts() public {
-    changePrank(STRANGER);
+    vm.stopPrank();
+    vm.startPrank(STRANGER);
 
     vm.expectRevert(IRouter.OnlyOffRamp.selector);
     s_destRouter.routeMessage(

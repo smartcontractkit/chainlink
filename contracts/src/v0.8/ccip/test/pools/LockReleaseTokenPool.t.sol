@@ -90,7 +90,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
 
   function testFuzz_LockOrBurnNoAllowListSuccess(uint256 amount) public {
     amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
-    changePrank(s_allowedOnRamp);
+    vm.startPrank(s_allowedOnRamp);
 
     vm.expectEmit();
     emit TokensConsumed(amount);
@@ -102,7 +102,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
 
   function testLockOrBurnWithAllowListSuccess() public {
     uint256 amount = 100;
-    changePrank(s_allowedOnRamp);
+    vm.startPrank(s_allowedOnRamp);
 
     vm.expectEmit();
     emit TokensConsumed(amount);
@@ -118,7 +118,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
   }
 
   function testLockOrBurnWithAllowListReverts() public {
-    changePrank(s_allowedOnRamp);
+    vm.startPrank(s_allowedOnRamp);
 
     vm.expectRevert(abi.encodeWithSelector(SenderNotAllowed.selector, STRANGER));
 
@@ -130,7 +130,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
     s_mockARM.voteToCurse(bytes32(0));
     uint256 before = s_token.balanceOf(address(s_lockReleaseTokenPoolWithAllowList));
 
-    changePrank(s_allowedOnRamp);
+    vm.startPrank(s_allowedOnRamp);
     vm.expectRevert(EVM2EVMOnRamp.BadARMSignal.selector);
 
     s_lockReleaseTokenPoolWithAllowList.lockOrBurn(s_allowedList[0], bytes(""), 1e5, DEST_CHAIN_SELECTOR, bytes(""));
@@ -309,9 +309,9 @@ contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
     s_token.approve(address(s_lockReleaseTokenPool), maxUint256);
     s_lockReleaseTokenPool.provideLiquidity(maxUint256);
 
-    changePrank(address(s_lockReleaseTokenPool));
+    vm.startPrank(address(s_lockReleaseTokenPool));
     s_token.transfer(OWNER, maxUint256);
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     vm.expectRevert(LockReleaseTokenPool.InsufficientLiquidity.selector);
     s_lockReleaseTokenPool.withdrawLiquidity(1);
@@ -401,7 +401,7 @@ contract LockReleaseTokenPool_setChainRateLimiterConfig is LockReleaseTokenPoolS
 
     s_lockReleaseTokenPool.setRateLimitAdmin(rateLimiterAdmin);
 
-    changePrank(rateLimiterAdmin);
+    vm.startPrank(rateLimiterAdmin);
 
     s_lockReleaseTokenPool.setChainRateLimiterConfig(
       s_remoteChainSelector,
@@ -409,7 +409,7 @@ contract LockReleaseTokenPool_setChainRateLimiterConfig is LockReleaseTokenPoolS
       getInboundRateLimiterConfig()
     );
 
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     s_lockReleaseTokenPool.setChainRateLimiterConfig(
       s_remoteChainSelector,
@@ -421,7 +421,7 @@ contract LockReleaseTokenPool_setChainRateLimiterConfig is LockReleaseTokenPoolS
   // Reverts
 
   function testOnlyOwnerReverts() public {
-    changePrank(STRANGER);
+    vm.startPrank(STRANGER);
 
     vm.expectRevert(abi.encodeWithSelector(LockReleaseTokenPool.Unauthorized.selector, STRANGER));
     s_lockReleaseTokenPool.setChainRateLimiterConfig(

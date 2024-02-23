@@ -36,7 +36,7 @@ contract DefensiveExampleTest is EVM2EVMOnRampSetup {
     s_receiver.setSimRevert(true);
 
     // The receiver contract will revert if the router is not the sender.
-    changePrank(address(s_destRouter));
+    vm.startPrank(address(s_destRouter));
 
     vm.expectEmit();
     emit MessageFailed(messageId, abi.encodeWithSelector(DefensiveExample.ErrorCase.selector));
@@ -56,7 +56,7 @@ contract DefensiveExampleTest is EVM2EVMOnRampSetup {
     uint256 receiverBalancePre = IERC20(token).balanceOf(address(s_receiver));
 
     // Recovery can only be done by the owner.
-    changePrank(OWNER);
+    vm.startPrank(OWNER);
 
     vm.expectEmit();
     emit MessageRecovered(messageId);
@@ -79,7 +79,7 @@ contract DefensiveExampleTest is EVM2EVMOnRampSetup {
     deal(token, address(s_receiver), amount);
 
     // The receiver contract will revert if the router is not the sender.
-    changePrank(address(s_destRouter));
+    vm.startPrank(address(s_destRouter));
 
     vm.expectEmit();
     emit MessageSucceeded(messageId);

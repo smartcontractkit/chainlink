@@ -37,6 +37,7 @@ contract ARMSetup is BaseTest {
   function setUp() public virtual override {
     BaseTest.setUp();
     s_arm = new ARM(armConstructorArgs());
+    vm.stopPrank();
   }
 
   function hasVotedToBlessRoot(address voter, IARM.TaggedRoot memory taggedRoot_) internal view returns (bool) {

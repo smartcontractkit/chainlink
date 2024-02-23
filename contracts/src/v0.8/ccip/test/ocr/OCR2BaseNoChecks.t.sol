@@ -56,7 +56,7 @@ contract OCR2BaseNoChecks_transmit is OCR2BaseNoChecksSetup {
     vm.pauseGasMetering();
     bytes32[3] memory reportContext = [s_configDigest, s_configDigest, s_configDigest];
 
-    changePrank(s_valid_transmitters[0]);
+    vm.startPrank(s_valid_transmitters[0]);
     vm.resumeGasMetering();
     s_OCR2Base.transmit(reportContext, REPORT, s_rs, s_ss, s_rawVs);
   }
@@ -70,7 +70,7 @@ contract OCR2BaseNoChecks_transmit is OCR2BaseNoChecksSetup {
     uint256 chain2 = chain1 + 1;
     vm.chainId(chain2);
     vm.expectRevert(abi.encodeWithSelector(OCR2BaseNoChecks.ForkedChain.selector, chain1, chain2));
-    changePrank(s_valid_transmitters[0]);
+    vm.startPrank(s_valid_transmitters[0]);
     s_OCR2Base.transmit(reportContext, REPORT, s_rs, s_ss, s_rawVs);
   }
 

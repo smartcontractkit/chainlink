@@ -89,7 +89,7 @@ contract PingPong_ccipReceive is PingPongDappSetup {
       destTokenAmounts: tokenAmounts
     });
 
-    changePrank(address(s_sourceRouter));
+    vm.startPrank(address(s_sourceRouter));
 
     vm.expectEmit();
     emit Pong(pingPongNumber + 1);
