@@ -31,7 +31,7 @@ func (c *Config) Validate() error {
 			return err
 		}
 	}
-	if c.ExistingEnvConfig != nil {
+	if c.ExistingEnvConfig != nil && *c.General.UseExistingEnv == true {
 		if err := c.ExistingEnvConfig.Validate(); err != nil {
 			return err
 		}
