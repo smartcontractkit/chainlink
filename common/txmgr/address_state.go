@@ -4,11 +4,12 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"gopkg.in/guregu/null.v4"
 )
 
 // AddressState is the state of all transactions for a given address
