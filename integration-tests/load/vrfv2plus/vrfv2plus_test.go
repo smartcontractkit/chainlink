@@ -86,7 +86,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 					} else {
 						if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
 							//cancel subs and return funds to sub owner
-							cancelSubsAndReturnFunds(subIDs, l)
+							cancelSubsAndReturnFunds(testcontext.Get(t), subIDs, l)
 						}
 					}
 				}).
@@ -129,7 +129,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			subIDs = append(subIDs, subID)
 		}
 
-		err = FundNodesIfNeeded(&testConfig, env.EVMClient, l)
+		err = FundNodesIfNeeded(testcontext.Get(t), &testConfig, env.EVMClient, l)
 		require.NoError(t, err)
 
 		vrfContracts = &vrfcommon.VRFContracts{
@@ -164,7 +164,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 					} else {
 						if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
 							//cancel subs and return funds to sub owner
-							cancelSubsAndReturnFunds(subIDs, l)
+							cancelSubsAndReturnFunds(testcontext.Get(t), subIDs, l)
 						}
 					}
 					if err := env.Cleanup(); err != nil {
@@ -241,7 +241,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//todo - timeout should be configurable depending on the perf test type
-		requestCount, fulfilmentCount, err := vrfv2plus.WaitForRequestCountEqualToFulfilmentCount(consumer, 2*time.Minute, &wg)
+		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wg)
 		require.NoError(t, err)
 		wg.Wait()
 
@@ -253,13 +253,13 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 }
 
-func cancelSubsAndReturnFunds(subIDs []*big.Int, l zerolog.Logger) {
+func cancelSubsAndReturnFunds(ctx context.Context, subIDs []*big.Int, l zerolog.Logger) {
 	for _, subID := range subIDs {
 		l.Info().
 			Str("Returning funds from SubID", subID.String()).
 			Str("Returning funds to", eoaWalletAddress).
 			Msg("Canceling subscription and returning funds to subscription owner")
-		pendingRequestsExist, err := vrfContracts.CoordinatorV2Plus.PendingRequestsExist(context.Background(), subID)
+		pendingRequestsExist, err := vrfContracts.CoordinatorV2Plus.PendingRequestsExist(ctx, subID)
 		if err != nil {
 			l.Error().Err(err).Msg("Error checking if pending requests exist")
 		}
@@ -274,12 +274,12 @@ func cancelSubsAndReturnFunds(subIDs []*big.Int, l zerolog.Logger) {
 	}
 }
 
-func FundNodesIfNeeded(vrfv2plusTestConfig tc.VRFv2PlusTestConfig, client blockchain.EVMClient, l zerolog.Logger) error {
+func FundNodesIfNeeded(ctx context.Context, vrfv2plusTestConfig tc.VRFv2PlusTestConfig, client blockchain.EVMClient, l zerolog.Logger) error {
 	cfg := vrfv2plusTestConfig.GetVRFv2PlusConfig()
-	if *cfg.ExistingEnvConfig.NodeSendingKeyFundingMin > 0 {
+	if cfg.ExistingEnvConfig.NodeSendingKeyFundingMin != nil && *cfg.ExistingEnvConfig.NodeSendingKeyFundingMin > 0 {
 		for _, sendingKey := range cfg.ExistingEnvConfig.NodeSendingKeys {
 			address := common.HexToAddress(sendingKey)
-			sendingKeyBalance, err := client.BalanceAt(context.Background(), address)
+			sendingKeyBalance, err := client.BalanceAt(ctx, address)
 			if err != nil {
 				return err
 			}

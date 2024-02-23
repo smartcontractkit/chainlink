@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -941,51 +940,6 @@ func WaitForRequestAndFulfillmentEvents(
 	}
 	LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent)
 	return randomWordsFulfilledEvent, err
-}
-
-func WaitForRequestCountEqualToFulfilmentCount(consumer contracts.VRFv2LoadTestConsumer, timeout time.Duration, wg *sync.WaitGroup) (*big.Int, *big.Int, error) {
-	metricsChannel := make(chan *contracts.VRFLoadTestMetrics)
-	metricsErrorChannel := make(chan error)
-
-	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
-	defer testCancel()
-
-	ticker := time.NewTicker(time.Second * 1)
-	var metrics *contracts.VRFLoadTestMetrics
-	for {
-		select {
-		case <-testContext.Done():
-			ticker.Stop()
-			wg.Done()
-			return metrics.RequestCount, metrics.FulfilmentCount,
-				fmt.Errorf("timeout waiting for rand request and fulfilments to be equal AFTER performance test was executed. Request Count: %d, Fulfilment Count: %d",
-					metrics.RequestCount.Uint64(), metrics.FulfilmentCount.Uint64())
-		case <-ticker.C:
-			go retrieveLoadTestMetrics(consumer, metricsChannel, metricsErrorChannel)
-		case metrics = <-metricsChannel:
-			if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 0 {
-				ticker.Stop()
-				wg.Done()
-				return metrics.RequestCount, metrics.FulfilmentCount, nil
-			}
-		case err := <-metricsErrorChannel:
-			ticker.Stop()
-			wg.Done()
-			return nil, nil, err
-		}
-	}
-}
-
-func retrieveLoadTestMetrics(
-	consumer contracts.VRFv2LoadTestConsumer,
-	metricsChannel chan *contracts.VRFLoadTestMetrics,
-	metricsErrorChannel chan error,
-) {
-	metrics, err := consumer.GetLoadTestMetrics(context.Background())
-	if err != nil {
-		metricsErrorChannel <- err
-	}
-	metricsChannel <- metrics
 }
 
 func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2.GetSubscription, subID uint64, coordinator contracts.VRFCoordinatorV2) {

@@ -1,8 +1,11 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -11,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
 )
@@ -134,4 +138,55 @@ func CreateBHSJob(
 		return nil, fmt.Errorf("%s, err %w", ErrCreatingBHSJob, err)
 	}
 	return job, nil
+}
+
+func WaitForRequestCountEqualToFulfilmentCount(
+	ctx context.Context,
+	consumer VRFLoadTestConsumer,
+	timeout time.Duration,
+	wg *sync.WaitGroup,
+) (*big.Int, *big.Int, error) {
+	metricsChannel := make(chan *contracts.VRFLoadTestMetrics)
+	metricsErrorChannel := make(chan error)
+
+	testContext, testCancel := context.WithTimeout(ctx, timeout)
+	defer testCancel()
+
+	ticker := time.NewTicker(time.Second * 1)
+	var metrics *contracts.VRFLoadTestMetrics
+	for {
+		select {
+		case <-testContext.Done():
+			ticker.Stop()
+			wg.Done()
+			return metrics.RequestCount, metrics.FulfilmentCount,
+				fmt.Errorf("timeout waiting for rand request and fulfilments to be equal AFTER performance test was executed. Request Count: %d, Fulfilment Count: %d",
+					metrics.RequestCount.Uint64(), metrics.FulfilmentCount.Uint64())
+		case <-ticker.C:
+			go retrieveLoadTestMetrics(ctx, consumer, metricsChannel, metricsErrorChannel)
+		case metrics = <-metricsChannel:
+			if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 0 {
+				ticker.Stop()
+				wg.Done()
+				return metrics.RequestCount, metrics.FulfilmentCount, nil
+			}
+		case err := <-metricsErrorChannel:
+			ticker.Stop()
+			wg.Done()
+			return nil, nil, err
+		}
+	}
+}
+
+func retrieveLoadTestMetrics(
+	ctx context.Context,
+	consumer VRFLoadTestConsumer,
+	metricsChannel chan *contracts.VRFLoadTestMetrics,
+	metricsErrorChannel chan error,
+) {
+	metrics, err := consumer.GetLoadTestMetrics(ctx)
+	if err != nil {
+		metricsErrorChannel <- err
+	}
+	metricsChannel <- metrics
 }
