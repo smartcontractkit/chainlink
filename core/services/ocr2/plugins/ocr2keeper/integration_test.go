@@ -1,7 +1,6 @@
 package ocr2keeper_test
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -441,9 +440,7 @@ func setupForwarderForNode(
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetSqlxDB())
 	chainID := ubig.Big(*backend.Blockchain().Config().ChainID)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	_, err = forwarderORM.CreateForwarder(ctx, faddr, chainID)
+	_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
 	require.NoError(t, err)
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())
