@@ -119,45 +119,6 @@ func DeployForwarderContracts(
 	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
-func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeys) error {
-	if seth == nil {
-		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
-	}
-	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-	if seth.Cfg.IsSimulatedNetwork() {
-		log.Info().Str("Network Name", seth.Cfg.Network.Name).
-			Msg("Network is a simulated network. Skipping fund return.")
-		return nil
-	}
-
-	panic("implement me")
-
-	//TODO maybe implement fund return in a similar way, but with chain or responsibility
-	//for handling different errors? Will be easy to add new errors to handle
-	// for _, chainlinkNode := range chainlinkNodes {
-	// 	fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(seth.ChainID))
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	for _, key := range fundedKeys {
-	// 		keyToDecrypt, err := json.Marshal(key)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
-	// 		// issues. So we avoid running in parallel; slower, but safer.
-	// 		decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
-	// 		if err != nil {
-	// 			log.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
-	// 		}
-	// 	}
-	// }
-}
-
 // I think this is the same as the original WatchNewRound
 func WatchNewRound(
 	l zerolog.Logger,
@@ -328,4 +289,182 @@ func TeardownRemoteSuite(
 				"Environment is left running so you can try manually!")
 	}
 	return err
+}
+
+// StartNewRound requests a new round from the ocr contracts and waits for confirmation
+func StartNewRound(
+	ocrInstances []contracts.OffChainAggregatorWithRounds,
+) error {
+	for i := 0; i < len(ocrInstances); i++ {
+		err := ocrInstances[i].RequestNewRound()
+		if err != nil {
+			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+// DeployOCRContractsForwarderFlow deploys and funds a certain number of offchain
+// aggregator contracts with forwarders as effectiveTransmitters
+func DeployOCRContractsForwarderFlow(
+	logger zerolog.Logger,
+	seth *seth.Client,
+	numberOfContracts int,
+	linkTokenContractAddress common.Address,
+	workerNodes []*client.ChainlinkK8sClient,
+	forwarderAddresses []common.Address,
+) ([]contracts.OffchainAggregator, error) {
+	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
+		transmitters = make([]string, 0)
+		payees = make([]string, 0)
+		for _, forwarderCommonAddress := range forwarderAddresses {
+			forwarderAddress := forwarderCommonAddress.Hex()
+			transmitters = append(transmitters, forwarderAddress)
+			payees = append(payees, seth.Addresses[0].Hex())
+		}
+
+		return
+	}
+
+	return deployOCRContracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
+}
+
+// DeployOCRContracts deploys and funds a certain number of offchain aggregator contracts
+func DeployOCRContracts(
+	logger zerolog.Logger,
+	seth *seth.Client,
+	numberOfContracts int,
+	linkTokenContractAddress common.Address,
+	workerNodes []*client.ChainlinkK8sClient,
+) ([]contracts.OffchainAggregator, error) {
+	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
+		transmitters = make([]string, 0)
+		payees = make([]string, 0)
+		for _, node := range workerNodes {
+			var addr string
+			addr, err = node.PrimaryEthAddress()
+			if err != nil {
+				err = fmt.Errorf("error getting node's primary ETH address: %w", err)
+				return
+			}
+			transmitters = append(transmitters, addr)
+			payees = append(payees, seth.Addresses[0].Hex())
+		}
+
+		return
+	}
+
+	return deployOCRContracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
+}
+
+func deployOCRContracts(
+	logger zerolog.Logger,
+	seth *seth.Client,
+	numberOfContracts int,
+	linkTokenContractAddress common.Address,
+	workerNodes []*client.ChainlinkK8sClient,
+	getTransmitterAndPayeesFn func() ([]string, []string, error),
+) ([]contracts.OffchainAggregator, error) {
+	// Deploy contracts
+	var ocrInstances []contracts.OffchainAggregator
+	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+		ocrInstance, err := contracts.DeployOffchainAggregator(logger, seth, linkTokenContractAddress, contracts.DefaultOffChainAggregatorOptions())
+		if err != nil {
+			return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
+		}
+		ocrInstances = append(ocrInstances, &ocrInstance)
+		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	// Gather transmitter and address payees
+	var transmitters, payees []string
+	transmitters, payees, err := getTransmitterAndPayeesFn()
+
+	// Set Payees
+	for contractCount, ocrInstance := range ocrInstances {
+		err := ocrInstance.SetPayees(transmitters, payees)
+		if err != nil {
+			return nil, fmt.Errorf("error settings OCR payees: %w", err)
+		}
+		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	// Set Config
+	transmitterAddresses := make([]common.Address, 0)
+	for _, node := range workerNodes {
+		primaryAddress, err := node.PrimaryEthAddress()
+		if err != nil {
+			return nil, err
+		}
+		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(primaryAddress))
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
+	}
+
+	var nodesAsInterface []contracts.ChainlinkNodeWithKeys = make([]contracts.ChainlinkNodeWithKeys, len(workerNodes))
+	for i, node := range workerNodes {
+		nodesAsInterface[i] = node // Assigning each *ChainlinkK8sClient to the interface type
+	}
+
+	for contractCount, ocrInstance := range ocrInstances {
+		// Exclude the first node, which will be used as a bootstrapper
+		err = ocrInstance.SetConfig(
+			nodesAsInterface,
+			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
+			transmitterAddresses,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
+		}
+		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	return ocrInstances, nil
+}
+
+func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeys) error {
+	if seth == nil {
+		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
+	}
+	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+	if seth.Cfg.IsSimulatedNetwork() {
+		log.Info().Str("Network Name", seth.Cfg.Network.Name).
+			Msg("Network is a simulated network. Skipping fund return.")
+		return nil
+	}
+
+	panic("implement me")
+
+	//TODO maybe implement fund return in a similar way, but with chain or responsibility
+	//for handling different errors? Will be easy to add new errors to handle
+	// for _, chainlinkNode := range chainlinkNodes {
+	// 	fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(seth.ChainID))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	for _, key := range fundedKeys {
+	// 		keyToDecrypt, err := json.Marshal(key)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
+	// 		// issues. So we avoid running in parallel; slower, but safer.
+	// 		decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
+	// 		if err != nil {
+	// 			log.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
+	// 		}
+	// 	}
+	// }
 }

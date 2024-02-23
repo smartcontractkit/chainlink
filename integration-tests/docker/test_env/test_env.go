@@ -21,10 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/seth"
 
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -175,4 +176,20 @@ func SubscribeOperatorFactoryEvents(
 			}
 		}
 	}()
+}
+
+func TrackForwarder(
+	t *testing.T,
+	chainClient blockchain.EVMClient,
+	authorizedForwarder common.Address,
+	node *client.ChainlinkK8sClient,
+) {
+	l := logging.GetTestLogger(t)
+	chainID := chainClient.GetChainID()
+	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
+	require.NoError(t, err, "Forwarder track should be created")
+	l.Info().Str("NodeURL", node.Config.URL).
+		Str("ForwarderAddress", authorizedForwarder.Hex()).
+		Str("ChaindID", chainID.String()).
+		Msg("Forwarder tracked")
 }

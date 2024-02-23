@@ -215,8 +215,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			actions_seth.TrackForwarder(o.t, o.seth, authorizedForwarders[i], o.workerNodes[i])
 		}
 
-		o.ocrV1Instances, err = actions.DeployOCRContractsForwarderFlow(
-			o.t,
+		o.ocrV1Instances, err = actions_seth.DeployOCRContractsForwarderFlow(
 			o.log,
 			o.seth,
 			*o.Config.OCR.Soak.NumberOfContracts,
@@ -226,7 +225,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		)
 		require.NoError(o.t, err, "Error deploying OCR Forwarder contracts")
 	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
-		o.ocrV1Instances, err = actions.DeployOCRContracts(
+		o.ocrV1Instances, err = actions_seth.DeployOCRContracts(
 			o.log,
 			seth,
 			*o.Config.OCR.Soak.NumberOfContracts,

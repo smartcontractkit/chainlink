@@ -69,7 +69,7 @@ func TestOCRv2Request(t *testing.T) {
 
 	// Keep the mockserver value the same and continually request new rounds
 	for round := 2; round <= 4; round++ {
-		err := actions.StartNewRound(contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts))
+		err := actions_seth.StartNewRound(contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts))
 		require.NoError(t, err, "Error starting new OCR2 round")
 		err = actions_seth.WatchNewRound(l, env.SethClient, int64(round), contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
 		require.NoError(t, err, "Error watching for new OCR2 round")

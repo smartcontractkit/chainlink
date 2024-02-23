@@ -5,9 +5,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -15,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -23,125 +20,6 @@ import (
 
 // This actions file often returns functions, rather than just values. These are used as common test helpers, and are
 // handy to have returning as functions so that Ginkgo can use them in an aesthetically pleasing way.
-
-// DeployOCRContracts deploys and funds a certain number of offchain aggregator contracts
-func DeployOCRContracts(
-	logger zerolog.Logger,
-	seth *seth.Client,
-	numberOfContracts int,
-	linkTokenContractAddress common.Address,
-	workerNodes []*client.ChainlinkK8sClient,
-) ([]contracts.OffchainAggregator, error) {
-	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
-		transmitters = make([]string, 0)
-		payees = make([]string, 0)
-		for _, node := range workerNodes {
-			var addr string
-			addr, err = node.PrimaryEthAddress()
-			if err != nil {
-				err = fmt.Errorf("error getting node's primary ETH address: %w", err)
-				return
-			}
-			transmitters = append(transmitters, addr)
-			payees = append(payees, seth.Addresses[0].Hex())
-		}
-
-		return
-	}
-
-	return deployOCRContracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
-}
-
-func deployOCRContracts(
-	logger zerolog.Logger,
-	seth *seth.Client,
-	numberOfContracts int,
-	linkTokenContractAddress common.Address,
-	workerNodes []*client.ChainlinkK8sClient,
-	getTransmitterAndPayeesFn func() ([]string, []string, error),
-) ([]contracts.OffchainAggregator, error) {
-	// Deploy contracts
-	var ocrInstances []contracts.OffchainAggregator
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contracts.DeployOffchainAggregator(logger, seth, linkTokenContractAddress, contracts.DefaultOffChainAggregatorOptions())
-		if err != nil {
-			return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
-		}
-		ocrInstances = append(ocrInstances, &ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			time.Sleep(2 * time.Second)
-		}
-	}
-
-	// Gather transmitter and address payees
-	var transmitters, payees []string
-	transmitters, payees, err := getTransmitterAndPayeesFn()
-
-	// Set Payees
-	for contractCount, ocrInstance := range ocrInstances {
-		err := ocrInstance.SetPayees(transmitters, payees)
-		if err != nil {
-			return nil, fmt.Errorf("error settings OCR payees: %w", err)
-		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			time.Sleep(2 * time.Second)
-		}
-	}
-
-	// Set Config
-	transmitterAddresses, err := ChainlinkNodeAddresses(workerNodes)
-	if err != nil {
-		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
-	}
-
-	var nodesAsInterface []contracts.ChainlinkNodeWithKeys = make([]contracts.ChainlinkNodeWithKeys, len(workerNodes))
-	for i, node := range workerNodes {
-		nodesAsInterface[i] = node // Assigning each *ChainlinkK8sClient to the interface type
-	}
-
-	for contractCount, ocrInstance := range ocrInstances {
-		// Exclude the first node, which will be used as a bootstrapper
-		err = ocrInstance.SetConfig(
-			nodesAsInterface,
-			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
-			transmitterAddresses,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
-		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			time.Sleep(2 * time.Second)
-		}
-	}
-
-	return ocrInstances, nil
-}
-
-// DeployOCRContractsForwarderFlow deploys and funds a certain number of offchain
-// aggregator contracts with forwarders as effectiveTransmitters
-func DeployOCRContractsForwarderFlow(
-	t *testing.T,
-	logger zerolog.Logger,
-	seth *seth.Client,
-	numberOfContracts int,
-	linkTokenContractAddress common.Address,
-	workerNodes []*client.ChainlinkK8sClient,
-	forwarderAddresses []common.Address,
-) ([]contracts.OffchainAggregator, error) {
-	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
-		transmitters = make([]string, 0)
-		payees = make([]string, 0)
-		for _, forwarderCommonAddress := range forwarderAddresses {
-			forwarderAddress := forwarderCommonAddress.Hex()
-			transmitters = append(transmitters, forwarderAddress)
-			payees = append(payees, seth.Addresses[0].Hex())
-		}
-
-		return
-	}
-
-	return deployOCRContracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
-}
 
 // CreateOCRJobs bootstraps the first node and to the other nodes sends ocr jobs that
 // read from different adapters, to be used in combination with SetAdapterResponses
@@ -284,19 +162,6 @@ func CreateOCRJobsWithForwarder(
 			require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
 		}
 	}
-}
-
-// StartNewRound requests a new round from the ocr contracts and waits for confirmation
-func StartNewRound(
-	ocrInstances []contracts.OffChainAggregatorWithRounds,
-) error {
-	for i := 0; i < len(ocrInstances); i++ {
-		err := ocrInstances[i].RequestNewRound()
-		if err != nil {
-			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
-		}
-	}
-	return nil
 }
 
 // WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
