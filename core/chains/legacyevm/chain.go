@@ -251,7 +251,8 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 				int64(cfg.EVM().FinalityDepth()),
 				int64(cfg.EVM().LogBackfillBatchSize()),
 				int64(cfg.EVM().RPCDefaultBatchSize()),
-				int64(cfg.EVM().LogKeepBlocksDepth()))
+				int64(cfg.EVM().LogKeepBlocksDepth()),
+				int64(cfg.EVM().LogPrunePageSize()))
 		}
 	}
 
