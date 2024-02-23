@@ -163,6 +163,31 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyT
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
 	txIDs ...int64,
 ) {
+	as.Lock()
+	defer as.Unlock()
+
+	// if txStates is empty then apply the filter to only the as.allTransactions map
+	if len(txStates) == 0 {
+		as.applyToTxs(as.allTransactions, fn, txIDs...)
+		return
+	}
+
+	for _, txState := range txStates {
+		switch txState {
+		case TxInProgress:
+			if as.inprogress != nil {
+				fn(as.inprogress)
+			}
+		case TxUnconfirmed:
+			as.applyToTxs(as.unconfirmed, fn, txIDs...)
+		case TxConfirmedMissingReceipt:
+			as.applyToTxs(as.confirmedMissingReceipt, fn, txIDs...)
+		case TxConfirmed:
+			as.applyToTxs(as.confirmed, fn, txIDs...)
+		case TxFatalError:
+			as.applyToTxs(as.fatalErrored, fn, txIDs...)
+		}
+	}
 }
 
 // FetchTxAttempts returns all attempts for the given transactions that match the given filters.
@@ -278,4 +303,26 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveIn
 // MoveConfirmedToUnconfirmed moves the confirmed transaction to the unconfirmed state.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveConfirmedToUnconfirmed(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	return nil
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxs(
+	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
+	txIDs ...int64,
+) {
+	// if txIDs is not empty then only apply the filter to those transactions
+	if len(txIDs) > 0 {
+		for _, txID := range txIDs {
+			tx := txIDsToTx[txID]
+			if tx != nil {
+				fn(tx)
+			}
+		}
+		return
+	}
+
+	// if txIDs is empty then apply the filter to all transactions
+	for _, tx := range txIDsToTx {
+		fn(tx)
+	}
 }
