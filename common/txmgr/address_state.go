@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -226,7 +227,24 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 }
 
 // MoveInProgressToFatalError moves the in-progress transaction to the fatal error state.
+// If there is no in-progress transaction, an error is returned.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToFatalError(txError null.String) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx := as.inprogressTx
+	if tx == nil {
+		return fmt.Errorf("move_in_progress_to_fatal_error: no transaction in progress")
+	}
+
+	tx.State = TxFatalError
+	tx.Sequence = nil
+	tx.TxAttempts = nil
+	tx.InitialBroadcastAt = nil
+	tx.Error = txError
+	as.fatalErroredTxs[tx.ID] = tx
+	as.inprogressTx = nil
+
 	return nil
 }
 
