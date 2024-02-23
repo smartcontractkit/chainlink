@@ -64,7 +64,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
 	// Set up a test chain with a log emitting contract deployed.
-	lp := NewLogPoller(orm, nil, lggr, time.Hour, false, 1, 1, 2, 1000)
+	lp := NewLogPoller(orm, nil, lggr, time.Hour, false, 1, 1, 2, 1000, 0)
 
 	// We expect a zero Filter if nothing registered yet.
 	f := lp.Filter(nil, nil, nil)
@@ -218,7 +218,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 
 	ctx := testutils.Context(t)
 
-	lp := NewLogPoller(orm, ec, lggr, 1*time.Hour, false, 2, 3, 2, 1000)
+	lp := NewLogPoller(orm, ec, lggr, 1*time.Hour, false, 2, 3, 2, 1000, 0)
 	lp.BackupPollAndSaveLogs(ctx, 100)
 	assert.Equal(t, int64(0), lp.backupPollerNextBlock)
 	assert.Equal(t, 1, observedLogs.FilterMessageSnippet("ran before first successful log poller run").Len())
@@ -258,7 +258,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
-	lp := NewLogPoller(orm, ec, lggr, time.Hour, false, 3, 3, 3, 20)
+	lp := NewLogPoller(orm, ec, lggr, time.Hour, false, 3, 3, 3, 20, 0)
 
 	// process 1 log in block 3
 	lp.PollAndSaveLogs(testutils.Context(t), 4)
@@ -446,7 +446,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 		ec := evmclimocks.NewClient(t)
 		ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 
-		lp := NewLogPoller(orm, ec, lggr, time.Hour, false, finalityDepth, 3, 3, 20)
+		lp := NewLogPoller(orm, ec, lggr, time.Hour, false, finalityDepth, 3, 3, 20, 0)
 		latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(testutils.Context(t))
 		require.NoError(t, err)
 		require.Equal(t, latestBlock.Number, head.Number)
@@ -470,7 +470,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 				*(elems[1].Result.(*evmtypes.Head)) = evmtypes.Head{Number: expectedLastFinalizedBlockNumber, Hash: utils.RandomBytes32()}
 			})
 
-			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20)
+			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20, 0)
 
 			latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(testutils.Context(t))
 			require.NoError(t, err)
@@ -488,7 +488,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 				elems[1].Error = fmt.Errorf("some error")
 			})
 
-			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20)
+			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20, 0)
 			_, _, err := lp.latestBlocks(testutils.Context(t))
 			require.Error(t, err)
 		})
@@ -497,7 +497,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 			ec := evmclimocks.NewClient(t)
 			ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
 
-			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20)
+			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20, 0)
 			_, _, err := lp.latestBlocks(testutils.Context(t))
 			require.Error(t, err)
 		})
@@ -506,7 +506,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 	lggr := logger.Test(b)
-	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, false, 2, 3, 2, 1000)
+	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, false, 2, 3, 2, 1000, 0)
 	for i := 0; i < nFilters; i++ {
 		var addresses []common.Address
 		var events []common.Hash

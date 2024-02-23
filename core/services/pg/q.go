@@ -199,6 +199,16 @@ func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.Can
 	res, err := q.Queryer.ExecContext(ctx, query, args...)
 	return res, cancel, ql.withLogError(err)
 }
+func (q Q) ExecQWithRowsAffected(query string, args ...interface{}) (int64, error) {
+	res, cancel, err := q.ExecQIter(query, args...)
+	defer cancel()
+	if err != nil {
+		return 0, err
+	}
+
+	rowsDeleted, err := res.RowsAffected()
+	return rowsDeleted, err
+}
 func (q Q) ExecQ(query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
