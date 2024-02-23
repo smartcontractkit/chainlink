@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -199,8 +200,27 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekIn
 	return as.inprogressTx
 }
 
-// AddTxToUnstarted adds the given transaction to the unstarted queue.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AddTxToUnstarted(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+// AddTxToUnstartedQueue adds the given transaction to the unstarted queue.
+// If the queue is full, an error is returned.
+// If the transaction was successfully added, nil is returned.
+// If the transaction's idempotency key already exists, an error is returned.
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AddTxToUnstartedQueue(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	as.Lock()
+	defer as.Unlock()
+
+	if tx.IdempotencyKey != nil && as.idempotencyKeyToTx[*tx.IdempotencyKey] != nil {
+		return fmt.Errorf("add_tx_to_unstarted_queue: address %s idempotency key %s already exists", as.fromAddress, *tx.IdempotencyKey)
+	}
+	if as.unstartedTxs.Len() >= as.unstartedTxs.Cap() {
+		return fmt.Errorf("add_tx_to_unstarted_queue: address %s unstarted queue capacity has been reached", as.fromAddress)
+	}
+
+	as.unstartedTxs.AddTx(tx)
+	as.allTxs[tx.ID] = tx
+	if tx.IdempotencyKey != nil {
+		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
+	}
+
 	return nil
 }
 
