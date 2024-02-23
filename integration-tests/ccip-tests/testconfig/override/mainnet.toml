@@ -637,6 +637,9 @@ Data = """
 }
 """
 
+[CCIP.Env]
+TTL = '8h'
+
 [CCIP.Env.Network]
 selected_networks = [
   'ETHEREUM_MAINNET',
