@@ -196,7 +196,7 @@ opentelemetry-collector:
   mode: deployment
   image:
     repository: otel/opentelemetry-collector
-    tag: 0.61.0
+    tag: 0.81.2
   command:
     name: otelcol
   extraVolumes:
@@ -238,7 +238,7 @@ opentelemetry-collector:
 tempo:
   enabled: true
   image:
-    tag: "1.7.1"
+    tag: "1.7.2"
   server:
     http_listen_port: 3200
   # default storage path: /var/tempo/
@@ -270,7 +270,7 @@ tempo:
 grafana:
   enabled: true
   image:
-    tag: 7.3.0
+    tag: 7.3.2
   datasources:
     datasources.yaml:
       apiVersion: 1
