@@ -182,8 +182,12 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delete
 }
 
 // PeekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return nil, nil
+// If there are no unstarted transactions, nil is returned.
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekNextUnstartedTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	return as.unstartedTxs.PeekNextTx()
 }
 
 // PeekInProgressTx returns the in-progress transaction without removing it from the in-progress state.
