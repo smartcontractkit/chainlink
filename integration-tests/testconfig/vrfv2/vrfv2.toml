@@ -4,6 +4,7 @@ chainlink_node_funding = 0.1
 
 [VRFv2]
 [VRFv2.General]
+cancel_subs_after_test_run = true
 use_existing_env = false
 subscription_funding_amount_link = 5.0
 
@@ -67,9 +68,6 @@ node_sending_keys = [
     "",
     ""
 ]
-
-[VRFv2.Common]
-cancel_subs_after_test_run = true
 
 #SOAK TEST CONFIG
 [Soak.Common]

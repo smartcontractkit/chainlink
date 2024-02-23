@@ -8,7 +8,6 @@ import (
 )
 
 type Config struct {
-	Common            *Common            `toml:"Common"`
 	General           *General           `toml:"General"`
 	ExistingEnvConfig *ExistingEnvConfig `toml:"ExistingEnv"`
 	Performance       *PerformanceConfig `toml:"Performance"`
@@ -19,13 +18,13 @@ const (
 )
 
 func (c *Config) Validate() error {
-	if c.Common != nil {
-		if err := c.Common.Validate(); err != nil {
+	if c.General != nil {
+		if err := c.General.Validate(); err != nil {
 			return err
 		}
 	}
-	if c.General != nil {
-		if err := c.General.Validate(); err != nil {
+	if c.ExistingEnvConfig != nil {
+		if err := c.ExistingEnvConfig.Validate(); err != nil {
 			return err
 		}
 	}
@@ -34,15 +33,6 @@ func (c *Config) Validate() error {
 			return err
 		}
 	}
-
-	return nil
-}
-
-type Common struct {
-	CancelSubsAfterTestRun *bool `toml:"cancel_subs_after_test_run"`
-}
-
-func (c *Common) Validate() error {
 	return nil
 }
 
@@ -120,18 +110,6 @@ func (c *ExistingEnvConfig) Validate() error {
 	return nil
 }
 
-type NewEnvConfig struct {
-	*Funding
-}
-
-func (c *NewEnvConfig) Validate() error {
-	if c.Funding != nil {
-		return c.Funding.Validate()
-	}
-
-	return nil
-}
-
 type Funding struct {
 	NodeSendingKeyFundingMin *float64 `toml:"node_sending_key_funding_min"`
 }
@@ -146,6 +124,7 @@ func (c *Funding) Validate() error {
 
 type General struct {
 	UseExistingEnv                *bool    `toml:"use_existing_env"`
+	CancelSubsAfterTestRun        *bool    `toml:"cancel_subs_after_test_run"`
 	CLNodeMaxGasPriceGWei         *int64   `toml:"cl_node_max_gas_price_gwei"`       // Max gas price in GWei for the chainlink node
 	LinkNativeFeedResponse        *int64   `toml:"link_native_feed_response"`        // Response of the LINK/ETH feed
 	MinimumConfirmations          *uint16  `toml:"minimum_confirmations"`            // Minimum number of confirmations for the VRF Coordinator

@@ -7,18 +7,12 @@ import (
 )
 
 type Config struct {
-	Common            *vrf_common_config.Common            `toml:"Common"`
 	General           *General                             `toml:"General"`
 	ExistingEnvConfig *ExistingEnvConfig                   `toml:"ExistingEnv"`
 	Performance       *vrf_common_config.PerformanceConfig `toml:"Performance"`
 }
 
 func (c *Config) Validate() error {
-	if c.Common != nil {
-		if err := c.Common.Validate(); err != nil {
-			return err
-		}
-	}
 	if c.General != nil {
 		if err := c.General.Validate(); err != nil {
 			return err
@@ -26,6 +20,11 @@ func (c *Config) Validate() error {
 	}
 	if c.Performance != nil {
 		if err := c.Performance.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.ExistingEnvConfig != nil {
+		if err := c.ExistingEnvConfig.Validate(); err != nil {
 			return err
 		}
 	}
