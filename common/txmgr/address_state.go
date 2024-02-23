@@ -120,7 +120,7 @@ func NewAddressState[
 	return &as, nil
 }
 
-// CountTransactionsByState returns the number of transactions that are in the given state
+// CountTransactionsByState returns the number of transactions that are in the given state.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(txState txmgrtypes.TxState) int {
 	as.RLock()
 	defer as.RUnlock()
@@ -145,9 +145,13 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountT
 	return 0
 }
 
-// FindTxWithIdempotencyKey returns the transaction with the given idempotency key. If no transaction is found, nil is returned.
+// FindTxWithIdempotencyKey returns the transaction with the given idempotency key.
+// If no transaction is found, nil is returned.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithIdempotencyKey(key string) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	return nil
+	as.RLock()
+	defer as.RUnlock()
+
+	return as.idempotencyKeyToTx[key]
 }
 
 // ApplyToTxsByState calls the given function for each transaction in the given states.
