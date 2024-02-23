@@ -24,16 +24,16 @@ type AddressState[
 	fromAddress ADDR
 
 	sync.RWMutex
-	idempotencyKeyToTxn map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	unstartedTxns       *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	inprogressTxn       *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	idempotencyKeyToTx map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	unstartedTxs       *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	inprogressTx       *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	// NOTE: currently the unconfirmed map's key is the transaction ID that is assigned via the postgres DB
-	unconfirmedTxns             map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	confirmedMissingReceiptTxns map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	confirmedTxns               map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	allTxns                     map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	fatalErroredTxns            map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	attemptHashToTxAttempt      map[TX_HASH]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	unconfirmedTxs             map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	confirmedMissingReceiptTxs map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	confirmedTxs               map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	allTxs                     map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	fatalErroredTxs            map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	attemptHashToTxAttempt     map[TX_HASH]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 }
 
 // NewAddressState returns a new AddressState instance with initialized transaction state
@@ -76,15 +76,15 @@ func NewAddressState[
 		chainID:     chainID,
 		fromAddress: fromAddress,
 
-		idempotencyKeyToTxn:         make(map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], idempotencyKeysCount),
-		unstartedTxns:               NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
-		inprogressTxn:               nil,
-		unconfirmedTxns:             make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxUnconfirmed]),
-		confirmedMissingReceiptTxns: make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxConfirmedMissingReceipt]),
-		confirmedTxns:               make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxConfirmed]),
-		allTxns:                     make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs)),
-		fatalErroredTxns:            make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxFatalError]),
-		attemptHashToTxAttempt:      make(map[TX_HASH]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txAttemptCount),
+		idempotencyKeyToTx:         make(map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], idempotencyKeysCount),
+		unstartedTxs:               NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
+		inprogressTx:               nil,
+		unconfirmedTxs:             make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxUnconfirmed]),
+		confirmedMissingReceiptTxs: make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxConfirmedMissingReceipt]),
+		confirmedTxs:               make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxConfirmed]),
+		allTxs:                     make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs)),
+		fatalErroredTxs:            make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxFatalError]),
+		attemptHashToTxAttempt:     make(map[TX_HASH]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txAttemptCount),
 	}
 
 	// Load all transactions supplied
@@ -92,21 +92,21 @@ func NewAddressState[
 		tx := txs[i]
 		switch tx.State {
 		case TxUnstarted:
-			as.unstartedTxns.AddTx(&tx)
+			as.unstartedTxs.AddTx(&tx)
 		case TxInProgress:
-			as.inprogressTxn = &tx
+			as.inprogressTx = &tx
 		case TxUnconfirmed:
-			as.unconfirmedTxns[tx.ID] = &tx
+			as.unconfirmedTxs[tx.ID] = &tx
 		case TxConfirmedMissingReceipt:
-			as.confirmedMissingReceiptTxns[tx.ID] = &tx
+			as.confirmedMissingReceiptTxs[tx.ID] = &tx
 		case TxConfirmed:
-			as.confirmedTxns[tx.ID] = &tx
+			as.confirmedTxs[tx.ID] = &tx
 		case TxFatalError:
-			as.fatalErroredTxns[tx.ID] = &tx
+			as.fatalErroredTxs[tx.ID] = &tx
 		}
-		as.allTxns[tx.ID] = &tx
+		as.allTxs[tx.ID] = &tx
 		if tx.IdempotencyKey != nil {
-			as.idempotencyKeyToTxn[*tx.IdempotencyKey] = &tx
+			as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
 		}
 		for _, txAttempt := range tx.TxAttempts {
 			as.attemptHashToTxAttempt[txAttempt.Hash] = txAttempt
