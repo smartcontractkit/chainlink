@@ -37,7 +37,10 @@ func main() {
 		if !ok {
 			panic("cannot find location of file")
 		}
-		chainlinkLoc := strings.Index(location, "chainlink-common/")
+		// We need to use strings.LastIndex instead of strings.Index because the
+		// file path in CI can contain the string "chainlink-common" multiple
+		// times.
+		chainlinkLoc := strings.LastIndex(location, "chainlink-common/")
 		if chainlinkLoc == -1 {
 			panic("cannot find location of chainlink-common, repository must be in a folder named chainlink-common when cloned")
 		}
