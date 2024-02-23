@@ -7,7 +7,7 @@ Use this script to debug and diagnose possible issues with registered upkeeps in
 Before starting, you will need:
 
 - A registered [upkeep](https://docs.chain.link/chainlink-automation/overview/getting-started)
-- A working [Go](https://go.dev/doc/install) installation
+- A working [Go](https://go.dev/doc/install) installation, please use this Go [version](https://github.com/smartcontractkit/chainlink/blob/develop/go.mod#L3)
 
 1. Clone the chainlink [repo](https://github.com/smartcontractkit/chainlink) and navigate to the `core/scripts/chaincli`
     directory:
@@ -65,7 +65,7 @@ Execute the following command based on your upkeep type:
 
 ### What the debugging script checks
 
-1. The script runs these basic checks on all upkeeps:
+1. The script runs these basic checks on all upkeeps based on the TX_HASH or BLOCK_NUMBER (if provided)
     - Verify upkeep status: active, paused, or canceled
     - Check upkeep balance
 
