@@ -1,5 +1,12 @@
 -- +goose Up
 
+-- This generates a unique BIGINT for the log_poller_filters table from hashing (name, evm_chain_id, address, event, topic2, topic3, topic4).
+-- An ordinary UNIQUE CONSTRAINT can't work for this because the topics can be NULL. Any row with any column being NULL automatically satisfies the unique constraint (NULL != NULL)
+-- There are simpler ways of doing this in postgres 12, 13, 14, and especially 15. But for now, we still officially support postgresql 11 and this should be just as efficient.
+CREATE OR REPLACE FUNCTION evm.f_log_filter_row_id(name text, evm_chain_id NUMERIC(78, 0), address BYTEA, event BYTEA, topic2 BYTEA, topic3 BYTEA, topic4 BYTEA)
+   RETURNS BIGINT
+   LANGUAGE sql IMMUTABLE COST 25 PARALLEL SAFE AS 'SELECT 2^32 * hashtext(textin(record_out(($1,$3,$5,$7)))) + hashtext(textin(record_out(($2, $4, $6))))';
+
 ALTER TABLE evm.log_poller_filters
     ADD COLUMN topic2 BYTEA CHECK (octet_length(topic2) = 32),
     ADD COLUMN topic3 BYTEA CHECK (octet_length(topic3) = 32),
@@ -7,10 +14,7 @@ ALTER TABLE evm.log_poller_filters
     ADD COLUMN max_logs_kept BIGINT,
     ADD COLUMN logs_per_block BIGINT;
 
--- Ordinary UNIQUE CONSTRAINT can't work for topics because they can be NULL. Any row with any column being NULL automatically satisfies the unique constraint (NULL != NULL)
--- Using a hash of all the columns treats NULL's as the same as any other field. If we ever get to a point where we can require postgresql >= 15 then this can
--- be fixed by using UNIQUE CONSTRAINT NULLS NOT DISTINCT which treats NULL's as if they were ordinary values (NULL == NULL)
-CREATE UNIQUE INDEX evm_log_poller_filters_name_chain_address_event_topics_key ON evm.log_poller_filters (hash_record_extended((name, evm_chain_id, address, event, topic2, topic3, topic4), 0));
+CREATE UNIQUE INDEX evm_log_poller_filters_name_chain_address_event_topics_key ON evm.log_poller_filters (evm.f_log_filter_row_id(name, evm_chain_id, address, event, topic2, topic3, topic4));
 
 ALTER TABLE evm.log_poller_filters
     DROP CONSTRAINT evm_log_poller_filters_name_evm_chain_id_address_event_key;
@@ -27,3 +31,5 @@ ALTER TABLE evm.log_poller_filters
     DROP COLUMN topic4,
     DROP COLUMN max_logs_kept,
     DROP COLUMN logs_per_block;
+
+DROP FUNCTION IF EXISTS evm.f_log_filter_row_id(text, numeric, bytea, bytea, bytea, bytea, bytea);
