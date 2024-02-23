@@ -273,7 +273,28 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveCo
 }
 
 // MoveUnconfirmedToConfirmedMissingReceipt moves the unconfirmed transaction to the confirmed missing receipt state.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnconfirmedToConfirmedMissingReceipt(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+// If there is no unconfirmed transaction with the given ID, an error is returned.
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnconfirmedToConfirmedMissingReceipt(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx, ok := as.unconfirmedTxs[txAttempt.TxID]
+	if !ok || tx == nil {
+		return fmt.Errorf("move_unconfirmed_to_confirmed_missing_receipt: no unconfirmed transaction with ID %d", txAttempt.TxID)
+	}
+	if tx.BroadcastAt.Before(broadcastAt) {
+		tx.BroadcastAt = &broadcastAt
+	}
+	tx.State = TxConfirmedMissingReceipt
+	if len(tx.TxAttempts) == 0 {
+		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+	txAttempt.State = txmgrtypes.TxAttemptBroadcast
+	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
+
+	as.confirmedMissingReceiptTxs[tx.ID] = tx
+	delete(as.unconfirmedTxs, tx.ID)
+
 	return nil
 }
 
