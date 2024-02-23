@@ -166,20 +166,13 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		network = networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0]
 	)
 
-	if _, ok := o.testEnvironment.URLs["Simulated Geth"]; !ok {
-		for k := range o.testEnvironment.URLs {
-			o.log.Info().Str("Network", k).Msg("Available networks")
-		}
-		panic("no network settings for Simulated Geth")
-	}
+	network = utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
+	readSethCfg := ocrTestConfig.GetSethConfig()
+	require.NotNil(o.t, readSethCfg, "Seth config shouldn't be nil")
 
-	network.URLs = o.testEnvironment.URLs["Simulated Geth"]
-	sethCfg := ocrTestConfig.GetSethConfig()
-	require.NotNil(o.t, sethCfg, "Seth config shouldn't be nil")
+	sethCfg := utils.MergeSethAndEvmNetworkConfigs(o.log, network, *readSethCfg)
 
-	utils.MustDecorateSethConfigWithNetwork(o.log, &network, sethCfg)
-
-	seth, err := seth.NewClientWithConfig(sethCfg)
+	seth, err := seth.NewClientWithConfig(&sethCfg)
 	require.NoError(o.t, err, "Error creating seth client")
 
 	o.seth = seth

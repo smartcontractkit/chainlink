@@ -31,11 +31,12 @@ func TestOCRLoad(t *testing.T) {
 	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
 	require.NoError(t, err)
 
-	sethCfg := config.GetSethConfig()
-	require.NotNil(t, sethCfg, "Seth config shouldn't be nil")
-	utils.MustDecorateSethConfigWithNetwork(l, evmNetwork, sethCfg)
+	readSethCfg := config.GetSethConfig()
+	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	seth, err := seth.NewClientWithConfig(sethCfg)
+	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, *evmNetwork, *readSethCfg)
+
+	seth, err := seth.NewClientWithConfig(&sethCfg)
 	require.NoError(t, err, "Error creating seth client")
 
 	lta, err := SetupCluster(l, seth, workerNodes)
@@ -71,11 +72,12 @@ func TestOCRVolume(t *testing.T) {
 	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
 	require.NoError(t, err)
 
-	sethCfg := config.GetSethConfig()
-	require.NotNil(t, sethCfg, "Seth config shouldn't be nil")
-	utils.MustDecorateSethConfigWithNetwork(l, evmNetwork, sethCfg)
+	readSethCfg := config.GetSethConfig()
+	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	seth, err := seth.NewClientWithConfig(sethCfg)
+	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, *evmNetwork, *readSethCfg)
+
+	seth, err := seth.NewClientWithConfig(&sethCfg)
 	require.NoError(t, err, "Error creating seth client")
 
 	lta, err := SetupCluster(l, seth, workerNodes)

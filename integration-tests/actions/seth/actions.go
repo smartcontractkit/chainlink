@@ -2,6 +2,7 @@ package actions_seth
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"testing"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/test-go/testify/require"
@@ -42,46 +44,64 @@ func FundChainlinkNodes(
 		if fromKeyNum > len(client.PrivateKeys) || fromKeyNum > len(client.Addresses) {
 			return errors.Wrap(errors.New(seth.ErrNoKeyLoaded), fmt.Sprintf("requested key: %d", fromKeyNum))
 		}
-		toAddr := common.HexToAddress(toAddress)
-		chainID, err := client.Client.NetworkID(context.Background())
-		if err != nil {
-			return errors.Wrap(err, "failed to get network ID")
-		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
-		defer cancel()
-		nonce, err := client.Client.PendingNonceAt(ctx, client.Addresses[fromKeyNum])
-		if err != nil {
-			return err
-		}
-
-		rawTx := &types.LegacyTx{
-			Nonce:    nonce,
-			To:       &toAddr,
-			Value:    conversions.EtherToWei(amount),
-			Gas:      uint64(client.Cfg.Network.TransferGasFee),
-			GasPrice: big.NewInt(client.Cfg.Network.GasPrice),
-		}
-		signedTx, err := types.SignNewTx(client.PrivateKeys[fromKeyNum], types.NewEIP155Signer(chainID), rawTx)
-		if err != nil {
-			return errors.Wrap(err, "failed to sign tx")
-		}
-
-		ctx, cancel = context.WithTimeout(ctx, client.Cfg.Network.TxnTimeout.Duration())
-		defer cancel()
-		err = client.Client.SendTransaction(ctx, signedTx)
-		if err != nil {
-			return errors.Wrap(err, "failed to send transaction")
-		}
-		_, err = client.WaitMined(ctx, logger, client.Client, signedTx)
-		if err != nil {
-			return err
-		}
-		return err
-
+		return SendFunds(logger, client, FundsToSendPayload{
+			ToAddress:  common.HexToAddress(toAddress),
+			Amount:     conversions.EtherToWei(amount),
+			PrivateKey: client.PrivateKeys[fromKeyNum],
+		})
 	}
 
 	return nil
+}
+
+type FundsToSendPayload struct {
+	ToAddress  common.Address
+	Amount     *big.Int
+	PrivateKey *ecdsa.PrivateKey
+	GasLimit   *uint64
+}
+
+func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) error {
+	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
+
+	publicKey := payload.PrivateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return errors.New("error casting public key to ECDSA")
+	}
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+	nonce, err := client.Client.PendingNonceAt(ctx, fromAddress)
+	cancel()
+	if err != nil {
+		return err
+	}
+
+	gasLimit := uint64(client.Cfg.Network.TransferGasFee)
+	if payload.GasLimit != nil {
+		gasLimit = *payload.GasLimit
+	}
+
+	rawTx := &types.LegacyTx{
+		Nonce:    nonce,
+		To:       &payload.ToAddress,
+		Value:    payload.Amount,
+		Gas:      gasLimit,
+		GasPrice: big.NewInt(client.Cfg.Network.GasPrice),
+	}
+	signedTx, err := types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
+	if err != nil {
+		return errors.Wrap(err, "failed to sign tx")
+	}
+
+	ctx, cancel = context.WithTimeout(ctx, client.Cfg.Network.TxnTimeout.Duration())
+	err = client.Client.SendTransaction(ctx, signedTx)
+	cancel()
+	if err != nil {
+		return errors.Wrap(err, "failed to send transaction")
+	}
+	_, err = client.WaitMined(ctx, logger, client.Client, signedTx)
+	return err
 }
 
 func DeployForwarderContracts(
@@ -428,43 +448,4 @@ func deployOCRContracts(
 	}
 
 	return ocrInstances, nil
-}
-
-func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeys) error {
-	if seth == nil {
-		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
-	}
-	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-	if seth.Cfg.IsSimulatedNetwork() {
-		log.Info().Str("Network Name", seth.Cfg.Network.Name).
-			Msg("Network is a simulated network. Skipping fund return.")
-		return nil
-	}
-
-	panic("implement me")
-
-	//TODO maybe implement fund return in a similar way, but with chain or responsibility
-	//for handling different errors? Will be easy to add new errors to handle
-	// for _, chainlinkNode := range chainlinkNodes {
-	// 	fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(seth.ChainID))
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	for _, key := range fundedKeys {
-	// 		keyToDecrypt, err := json.Marshal(key)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
-	// 		// issues. So we avoid running in parallel; slower, but safer.
-	// 		decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
-	// 		if err != nil {
-	// 			log.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
-	// 		}
-	// 	}
-	// }
 }

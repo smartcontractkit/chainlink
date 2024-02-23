@@ -164,19 +164,14 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err)
 
 			cfg := config.MustCopy().(tc.TestConfig)
-			sethCfg := cfg.GetSethConfig()
-			require.NotNil(t, sethCfg, "Seth config shouldn't be nil")
+			readSethCfg := cfg.GetSethConfig()
+			require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
 			network := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())[0]
-			if _, ok := testEnvironment.URLs["Simulated Geth"]; !ok {
-				for k := range testEnvironment.URLs {
-					l.Info().Str("Network", k).Msg("Available networks")
-				}
-				panic("no network settings for Simulated Geth")
-			}
-			network.URLs = testEnvironment.URLs["Simulated Geth"]
-			utils.MustDecorateSethConfigWithNetwork(l, &network, sethCfg)
-			seth, err := seth.NewClientWithConfig(sethCfg)
+			network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
+
+			sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, network, *readSethCfg)
+			seth, err := seth.NewClientWithConfig(&sethCfg)
 			require.NoError(t, err, "Error creating seth client")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -196,7 +191,7 @@ func TestOCRChaos(t *testing.T) {
 			err = actions_seth.FundChainlinkNodes(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithAddress(chainlinkNodes), 0, big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions.DeployOCRContracts(l, seth, 1, linkDeploymentData.Address, workerNodes)
+			ocrInstances, err := actions_seth.DeployOCRContracts(l, seth, 1, linkDeploymentData.Address, workerNodes)
 			require.NoError(t, err)
 			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, fmt.Sprint(seth.ChainID))
 			require.NoError(t, err)

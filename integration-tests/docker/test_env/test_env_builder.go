@@ -386,9 +386,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 
 		if b.hasSeth {
-			sethCfg := b.testConfig.GetSethConfig()
-			utils.MustDecorateSethConfigWithNetwork(b.l, &networkConfig, sethCfg)
-			seth, err := seth.NewClientWithConfig(sethCfg)
+			readSethCfg := b.testConfig.GetSethConfig()
+			sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+			seth, err := seth.NewClientWithConfig(&sethCfg)
 			if err != nil {
 				return nil, err
 			}
