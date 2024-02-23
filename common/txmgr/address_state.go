@@ -283,6 +283,28 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveIn
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnconfirmedToConfirmed(
 	receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 ) error {
+	as.Lock()
+	defer as.Unlock()
+
+	txAttempt, ok := as.attemptHashToTxAttempt[receipt.GetTxHash()]
+	if !ok {
+		return fmt.Errorf("move_unconfirmed_to_confirmed: no unconfirmed transaction with receipt %v", receipt)
+	}
+	// TODO(jtw): not sure how to set blocknumber, transactionindex, and receipt on conflict
+	txAttempt.Receipts = []txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]{receipt}
+	txAttempt.State = txmgrtypes.TxAttemptBroadcast
+	if txAttempt.BroadcastBeforeBlockNum == nil {
+		blockNum := receipt.GetBlockNumber().Int64()
+		txAttempt.BroadcastBeforeBlockNum = &blockNum
+	}
+	tx, ok := as.unconfirmedTxs[txAttempt.TxID]
+	if !ok {
+		// TODO: WHAT SHOULD WE DO HERE?
+		// THIS WOULD BE A BIG BUG
+		return fmt.Errorf("move_unconfirmed_to_confirmed: no unconfirmed transaction with ID %d", txAttempt.TxID)
+	}
+	tx.State = TxConfirmed
+
 	return nil
 }
 
