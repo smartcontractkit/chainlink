@@ -128,7 +128,7 @@ func (o *DbORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 			(SELECT unnest(:address_array ::::BYTEA[]) addr) a,
 			(SELECT unnest(:event_sig_array ::::BYTEA[]) ev) e
 			%s
-		ON CONFLICT  (evm.f_log_filter_row_id(name, evm_chain_id, address, event, topic2, topic3, topic4))
+		ON CONFLICT  (evm.f_log_poller_filter_hash(name, evm_chain_id, address, event, topic2, topic3, topic4))
 		DO UPDATE SET retention=:retention ::::BIGINT, max_logs_kept=:max_logs_kept ::::NUMERIC, logs_per_block=:logs_per_block ::::NUMERIC`,
 		topicsColumns.String(),
 		topicsSql.String())
