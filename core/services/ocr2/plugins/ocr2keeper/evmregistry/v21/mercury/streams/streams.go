@@ -36,7 +36,7 @@ type latestBlockProvider interface {
 	LatestBlock() *ocr2keepers.BlockKey
 }
 
-type streamsRegistry interface {
+type streamRegistry interface {
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
 	Address() common.Address
@@ -52,7 +52,7 @@ type streams struct {
 	mercuryConfig   mercury.MercuryConfigProvider
 	abi             abi.ABI
 	blockSubscriber latestBlockProvider
-	registry        streamsRegistry
+	registry        streamRegistry
 	client          contextCaller
 	lggr            logger.Logger
 	threadCtrl      utils.ThreadControl
@@ -70,7 +70,7 @@ func NewStreamsLookup(
 	mercuryConfig mercury.MercuryConfigProvider,
 	blockSubscriber latestBlockProvider,
 	client contextCaller,
-	registry streamsRegistry,
+	registry streamRegistry,
 	lggr logger.Logger) *streams {
 	httpClient := http.DefaultClient
 	threadCtrl := utils.NewThreadControl()

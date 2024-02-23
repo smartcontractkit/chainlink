@@ -99,6 +99,7 @@ db:
     runAsUser: 999
     runAsGroup: 999
   stateful: false
+  image: "postgres:15.6"
   resources:
     requests:
       cpu: 1

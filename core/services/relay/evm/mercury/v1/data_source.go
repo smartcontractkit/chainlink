@@ -295,7 +295,7 @@ func (ds *datasource) setLatestBlocks(ctx context.Context, obs *v1types.Observat
 	latestBlocks, err := ds.mercuryChainReader.LatestHeads(ctx, nBlocksObservation)
 
 	if err != nil {
-		ds.lggr.Errorw("failed to read latest blocks", "error", err)
+		ds.lggr.Errorw("failed to read latest blocks", "err", err)
 		return err
 	}
 

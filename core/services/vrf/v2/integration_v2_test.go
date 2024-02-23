@@ -751,6 +751,7 @@ func assertRandomWordsFulfilled(
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
 			require.Equal(t, requestID, filter.Event().RequestID())
+			require.Equal(t, nativePayment, filter.Event().NativePayment())
 			found = true
 			rwfe = filter.Event()
 		}
@@ -2229,6 +2230,27 @@ func TestStartingCountsV1(t *testing.T) {
 	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x11).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x12).String()])
+}
+
+func TestVRFV2Integration_ReplayOldRequestsOnStartUp(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+
+	testReplayOldRequestsOnStartUp(
+		t,
+		ownerKey,
+		uni.coordinatorV2UniverseCommon,
+		uni.vrfConsumers[0],
+		uni.consumerContracts[0],
+		uni.consumerContractAddresses[0],
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		nil,
+		vrfcommon.V2,
+		false,
+	)
 }
 
 func FindLatestRandomnessRequestedLog(t *testing.T,
