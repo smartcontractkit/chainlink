@@ -916,6 +916,7 @@ func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, e
 	}
 	latest := blocks[0]
 	finalized := blocks[1]
+	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.Number)
 	return latest, finalized.Number, nil
 }
 
