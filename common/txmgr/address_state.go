@@ -1,14 +1,16 @@
 package txmgr
 
 import (
+	"fmt"
 	"sync"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"gopkg.in/guregu/null.v4"
 )
 
 // AddressState is the state of all transactions for a given address
@@ -187,10 +189,32 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AddTxT
 }
 
 // MoveUnstartedToInProgress moves the next unstarted transaction to the in-progress state.
+// The supplied txAttempt is added to the transaction.
+// It returns an error if there is already a transaction in progress.
+// It returns an error if there is no unstarted transaction to move to in_progress.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnstartedToInProgress(
-	etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	txAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	txID int64, seq SEQ, broadcastAt time.Time, initialBroadcastAt time.Time,
+	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
+	as.Lock()
+	defer as.Unlock()
+
+	if as.inprogressTx != nil {
+		return fmt.Errorf("move_unstarted_to_in_progress: address %s already has a transaction in progress", as.fromAddress)
+	}
+
+	tx := as.unstartedTxs.RemoveTxByID(txID)
+	if tx == nil {
+		return fmt.Errorf("move_unstarted_to_in_progress: no unstarted transaction to move to in_progress")
+	}
+	tx.State = TxInProgress
+	tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{txAttempt}
+	tx.Sequence = &seq
+	tx.BroadcastAt = &broadcastAt
+	tx.InitialBroadcastAt = &initialBroadcastAt
+
+	as.inprogressTx = tx
+
 	return nil
 }
 
