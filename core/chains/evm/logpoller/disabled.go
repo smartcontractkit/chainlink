@@ -65,7 +65,7 @@ func (disabled) IndexedLogs(ctx context.Context, eventSig common.Hash, address c
 	return nil, ErrDisabled
 }
 
-func (disabled) IndexedLogsByBlockRange(ctx context.Context, tart, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash) ([]Log, error) {
+func (disabled) IndexedLogsByBlockRange(ctx context.Context, start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash) ([]Log, error) {
 	return nil, ErrDisabled
 }
 
