@@ -249,10 +249,26 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveIn
 }
 
 // MoveConfirmedMissingReceiptToFatalError moves the confirmed missing receipt transaction to the fatal error state.
+// If there is no confirmed missing receipt transaction with the given ID, an error is returned.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveConfirmedMissingReceiptToFatalError(
-	etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	txError null.String,
+	txID int64, txError null.String,
 ) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx, ok := as.confirmedMissingReceiptTxs[txID]
+	if !ok || tx == nil {
+		return fmt.Errorf("move_confirmed_missing_receipt_to_fatal_error: no confirmed_missing_receipt transaction with ID %d", txID)
+	}
+
+	tx.State = TxFatalError
+	tx.Sequence = nil
+	tx.TxAttempts = nil
+	tx.InitialBroadcastAt = nil
+	tx.Error = txError
+	as.fatalErroredTxs[tx.ID] = tx
+	delete(as.confirmedMissingReceiptTxs, tx.ID)
+
 	return nil
 }
 
