@@ -258,13 +258,14 @@ tempo:
     runAsNonRoot: true
     runAsUser: 10001
     runAsGroup: 10001
-  storage:
-    trace:
-      backend: local # backend configuration to use
-      wal:
-        path: /tmp/tempo/wal # where to store the the wal locally
-      local:
-        path: /tmp/tempo/blocks
+  tempo:
+    storage:
+      trace:
+        backend: local # backend configuration to use
+        wal:
+          path: /tmp/tempo/wal # where to store the the wal locally
+        local:
+          path: /tmp/tempo/blocks
 
 grafana:
   enabled: true
