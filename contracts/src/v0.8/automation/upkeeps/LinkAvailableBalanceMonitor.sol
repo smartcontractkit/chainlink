@@ -142,14 +142,15 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     }
     // s_onRampAddresses is not the same length as s_watchList, so it has
     // to be clean in a separate loop
-    for (uint256 idx = 0; idx < s_onRampAddresses.length(); idx++) {
-      (uint256 key, ) = s_onRampAddresses.at(idx);
+    for (uint256 idx = s_onRampAddresses.length(); idx > 0; idx--) {
+      (uint256 key, ) = s_onRampAddresses.at(idx - 1);
       s_onRampAddresses.remove(key);
     }
     for (uint256 idx = 0; idx < addresses.length; idx++) {
       address targetAddress = addresses[idx];
       if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
       if (targetAddress == address(0)) revert InvalidWatchList();
+      if (minBalances[idx] == 0) revert InvalidWatchList();
       if (topUpAmounts[idx] == 0) revert InvalidWatchList();
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
@@ -219,16 +220,17 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     uint256 idx = uint256(blockhash(block.number - (block.number % s_upkeepInterval) - 1)) % numTargets;
     uint256 numToCheck = numTargets < maxCheck ? numTargets : maxCheck;
     uint256 numFound = 0;
+    uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     address[] memory targetsToFund = new address[](maxPerform);
-    MonitoredAddress memory target;
+    MonitoredAddress memory contractToFund;
     for (
       uint256 numChecked = 0;
       numChecked < numToCheck;
       (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)
     ) {
       address targetAddress = s_watchList.at(idx);
-      target = s_targets[targetAddress];
-      if (_needsFunding(targetAddress, target.minBalance)) {
+      contractToFund = s_targets[targetAddress];
+      if (_needsFunding(targetAddress, contractToFund.lastTopUpTimestamp + minWaitPeriod, contractToFund.minBalance)) {
         targetsToFund[numFound] = targetAddress;
         numFound++;
         if (numFound == maxPerform) {
@@ -248,11 +250,15 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @param targetAddresses is an array of contract addresses to be funded in case they're underfunded
   function topUp(address[] memory targetAddresses) public whenNotPaused {
     MonitoredAddress memory target;
+    uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     uint256 localBalance = i_linkToken.balanceOf(address(this));
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
       address targetAddress = targetAddresses[idx];
       target = s_targets[targetAddress];
-      if (localBalance >= target.topUpAmount && _needsFunding(targetAddress, target.minBalance)) {
+      if (
+        localBalance >= target.topUpAmount &&
+        _needsFunding(targetAddress, target.lastTopUpTimestamp + minWaitPeriod, target.minBalance)
+      ) {
         bool success = i_linkToken.transfer(targetAddress, target.topUpAmount);
         if (success) {
           localBalance -= target.topUpAmount;
@@ -271,8 +277,13 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// if it is elligible for funding
   /// @param targetAddress the target to check
   /// @param minBalance minimum balance required for the target
+  /// @param minWaitPeriodPassed the minimum wait period (target lastTopUpTimestamp + minWaitPeriod)
   /// @return bool whether the target needs funding or not
-  function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool) {
+  function _needsFunding(
+    address targetAddress,
+    uint256 minWaitPeriodPassed,
+    uint256 minBalance
+  ) private view returns (bool) {
     // Explicitly check if the targetAddress is the zero address
     // or if it's not a contract. In both cases return with false,
     // to prevent target.linkAvailableForPayment from running,
@@ -284,17 +295,14 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     ILinkAvailable target;
     IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     try proxy.aggregator() returns (address aggregatorAddress) {
+      // proxy.aggregator() can return a 0 address if the address is not an aggregator
       if (aggregatorAddress == address(0)) return false;
       target = ILinkAvailable(aggregatorAddress);
     } catch {
       target = ILinkAvailable(targetAddress);
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
-      if (
-        balance < int256(minBalance) &&
-        addressToCheck.lastTopUpTimestamp + s_minWaitPeriodSeconds <= block.timestamp &&
-        addressToCheck.isActive
-      ) {
+      if (balance < int256(minBalance) && minWaitPeriodPassed <= block.timestamp && addressToCheck.isActive) {
         return true;
       }
     } catch {}
@@ -408,9 +416,9 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice Gets configuration information for an address on the watchlist
   function getAccountInfo(
     address targetAddress
-  ) external view returns (bool isActive, uint256 minBalance, uint256 topUpAmount) {
+  ) external view returns (bool isActive, uint96 minBalance, uint96 topUpAmount, uint56 lastTopUpTimestamp) {
     MonitoredAddress memory target = s_targets[targetAddress];
-    return (target.isActive, target.minBalance, target.topUpAmount);
+    return (target.isActive, target.minBalance, target.topUpAmount, target.lastTopUpTimestamp);
   }
 
   /// @dev Modifier to make a function callable only by executor role or the
