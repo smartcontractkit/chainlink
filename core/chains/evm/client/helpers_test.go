@@ -127,6 +127,32 @@ func NewChainClientWithEmptyNode(
 	return c
 }
 
+func NewChainClientWithMockedRpc(
+	t *testing.T,
+	selectionMode string,
+	leaseDuration time.Duration,
+	noNewHeadsThreshold time.Duration,
+	chainID *big.Int,
+	rpc RPCCLient,
+) Client {
+
+	lggr := logger.Test(t)
+
+	var chainType commonconfig.ChainType
+
+	cfg := TestNodePoolConfig{
+		NodeSelectionMode: NodeSelectionMode_RoundRobin,
+	}
+	parsed, _ := url.ParseRequestURI("ws://test")
+
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
+		cfg, noNewHeadsThreshold, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient]{n}
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType)
+	t.Cleanup(c.Close)
+	return c
+}
+
 type TestableSendOnlyNode interface {
 	SendOnlyNode
 	SetEthClient(newBatchSender BatchSender, newSender TxSender)
@@ -136,4 +162,20 @@ const HeadResult = `{"difficulty":"0xf3a00","extraData":"0xd88301050384676574688
 
 func IsDialed(s SendOnlyNode) bool {
 	return s.(*sendOnlyNode).dialed
+}
+
+type mockSubscription struct {
+	unsubscribed bool
+	Errors       chan error
+}
+
+func NewMockSubscription() *mockSubscription {
+	return &mockSubscription{Errors: make(chan error)}
+}
+
+func (mes *mockSubscription) Err() <-chan error { return mes.Errors }
+
+func (mes *mockSubscription) Unsubscribe() {
+	mes.unsubscribed = true
+	close(mes.Errors)
 }

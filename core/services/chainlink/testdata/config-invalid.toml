@@ -138,3 +138,10 @@ Name = 'primary'
 URL = 'http://second.stark.node'
 
 [[Starknet]]
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = false

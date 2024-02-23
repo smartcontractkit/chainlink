@@ -105,11 +105,10 @@ func (h *Head) IsInChain(blockHash common.Hash) bool {
 		if h.Hash == blockHash {
 			return true
 		}
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		h = h.Parent
 	}
 	return false
 }
@@ -121,11 +120,10 @@ func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 		if h.Number == blockNum {
 			return h.Hash
 		}
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		h = h.Parent
 	}
 	return common.Hash{}
 }
@@ -138,15 +136,14 @@ func (h *Head) ChainLength() uint32 {
 	l := uint32(1)
 
 	for {
-		if h.Parent != nil {
-			l++
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		l++
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		h = h.Parent
 	}
 	return l
 }
@@ -157,14 +154,13 @@ func (h *Head) ChainHashes() []common.Hash {
 
 	for {
 		hashes = append(hashes, h.Hash)
-		if h.Parent != nil {
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		h = h.Parent
 	}
 	return hashes
 }
@@ -186,15 +182,14 @@ func (h *Head) ChainString() string {
 
 	for {
 		sb.WriteString(h.String())
-		if h.Parent != nil {
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			sb.WriteString("->")
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		sb.WriteString("->")
+		h = h.Parent
 	}
 	sb.WriteString("->nil")
 	return sb.String()

@@ -4,20 +4,25 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
-	m  map[string]BaseCapability
-	mu sync.RWMutex
+	m    map[string]capabilities.BaseCapability
+	mu   sync.RWMutex
+	lggr logger.Logger
 }
 
 // Get gets a capability from the registry.
-func (r *Registry) Get(_ context.Context, id string) (BaseCapability, error) {
+func (r *Registry) Get(_ context.Context, id string) (capabilities.BaseCapability, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	r.lggr.Debugw("get capability", "id", id)
 	c, ok := r.m[id]
 	if !ok {
 		return nil, fmt.Errorf("capability not found with id %s", id)
@@ -27,13 +32,13 @@ func (r *Registry) Get(_ context.Context, id string) (BaseCapability, error) {
 }
 
 // GetTrigger gets a capability from the registry and tries to coerce it to the TriggerCapability interface.
-func (r *Registry) GetTrigger(ctx context.Context, id string) (TriggerCapability, error) {
+func (r *Registry) GetTrigger(ctx context.Context, id string) (capabilities.TriggerCapability, error) {
 	c, err := r.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	tc, ok := c.(TriggerCapability)
+	tc, ok := c.(capabilities.TriggerCapability)
 	if !ok {
 		return nil, fmt.Errorf("capability with id: %s does not satisfy the capability interface", id)
 	}
@@ -42,13 +47,13 @@ func (r *Registry) GetTrigger(ctx context.Context, id string) (TriggerCapability
 }
 
 // GetAction gets a capability from the registry and tries to coerce it to the ActionCapability interface.
-func (r *Registry) GetAction(ctx context.Context, id string) (ActionCapability, error) {
+func (r *Registry) GetAction(ctx context.Context, id string) (capabilities.ActionCapability, error) {
 	c, err := r.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	ac, ok := c.(ActionCapability)
+	ac, ok := c.(capabilities.ActionCapability)
 	if !ok {
 		return nil, fmt.Errorf("capability with id: %s does not satisfy the capability interface", id)
 	}
@@ -56,14 +61,14 @@ func (r *Registry) GetAction(ctx context.Context, id string) (ActionCapability, 
 	return ac, nil
 }
 
-// GetConsensus gets a capability from the registry and tries to coerce it to the ActionCapability interface.
-func (r *Registry) GetConsensus(ctx context.Context, id string) (ConsensusCapability, error) {
+// GetConsensus gets a capability from the registry and tries to coerce it to the ConsensusCapability interface.
+func (r *Registry) GetConsensus(ctx context.Context, id string) (capabilities.ConsensusCapability, error) {
 	c, err := r.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	cc, ok := c.(ConsensusCapability)
+	cc, ok := c.(capabilities.ConsensusCapability)
 	if !ok {
 		return nil, fmt.Errorf("capability with id: %s does not satisfy the capability interface", id)
 	}
@@ -71,14 +76,14 @@ func (r *Registry) GetConsensus(ctx context.Context, id string) (ConsensusCapabi
 	return cc, nil
 }
 
-// GetTarget gets a capability from the registry and tries to coerce it to the ActionCapability interface.
-func (r *Registry) GetTarget(ctx context.Context, id string) (TargetCapability, error) {
+// GetTarget gets a capability from the registry and tries to coerce it to the TargetCapability interface.
+func (r *Registry) GetTarget(ctx context.Context, id string) (capabilities.TargetCapability, error) {
 	c, err := r.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	tc, ok := c.(TargetCapability)
+	tc, ok := c.(capabilities.TargetCapability)
 	if !ok {
 		return nil, fmt.Errorf("capability with id: %s does not satisfy the capability interface", id)
 	}
@@ -87,42 +92,45 @@ func (r *Registry) GetTarget(ctx context.Context, id string) (TargetCapability, 
 }
 
 // List lists all the capabilities in the registry.
-func (r *Registry) List(_ context.Context) []BaseCapability {
+func (r *Registry) List(_ context.Context) ([]capabilities.BaseCapability, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	cl := []BaseCapability{}
+	cl := []capabilities.BaseCapability{}
 	for _, v := range r.m {
 		cl = append(cl, v)
 	}
 
-	return cl
+	return cl, nil
 }
 
 // Add adds a capability to the registry.
-func (r *Registry) Add(_ context.Context, c BaseCapability) error {
+func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	info := c.Info()
+	info, err := c.Info(ctx)
+	if err != nil {
+		return err
+	}
 
 	switch info.CapabilityType {
-	case CapabilityTypeTrigger:
-		_, ok := c.(TriggerCapability)
+	case capabilities.CapabilityTypeTrigger:
+		_, ok := c.(capabilities.TriggerCapability)
 		if !ok {
 			return fmt.Errorf("trigger capability does not satisfy TriggerCapability interface")
 		}
-	case CapabilityTypeAction:
-		_, ok := c.(ActionCapability)
+	case capabilities.CapabilityTypeAction:
+		_, ok := c.(capabilities.ActionCapability)
 		if !ok {
 			return fmt.Errorf("action does not satisfy ActionCapability interface")
 		}
-	case CapabilityTypeConsensus:
-		_, ok := c.(ConsensusCapability)
+	case capabilities.CapabilityTypeConsensus:
+		_, ok := c.(capabilities.ConsensusCapability)
 		if !ok {
 			return fmt.Errorf("consensus capability does not satisfy ConsensusCapability interface")
 		}
-	case CapabilityTypeTarget:
-		_, ok := c.(TargetCapability)
+	case capabilities.CapabilityTypeTarget:
+		_, ok := c.(capabilities.TargetCapability)
 		if !ok {
 			return fmt.Errorf("target capability does not satisfy TargetCapability interface")
 		}
@@ -137,13 +145,15 @@ func (r *Registry) Add(_ context.Context, c BaseCapability) error {
 	}
 
 	r.m[id] = c
+	r.lggr.Infow("capability added", "id", id, "type", info.CapabilityType, "description", info.Description, "version", info.Version)
 	return nil
 
 }
 
 // NewRegistry returns a new Registry.
-func NewRegistry() *Registry {
+func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{
-		m: map[string]BaseCapability{},
+		m:    map[string]capabilities.BaseCapability{},
+		lggr: lggr.Named("CapabilityRegistry"),
 	}
 }

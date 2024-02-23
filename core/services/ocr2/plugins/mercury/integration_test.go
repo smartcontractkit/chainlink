@@ -38,7 +38,7 @@ import (
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	relaymercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
+	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -67,7 +67,7 @@ var (
 		Min: big.NewInt(0),
 		Max: big.NewInt(math.MaxInt64),
 	}
-	rawReportingPluginConfig = relaymercury.OffchainConfig{
+	rawReportingPluginConfig = datastreamsmercury.OffchainConfig{
 		ExpirationWindow: 1,
 		BaseUSDFee:       decimal.NewFromInt(100),
 	}
@@ -128,6 +128,10 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 func TestIntegration_MercuryV1(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV1(t)
+}
+
+func integration_MercuryV1(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -269,7 +273,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -279,8 +283,8 @@ func TestIntegration_MercuryV1(t *testing.T) {
 		2*time.Second,        // DeltaProgress
 		20*time.Second,       // DeltaResend
 		400*time.Millisecond, // DeltaInitial
-		100*time.Millisecond, // DeltaRound
-		0,                    // DeltaGrace
+		200*time.Millisecond, // DeltaRound
+		100*time.Millisecond, // DeltaGrace
 		300*time.Millisecond, // DeltaCertifiedCommitRequest
 		1*time.Minute,        // DeltaStage
 		100,                  // rMax
@@ -466,6 +470,10 @@ func TestIntegration_MercuryV1(t *testing.T) {
 func TestIntegration_MercuryV2(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV2(t)
+}
+
+func integration_MercuryV2(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -615,7 +623,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -699,7 +707,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
+			expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
@@ -736,6 +744,10 @@ func TestIntegration_MercuryV2(t *testing.T) {
 func TestIntegration_MercuryV3(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV3(t)
+}
+
+func integration_MercuryV3(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -895,7 +907,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -979,7 +991,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
+			expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))

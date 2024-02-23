@@ -54,18 +54,30 @@ jobs:
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
+      TEST_LOG_LEVEL: info
       SELECTED_NETWORKS: "SIMULATED"
     strategy:
       fail-fast: false
       matrix:
         tests:
-          - name: Upgrade
+          - name: Upgrade 2.0
             suite: smoke
-            nodes: 6
+            nodes: 1
             os: ubuntu20.04-8cores-32GB
             network: SIMULATED
-            command: -run ^TestAutomationNodeUpgrade$ ./smoke
+            command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
+          - name: Upgrade 2.1
+            suite: smoke
+            nodes: 5
+            os: ubuntu20.04-8cores-32GB
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
+          - name: Upgrade 2.2
+            suite: smoke
+            nodes: 5
+            os: ubuntu20.04-8cores-32GB
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_2 ./smoke
     runs-on: ${{ matrix.tests.os }}
     name: Automation ${{ matrix.tests.name }} Test
     steps:
@@ -82,7 +94,7 @@ jobs:
           upgradeImage: ${{ env.CHAINLINK_IMAGE }}
           upgradeVersion: ${{ github.sha }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
@@ -184,7 +196,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [ Upgrade ]
+        name: [ Upgrade 2.0, Upgrade 2.1, Upgrade 2.2 ]
     steps:
       - name: Get Results
         id: test-results
