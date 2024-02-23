@@ -299,7 +299,28 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 }
 
 // MoveInProgressToConfirmedMissingReceipt moves the in-progress transaction to the confirmed missing receipt state.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToConfirmedMissingReceipt(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+// If there is no in-progress transaction, an error is returned.
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToConfirmedMissingReceipt(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx := as.inprogressTx
+	if tx == nil {
+		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no transaction in progress")
+	}
+	if tx.BroadcastAt.Before(broadcastAt) {
+		tx.BroadcastAt = &broadcastAt
+	}
+	tx.State = TxConfirmedMissingReceipt
+	if len(tx.TxAttempts) == 0 {
+		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+	txAttempt.State = txmgrtypes.TxAttemptBroadcast
+	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
+
+	as.confirmedMissingReceiptTxs[tx.ID] = tx
+	as.inprogressTx = nil
+
 	return nil
 }
 
