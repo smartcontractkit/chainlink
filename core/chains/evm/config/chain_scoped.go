@@ -193,3 +193,7 @@ func (e *evmConfig) OperatorFactoryAddress() string {
 	}
 	return e.c.OperatorFactoryAddress.String()
 }
+
+func (e *evmConfig) LogPrunePageSize() uint32 {
+	return *e.c.LogPrunePageSize
+}
