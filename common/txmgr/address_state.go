@@ -190,12 +190,12 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ApplyT
 	}
 }
 
-// FetchTxAttempts returns all attempts for the given transactions that match the given filters.
+// FindTxAttempts returns all attempts for the given transactions that match the given filters.
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions are considered.
 // If no txStates are provided, all transactions are considered.
 // The txFilter is applied to the transactions and the txAttemptFilter is applied to the attempts.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchTxAttempts(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttempts(
 	txStates []txmgrtypes.TxState,
 	txFilter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txAttemptFilter func(*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
@@ -206,7 +206,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		return as.fetchTxAttempts(as.allTransactions, txFilter, txAttemptFilter, txIDs...)
+		return as.findTxAttempts(as.allTransactions, txFilter, txAttemptFilter, txIDs...)
 	}
 
 	var txAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -214,31 +214,32 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 		switch txState {
 		case TxInProgress:
 			if as.inprogress != nil && txFilter(as.inprogress) {
-				for _, txAttempt := range as.inprogress.TxAttempts {
+				for i := 0; i < len(as.inprogress.TxAttempts); i++ {
+					txAttempt := as.inprogress.TxAttempts[i]
 					if txAttemptFilter(&txAttempt) {
 						txAttempts = append(txAttempts, txAttempt)
 					}
 				}
 			}
 		case TxUnconfirmed:
-			txAttempts = append(txAttempts, as.fetchTxAttempts(as.unconfirmed, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.findTxAttempts(as.unconfirmed, txFilter, txAttemptFilter, txIDs...)...)
 		case TxConfirmedMissingReceipt:
-			txAttempts = append(txAttempts, as.fetchTxAttempts(as.confirmedMissingReceipt, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.findTxAttempts(as.confirmedMissingReceipt, txFilter, txAttemptFilter, txIDs...)...)
 		case TxConfirmed:
-			txAttempts = append(txAttempts, as.fetchTxAttempts(as.confirmed, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.findTxAttempts(as.confirmed, txFilter, txAttemptFilter, txIDs...)...)
 		case TxFatalError:
-			txAttempts = append(txAttempts, as.fetchTxAttempts(as.fatalErrored, txFilter, txAttemptFilter, txIDs...)...)
+			txAttempts = append(txAttempts, as.findTxAttempts(as.fatalErrored, txFilter, txAttemptFilter, txIDs...)...)
 		}
 	}
 
 	return txAttempts
 }
 
-// FetchTxs returns all transactions that match the given filters.
+// FindTxs returns all transactions that match the given filters.
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions are considered.
 // If no txStates are provided, all transactions are considered.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchTxs(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxs(
 	txStates []txmgrtypes.TxState,
 	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txIDs ...int64,
@@ -248,7 +249,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		return as.fetchTxs(as.allTransactions, filter, txIDs...)
+		return as.findTxs(as.allTransactions, filter, txIDs...)
 	}
 
 	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -259,13 +260,13 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FetchT
 				txs = append(txs, *as.inprogress)
 			}
 		case TxUnconfirmed:
-			txs = append(txs, as.fetchTxs(as.unconfirmed, filter, txIDs...)...)
+			txs = append(txs, as.findTxs(as.unconfirmed, filter, txIDs...)...)
 		case TxConfirmedMissingReceipt:
-			txs = append(txs, as.fetchTxs(as.confirmedMissingReceipt, filter, txIDs...)...)
+			txs = append(txs, as.findTxs(as.confirmedMissingReceipt, filter, txIDs...)...)
 		case TxConfirmed:
-			txs = append(txs, as.fetchTxs(as.confirmed, filter, txIDs...)...)
+			txs = append(txs, as.findTxs(as.confirmed, filter, txIDs...)...)
 		case TxFatalError:
-			txs = append(txs, as.fetchTxs(as.fatalErrored, filter, txIDs...)...)
+			txs = append(txs, as.findTxs(as.fatalErrored, filter, txIDs...)...)
 		}
 	}
 
@@ -383,7 +384,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 	}
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxAttempts(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxAttempts(
 	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txFilter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txAttemptFilter func(*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
@@ -398,7 +399,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchT
 		for _, txID := range txIDs {
 			tx := txIDsToTx[txID]
 			if tx != nil && txFilter(tx) {
-				for _, txAttempt := range tx.TxAttempts {
+				for i := 0; i < len(tx.TxAttempts); i++ {
+					txAttempt := tx.TxAttempts[i]
 					if txAttemptFilter(&txAttempt) {
 						txAttempts = append(txAttempts, txAttempt)
 					}
@@ -411,7 +413,8 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchT
 	// if txIDs is empty then apply the filter to all transactions
 	for _, tx := range txIDsToTx {
 		if txFilter(tx) {
-			for _, txAttempt := range tx.TxAttempts {
+			for i := 0; i < len(tx.TxAttempts); i++ {
+				txAttempt := tx.TxAttempts[i]
 				if txAttemptFilter(&txAttempt) {
 					txAttempts = append(txAttempts, txAttempt)
 				}
@@ -422,7 +425,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchT
 	return txAttempts
 }
 
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fetchTxs(
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxs(
 	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txIDs ...int64,
