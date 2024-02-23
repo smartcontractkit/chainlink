@@ -2,6 +2,7 @@ package workflows
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -31,11 +32,15 @@ type Engine struct {
 	consensusType   string
 	consensusConfig *values.Map
 	consensus       capabilities.ConsensusCapability
-	targetType      string
-	targetConfig    *values.Map
-	target          capabilities.TargetCapability
+	targets         []target
 	callbackCh      chan capabilities.CapabilityResponse
 	cancel          func()
+}
+
+type target struct {
+	tType       string
+	tConfig     *values.Map
+	tCapability capabilities.TargetCapability
 }
 
 func (e *Engine) Start(ctx context.Context) error {
@@ -70,12 +75,18 @@ LOOP:
 				e.logger.Errorf("failed to get consensus capability: %s, retrying in %d seconds", err, retrySec)
 				break
 			}
-			e.target, err = e.registry.GetTarget(ctx, e.targetType)
-			if err != nil {
-				e.logger.Errorf("failed to get target capability: %s, retrying in %d seconds", err, retrySec)
-				break
+			failed := false
+			for i := range e.targets {
+				e.targets[i].tCapability, err = e.registry.GetTarget(ctx, e.targets[i].tType)
+				if err != nil {
+					e.logger.Errorf("failed to get target capability: %s, retrying in %d seconds", err, retrySec)
+					failed = true
+					break
+				}
 			}
-			break LOOP
+			if !failed {
+				break LOOP
+			}
 		}
 	}
 
@@ -144,33 +155,36 @@ func (e *Engine) handleExecution(ctx context.Context, event capabilities.Capabil
 	if err != nil {
 		return err
 	}
+	// we're expecting exactly one report
 	if len(results.Underlying) == 0 {
 		return fmt.Errorf("consensus returned no reports")
 	}
 	if len(results.Underlying) > 1 {
 		e.logger.Debugw("consensus returned more than one report")
 	}
-
-	// we're expecting exactly one report
-	_, err = e.handleTarget(ctx, results.Underlying[0])
-	return err
+	return e.handleTargets(ctx, results.Underlying[0])
 }
 
-func (e *Engine) handleTarget(ctx context.Context, resp values.Value) (*values.List, error) {
+func (e *Engine) handleTargets(ctx context.Context, resp values.Value) error {
 	e.logger.Debugw("handle target")
 	inputs := map[string]values.Value{
 		"report": resp,
 	}
 
-	tr := capabilities.CapabilityRequest{
-		Inputs: &values.Map{Underlying: inputs},
-		Config: e.targetConfig,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          mockedWorkflowID,
-			WorkflowExecutionID: mockedExecutionID,
-		},
+	var combinedErr error
+	for _, t := range e.targets {
+		tr := capabilities.CapabilityRequest{
+			Inputs: &values.Map{Underlying: inputs},
+			Config: t.tConfig,
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID:          mockedWorkflowID,
+				WorkflowExecutionID: mockedExecutionID,
+			},
+		}
+		_, err := capabilities.ExecuteSync(ctx, t.tCapability, tr)
+		combinedErr = errors.Join(combinedErr, err)
 	}
-	return capabilities.ExecuteSync(ctx, e.target, tr)
+	return combinedErr
 }
 
 func (e *Engine) handleConsensus(ctx context.Context, event capabilities.CapabilityResponse) (*values.List, error) {
@@ -265,9 +279,19 @@ func NewEngine(lggr logger.Logger, registry types.CapabilitiesRegistry) (engine 
 		return nil, err
 	}
 
-	// Target
-	engine.targetType = "write_polygon-testnet-mumbai"
-	engine.targetConfig, err = values.NewMap(map[string]any{
+	// Targets
+	engine.targets = make([]target, 2)
+	engine.targets[0].tType = "write_polygon-testnet-mumbai"
+	engine.targets[0].tConfig, err = values.NewMap(map[string]any{
+		"address": "0xaabbcc",
+		"params":  []any{"$(report)"},
+		"abi":     "receive(report bytes)",
+	})
+	if err != nil {
+		return nil, err
+	}
+	engine.targets[1].tType = "write_ethereum-testnet-sepolia"
+	engine.targets[1].tConfig, err = values.NewMap(map[string]any{
 		"address": "0xaabbcc",
 		"params":  []any{"$(report)"},
 		"abi":     "receive(report bytes)",

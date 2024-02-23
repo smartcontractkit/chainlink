@@ -94,22 +94,37 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, consensus))
 
-	target := newMockCapability(
+	target1 := newMockCapability(
 		capabilities.MustNewCapabilityInfo(
 			"write_polygon-testnet-mumbai",
 			capabilities.CapabilityTypeTarget,
-			"a write capability targeting polygon mainnet",
+			"a write capability targeting polygon mumbai testnet",
 			"v1.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-
 			list := req.Inputs.Underlying["report"].(*values.List)
 			return capabilities.CapabilityResponse{
 				Value: list.Underlying[0],
 			}, nil
 		},
 	)
-	require.NoError(t, reg.Add(ctx, target))
+	require.NoError(t, reg.Add(ctx, target1))
+
+	target2 := newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			"write_ethereum-testnet-sepolia",
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+			"v1.0.0",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			list := req.Inputs.Underlying["report"].(*values.List)
+			return capabilities.CapabilityResponse{
+				Value: list.Underlying[0],
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target2))
 
 	lggr := logger.TestLogger(t)
 	eng, err := NewEngine(lggr, reg)
@@ -129,5 +144,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	err = eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
-	assert.Equal(t, cr, <-target.response)
+	assert.Equal(t, cr, <-target1.response)
+	assert.Equal(t, cr, <-target2.response)
 }
