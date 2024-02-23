@@ -234,7 +234,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht := newHeadTracker(t)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), errors.New("failed to get init head"))
 		ht.Start(t)
-		tests.AssertLogEventually(t, ht.observer, "Error getting initial head")
+		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
 	t.Run("Starts even if received invalid head", func(t *testing.T) {
 		ht := newHeadTracker(t)
@@ -248,7 +248,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("failed to load latest finalized")).Once()
 		ht.Start(t)
-		tests.AssertLogEventually(t, ht.observer, "Error getting initial head")
+		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
 	t.Run("Happy path", func(t *testing.T) {
 		head := cltest.Head(1000)

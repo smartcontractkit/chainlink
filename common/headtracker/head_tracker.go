@@ -104,12 +104,12 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 		// anyway when we connect (but we should not rely on this because it is
 		// not specced). If it happens this is fine, and the head will be
 		// ignored as a duplicate.
-		err := ht.loadInitialHead(ctx)
+		err := ht.handleInitialHead(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			ht.log.Errorw("Error getting initial head", "err", err)
+			ht.log.Errorw("Error handling initial head", "err", err)
 		}
 
 		ht.wgDone.Add(3)
@@ -123,7 +123,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 	})
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) loadInitialHead(ctx context.Context) error {
+func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Context) error {
 	initialHead, err := ht.client.HeadByNumber(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to fetch initial head: %w", err)
