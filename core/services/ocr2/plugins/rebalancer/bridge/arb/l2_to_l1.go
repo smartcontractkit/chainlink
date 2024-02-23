@@ -336,7 +336,7 @@ func (l *l2ToL1Bridge) partitionReadyTransfers(
 	notReady []*rebalancer.RebalancerLiquidityTransferred,
 	err error,
 ) {
-	unfinalized, err := l.filterUnfinalizedTransfers(sentLogs, receivedLogs)
+	unfinalized, err := filterUnfinalizedTransfers(sentLogs, receivedLogs)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("filter unfinalized transfers: %w", err)
 	}
@@ -365,7 +365,7 @@ func (l *l2ToL1Bridge) partitionReadyTransfers(
 	return
 }
 
-func (l *l2ToL1Bridge) filterUnfinalizedTransfers(sentLogs, receivedLogs []*rebalancer.RebalancerLiquidityTransferred) ([]*rebalancer.RebalancerLiquidityTransferred, error) {
+func filterUnfinalizedTransfers(sentLogs, receivedLogs []*rebalancer.RebalancerLiquidityTransferred) ([]*rebalancer.RebalancerLiquidityTransferred, error) {
 	var unfinalized []*rebalancer.RebalancerLiquidityTransferred
 	for _, sent := range sentLogs {
 		var found bool
@@ -559,30 +559,22 @@ func (l *l2ToL1Bridge) getLatestNodeConfirmed(ctx context.Context) (*arbitrum_ro
 	return parsed, nil
 }
 
-func unpackFinalizationPayload(calldata []byte) (*arbitrum_l1_bridge_adapter.ArbitrumL1BridgeAdapterArbitrumFinalizationPayload, error) {
+func unpackFinalizationPayload(calldata []byte) (arbitrum_l1_bridge_adapter.ArbitrumL1BridgeAdapterArbitrumFinalizationPayload, error) {
 	method, ok := l1AdapterABI.Methods["exposeArbitrumFinalizationPayload"]
 	if !ok {
-		return nil, fmt.Errorf("exposeArbitrumFinalizationPayload not found in ArbitrumL1BridgeAdapter ABI")
+		return arbitrum_l1_bridge_adapter.ArbitrumL1BridgeAdapterArbitrumFinalizationPayload{}, fmt.Errorf("exposeArbitrumFinalizationPayload not found in ArbitrumL1BridgeAdapter ABI")
 	}
 
 	ifaces, err := method.Inputs.Unpack(calldata)
 	if err != nil {
-		return nil, fmt.Errorf("unpack exposeArbitrumFinalizationPayload: %w", err)
+		return arbitrum_l1_bridge_adapter.ArbitrumL1BridgeAdapterArbitrumFinalizationPayload{}, fmt.Errorf("unpack exposeArbitrumFinalizationPayload: %w", err)
 	}
 
-	if len(ifaces) != 9 {
-		return nil, fmt.Errorf("expected 9 arguments, got %d", len(ifaces))
+	if len(ifaces) != 1 {
+		return arbitrum_l1_bridge_adapter.ArbitrumL1BridgeAdapterArbitrumFinalizationPayload{}, fmt.Errorf("expected 1 argument, got %d", len(ifaces))
 	}
 
-	return &arbitrum_l1_bridge_adapter.ArbitrumL1BridgeAdapterArbitrumFinalizationPayload{
-		Proof:       *abi.ConvertType(ifaces[0], new([][32]byte)).(*[][32]byte),
-		Index:       *abi.ConvertType(ifaces[1], new(*big.Int)).(**big.Int),
-		L2Sender:    *abi.ConvertType(ifaces[2], new(common.Address)).(*common.Address),
-		To:          *abi.ConvertType(ifaces[3], new(common.Address)).(*common.Address),
-		L1Block:     *abi.ConvertType(ifaces[4], new(*big.Int)).(**big.Int),
-		L2Block:     *abi.ConvertType(ifaces[5], new(*big.Int)).(**big.Int),
-		L2Timestamp: *abi.ConvertType(ifaces[6], new(*big.Int)).(**big.Int),
-		Value:       *abi.ConvertType(ifaces[7], new(*big.Int)).(**big.Int),
-		Data:        *abi.ConvertType(ifaces[8], new([]byte)).(*[]byte),
-	}, nil
+	payload := *abi.ConvertType(ifaces[0], new(arbitrum_l1_bridge_adapter.ArbitrumL1BridgeAdapterArbitrumFinalizationPayload)).(*arbitrum_l1_bridge_adapter.ArbitrumL1BridgeAdapterArbitrumFinalizationPayload)
+
+	return payload, nil
 }

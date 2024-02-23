@@ -213,7 +213,7 @@ func (l *l1ToL2Bridge) GetTransfers(
 			toHash(l.remoteSelector),
 		},
 		fromTs,
-		logpoller.Finalized,
+		1,
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -243,7 +243,7 @@ func (l *l1ToL2Bridge) GetTransfers(
 			toHash(l.localSelector),
 		},
 		fromTs,
-		logpoller.Finalized,
+		1,
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -297,7 +297,13 @@ func (l *l1ToL2Bridge) GetTransfers(
 	// pay out to the rebalancer on L2.
 	// We can _probably_ assume that the earlier LiquidityTransferred logs on L1
 	// are more likely to be finalizedNotExecuted than later ones.
-	notReady, ready, readyData, err := l.partitionTransfers(localToken, parsedSent, parsedDepositFinalized, parsedReceived)
+	notReady, ready, readyData, err := partitionTransfers(
+		localToken,
+		l.l1BridgeAdapter.Address(),
+		l.l2RebalancerAddress,
+		parsedSent,
+		parsedDepositFinalized,
+		parsedReceived)
 	if err != nil {
 		return nil, fmt.Errorf("partition logs into not-ready and ready states: %w", err)
 	}
@@ -361,8 +367,10 @@ func (l *l1ToL2Bridge) toPendingTransfers(
 }
 
 // precondition: the input logs are already sorted in time-ascending order
-func (l *l1ToL2Bridge) partitionTransfers(
+func partitionTransfers(
 	localToken models.Address,
+	l1BridgeAdapterAddress common.Address,
+	l2RebalancerAddress common.Address,
 	sentLogs []*rebalancer.RebalancerLiquidityTransferred,
 	depositFinalizedLogs []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized,
 	receivedLogs []*rebalancer.RebalancerLiquidityTransferred,
@@ -372,7 +380,7 @@ func (l *l1ToL2Bridge) partitionTransfers(
 	readyData [][]byte,
 	err error,
 ) {
-	effectiveDepositFinalized := l.getEffectiveEvents(localToken, depositFinalizedLogs)
+	effectiveDepositFinalized := getEffectiveEvents(localToken, l1BridgeAdapterAddress, l2RebalancerAddress, depositFinalizedLogs)
 	// determine ready and not ready first
 	if len(sentLogs) > len(effectiveDepositFinalized) {
 		// more sent than have been finalized
@@ -390,7 +398,7 @@ func (l *l1ToL2Bridge) partitionTransfers(
 		ready = sentLogs
 	}
 	// figure out if any of the ready have been executed
-	ready, err = l.filterExecuted(ready, receivedLogs)
+	ready, err = filterExecuted(ready, receivedLogs)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("filter executed transfers: %w", err)
 	}
@@ -402,15 +410,15 @@ func (l *l1ToL2Bridge) partitionTransfers(
 	return
 }
 
-func (l *l1ToL2Bridge) filterExecuted(
+func filterExecuted(
 	readyCandidates []*rebalancer.RebalancerLiquidityTransferred,
-	liquidityTransferredLogs []*rebalancer.RebalancerLiquidityTransferred,
+	receivedLogs []*rebalancer.RebalancerLiquidityTransferred,
 ) (
 	ready []*rebalancer.RebalancerLiquidityTransferred,
 	err error,
 ) {
 	for _, readyCandidate := range readyCandidates {
-		exists, err := l.matchingExecutionExists(readyCandidate, liquidityTransferredLogs)
+		exists, err := matchingExecutionExists(readyCandidate, receivedLogs)
 		if err != nil {
 			return nil, fmt.Errorf("error checking if ready candidate has been executed: %w", err)
 		}
@@ -421,23 +429,23 @@ func (l *l1ToL2Bridge) filterExecuted(
 	return
 }
 
-// TODO: might be able to optimize this
-// map[l2ToL1TxId]bool and check if the l2ToL1TxId exists in the map
-func (l *l1ToL2Bridge) matchingExecutionExists(
+func matchingExecutionExists(
 	readyCandidate *rebalancer.RebalancerLiquidityTransferred,
-	liquidityTransferredLogs []*rebalancer.RebalancerLiquidityTransferred,
+	receivedLogs []*rebalancer.RebalancerLiquidityTransferred,
 ) (bool, error) {
-	for _, ltLog := range liquidityTransferredLogs {
-		// decode the bridge specific data, which should be the l1 -> l2 tx id
-		recvL1ToL2TxId, err := unpackUint256(ltLog.BridgeSpecificData)
+	// decode the send log's bridgeReturnData, which should be the l1 -> l2 tx id when using arbitrum.
+	// The LiquidityTransferred logs on L2 will have the same l1 -> l2 tx id
+	// as part of the bridgeSpecificData field.
+	sendL1ToL2TxId, err := unpackUint256(readyCandidate.BridgeReturnData)
+	if err != nil {
+		return false, fmt.Errorf("unpack L1 to L2 tx id from L1 LiquidityTransferred log (%s): %w, data: %s",
+			readyCandidate.Raw.TxHash, err, hexutil.Encode(readyCandidate.BridgeReturnData))
+	}
+	for _, recvLog := range receivedLogs {
+		recvL1ToL2TxId, err := unpackUint256(recvLog.BridgeSpecificData)
 		if err != nil {
 			return false, fmt.Errorf("unpack bridge specific data from LiquidityTransferred log: %w, data: %s",
-				err, hexutil.Encode(ltLog.BridgeSpecificData))
-		}
-		sendL1ToL2TxId, err := unpackUint256(readyCandidate.BridgeSpecificData)
-		if err != nil {
-			return false, fmt.Errorf("unpack outbound transfer result from LiquidityTransferred log: %w, data: %s",
-				err, hexutil.Encode(readyCandidate.BridgeSpecificData))
+				err, hexutil.Encode(recvLog.BridgeSpecificData))
 		}
 		if sendL1ToL2TxId.Cmp(recvL1ToL2TxId) == 0 {
 			return true, nil
@@ -446,22 +454,28 @@ func (l *l1ToL2Bridge) matchingExecutionExists(
 	return false, nil
 }
 
-func (l *l1ToL2Bridge) getEffectiveEvents(
+// getEffectiveEvents returns DepositFinalized logs that:
+// * are coming from the given L1 bridge adapter
+// * have L1Token matching the provided localToken
+// * have the To field matching the provided l2RebalancerAddress
+// DepositFinalized are emitted for all deposits, so filtering out the irrelevant events
+// is necessary.
+// TODO: ideally this would be done in the log poller query but no such query exists
+// at the moment.
+// TODO: should we care about L1 -> L2 bridges not done by the bridge adapter?
+// in theory those are funds that can be injected into the pools.
+func getEffectiveEvents(
 	localToken models.Address,
+	l1BridgeAdapterAddress common.Address,
+	l2RebalancerAddress common.Address,
 	depositFinalizedLogs []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized,
 ) (
 	effectiveDepositFinalized []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized,
 ) {
-	// filter out DepositFinalized logs not coming from the l1 bridge adapter
-	// and not matching the localToken provided.
-	// in theory anyone can bridge any token to the rebalancer on L2 from L1
-	// TODO: ideally this would be done in the log poller query but no such query exists
-	// at the moment.
-	// TODO: should we care about L1 -> L2 bridges not done by the bridge adapter?
-	// in theory those are funds that can be injected into the pools.
 	for _, depFinalized := range depositFinalizedLogs {
-		if depFinalized.From == l.l1BridgeAdapter.Address() &&
-			depFinalized.L1Token == common.Address(localToken) {
+		if depFinalized.From == l1BridgeAdapterAddress &&
+			depFinalized.L1Token == common.Address(localToken) &&
+			depFinalized.To == l2RebalancerAddress {
 			effectiveDepositFinalized = append(effectiveDepositFinalized, depFinalized)
 		}
 	}

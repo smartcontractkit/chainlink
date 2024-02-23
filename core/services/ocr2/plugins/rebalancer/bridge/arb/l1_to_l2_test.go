@@ -7,14 +7,19 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/test-go/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/l2_arbitrum_gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/mocks/mock_arbitrum_inbox"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
 
 func Test_l1ToL2Bridge_QuorumizedBridgePayload(t *testing.T) {
@@ -446,6 +451,505 @@ func Test_l1ToL2Bridge_estimateMaxSubmissionFee(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+
+func Test_matchingExecutionExists(t *testing.T) {
+	type args struct {
+		readyCandidate *rebalancer.RebalancerLiquidityTransferred
+		receivedLogs   []*rebalancer.RebalancerLiquidityTransferred
+	}
+	var (
+		l2Rebalancer = testutils.NewAddress()
+	)
+	tests := []struct {
+		name    string
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		{
+			"matching execution exists",
+			args{
+				readyCandidate: &rebalancer.RebalancerLiquidityTransferred{
+					OcrSeqNum:          1,
+					FromChainSelector:  10,
+					ToChainSelector:    20,
+					To:                 l2Rebalancer,
+					Amount:             big.NewInt(100),
+					BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+					BridgeReturnData:   mustPackReturnData(t, big.NewInt(10)),
+				},
+				receivedLogs: []*rebalancer.RebalancerLiquidityTransferred{
+					{
+						OcrSeqNum:          2,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackReturnData(t, big.NewInt(9)),
+						BridgeReturnData:   []byte{},
+					},
+					{
+						OcrSeqNum:          3,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackReturnData(t, big.NewInt(11)),
+						BridgeReturnData:   []byte{},
+					},
+					{
+						OcrSeqNum:          4,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackReturnData(t, big.NewInt(10)),
+						BridgeReturnData:   []byte{},
+					},
+				},
+			},
+			true,
+			false,
+		},
+		{
+			"no matching execution exists",
+			args{
+				readyCandidate: &rebalancer.RebalancerLiquidityTransferred{
+					OcrSeqNum:          1,
+					FromChainSelector:  10,
+					ToChainSelector:    20,
+					To:                 l2Rebalancer,
+					Amount:             big.NewInt(100),
+					BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+					BridgeReturnData:   mustPackReturnData(t, big.NewInt(10)),
+				},
+				receivedLogs: []*rebalancer.RebalancerLiquidityTransferred{
+					{
+						OcrSeqNum:          2,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackReturnData(t, big.NewInt(9)),
+						BridgeReturnData:   []byte{},
+					},
+					{
+						OcrSeqNum:          3,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackReturnData(t, big.NewInt(11)),
+						BridgeReturnData:   []byte{},
+					},
+					{
+						OcrSeqNum:          1,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackReturnData(t, big.NewInt(8)),
+						BridgeReturnData:   []byte{},
+					},
+				},
+			},
+			false,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := matchingExecutionExists(tt.args.readyCandidate, tt.args.receivedLogs)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func mustPackReturnData(t *testing.T, l1ToL2Id *big.Int) []byte {
+	packed, err := utils.ABIEncode(`[{"type": "uint256"}]`, l1ToL2Id)
+	require.NoError(t, err)
+	return packed
+}
+
+func Test_filterExecuted(t *testing.T) {
+	type args struct {
+		readyCandidates []*rebalancer.RebalancerLiquidityTransferred
+		receivedLogs    []*rebalancer.RebalancerLiquidityTransferred
+	}
+	var (
+		l2Rebalancer = testutils.NewAddress()
+	)
+	tests := []struct {
+		name      string
+		args      args
+		wantReady []*rebalancer.RebalancerLiquidityTransferred
+		wantErr   bool
+	}{
+		{
+			"empty received list",
+			args{
+				readyCandidates: []*rebalancer.RebalancerLiquidityTransferred{
+					{
+						OcrSeqNum:          1,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+						BridgeReturnData:   mustPackReturnData(t, big.NewInt(10)),
+					},
+					{
+						OcrSeqNum:          2,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+						BridgeReturnData:   mustPackReturnData(t, big.NewInt(11)),
+					},
+				},
+				receivedLogs: []*rebalancer.RebalancerLiquidityTransferred{},
+			},
+			[]*rebalancer.RebalancerLiquidityTransferred{
+				{
+					OcrSeqNum:          1,
+					FromChainSelector:  10,
+					ToChainSelector:    20,
+					To:                 l2Rebalancer,
+					Amount:             big.NewInt(100),
+					BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+					BridgeReturnData:   mustPackReturnData(t, big.NewInt(10)),
+				},
+				{
+					OcrSeqNum:          2,
+					FromChainSelector:  10,
+					ToChainSelector:    20,
+					To:                 l2Rebalancer,
+					Amount:             big.NewInt(100),
+					BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+					BridgeReturnData:   mustPackReturnData(t, big.NewInt(11)),
+				},
+			},
+			false,
+		},
+		{
+			"non-empty received list, some executed",
+			args{
+				readyCandidates: []*rebalancer.RebalancerLiquidityTransferred{
+					{
+						OcrSeqNum:          1,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+						BridgeReturnData:   mustPackReturnData(t, big.NewInt(10)),
+					},
+					{
+						OcrSeqNum:          2,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+						BridgeReturnData:   mustPackReturnData(t, big.NewInt(11)),
+					},
+					{
+						OcrSeqNum:          3,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+						BridgeReturnData:   mustPackReturnData(t, big.NewInt(12)),
+					},
+				},
+				receivedLogs: []*rebalancer.RebalancerLiquidityTransferred{
+					{
+						OcrSeqNum:          2,
+						FromChainSelector:  10,
+						ToChainSelector:    20,
+						To:                 l2Rebalancer,
+						Amount:             big.NewInt(100),
+						BridgeSpecificData: mustPackReturnData(t, big.NewInt(10)),
+						BridgeReturnData:   []byte{},
+					},
+				},
+			},
+			[]*rebalancer.RebalancerLiquidityTransferred{
+				{
+					OcrSeqNum:          2,
+					FromChainSelector:  10,
+					ToChainSelector:    20,
+					To:                 l2Rebalancer,
+					Amount:             big.NewInt(100),
+					BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+					BridgeReturnData:   mustPackReturnData(t, big.NewInt(11)),
+				},
+				{
+					OcrSeqNum:          3,
+					FromChainSelector:  10,
+					ToChainSelector:    20,
+					To:                 l2Rebalancer,
+					Amount:             big.NewInt(100),
+					BridgeSpecificData: mustPackSendPayload(t, big.NewInt(100_000), big.NewInt(250_000), assets.GWei(3).ToInt()),
+					BridgeReturnData:   mustPackReturnData(t, big.NewInt(12)),
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotReady, err := filterExecuted(tt.args.readyCandidates, tt.args.receivedLogs)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.wantReady, gotReady)
+			}
+		})
+	}
+}
+
+func Test_partitionTransfers(t *testing.T) {
+	type args struct {
+		localToken             models.Address
+		l1BridgeAdapterAddress common.Address
+		l2RebalancerAddress    common.Address
+		sentLogs               []*rebalancer.RebalancerLiquidityTransferred
+		depositFinalizedLogs   []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized
+		receivedLogs           []*rebalancer.RebalancerLiquidityTransferred
+	}
+	tests := []struct {
+		name          string
+		args          args
+		wantNotReady  []*rebalancer.RebalancerLiquidityTransferred
+		wantReady     []*rebalancer.RebalancerLiquidityTransferred
+		wantReadyData [][]byte
+		wantErr       bool
+	}{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotNotReady, gotReady, gotReadyData, err := partitionTransfers(tt.args.localToken, tt.args.l1BridgeAdapterAddress, tt.args.l2RebalancerAddress, tt.args.sentLogs, tt.args.depositFinalizedLogs, tt.args.receivedLogs)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.wantNotReady, gotNotReady)
+				require.Equal(t, tt.wantReady, gotReady)
+				require.Equal(t, tt.wantReadyData, gotReadyData)
+			}
+		})
+	}
+}
+
+func Test_getEffectiveEvents(t *testing.T) {
+	type args struct {
+		localToken             models.Address
+		l1BridgeAdapterAddress common.Address
+		l2RebalancerAddress    common.Address
+		depositFinalizedLogs   []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized
+	}
+	var (
+		localToken             = testutils.NewAddress()
+		l1BridgeAdapterAddress = testutils.NewAddress()
+		l2RebalancerAddress    = testutils.NewAddress()
+	)
+	tests := []struct {
+		name                          string
+		args                          args
+		wantEffectiveDepositFinalized []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized
+	}{
+		{
+			"empty deposit finalized list",
+			args{
+				localToken:             models.Address(testutils.NewAddress()),
+				l1BridgeAdapterAddress: testutils.NewAddress(),
+				l2RebalancerAddress:    testutils.NewAddress(),
+				depositFinalizedLogs:   []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{},
+			},
+			nil,
+		},
+		{
+			"none applicable",
+			args{
+				localToken:             models.Address(testutils.NewAddress()),
+				l1BridgeAdapterAddress: testutils.NewAddress(),
+				l2RebalancerAddress:    testutils.NewAddress(),
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: testutils.NewAddress(),
+						From:    testutils.NewAddress(),
+						To:      testutils.NewAddress(),
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: testutils.NewAddress(),
+						From:    testutils.NewAddress(),
+						To:      testutils.NewAddress(),
+						Amount:  big.NewInt(100),
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"some exactly applicable",
+			args{
+				localToken:             models.Address(localToken),
+				l1BridgeAdapterAddress: l1BridgeAdapterAddress,
+				l2RebalancerAddress:    l2RebalancerAddress,
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: testutils.NewAddress(),
+						From:    testutils.NewAddress(),
+						To:      testutils.NewAddress(),
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: testutils.NewAddress(),
+						From:    testutils.NewAddress(),
+						To:      testutils.NewAddress(),
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2RebalancerAddress,
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2RebalancerAddress,
+						Amount:  big.NewInt(200),
+					},
+				},
+			},
+			[]*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+				{
+					L1Token: localToken,
+					From:    l1BridgeAdapterAddress,
+					To:      l2RebalancerAddress,
+					Amount:  big.NewInt(100),
+				},
+				{
+					L1Token: localToken,
+					From:    l1BridgeAdapterAddress,
+					To:      l2RebalancerAddress,
+					Amount:  big.NewInt(200),
+				},
+			},
+		},
+		{
+			"some partially applicable but still not included",
+			args{
+				localToken:             models.Address(localToken),
+				l1BridgeAdapterAddress: l1BridgeAdapterAddress,
+				l2RebalancerAddress:    l2RebalancerAddress,
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: testutils.NewAddress(),
+						From:    testutils.NewAddress(),
+						To:      testutils.NewAddress(),
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: testutils.NewAddress(),
+						From:    testutils.NewAddress(),
+						To:      testutils.NewAddress(),
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: localToken,
+						From:    testutils.NewAddress(), // not from bridge adapter
+						To:      l2RebalancerAddress,
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      testutils.NewAddress(), // not to rebalancer
+						Amount:  big.NewInt(200),
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"some fully applicable and some partially applicable but still not included",
+			args{
+				localToken:             models.Address(localToken),
+				l1BridgeAdapterAddress: l1BridgeAdapterAddress,
+				l2RebalancerAddress:    l2RebalancerAddress,
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: testutils.NewAddress(),
+						From:    testutils.NewAddress(),
+						To:      testutils.NewAddress(),
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: testutils.NewAddress(),
+						From:    testutils.NewAddress(),
+						To:      testutils.NewAddress(),
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: localToken,
+						From:    testutils.NewAddress(), // not from bridge adapter
+						To:      l2RebalancerAddress,
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      testutils.NewAddress(), // not to rebalancer
+						Amount:  big.NewInt(200),
+					},
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2RebalancerAddress,
+						Amount:  big.NewInt(100),
+					},
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2RebalancerAddress,
+						Amount:  big.NewInt(200),
+					},
+				},
+			},
+			[]*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+				{
+					L1Token: localToken,
+					From:    l1BridgeAdapterAddress,
+					To:      l2RebalancerAddress,
+					Amount:  big.NewInt(100),
+				},
+				{
+					L1Token: localToken,
+					From:    l1BridgeAdapterAddress,
+					To:      l2RebalancerAddress,
+					Amount:  big.NewInt(200),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotEffectiveDepositFinalized := getEffectiveEvents(tt.args.localToken, tt.args.l1BridgeAdapterAddress, tt.args.l2RebalancerAddress, tt.args.depositFinalizedLogs)
+			require.Equal(t, tt.wantEffectiveDepositFinalized, gotEffectiveDepositFinalized)
 		})
 	}
 }
