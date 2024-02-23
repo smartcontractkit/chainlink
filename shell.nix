@@ -32,6 +32,7 @@ mkShell {
     jq
 
     # deployment
+    awscli2
     devspace
     kubectl
     kubernetes-helm
