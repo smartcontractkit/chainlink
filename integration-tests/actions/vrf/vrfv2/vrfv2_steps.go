@@ -261,8 +261,7 @@ func SetupVRFV2Environment(
 ) (*vrfcommon.VRFContracts, []uint64, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	l.Info().Msg("Starting VRFV2 environment setup")
 	configGeneral := vrfv2TestConfig.GetVRFv2Config().General
-
-	vrfContracts, subIDs, err := SetupContracts(
+	vrfContracts, subIDs, err := SetupVRFV2Contracts(
 		env,
 		linkToken,
 		mockNativeLINKFeed,
@@ -277,24 +276,11 @@ func SetupVRFV2Environment(
 		return nil, nil, nil, nil, err
 	}
 
-	var nodesMap = make(map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode)
-	for i, nodeType := range nodesToCreate {
-		nodesMap[nodeType] = &vrfcommon.VRFNode{
-			CLNode: env.ClCluster.Nodes[i],
-		}
-	}
-	l.Info().Str("Node URL", nodesMap[vrfcommon.VRF].CLNode.API.URL()).Msg("Creating VRF Key on the Node")
-	vrfKey, err := nodesMap[vrfcommon.VRF].CLNode.API.MustCreateVRFKey()
+	nodeTypeToNodeMap := vrfcommon.CreateNodeTypeToNodeMap(env.ClCluster, nodesToCreate)
+	vrfKey, pubKeyCompressed, err := vrfcommon.CreateVRFKeyOnVRFNode(nodeTypeToNodeMap[vrfcommon.VRF], l)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", ErrCreatingVRFv2Key, err)
+		return nil, nil, nil, nil, err
 	}
-	pubKeyCompressed := vrfKey.Data.ID
-	l.Info().
-		Str("Node URL", nodesMap[vrfcommon.VRF].CLNode.API.URL()).
-		Str("Keyhash", vrfKey.Data.Attributes.Hash).
-		Str("VRF Compressed Key", vrfKey.Data.Attributes.Compressed).
-		Str("VRF Uncompressed Key", vrfKey.Data.Attributes.Uncompressed).
-		Msg("VRF Key created on the Node")
 
 	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2.Address()).Msg("Registering Proving Key")
 	provingKey, err := VRFV2RegisterProvingKey(vrfKey, registerProvingKeyAgainstAddress, vrfContracts.CoordinatorV2)
@@ -309,7 +295,7 @@ func SetupVRFV2Environment(
 	chainID := env.EVMClient.GetChainID()
 	vrfTXKeyAddressStrings, vrfTXKeyAddresses, err := vrfcommon.CreateFundAndGetSendingKeys(
 		env.EVMClient,
-		nodesMap[vrfcommon.VRF],
+		nodeTypeToNodeMap[vrfcommon.VRF],
 		*vrfv2TestConfig.GetCommonConfig().ChainlinkNodeFunding,
 		numberOfTxKeysToCreate,
 		chainID,
@@ -317,7 +303,12 @@ func SetupVRFV2Environment(
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	nodesMap[vrfcommon.VRF].TXKeyAddressStrings = vrfTXKeyAddressStrings
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+	}
+
+	nodeTypeToNodeMap[vrfcommon.VRF].TXKeyAddressStrings = vrfTXKeyAddressStrings
 
 	var vrfOwnerConfig *vrfcommon.VRFOwnerConfig
 	if useVRFOwner {
@@ -337,7 +328,7 @@ func SetupVRFV2Environment(
 	}
 
 	g := errgroup.Group{}
-	if vrfNode, exists := nodesMap[vrfcommon.VRF]; exists {
+	if vrfNode, exists := nodeTypeToNodeMap[vrfcommon.VRF]; exists {
 		g.Go(func() error {
 			err := setupVRFNode(vrfContracts, chainID, configGeneral, pubKeyCompressed, vrfOwnerConfig, l, vrfNode)
 			if err != nil {
@@ -347,7 +338,7 @@ func SetupVRFV2Environment(
 		})
 	}
 
-	if bhsNode, exists := nodesMap[vrfcommon.BHS]; exists {
+	if bhsNode, exists := nodeTypeToNodeMap[vrfcommon.BHS]; exists {
 		g.Go(func() error {
 			err := vrfcommon.SetupBHSNode(
 				env,
@@ -378,7 +369,7 @@ func SetupVRFV2Environment(
 	}
 
 	l.Info().Msg("VRFV2 environment setup is finished")
-	return vrfContracts, subIDs, &vrfKeyData, nodesMap, nil
+	return vrfContracts, subIDs, &vrfKeyData, nodeTypeToNodeMap, nil
 }
 
 func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Config *testconfig.General, pubKeyCompressed string, vrfOwnerConfig *vrfcommon.VRFOwnerConfig, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
@@ -423,7 +414,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Conf
 	return nil
 }
 
-func SetupContracts(
+func SetupVRFV2Contracts(
 	env *test_env.CLClusterTestEnv,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,

@@ -190,3 +190,29 @@ func retrieveLoadTestMetrics(
 	}
 	metricsChannel <- metrics
 }
+
+func CreateNodeTypeToNodeMap(cluster *test_env.ClCluster, nodesToCreate []VRFNodeType) map[VRFNodeType]*VRFNode {
+	var nodesMap = make(map[VRFNodeType]*VRFNode)
+	for i, nodeType := range nodesToCreate {
+		nodesMap[nodeType] = &VRFNode{
+			CLNode: cluster.Nodes[i],
+		}
+	}
+	return nodesMap
+}
+
+func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, string, error) {
+	l.Info().Str("Node URL", vrfNode.CLNode.API.URL()).Msg("Creating VRF Key on the Node")
+	vrfKey, err := vrfNode.CLNode.API.MustCreateVRFKey()
+	if err != nil {
+		return nil, "", fmt.Errorf("%s, err %w", ErrCreatingVRFKey, err)
+	}
+	pubKeyCompressed := vrfKey.Data.ID
+	l.Info().
+		Str("Node URL", vrfNode.CLNode.API.URL()).
+		Str("Keyhash", vrfKey.Data.Attributes.Hash).
+		Str("VRF Compressed Key", vrfKey.Data.Attributes.Compressed).
+		Str("VRF Uncompressed Key", vrfKey.Data.Attributes.Uncompressed).
+		Msg("VRF Key created on the Node")
+	return vrfKey, pubKeyCompressed, nil
+}
