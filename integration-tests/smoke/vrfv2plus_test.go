@@ -107,9 +107,9 @@ func TestVRFv2Plus(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-		require.False(t, randomWordsFulfilledEvent.OnlyPremium)
-		require.Equal(t, isNativeBilling, randomWordsFulfilledEvent.NativePayment)
-		require.True(t, randomWordsFulfilledEvent.Success)
+		require.False(t, randomWordsFulfilledEvent.OnlyPremium, "RandomWordsFulfilled Event's `OnlyPremium` field should be false")
+		require.Equal(t, isNativeBilling, randomWordsFulfilledEvent.NativePayment, "RandomWordsFulfilled Event's `NativePayment` field should be false")
+		require.True(t, randomWordsFulfilledEvent.Success, "RandomWordsFulfilled Event's `Success` field should be true")
 
 		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
 		subscription, err = vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)

@@ -328,6 +328,9 @@ func SetupVRFV2PlusContracts(
 		vrfContracts.CoordinatorV2Plus, vrfContracts.VRFV2PlusConsumer,
 		numberOfSubToCreate,
 	)
+	if err != nil {
+		return nil, nil, err
+	}
 	return vrfContracts, subIDs, nil
 }
 
