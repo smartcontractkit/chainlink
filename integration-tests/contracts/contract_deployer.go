@@ -202,6 +202,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &WeMixContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.GnosisClient:
 		return &GnosisContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.MantleGoerliClient:
+		return &MantleContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -278,6 +280,10 @@ type WeMixContractDeployer struct {
 }
 
 type GnosisContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type MantleContractDeployer struct {
 	*EthereumContractDeployer
 }
 

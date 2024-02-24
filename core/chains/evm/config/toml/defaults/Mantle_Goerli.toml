@@ -1,0 +1,15 @@
+ChainID = '5001'
+FinalityDepth = 500
+LogPollInterval = '2s'
+NoNewHeadsThreshold = '0'
+MinIncomingConfirmations = 1
+
+[HeadTracker]
+HistoryDepth = 600
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceMin = '0.05 gwei' 
+PriceMax = '200 gwei'
+BumpThreshold = 0
+LimitDefault = 8000000
