@@ -276,6 +276,8 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 }
 
 func (s *streams) CheckErrorHandler(ctx context.Context, errCode encoding.ErrCode, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
+	s.lggr.Debugf("at block %d upkeep %s requested time %s CheckErrorHandler error code: %d", lookup.Block, lookup.UpkeepId, lookup.Time, errCode)
+
 	userPayload, err := s.packer.PackUserCheckErrorHandler(errCode, lookup.ExtraData)
 	if err != nil {
 		checkResults[i].Retryable = false
