@@ -54,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -417,9 +418,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 
 	upkeepCount := 10
 
-	respTimeout := -1
 	errResponses := []int{
-		// respTimeout, // TODO: uncomment once mercuryServer is fixed
 		http.StatusUnauthorized,
 		http.StatusBadRequest,
 		http.StatusInternalServerError,
@@ -429,15 +428,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 		if i < len(errResponses) {
 			resp = errResponses[i]
 		}
-		switch resp {
-		case http.StatusNotFound, http.StatusInternalServerError:
-			// TODO: uncomment once mercuryServer is fixed
-			// in case we got a 404 or 500, wait a bit to simulate real world
-			// time.Sleep(time.Duration(rand.Intn(2500)) * time.Millisecond)
-		case respTimeout: // mercury server timeout
-			time.Sleep(30 * time.Second)
-			resp = http.StatusNotFound
-		default:
+		if resp == 0 {
 			resp = http.StatusNotFound
 		}
 		return resp, nil
@@ -488,7 +479,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	done()
 }
 
-func startMercuryServer(t *testing.T, mercuryServer *SimulatedMercuryServer, responder func(i int) (int, []byte)) {
+func startMercuryServer(t *testing.T, mercuryServer *mercury.SimulatedMercuryServer, responder func(i int) (int, []byte)) {
 	i := atomic.Int32{}
 	mercuryServer.RegisterHandler(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
@@ -595,9 +586,9 @@ func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry 
 	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
 }
 
-func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) ([]Node, *SimulatedMercuryServer) {
+func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) ([]Node, *mercury.SimulatedMercuryServer) {
 	lggr := logger.TestLogger(t)
-	mServer := NewSimulatedMercuryServer()
+	mServer := mercury.NewSimulatedMercuryServer()
 	mServer.Start()
 
 	// Setup bootstrap + oracle nodes
