@@ -430,7 +430,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       latestConfigDigest: s_latestConfigDigest,
       latestEpoch: s_hotVars.latestEpoch,
-      paused: _isRegistryPaused()
+      paused: _isRegistryPaused(s_hotVars.boolFlags)
     });
 
     config = OnchainConfigLegacy({
@@ -448,8 +448,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,
       registrars: s_registrars.values(),
-      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager,
-      reorgProtectionEnabled: _isReorgProtectionEnabled()
+      upkeepPrivilegeManager: s_storage.upkeepPrivilegeManager
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
@@ -460,13 +459,6 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    */
   function getChainModule() external view returns (IChainModule chainModule) {
     return s_hotVars.chainModule;
-  }
-
-  /**
-   * @notice if this registry has reorg protection enabled
-   */
-  function getReorgProtectionEnabled() external view returns (bool reorgProtectionEnabled) {
-    return s_hotVars.reorgProtectionEnabled;
   }
 
   /**

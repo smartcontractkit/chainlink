@@ -65,7 +65,8 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
 
-    if (_isRegistryPaused()) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
+    if (_isRegistryPaused(hotVars.boolFlags))
+      return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
       return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
     if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);

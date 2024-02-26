@@ -83,7 +83,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
   ) external override {
     uint256 gasOverhead = gasleft();
     HotVars memory hotVars = s_hotVars;
-    if (_isRegistryPaused()) revert RegistryPaused();
+    if (_isRegistryPaused(hotVars.boolFlags)) revert RegistryPaused();
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
 
     // Verify signatures
@@ -210,7 +210,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
   ) external returns (bool success, uint256 gasUsed) {
     _preventExecution();
 
-    if (_isRegistryPaused()) revert RegistryPaused();
+    if (_isRegistryPaused(s_hotVars.boolFlags)) revert RegistryPaused();
     Upkeep memory upkeep = s_upkeep[id];
     (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
     return (success, gasUsed);
@@ -322,9 +322,9 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       totalPremium: totalPremium,
       latestEpoch: 0, // DON restarts epoch
-      boolFlags: (_isRegistryPaused() ? (1 << 0) : 0) |
-      (_isReentrancyGuarded() ? (1 << 1) : 0) |
-      (onchainConfig.reorgProtectionEnabled ? (1 << 2) : 0),
+      boolFlags: (_isRegistryPaused(s_hotVars.boolFlags) ? (1 << 0) : 0) |
+        (_isReentrancyGuarded(s_hotVars.boolFlags) ? (1 << 1) : 0) |
+        (onchainConfig.reorgProtectionEnabled ? (1 << 2) : 0),
       chainModule: onchainConfig.chainModule
     });
 
