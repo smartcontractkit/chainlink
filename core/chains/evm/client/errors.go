@@ -62,6 +62,7 @@ const (
 	L2Full
 	TransactionAlreadyMined
 	Fatal
+	ServiceUnavailable
 )
 
 type ClientErrors = map[int]*regexp.Regexp
@@ -196,8 +197,9 @@ var nethermind = ClientErrors{
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)$`),
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
-	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+)?$`),
-	Fatal:           nethermindFatal,
+	InsufficientEth:    regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+|, Balance is \d+ less than sending value \+ gas \d+)?$`),
+	ServiceUnavailable: regexp.MustCompile(`(: |^)503 Service Unavailable: [\s\S]*$`),
+	Fatal:              nethermindFatal,
 }
 
 // Harmony
@@ -299,6 +301,11 @@ func (s *SendError) IsL2FeeTooHigh() bool {
 // IsL2Full is an l2-specific error returned when the queue or mempool is full.
 func (s *SendError) IsL2Full() bool {
 	return s.is(L2Full)
+}
+
+// IsServiceUnavailable indicates if the error was caused by a service being unavailable
+func (s *SendError) IsServiceUnavailable() bool {
+	return s.is(ServiceUnavailable)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -436,7 +443,7 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		return commonclient.Fatal
 	}
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
-		lggr.Debugw("Transaction already confirmed for this nonce: %d", tx.Nonce(), "err", sendError, "etx", tx)
+		lggr.Debugw(fmt.Sprintf("Transaction already confirmed for this nonce: %d", tx.Nonce()), "err", sendError, "etx", tx)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
 		return commonclient.TransactionAlreadyKnown
@@ -483,12 +490,16 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		), "err", sendError, "etx", tx)
 		return commonclient.InsufficientFunds
 	}
+	if sendError.IsServiceUnavailable() {
+		lggr.Errorw(fmt.Sprintf("service unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
 	if sendError.IsTimeout() {
-		lggr.Errorw("timeout while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		lggr.Errorw(fmt.Sprintf("timeout while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsCanceled() {
-		lggr.Errorw("context was canceled while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		lggr.Errorw(fmt.Sprintf("context was canceled while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsTxFeeExceedsCap() {
@@ -499,6 +510,6 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		)
 		return commonclient.ExceedsMaxFee
 	}
-	lggr.Errorw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
+	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
 }

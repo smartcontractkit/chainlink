@@ -913,6 +913,9 @@ func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) 
 		averageFulfillmentInMillions,
 		slowestFulfillment,
 		fastestFulfillment,
+		nil,
+		nil,
+		nil,
 	}, nil
 }
 
@@ -1036,6 +1039,9 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) GetLoadTestMetrics(ctx context.Co
 		averageFulfillmentInMillions,
 		slowestFulfillment,
 		fastestFulfillment,
+		nil,
+		nil,
+		nil,
 	}, nil
 }
 
