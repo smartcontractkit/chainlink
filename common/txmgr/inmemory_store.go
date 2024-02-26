@@ -102,7 +102,30 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 	txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	error,
 ) {
-	return txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}, nil
+	if ms.chainID.String() != chainID.String() {
+		return tx, fmt.Errorf("create_transaction: %w", ErrInvalidChainID)
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[txRequest.FromAddress]
+	if !ok {
+		return tx, fmt.Errorf("create_transaction: %w", ErrAddressNotFound)
+	}
+
+	// Persist Transaction to persistent storage
+	tx, err = ms.txStore.CreateTransaction(ctx, txRequest, chainID)
+	if err != nil {
+		return tx, fmt.Errorf("create_transaction: %w", err)
+	}
+
+	// Update in memory store
+	// Add the request to the Unstarted channel to be processed by the Broadcaster
+	if err := as.AddTxToUnstarted(&tx); err != nil {
+		return *ms.deepCopyTx(tx), fmt.Errorf("create_transaction: %w", err)
+	}
+
+	return *ms.deepCopyTx(tx), nil
 }
 
 // FindTxWithIdempotencyKey returns a transaction with the given idempotency key
