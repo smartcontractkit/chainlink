@@ -7,6 +7,7 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -36,6 +37,7 @@ type EVM interface {
 	LogBackfillBatchSize() uint32
 	LogKeepBlocksDepth() uint32
 	LogPollInterval() time.Duration
+	LogPrunePageSize() uint32
 	MinContractPayment() *commonassets.Link
 	MinIncomingConfirmations() uint32
 	NonceAutoSync() bool
