@@ -85,7 +85,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	ethKeyStore := ekc.app.GetKeyStore().Eth()
 	var keys []ethkey.KeyV2
 	var err error
-	keys, err = ethKeyStore.GetAll(c)
+	keys, err = ethKeyStore.GetAll(c.Request.Context())
 	if err != nil {
 		err = errors.Errorf("error getting unlocked keys: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
