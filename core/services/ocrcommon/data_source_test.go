@@ -1,8 +1,10 @@
 package ocrcommon_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -42,6 +44,83 @@ func Test_InMemoryDataSource(t *testing.T) {
 	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
+}
+
+func Test_CachedInMemoryDataSource(t *testing.T) {
+	runner := pipelinemocks.NewRunner(t)
+
+	ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
+	dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, time.Millisecond*50)
+	require.NoError(t, err)
+
+	changeResultValue := func(value string) {
+		runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
+			Return(&pipeline.Run{}, pipeline.TaskRunResults{
+				{
+					Result: pipeline.Result{
+						Value: value,
+						Error: nil,
+					},
+					Task: &pipeline.HTTPTask{},
+				},
+			}, nil)
+	}
+
+	mockVal := int64(0)
+	for start := time.Now(); time.Since(start) < time.Second*5; {
+		mockVal++
+		changeResultValue(fmt.Sprint(mockVal))
+		// let cache catch up
+		time.Sleep(time.Millisecond * 55)
+
+		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+		require.NoError(t, err)
+		assert.Equal(t, mockVal, val.Int64())
+		runner.Mock.ExpectedCalls = nil
+	}
+
+}
+
+func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
+	runner := pipelinemocks.NewRunner(t)
+
+	ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
+	dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, time.Second*1)
+	require.NoError(t, err)
+
+	changeResultValue := func(value string, returnErr bool) {
+		result := pipeline.Result{
+			Value: value,
+			Error: nil,
+		}
+		if returnErr {
+			result.Error = assert.AnError
+		}
+		runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
+			Return(&pipeline.Run{}, pipeline.TaskRunResults{
+				{
+					Result: result,
+					Task:   &pipeline.HTTPTask{},
+				},
+			}, nil).Once()
+	}
+
+	mockVal := int64(1)
+	// Test if Observe notices that cache updater failed and can refresh the cache on its own
+	// 1. Set initial value
+	changeResultValue(fmt.Sprint(mockVal), false)
+	time.Sleep(time.Second*1 + time.Millisecond*100)
+	val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+	require.NoError(t, err)
+	assert.Equal(t, mockVal, val.Int64())
+	// 2. Set values again, but make it error in updater
+	changeResultValue(fmt.Sprint(mockVal+1), true)
+	time.Sleep(time.Second*1 + time.Millisecond*100)
+	// 3. Set value in between updates and call Observe (shouldn't flake because of huge wait time)
+	changeResultValue(fmt.Sprint(mockVal+2), false)
+	val, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+	require.NoError(t, err)
+	assert.Equal(t, mockVal+2, val.Int64())
 }
 
 func Test_InMemoryDataSourceWithProm(t *testing.T) {
