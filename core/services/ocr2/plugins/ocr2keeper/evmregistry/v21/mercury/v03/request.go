@@ -73,8 +73,10 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		c.multiFeedsRequest(newCtx, ch, streamsLookup)
 	})
 
+	newCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 	select {
-	case <-ctx.Done():
+	case <-newCtx.Done():
 		// Context cancelled, return timeout error
 		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
 	case m := <-ch:
