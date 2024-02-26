@@ -465,7 +465,7 @@ answer1      [type=median index=0];
 			config.Database(),
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(jb)
+		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
 		require.NoError(t, err)
 	})
 
@@ -499,7 +499,7 @@ answer1      [type=median index=0];
 			config.Database(),
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(jb)
+		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
 		require.NoError(t, err)
 	})
 
@@ -527,7 +527,7 @@ answer1      [type=median index=0];
 			config.Database(),
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(jb)
+		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
 		require.NoError(t, err)
 	})
 
@@ -584,7 +584,7 @@ answer1      [type=median index=0];
 			)
 
 			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
-			services, err := sd.ServicesForSpec(jb)
+			services, err := sd.ServicesForSpec(testutils.Context(t), jb)
 			require.NoError(t, err)
 
 			enhancedTelemetryServiceCreated := false
@@ -626,7 +626,7 @@ answer1      [type=median index=0];
 			config.Database(),
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		services, err := sd.ServicesForSpec(*jb)
+		services, err := sd.ServicesForSpec(testutils.Context(t), *jb)
 		require.NoError(t, err)
 
 		// Return an error getting the contract code.
