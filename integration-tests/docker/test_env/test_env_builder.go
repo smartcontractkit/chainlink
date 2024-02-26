@@ -69,6 +69,7 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		l:            log.Logger,
 		hasLogStream: true,
+		hasEVMClient: true,
 	}
 }
 
