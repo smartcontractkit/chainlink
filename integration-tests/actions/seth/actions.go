@@ -385,7 +385,11 @@ func DeployOCRContractsForwarderFlow(
 		return
 	}
 
-	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
+	transmitterAddressesFn := func() ([]common.Address, error) {
+		return forwarderAddresses, nil
+	}
+
+	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
 }
 
 // DeployOCRContracts deploys and funds a certain number of offchain aggregator contracts
@@ -413,7 +417,20 @@ func DeployOCRContracts(
 		return
 	}
 
-	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
+	transmitterAddressesFn := func() ([]common.Address, error) {
+		transmitterAddresses := make([]common.Address, 0)
+		for _, node := range workerNodes {
+			primaryAddress, err := node.PrimaryEthAddress()
+			if err != nil {
+				return nil, err
+			}
+			transmitterAddresses = append(transmitterAddresses, common.HexToAddress(primaryAddress))
+		}
+
+		return transmitterAddresses, nil
+	}
+
+	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
 }
 
 func deployAnyOCRv1Contracts(
@@ -423,6 +440,7 @@ func deployAnyOCRv1Contracts(
 	linkTokenContractAddress common.Address,
 	workerNodes []*client.ChainlinkK8sClient,
 	getTransmitterAndPayeesFn func() ([]string, []string, error),
+	getTransmitterAddressesFn func() ([]common.Address, error),
 ) ([]contracts.OffchainAggregator, error) {
 	// Deploy contracts
 	var ocrInstances []contracts.OffchainAggregator
@@ -453,28 +471,15 @@ func deployAnyOCRv1Contracts(
 	}
 
 	// Set Config
-	transmitterAddresses := make([]common.Address, 0)
-	for _, node := range workerNodes {
-		primaryAddress, err := node.PrimaryEthAddress()
-		if err != nil {
-			return nil, err
-		}
-		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(primaryAddress))
-	}
-
+	transmitterAddresses, err := getTransmitterAddressesFn()
 	if err != nil {
-		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
-	}
-
-	var nodesAsInterface []contracts.ChainlinkNodeWithKeys = make([]contracts.ChainlinkNodeWithKeys, len(workerNodes))
-	for i, node := range workerNodes {
-		nodesAsInterface[i] = node // Assigning each *ChainlinkK8sClient to the interface type
+		return nil, fmt.Errorf("getting transmitter addresses should not fail: %w", err)
 	}
 
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfig(
-			nodesAsInterface,
+			contracts.ChainlinkK8sClientToChainlinkNodeWithKeys(workerNodes),
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			transmitterAddresses,
 		)
