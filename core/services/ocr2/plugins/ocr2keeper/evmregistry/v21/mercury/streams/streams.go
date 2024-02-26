@@ -28,10 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const (
-	requestTimeout = 10 * time.Second
-)
-
 type Lookup interface {
 	Lookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult
 }
@@ -76,7 +72,7 @@ func NewStreamsLookup(
 	client contextCaller,
 	registry streamsRegistry,
 	lggr logger.Logger) *streams {
-	httpClient := &http.Client{Timeout: requestTimeout}
+	httpClient := http.DefaultClient
 	threadCtrl := utils.NewThreadControl()
 	packer := mercury.NewAbiPacker()
 
@@ -247,12 +243,10 @@ func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsL
 	pluginRetryKey := generatePluginRetryKey(checkResults[i].WorkID, lookup.Block)
 	upkeepType := core.GetUpkeepType(checkResults[i].UpkeepID)
 
-	reqCtx, cancel := context.WithTimeout(ctx, requestTimeout)
-	defer cancel()
 	if lookup.IsMercuryV02() {
-		state, values, errCode, retryable, retryInterval, err = s.v02Client.DoRequest(reqCtx, lookup, upkeepType, pluginRetryKey)
+		state, values, errCode, retryable, retryInterval, err = s.v02Client.DoRequest(ctx, lookup, upkeepType, pluginRetryKey)
 	} else if lookup.IsMercuryV03() {
-		state, values, errCode, retryable, retryInterval, err = s.v03Client.DoRequest(reqCtx, lookup, upkeepType, pluginRetryKey)
+		state, values, errCode, retryable, retryInterval, err = s.v03Client.DoRequest(ctx, lookup, upkeepType, pluginRetryKey)
 	}
 
 	if err != nil {

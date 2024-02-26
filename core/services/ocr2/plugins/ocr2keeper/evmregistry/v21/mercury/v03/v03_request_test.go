@@ -229,6 +229,62 @@ func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
 	assert.Equal(t, encoding.NoPipelineError, state)
 }
 
+func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
+	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
+	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"
+
+	c := setupClient(t)
+	defer c.Close()
+
+	c.mercuryConfig.SetPluginRetry(pluginRetryKey, 0, cache.DefaultExpiration)
+	hc := new(MockHttpClient)
+
+	mr := MercuryV03Response{
+		Reports: []MercuryV03Report{
+			{
+				FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+				ValidFromTimestamp:    123456,
+				ObservationsTimestamp: 123456,
+				FullReport:            "0xab2123dc00000012",
+			},
+		},
+	}
+	b, err := json.Marshal(mr)
+	assert.Nil(t, err)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(b)),
+	}
+	serverTimeout := 15 * time.Second // Server has delay of 15s, higher than mercury.RequestTimeout = 10s
+	hc.On("Do", mock.Anything).Run(func(args mock.Arguments) {
+		time.Sleep(serverTimeout)
+	}).Return(resp, nil).Once()
+
+	c.httpClient = hc
+
+	lookup := &mercury.StreamsLookup{
+		StreamsLookupError: &mercury.StreamsLookupError{
+			FeedParamKey: mercury.FeedIdHex,
+			Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+			TimeParamKey: mercury.BlockNumber,
+			Time:         big.NewInt(25880526),
+			ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+		},
+		UpkeepId: upkeepId,
+	}
+
+	start := time.Now()
+	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.ConditionTrigger, pluginRetryKey)
+	elapsed := time.Since(start)
+	assert.True(t, elapsed < serverTimeout)
+	assert.Equal(t, false, retryable)
+	assert.Equal(t, 0*time.Second, retryInterval)
+	assert.Equal(t, encoding.ErrCodeStreamsTimeout, errCode)
+	assert.Equal(t, encoding.NoPipelineError, state)
+	assert.Equal(t, [][]byte(nil), values)
+}
+
 func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T) {
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"

@@ -73,27 +73,36 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		c.multiFeedsRequest(ctx, ch, streamsLookup)
 	})
 
-	m := <-ch
-	if m.Error != nil {
-		// There was a pipeline error during execution
-		// If error was non retryable then just return the state and error
-		if !m.Retryable {
-			return m.State, nil, m.ErrCode, m.Retryable, 0 * time.Second, m.Error
-		}
-		// If errors were retryable then calculate retry interval
-		retryInterval := mercury.CalculateStreamsRetryConfigFn(upkeepType, pluginRetryKey, c.mercuryConfig)
-		if retryInterval != mercury.RetryIntervalTimeout {
-			// Return the retyrable state with appropriate retry interval
-			return m.State, nil, m.ErrCode, m.Retryable, retryInterval, m.Error
+	// TODO (AUTO 9090): Understand and fix the use of context.Background() here
+	reqTimeoutCtx, cancel := context.WithTimeout(context.Background(), mercury.RequestTimeout)
+	defer cancel()
+	select {
+	case <-reqTimeoutCtx.Done():
+		// Request Timed out, return timeout error
+		c.lggr.Errorf("at timestamp %s upkeep %s, streams lookup v0.3 timed out", streamsLookup.Time.String(), streamsLookup.UpkeepId.String())
+		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
+	case m := <-ch:
+		if m.Error != nil {
+			// There was a pipeline error during execution
+			// If error was non retryable then just return the state and error
+			if !m.Retryable {
+				return m.State, nil, m.ErrCode, m.Retryable, 0 * time.Second, m.Error
+			}
+			// If errors were retryable then calculate retry interval
+			retryInterval := mercury.CalculateStreamsRetryConfigFn(upkeepType, pluginRetryKey, c.mercuryConfig)
+			if retryInterval != mercury.RetryIntervalTimeout {
+				// Return the retyrable state with appropriate retry interval
+				return m.State, nil, m.ErrCode, m.Retryable, retryInterval, m.Error
+			}
+
+			// Now we have exhausted all our retries. We treat it as not a pipeline error
+			// and expose error code to the user
+			return encoding.NoPipelineError, nil, m.ErrCode, false, 0 * time.Second, nil
 		}
 
-		// Now we have exhausted all our retries. We treat it as not a pipeline error
-		// and expose error code to the user
-		return encoding.NoPipelineError, nil, m.ErrCode, false, 0 * time.Second, nil
+		// No pipeline error, return bytes and error code out of which one should be null
+		return encoding.NoPipelineError, m.Bytes, m.ErrCode, false, 0 * time.Second, nil
 	}
-
-	// No pipeline error, return bytes and error code out of which one should be null
-	return encoding.NoPipelineError, m.Bytes, m.ErrCode, false, 0 * time.Second, nil
 }
 
 func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.MercuryData, sl *mercury.StreamsLookup) {
@@ -136,6 +145,8 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 	errCode := encoding.ErrCodeNil
 	retryable := false
 	sent := false
+	retryCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	retryErr := retry.Do(
 		func() error {
 			retryable = false
@@ -267,7 +278,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 		retry.RetryIf(func(err error) bool {
 			return err.Error() == fmt.Sprintf("%d", http.StatusPartialContent) || err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway) || err.Error() == fmt.Sprintf("%d", http.StatusServiceUnavailable) || err.Error() == fmt.Sprintf("%d", http.StatusGatewayTimeout)
 		}),
-		retry.Context(ctx),
+		retry.Context(retryCtx),
 		retry.Delay(retryDelay),
 		retry.Attempts(totalAttempt),
 	)

@@ -46,11 +46,10 @@ func (tc *threadControl) GoCtx(ctx context.Context, fn func(context.Context)) {
 	tc.threadsWG.Add(1)
 	go func() {
 		defer tc.threadsWG.Done()
-		c, cn := context.WithCancel(ctx)
-		defer cn()
-		ctx, cancel := tc.stop.CtxCancel(c, cn)
+		// Create a new context that is cancelled when either parent context is cancelled or stop is closed.
+		ctx2, cancel := tc.stop.Ctx(ctx)
 		defer cancel()
-		fn(ctx)
+		fn(ctx2)
 	}()
 }
 
