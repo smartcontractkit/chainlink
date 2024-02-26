@@ -363,6 +363,27 @@ func RunRelayer(t *testing.T, relayer internal.Relayer) {
 				err = ct.Transmit(ctx, reportContext, report, sigs)
 				require.NoError(t, err)
 			})
+			t.Run("ChainReader", func(t *testing.T) {
+				t.Parallel()
+				ct := provider.ChainReader()
+				var returnVals map[string]any
+				err := ct.GetLatestValue(ctx, contractName, medianContractGenericMethod, getLatestValueParams, &returnVals)
+				require.NoError(t, err)
+			})
+			t.Run("Codec", func(t *testing.T) {
+				t.Parallel()
+				cd := provider.Codec()
+				require.NotNil(t, cd)
+				// note we don't test the actual encoding/decoding, just the size
+				// because the encoding/decoding is unit tested in the codec package
+				// we just want to make sure the grpc round trip works
+				gotMax, err := cd.GetMaxDecodingSize(ctx, codecN, itemType)
+				require.NoError(t, err)
+				assert.Equal(t, maxSize, gotMax)
+				gotMax, err = cd.GetMaxEncodingSize(ctx, codecN, itemType)
+				require.NoError(t, err)
+				assert.Equal(t, maxSize, gotMax)
+			})
 		})
 	})
 

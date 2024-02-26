@@ -3,7 +3,6 @@ package test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -92,19 +91,19 @@ func (s staticContractTransmitter) FromAccount() (libocr.Account, error) {
 type staticCodec struct{}
 
 func (c staticCodec) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
-	return 0, errors.New("not used for these test")
+	return maxSize, nil
 }
 
 func (c staticCodec) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
-	return 0, errors.New("not used for these test")
+	return maxSize, nil
 }
 
 func (c staticCodec) Encode(ctx context.Context, item any, itemType string) ([]byte, error) {
-	return nil, errors.New("not used for these test")
+	return nil, fmt.Errorf("encode:unused in tests")
 }
 
 func (c staticCodec) Decode(ctx context.Context, raw []byte, into any, itemType string) error {
-	return errors.New("not used for these test")
+	return fmt.Errorf("decode: unused in tests")
 }
 
 type staticChainReader struct{}

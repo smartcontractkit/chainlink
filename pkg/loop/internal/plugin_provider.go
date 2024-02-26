@@ -20,18 +20,13 @@ func (p *pluginProviderClient) ClientConn() grpc.ClientConnInterface { return p.
 func newPluginProviderClient(b *BrokerExt, cc grpc.ClientConnInterface) *pluginProviderClient {
 	p := &pluginProviderClient{configProviderClient: newConfigProviderClient(b.WithName("PluginProviderClient"), cc)}
 	p.contractTransmitter = &contractTransmitterClient{b, pb.NewContractTransmitterClient(p.cc)}
+	p.chainReader = &chainReaderClient{b, pb.NewChainReaderClient(p.cc)}
+	p.codec = &codecClient{b, pb.NewCodecClient(p.cc)}
 	return p
 }
 
 func (p *pluginProviderClient) ContractTransmitter() libocr.ContractTransmitter {
 	return p.contractTransmitter
-}
-
-type PluginProviderServer struct{}
-
-func (p PluginProviderServer) ConnToProvider(conn grpc.ClientConnInterface, broker Broker, brokerCfg BrokerConfig) types.PluginProvider {
-	be := &BrokerExt{Broker: broker, BrokerConfig: brokerCfg}
-	return newPluginProviderClient(be, conn)
 }
 
 func (p *pluginProviderClient) ChainReader() types.ChainReader {
@@ -40,4 +35,11 @@ func (p *pluginProviderClient) ChainReader() types.ChainReader {
 
 func (p *pluginProviderClient) Codec() types.Codec {
 	return p.codec
+}
+
+type PluginProviderServer struct{}
+
+func (p PluginProviderServer) ConnToProvider(conn grpc.ClientConnInterface, broker Broker, brokerCfg BrokerConfig) types.PluginProvider {
+	be := &BrokerExt{Broker: broker, BrokerConfig: brokerCfg}
+	return newPluginProviderClient(be, conn)
 }

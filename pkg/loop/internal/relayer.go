@@ -419,6 +419,8 @@ func (r *relayerServer) newPluginProvider(ctx context.Context, relayArgs types.R
 		pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
 		pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})
 		pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
+		pb.RegisterChainReaderServer(s, &chainReaderServer{impl: provider.ChainReader()})
+		pb.RegisterCodecServer(s, &codecServer{impl: provider.Codec()})
 	}, providerRes)
 	if err != nil {
 		return 0, err
