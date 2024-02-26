@@ -457,7 +457,11 @@ func deployAnyOCRv1Contracts(
 
 	// Gather transmitter and address payees
 	var transmitters, payees []string
-	transmitters, payees, err := getTransmitterAndPayeesFn()
+	var err error
+	transmitters, payees, err = getTransmitterAndPayeesFn()
+	if err != nil {
+		return nil, fmt.Errorf("error getting transmitter and payees: %w", err)
+	}
 
 	// Set Payees
 	for contractCount, ocrInstance := range ocrInstances {

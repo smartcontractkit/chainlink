@@ -192,47 +192,60 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	err = actions_seth.FundChainlinkNodes(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithAddress(o.workerNodes), 0, big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
+	var forwarders []common.Address
+
 	if o.OperatorForwarderFlow {
-		operators, authorizedForwarders, _ := actions_seth.DeployForwarderContracts(
+		var operators []common.Address
+		operators, forwarders, _ = actions_seth.DeployForwarderContracts(
 			o.t, o.seth, linkDeploymentData, len(o.workerNodes),
 		)
 		require.Equal(o.t, len(o.workerNodes), len(operators), "Number of operators should match number of nodes")
-		require.Equal(o.t, len(o.workerNodes), len(authorizedForwarders), "Number of authorized forwarders should match number of nodes")
+		require.Equal(o.t, len(o.workerNodes), len(forwarders), "Number of authorized forwarders should match number of nodes")
 		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.workerNodes)
 		require.NoError(o.t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 		for i := range o.workerNodes {
 			actions_seth.AcceptAuthorizedReceiversOperator(
-				o.t, o.log, o.seth, operators[i], authorizedForwarders[i], []common.Address{forwarderNodesAddresses[i]})
+				o.t, o.log, o.seth, operators[i], forwarders[i], []common.Address{forwarderNodesAddresses[i]})
 			require.NoError(o.t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 
-			actions_seth.TrackForwarder(o.t, o.seth, authorizedForwarders[i], o.workerNodes[i])
+			actions_seth.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
 		}
-
-		o.ocrV1Instances, err = actions_seth.DeployOCRContractsForwarderFlow(
-			o.log,
-			o.seth,
-			*o.Config.OCR.Soak.NumberOfContracts,
-			linkDeploymentData.Address,
-			o.workerNodes,
-			authorizedForwarders,
-		)
-		require.NoError(o.t, err, "Error deploying OCR Forwarder contracts")
 	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
-		o.ocrV1Instances, err = actions_seth.DeployOCRContracts(
-			o.log,
-			seth,
-			*o.Config.OCR.Soak.NumberOfContracts,
-			linkDeploymentData.Address,
-			o.workerNodes,
-		)
-		require.NoError(o.t, err)
+		if o.OperatorForwarderFlow {
+			o.ocrV1Instances, err = actions_seth.DeployOCRContractsForwarderFlow(
+				o.log,
+				o.seth,
+				*o.Config.OCR.Soak.NumberOfContracts,
+				linkDeploymentData.Address,
+				o.workerNodes,
+				forwarders,
+			)
+			require.NoError(o.t, err, "Error deploying OCR Forwarder contracts")
+		} else {
+			o.ocrV1Instances, err = actions_seth.DeployOCRContracts(
+				o.log,
+				seth,
+				*o.Config.OCR.Soak.NumberOfContracts,
+				linkDeploymentData.Address,
+				o.workerNodes,
+			)
+			require.NoError(o.t, err)
+		}
 	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "2" {
 		var transmitters []string
-		for _, node := range o.workerNodes {
-			nodeAddress, err := node.PrimaryEthAddress()
-			require.NoError(o.t, err, "Error getting node's primary ETH address")
-			transmitters = append(transmitters, nodeAddress)
+
+		if o.OperatorForwarderFlow {
+			for _, forwarder := range forwarders {
+				transmitters = append(transmitters, forwarder.Hex())
+			}
+		} else {
+			for _, node := range o.workerNodes {
+				nodeAddress, err := node.PrimaryEthAddress()
+				require.NoError(o.t, err, "Error getting node's primary ETH address")
+				transmitters = append(transmitters, nodeAddress)
+			}
 		}
+
 		ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
 		o.ocrV2Instances, err = actions_seth.DeployOCRv2Contracts(
 			o.log,
