@@ -465,6 +465,22 @@ func (o *evmTxStore) TransactionsWithAttempts(offset, limit int) (txs []Tx, coun
 	return
 }
 
+// AllTransactions returns all eth transactions
+func (o *evmTxStore) AllTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (txs []Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := `SELECT * FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 ORDER BY id desc`
+	if err = qq.Select(&dbEtxs, sql, fromAddress, chainID.String()); err != nil {
+		return
+	}
+	txs = dbEthTxsToEvmEthTxs(dbEtxs)
+	err = o.preloadTxAttempts(txs)
+	return
+}
+
 // TxAttempts returns the last tx attempts sorted by created_at descending.
 func (o *evmTxStore) TxAttempts(offset, limit int) (txs []TxAttempt, count int, err error) {
 	sql := `SELECT count(*) FROM evm.tx_attempts`
