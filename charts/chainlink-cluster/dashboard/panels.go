@@ -12,12 +12,12 @@ import (
 )
 
 func (m *Dashboard) addMainPanels() {
-	var ethBalancePanelSpanSize float32 = 6
+	var balancePanelSpanSize float32 = 4
 	var panelsIncluded []row.Option
 	var goVersionLegend string = "version"
 
 	if m.platform == "kubernetes" {
-		ethBalancePanelSpanSize = 4
+		balancePanelSpanSize = 3
 		goVersionLegend = "exported_version"
 	}
 
@@ -73,11 +73,26 @@ func (m *Dashboard) addMainPanels() {
 			stat.Orientation(stat.OrientationVertical),
 			stat.TitleFontSize(12),
 			stat.ValueFontSize(20),
-			stat.Span(ethBalancePanelSpanSize),
+			stat.Span(balancePanelSpanSize),
 			stat.Height("100px"),
 			stat.Decimals(2),
 			stat.WithPrometheusTarget(
 				`eth_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
+				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
+			),
+		),
+		row.WithStat(
+			"Solana Balance",
+			stat.DataSource(m.PrometheusDataSourceName),
+			stat.Text(stat.TextValueAndName),
+			stat.Orientation(stat.OrientationVertical),
+			stat.TitleFontSize(12),
+			stat.ValueFontSize(20),
+			stat.Span(balancePanelSpanSize),
+			stat.Height("100px"),
+			stat.Decimals(2),
+			stat.WithPrometheusTarget(
+				`solana_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
 				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
 			),
 		),
@@ -96,7 +111,7 @@ func (m *Dashboard) addMainPanels() {
 		),
 		row.WithTimeSeries(
 			"ETH Balance",
-			timeseries.Span(12),
+			timeseries.Span(6),
 			timeseries.Height("200px"),
 			timeseries.DataSource(m.PrometheusDataSourceName),
 			timeseries.Axis(
@@ -105,6 +120,20 @@ func (m *Dashboard) addMainPanels() {
 			),
 			timeseries.WithPrometheusTarget(
 				`eth_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
+				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
+			),
+		),
+		row.WithTimeSeries(
+			"SOL Balance",
+			timeseries.Span(6),
+			timeseries.Height("200px"),
+			timeseries.DataSource(m.PrometheusDataSourceName),
+			timeseries.Axis(
+				axis.Unit(""),
+				axis.Decimals(2),
+			),
+			timeseries.WithPrometheusTarget(
+				`solana_balance{`+m.panelOption.labelFilter+`=~"$instance"}`,
 				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
 			),
 		),
@@ -139,33 +168,39 @@ func (m *Dashboard) addKubePanels() {
 	opts := []dashboard.Option{
 		dashboard.Row(
 			"Pod health",
-			row.WithTimeSeries(
+			row.WithStat(
 				"Pod Restarts",
-				timeseries.Span(4),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.WithPrometheusTarget(
+				stat.Span(4),
+				stat.Height("200px"),
+				stat.DataSource(m.PrometheusDataSourceName),
+				stat.SparkLine(),
+				stat.SparkLineYMin(0),
+				stat.WithPrometheusTarget(
 					`sum(increase(kube_pod_container_status_restarts_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
 					prometheus.Legend("{{pod}}"),
 				),
 			),
-			row.WithTimeSeries(
+			row.WithStat(
 				"OOM Events",
-				timeseries.Span(4),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.WithPrometheusTarget(
-					`sum(increase(container_oom_events_total{pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+				stat.Span(4),
+				stat.Height("200px"),
+				stat.DataSource(m.PrometheusDataSourceName),
+				stat.SparkLine(),
+				stat.SparkLineYMin(0),
+				stat.WithPrometheusTarget(
+					`sum(container_oom_events_total{pod=~"$instance.*", namespace=~"${namespace}"}) by (pod)`,
 					prometheus.Legend("{{pod}}"),
 				),
 			),
-			row.WithTimeSeries(
+			row.WithStat(
 				"OOM Killed",
-				timeseries.Span(4),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.WithPrometheusTarget(
-					`sum(increase(kube_pod_container_status_last_terminated_reason{reason="OOMKilled", pod=~"$instance.*", namespace=~"${namespace}"}[$__rate_interval])) by (pod)`,
+				stat.Span(4),
+				stat.Height("200px"),
+				stat.DataSource(m.PrometheusDataSourceName),
+				stat.SparkLine(),
+				stat.SparkLineYMin(0),
+				stat.WithPrometheusTarget(
+					`kube_pod_container_status_last_terminated_reason{reason="OOMKilled", pod=~"$instance.*", namespace=~"${namespace}"}`,
 					prometheus.Legend("{{pod}}"),
 				),
 			),
@@ -1476,94 +1511,6 @@ func (m *Dashboard) addGoMetricsPanels() {
 		dashboard.Row(
 			"Go Metrics",
 			row.Collapse(),
-			row.WithTimeSeries(
-				"Heap Memory",
-				timeseries.Span(12),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.Axis(
-					axis.Unit("bytes"),
-					axis.Label("Memory"),
-					axis.SoftMin(0),
-				),
-				timeseries.WithPrometheusTarget(
-					`go_memstats_heap_alloc_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("Heap Alloc"),
-				),
-				timeseries.WithPrometheusTarget(
-					`go_memstats_heap_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("Heap Sys"),
-				),
-				timeseries.WithPrometheusTarget(
-					`go_memstats_heap_idle_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("Heap Idle"),
-				),
-				timeseries.WithPrometheusTarget(
-					`go_memstats_heap_inuse_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("Heap InUse"),
-				),
-				timeseries.WithPrometheusTarget(
-					`go_memstats_heap_released_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("Heap Released"),
-				),
-			),
-			row.WithTimeSeries(
-				"Heap allocations",
-				timeseries.Span(6),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.WithPrometheusTarget(
-					`sum(go_memstats_heap_alloc_bytes{`+m.panelOption.labelFilter+`=~"$instance"}) by (instance)`,
-					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
-				),
-				timeseries.Axis(
-					axis.Unit("bytes"),
-					axis.Label("Memory"),
-					axis.SoftMin(0),
-				),
-			),
-			row.WithStat(
-				"Heap Allocations",
-				stat.Span(6),
-				stat.Height("200px"),
-				stat.DataSource(m.PrometheusDataSourceName),
-				stat.Unit("bytes"),
-				stat.ColorValue(),
-				stat.WithPrometheusTarget(`sum(go_memstats_heap_alloc_bytes{`+m.panelOption.labelFilter+`=~"$instance"})`),
-				stat.AbsoluteThresholds([]stat.ThresholdStep{
-					{
-						Color: "green",
-						Value: nil,
-					},
-					{
-						Color: "orange",
-						Value: float64Ptr(6.711e+7),
-					},
-					{
-						Color: "red",
-						Value: float64Ptr(1.342e+8),
-					},
-				}),
-			),
-			row.WithTimeSeries(
-				"Memory in Stack",
-				timeseries.Span(6),
-				timeseries.Height("200px"),
-				timeseries.DataSource(m.PrometheusDataSourceName),
-				timeseries.WithPrometheusTarget(
-					`go_memstats_stack_inuse_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("Stack InUse"),
-				),
-				timeseries.WithPrometheusTarget(
-					`go_memstats_stack_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
-					prometheus.Legend("Stack Sys"),
-				),
-				timeseries.Axis(
-					axis.Unit("bytes"),
-					axis.Label("Memory"),
-					axis.SoftMin(0),
-				),
-			),
 			row.WithTable(
 				"Threads",
 				table.Span(3),
@@ -1589,6 +1536,205 @@ func (m *Dashboard) addGoMetricsPanels() {
 				timeseries.WithPrometheusTarget(
 					`sum(go_threads{`+m.panelOption.labelFilter+`=~"$instance"}) by (instance)`,
 					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Heap allocations",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`sum(go_memstats_heap_alloc_bytes{`+m.panelOption.labelFilter+`=~"$instance"}) by (instance)`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
+				),
+				timeseries.Axis(
+					axis.Unit("bytes"),
+					axis.Label("Memory"),
+					axis.SoftMin(0),
+				),
+			),
+			row.WithStat(
+				"Heap Allocations",
+				stat.Span(6),
+				stat.Height("200px"),
+				stat.DataSource(m.PrometheusDataSourceName),
+				stat.Unit("bytes"),
+				stat.ColorValue(),
+				stat.WithPrometheusTarget(`sum(go_memstats_heap_alloc_bytes{`+m.panelOption.labelFilter+`=~"$instance"})`),
+				/*stat.AbsoluteThresholds([]stat.ThresholdStep{
+					{
+						Color: "green",
+						Value: nil,
+					},
+					{
+						Color: "orange",
+						Value: float64Ptr(6.711e+7),
+					},
+					{
+						Color: "red",
+						Value: float64Ptr(1.342e+8),
+					},
+				}),*/
+			),
+			row.WithTimeSeries(
+				"Memory in Heap",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.Axis(
+					axis.Unit("bytes"),
+					axis.Label("Memory"),
+					axis.SoftMin(0),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_heap_alloc_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Alloc"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_heap_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Sys"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_heap_idle_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Idle"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_heap_inuse_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - InUse"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_heap_released_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Released"),
+				),
+			),
+			row.WithTimeSeries(
+				"Memory in Off-Heap",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.Axis(
+					axis.Unit("bytes"),
+					axis.Label("Memory"),
+					axis.SoftMin(0),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_mspan_inuse_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Total InUse"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_mspan_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Total Sys"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_mcache_inuse_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Cache InUse"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_mcache_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Cache Sys"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_buck_hash_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Hash Sys"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_gc_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - GC Sys"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_other_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - bytes of memory are used for other runtime allocations"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_next_gc_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Next GC"),
+				),
+			),
+			row.WithTimeSeries(
+				"Memory in Stack",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_stack_inuse_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - InUse"),
+				),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_stack_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - Sys"),
+				),
+				timeseries.Axis(
+					axis.Unit("bytes"),
+					axis.Label("Memory"),
+					axis.SoftMin(0),
+				),
+			),
+			row.WithTimeSeries(
+				"Total Used Memory",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_sys_bytes{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
+				),
+				timeseries.Axis(
+					axis.Unit("bytes"),
+					axis.Label("Memory"),
+					axis.SoftMin(0),
+				),
+			),
+			row.WithTimeSeries(
+				"Number of Live Objects",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`go_memstats_mallocs_total{`+m.panelOption.labelFilter+`=~"$instance"} - go_memstats_frees_total{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
+				),
+				timeseries.Axis(
+					axis.SoftMin(0),
+				),
+			),
+			row.WithTimeSeries(
+				"Rate of Objects Allocated",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`rate(go_memstats_mallocs_total{`+m.panelOption.labelFilter+`=~"$instance"}[1m])`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
+				),
+				timeseries.Axis(
+					axis.SoftMin(0),
+				),
+			),
+			row.WithTimeSeries(
+				"Rate of a Pointer Dereferences",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`rate(go_memstats_lookups_total{`+m.panelOption.labelFilter+`=~"$instance"}[1m])`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
+				),
+				timeseries.Axis(
+					axis.Unit("ops"),
+					axis.SoftMin(0),
+				),
+			),
+			row.WithTimeSeries(
+				"Goroutines",
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(m.PrometheusDataSourceName),
+				timeseries.WithPrometheusTarget(
+					`go_goroutines{`+m.panelOption.labelFilter+`=~"$instance"}`,
+					prometheus.Legend("{{"+m.panelOption.labelFilter+"}}"),
+				),
+				timeseries.Axis(
+					axis.SoftMin(0),
 				),
 			),
 		),
