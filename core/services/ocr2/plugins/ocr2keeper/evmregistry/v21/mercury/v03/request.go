@@ -141,6 +141,8 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 	errCode := encoding.ErrCodeNil
 	retryable := false
 	sent := false
+	retryCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	retryErr := retry.Do(
 		func() error {
 			retryable = false
@@ -272,7 +274,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 		retry.RetryIf(func(err error) bool {
 			return err.Error() == fmt.Sprintf("%d", http.StatusPartialContent) || err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway) || err.Error() == fmt.Sprintf("%d", http.StatusServiceUnavailable) || err.Error() == fmt.Sprintf("%d", http.StatusGatewayTimeout)
 		}),
-		retry.Context(ctx),
+		retry.Context(retryCtx),
 		retry.Delay(retryDelay),
 		retry.Attempts(totalAttempt),
 	)
