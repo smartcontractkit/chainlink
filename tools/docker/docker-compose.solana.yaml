@@ -1,0 +1,20 @@
+version: '3.5'
+
+services:
+  node:
+    depends_on:
+      - solana
+  node-2:
+    depends_on:
+      - solana
+  solana:
+    build: ../solana
+    container_name: solana
+    image: smartcontract/solana
+    ports:
+      - 8899
+      - 8900
+    volumes:
+      - solana-db-data:/solana/database
+volumes:
+  solana-db-data:

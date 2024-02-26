@@ -4,7 +4,7 @@ set -ex
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
-base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml"
+base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml -f docker-compose.solana.yaml"
 # Allow for choosing between geth or parity
 if [ $GETH_MODE ]; then
   base_files="$base_files -f docker-compose.gethnet.yaml"
