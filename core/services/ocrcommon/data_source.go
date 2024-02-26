@@ -231,7 +231,7 @@ func (ds *inMemoryDataSourceCache) updater() {
 	for ; true; <-ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		if err := ds.updateCache(ctx); err != nil {
-			ds.lggr.Warnw("failed to update cache", "err", err)
+			ds.lggr.Debugw("failed to update cache", "err", err)
 		}
 		cancel()
 	}

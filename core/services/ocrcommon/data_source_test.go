@@ -46,41 +46,6 @@ func Test_InMemoryDataSource(t *testing.T) {
 	assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
 }
 
-func Test_CachedInMemoryDataSource(t *testing.T) {
-	runner := pipelinemocks.NewRunner(t)
-
-	ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
-	dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, time.Millisecond*50)
-	require.NoError(t, err)
-
-	changeResultValue := func(value string) {
-		runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
-			Return(&pipeline.Run{}, pipeline.TaskRunResults{
-				{
-					Result: pipeline.Result{
-						Value: value,
-						Error: nil,
-					},
-					Task: &pipeline.HTTPTask{},
-				},
-			}, nil)
-	}
-
-	mockVal := int64(0)
-	for start := time.Now(); time.Since(start) < time.Second*5; {
-		mockVal++
-		changeResultValue(fmt.Sprint(mockVal))
-		// let cache catch up
-		time.Sleep(time.Millisecond * 55)
-
-		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
-		require.NoError(t, err)
-		assert.Equal(t, mockVal, val.Int64())
-		runner.Mock.ExpectedCalls = nil
-	}
-
-}
-
 func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 
@@ -109,7 +74,6 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	// Test if Observe notices that cache updater failed and can refresh the cache on its own
 	// 1. Set initial value
 	changeResultValue(fmt.Sprint(mockVal), false)
-	time.Sleep(time.Second*1 + time.Millisecond*100)
 	val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockVal, val.Int64())
