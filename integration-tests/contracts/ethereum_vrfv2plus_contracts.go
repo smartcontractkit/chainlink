@@ -522,14 +522,14 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	averageFulfillmentInMillions, err := v.consumer.SAverageFulfillmentInMillions(&bind.CallOpts{
+	averageFulfillmentInMillions, err := v.consumer.SAverageResponseTimeInBlocksMillions(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
 	if err != nil {
 		return nil, err
 	}
-	slowestFulfillment, err := v.consumer.SSlowestFulfillment(&bind.CallOpts{
+	slowestFulfillment, err := v.consumer.SSlowestResponseTimeInBlocks(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
@@ -537,7 +537,30 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	fastestFulfillment, err := v.consumer.SFastestFulfillment(&bind.CallOpts{
+	fastestFulfillment, err := v.consumer.SFastestResponseTimeInBlocks(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	averageResponseTimeInSeconds, err := v.consumer.SAverageResponseTimeInSecondsMillions(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+	slowestResponseTimeInSeconds, err := v.consumer.SSlowestResponseTimeInSeconds(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	fastestResponseTimeInSeconds, err := v.consumer.SFastestResponseTimeInSeconds(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
@@ -546,11 +569,14 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	}
 
 	return &VRFLoadTestMetrics{
-		requestCount,
-		fulfilmentCount,
-		averageFulfillmentInMillions,
-		slowestFulfillment,
-		fastestFulfillment,
+		RequestCount:                         requestCount,
+		FulfilmentCount:                      fulfilmentCount,
+		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
+		SlowestFulfillment:                   slowestFulfillment,
+		FastestFulfillment:                   fastestFulfillment,
+		AverageResponseTimeInSecondsMillions: averageResponseTimeInSeconds,
+		SlowestResponseTimeInSeconds:         slowestResponseTimeInSeconds,
+		FastestResponseTimeInSeconds:         fastestResponseTimeInSeconds,
 	}, nil
 }
 
@@ -1036,10 +1062,13 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLoadTestMetrics(ctx contex
 	}
 
 	return &VRFLoadTestMetrics{
-		requestCount,
-		fulfilmentCount,
-		averageFulfillmentInMillions,
-		slowestFulfillment,
-		fastestFulfillment,
+		RequestCount:                         requestCount,
+		FulfilmentCount:                      fulfilmentCount,
+		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
+		SlowestFulfillment:                   slowestFulfillment,
+		FastestFulfillment:                   fastestFulfillment,
+		AverageResponseTimeInSecondsMillions: nil,
+		SlowestResponseTimeInSeconds:         nil,
+		FastestResponseTimeInSeconds:         nil,
 	}, nil
 }

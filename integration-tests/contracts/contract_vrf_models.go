@@ -338,9 +338,12 @@ type LoadTestRequestStatus struct {
 }
 
 type VRFLoadTestMetrics struct {
-	RequestCount                 *big.Int
-	FulfilmentCount              *big.Int
-	AverageFulfillmentInMillions *big.Int
-	SlowestFulfillment           *big.Int
-	FastestFulfillment           *big.Int
+	RequestCount                         *big.Int
+	FulfilmentCount                      *big.Int
+	AverageFulfillmentInMillions         *big.Int
+	SlowestFulfillment                   *big.Int
+	FastestFulfillment                   *big.Int
+	AverageResponseTimeInSecondsMillions *big.Int
+	SlowestResponseTimeInSeconds         *big.Int
+	FastestResponseTimeInSeconds         *big.Int
 }
