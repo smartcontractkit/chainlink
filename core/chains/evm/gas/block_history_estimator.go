@@ -858,42 +858,46 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmty
 	switch tx.Type {
 	case 0x0, 0x1:
 		return tx.GasPrice
-	case 0x2:
-		if block.BaseFeePerGas == nil || tx.MaxPriorityFeePerGas == nil || tx.MaxFeePerGas == nil {
-			b.logger.Warnw("Got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
-			return tx.GasPrice
-		}
-		if tx.GasPrice != nil {
-			// Always use the gas price if provided
-			return tx.GasPrice
-		}
-		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
-			b.logger.AssumptionViolationw("MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
-			return nil
-		}
-		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
-			b.logger.AssumptionViolationw("MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
-			return nil
-		}
-
-		// From: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md
-		priorityFeePerGas := tx.MaxPriorityFeePerGas
-		maxFeeMinusBaseFee := tx.MaxFeePerGas.Sub(block.BaseFeePerGas)
-		if maxFeeMinusBaseFee.Cmp(priorityFeePerGas) < 0 {
-			priorityFeePerGas = maxFeeMinusBaseFee
-		}
-
-		effectiveGasPrice := priorityFeePerGas.Add(block.BaseFeePerGas)
-		return effectiveGasPrice
+	case 0x2, 0x3:
+		return b.getEffectiveGasPrice(block, tx)
 	default:
 		b.logger.Warnw(fmt.Sprintf("Ignoring unknown transaction type %v", tx.Type), "block", block, "tx", tx)
 		return nil
 	}
 }
 
+func (b *BlockHistoryEstimator) getEffectiveGasPrice(block evmtypes.Block, tx evmtypes.Transaction) *assets.Wei {
+	if block.BaseFeePerGas == nil || tx.MaxPriorityFeePerGas == nil || tx.MaxFeePerGas == nil {
+		b.logger.Warnw("Got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
+		return tx.GasPrice
+	}
+	if tx.GasPrice != nil {
+		// Always use the gas price if provided
+		return tx.GasPrice
+	}
+	if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
+		b.logger.AssumptionViolationw("MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
+		return nil
+	}
+	if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
+		b.logger.AssumptionViolationw("MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
+		return nil
+	}
+
+	// From: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md
+	priorityFeePerGas := tx.MaxPriorityFeePerGas
+	maxFeeMinusBaseFee := tx.MaxFeePerGas.Sub(block.BaseFeePerGas)
+	if maxFeeMinusBaseFee.Cmp(priorityFeePerGas) < 0 {
+		priorityFeePerGas = maxFeeMinusBaseFee
+	}
+
+	effectiveGasPrice := priorityFeePerGas.Add(block.BaseFeePerGas)
+	return effectiveGasPrice
+}
+
 func (b *BlockHistoryEstimator) EffectiveTipCap(block evmtypes.Block, tx evmtypes.Transaction) *assets.Wei {
 	switch tx.Type {
-	case 0x2:
+	case 0x2, 0x3:
 		return tx.MaxPriorityFeePerGas
 	case 0x0, 0x1:
 		if tx.GasPrice == nil {
