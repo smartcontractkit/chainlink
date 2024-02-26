@@ -15,6 +15,7 @@ import (
 type PluginConfig struct {
 	JuelsPerFeeCoinPipeline      string        `json:"juelsPerFeeCoinSource"`
 	JuelsPerFeeCoinCacheDuration time.Duration `json:"juelsPerFeeCoinCacheDuration"`
+	JuelsPerFeeCoinCacheDisabled bool          `json:"juelsPerFeeCoinCacheDisabled"`
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.

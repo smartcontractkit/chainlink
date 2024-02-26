@@ -120,15 +120,17 @@ func NewMedianServices(ctx context.Context,
 		runSaver,
 		chEnhancedTelem)
 
-	juelsPerFeeCoinSource, err := ocrcommon.NewInMemoryDataSourceCache(
-		ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
-			ID:           jb.ID,
-			DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
-			CreatedAt:    time.Now(),
-		}, lggr),
-		pluginConfig.JuelsPerFeeCoinCacheDuration)
-	if err != nil {
-		return nil, err
+	juelsPerFeeCoinSource := ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
+		ID:           jb.ID,
+		DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
+		CreatedAt:    time.Now(),
+	}, lggr)
+
+	if !pluginConfig.JuelsPerFeeCoinCacheDisabled {
+		lggr.Infof("juelsPerFeeCoinSource caching is disabled for jb: %s", jb.Name.ValueOrZero())
+		if juelsPerFeeCoinSource, err = ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, pluginConfig.JuelsPerFeeCoinCacheDuration); err != nil {
+			return nil, err
+		}
 	}
 
 	if cmdName := env.MedianPlugin.Cmd.Get(); cmdName != "" {
