@@ -35,7 +35,7 @@ func MergeSethAndEvmNetworkConfigs(l zerolog.Logger, evmNetwork blockchain.EVMNe
 			conf.PrivateKeys = evmNetwork.PrivateKeys
 			conf.URLs = evmNetwork.URLs
 
-			sethConfig.Network = conf
+			sethNetwork = conf
 			break
 		}
 	}
@@ -64,8 +64,13 @@ func MergeSethAndEvmNetworkConfigs(l zerolog.Logger, evmNetwork blockchain.EVMNe
 	return sethConfig
 }
 
-// MustReplaceSimulatedNetworkUrlWithK8 replaces the simulated network URL with the K8 URL
+// MustReplaceSimulatedNetworkUrlWithK8 replaces the simulated network URL with the K8 URL and returns the network.
+// If the network is not simulated, it will return the network unchanged.
 func MustReplaceSimulatedNetworkUrlWithK8(l zerolog.Logger, network blockchain.EVMNetwork, testEnvironment environment.Environment) blockchain.EVMNetwork {
+	if !network.Simulated {
+		return network
+	}
+
 	if _, ok := testEnvironment.URLs["Simulated Geth"]; !ok {
 		for k := range testEnvironment.URLs {
 			l.Info().Str("Network", k).Msg("Available networks")

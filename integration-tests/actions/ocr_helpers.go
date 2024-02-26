@@ -22,6 +22,7 @@ import (
 // This actions file often returns functions, rather than just values. These are used as common test helpers, and are
 // handy to have returning as functions so that Ginkgo can use them in an aesthetically pleasing way.
 
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.DeployOCRContracts
 func DeployOCRContracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
@@ -112,6 +113,7 @@ func DeployOCRContracts(
 
 // DeployOCRContractsForwarderFlow deploys and funds a certain number of offchain
 // aggregator contracts with forwarders as effectiveTransmitters
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.DeployOCRContractsForwarderFlow
 func DeployOCRContractsForwarderFlow(
 	t *testing.T,
 	numberOfContracts int,
@@ -321,6 +323,7 @@ func CreateOCRJobsWithForwarder(
 }
 
 // StartNewRound requests a new round from the ocr contracts and waits for confirmation
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.StartNewRound
 func StartNewRound(
 	roundNumber int64,
 	ocrInstances []contracts.OffchainAggregator,
@@ -344,6 +347,7 @@ func StartNewRound(
 
 // WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
 // round from the contract, as this can cause some odd behavior in some cases
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.WatchNewRound
 func WatchNewRound(
 	roundNumber int64,
 	ocrInstances []contracts.OffchainAggregator,

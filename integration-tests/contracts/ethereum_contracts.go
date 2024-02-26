@@ -1289,7 +1289,8 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	return tx, l.client.ProcessTransaction(tx)
 }
 
-// EthereumOffchainAggregator represents the offchain aggregation contract
+// LegacyEthereumOffchainAggregator represents the offchain aggregation contract
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumOffchainAggregator instead
 type LegacyEthereumOffchainAggregator struct {
 	client  blockchain.EVMClient
 	ocr     *offchainaggregator.OffchainAggregator
@@ -1780,6 +1781,7 @@ func (e *EthereumFlags) GetFlag(ctx context.Context, addr string) (bool, error) 
 }
 
 // LegacyEthereumOperatorFactory represents operator factory contract
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumOperatorFactory instead
 type LegacyEthereumOperatorFactory struct {
 	address         *common.Address
 	client          blockchain.EVMClient
@@ -1811,6 +1813,7 @@ func (e *LegacyEthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.
 }
 
 // LegacyEthereumOperator represents operator contract
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumOperator instead
 type LegacyEthereumOperator struct {
 	address  common.Address
 	client   blockchain.EVMClient
@@ -1839,6 +1842,7 @@ func (e *LegacyEthereumOperator) AcceptAuthorizedReceivers(forwarders []common.A
 }
 
 // LegacyEthereumAuthorizedForwarder represents authorized forwarder contract
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumAuthorizedForwarder instead
 type LegacyEthereumAuthorizedForwarder struct {
 	address             common.Address
 	client              blockchain.EVMClient
@@ -1920,6 +1924,7 @@ func channelClosed(ch <-chan struct{}) bool {
 	return false
 }
 
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumOffchainAggregatorV2 instead
 type LegacyEthereumOffchainAggregatorV2 struct {
 	address  *common.Address
 	client   blockchain.EVMClient

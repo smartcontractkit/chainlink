@@ -40,6 +40,7 @@ import (
 var ContractDeploymentInterval = 200
 
 // FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amountCreateOCRv2Jobs of native currency
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.FundChainlinkNodes
 func FundChainlinkNodes(
 	nodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,
@@ -303,6 +304,7 @@ func TeardownSuite(
 
 // TeardownRemoteSuite is used when running a test within a remote-test-runner, like for long-running performance and
 // soak tests
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.TeardownRemoteSuite
 func TeardownRemoteSuite(
 	t *testing.T,
 	namespace string,

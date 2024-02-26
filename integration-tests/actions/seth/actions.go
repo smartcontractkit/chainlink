@@ -62,6 +62,7 @@ type FundsToSendPayload struct {
 	GasLimit   *uint64
 }
 
+// TODO: move to CTF?
 func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) error {
 	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
 
@@ -72,7 +73,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	}
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 	nonce, err := client.Client.PendingNonceAt(ctx, fromAddress)
-	cancel()
+	defer cancel()
 	if err != nil {
 		return err
 	}
@@ -95,8 +96,8 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	}
 
 	ctx, cancel = context.WithTimeout(ctx, client.Cfg.Network.TxnTimeout.Duration())
+	defer cancel()
 	err = client.Client.SendTransaction(ctx, signedTx)
-	cancel()
 	if err != nil {
 		return errors.Wrap(err, "failed to send transaction")
 	}
@@ -139,7 +140,8 @@ func DeployForwarderContracts(
 	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
-// I think this is the same as the original WatchNewRound
+// WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
+// round from the contract, as this can cause some odd behavior in some cases
 func WatchNewRound(
 	l zerolog.Logger,
 	seth *seth.Client,
@@ -298,7 +300,7 @@ func TeardownRemoteSuite(
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
-	// err = actions.DeleteAllJobs(chainlinkNodes)
+	err = DeleteAllJobs(chainlinkNodes)
 	if err != nil {
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
@@ -309,6 +311,30 @@ func TeardownRemoteSuite(
 				"Environment is left running so you can try manually!")
 	}
 	return err
+}
+
+// added here temporarily to avoid circular import
+func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
+	for _, node := range chainlinkNodes {
+		if node == nil {
+			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", chainlinkNodes)
+		}
+		jobs, _, err := node.ReadJobs()
+		if err != nil {
+			return fmt.Errorf("error reading jobs from chainlink node, err: %w", err)
+		}
+		for _, maps := range jobs.Data {
+			if _, ok := maps["id"]; !ok {
+				return fmt.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
+			}
+			id := maps["id"].(string)
+			_, err := node.DeleteJob(id)
+			if err != nil {
+				return fmt.Errorf("error deleting job from chainlink node, err: %w", err)
+			}
+		}
+	}
+	return nil
 }
 
 // StartNewRound requests a new round from the ocr contracts and waits for confirmation
