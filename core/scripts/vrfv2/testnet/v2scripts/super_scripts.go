@@ -57,6 +57,10 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	pollPeriod := deployCmd.String("poll-period", "300ms", "")
 	requestTimeout := deployCmd.String("request-timeout", "30m0s", "")
 	revertsPipelineEnabled := deployCmd.Bool("reverts-pipeline-enabled", true, "")
+	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
+	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
+	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
+	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
 	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", true, "whether to deploy VRF owner contracts")
 	useTestCoordinator := deployCmd.Bool("use-test-coordinator", true, "whether to use test coordinator")
@@ -157,6 +161,13 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		RevertsPipelineEnabled:        *revertsPipelineEnabled,
 	}
 
+	bhsJobSpecConfig := model.BHSJobSpecConfig{
+		RunTimeout:     *bhsJobRunTimeout,
+		WaitBlocks:     *bhsJobWaitBlocks,
+		LookBackBlocks: *bhsJobLookBackBlocks,
+		PollPeriod:     *bhsJobPollPeriod,
+	}
+
 	VRFV2DeployUniverse(
 		e,
 		subscriptionBalanceJuels,
@@ -166,6 +177,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		nodesMap,
 		*deployVRFOwner,
 		coordinatorJobSpecConfig,
+		bhsJobSpecConfig,
 		*useTestCoordinator,
 		*simulationBlock,
 	)
@@ -186,6 +198,7 @@ func VRFV2DeployUniverse(
 	nodesMap map[string]model.Node,
 	deployVRFOwner bool,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
+	bhsJobSpecConfig model.BHSJobSpecConfig,
 	useTestCoordinator bool,
 	simulationBlock string,
 ) model.JobSpecs {
@@ -408,10 +421,12 @@ func VRFV2DeployUniverse(
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		30,                                   //waitBlocks
-		200,                                  //lookbackBlocks
+		bhsJobSpecConfig.WaitBlocks,          //waitBlocks
+		bhsJobSpecConfig.LookBackBlocks,      //lookbackBlocks
 		contractAddresses.BhsContractAddress, //bhs address
-		e.ChainID,                            //chain id
+		bhsJobSpecConfig.PollPeriod,
+		bhsJobSpecConfig.RunTimeout,
+		e.ChainID, //chain id
 		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), //sending addresses
 	)
 
