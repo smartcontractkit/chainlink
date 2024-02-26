@@ -340,3 +340,67 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
 	return nil
 }
+
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deepCopyTx(
+	tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	copyTx := txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
+		ID:                 tx.ID,
+		IdempotencyKey:     tx.IdempotencyKey,
+		Sequence:           tx.Sequence,
+		FromAddress:        tx.FromAddress,
+		ToAddress:          tx.ToAddress,
+		EncodedPayload:     make([]byte, len(tx.EncodedPayload)),
+		Value:              *new(big.Int).Set(&tx.Value),
+		FeeLimit:           tx.FeeLimit,
+		Error:              tx.Error,
+		BroadcastAt:        tx.BroadcastAt,
+		InitialBroadcastAt: tx.InitialBroadcastAt,
+		CreatedAt:          tx.CreatedAt,
+		State:              tx.State,
+		TxAttempts:         make([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(tx.TxAttempts)),
+		Meta:               tx.Meta,
+		Subject:            tx.Subject,
+		ChainID:            tx.ChainID,
+		PipelineTaskRunID:  tx.PipelineTaskRunID,
+		MinConfirmations:   tx.MinConfirmations,
+		TransmitChecker:    tx.TransmitChecker,
+		SignalCallback:     tx.SignalCallback,
+		CallbackCompleted:  tx.CallbackCompleted,
+	}
+
+	// Copy the EncodedPayload
+	copy(copyTx.EncodedPayload, tx.EncodedPayload)
+
+	// Copy the TxAttempts
+	for i, attempt := range tx.TxAttempts {
+		copyTx.TxAttempts[i] = ms.deepCopyTxAttempt(copyTx, attempt)
+	}
+
+	return &copyTx
+}
+
+func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deepCopyTxAttempt(
+	tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+) txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	copyAttempt := txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
+		ID:                      attempt.ID,
+		TxID:                    attempt.TxID,
+		Tx:                      tx,
+		TxFee:                   attempt.TxFee,
+		ChainSpecificFeeLimit:   attempt.ChainSpecificFeeLimit,
+		SignedRawTx:             make([]byte, len(attempt.SignedRawTx)),
+		Hash:                    attempt.Hash,
+		CreatedAt:               attempt.CreatedAt,
+		BroadcastBeforeBlockNum: attempt.BroadcastBeforeBlockNum,
+		State:                   attempt.State,
+		Receipts:                make([]txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], len(attempt.Receipts)),
+		TxType:                  attempt.TxType,
+	}
+
+	copy(copyAttempt.SignedRawTx, attempt.SignedRawTx)
+	copy(copyAttempt.Receipts, attempt.Receipts)
+
+	return copyAttempt
+}
