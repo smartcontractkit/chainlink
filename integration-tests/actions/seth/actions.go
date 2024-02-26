@@ -13,17 +13,17 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
 	"github.com/test-go/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
-	"github.com/smartcontractkit/seth"
 )
 
 var ContractDeploymentInterval = 200
@@ -35,6 +35,7 @@ func FundChainlinkNodes(
 	fromKeyNum int,
 	amount *big.Float,
 ) error {
+	refundErrors := []error{}
 	for _, cl := range nodes {
 		toAddress, err := cl.PrimaryEthAddress()
 		if err != nil {
@@ -45,11 +46,22 @@ func FundChainlinkNodes(
 			return errors.Wrap(errors.New(seth.ErrNoKeyLoaded), fmt.Sprintf("requested key: %d", fromKeyNum))
 		}
 
-		return SendFunds(logger, client, FundsToSendPayload{
+		err = SendFunds(logger, client, FundsToSendPayload{
 			ToAddress:  common.HexToAddress(toAddress),
 			Amount:     conversions.EtherToWei(amount),
 			PrivateKey: client.PrivateKeys[fromKeyNum],
 		})
+		if err != nil {
+			refundErrors = append(refundErrors, err)
+		}
+	}
+
+	if len(refundErrors) > 0 {
+		var wrapped error
+		for _, e := range refundErrors {
+			wrapped = errors.Wrapf(e, ", ")
+		}
+		return fmt.Errorf("failed to fund chainlink nodes due to following errors: %w", wrapped)
 	}
 
 	return nil
@@ -165,6 +177,7 @@ func WatchNewRound(
 			ctx, cancel := context.WithTimeout(context.Background(), seth.Cfg.Network.TxnTimeout.Duration())
 			roundData, err := ocrInstances[i].GetLatestRound(ctx)
 			if err != nil {
+				cancel()
 				return fmt.Errorf("getting latest round from OCR instance %d have failed: %w", i+1, err)
 			}
 			cancel()
@@ -372,7 +385,7 @@ func DeployOCRContractsForwarderFlow(
 		return
 	}
 
-	return deployOCRContracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
+	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
 }
 
 // DeployOCRContracts deploys and funds a certain number of offchain aggregator contracts
@@ -400,10 +413,10 @@ func DeployOCRContracts(
 		return
 	}
 
-	return deployOCRContracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
+	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn)
 }
 
-func deployOCRContracts(
+func deployAnyOCRv1Contracts(
 	logger zerolog.Logger,
 	seth *seth.Client,
 	numberOfContracts int,

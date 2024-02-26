@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -36,7 +35,7 @@ type ConnectionVars struct {
 }
 
 // ConnectRemote connects to a local environment, see charts/chainlink-cluster
-func ConnectRemote(l zerolog.Logger) (*blockchain.EVMNetwork, *client2.MockserverClient, *client.ChainlinkK8sClient, []*client.ChainlinkK8sClient, error) {
+func ConnectRemote() (*blockchain.EVMNetwork, *client2.MockserverClient, *client.ChainlinkK8sClient, []*client.ChainlinkK8sClient, error) {
 	cfg, err := ReadConfig()
 	if err != nil {
 		return &blockchain.EVMNetwork{}, nil, nil, nil, err

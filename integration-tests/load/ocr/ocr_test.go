@@ -28,7 +28,7 @@ func TestOCRLoad(t *testing.T) {
 	config, err := tc.GetConfig("Load", tc.OCR)
 	require.NoError(t, err)
 
-	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
+	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
 	require.NoError(t, err)
 
 	readSethCfg := config.GetSethConfig()
@@ -69,7 +69,7 @@ func TestOCRVolume(t *testing.T) {
 	config, err := tc.GetConfig("Volume", tc.OCR)
 	require.NoError(t, err)
 
-	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
+	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
 	require.NoError(t, err)
 
 	readSethCfg := config.GetSethConfig()

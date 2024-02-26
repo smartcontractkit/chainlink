@@ -11,17 +11,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/seth"
 )
 
 // EthereumOffchainAggregator represents the offchain aggregation contract

@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -17,17 +18,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/seth"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 type CleanUpType string
@@ -458,7 +457,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 		if b.hasSeth {
-			actions_seth.FundChainlinkNodes(b.l, b.te.SethClient, contracts.ChainlinkClientToChainlinkNodeWithAddress(b.te.ClCluster.NodeAPIs()), 0, b.ETHFunds)
+			if err := actions_seth.FundChainlinkNodes(b.l, b.te.SethClient, contracts.ChainlinkClientToChainlinkNodeWithAddress(b.te.ClCluster.NodeAPIs()), 0, b.ETHFunds); err != nil {
+				return nil, err
+			}
 		}
 
 		b.te.isSimulatedNetwork = true

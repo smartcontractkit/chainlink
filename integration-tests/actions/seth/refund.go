@@ -14,12 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/seth"
 )
 
 const (
@@ -80,7 +80,7 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 		}
 
 		if strings.Contains(retryErr.Error(), InsufficientFundsErr) {
-			r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
+			return r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
 		}
 	}
 
@@ -144,7 +144,7 @@ func (r *GasTooLowTransferRetrier) Retry(ctx context.Context, logger zerolog.Log
 		}
 
 		if strings.Contains(retryErr.Error(), GasTooLowErr) {
-			r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
+			return r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
 		}
 	}
 
@@ -213,7 +213,7 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 		}
 
 		if strings.Contains(retryErr.Error(), OvershotErr) {
-			r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
+			return r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
 		}
 	}
 

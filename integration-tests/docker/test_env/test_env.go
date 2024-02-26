@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/seth"
 	tc "github.com/testcontainers/testcontainers-go"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -19,12 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/seth"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
 	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 

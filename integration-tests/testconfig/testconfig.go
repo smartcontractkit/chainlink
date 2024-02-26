@@ -16,6 +16,8 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/smartcontractkit/seth"
+
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -31,7 +33,6 @@ import (
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
-	"github.com/smartcontractkit/seth"
 )
 
 type GlobalTestConfig interface {

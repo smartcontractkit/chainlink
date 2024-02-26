@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -23,7 +24,6 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -178,7 +178,7 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 			bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 			t.Cleanup(func() {
-				err := actions_seth.TeardownRemoteSuite(t, seth, testEnvironment.Cfg.Namespace, chainlinkNodes, cfg)
+				err := actions_seth.TeardownRemoteSuite(t, seth, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &cfg)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

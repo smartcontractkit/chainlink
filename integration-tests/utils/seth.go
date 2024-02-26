@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/seth"
 )
 
 // MergeSethAndEvmNetworkConfigs merges EVMNetwork to Seth config. If Seth config already has Network settings,
