@@ -352,6 +352,7 @@ type Chain struct {
 	LogBackfillBatchSize     *uint32
 	LogPollInterval          *commonconfig.Duration
 	LogKeepBlocksDepth       *uint32
+	LogPrunePageSize         *uint32
 	MinIncomingConfirmations *uint32
 	MinContractPayment       *commonassets.Link
 	NonceAutoSync            *bool
