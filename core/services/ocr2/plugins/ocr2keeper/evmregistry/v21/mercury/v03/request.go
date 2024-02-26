@@ -78,6 +78,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	select {
 	case <-newCtx.Done():
 		// Context cancelled, return timeout error
+		c.lggr.Errorf("streams lookup for upkeep %s, timestamp %s timed out", streamsLookup.UpkeepId.String(), streamsLookup.Time.String())
 		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
 	case m := <-ch:
 		if m.Error != nil {
