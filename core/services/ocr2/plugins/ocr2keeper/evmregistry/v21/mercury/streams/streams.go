@@ -76,7 +76,7 @@ func NewStreamsLookup(
 	client contextCaller,
 	registry streamsRegistry,
 	lggr logger.Logger) *streams {
-	httpClient := http.DefaultClient
+	httpClient := &http.Client{Timeout: requestTimeout}
 	threadCtrl := utils.NewThreadControl()
 	packer := mercury.NewAbiPacker()
 
