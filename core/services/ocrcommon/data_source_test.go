@@ -50,10 +50,10 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 
 	ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
-	dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, time.Second*1)
+	dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, time.Second*2)
 	require.NoError(t, err)
 
-	changeResultValue := func(value string, returnErr bool) {
+	changeResultValue := func(value string, returnErr, once bool) {
 		result := pipeline.Result{
 			Value: value,
 			Error: nil,
@@ -61,27 +61,33 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		if returnErr {
 			result.Error = assert.AnError
 		}
-		runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
+
+		call := runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 			Return(&pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: result,
 					Task:   &pipeline.HTTPTask{},
 				},
-			}, nil).Once()
+			}, nil)
+		// last mock can't be Once or test will panic because there are logs after it finished
+		if once {
+			call.Once()
+		}
 	}
 
 	mockVal := int64(1)
 	// Test if Observe notices that cache updater failed and can refresh the cache on its own
 	// 1. Set initial value
-	changeResultValue(fmt.Sprint(mockVal), false)
+	changeResultValue(fmt.Sprint(mockVal), false, true)
+	time.Sleep(time.Millisecond * 100)
 	val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockVal, val.Int64())
 	// 2. Set values again, but make it error in updater
-	changeResultValue(fmt.Sprint(mockVal+1), true)
-	time.Sleep(time.Second*1 + time.Millisecond*100)
+	changeResultValue(fmt.Sprint(mockVal+1), true, true)
+	time.Sleep(time.Second*2 + time.Millisecond*100)
 	// 3. Set value in between updates and call Observe (shouldn't flake because of huge wait time)
-	changeResultValue(fmt.Sprint(mockVal+2), false)
+	changeResultValue(fmt.Sprint(mockVal+2), false, false)
 	val, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockVal+2, val.Int64())
