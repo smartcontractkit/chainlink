@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	automation2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/pb/automation"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
@@ -16,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -28,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -107,6 +111,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
+
 	// lookback blocks for transmit event is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var transmitLookbackBlocks int64 = 250
@@ -126,7 +131,9 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	scanner := upkeepstate.NewPerformedEventsScanner(r.lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepStateStore = upkeepstate.NewUpkeepStateStore(orm, r.lggr, scanner)
 
-	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth)
+	numOfLogUpkeeps := uint32(5)
+	fastExecLogsHigh := uint32(10)
+	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth, numOfLogUpkeeps, fastExecLogsHigh)
 	services.logEventProvider = logProvider
 	services.logRecoverer = logRecoverer
 	blockSubscriber := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)
@@ -140,6 +147,52 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 		packer, blockSubscriber, finalityDepth)
 
 	services.conditionalUpkeepProvider = evm.NewUpkeepProvider(al, blockSubscriber, client.LogPoller())
+
+	go func() {
+		var configDigest ocrtypes.ConfigDigest
+		ctx := context.Background()
+		for {
+			changeBlock, newConfigDigest, err := cfgWatcher.configPoller.LatestConfigDetails(ctx)
+			if err != nil {
+				r.lggr.Infow("error fetching latest config details", "error", err.Error())
+			} else if newConfigDigest.String() != configDigest.String() {
+				r.lggr.Infow("fetched updated config digest")
+
+				contractConfig, err := cfgWatcher.configPoller.LatestConfig(ctx, changeBlock)
+				if err != nil {
+					r.lggr.Infow("error fetching latest config", "error", err.Error())
+				}
+
+				offchainConfigProto := automation2.OffchainConfigProto{}
+				if err := proto.Unmarshal(contractConfig.OffchainConfig, &offchainConfigProto); err != nil {
+					r.lggr.Infow("error unmarshalling off chain config", "error", err.Error())
+				}
+
+				type OffchainConfig struct {
+					PerformLockoutWindow int64  `json:"performLockoutWindow"`
+					TargetProbability    string `json:"targetProbability"`
+					TargetInRounds       int    `json:"targetInRounds"`
+					MinConfirmations     int    `json:"minConfirmations"`
+					GasLimitPerReport    uint32 `json:"gasLimitPerReport"`
+					GasOverheadPerUpkeep uint32 `json:"gasOverheadPerUpkeep"`
+					MaxUpkeepBatchSize   int    `json:"maxUpkeepBatchSize"`
+				}
+
+				var config OffchainConfig
+				if err := json.Unmarshal(offchainConfigProto.ReportingPluginConfig, &config); err != nil {
+					r.lggr.Infow("error unmarshalling on chain config", "error", err.Error())
+				} else {
+					r.lggr.Infow("sucessfully unmarshalled offchain config", "TargetProbability", config.TargetProbability, "MinConfirmations", config.MinConfirmations, "PerformLockoutWindow", config.PerformLockoutWindow, "GasLimitPerReport", config.GasLimitPerReport, "GasOverheadPerUpkeep", config.GasOverheadPerUpkeep)
+				}
+
+				// set the values on the log poller
+				configDigest = newConfigDigest
+				r.lggr.Infow("updating local config digest")
+
+			}
+			<-time.After(30 * time.Second)
+		}
+	}()
 
 	return services, nil
 }
