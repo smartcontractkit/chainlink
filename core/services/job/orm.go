@@ -192,7 +192,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 			if jb.OCROracleSpec.TransmitterAddress != nil {
-				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
+				_, err := o.keyStore.Eth().Get(q.ParentCtx, jb.OCROracleSpec.TransmitterAddress.Hex())
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchTransmitterKey, "no key matching transmitter address: %s", jb.OCROracleSpec.TransmitterAddress.Hex())
 				}
@@ -239,7 +239,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 
 			// checks if they are present and if they are valid
-			sendingKeysDefined, err := areSendingKeysDefined(jb, o.keyStore)
+			sendingKeysDefined, err := areSendingKeysDefined(q.ParentCtx, jb, o.keyStore)
 			if err != nil {
 				return err
 			}
@@ -249,7 +249,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 
 			if !sendingKeysDefined {
-				if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
+				if err = ValidateKeyStoreMatch(q.ParentCtx, jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
 					return errors.Wrap(ErrNoSuchTransmitterKey, err.Error())
 				}
 			}
@@ -467,7 +467,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 }
 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
-func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) (err error) {
+func ValidateKeyStoreMatch(ctx context.Context, spec *OCR2OracleSpec, keyStore keystore.Master, key string) (err error) {
 	switch spec.PluginType {
 	case types.Mercury, types.LLO:
 		_, err = keyStore.CSA().Get(key)
@@ -475,15 +475,15 @@ func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key s
 			err = errors.Errorf("no CSA key matching: %q", key)
 		}
 	default:
-		err = validateKeyStoreMatchForRelay(spec.Relay, keyStore, key)
+		err = validateKeyStoreMatchForRelay(ctx, spec.Relay, keyStore, key)
 	}
 	return
 }
 
-func validateKeyStoreMatchForRelay(network relay.Network, keyStore keystore.Master, key string) error {
+func validateKeyStoreMatchForRelay(ctx context.Context, network relay.Network, keyStore keystore.Master, key string) error {
 	switch network {
 	case relay.EVM:
-		_, err := keyStore.Eth().Get(key)
+		_, err := keyStore.Eth().Get(ctx, key)
 		if err != nil {
 			return errors.Errorf("no EVM key matching: %q", key)
 		}
@@ -506,7 +506,7 @@ func validateKeyStoreMatchForRelay(network relay.Network, keyStore keystore.Mast
 	return nil
 }
 
-func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
+func areSendingKeysDefined(ctx context.Context, jb *Job, keystore keystore.Master) (bool, error) {
 	if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil {
 		sendingKeys, err := SendingKeysForJob(jb)
 		if err != nil {
@@ -514,7 +514,7 @@ func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
 		}
 
 		for _, sendingKey := range sendingKeys {
-			if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
+			if err = ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
 				return false, errors.Wrap(ErrNoSuchSendingKey, err.Error())
 			}
 		}
