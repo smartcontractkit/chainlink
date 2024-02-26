@@ -14,7 +14,7 @@ import (
 
 func TestKeyStore_EnabledKeysForChain(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewQConfig(true)

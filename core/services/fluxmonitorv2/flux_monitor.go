@@ -468,7 +468,8 @@ func formatTime(at time.Time) string {
 func (fm *FluxMonitor) SetOracleAddress() error {
 
 	// fm on deprecation path, using dangling context
-	ctx := context.Background()
+	ctx, cancel := fm.chStop.NewCtx()
+	defer cancel()
 
 	oracleAddrs, err := fm.fluxAggregator.GetOracles(nil)
 	if err != nil {

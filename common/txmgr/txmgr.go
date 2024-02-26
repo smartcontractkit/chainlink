@@ -308,7 +308,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
-	ctx, _ := b.chStop.NewCtx()
+	ctx, cancel := b.chStop.NewCtx()
+	defer cancel()
 
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
@@ -323,7 +324,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 
 	// execReset is defined as an inline function here because it closes over
 	// eb, ec and stopped
-	execReset := func(r *reset) {
+	execReset := func(ctx context.Context, r *reset) {
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
@@ -350,20 +351,18 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			ctx2, cancel := b.chStop.NewCtx()
-			defer cancel()
 			// Retry indefinitely on failure
 			backoff := iutils.NewRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.broadcaster.startInternal(ctx2); err != nil {
+					if err := b.broadcaster.startInternal(ctx); err != nil {
 						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
 					return
-				case <-ctx2.Done():
+				case <-b.chStop:
 					stopOnce.Do(func() { stopped = true })
 					return
 				}
@@ -410,7 +409,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				reset.done <- errors.New("Txm was stopped")
 				continue
 			}
-			execReset(&reset)
+			execReset(ctx, &reset)
 		case <-b.chStop:
 			// close and exit
 			//
@@ -451,7 +450,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			}
 			b.logger.Debugw("Keys changed, reloading", "enabledAddresses", enabledAddresses)
 
-			execReset(nil)
+			execReset(ctx, nil)
 		}
 	}
 }

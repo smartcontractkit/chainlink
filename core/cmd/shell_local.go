@@ -261,15 +261,13 @@ const ownerPermsMask = os.FileMode(0o700)
 
 // RunNode starts the Chainlink core.
 func (s *Shell) RunNode(c *cli.Context) error {
-	// TODO: remove redundant drilling. BCF-2971
-	var ctx = context.Background()
-	if err := s.runNode(ctx, c); err != nil {
+	if err := s.runNode(c); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
 }
 
-func (s *Shell) runNode(ctx context.Context, c *cli.Context) error {
+func (s *Shell) runNode(c *cli.Context) error {
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
@@ -380,7 +378,7 @@ func (s *Shell) runNode(ctx context.Context, c *cli.Context) error {
 		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
-				err2 := app.GetKeyStore().Eth().EnsureKeys(ctx, ch.ID())
+				err2 := app.GetKeyStore().Eth().EnsureKeys(rootCtx, ch.ID())
 				if err2 != nil {
 					return errors.Wrap(err2, "failed to ensure keystore keys")
 				}

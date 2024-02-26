@@ -61,7 +61,7 @@ func NewOCR2VRFRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, e
 
 func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (DKGProvider, error) {
 
-	// commontypes.Relay doesn't wire context through
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
@@ -88,7 +88,7 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 
 func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error) {
 
-	// commontypes.Relay doesn't wire context through
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
 	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)

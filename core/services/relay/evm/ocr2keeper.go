@@ -85,7 +85,7 @@ func NewOCR2KeeperRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger
 
 func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error) {
 
-	// commontypes.Relay doesn't wire context through
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
 	cfgWatcher, err := newOCR2KeeperConfigProvider(r.lggr, r.chain, rargs)

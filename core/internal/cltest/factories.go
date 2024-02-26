@@ -2,7 +2,6 @@ package cltest
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -279,7 +278,7 @@ func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2
 }
 
 func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	k, address := r.MustInsert(t, keystore)
 	state, err := keystore.GetStateForKey(ctx, k)
 	require.NoError(t, err)
