@@ -2,6 +2,7 @@ package ocrcommon
 
 import (
 	"context"
+	errjoin "errors"
 	"math/big"
 	"sync"
 	"time"
@@ -228,8 +229,8 @@ type inMemoryDataSourceCache struct {
 func (ds *inMemoryDataSourceCache) updater() {
 	ticker := time.NewTicker(ds.cacheExpiration)
 	for range ticker.C {
-		// arbitrary timeout
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
+		// 5 seconds fits multiple times in minimum cache duration
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		if err := ds.updateCache(ctx); err != nil {
 			ds.lggr.Warnw("failed to update cache", "err", err)
 		}
@@ -242,6 +243,9 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	defer ds.mu.Unlock()
 	_, ds.latestTrrs, ds.latestUpdateErr = ds.executeRun(ctx)
 	if ds.latestUpdateErr != nil {
+		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
+	} else if ds.latestTrrs.FinalResult(ds.lggr).HasErrors() {
+		ds.latestUpdateErr = errjoin.Join(ds.latestTrrs.FinalResult(ds.lggr).AllErrors...)
 		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
 	}
 
