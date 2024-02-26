@@ -72,9 +72,12 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	c.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 		c.multiFeedsRequest(ctx, ch, streamsLookup)
 	})
+	// TODO: HACK to test. Fix this before merge
+	newCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	select {
-	case <-ctx.Done():
+	case <-newCtx.Done():
 		// Context cancelled, return timeout error
 		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
 	case m := <-ch:
