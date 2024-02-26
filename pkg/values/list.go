@@ -37,7 +37,7 @@ func (l *List) Proto() (*pb.Value, error) {
 func (l *List) Unwrap() (any, error) {
 	nl := []any{}
 	for _, v := range l.Underlying {
-		uv, err := v.Unwrap()
+		uv, err := Unwrap(v)
 		if err != nil {
 			return nil, err
 		}

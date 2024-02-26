@@ -43,7 +43,7 @@ func (m *Map) Proto() (*pb.Value, error) {
 func (m *Map) Unwrap() (any, error) {
 	nm := map[string]any{}
 	for k, v := range m.Underlying {
-		uv, err := v.Unwrap()
+		uv, err := Unwrap(v)
 		if err != nil {
 			return nil, err
 		}

@@ -92,6 +92,36 @@ func Test_Value(t *testing.T) {
 				return m, mv, err
 			},
 		},
+		{
+			name: "map of values",
+			newValue: func() (any, Value, error) {
+				bar := "bar"
+				str := &String{Underlying: bar}
+				l, err := NewList([]any{1, 2, 3})
+				if err != nil {
+					return nil, nil, err
+				}
+				m := map[string]any{
+					"hello": map[string]any{
+						"string": str,
+						"nil":    &Nil{},
+						"list":   l,
+					},
+				}
+				mv, err := NewMap(m)
+
+				list := []any{int64(1), int64(2), int64(3)}
+				expectedUnwrapped := map[string]any{
+					"hello": map[string]any{
+						"string": bar,
+						"nil":    nil,
+						"list":   list,
+					},
+				}
+
+				return expectedUnwrapped, mv, err
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -106,7 +136,7 @@ func Test_Value(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, wrapped, rehydratedValue)
 
-			unwrapped, err := rehydratedValue.Unwrap()
+			unwrapped, err := Unwrap(rehydratedValue)
 			require.NoError(t, err)
 			if tc.equal != nil {
 				tc.equal(t, originalValue, unwrapped)
