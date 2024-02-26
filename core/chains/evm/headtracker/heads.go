@@ -131,7 +131,7 @@ func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) []*evmtypes.Head 
 	for i := 0; i < len(heads)-1; i++ {
 		head := heads[i]
 		parent, exists := headsMap[head.ParentHash]
-		if exists && parent.BlockNumber() >= minBlockToKeep {
+		if exists {
 			head.Parent = parent
 		}
 	}

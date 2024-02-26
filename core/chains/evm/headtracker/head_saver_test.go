@@ -127,7 +127,7 @@ func TestHeadSaver_Load(t *testing.T) {
 		require.NotNil(t, latestHead)
 		require.Equal(t, int64(5), latestHead.Number)
 		require.Equal(t, uint32(5), latestHead.ChainLength())
-		require.Nil(t, latestHead.HeadAtHeight(0))
+		require.Greater(t, latestHead.EarliestHeadInChain().BlockNumber(), int64(0))
 	}
 
 	// load all from [h5-historyDepth, h5]
