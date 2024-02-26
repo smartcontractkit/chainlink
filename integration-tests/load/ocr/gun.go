@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/seth"
-
-	"github.com/smartcontractkit/wasp"
 )
 
 // Gun is a gun for the OCR load test

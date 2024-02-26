@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	DefaultConfigFilePath        = "connect.toml"
+	DefaultConfigFilePath        = "../connect.toml"
 	ErrReadConnectionConfig      = "failed to read TOML environment connection config"
 	ErrUnmarshalConnectionConfig = "failed to unmarshal TOML environment connection config"
 )
