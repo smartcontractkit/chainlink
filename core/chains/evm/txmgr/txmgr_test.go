@@ -51,10 +51,11 @@ func makeTestEvmTxm(
 	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth) (txmgr.TxManager, error) {
 	lggr := logger.Test(t)
 	lpOpts := logpoller.Opts{
-		PollPeriod:        100 * time.Millisecond,
-		FinalityDepth:     2,
-		BackfillBatchSize: 3,
-		RpcBatchSize:      2,
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
 	}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, lpOpts)
 

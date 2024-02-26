@@ -719,10 +719,11 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		require.NoError(t, err)
 
 		lpOpts := logpoller.Opts{
-			PollPeriod:        15 * time.Second,
-			FinalityDepth:     int64(finalityDepth),
-			BackfillBatchSize: 3,
-			RpcBatchSize:      2,
+			PollPeriod:               15 * time.Second,
+			FinalityDepth:            int64(finalityDepth),
+			BackfillBatchSize:        3,
+			RpcBatchSize:             2,
+			KeepFinalizedBlocksDepth: 1000,
 		}
 		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, lpOpts)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
@@ -1396,10 +1397,11 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	ec.Commit()
 
 	lpOpts := logpoller.Opts{
-		PollPeriod:        time.Hour,
-		FinalityDepth:     2,
-		BackfillBatchSize: 3,
-		RpcBatchSize:      2,
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
 	}
 	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, lpOpts)
 
@@ -1450,11 +1452,12 @@ func TestTooManyLogResults(t *testing.T) {
 	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
 	lpOpts := logpoller.Opts{
-		PollPeriod:             time.Hour,
-		FinalityDepth:          2,
-		BackfillBatchSize:      20,
-		RpcBatchSize:           10,
-		BackupPollerBlockDelay: 0,
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        20,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 1000,
+		BackupPollerBlockDelay:   0,
 	}
 	lp := logpoller.NewLogPoller(o, ec, lggr, lpOpts)
 	expected := []int64{10, 5, 2, 1}

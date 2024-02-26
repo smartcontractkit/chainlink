@@ -224,10 +224,11 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	lpOpts := Opts{
-		PollPeriod:        time.Hour,
-		FinalityDepth:     2,
-		BackfillBatchSize: 3,
-		RpcBatchSize:      2,
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
 	}
 	lp := NewLogPoller(orm, ec, lggr, lpOpts)
 	lp.BackupPollAndSaveLogs(ctx)
@@ -537,10 +538,11 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 	lggr := logger.Test(b)
 	lpOpts := Opts{
-		PollPeriod:        time.Hour,
-		FinalityDepth:     2,
-		BackfillBatchSize: 3,
-		RpcBatchSize:      2,
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
 	}
 	lp := NewLogPoller(nil, nil, lggr, lpOpts)
 	for i := 0; i < nFilters; i++ {

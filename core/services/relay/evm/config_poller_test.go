@@ -92,10 +92,11 @@ func TestConfigPoller(t *testing.T) {
 		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
 
 		lpOpts := logpoller.Opts{
-			PollPeriod:        100 * time.Millisecond,
-			FinalityDepth:     1,
-			BackfillBatchSize: 2,
-			RpcBatchSize:      2,
+			PollPeriod:               100 * time.Millisecond,
+			FinalityDepth:            1,
+			BackfillBatchSize:        2,
+			RpcBatchSize:             2,
+			KeepFinalizedBlocksDepth: 1000,
 		}
 		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)

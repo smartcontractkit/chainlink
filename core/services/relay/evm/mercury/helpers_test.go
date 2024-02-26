@@ -169,10 +169,11 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
 
 	lpOpts := logpoller.Opts{
-		PollPeriod:        100 * time.Millisecond,
-		FinalityDepth:     1,
-		BackfillBatchSize: 2,
-		RpcBatchSize:      2,
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            1,
+		BackfillBatchSize:        2,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
 	}
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, lpOpts)
 	servicetest.Run(t, lp)
