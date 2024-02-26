@@ -73,7 +73,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		c.multiFeedsRequest(newCtx, ch, streamsLookup)
 	})
 
-	newCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	newCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	select {
 	case <-newCtx.Done():
