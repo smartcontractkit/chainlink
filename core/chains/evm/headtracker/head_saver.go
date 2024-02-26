@@ -55,7 +55,7 @@ func (hs *headSaver) Load(ctx context.Context, latestFinalized *evmtypes.Head) (
 }
 
 func (hs *headSaver) calculateMinBlockToKeep(latestFinalized int64) int64 {
-	return latestFinalized - int64(hs.htConfig.HistoryDepth())
+	return max(latestFinalized-int64(hs.htConfig.HistoryDepth()), 0)
 }
 
 func (hs *headSaver) LatestHeadFromDB(ctx context.Context) (head *evmtypes.Head, err error) {

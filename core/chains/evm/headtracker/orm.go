@@ -25,7 +25,7 @@ type ORM interface {
 	TrimOldHeads(ctx context.Context, minBlockNumber int64) (err error)
 	// LatestHead returns the highest seen head
 	LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
-	// LatestHeads returns the latest heads with blockNumbers > minBlockNumber
+	// LatestHeads returns the latest heads with blockNumbers >= minBlockNumber
 	LatestHeads(ctx context.Context, minBlockNumber int64) (heads []*evmtypes.Head, err error)
 	// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
 	HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error)

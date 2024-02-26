@@ -110,13 +110,14 @@ func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) []*evmtypes.Head 
 		}
 	}
 
-	heads := make([]*evmtypes.Head, len(headsMap))
+	heads := make([]*evmtypes.Head, 0, len(headsMap))
 	// unsorted unique heads
 	{
-		var i int
 		for _, head := range headsMap {
-			heads[i] = head
-			i++
+			if head.BlockNumber() < minBlockToKeep {
+				continue
+			}
+			heads = append(heads, head)
 		}
 	}
 
@@ -125,15 +126,6 @@ func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) []*evmtypes.Head 
 		// sorting from the highest number to lowest
 		return heads[i].Number > heads[j].Number
 	})
-
-	// yeah, we could have used binarySearch here, but the code was much longer and more complex and did not
-	// solve any performance issues
-	for i := range heads {
-		if heads[i].BlockNumber() < minBlockToKeep {
-			heads = heads[:i]
-			break
-		}
-	}
 
 	// assign parents
 	for i := 0; i < len(heads)-1; i++ {
