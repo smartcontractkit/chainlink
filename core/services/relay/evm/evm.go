@@ -160,7 +160,7 @@ func (r *Relayer) HealthReport() (report map[string]error) {
 
 func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
 
-	// commontypes.Relayer doesn't wire context through
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
 	lggr := r.lggr.Named("PluginProvider").Named(rargs.ExternalJobID.String())
@@ -305,7 +305,7 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 
 func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
 
-	// commontypes.Relayer interface in common don't wire through Context
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
 	lggr := r.lggr.Named("FunctionsProvider").Named(rargs.ExternalJobID.String())

@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -26,7 +25,7 @@ import (
 func TestNewConnector_Success(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	keyV2, err := ethkey.NewV2()
 	require.NoError(t, err)

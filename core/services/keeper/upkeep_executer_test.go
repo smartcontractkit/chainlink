@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"context"
 	"math/big"
 	"sync/atomic"
 	"testing"
@@ -227,7 +226,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("errors if submission key not found", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 		_, _, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, mockEstimator(t), func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})

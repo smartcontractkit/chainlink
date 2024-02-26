@@ -1,7 +1,6 @@
 package fluxmonitorv2_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,7 +40,7 @@ func TestKeyStore_EnabledKeysForChain(t *testing.T) {
 func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewQConfig(true)

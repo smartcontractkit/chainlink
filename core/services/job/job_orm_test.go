@@ -900,7 +900,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	}
 
 	t.Run("test ETH key validation", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.EVM
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
@@ -911,7 +911,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	})
 
 	t.Run("test Cosmos key validation", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.Cosmos
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
@@ -923,7 +923,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	})
 
 	t.Run("test Solana key validation", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.Solana
 
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -936,7 +936,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	})
 
 	t.Run("test Starknet key validation", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.StarkNet
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
@@ -948,7 +948,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	})
 
 	t.Run("test Mercury ETH key validation", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.PluginType = types.Mercury
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no CSA key matching: \"bad key\"")
