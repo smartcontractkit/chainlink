@@ -300,6 +300,111 @@ deployments:
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
 
+        # for tracing
+        opentelemetry-collector:
+          enabled: true
+          mode: deployment
+          image:
+            repository: otel/opentelemetry-collector
+            tag: 0.81.2
+          command:
+            name: otelcol
+          extraVolumes:
+            - name: trace-data
+              emptyDir: {}
+          extraVolumeMounts:
+            - name: trace-data
+              mountPath: /tracing
+          podSecurityContext:
+            fsGroup: 10001
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+          config:
+            receivers:
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: "0.0.0.0:4317"
+                  http:
+                    endpoint: "0.0.0.0:3100"
+            exporters:
+              file:
+                path: /tracing/trace-data.json
+              otlp:
+                endpoint: tempo:4317
+                tls:
+                  insecure: true
+            service:
+              telemetry:
+                logs:
+                  level: "debug"
+              pipelines:
+                traces:
+                  receivers: [otlp]
+                  exporters: [file, otlp]
+
+        tempo:
+          enabled: true
+          image:
+            tag: "1.7.2"
+          server:
+            http_listen_port: 3200
+          # default storage path: /var/tempo/
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3200
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 3200
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+          tempo:
+            storage:
+              trace:
+                backend: local # backend configuration to use
+                wal:
+                  path: /tmp/tempo/wal # where to store the the wal locally
+                local:
+                  path: /tmp/tempo/blocks
+
+        grafana:
+          enabled: true
+          image:
+            tag: 7.3.2
+          datasources:
+            datasources.yaml:
+              apiVersion: 1
+              datasources:
+                - name: Tempo
+                  type: tempo
+                  access: proxy
+                  orgId: 1
+                  url: http://tempo:3200
+                  basicAuth: false
+                  isDefault: true
+                  version: 1
+                  editable: false
+                  uid: tempo
+                  jsonData:
+                    httpMethod: GET
+                    serviceMap:
+                      datasourceUid: prometheus
+          env:
+            GF_AUTH_ANONYMOUS_ENABLED: "true"
+            GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+            GF_AUTH_DISABLE_LOGIN_FORM: "true"
+            GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor"
+
         networkPolicy:
           ingress:
             # Should be a comma separated list of CIDR blocks. To include
