@@ -1,4 +1,4 @@
-package vrfv2_actions
+package vrfv2
 
 import (
 	"math/big"

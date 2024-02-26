@@ -41,6 +41,26 @@ jobs:
           BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Merge Pyrsoscope config
+        env:
+          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          PYROSCOPE_ENVIRONMENT: "automation-load-test"
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        run: |
+          decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
+
+          # use Pyroscope config from GH secrets and merge it with base64 input
+          cat << EOF > config.toml
+          server_url="$PYROSCOPE_SERVER"
+          environment="$PYROSCOPE_ENVIRONMENT"
+          key="$PYROSCOPE_KEY"
+          EOF
+
+          echo "$decoded_toml" >> final_config.toml
+          cat config.toml >> final_config.toml
+          BASE64_CONFIG_OVERRIDE=$(cat final_config.toml | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Parse base64 config
         uses: ./.github/actions/setup-parse-base64-config
         with:
