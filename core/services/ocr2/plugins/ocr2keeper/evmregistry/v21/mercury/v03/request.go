@@ -73,27 +73,32 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		c.multiFeedsRequest(ctx, ch, streamsLookup)
 	})
 
-	m := <-ch
-	if m.Error != nil {
-		// There was a pipeline error during execution
-		// If error was non retryable then just return the state and error
-		if !m.Retryable {
-			return m.State, nil, m.ErrCode, m.Retryable, 0 * time.Second, m.Error
-		}
-		// If errors were retryable then calculate retry interval
-		retryInterval := mercury.CalculateStreamsRetryConfigFn(upkeepType, pluginRetryKey, c.mercuryConfig)
-		if retryInterval != mercury.RetryIntervalTimeout {
-			// Return the retyrable state with appropriate retry interval
-			return m.State, nil, m.ErrCode, m.Retryable, retryInterval, m.Error
+	select {
+	case <-ctx.Done():
+		// Context cancelled, return timeout error
+		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
+	case m := <-ch:
+		if m.Error != nil {
+			// There was a pipeline error during execution
+			// If error was non retryable then just return the state and error
+			if !m.Retryable {
+				return m.State, nil, m.ErrCode, m.Retryable, 0 * time.Second, m.Error
+			}
+			// If errors were retryable then calculate retry interval
+			retryInterval := mercury.CalculateStreamsRetryConfigFn(upkeepType, pluginRetryKey, c.mercuryConfig)
+			if retryInterval != mercury.RetryIntervalTimeout {
+				// Return the retyrable state with appropriate retry interval
+				return m.State, nil, m.ErrCode, m.Retryable, retryInterval, m.Error
+			}
+
+			// Now we have exhausted all our retries. We treat it as not a pipeline error
+			// and expose error code to the user
+			return encoding.NoPipelineError, nil, m.ErrCode, false, 0 * time.Second, nil
 		}
 
-		// Now we have exhausted all our retries. We treat it as not a pipeline error
-		// and expose error code to the user
-		return encoding.NoPipelineError, nil, m.ErrCode, false, 0 * time.Second, nil
+		// No pipeline error, return bytes and error code out of which one should be null
+		return encoding.NoPipelineError, m.Bytes, m.ErrCode, false, 0 * time.Second, nil
 	}
-
-	// No pipeline error, return bytes and error code out of which one should be null
-	return encoding.NoPipelineError, m.Bytes, m.ErrCode, false, 0 * time.Second, nil
 }
 
 func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.MercuryData, sl *mercury.StreamsLookup) {
