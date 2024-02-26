@@ -198,13 +198,8 @@ func (o *EthereumOffchainAggregator) SetConfig(
 
 // RequestNewRound requests the OCR contract to create a new round
 func (o *EthereumOffchainAggregator) RequestNewRound() error {
-	tx, err := o.ocr.RequestNewRound(o.client.NewTXOpts())
-	if err != nil {
-		return err
-	}
 	o.l.Info().Str("Contract Address", o.address.Hex()).Msg("New OCR round requested")
-
-	_, err = o.client.Decode(tx, err)
+	_, err := o.client.Decode(o.ocr.RequestNewRound(o.client.NewTXOpts()))
 	return err
 }
 
@@ -481,11 +476,7 @@ func (e *EthereumOffchainAggregatorV2) Address() string {
 }
 
 func (e *EthereumOffchainAggregatorV2) RequestNewRound() error {
-	tx, err := e.contract.RequestNewRound(e.client.NewTXOpts())
-	if err != nil {
-		return err
-	}
-	_, err = e.client.Decode(tx, err)
+	_, err := e.client.Decode(e.contract.RequestNewRound(e.client.NewTXOpts()))
 	return err
 }
 
