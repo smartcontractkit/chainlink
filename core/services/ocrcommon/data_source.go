@@ -113,7 +113,6 @@ func NewInMemoryDataSourceCache(ds median.DataSource, cacheExpiryDuration time.D
 
 	dsCache := &inMemoryDataSourceCache{
 		cacheExpiration:    cacheExpiryDuration,
-		mu:                 new(sync.RWMutex),
 		inMemoryDataSource: inMemoryDS,
 	}
 	go func() { dsCache.updater() }()
@@ -219,7 +218,7 @@ func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.R
 type inMemoryDataSourceCache struct {
 	*inMemoryDataSource
 	cacheExpiration time.Duration
-	mu              *sync.RWMutex
+	mu              sync.RWMutex
 	latestUpdateErr error
 	latestTrrs      pipeline.TaskRunResults
 	latestResult    pipeline.FinalResult
