@@ -31,6 +31,7 @@ describe('FunctionsRouter - Base', () => {
           contracts.router.address,
           coordinatorConfig,
           contracts.mockLinkEth.address,
+          contracts.mockLinkUsd.address,
         )
       const coordinator3 = await factories.functionsCoordinatorFactory
         .connect(roles.defaultAccount)
@@ -38,6 +39,7 @@ describe('FunctionsRouter - Base', () => {
           contracts.router.address,
           coordinatorConfig,
           contracts.mockLinkEth.address,
+          contracts.mockLinkUsd.address,
         )
       const coordinator4 = await factories.functionsCoordinatorFactory
         .connect(roles.defaultAccount)
@@ -45,6 +47,7 @@ describe('FunctionsRouter - Base', () => {
           contracts.router.address,
           coordinatorConfig,
           contracts.mockLinkEth.address,
+          contracts.mockLinkUsd.address,
         )
 
       await expect(

@@ -57,6 +57,16 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
     Chainable(address(logicA))
   {}
 
+  /**
+   * @notice holds the variables used in the transmit function, necessary to avoid stack too deep errors
+   */
+  struct TransmitVars {
+    uint16 numUpkeepsPassedChecks;
+    uint256 totalCalldataWeight;
+    uint96 totalReimbursement;
+    uint96 totalPremium;
+  }
+
   // ================================================================
   // |                           ACTIONS                            |
   // ================================================================
@@ -96,21 +106,20 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
 
   function _handleReport(HotVars memory hotVars, Report memory report, uint256 gasOverhead) private {
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
-    uint16 numUpkeepsPassedChecks;
+    TransmitVars memory transmitVars = TransmitVars({
+      numUpkeepsPassedChecks: 0,
+      totalCalldataWeight: 0,
+      totalReimbursement: 0,
+      totalPremium: 0
+    });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
+    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee();
+
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
       upkeepTransmitInfo[i].triggerType = _getTriggerType(report.upkeepIds[i]);
-      upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
-        hotVars,
-        upkeepTransmitInfo[i].triggerType,
-        uint32(report.gasLimits[i]),
-        uint32(report.performDatas[i].length),
-        report.fastGasWei,
-        report.linkNative,
-        true
-      );
+
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
         blocknumber,
@@ -120,7 +129,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       );
 
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
-        numUpkeepsPassedChecks += 1;
+        transmitVars.numUpkeepsPassedChecks += 1;
       } else {
         continue;
       }
@@ -132,6 +141,14 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
         report.performDatas[i]
       );
 
+      // To split L1 fee across the upkeeps, assign a weight to this upkeep based on the length
+      // of the perform data and calldata overhead
+      upkeepTransmitInfo[i].calldataWeight =
+        report.performDatas[i].length +
+        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
+        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
+      transmitVars.totalCalldataWeight += upkeepTransmitInfo[i].calldataWeight;
+
       // Deduct that gasUsed by upkeep from our running counter
       gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
@@ -139,59 +156,46 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       _updateTriggerMarker(report.upkeepIds[i], blocknumber, upkeepTransmitInfo[i]);
     }
     // No upkeeps to be performed in this report
-    if (numUpkeepsPassedChecks == 0) {
+    if (transmitVars.numUpkeepsPassedChecks == 0) {
       return;
     }
 
     // This is the overall gas overhead that will be split across performed upkeeps
-    // Take upper bound of 16 gas per callData bytes, which is approximated to be reportLength
-    // Rest of msg.data is accounted for in accounting overheads
-    // NOTE in process of changing accounting, so pre-emptively changed reportLength to msg.data.length
-    gasOverhead =
-      (gasOverhead - gasleft() + 16 * msg.data.length) +
-      ACCOUNTING_FIXED_GAS_OVERHEAD +
-      (ACCOUNTING_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1));
-    gasOverhead = gasOverhead / numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
+    // Take upper bound of 16 gas per callData bytes
+    gasOverhead = (gasOverhead - gasleft()) + (16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD;
+    gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
-    uint96 totalReimbursement;
-    uint96 totalPremium;
     {
       uint96 reimbursement;
       uint96 premium;
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
-          upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
-            gasOverhead,
-            upkeepTransmitInfo[i].triggerType,
-            uint32(report.performDatas[i].length),
-            hotVars.f
-          );
-
           (reimbursement, premium) = _postPerformPayment(
             hotVars,
             report.upkeepIds[i],
-            upkeepTransmitInfo[i],
+            upkeepTransmitInfo[i].gasUsed,
             report.fastGasWei,
             report.linkNative,
-            numUpkeepsPassedChecks
+            gasOverhead,
+            (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight
           );
-          totalPremium += premium;
-          totalReimbursement += reimbursement;
+          transmitVars.totalPremium += premium;
+          transmitVars.totalReimbursement += reimbursement;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
             reimbursement + premium,
             upkeepTransmitInfo[i].gasUsed,
-            upkeepTransmitInfo[i].gasOverhead,
+            gasOverhead,
             report.triggers[i]
           );
         }
       }
     }
     // record payments
-    s_transmitters[msg.sender].balance += totalReimbursement;
-    s_hotVars.totalPremium += totalPremium;
+    s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
+    s_hotVars.totalPremium += transmitVars.totalPremium;
   }
 
   /**

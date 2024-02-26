@@ -90,6 +90,7 @@ type TestConfig struct {
 	Network                *ctf_config.NetworkConfig        `toml:"Network"`
 	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
 	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
+	WaspConfig             *ctf_config.WaspAutoBuildConfig  `toml:"WaspAutoBuild"`
 
 	Seth *seth.Config `toml:"Seth"`
 
@@ -524,6 +525,11 @@ func (c *TestConfig) Validate() error {
 		}
 	}
 
+	if c.WaspConfig != nil {
+		if err := c.WaspConfig.Validate(); err != nil {
+			return errors.Wrapf(err, "WaspAutoBuildConfig validation failed")
+		}
+	}
 	return nil
 }
 

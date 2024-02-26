@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"math/big"
 	"time"
 
@@ -66,4 +67,9 @@ type VRFJobSpecConfig struct {
 	PollPeriod                    time.Duration
 	RequestTimeout                time.Duration
 	VRFOwnerConfig                *VRFOwnerConfig
+	SimulationBlock               *string
+}
+
+type VRFLoadTestConsumer interface {
+	GetLoadTestMetrics(ctx context.Context) (*contracts.VRFLoadTestMetrics, error)
 }

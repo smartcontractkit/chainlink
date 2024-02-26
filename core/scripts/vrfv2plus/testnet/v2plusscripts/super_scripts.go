@@ -472,6 +472,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
 	// required flags
+	nativeOnly := deployCmd.Bool("native-only", false, "if true, link and link feed are not set up")
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := deployCmd.String("bhs-address", "", "address of BHS contract")
@@ -486,6 +487,11 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	estimateGasMultiplier := deployCmd.Float64("estimate-gas-multiplier", 1.1, "")
 	pollPeriod := deployCmd.String("poll-period", "300ms", "")
 	requestTimeout := deployCmd.String("request-timeout", "30m0s", "")
+	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
+	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
+	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
+	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
+	simulationBlock := deployCmd.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
@@ -501,16 +507,30 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	flatFeeLinkDiscountPPM := deployCmd.Int64("flat-fee-link-discount-ppm", 100, "fulfillment flat fee discount for LINK payment denominated in native ppm")
 	nativePremiumPercentage := deployCmd.Int64("native-premium-percentage", 1, "premium percentage for native payment")
 	linkPremiumPercentage := deployCmd.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
-	gasLaneMaxGas := deployCmd.Int64("gas-lane-max-gas", 1e12, "gas lane max gas price")
+	provingKeyMaxGasPriceString := deployCmd.String("proving-key-max-gas-price", "1e12", "gas lane max gas price")
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
 	)
 
+	if *nativeOnly {
+		if *linkAddress != "" || *linkEthAddress != "" {
+			panic("native-only flag is set, but link address or link eth address is provided")
+		}
+		if *subscriptionBalanceJuelsString != "0" {
+			panic("native-only flag is set, but link subscription balance is provided")
+		}
+	}
+
+	if *simulationBlock != "pending" && *simulationBlock != "latest" {
+		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+	}
+
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
 	subscriptionBalanceNativeWei := decimal.RequireFromString(*subscriptionBalanceNativeWeiString).BigInt()
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
+	provingKeyMaxGasPrice := decimal.RequireFromString(*provingKeyMaxGasPriceString).BigInt()
 
 	var vrfPrimaryNodeSendingKeys []string
 	if len(*vrfPrimaryNodeSendingKeysString) > 0 {
@@ -562,6 +582,13 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		RequestTimeout:                *requestTimeout,
 	}
 
+	bhsJobSpecConfig := model.BHSJobSpecConfig{
+		RunTimeout:     *bhsJobRunTimeout,
+		WaitBlocks:     *bhsJobWaitBlocks,
+		LookBackBlocks: *bhsJobLookBackBlocks,
+		PollPeriod:     *bhsJobPollPeriod,
+	}
+
 	VRFV2PlusDeployUniverse(
 		e,
 		subscriptionBalanceJuels,
@@ -569,9 +596,12 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
+		*nativeOnly,
 		nodesMap,
-		uint64(*gasLaneMaxGas),
+		provingKeyMaxGasPrice.Uint64(),
 		coordinatorJobSpecConfig,
+		bhsJobSpecConfig,
+		*simulationBlock,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -587,9 +617,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2Plus,
+	nativeOnly bool,
 	nodesMap map[string]model.Node,
-	gasLaneMaxGas uint64,
+	provingKeyMaxGasPrice uint64,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
+	bhsJobSpecConfig model.BHSJobSpecConfig,
+	simulationBlock string,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -618,12 +651,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		helpers.PanicErr(err)
 	}
 
-	if len(contractAddresses.LinkAddress) == 0 {
+	if !nativeOnly && len(contractAddresses.LinkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
 		contractAddresses.LinkAddress = helpers.DeployLinkToken(e).String()
 	}
 
-	if len(contractAddresses.LinkEthAddress) == 0 {
+	if !nativeOnly && len(contractAddresses.LinkEthAddress) == 0 {
 		fmt.Println("\nDeploying LINK/ETH Feed...")
 		contractAddresses.LinkEthAddress = helpers.DeployLinkEthFeed(e, contractAddresses.LinkAddress, coordinatorConfig.FallbackWeiPerUnitLink).String()
 	}
@@ -674,7 +707,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, gasLaneMaxGas)
+		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, provingKeyMaxGasPrice)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		registerdKeyHash, err2 := coordinator.SProvingKeyHashes(nil, big.NewInt(0))
@@ -727,6 +760,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
 		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
@@ -735,6 +769,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
+		simulationBlock,
 	)
 
 	formattedVrfV2PlusBackupJobSpec := fmt.Sprintf(
@@ -751,6 +786,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
 		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
@@ -759,14 +795,18 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
+		simulationBlock,
 	)
 
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		30,                                   //waitBlocks
-		200,                                  //lookbackBlocks
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		bhsJobSpecConfig.WaitBlocks,          //waitBlocks
+		bhsJobSpecConfig.LookBackBlocks,      //lookbackBlocks
 		contractAddresses.BhsContractAddress, //bhs address
+		bhsJobSpecConfig.PollPeriod,          //pollPeriod
+		bhsJobSpecConfig.RunTimeout,          //runTimeout
 		e.ChainID,                            //chain id
 		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), //sending addresses
 	)
@@ -774,9 +814,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	formattedBHSBackupJobSpec := fmt.Sprintf(
 		jobs.BHSPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
 		100,                                  //waitBlocks
 		200,                                  //lookbackBlocks
 		contractAddresses.BhsContractAddress, //bhs adreess
+		bhsJobSpecConfig.PollPeriod,          //pollPeriod
+		bhsJobSpecConfig.RunTimeout,          //runTimeout
 		e.ChainID,                            //chain id
 		strings.Join(util.MapToAddressArr(nodesMap[model.BHSBackupNodeName].SendingKeys), "\",\""), //sending addresses
 	)
@@ -803,7 +846,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		"\nVRF Subscription LINK Balance:", *subscriptionBalanceJuels,
 		"\nVRF Subscription Native Balance:", *subscriptionBalanceNativeWei,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
+		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --native-payment-enabled=true --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
 		"\nRetrieve Request Status: ",
 		fmt.Sprintf("go run . eoa-load-test-read-metrics --consumer-address=%s", consumerAddress),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
