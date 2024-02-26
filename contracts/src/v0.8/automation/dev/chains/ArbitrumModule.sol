@@ -17,6 +17,7 @@ contract ArbitrumModule is ChainModuleBase {
   ArbGasInfo private constant ARB_GAS = ArbGasInfo(ARB_GAS_ADDR);
 
   uint256 private constant FIXED_GAS_OVERHEAD = 5000;
+  uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 0;
 
   function blockHash(uint256 n) external view override returns (bytes32) {
     uint256 blockNum = ARB_SYS.arbBlockNumber();
@@ -45,6 +46,6 @@ contract ArbitrumModule is ChainModuleBase {
     override
     returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead)
   {
-    return (FIXED_GAS_OVERHEAD, 0);
+    return (FIXED_GAS_OVERHEAD, PER_CALLDATA_BYTE_GAS_OVERHEAD);
   }
 }

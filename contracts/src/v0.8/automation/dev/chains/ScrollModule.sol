@@ -15,7 +15,7 @@ contract ScrollModule is ChainModuleBase {
   address private constant SCROLL_ORACLE_ADDR = 0x5300000000000000000000000000000000000002;
   IScrollL1GasPriceOracle private constant SCROLL_ORACLE = IScrollL1GasPriceOracle(SCROLL_ORACLE_ADDR);
 
-  uint256 private constant FIXED_GAS_OVERHEAD = 15000;
+  uint256 private constant FIXED_GAS_OVERHEAD = 45_000;
   uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 170;
 
   function getCurrentL1Fee() external view override returns (uint256) {

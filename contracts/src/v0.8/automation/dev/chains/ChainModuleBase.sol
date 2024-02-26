@@ -5,6 +5,7 @@ import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
 
 contract ChainModuleBase is IChainModule {
   uint256 private constant FIXED_GAS_OVERHEAD = 300;
+  uint256 private constant PER_CALLDATA_BYTE_GAS_OVERHEAD = 0;
 
   function blockNumber() external view virtual returns (uint256) {
     return block.number;
@@ -31,6 +32,6 @@ contract ChainModuleBase is IChainModule {
     virtual
     returns (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead)
   {
-    return (FIXED_GAS_OVERHEAD, 0);
+    return (FIXED_GAS_OVERHEAD, PER_CALLDATA_BYTE_GAS_OVERHEAD);
   }
 }
