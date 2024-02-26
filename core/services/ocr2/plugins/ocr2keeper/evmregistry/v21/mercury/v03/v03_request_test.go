@@ -257,8 +257,9 @@ func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewReader(b)),
 	}
+	serverTimeout := 15 * time.Second
 	hc.On("Do", mock.Anything).Run(func(args mock.Arguments) {
-		time.Sleep(15 * time.Second) // Server has delay of 15s
+		time.Sleep(serverTimeout) // Server has delay of 15s
 	}).Return(resp, nil).Once()
 
 	c.httpClient = hc
@@ -276,7 +277,10 @@ func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
 
 	reqCtx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second) // Only give 5s for request
 	defer cancel()
+	start := time.Now()
 	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(reqCtx, lookup, automationTypes.ConditionTrigger, pluginRetryKey)
+	elapsed := time.Since(start)
+	assert.True(t, elapsed < serverTimeout)
 	assert.Equal(t, false, retryable)
 	assert.Equal(t, 0*time.Second, retryInterval)
 	assert.Equal(t, encoding.ErrCodeStreamsTimeout, errCode)
