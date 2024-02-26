@@ -22,6 +22,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -76,6 +78,10 @@ func (c *CCIPTestConfig) useExistingDeployment() bool {
 
 func (c *CCIPTestConfig) localCluster() bool {
 	return pointer.GetBool(c.TestGroupInput.LocalCluster)
+}
+
+func (c *CCIPTestConfig) ExistingCLCluster() bool {
+	return c.EnvInput.ExistingCLCluster != nil
 }
 
 func (c *CCIPTestConfig) AddPairToNetworkList(networkA, networkB blockchain.EVMNetwork) {
@@ -631,13 +637,9 @@ func CCIPDefaultTestSetUp(
 	testConfig *CCIPTestConfig,
 ) *CCIPTestSetUpOutputs {
 	var (
-		ccipEnv *actions.CCIPTestEnv
-		k8Env   *environment.Environment
-		err     error
-		chains  []blockchain.EVMClient
+		err error
 	)
 	filename := fmt.Sprintf("./tmp_%s.json", strings.ReplaceAll(t.Name(), "/", "_"))
-	testConfig.Test = t // FIXME already set in NewCCIPTestConfig
 	var transferAmounts []*big.Int
 	if testConfig.TestGroupInput.MsgType == actions.TokenTransfer {
 		for i := 0; i < testConfig.TestGroupInput.NoOfTokensInMsg; i++ {
@@ -656,46 +658,13 @@ func CCIPDefaultTestSetUp(
 
 	parent, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	var deployCL func() error
-	var local *test_env.CLClusterTestEnv
-	envConfig := createEnvironmentConfig(t, envName, testConfig)
-
-	configureCLNode := !testConfig.useExistingDeployment()
-	namespace := setUpArgs.Cfg.TestGroupInput.TestRunName
-	if configureCLNode {
-		if testConfig.localCluster() {
-			local, deployCL = DeployLocalCluster(t, testConfig)
-			ccipEnv = &actions.CCIPTestEnv{
-				LocalCluster: local,
-			}
-			namespace = "local-docker-deployment"
-		} else {
-			lggr.Info().Msg("Deploying test environment")
-			// deploy the env if configureCLNode is true
-			k8Env = DeployEnvironments(t, envConfig, testConfig)
-			ccipEnv = &actions.CCIPTestEnv{K8Env: k8Env}
-			namespace = ccipEnv.K8Env.Cfg.Namespace
-		}
-
-		ccipEnv.CLNodeWithKeyReady, _ = errgroup.WithContext(parent)
-		setUpArgs.Env = ccipEnv
+	chainByChainID := setUpArgs.CreateEnvironment(parent, lggr, envName)
+	if setUpArgs.Env != nil {
+		ccipEnv := setUpArgs.Env
 		if ccipEnv.K8Env != nil && ccipEnv.K8Env.WillUseRemoteRunner() {
 			return setUpArgs
 		}
-	} else {
-		// if configureCLNode is false it means we don't need to deploy any additional pods, use a placeholder env to create just the remote runner
-		if value, set := os.LookupEnv(config.EnvVarJobImage); set && value != "" {
-			k8Env = environment.New(envConfig)
-			err = k8Env.Run()
-			require.NoErrorf(t, err, "error creating environment remote runner")
-			setUpArgs.Env = &actions.CCIPTestEnv{K8Env: k8Env}
-			if k8Env.WillUseRemoteRunner() {
-				return setUpArgs
-			}
-		}
 	}
-	setUpArgs.Cfg.TestGroupInput.SetTestRunName(namespace)
 	_, err = os.Stat(setUpArgs.LaneConfigFile)
 	if err == nil {
 		// remove the existing lane config file
@@ -709,65 +678,7 @@ func CCIPDefaultTestSetUp(
 	if setUpArgs.LaneConfig == nil {
 		setUpArgs.LaneConfig = &laneconfig.Lanes{LaneConfigs: make(map[string]*laneconfig.LaneConfig)}
 	}
-
-	chainByChainID := make(map[int64]blockchain.EVMClient)
-	if pointer.GetBool(testConfig.TestGroupInput.LocalCluster) {
-		require.NotNil(t, ccipEnv.LocalCluster, "Local cluster shouldn't be nil")
-		for _, n := range ccipEnv.LocalCluster.PrivateChain {
-			primaryNode := n.GetPrimaryNode()
-			require.NotNil(t, primaryNode, "Primary node is nil in PrivateChain interface")
-			chainByChainID[primaryNode.GetEVMClient().GetChainID().Int64()] = primaryNode.GetEVMClient()
-			chains = append(chains, primaryNode.GetEVMClient())
-		}
-	} else {
-		for _, n := range testConfig.SelectedNetworks {
-			if _, ok := chainByChainID[n.ChainID]; ok {
-				continue
-			}
-			var ec blockchain.EVMClient
-			if k8Env == nil {
-				ec, err = blockchain.ConnectEVMClient(n, lggr)
-			} else {
-				ec, err = blockchain.NewEVMClient(n, k8Env, lggr)
-			}
-			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-			chains = append(chains, ec)
-			chainByChainID[n.ChainID] = ec
-		}
-	}
-	t.Cleanup(func() {
-		if configureCLNode {
-			if ccipEnv.LocalCluster != nil {
-				err := ccipEnv.LocalCluster.Terminate()
-				require.NoError(t, err, "Local cluster termination shouldn't fail")
-				require.NoError(t, setUpArgs.Reporter.SendReport(t, namespace, false), "Aggregating and sending report shouldn't fail")
-				return
-			}
-			if pointer.GetBool(testConfig.TestGroupInput.KeepEnvAlive) {
-				require.NoError(t, setUpArgs.Reporter.SendReport(t, namespace, true), "Aggregating and sending report shouldn't fail")
-				return
-			}
-			lggr.Info().Msg("Tearing down the environment")
-			err = integrationactions.TeardownSuite(t, ccipEnv.K8Env, ccipEnv.CLNodes, setUpArgs.Reporter,
-				zapcore.ErrorLevel, setUpArgs.Cfg.EnvInput, chains...)
-			require.NoError(t, err, "Environment teardown shouldn't fail")
-		} else {
-			//just send the report
-			require.NoError(t, setUpArgs.Reporter.SendReport(t, namespace, true), "Aggregating and sending report shouldn't fail")
-		}
-	})
-
-	if configureCLNode {
-		ccipEnv.CLNodeWithKeyReady.Go(func() error {
-			if ccipEnv.LocalCluster != nil {
-				err = deployCL()
-				if err != nil {
-					return err
-				}
-			}
-			return ccipEnv.SetUpNodesAndKeys(big.NewFloat(testConfig.TestGroupInput.NodeFunding), chains, lggr)
-		})
-	}
+	configureCLNode := !testConfig.useExistingDeployment()
 
 	// if no of lanes per pair is greater than 1, copy common contracts from the same network
 	// if no of lanes per pair is more than 1, the networks are added into the testConfig.AllNetworks with a suffix of -<lane number>
@@ -882,6 +793,149 @@ func CCIPDefaultTestSetUp(
 	}
 	lggr.Info().Msg("Test setup completed")
 	return setUpArgs
+}
+
+// CreateEnvironment creates the environment for the test and registers the test clean-up function to tear down the set-up environment
+// It returns the map of chainID to EVMClient
+func (o *CCIPTestSetUpOutputs) CreateEnvironment(
+	parent context.Context,
+	lggr zerolog.Logger,
+	envName string,
+) map[int64]blockchain.EVMClient {
+	t := o.Cfg.Test
+	testConfig := o.Cfg
+	var (
+		ccipEnv  *actions.CCIPTestEnv
+		k8Env    *environment.Environment
+		err      error
+		chains   []blockchain.EVMClient
+		local    *test_env.CLClusterTestEnv
+		deployCL func() error
+	)
+
+	envConfig := createEnvironmentConfig(t, envName, testConfig)
+
+	configureCLNode := !testConfig.useExistingDeployment()
+	namespace := o.Cfg.TestGroupInput.TestRunName
+	require.False(t, testConfig.localCluster() && testConfig.ExistingCLCluster(),
+		"local cluster and existing cluster cannot be true at the same time")
+	if configureCLNode {
+		// if it's a new deployment, deploy the env
+		if !testConfig.ExistingCLCluster() {
+			// if it's a local cluster, deploy the local cluster in docker
+			if testConfig.localCluster() {
+				local, deployCL = DeployLocalCluster(t, testConfig)
+				ccipEnv = &actions.CCIPTestEnv{
+					LocalCluster: local,
+				}
+				namespace = "local-docker-deployment"
+			} else {
+				// Otherwise, deploy the k8s env
+				lggr.Info().Msg("Deploying test environment")
+				// deploy the env if configureCLNode is true
+				k8Env = DeployEnvironments(t, envConfig, testConfig)
+				ccipEnv = &actions.CCIPTestEnv{K8Env: k8Env}
+				namespace = ccipEnv.K8Env.Cfg.Namespace
+			}
+		} else {
+			// if there is already a cluster, use the existing cluster to connect to the nodes
+			ccipEnv = &actions.CCIPTestEnv{}
+			mockserverURL := pointer.GetString(testConfig.EnvInput.Mockserver)
+			require.NotEmpty(t, mockserverURL, "mockserver URL cannot be nil")
+			ccipEnv.MockServer = ctfClient.NewMockserverClient(&ctfClient.MockserverConfig{
+				LocalURL:   mockserverURL,
+				ClusterURL: mockserverURL,
+			})
+		}
+		ccipEnv.CLNodeWithKeyReady, _ = errgroup.WithContext(parent)
+		o.Env = ccipEnv
+		if ccipEnv.K8Env != nil && ccipEnv.K8Env.WillUseRemoteRunner() {
+			return nil
+		}
+	} else {
+		// if configureCLNode is false it means we don't need to deploy any additional pods, use a placeholder env to create just the remote runner
+		if value, set := os.LookupEnv(config.EnvVarJobImage); set && value != "" {
+			k8Env = environment.New(envConfig)
+			err = k8Env.Run()
+			require.NoErrorf(t, err, "error creating environment remote runner")
+			o.Env = &actions.CCIPTestEnv{K8Env: k8Env}
+			if k8Env.WillUseRemoteRunner() {
+				return nil
+			}
+		}
+	}
+
+	o.Cfg.TestGroupInput.SetTestRunName(namespace)
+	chainByChainID := make(map[int64]blockchain.EVMClient)
+	if pointer.GetBool(testConfig.TestGroupInput.LocalCluster) {
+		require.NotNil(t, ccipEnv.LocalCluster, "Local cluster shouldn't be nil")
+		for _, n := range ccipEnv.LocalCluster.PrivateChain {
+			primaryNode := n.GetPrimaryNode()
+			require.NotNil(t, primaryNode, "Primary node is nil in PrivateChain interface")
+			chainByChainID[primaryNode.GetEVMClient().GetChainID().Int64()] = primaryNode.GetEVMClient()
+			chains = append(chains, primaryNode.GetEVMClient())
+		}
+	} else {
+		for _, n := range testConfig.SelectedNetworks {
+			if _, ok := chainByChainID[n.ChainID]; ok {
+				continue
+			}
+			var ec blockchain.EVMClient
+			if k8Env == nil {
+				ec, err = blockchain.ConnectEVMClient(n, lggr)
+			} else {
+				ec, err = blockchain.NewEVMClient(n, k8Env, lggr)
+			}
+			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
+			chains = append(chains, ec)
+			chainByChainID[n.ChainID] = ec
+		}
+	}
+	if configureCLNode {
+		ccipEnv.CLNodeWithKeyReady.Go(func() error {
+			if !o.Cfg.ExistingCLCluster() {
+				if ccipEnv.LocalCluster != nil {
+					err = deployCL()
+					if err != nil {
+						return err
+					}
+				}
+				err = ccipEnv.ConnectToDeployedNodes()
+				if err != nil {
+					return fmt.Errorf("error connecting to chainlink nodes: %w", err)
+				}
+			} else {
+				err = ccipEnv.ConnectToExistingNodes(o.Cfg.EnvInput)
+				if err != nil {
+					return fmt.Errorf("error deploying and connecting to chainlink nodes: %w", err)
+				}
+			}
+			return ccipEnv.SetUpNodeKeysAndFund(lggr, big.NewFloat(testConfig.TestGroupInput.NodeFunding), chains)
+		})
+	}
+
+	t.Cleanup(func() {
+		if configureCLNode {
+			if ccipEnv.LocalCluster != nil {
+				err := ccipEnv.LocalCluster.Terminate()
+				require.NoError(t, err, "Local cluster termination shouldn't fail")
+				require.NoError(t, o.Reporter.SendReport(t, namespace, false), "Aggregating and sending report shouldn't fail")
+				return
+			}
+			if pointer.GetBool(testConfig.TestGroupInput.KeepEnvAlive) || testConfig.ExistingCLCluster() {
+				require.NoError(t, o.Reporter.SendReport(t, namespace, true), "Aggregating and sending report shouldn't fail")
+				return
+			}
+			lggr.Info().Msg("Tearing down the environment")
+			err = integrationactions.TeardownSuite(t, ccipEnv.K8Env, ccipEnv.CLNodes, o.Reporter,
+				zapcore.ErrorLevel, o.Cfg.EnvInput, chains...)
+			require.NoError(t, err, "Environment teardown shouldn't fail")
+		} else {
+			//just send the report
+			require.NoError(t, o.Reporter.SendReport(t, namespace, true), "Aggregating and sending report shouldn't fail")
+		}
+	})
+	return chainByChainID
 }
 
 func createEnvironmentConfig(t *testing.T, envName string, testConfig *CCIPTestConfig) *environment.Config {

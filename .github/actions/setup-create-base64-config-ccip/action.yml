@@ -66,9 +66,9 @@ runs:
         cat << EOF > config.toml
         [CCIP]
         [CCIP.Env]
-        [CCIP.Env.Chainlink]
-        [CCIP.Env.Chainlink.Common]
-        [CCIP.Env.Chainlink.Common.ChainlinkImage]
+        [CCIP.Env.NewCLCluster]
+        [CCIP.Env.NewCLCluster.Common]
+        [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
         image="$CHAINLINK_IMAGE"
         version="$CHAINLINK_VERSION"
         

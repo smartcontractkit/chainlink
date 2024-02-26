@@ -40,9 +40,9 @@ Please refer to [default.toml](./testconfig/tomls/default.toml) for the list of 
    [CCIP]
    [CCIP.Env]
    # ChainlinkImage is mandatory for all tests.
-   [CCIP.Env.Chainlink]
-   [CCIP.Env.Chainlink.Common]
-   [CCIP.Env.Chainlink.Common.ChainlinkImage]
+   [CCIP.Env.NewCLCluster]
+   [CCIP.Env.NewCLCluster.Common]
+   [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
    image = "chainlink-ccip"
    version = "latest"
    ```

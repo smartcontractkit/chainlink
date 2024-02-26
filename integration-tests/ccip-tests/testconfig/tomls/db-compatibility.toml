@@ -1,34 +1,34 @@
 [CCIP]
 [CCIP.Env]
-[CCIP.Env.Chainlink]
+[CCIP.Env.NewCLCluster]
 NoOfNodes = 6
 
-[[CCIP.Env.Chainlink.Nodes]]
+[[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node1'
 DBImage = 'postgres'
 DBTag = '13.12'
 
-[[CCIP.Env.Chainlink.Nodes]]
+[[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node2'
 DBImage = 'postgres'
 DBTag = '11.22-alpine'
 
-[[CCIP.Env.Chainlink.Nodes]]
+[[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node3'
 DBImage = 'postgres'
 DBTag = '12.15'
 
-[[CCIP.Env.Chainlink.Nodes]]
+[[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node4'
 DBImage = 'postgres'
 DBTag = '14.8'
 
-[[CCIP.Env.Chainlink.Nodes]]
+[[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node5'
 DBImage = 'postgres'
 DBTag = '15.5'
 
-[[CCIP.Env.Chainlink.Nodes]]
+[[CCIP.Env.NewCLCluster.Nodes]]
 Name = 'node6'
 DBImage = 'postgres'
 DBTag = '15.1'

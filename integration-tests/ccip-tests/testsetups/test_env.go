@@ -88,50 +88,50 @@ func ChainlinkChart(
 	testInputs *CCIPTestConfig,
 	nets []blockchain.EVMNetwork,
 ) environment.ConnectedChart {
-	require.NotNil(t, testInputs.EnvInput.Chainlink.Common, "Chainlink Common config is not specified")
+	require.NotNil(t, testInputs.EnvInput.NewCLCluster.Common, "Chainlink Common config is not specified")
 	clProps := make(map[string]interface{})
 	clProps["prometheus"] = true
 	var formattedArgs []string
-	if len(testInputs.EnvInput.Chainlink.DBArgs) > 0 {
-		for _, arg := range testInputs.EnvInput.Chainlink.DBArgs {
+	if len(testInputs.EnvInput.NewCLCluster.DBArgs) > 0 {
+		for _, arg := range testInputs.EnvInput.NewCLCluster.DBArgs {
 			formattedArgs = append(formattedArgs, "-c")
 			formattedArgs = append(formattedArgs, arg)
 		}
 	}
 	clProps["db"] = map[string]interface{}{
-		"resources":      SetResourceProfile(testInputs.EnvInput.Chainlink.DBCPU, testInputs.EnvInput.Chainlink.DBMemory),
+		"resources":      SetResourceProfile(testInputs.EnvInput.NewCLCluster.DBCPU, testInputs.EnvInput.NewCLCluster.DBMemory),
 		"additionalArgs": formattedArgs,
-		"stateful":       pointer.GetBool(testInputs.EnvInput.Chainlink.IsStateful),
-		"capacity":       testInputs.EnvInput.Chainlink.DBCapacity,
+		"stateful":       pointer.GetBool(testInputs.EnvInput.NewCLCluster.IsStateful),
+		"capacity":       testInputs.EnvInput.NewCLCluster.DBCapacity,
 		"image": map[string]any{
-			"image":   testInputs.EnvInput.Chainlink.Common.DBImage,
-			"version": testInputs.EnvInput.Chainlink.Common.DBTag,
+			"image":   testInputs.EnvInput.NewCLCluster.Common.DBImage,
+			"version": testInputs.EnvInput.NewCLCluster.Common.DBTag,
 		},
 	}
 	clProps["chainlink"] = map[string]interface{}{
-		"resources": SetResourceProfile(testInputs.EnvInput.Chainlink.NodeCPU, testInputs.EnvInput.Chainlink.NodeMemory),
+		"resources": SetResourceProfile(testInputs.EnvInput.NewCLCluster.NodeCPU, testInputs.EnvInput.NewCLCluster.NodeMemory),
 		"image": map[string]any{
-			"image":   pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkImage.Image),
-			"version": pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkImage.Version),
+			"image":   pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Image),
+			"version": pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Version),
 		},
 	}
 
 	require.NotNil(t, testInputs.EnvInput, "no env test input specified")
 
-	if len(testInputs.EnvInput.Chainlink.Nodes) > 0 {
+	if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
 		var nodesMap []map[string]any
-		for _, clNode := range testInputs.EnvInput.Chainlink.Nodes {
+		for _, clNode := range testInputs.EnvInput.NewCLCluster.Nodes {
 			nodeConfig := clNode.BaseConfigTOML
 			commonChainConfig := clNode.CommonChainConfigTOML
 			chainConfigByChain := clNode.ChainConfigTOMLByChain
 			if nodeConfig == "" {
-				nodeConfig = testInputs.EnvInput.Chainlink.Common.BaseConfigTOML
+				nodeConfig = testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML
 			}
 			if commonChainConfig == "" {
-				commonChainConfig = testInputs.EnvInput.Chainlink.Common.CommonChainConfigTOML
+				commonChainConfig = testInputs.EnvInput.NewCLCluster.Common.CommonChainConfigTOML
 			}
 			if chainConfigByChain == nil {
-				chainConfigByChain = testInputs.EnvInput.Chainlink.Common.ChainConfigTOMLByChain
+				chainConfigByChain = testInputs.EnvInput.NewCLCluster.Common.ChainConfigTOMLByChain
 			}
 
 			_, tomlStr, err := setNodeConfig(nets, nodeConfig, commonChainConfig, chainConfigByChain)
@@ -156,12 +156,12 @@ func ChainlinkChart(
 		clProps["nodes"] = nodesMap
 		return chainlink.New(0, clProps)
 	}
-	clProps["replicas"] = pointer.GetInt(testInputs.EnvInput.Chainlink.NoOfNodes)
+	clProps["replicas"] = pointer.GetInt(testInputs.EnvInput.NewCLCluster.NoOfNodes)
 	_, tomlStr, err := setNodeConfig(
 		nets,
-		testInputs.EnvInput.Chainlink.Common.BaseConfigTOML,
-		testInputs.EnvInput.Chainlink.Common.CommonChainConfigTOML,
-		testInputs.EnvInput.Chainlink.Common.ChainConfigTOMLByChain,
+		testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML,
+		testInputs.EnvInput.NewCLCluster.Common.CommonChainConfigTOML,
+		testInputs.EnvInput.NewCLCluster.Common.ChainConfigTOMLByChain,
 	)
 	require.NoError(t, err)
 	clProps["toml"] = tomlStr
@@ -195,10 +195,10 @@ func DeployLocalCluster(
 
 	// a func to start the CL nodes asynchronously
 	deployCL := func() error {
-		noOfNodes := pointer.GetInt(testInputs.EnvInput.Chainlink.NoOfNodes)
+		noOfNodes := pointer.GetInt(testInputs.EnvInput.NewCLCluster.NoOfNodes)
 		// if individual nodes are specified, then deploy them with specified configs
-		if len(testInputs.EnvInput.Chainlink.Nodes) > 0 {
-			for _, clNode := range testInputs.EnvInput.Chainlink.Nodes {
+		if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
+			for _, clNode := range testInputs.EnvInput.NewCLCluster.Nodes {
 				toml, _, err := setNodeConfig(
 					selectedNetworks,
 					clNode.BaseConfigTOML,
@@ -228,20 +228,20 @@ func DeployLocalCluster(
 			for i := 0; i < noOfNodes; i++ {
 				toml, _, err := setNodeConfig(
 					selectedNetworks,
-					testInputs.EnvInput.Chainlink.Common.BaseConfigTOML,
-					testInputs.EnvInput.Chainlink.Common.CommonChainConfigTOML,
-					testInputs.EnvInput.Chainlink.Common.ChainConfigTOMLByChain,
+					testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML,
+					testInputs.EnvInput.NewCLCluster.Common.CommonChainConfigTOML,
+					testInputs.EnvInput.NewCLCluster.Common.ChainConfigTOMLByChain,
 				)
 				if err != nil {
 					return err
 				}
 				ccipNode, err := test_env.NewClNode(
 					[]string{env.Network.Name},
-					pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkImage.Image),
-					pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkImage.Version),
+					pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Image),
+					pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Version),
 					toml, test_env.WithPgDBOptions(
-						ctftestenv.WithPostgresImageName(testInputs.EnvInput.Chainlink.Common.DBImage),
-						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.Chainlink.Common.DBTag)),
+						ctftestenv.WithPostgresImageName(testInputs.EnvInput.NewCLCluster.Common.DBImage),
+						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.NewCLCluster.Common.DBTag)),
 					test_env.WithLogStream(env.LogStream),
 				)
 				if err != nil {
@@ -274,13 +274,13 @@ func UpgradeNodes(
 		env := ccipEnv.LocalCluster
 		for i, clNode := range env.ClCluster.Nodes {
 			if i <= startIndex || i >= endIndex {
-				upgradeImage := pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkUpgradeImage.Image)
-				upgradeTag := pointer.GetString(testInputs.EnvInput.Chainlink.Common.ChainlinkUpgradeImage.Version)
+				upgradeImage := pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Image)
+				upgradeTag := pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Version)
 				// if individual node upgrade image is provided, use that
-				if len(testInputs.EnvInput.Chainlink.Nodes) > 0 {
-					if i < len(testInputs.EnvInput.Chainlink.Nodes) {
-						upgradeImage = pointer.GetString(testInputs.EnvInput.Chainlink.Nodes[i].ChainlinkUpgradeImage.Image)
-						upgradeTag = pointer.GetString(testInputs.EnvInput.Chainlink.Nodes[i].ChainlinkUpgradeImage.Version)
+				if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
+					if i < len(testInputs.EnvInput.NewCLCluster.Nodes) {
+						upgradeImage = pointer.GetString(testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Image)
+						upgradeTag = pointer.GetString(testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Version)
 					}
 				}
 				err := clNode.UpgradeVersion(upgradeImage, upgradeTag)
@@ -302,13 +302,13 @@ func UpgradeNodes(
 		var clientsToUpgrade []*integrationclient.ChainlinkK8sClient
 		for i, clNode := range nodeClients {
 			if i <= startIndex || i >= endIndex {
-				upgradeImage := testInputs.EnvInput.Chainlink.Common.ChainlinkUpgradeImage.Image
-				upgradeTag := testInputs.EnvInput.Chainlink.Common.ChainlinkUpgradeImage.Version
+				upgradeImage := testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Image
+				upgradeTag := testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Version
 				// if individual node upgrade image is provided, use that
-				if len(testInputs.EnvInput.Chainlink.Nodes) > 0 {
-					if i < len(testInputs.EnvInput.Chainlink.Nodes) {
-						upgradeImage = testInputs.EnvInput.Chainlink.Nodes[i].ChainlinkUpgradeImage.Image
-						upgradeTag = testInputs.EnvInput.Chainlink.Nodes[i].ChainlinkUpgradeImage.Version
+				if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
+					if i < len(testInputs.EnvInput.NewCLCluster.Nodes) {
+						upgradeImage = testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Image
+						upgradeTag = testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Version
 					}
 				}
 				clientsToUpgrade = append(clientsToUpgrade, clNode)

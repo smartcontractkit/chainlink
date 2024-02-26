@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -2899,19 +2901,38 @@ func (c *CCIPTestEnv) ChaosLabelForCLNodes(t *testing.T) {
 	}
 }
 
-func (c *CCIPTestEnv) SetUpNodesAndKeys(
-	nodeFund *big.Float,
-	chains []blockchain.EVMClient,
-	logger zerolog.Logger,
-) error {
-	chainlinkNodes := make([]*client.ChainlinkClient, 0)
+func (c *CCIPTestEnv) ConnectToExistingNodes(envConfig *testconfig.Common) error {
+	if envConfig.ExistingCLCluster == nil {
+		return fmt.Errorf("existing cluster is nil")
+	}
+	noOfNodes := pointer.GetInt(envConfig.ExistingCLCluster.NoOfNodes)
+	namespace := pointer.GetString(envConfig.ExistingCLCluster.Name)
 
-	//var err error
+	for i := 0; i < noOfNodes; i++ {
+		cfg := envConfig.ExistingCLCluster.NodeConfigs[i]
+		if cfg == nil {
+			return fmt.Errorf("node %d config is nil", i+1)
+		}
+		clClient, err := client.NewChainlinkK8sClient(cfg, cfg.InternalIP, namespace)
+		if err != nil {
+			return fmt.Errorf("failed to create chainlink client: %w for node %d config %v", err, i+1, cfg)
+		}
+		clClient.ChainlinkClient.WithRetryCount(3)
+		c.CLNodes = append(c.CLNodes, clClient)
+		c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
+	}
+
+	return nil
+}
+
+func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 	if c.LocalCluster != nil {
 		// for local cluster, fetch the values from the local cluster
 		for _, chainlinkNode := range c.LocalCluster.ClCluster.Nodes {
-			chainlinkNodes = append(chainlinkNodes, chainlinkNode.API.WithRetryCount(3))
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
+			c.CLNodes = append(c.CLNodes, &client.ChainlinkK8sClient{
+				ChainlinkClient: chainlinkNode.API.WithRetryCount(3),
+			})
 		}
 	} else {
 		// in case of k8s, we need to connect to the chainlink nodes
@@ -2924,8 +2945,8 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 			return fmt.Errorf("no CL node found")
 		}
 
-		for _, chainlinkNode := range chainlinkK8sNodes {
-			chainlinkNodes = append(chainlinkNodes, chainlinkNode.ChainlinkClient.WithRetryCount(3))
+		for i := range chainlinkK8sNodes {
+			chainlinkK8sNodes[i].ChainlinkClient.WithRetryCount(3)
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
 		c.CLNodes = chainlinkK8sNodes
@@ -2935,10 +2956,24 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 		}
 		c.MockServer = mockServer
 	}
+	return nil
+}
 
+// SetUpNodeKeysAndFund creates node keys and funds the nodes
+func (c *CCIPTestEnv) SetUpNodeKeysAndFund(
+	logger zerolog.Logger,
+	nodeFund *big.Float,
+	chains []blockchain.EVMClient,
+) error {
+	if c.CLNodes == nil || len(c.CLNodes) == 0 {
+		return fmt.Errorf("no chainlink nodes to setup")
+	}
+	var chainlinkNodes []*client.ChainlinkClient
+	for _, node := range c.CLNodes {
+		chainlinkNodes = append(chainlinkNodes, node.ChainlinkClient)
+	}
 	nodesWithKeys := make(map[string][]*client.CLNodesWithKeys)
-	mu := &sync.Mutex{}
-	//grp, _ := errgroup.WithContext(ctx)
+
 	populateKeys := func(chain blockchain.EVMClient) error {
 		log.Info().Str("chain id", chain.GetChainID().String()).Msg("creating node keys for chain")
 		_, clNodes, err := client.CreateNodeKeysBundle(chainlinkNodes, "evm", chain.GetChainID().String())
@@ -2948,8 +2983,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 		if len(clNodes) == 0 {
 			return fmt.Errorf("no CL node with keys found for chain %s", chain.GetNetworkName())
 		}
-		mu.Lock()
-		defer mu.Unlock()
+
 		nodesWithKeys[chain.GetChainID().String()] = clNodes
 		return nil
 	}
@@ -3148,7 +3182,7 @@ func SetMockServerWithUSDCAttestation(
 	if mockserver != nil {
 		err := mockserver.SetAnyValueResponse(fmt.Sprintf("%s/.*", path), response)
 		if err != nil {
-			return fmt.Errorf("failed to set mockserver value: %w", err)
+			return fmt.Errorf("failed to set mockserver value: %w URL = %s", err, fmt.Sprintf("%s/%s/.*", mockserver.LocalURL(), path))
 		}
 	}
 	return nil
@@ -3183,7 +3217,7 @@ func SetMockserverWithTokenPriceValue(
 			if mockserver != nil {
 				err := mockserver.SetAnyValuePath(fmt.Sprintf("/%s.*", path), tokenValue)
 				if err != nil {
-					log.Fatal().Err(err).Msg("failed to set mockserver value")
+					log.Fatal().Err(err).Str("URL", fmt.Sprintf("%s/%s/.*", mockserver.LocalURL(), path)).Msg("failed to set mockserver value")
 					return
 				}
 			}
