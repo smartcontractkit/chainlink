@@ -35,7 +35,10 @@ func TestThreadControl_GoCtx(t *testing.T) {
 	var wg sync.WaitGroup
 	finished := atomic.Int32{}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	timeout := 10 * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	wg.Add(1)
 	tc.GoCtx(ctx, func(c context.Context) {
@@ -44,11 +47,9 @@ func TestThreadControl_GoCtx(t *testing.T) {
 		finished.Add(1)
 	})
 
-	go func() {
-		time.After(1 * time.Millisecond)
-		cancel()
-	}()
-
+	start := time.Now()
 	wg.Wait()
+	require.True(t, time.Since(start) > timeout-1)
+	require.True(t, time.Since(start) < 2*timeout)
 	require.Equal(t, int32(1), finished.Load())
 }
