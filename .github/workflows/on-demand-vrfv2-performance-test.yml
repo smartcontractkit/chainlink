@@ -10,6 +10,7 @@ on:
         description: Performance Test Type of test to run
         type: choice
         options:
+          - "Smoke"
           - "Soak"
           - "Load"
           - "Stress"
