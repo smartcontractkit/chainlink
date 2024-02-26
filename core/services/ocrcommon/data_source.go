@@ -98,10 +98,16 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
+const defaultInMemoryCacheDuration = time.Minute * 5
+
 func NewInMemoryDataSourceCache(ds median.DataSource, cacheExpiryDuration time.Duration) (median.DataSource, error) {
 	inMemoryDS, ok := ds.(*inMemoryDataSource)
 	if !ok {
 		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
+	}
+
+	if cacheExpiryDuration == 0 {
+		cacheExpiryDuration = defaultInMemoryCacheDuration
 	}
 
 	dsCache := &inMemoryDataSourceCache{
