@@ -228,7 +228,7 @@ type inMemoryDataSourceCache struct {
 // updater periodically updates data source cache.
 func (ds *inMemoryDataSourceCache) updater() {
 	ticker := time.NewTicker(ds.cacheExpiration)
-	for range ticker.C {
+	for ; true; <-ticker.C {
 		// 5 seconds fits multiple times in minimum cache duration
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		if err := ds.updateCache(ctx); err != nil {
