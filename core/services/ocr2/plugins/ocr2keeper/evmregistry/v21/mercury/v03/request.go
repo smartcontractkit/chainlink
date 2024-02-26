@@ -69,16 +69,17 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	}
 	resultLen := 1 // Only 1 multi-feed request is made for all feeds
 	ch := make(chan mercury.MercuryData, resultLen)
-	c.threadCtrl.GoCtx(ctx, func(newCtx context.Context) {
-		c.multiFeedsRequest(newCtx, ch, streamsLookup)
+	c.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
+		c.multiFeedsRequest(ctx, ch, streamsLookup)
 	})
 
-	newCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// TODO (AUTO 9090): Understand and fix the use of context.Background() here
+	reqTimeoutCtx, cancel := context.WithTimeout(context.Background(), mercury.RequestTimeout)
 	defer cancel()
 	select {
-	case <-newCtx.Done():
-		// Context cancelled, return timeout error
-		c.lggr.Errorf("streams lookup for upkeep %s, timestamp %s timed out", streamsLookup.UpkeepId.String(), streamsLookup.Time.String())
+	case <-reqTimeoutCtx.Done():
+		// Request Timed out, return timeout error
+		c.lggr.Errorf("at timestamp %s upkeep %s, streams lookup v0.3 timed out", streamsLookup.Time.String(), streamsLookup.UpkeepId.String())
 		return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
 	case m := <-ch:
 		if m.Error != nil {

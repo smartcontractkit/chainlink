@@ -69,6 +69,10 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		})
 	}
 
+	// TODO (AUTO 9090): Understand and fix the use of context.Background() here
+	reqTimeoutCtx, cancel := context.WithTimeout(context.Background(), mercury.RequestTimeout)
+	defer cancel()
+
 	state := encoding.NoPipelineError
 	var reqErr error
 	retryable := true
@@ -76,30 +80,35 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	allFeedsReturnedValues := true
 	var errCode encoding.ErrCode
 	results := make([][]byte, len(streamsLookup.Feeds))
-
 	// in v0.2, when combining results for multiple feed requests
 	// if any request resulted in pipeline execution error then use the last execution error as the state
 	// if no execution errors, then check if any feed returned an error code, if so use the last error code
 	for i := 0; i < resultLen; i++ {
-		m := <-ch
-		if m.Error != nil {
-			state = m.State
-			reqErr = errors.Join(reqErr, m.Error)
-			retryable = retryable && m.Retryable
-			if m.ErrCode != encoding.ErrCodeNil {
-				// Some pipeline errors can get converted to error codes if retries are exhausted
-				errCode = m.ErrCode
+		select {
+		case <-reqTimeoutCtx.Done():
+			// Request Timed out, return timeout error
+			c.lggr.Errorf("at block %s upkeep %s, streams lookup v0.2 timed out", streamsLookup.Time.String(), streamsLookup.UpkeepId.String())
+			return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
+		case m := <-ch:
+			if m.Error != nil {
+				state = m.State
+				reqErr = errors.Join(reqErr, m.Error)
+				retryable = retryable && m.Retryable
+				if m.ErrCode != encoding.ErrCodeNil {
+					// Some pipeline errors can get converted to error codes if retries are exhausted
+					errCode = m.ErrCode
+				}
+				allFeedsPipelineSuccess = false
+				continue
 			}
-			allFeedsPipelineSuccess = false
-			continue
+			if m.ErrCode != encoding.ErrCodeNil {
+				errCode = m.ErrCode
+				allFeedsReturnedValues = false
+				continue
+			}
+			// Feed request didn't face a pipeline error and didn't return an error code
+			results[m.Index] = m.Bytes[0]
 		}
-		if m.ErrCode != encoding.ErrCodeNil {
-			errCode = m.ErrCode
-			allFeedsReturnedValues = false
-			continue
-		}
-		// Feed request didn't face a pipeline error and didn't return an error code
-		results[m.Index] = m.Bytes[0]
 	}
 
 	if !allFeedsPipelineSuccess {

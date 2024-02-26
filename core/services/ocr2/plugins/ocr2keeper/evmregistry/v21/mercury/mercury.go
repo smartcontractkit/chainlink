@@ -29,6 +29,7 @@ const (
 	totalFastPluginRetries   = 5
 	totalMediumPluginRetries = totalFastPluginRetries + 1
 	RetryIntervalTimeout     = time.Duration(-1)
+	RequestTimeout           = 10 * time.Second
 )
 
 var GenerateHMACFn = func(method string, path string, body []byte, clientId string, secret string, ts int64) string {
