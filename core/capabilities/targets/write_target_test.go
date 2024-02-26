@@ -50,7 +50,7 @@ func TestEvmWrite(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	config, err := values.NewMap(map[string]any{
-		"abi":    "receive(report bytes)",
+		"abi":    "receive(bytes report)",
 		"params": []any{"$(report)"},
 	})
 	require.NoError(t, err)

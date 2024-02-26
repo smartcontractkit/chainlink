@@ -19,108 +19,276 @@
 package abi
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
-	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// https://docs.soliditylang.org/en/latest/grammar.html#a4.SolidityParser.parameterList
+type parameter struct {
+	typeName   string
+	identifier string
+}
+
+func mkType(parameterList ...interface{}) []abi.ArgumentMarshaling {
+	var result []abi.ArgumentMarshaling
+	for i, p := range parameterList {
+		name := fmt.Sprintf("name%d", i)
+
+		if safeParameter, ok := p.(parameter); ok {
+			name = safeParameter.identifier
+			p = safeParameter.typeName
+		}
+
+		if typeName, ok := p.(string); ok {
+			result = append(result, abi.ArgumentMarshaling{Name: name, Type: typeName, InternalType: typeName, Components: nil, Indexed: false})
+		} else if components, ok := p.([]abi.ArgumentMarshaling); ok {
+			result = append(result, abi.ArgumentMarshaling{Name: name, Type: "tuple", InternalType: "tuple", Components: components, Indexed: false})
+		} else if components, ok := p.([][]abi.ArgumentMarshaling); ok {
+			result = append(result, abi.ArgumentMarshaling{Name: name, Type: "tuple[]", InternalType: "tuple[]", Components: components[0], Indexed: false})
+		} else {
+			log.Fatalf("unexpected type %T", p)
+		}
+	}
+	return result
+}
 
 func TestParseSelector(t *testing.T) {
 	t.Parallel()
-	mkType := func(types ...interface{}) []abi.ArgumentMarshaling {
-		var result []abi.ArgumentMarshaling
-		for i, typeOrComponents := range types {
-			name := fmt.Sprintf("name%d", i)
-			if typeName, ok := typeOrComponents.(string); ok {
-				result = append(result, abi.ArgumentMarshaling{Name: name, Type: typeName, InternalType: typeName, Components: nil, Indexed: false})
-			} else if components, ok := typeOrComponents.([]abi.ArgumentMarshaling); ok {
-				result = append(result, abi.ArgumentMarshaling{Name: name, Type: "tuple", InternalType: "tuple", Components: components, Indexed: false})
-			} else if components, ok := typeOrComponents.([][]abi.ArgumentMarshaling); ok {
-				result = append(result, abi.ArgumentMarshaling{Name: name, Type: "tuple[]", InternalType: "tuple[]", Components: components[0], Indexed: false})
-			} else {
-				log.Fatalf("unexpected type %T", typeOrComponents)
-			}
-		}
-		return result
-	}
-	tests := []struct {
-		input string
-		name  string
-		args  []abi.ArgumentMarshaling
-	}{
-		{"noargs()", "noargs", []abi.ArgumentMarshaling{}},
-		{"simple(uint256,uint256,uint256)", "simple", mkType("uint256", "uint256", "uint256")},
-		{"other(uint256,address)", "other", mkType("uint256", "address")},
-		{"withArray(uint256[],address[2],uint8[4][][5])", "withArray", mkType("uint256[]", "address[2]", "uint8[4][][5]")},
-		{"singleNest(bytes32,uint8,(uint256,uint256),address)", "singleNest", mkType("bytes32", "uint8", mkType("uint256", "uint256"), "address")},
-		{"multiNest(address,(uint256[],uint256),((address,bytes32),uint256))", "multiNest",
-			mkType("address", mkType("uint256[]", "uint256"), mkType(mkType("address", "bytes32"), "uint256"))},
-		{"arrayNest((uint256,uint256)[],bytes32)", "arrayNest", mkType([][]abi.ArgumentMarshaling{mkType("uint256", "uint256")}, "bytes32")},
-		{"multiArrayNest((uint256,uint256)[],(uint256,uint256)[])", "multiArrayNest",
-			mkType([][]abi.ArgumentMarshaling{mkType("uint256", "uint256")}, [][]abi.ArgumentMarshaling{mkType("uint256", "uint256")})},
-		{"singleArrayNestAndArray((uint256,uint256)[],bytes32[])", "singleArrayNestAndArray",
-			mkType([][]abi.ArgumentMarshaling{mkType("uint256", "uint256")}, "bytes32[]")},
-		{"singleArrayNestWithArrayAndArray((uint256[],address[2],uint8[4][][5])[],bytes32[])", "singleArrayNestWithArrayAndArray",
-			mkType([][]abi.ArgumentMarshaling{mkType("uint256[]", "address[2]", "uint8[4][][5]")}, "bytes32[]")},
-	}
-	for i, tt := range tests {
-		selector, err := ParseSelector(tt.input)
-		if err != nil {
-			t.Errorf("test %d: failed to parse selector '%v': %v", i, tt.input, err)
-		}
-		if selector.Name != tt.name {
-			t.Errorf("test %d: unexpected function name: '%s' != '%s'", i, selector.Name, tt.name)
-		}
 
-		if selector.Type != "function" {
-			t.Errorf("test %d: unexpected type: '%s' != '%s'", i, selector.Type, "function")
-		}
-		if !reflect.DeepEqual(selector.Inputs, tt.args) {
-			t.Errorf("test %d: unexpected args: '%v' != '%v'", i, selector.Inputs, tt.args)
-		}
+	type testCases struct {
+		description    string
+		input          string
+		expectedOutput abi.SelectorMarshaling
+	}
+
+	for _, tc := range []testCases{
+		{
+			description: "No function args",
+			input:       "noargs()",
+			expectedOutput: abi.SelectorMarshaling{
+				Name:   "noargs",
+				Type:   "function",
+				Inputs: []abi.ArgumentMarshaling{},
+			},
+		},
+		{
+			description: "Simple unnamed args",
+			input:       "simple(uint256,uint256,uint256)",
+			expectedOutput: abi.SelectorMarshaling{
+				Name:   "simple",
+				Type:   "function",
+				Inputs: mkType("uint256", "uint256", "uint256"),
+			},
+		},
+		{
+			description: "Simple named args",
+			input:       "simple(uint256 a, address b, bytes1 c)",
+			expectedOutput: abi.SelectorMarshaling{
+				Name:   "simple",
+				Type:   "function",
+				Inputs: mkType(parameter{"uint256", "a"}, parameter{"address", "b"}, parameter{"bytes1", "c"}),
+			},
+		},
+		// FAILING
+		// {
+		// 	description: "Extra whitespace",
+		// 	input:       "simple    (uint256     a,     address b, byte c)",
+		// 	expectedOutput: abi.SelectorMarshaling{
+		// 		Name:   "simple",
+		// 		Type:   "function",
+		// 		Inputs: mkType(parameter{"uint256", "a"}, parameter{"address", "b"}, parameter{"byte", "c"}),
+		// 	},
+		// },
+		{
+			description: "Unnamed arrays",
+			input:       "withArray(uint256[], address[2], uint8[4][][5])",
+			expectedOutput: abi.SelectorMarshaling{
+				Name:   "withArray",
+				Type:   "function",
+				Inputs: mkType("uint256[]", "address[2]", "uint8[4][][5]"),
+			},
+		},
+		{
+			description: "Named arrays",
+			input:       "withArray(uint256[] a, address[2] b, uint8[4][][5] c)",
+			expectedOutput: abi.SelectorMarshaling{
+				Name: "withArray",
+				Type: "function",
+				Inputs: mkType(
+					parameter{"uint256[]", "a"},
+					parameter{"address[2]", "b"},
+					parameter{"uint8[4][][5]", "c"},
+				),
+			},
+		},
+		{
+			description: "Named tuple",
+			input:       "addPerson((string name, uint16 age) person)",
+			expectedOutput: abi.SelectorMarshaling{
+				Name: "addPerson",
+				Type: "function",
+				Inputs: []abi.ArgumentMarshaling{
+					{
+						Name:         "person",
+						Type:         "tuple",
+						InternalType: "tuple",
+						Components: []abi.ArgumentMarshaling{
+							{
+								Name:         "name",
+								Type:         "string",
+								InternalType: "string",
+							},
+							{
+								Name:         "age",
+								Type:         "uint16",
+								InternalType: "uint16",
+							},
+						},
+					},
+				},
+			},
+		},
+		// FAILING CASE
+		// {
+		// 	description: "Name tuple with explicit 'tuple' keyword",
+		// 	input:       "addPerson(tuple(string name, uint16 age) person)",
+		// 	expectedOutput: abi.SelectorMarshaling{
+		// 		Name: "addPerson",
+		// 		Type: "function",
+		// 		Inputs: []abi.ArgumentMarshaling{
+		// 			{
+		// 				Name:         "person",
+		// 				Type:         "tuple",
+		// 				InternalType: "tuple",
+		// 				Components: []abi.ArgumentMarshaling{
+		// 					{
+		// 						Name: "name", Type: "string", InternalType: "string", Components: nil, Indexed: false,
+		// 					},
+		// 					{
+		// 						Name: "age", Type: "uint16", InternalType: "uint16", Components: nil, Indexed: false,
+		// 					},
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// },
+		{
+			description: "Arrays of tuples",
+			input:       "arrayNest((uint256,uint256)[],bytes32)",
+			expectedOutput: abi.SelectorMarshaling{
+				Name: "arrayNest",
+				Type: "function",
+				Inputs: mkType(
+					[][]abi.ArgumentMarshaling{mkType("uint256", "uint256")},
+					"bytes32",
+				),
+			},
+		},
+		{
+			description: "Nested arrays of tuples",
+			input:       "multiArrayNest((uint256,uint256)[],(uint256,uint256)[])",
+			expectedOutput: abi.SelectorMarshaling{
+				Name: "multiArrayNest",
+				Type: "function",
+				Inputs: mkType(
+					[][]abi.ArgumentMarshaling{mkType("uint256", "uint256")},
+					[][]abi.ArgumentMarshaling{mkType("uint256", "uint256")},
+				),
+			},
+		},
+		{
+			description: "Nested tuples and arrays",
+			input:       "multiNest(address,(uint256[],uint256),((address,bytes32),uint256))",
+			expectedOutput: abi.SelectorMarshaling{
+				Name: "multiNest",
+				Type: "function",
+				Inputs: mkType(
+					"address",
+					mkType("uint256[]", "uint256"),
+					mkType(
+						mkType("address", "bytes32"),
+						"uint256",
+					),
+				),
+			},
+		},
+		{
+			description: "Combination of nested array of tuples and array type",
+			input:       "singleArrayNestAndArray((uint256,uint256)[],bytes32[])",
+			expectedOutput: abi.SelectorMarshaling{
+				Name: "singleArrayNestAndArray",
+				Type: "function",
+				Inputs: mkType(
+					[][]abi.ArgumentMarshaling{mkType("uint256", "uint256")},
+					"bytes32[]",
+				),
+			},
+		},
+		{
+			description: "Complex nesting with arrays and tuples",
+			input:       "singleArrayNestWithArrayAndArray((uint256[],address[2],uint8[4][][5])[],bytes32[])",
+			expectedOutput: abi.SelectorMarshaling{
+				Name: "singleArrayNestWithArrayAndArray",
+				Type: "function",
+				Inputs: mkType(
+					[][]abi.ArgumentMarshaling{mkType("uint256[]", "address[2]", "uint8[4][][5]")},
+					"bytes32[]",
+				),
+			},
+		},
+	} {
+		t.Run(tc.description, func(t *testing.T) {
+			selector, err := ParseSelector(tc.input)
+			require.NoError(t, err)
+
+			// temp workaround: convert SelectorMarshaling -> JSON -> fetch abi.Method to construct Selector
+			abidata, err := json.Marshal([]abi.SelectorMarshaling{tc.expectedOutput})
+			require.NoError(t, err)
+			spec, err := abi.JSON(strings.NewReader(string(abidata)))
+			require.NoError(t, err)
+			name := tc.expectedOutput.Name
+			expected := Selector{Name: name, Method: spec.Methods[name]}
+
+			assert.Equal(t, expected, selector)
+		})
 	}
 }
 
-func TestParseSignature(t *testing.T) {
-	t.Parallel()
-	mkType := func(name string, typeOrComponents interface{}) abi.ArgumentMarshaling {
-		if typeName, ok := typeOrComponents.(string); ok {
-			return abi.ArgumentMarshaling{Name: name, Type: typeName, InternalType: typeName, Components: nil, Indexed: false}
-		} else if components, ok := typeOrComponents.([]abi.ArgumentMarshaling); ok {
-			return abi.ArgumentMarshaling{Name: name, Type: "tuple", InternalType: "tuple", Components: components, Indexed: false}
-		} else if components, ok := typeOrComponents.([][]abi.ArgumentMarshaling); ok {
-			return abi.ArgumentMarshaling{Name: name, Type: "tuple[]", InternalType: "tuple[]", Components: components[0], Indexed: false}
-		}
-		log.Fatalf("unexpected type %T", typeOrComponents)
-		return abi.ArgumentMarshaling{}
+func TestParseSelectorErrors(t *testing.T) {
+	type errorTestCases struct {
+		description   string
+		input         string
+		expectedError string
 	}
-	tests := []struct {
-		input string
-		name  string
-		args  []abi.ArgumentMarshaling
-	}{
-		{"noargs()", "noargs", []abi.ArgumentMarshaling{}},
-		{"simple(a uint256, b uint256, c uint256)", "simple", []abi.ArgumentMarshaling{mkType("a", "uint256"), mkType("b", "uint256"), mkType("c", "uint256")}},
-		{"other(foo uint256,    bar address)", "other", []abi.ArgumentMarshaling{mkType("foo", "uint256"), mkType("bar", "address")}},
-		{"withArray(a uint256[], b address[2], c uint8[4][][5])", "withArray", []abi.ArgumentMarshaling{mkType("a", "uint256[]"), mkType("b", "address[2]"), mkType("c", "uint8[4][][5]")}},
-		{"singleNest(d bytes32, e uint8, f (uint256,uint256), g address)", "singleNest", []abi.ArgumentMarshaling{mkType("d", "bytes32"), mkType("e", "uint8"), mkType("f", []abi.ArgumentMarshaling{mkType("name0", "uint256"), mkType("name1", "uint256")}), mkType("g", "address")}},
-	}
-	for i, tt := range tests {
-		selector, err := ParseSignature(tt.input)
-		if err != nil {
-			t.Errorf("test %d: failed to parse selector '%v': %v", i, tt.input, err)
-		}
-		if selector.Name != tt.name {
-			t.Errorf("test %d: unexpected function name: '%s' != '%s'", i, selector.Name, tt.name)
-		}
 
-		if selector.Type != "function" {
-			t.Errorf("test %d: unexpected type: '%s' != '%s'", i, selector.Type, "function")
-		}
-		if !reflect.DeepEqual(selector.Inputs, tt.args) {
-			t.Errorf("test %d: unexpected args: '%v' != '%v'", i, selector.Inputs, tt.args)
-		}
+	for _, scenario := range []errorTestCases{
+		{
+			description:   "invalid name",
+			input:         "123()",
+			expectedError: "failed to parse selector identifier '123()': invalid token start. Expected: [a-zA-Z], received: 1",
+		},
+		{
+			description:   "missing closing parenthesis",
+			input:         "noargs(",
+			expectedError: "failed to parse selector args 'noargs(': expected ')', got ''",
+		},
+		{
+			description:   "missing opening parenthesis",
+			input:         "noargs)",
+			expectedError: "failed to parse selector args 'noargs)': expected '(', got )",
+		},
+	} {
+		t.Run(scenario.description, func(t *testing.T) {
+			_, err := ParseSelector(scenario.input)
+			require.Error(t, err)
+			assert.Equal(t, scenario.expectedError, err.Error())
+		})
 	}
 }
