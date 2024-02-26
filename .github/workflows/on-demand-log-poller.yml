@@ -3,9 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       base64Config:
-        description: base64-ed config (https://github.com/smartcontractkit/chainlink/pull/11850)
+        description: base64-ed config [LINK](https://github.com/smartcontractkit/chainlink/pull/11850)
         required: true
         type: string
+      base64Config2:
+        description: https://github.com/smartcontractkit/chainlink/pull/11850
+        required: true
+        type: string
+
 
 jobs:
   test:
