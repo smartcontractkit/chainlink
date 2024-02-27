@@ -1,16 +1,21 @@
 package ocr3
 
 import (
+	"context"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 type factory struct {
-	store *store
-	*capability
-	batchSize int
-	lggr      logger.Logger
+	store      *store
+	capability *capability
+	batchSize  int
+	lggr       logger.Logger
+
+	services.StateMachine
 }
 
 const (
@@ -18,11 +23,12 @@ const (
 	defaultMaxReportCount      = 20
 )
 
-func newFactory(s *store, batchSize int, lggr logger.Logger) (*factory, error) {
+func newFactory(s *store, c *capability, batchSize int, lggr logger.Logger) (*factory, error) {
 	return &factory{
-		store:     s,
-		batchSize: batchSize,
-		lggr:      lggr,
+		store:      s,
+		capability: c,
+		batchSize:  batchSize,
+		lggr:       logger.Named(lggr, "OCR3ReportingPluginFactory"),
 	}, nil
 }
 
@@ -39,4 +45,22 @@ func (o *factory) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (oc
 		},
 	}
 	return rp, info, err
+}
+
+func (o *factory) Start(ctx context.Context) error {
+	return o.StartOnce("OCR3ReportingPlugin", func() error {
+		return nil
+	})
+}
+
+func (o *factory) Close() error {
+	return o.StopOnce("OCR3ReportingPlugin", func() error {
+		return nil
+	})
+}
+
+func (o *factory) Name() string { return o.lggr.Name() }
+
+func (o *factory) HealthReport() map[string]error {
+	return map[string]error{o.Name(): o.Healthy()}
 }

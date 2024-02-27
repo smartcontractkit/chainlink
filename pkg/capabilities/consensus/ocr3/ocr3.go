@@ -73,7 +73,7 @@ func NewOCR3(config Config) *Capability {
 }
 
 func (o *Capability) NewReportingPluginFactory(ctx context.Context, cfg commontypes.ReportingPluginServiceConfig, provider commontypes.PluginProvider, pipelineRunner commontypes.PipelineRunnerService, telemetry commontypes.TelemetryClient, errorLog commontypes.ErrorLog, capabilityRegistry commontypes.CapabilitiesRegistry) (commontypes.OCR3ReportingPluginFactory, error) {
-	factory, err := newFactory(o.config.store, o.config.BatchSize, o.config.Logger)
+	factory, err := newFactory(o.config.store, o.config.capability, o.config.BatchSize, o.config.Logger)
 	if err != nil {
 		return nil, err
 	}
