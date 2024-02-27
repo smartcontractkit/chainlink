@@ -232,40 +232,40 @@ deployments:
                 [Feature]
                 LogPoller = true
                 CCIP = true
-                
+
                 [Log]
                 Level = 'debug'
                 JSONConsole = true
-                
+
                 [Log.File]
                 MaxSize = '0b'
-                
+
                 [WebServer]
                 AllowOrigins = '*'
                 HTTPPort = 6688
                 SecureCookies = false
                 HTTPWriteTimeout = '1m'
-                
+
                 [WebServer.RateLimit]
                 Authenticated = 2000
                 Unauthenticated = 1000
-                
+
                 [WebServer.TLS]
                 HTTPSPort = 0
-                
+
                 [Database]
                 MaxIdleConns = 50
                 MaxOpenConns = 50
                 MigrateOnStartup = true
-                
+
                 [OCR2]
                 Enabled = true
                 DefaultTransactionQueueDepth = 0
-                
+
                 [OCR]
                 Enabled = false
                 DefaultTransactionQueueDepth = 0
-                
+
                 [P2P]
                 [P2P.V2]
                 Enabled = true
@@ -279,40 +279,40 @@ deployments:
                 [Feature]
                 LogPoller = true
                 CCIP = true
-                
+
                 [Log]
                 Level = 'debug'
                 JSONConsole = true
-                
+
                 [Log.File]
                 MaxSize = '0b'
-                
+
                 [WebServer]
                 AllowOrigins = '*'
                 HTTPPort = 6688
                 SecureCookies = false
                 HTTPWriteTimeout = '1m'
-                
+
                 [WebServer.RateLimit]
                 Authenticated = 2000
                 Unauthenticated = 1000
-                
+
                 [WebServer.TLS]
                 HTTPSPort = 0
-                
+
                 [Database]
                 MaxIdleConns = 50
                 MaxOpenConns = 50
                 MigrateOnStartup = true
-                
+
                 [OCR2]
                 Enabled = true
                 DefaultTransactionQueueDepth = 0
-                
+
                 [OCR]
                 Enabled = false
                 DefaultTransactionQueueDepth = 0
-                
+
                 [P2P]
                 [P2P.V2]
                 Enabled = true
@@ -326,40 +326,40 @@ deployments:
                 [Feature]
                 LogPoller = true
                 CCIP = true
-                
+
                 [Log]
                 Level = 'debug'
                 JSONConsole = true
-                
+
                 [Log.File]
                 MaxSize = '0b'
-                
+
                 [WebServer]
                 AllowOrigins = '*'
                 HTTPPort = 6688
                 SecureCookies = false
                 HTTPWriteTimeout = '1m'
-                
+
                 [WebServer.RateLimit]
                 Authenticated = 2000
                 Unauthenticated = 1000
-                
+
                 [WebServer.TLS]
                 HTTPSPort = 0
-                
+
                 [Database]
                 MaxIdleConns = 50
                 MaxOpenConns = 50
                 MigrateOnStartup = true
-                
+
                 [OCR2]
                 Enabled = true
                 DefaultTransactionQueueDepth = 0
-                
+
                 [OCR]
                 Enabled = false
                 DefaultTransactionQueueDepth = 0
-                
+
                 [P2P]
                 [P2P.V2]
                 Enabled = true
@@ -373,40 +373,40 @@ deployments:
                 [Feature]
                 LogPoller = true
                 CCIP = true
-                
+
                 [Log]
                 Level = 'debug'
                 JSONConsole = true
-                
+
                 [Log.File]
                 MaxSize = '0b'
-                
+
                 [WebServer]
                 AllowOrigins = '*'
                 HTTPPort = 6688
                 SecureCookies = false
                 HTTPWriteTimeout = '1m'
-                
+
                 [WebServer.RateLimit]
                 Authenticated = 2000
                 Unauthenticated = 1000
-                
+
                 [WebServer.TLS]
                 HTTPSPort = 0
-                
+
                 [Database]
                 MaxIdleConns = 50
                 MaxOpenConns = 50
                 MigrateOnStartup = true
-                
+
                 [OCR2]
                 Enabled = true
                 DefaultTransactionQueueDepth = 0
-                
+
                 [OCR]
                 Enabled = false
                 DefaultTransactionQueueDepth = 0
-                
+
                 [P2P]
                 [P2P.V2]
                 Enabled = true
@@ -420,40 +420,40 @@ deployments:
                 [Feature]
                 LogPoller = true
                 CCIP = true
-                
+
                 [Log]
                 Level = 'debug'
                 JSONConsole = true
-                
+
                 [Log.File]
                 MaxSize = '0b'
-                
+
                 [WebServer]
                 AllowOrigins = '*'
                 HTTPPort = 6688
                 SecureCookies = false
                 HTTPWriteTimeout = '1m'
-                
+
                 [WebServer.RateLimit]
                 Authenticated = 2000
                 Unauthenticated = 1000
-                
+
                 [WebServer.TLS]
                 HTTPSPort = 0
-                
+
                 [Database]
                 MaxIdleConns = 50
                 MaxOpenConns = 50
                 MigrateOnStartup = true
-                
+
                 [OCR2]
                 Enabled = true
                 DefaultTransactionQueueDepth = 0
-                
+
                 [OCR]
                 Enabled = false
                 DefaultTransactionQueueDepth = 0
-                
+
                 [P2P]
                 [P2P.V2]
                 Enabled = true
@@ -579,12 +579,6 @@ deployments:
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
 
-        networkPolicy:
-          ingress:
-            # Should be a comma separated list of CIDR blocks. To include
-            # AWS ALB private CIDRs and optionally other custom CIDRs.
-            # Example format: 10.0.0.0/16,192.168.0.1/24
-            allowCustomCidrs: ${DEVSPACE_INGRESS_CIDRS}
         # These ingresses create AWS ALB resources and Route 53 Records.
         ingress:
           enabled: true
@@ -690,6 +684,14 @@ deployments:
                         name: mockserver
                         port:
                           number: 1080
+
+        networkPolicyDefault:
+          ingress:
+            allowCustomCidrs: true
+            # Should be a comma separated list of CIDR blocks. To include
+            # AWS ALB private CIDRs and optionally other custom CIDRs.
+            # Example format: 10.0.0.0/16,192.168.0.1/24
+            customCidrs: ${DEVSPACE_INGRESS_CIDRS}
 
         # deployment placement, standard helm stuff
         podAnnotations:
