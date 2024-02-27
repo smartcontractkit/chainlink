@@ -233,7 +233,37 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) error {
-	return nil
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("save_fetched_receipts: %w", ErrInvalidChainID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.SaveFetchedReceipts(ctx, receipts, chainID); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	errsLock := sync.Mutex{}
+	var errs error
+	wg := sync.WaitGroup{}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			for _, receipt := range receipts {
+				if err := as.MoveUnconfirmedToConfirmed(receipt); err != nil {
+					errsLock.Lock()
+					errs = errors.Join(errs, err)
+					errsLock.Unlock()
+				}
+			}
+			wg.Done()
+		}(as)
+	}
+	wg.Wait()
+
+	return errs
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (
