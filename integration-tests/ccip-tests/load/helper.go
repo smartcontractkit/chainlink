@@ -40,6 +40,21 @@ type LoadArgs struct {
 	TestSetupArgs    *testsetups.CCIPTestSetUpOutputs
 	ChaosExps        []ChaosConfig
 	LoadgenTearDowns []func()
+	Labels           map[string]string
+}
+
+func (l *LoadArgs) SetReportParams() {
+	var qParams []string
+	for k, v := range l.Labels {
+		qParams = append(qParams, fmt.Sprintf("var-%s=%s", k, v))
+	}
+	// add one of the source and destination network to the grafana query params
+	if len(l.TestSetupArgs.Lanes) > 0 {
+		qParams = append(qParams, fmt.Sprintf("var-source_chain=%s", l.TestSetupArgs.Lanes[0].ForwardLane.SourceNetworkName))
+		qParams = append(qParams, fmt.Sprintf("var-dest_chain=%s", l.TestSetupArgs.Lanes[0].ForwardLane.DestNetworkName))
+	}
+	err := l.TestSetupArgs.Reporter.AddToGrafanaDashboardQueryParams(qParams...)
+	require.NoError(l.t, err, "failed to set grafana query params")
 }
 
 func (l *LoadArgs) Setup() {
@@ -50,6 +65,18 @@ func (l *LoadArgs) Setup() {
 		envName = "ccip-runner"
 	}
 	l.TestSetupArgs = testsetups.CCIPDefaultTestSetUp(l.TestCfg.Test, lggr, envName, nil, l.TestCfg)
+	namespace := l.TestCfg.TestGroupInput.TestRunName
+	if l.TestSetupArgs.Env != nil && l.TestSetupArgs.Env.K8Env != nil && l.TestSetupArgs.Env.K8Env.Cfg != nil {
+		namespace = l.TestSetupArgs.Env.K8Env.Cfg.Namespace
+	}
+	l.Labels = map[string]string{
+		"test_group": "load",
+		"cluster":    "sdlc",
+		"test_id":    "ccip",
+		"namespace":  namespace,
+	}
+	l.TestSetupArgs.Reporter.SetGrafanaURLProvider(l.TestCfg.EnvInput)
+	l.SetReportParams()
 }
 
 func (l *LoadArgs) setSchedule() {
@@ -87,7 +114,6 @@ func (l *LoadArgs) SanityCheck() {
 func (l *LoadArgs) TriggerLoadByLane() {
 	l.setSchedule()
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
-	namespace := l.TestCfg.TestGroupInput.TestRunName
 
 	// start load for a lane
 	startLoad := func(lane *actions.CCIPLane) {
@@ -98,10 +124,13 @@ func (l *LoadArgs) TriggerLoadByLane() {
 
 		ccipLoad := NewCCIPLoad(l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(), 100000)
 		ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgType, big.NewInt(*l.TestCfg.TestGroupInput.DestGasLimit))
-		if lane.TestEnv != nil && lane.TestEnv.K8Env != nil && lane.TestEnv.K8Env.Cfg != nil {
-			namespace = lane.TestEnv.K8Env.Cfg.Namespace
-		}
 		lokiConfig := l.TestCfg.EnvInput.Logging.Loki
+		labels := make(map[string]string)
+		for k, v := range l.Labels {
+			labels[k] = v
+		}
+		labels["source_chain"] = lane.SourceNetworkName
+		labels["dest_chain"] = lane.DestNetworkName
 		loadRunner, err := wasp.NewGenerator(&wasp.Config{
 			T:                     l.TestCfg.Test,
 			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
@@ -114,21 +143,15 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			Logger:                ccipLoad.Lane.Logger,
 			SharedData:            l.TestCfg.TestGroupInput.MsgType,
 			LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
-			Labels: map[string]string{
-				"test_group":   "load",
-				"cluster":      "sdlc",
-				"namespace":    namespace,
-				"test_id":      "ccip",
-				"source_chain": lane.SourceNetworkName,
-				"dest_chain":   lane.DestNetworkName,
-			},
-			FailOnErr: true,
+			Labels:                labels,
+			FailOnErr:             true,
 		})
 		require.NoError(l.TestCfg.Test, err, "initiating loadgen for lane %s --> %s",
 			lane.SourceNetworkName, lane.DestNetworkName)
 		loadRunner.Run(false)
 		l.AddToRunnerGroup(loadRunner)
 	}
+
 	for _, lane := range l.TestSetupArgs.Lanes {
 		lane := lane
 		l.LoadStarterWg.Add(1)
@@ -213,8 +236,6 @@ func (l *LoadArgs) TriggerLoadBySource() {
 	require.NotNil(l.t, l.TestCfg.TestGroupInput.TestDuration, "test duration input is nil")
 	require.GreaterOrEqual(l.t, 1, len(l.TestCfg.TestGroupInput.RequestPerUnitTime), "time unit input must be specified")
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
-	namespace := l.TestCfg.TestGroupInput.TestRunName
-
 	var laneBySource = make(map[string][]*actions.CCIPLane)
 	for _, lane := range l.TestSetupArgs.Lanes {
 		laneBySource[lane.ForwardLane.SourceNetworkName] = append(laneBySource[lane.ForwardLane.SourceNetworkName], lane.ForwardLane)
@@ -231,16 +252,11 @@ func (l *LoadArgs) TriggerLoadBySource() {
 			l.lggr.Info().
 				Str("Source Network", source).
 				Msg("Starting load for source")
-			if lanes[0].TestEnv != nil && lanes[0].TestEnv.K8Env != nil && lanes[0].TestEnv.K8Env.Cfg != nil {
-				namespace = lanes[0].TestEnv.K8Env.Cfg.Namespace
+			allLabels := make(map[string]string)
+			for k, v := range l.Labels {
+				allLabels[k] = v
 			}
-			allLabels := map[string]string{
-				"test_group":   "load",
-				"cluster":      "sdlc",
-				"namespace":    namespace,
-				"test_id":      "ccip",
-				"source_chain": source,
-			}
+			allLabels["source_chain"] = source
 			multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.RequestPerUnitTime[0], allLabels)
 			require.NoError(l.t, err)
 			lokiConfig := l.TestCfg.EnvInput.Logging.Loki

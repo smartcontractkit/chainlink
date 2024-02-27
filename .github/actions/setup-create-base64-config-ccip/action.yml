@@ -86,7 +86,7 @@ runs:
         
         [CCIP.Env.Logging.Grafana]
         base_url="$GRAFANA_URL"
-        dasboard_url="$GRAFANA_DASHBOARD_URL"
+        dashboard_url="$GRAFANA_DASHBOARD_URL"
         EOF
         
         BASE64_CCIP_SECRETS_CONFIG=$(cat config.toml | base64 -w 0)

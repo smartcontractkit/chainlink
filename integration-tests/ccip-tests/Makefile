@@ -16,7 +16,7 @@ set_config:
 	@echo "export TEST_BASE64_CCIP_SECRETS_CONFIG=$$(base64 -i $(secret_toml))" >> ./testconfig/override/.env
 
 
-# example usage: make test_load_ccip testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos override_toml=../testconfig/override/config.toml secret_toml=./testconfig/tomls/secrets.toml
+# example usage: make test_load_ccip testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRPS override_toml=./testconfig/override/config.toml secret_toml=./testconfig/tomls/secrets.toml
 .PHONY: test_load_ccip
 test_load_ccip: set_config
 	source ./testconfig/override/.env && \

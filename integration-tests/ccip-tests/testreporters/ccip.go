@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/slack-go/slack"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 )
@@ -198,21 +201,91 @@ func (testStats *CCIPLaneStats) Finalize(lane string) {
 }
 
 type CCIPTestReporter struct {
-	t               *testing.T
-	logger          zerolog.Logger
-	namespace       string
-	reportFilePath  string
-	duration        time.Duration             // duration is the duration of the test
-	FailedLanes     map[string]Phase          `json:"failed_lanes_and_phases,omitempty"` // FailedLanes is the list of lanes that failed and the phase at which it failed
-	LaneStats       map[string]*CCIPLaneStats `json:"lane_stats"`                        // LaneStats is the statistics for each lane
-	mu              *sync.Mutex
-	sendSlackReport bool
+	t                  *testing.T
+	logger             zerolog.Logger
+	startTime          int64
+	endTime            int64
+	grafanaURLProvider testreporters.GrafanaURLProvider
+	grafanaURL         string
+	grafanaQueryParams []string
+	namespace          string
+	reportFilePath     string
+	duration           time.Duration             // duration is the duration of the test
+	FailedLanes        map[string]Phase          `json:"failed_lanes_and_phases,omitempty"` // FailedLanes is the list of lanes that failed and the phase at which it failed
+	LaneStats          map[string]*CCIPLaneStats `json:"lane_stats"`                        // LaneStats is the statistics for each lane
+	mu                 *sync.Mutex
+	sendSlackReport    bool
 }
 
 func (r *CCIPTestReporter) SetSendSlackReport(sendSlackReport bool) {
 	r.sendSlackReport = sendSlackReport
 }
 
+func (r *CCIPTestReporter) CompleteGrafanaDashboardURL() error {
+	if r.grafanaURLProvider == nil {
+		return fmt.Errorf("grafana URL provider is not set")
+	}
+	grafanaUrl, err := r.grafanaURLProvider.GetGrafanaBaseURL()
+	if err != nil {
+		return err
+	}
+
+	dashboardUrl, err := r.grafanaURLProvider.GetGrafanaDashboardURL()
+	if err != nil {
+		return err
+	}
+	r.grafanaURL = fmt.Sprintf("%s%s", grafanaUrl, dashboardUrl)
+	err = r.AddToGrafanaDashboardQueryParams(
+		fmt.Sprintf("from=%d", r.startTime),
+		fmt.Sprintf("to=%d", r.endTime),
+		fmt.Sprintf("var-remote_runner=%s", r.namespace))
+	if err != nil {
+		return err
+	}
+
+	err = r.FormatGrafanaURLWithQueryParameters()
+	if err != nil {
+		return fmt.Errorf("error formatting grafana URL: %w", err)
+	}
+	r.logger.Info().Str("Dashboard", r.grafanaURL).Msg("Dashboard URL")
+	return nil
+}
+
+// FormatGrafanaURLWithQueryParameters adds query params to the grafana URL
+// The query params are added in the format ?key=value if the grafana URL does not have any query params
+// If the grafana URL already has query params, the query params are added in the format &key=value
+// The function parameter qParam should be in the format key=value
+// If the function parameter qParam does not contain an =, an error is returned
+func (r *CCIPTestReporter) FormatGrafanaURLWithQueryParameters() error {
+	for _, v := range r.grafanaQueryParams {
+		if !strings.Contains(v, "=") {
+			return fmt.Errorf("invalid query param %s", v)
+		}
+		if strings.Contains(r.grafanaURL, "?") {
+			r.grafanaURL = fmt.Sprintf("%s&%s", r.grafanaURL, v)
+			continue
+		}
+		r.grafanaURL = fmt.Sprintf("%s?%s", r.grafanaURL, v)
+	}
+	return nil
+}
+
+// AddToGrafanaDashboardQueryParams adds query params to the QueryParams slice
+// The function parameter qParam should be in the format key=value
+// If the function parameter qParam does not contain an =, an error is returned
+func (r *CCIPTestReporter) AddToGrafanaDashboardQueryParams(qParams ...string) error {
+	for _, qParam := range qParams {
+		if !strings.Contains(qParam, "=") {
+			return fmt.Errorf("invalid query param %s", qParam)
+		}
+		r.grafanaQueryParams = append(r.grafanaQueryParams, qParam)
+	}
+	return nil
+}
+
+// SendSlackNotification sends a slack notification to the specified channel set in the environment variable "SLACK_CHANNEL"
+// notifying the user set in the environment variable "SLACK_USER"
+// The function returns an error if the slack notification fails
 func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client, _ testreporters.GrafanaURLProvider) error {
 	if r.sendSlackReport {
 		r.logger.Info().Msg("Sending Slack notification")
@@ -233,58 +306,56 @@ func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slac
 	if t.Failed() {
 		headerText = ":x: CCIP Test FAILED :x:"
 	}
-	for name, lane := range r.LaneStats {
-		if lane.FailedCountsByPhase[E2E] > 0 {
-			msgTexts = append(msgTexts,
-				fmt.Sprintf("lane %s :x:", name),
-				fmt.Sprintf(
-					"Run Duration = %.0fm "+
+	// If grafanaURLProvider is not set, form the message notifying about the failed lanes with the report file path
+	if r.grafanaURLProvider == nil {
+		for name, lane := range r.LaneStats {
+			if lane.FailedCountsByPhase[E2E] > 0 {
+				msgTexts = append(msgTexts,
+					fmt.Sprintf("lane %s :x:", name),
+					fmt.Sprintf(
 						"\nNumber of ccip-send= %d"+
-						"\nNo of failed requests = %d", r.duration.Minutes(), lane.TotalRequests, lane.FailedCountsByPhase[E2E]))
+							"\nNo of failed requests = %d", lane.TotalRequests, lane.FailedCountsByPhase[E2E]))
+			}
 		}
+
+		msgTexts = append(msgTexts, fmt.Sprintf(
+			"\nTest Run Summary created on _remote-test-runner_ at _%s_\nNotifying <@%s>",
+			r.reportFilePath, testreporters.SlackUserID))
+	} else {
+		// If grafanaURLProvider is set, form the message with the grafana dashboard link
+		err := r.CompleteGrafanaDashboardURL()
+		if err != nil {
+			return fmt.Errorf("error formatting grafana dashboard URL: %w", err)
+		}
+		msgTexts = append(msgTexts, fmt.Sprintf(
+			"\nTest Run Completed \nNotifying <@%s>\n<%s|CCIP Long Running Tests Dashboard>",
+			testreporters.SlackUserID, r.grafanaURL))
 	}
 
-	msgTexts = append(msgTexts, fmt.Sprintf(
-		"\nTest Run Summary created on _remote-test-runner_ at _%s_\nNotifying <@%s>",
-		r.reportFilePath, testreporters.SlackUserID))
-	if r.namespace == "" {
-		r.SetNamespace("ccip")
-	}
 	messageBlocks := testreporters.SlackNotifyBlocks(headerText, r.namespace, msgTexts)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {
-		return fmt.Errorf("failed to send slack message: %w messageBlocks = %v", err, messageBlocks)
+		fmt.Println(messageBlocks)
+		return fmt.Errorf("failed to send slack message: %w", err)
 	}
-
-	return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
-		Title:           fmt.Sprintf("CCIP Test Report %s", r.namespace),
-		Filetype:        "json",
-		Filename:        fmt.Sprintf("ccip_report_%s.csv", r.namespace),
-		File:            r.reportFilePath,
-		InitialComment:  fmt.Sprintf("CCIP Test Report %s.", r.namespace),
-		Channels:        []string{testreporters.SlackChannel},
-		ThreadTimestamp: ts,
-	})
+	// if grafanaURLProvider is set, we don't want to write the report in a file
+	// the report will be shared in terms of grafana dashboard link
+	if r.grafanaURLProvider == nil {
+		return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+			Title:           fmt.Sprintf("CCIP Test Report %s", r.namespace),
+			Filetype:        "json",
+			Filename:        fmt.Sprintf("ccip_report_%s.csv", r.namespace),
+			File:            r.reportFilePath,
+			InitialComment:  fmt.Sprintf("CCIP Test Report %s.", r.namespace),
+			Channels:        []string{testreporters.SlackChannel},
+			ThreadTimestamp: ts,
+		})
+	}
+	return nil
 }
 
 func (r *CCIPTestReporter) WriteReport(folderPath string) error {
 	l := r.logger
-	l.Debug().Str("Folder Path", folderPath).Msg("Writing CCIP Test Report")
-	if err := testreporters.MkdirIfNotExists(folderPath); err != nil {
-		return err
-	}
-	reportLocation := filepath.Join(folderPath, slackFile)
-	r.reportFilePath = reportLocation
-	slackFile, err := os.Create(reportLocation)
-	defer func() {
-		err = slackFile.Close()
-		if err != nil {
-			l.Error().Err(err).Msg("Error closing slack file")
-		}
-	}()
-	if err != nil {
-		return err
-	}
 	for k := range r.LaneStats {
 		r.LaneStats[k].Finalize(k)
 		// if E2E for the lane has failed
@@ -303,6 +374,27 @@ func (r *CCIPTestReporter) WriteReport(folderPath string) error {
 	} else {
 		r.logger.Info().Msg("All Lanes Passed")
 	}
+	// if grafanaURLProvider is set, we don't want to write the report in a file
+	// the report will be shared in terms of grafana dashboard link
+	if r.grafanaURLProvider != nil {
+		return nil
+	}
+	l.Debug().Str("Folder Path", folderPath).Msg("Writing CCIP Test Report")
+	if err := testreporters.MkdirIfNotExists(folderPath); err != nil {
+		return err
+	}
+	reportLocation := filepath.Join(folderPath, slackFile)
+	r.reportFilePath = reportLocation
+	slackFile, err := os.Create(reportLocation)
+	defer func() {
+		err = slackFile.Close()
+		if err != nil {
+			l.Error().Err(err).Msg("Error closing slack file")
+		}
+	}()
+	if err != nil {
+		return err
+	}
 	stats, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
 		return err
@@ -316,12 +408,22 @@ func (r *CCIPTestReporter) WriteReport(folderPath string) error {
 
 // SetNamespace sets the namespace of the report for clean reports
 func (r *CCIPTestReporter) SetNamespace(namespace string) {
+	// if the test is run in remote runner, the namespace will be set to the remote runner's namespace
+	if value, set := os.LookupEnv(config.EnvVarNamespace); set && value != "" {
+		r.namespace = value
+		return
+	}
+	// if the namespace is not set, set it to the namespace provided
 	r.namespace = namespace
 }
 
 // SetDuration sets the duration of the test
 func (r *CCIPTestReporter) SetDuration(d time.Duration) {
 	r.duration = d
+}
+
+func (r *CCIPTestReporter) SetGrafanaURLProvider(provider testreporters.GrafanaURLProvider) {
+	r.grafanaURLProvider = provider
 }
 
 func (r *CCIPTestReporter) AddNewLane(name string, lggr zerolog.Logger) *CCIPLaneStats {
@@ -341,13 +443,15 @@ func (r *CCIPTestReporter) AddNewLane(name string, lggr zerolog.Logger) *CCIPLan
 func (r *CCIPTestReporter) SendReport(t *testing.T, namespace string, slackSend bool) error {
 	logsPath := filepath.Join("logs", fmt.Sprintf("%s-%s-%d", t.Name(), namespace, time.Now().Unix()))
 	r.SetNamespace(namespace)
-	r.SetSendSlackReport(namespace != "" && slackSend)
+	r.endTime = time.Now().UTC().UnixMilli()
+	r.SetSendSlackReport(r.namespace != "" && slackSend)
 	return testreporters.SendReport(t, namespace, logsPath, r, nil)
 }
 
 func NewCCIPTestReporter(t *testing.T, lggr zerolog.Logger) *CCIPTestReporter {
 	return &CCIPTestReporter{
 		LaneStats:   make(map[string]*CCIPLaneStats),
+		startTime:   time.Now().UTC().UnixMilli(),
 		logger:      lggr,
 		t:           t,
 		mu:          &sync.Mutex{},
