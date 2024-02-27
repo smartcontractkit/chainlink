@@ -15,13 +15,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name BalanceMonitor --output ../mocks/ --case=underscore
@@ -42,7 +42,7 @@ type (
 		ethKeyStore    keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
-		sleeperTask    utils.SleeperTask
+		sleeperTask    *utils.SleeperTask
 	}
 
 	NullBalanceMonitor struct{}
@@ -174,7 +174,7 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	enabledAddresses, err := w.bm.ethKeyStore.EnabledAddressesForChain(w.bm.chainID)
+	enabledAddresses, err := w.bm.ethKeyStore.EnabledAddressesForChain(ctx, w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}

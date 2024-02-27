@@ -26,6 +26,7 @@ export type FunctionsContracts = {
   client: Contract
   linkToken: Contract
   mockLinkEth: Contract
+  mockLinkUsd: Contract
   accessControl: Contract
 }
 
@@ -94,11 +95,14 @@ export type CoordinatorConfig = {
   gasOverheadBeforeCallback: number
   gasOverheadAfterCallback: number
   requestTimeoutSeconds: number
-  donFee: number
+  donFeeCentsUsd: number
   maxSupportedRequestDataVersion: number
   fulfillmentGasPriceOverEstimationBP: number
   fallbackNativePerUnitLink: BigNumber
   minimumEstimateGasPriceWei: number
+  operationFeeCentsUsd: number
+  fallbackUsdPerUnitLink: number
+  fallbackUsdPerUnitLinkDecimals: number
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
@@ -106,12 +110,18 @@ export const coordinatorConfig: CoordinatorConfig = {
   gasOverheadBeforeCallback: 44_615,
   gasOverheadAfterCallback: 44_615,
   requestTimeoutSeconds: 300,
-  donFee: 0,
+  donFeeCentsUsd: 0,
   maxSupportedRequestDataVersion: 1,
   fulfillmentGasPriceOverEstimationBP: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   minimumEstimateGasPriceWei: 1000000000,
+  operationFeeCentsUsd: 0,
+  fallbackUsdPerUnitLink: 1500000000,
+  fallbackUsdPerUnitLinkDecimals: 8,
 }
+const linkEthRate = '5021530000000000'
+const linkUsdRate = '1500000000'
+
 export const accessControlMockPublicKey = ethers.utils.getAddress(
   '0x32237412cC0321f56422d206e505dB4B3871AF5c',
 )
@@ -237,8 +247,6 @@ export function getSetupFactory(): () => {
   })
 
   beforeEach(async () => {
-    const linkEthRate = BigNumber.from(5021530000000000)
-
     // Deploy
     const linkToken = await factories.linkTokenFactory
       .connect(roles.defaultAccount)
@@ -246,7 +254,12 @@ export function getSetupFactory(): () => {
 
     const mockLinkEth = await factories.mockAggregatorV3Factory.deploy(
       0,
-      linkEthRate,
+      BigNumber.from(linkEthRate),
+    )
+
+    const mockLinkUsd = await factories.mockAggregatorV3Factory.deploy(
+      0,
+      BigNumber.from(linkUsdRate),
     )
 
     const router = await factories.functionsRouterFactory
@@ -255,11 +268,18 @@ export function getSetupFactory(): () => {
 
     const coordinator = await factories.functionsCoordinatorFactory
       .connect(roles.defaultAccount)
-      .deploy(router.address, coordinatorConfig, mockLinkEth.address)
+      .deploy(
+        router.address,
+        coordinatorConfig,
+        mockLinkEth.address,
+        mockLinkUsd.address,
+      )
 
+    const initialAllowedSenders: string[] = []
+    const initialBlockedSenders: string[] = []
     const accessControl = await factories.accessControlFactory
       .connect(roles.defaultAccount)
-      .deploy(accessControlConfig)
+      .deploy(accessControlConfig, initialAllowedSenders, initialBlockedSenders)
 
     const client = await factories.clientTestHelperFactory
       .connect(roles.consumer)
@@ -288,6 +308,7 @@ export function getSetupFactory(): () => {
       router,
       linkToken,
       mockLinkEth,
+      mockLinkUsd,
       accessControl,
     }
   })

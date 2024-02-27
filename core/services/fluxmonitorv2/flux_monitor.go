@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -338,12 +339,12 @@ func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast) {
 		fm.backlog.Add(PriorityAnswerUpdatedLog, broadcast)
 
 	case *flags_wrapper.FlagsFlagRaised:
-		if log.Subject == utils.ZeroAddress || log.Subject == fm.contractAddress {
+		if log.Subject == evmutils.ZeroAddress || log.Subject == fm.contractAddress {
 			fm.backlog.Add(PriorityFlagChangedLog, broadcast)
 		}
 
 	case *flags_wrapper.FlagsFlagLowered:
-		if log.Subject == utils.ZeroAddress || log.Subject == fm.contractAddress {
+		if log.Subject == evmutils.ZeroAddress || log.Subject == fm.contractAddress {
 			fm.backlog.Add(PriorityFlagChangedLog, broadcast)
 		}
 
@@ -465,12 +466,17 @@ func formatTime(at time.Time) string {
 // SetOracleAddress sets the oracle address which matches the node's keys.
 // If none match, it uses the first available key
 func (fm *FluxMonitor) SetOracleAddress() error {
+
+	// fm on deprecation path, using dangling context
+	ctx, cancel := fm.chStop.NewCtx()
+	defer cancel()
+
 	oracleAddrs, err := fm.fluxAggregator.GetOracles(nil)
 	if err != nil {
 		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	keys, err := fm.keyStore.EnabledKeysForChain(fm.chainID)
+	keys, err := fm.keyStore.EnabledKeysForChain(ctx, fm.chainID)
 	if err != nil {
 		return errors.Wrap(err, "failed to load keys")
 	}

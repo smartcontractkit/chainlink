@@ -16,11 +16,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -30,12 +32,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -74,7 +75,7 @@ func testSingleConsumerHappyPath(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
@@ -208,7 +209,7 @@ func testMultipleConsumersNeedBHS(
 		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	keys = append(keys, ownerKey, vrfKey)
@@ -356,7 +357,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(5_000_000))
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	keys = append(keys, ownerKey, vrfKey)
@@ -543,7 +544,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 
@@ -647,7 +648,7 @@ func testSingleConsumerNeedsTopUp(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 
@@ -753,7 +754,7 @@ func testBlockHeaderFeeder(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, vrfKey, bhfKey)
@@ -870,7 +871,7 @@ func setupAndFundSubscriptionAndConsumer(
 	uni.backend.Commit()
 
 	if vrfVersion == vrfcommon.V2Plus {
-		b, err2 := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
+		b, err2 := evmutils.ABIEncode(`[{"type":"uint256"}]`, subID)
 		require.NoError(t, err2)
 		_, err2 = uni.linkContract.TransferAndCall(
 			uni.sergey, coordinatorAddress, fundingAmount, b)
@@ -878,7 +879,7 @@ func setupAndFundSubscriptionAndConsumer(
 		uni.backend.Commit()
 		return
 	}
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
+	b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(
 		uni.sergey, coordinatorAddress, fundingAmount, b)
@@ -912,7 +913,7 @@ func testSingleConsumerForcedFulfillment(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
@@ -1075,7 +1076,7 @@ func testSingleConsumerEIP150(
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(3.5e6))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1145,7 +1146,7 @@ func testSingleConsumerEIP150Revert(
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1210,7 +1211,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1332,7 +1333,7 @@ func testSingleConsumerMultipleGasLanes(
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, cheapKey, expensiveKey)
@@ -1449,7 +1450,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key)
 	consumer := uni.reverter
@@ -1522,7 +1523,7 @@ func testConsumerProxyHappyPath(
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 	consumerOwner := uni.neil
@@ -1648,7 +1649,7 @@ func testMaliciousConsumer(
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
 		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	carol := uni.vrfConsumers[0]
 
@@ -1682,11 +1683,7 @@ func testMaliciousConsumer(
 	time.Sleep(1 * time.Second)
 
 	// Register a proving key associated with the VRF job.
-	p, err := vrfkey.PublicKey.Point()
-	require.NoError(t, err)
-	_, err = uni.rootContract.RegisterProvingKey(
-		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
-	require.NoError(t, err)
+	registerProvingKeyHelper(t, uni, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.maliciousConsumerContract.CreateSubscriptionAndFund(carol,
@@ -1739,4 +1736,146 @@ func testMaliciousConsumer(
 		requests = append(requests, it2.Event())
 	}
 	require.Equal(t, 1, len(requests))
+}
+
+func testReplayOldRequestsOnStartUp(
+	t *testing.T,
+	ownerKey ethkey.KeyV2,
+	uni coordinatorV2UniverseCommon,
+	consumer *bind.TransactOpts,
+	consumerContract vrftesthelpers.VRFConsumerContract,
+	consumerContractAddress common.Address,
+	coordinator v22.CoordinatorV2_X,
+	coordinatorAddress common.Address,
+	batchCoordinatorAddress common.Address,
+	vrfOwnerAddress *common.Address,
+	vrfVersion vrfcommon.Version,
+	nativePayment bool,
+	assertions ...func(
+		t *testing.T,
+		coordinator v22.CoordinatorV2_X,
+		rwfe v22.RandomWordsFulfilled,
+		subID *big.Int),
+) {
+	sendingKey := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
+	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
+			// Gas lane.
+			Key:          ptr(sendingKey.EIP55Address),
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+	})
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, sendingKey)
+
+	// Create a subscription and fund with 5 LINK.
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), coordinator, uni.backend, nativePayment)
+
+	// Fund gas lanes.
+	sendEth(t, ownerKey, uni.backend, sendingKey.Address, 10)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF Key, register it to coordinator and export
+	vrfkey, err := app.GetKeyStore().VRF().Create()
+	require.NoError(t, err)
+	registerProvingKeyHelper(t, uni, coordinator, vrfkey, &defaultMaxGasPrice)
+	keyHash := vrfkey.PublicKey.MustHash()
+
+	encodedVrfKey, err := app.GetKeyStore().VRF().Export(vrfkey.ID(), testutils.Password)
+	require.NoError(t, err)
+
+	// Shut down the node before making the randomness request
+	require.NoError(t, app.Stop())
+
+	// Make the first randomness request.
+	numWords := uint32(20)
+	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend, nativePayment)
+
+	// number of blocks to mine before restarting the node
+	nBlocks := 100
+	for i := 0; i < nBlocks; i++ {
+		uni.backend.Commit()
+	}
+
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
+			// Gas lane.
+			Key:          ptr(sendingKey.EIP55Address),
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+	})
+
+	// Start a new app and create VRF job using the same VRF key created above
+	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, sendingKey)
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	vrfKey, err := app.GetKeyStore().VRF().Import(encodedVrfKey, testutils.Password)
+	require.NoError(t, err)
+
+	incomingConfs := 2
+	var vrfOwnerString string
+	if vrfOwnerAddress != nil {
+		vrfOwnerString = vrfOwnerAddress.Hex()
+	}
+
+	spec := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		Name:                     "vrf-primary",
+		VRFVersion:               vrfVersion,
+		CoordinatorAddress:       coordinatorAddress.Hex(),
+		BatchCoordinatorAddress:  batchCoordinatorAddress.Hex(),
+		MinIncomingConfirmations: incomingConfs,
+		PublicKey:                vrfKey.PublicKey.String(),
+		FromAddresses:            []string{sendingKey.Address.String()},
+		BackoffInitialDelay:      10 * time.Millisecond,
+		BackoffMaxDelay:          time.Second,
+		V2:                       true,
+		GasLanePrice:             gasLanePriceWei,
+		VRFOwnerAddress:          vrfOwnerString,
+		EVMChainID:               testutils.SimulatedChainID.String(),
+	}).Toml()
+
+	jb, err := vrfcommon.ValidatedVRFSpec(spec)
+	require.NoError(t, err)
+	t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfKey.PublicKey.MustHash())
+	err = app.JobSpawner().CreateJob(&jb)
+	require.NoError(t, err)
+
+	// Wait until all jobs are active and listening for logs
+	gomega.NewWithT(t).Eventually(func() bool {
+		jbs := app.JobSpawner().ActiveJobs()
+		for _, jb := range jbs {
+			if jb.Type == job.VRF {
+				return true
+			}
+		}
+		return false
+	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+
+	// Wait for fulfillment to be queued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	mine(t, requestID1, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
+
+	// Assert correct state of RandomWordsFulfilled event.
+	// In particular:
+	// * success should be true
+	// * payment should be exactly the amount specified as the premium in the coordinator fee config
+	rwfe := assertRandomWordsFulfilled(t, requestID1, true, coordinator, nativePayment)
+	if len(assertions) > 0 {
+		assertions[0](t, coordinator, rwfe, subID)
+	}
 }

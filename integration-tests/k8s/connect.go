@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultConfigFilePath        = "../../../charts/chainlink-cluster/connect.toml"
+	DefaultConfigFilePath        = "connect.toml"
 	ErrReadConnectionConfig      = "failed to read TOML environment connection config"
 	ErrUnmarshalConnectionConfig = "failed to unmarshal TOML environment connection config"
 )
@@ -54,7 +54,7 @@ func ConnectRemote(l zerolog.Logger) (blockchain.EVMClient, *client2.MockserverC
 		URLs:                      []string{cfg.NetworkWSURL},
 		HTTPURLs:                  []string{cfg.NetworkHTTPURL},
 		ChainlinkTransactionLimit: 500000,
-		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
+		Timeout:                   blockchain.StrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
 	}

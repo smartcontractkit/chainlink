@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -45,7 +45,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
 
 	lggr := logger.TestLogger(t)
@@ -54,13 +54,13 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
-		_, err := delegate.ServicesForSpec(spec)
+		_, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 		assert.Error(t, err, "expects a *job.DirectRequestSpec to be present")
 	})
 
 	t.Run("Spec with DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{EVMChainID: (*ubig.Big)(testutils.FixtureChainID)}, PipelineSpec: &pipeline.Spec{}}
-		services, err := delegate.ServicesForSpec(spec)
+		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 		require.NoError(t, err)
 		assert.Len(t, services, 1)
 	})
@@ -82,7 +82,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	runner := pipeline_mocks.NewRunner(t)
 	broadcaster.On("AddDependents", 1)
 
-	mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
@@ -100,7 +100,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 		specF(jb)
 	}
 	require.NoError(t, jobORM.CreateJob(jb))
-	serviceArray, err := delegate.ServicesForSpec(*jb)
+	serviceArray, err := delegate.ServicesForSpec(testutils.Context(t), *jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]

@@ -24,6 +24,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -80,7 +81,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	defer ethClient.Close()
 	lggr := logger.TestLogger(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000, 0)
 	servicetest.Run(t, lp)
 	configPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, lggr)
 	require.NoError(t, err)
@@ -158,12 +159,12 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 	for i := 0; i < 4; i++ {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  utils.RandomAddress().Bytes(),
-				TransmitAccount:   ocrtypes2.Account(utils.RandomAddress().String()),
-				OffchainPublicKey: utils.RandomBytes32(),
+				OnchainPublicKey:  evmutils.RandomAddress().Bytes(),
+				TransmitAccount:   ocrtypes2.Account(evmutils.RandomAddress().String()),
+				OffchainPublicKey: evmutils.RandomBytes32(),
 				PeerID:            utils.MustNewPeerID(),
 			},
-			ConfigEncryptionPublicKey: utils.RandomBytes32(),
+			ConfigEncryptionPublicKey: evmutils.RandomBytes32(),
 		})
 	}
 

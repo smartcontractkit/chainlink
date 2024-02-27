@@ -4,9 +4,12 @@ import (
 	"math/big"
 	"sync"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 )
 
 // ActiveUpkeepList is a list to manage active upkeep IDs
@@ -18,7 +21,7 @@ type ActiveUpkeepList interface {
 	// Remove removes entries from the list
 	Remove(id ...*big.Int) int
 	// View returns the list of IDs of the given type
-	View(...ocr2keepers.UpkeepType) []*big.Int
+	View(...types.UpkeepType) []*big.Int
 	// IsActive returns true if the given ID is of an active upkeep
 	IsActive(id *big.Int) bool
 	Size() int
@@ -47,9 +50,10 @@ func (al *activeList) Reset(ids ...*big.Int) {
 	for _, id := range ids {
 		al.items[id.String()] = true
 	}
+	prommetrics.AutomationActiveUpkeeps.Set(float64(len(al.items)))
 }
 
-// Add adds new entries to the list
+// Add adds new entries to the list. Returns the number of items added
 func (al *activeList) Add(ids ...*big.Int) int {
 	al.lock.Lock()
 	defer al.lock.Unlock()
@@ -61,10 +65,11 @@ func (al *activeList) Add(ids ...*big.Int) int {
 			al.items[key] = true
 		}
 	}
+	prommetrics.AutomationActiveUpkeeps.Set(float64(len(al.items)))
 	return count
 }
 
-// Remove removes entries from the list
+// Remove removes entries from the list. Returns the number of items removed
 func (al *activeList) Remove(ids ...*big.Int) int {
 	al.lock.Lock()
 	defer al.lock.Unlock()
@@ -77,11 +82,12 @@ func (al *activeList) Remove(ids ...*big.Int) int {
 			delete(al.items, key)
 		}
 	}
+	prommetrics.AutomationActiveUpkeeps.Set(float64(len(al.items)))
 	return count
 }
 
 // View returns the list of IDs of the given type
-func (al *activeList) View(upkeepTypes ...ocr2keepers.UpkeepType) []*big.Int {
+func (al *activeList) View(upkeepTypes ...types.UpkeepType) []*big.Int {
 	al.lock.RLock()
 	defer al.lock.RUnlock()
 

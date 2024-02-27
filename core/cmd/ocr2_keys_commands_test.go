@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -32,7 +32,7 @@ func TestOCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 	pubKeyConfig := key.ConfigEncryptionPublicKey()
 	pubKey := key.OffchainPublicKey()
 	p := cmd.OCR2KeyBundlePresenter{
-		JAID: cmd.JAID{ID: bundleID},
+		JAID: cmd.NewJAID(bundleID),
 		OCR2KeysBundleResource: presenters.OCR2KeysBundleResource{
 			JAID:              presenters.NewJAID(key.ID()),
 			ChainType:         "evm",

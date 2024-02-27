@@ -13,12 +13,12 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Return types:
@@ -47,7 +47,7 @@ type ETHTxTask struct {
 }
 
 type ETHKeyStore interface {
-	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
+	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
 
 var _ Task = (*ETHTxTask)(nil)
@@ -127,7 +127,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		return Result{Error: err}, runInfo
 	}
 
-	fromAddr, err := t.keyStore.GetRoundRobinAddress(chain.ID(), fromAddrs...)
+	fromAddr, err := t.keyStore.GetRoundRobinAddress(ctx, chain.ID(), fromAddrs...)
 	if err != nil {
 		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
 		lggr.Error(err)
@@ -189,7 +189,7 @@ func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {
 					i, err2 := strconv.ParseInt(data.(string), 10, 32)
 					return int32(i), err2
 				case reflect.TypeOf(common.Hash{}):
-					hb, err := utils.TryParseHex(data.(string))
+					hb, err := hex.DecodeString(data.(string))
 					if err != nil {
 						return nil, err
 					}
@@ -220,7 +220,7 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 			case stringType:
 				switch to {
 				case reflect.TypeOf(common.Address{}):
-					ab, err := utils.TryParseHex(data.(string))
+					ab, err := hex.DecodeString(data.(string))
 					if err != nil {
 						return nil, err
 					}

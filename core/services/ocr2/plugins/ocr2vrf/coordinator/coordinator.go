@@ -398,7 +398,7 @@ func (c *coordinator) ReportBlocks(
 
 	// TODO BELOW: Write tests for the new blockhash retrieval.
 	// Obtain recent blockhashes, ordered by ascending block height.
-	for i := recentBlockHashesStartHeight; i <= uint64(currentHeight); i++ {
+	for i := recentBlockHashesStartHeight; i <= currentHeight; i++ {
 		recentBlockHashes = append(recentBlockHashes, blockhashesMapping[i])
 	}
 
@@ -440,18 +440,17 @@ func (c *coordinator) ReportBlocks(
 	// Fill blocks slice with valid requested blocks.
 	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
-		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit >= c.coordinatorConfig.BlockGasOverhead {
-			_, redeemRandomnessRequested := redeemRandomnessBlocksRequested[block]
-			blocks = append(blocks, ocr2vrftypes.Block{
-				Hash:              blockhashesMapping[block.blockNumber],
-				Height:            block.blockNumber,
-				ConfirmationDelay: block.confDelay,
-				ShouldStore:       redeemRandomnessRequested,
-			})
-			currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
-		} else {
+		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit < c.coordinatorConfig.BlockGasOverhead {
 			break
 		}
+		_, redeemRandomnessRequested := redeemRandomnessBlocksRequested[block]
+		blocks = append(blocks, ocr2vrftypes.Block{
+			Hash:              blockhashesMapping[block.blockNumber],
+			Height:            block.blockNumber,
+			ConfirmationDelay: block.confDelay,
+			ShouldStore:       redeemRandomnessRequested,
+		})
+		currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
 	}
 
 	c.lggr.Tracew("got elligible blocks", "blocks", blocks)
@@ -518,7 +517,7 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	}
 
 	// Get a mapping of block numbers to block hashes.
-	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, uint64(currentHeight), recentBlockHashesStartHeight))
+	blockhashesMapping, err = c.getBlockhashesMapping(ctx, append(requestedBlockNumbers, currentHeight, recentBlockHashesStartHeight))
 	if err != nil {
 		err = errors.Wrap(err, "get blockhashes for ReportBlocks")
 	}

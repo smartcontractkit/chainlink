@@ -16,9 +16,6 @@ type TelemetryIngress interface {
 	SendTimeout() time.Duration
 	UseBatchSend() bool
 	Endpoints() []TelemetryIngressEndpoint
-
-	ServerPubKey() string // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, this field will be removed in future versions
-	URL() *url.URL        // Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
 }
 
 //go:generate mockery --quiet --name TelemetryIngressEndpoint --output ./mocks/ --case=underscore --filename telemetry_ingress_endpoint.go

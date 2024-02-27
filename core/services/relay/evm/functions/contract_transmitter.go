@@ -18,12 +18,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FunctionsContractTransmitter interface {
@@ -125,7 +125,8 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 
 	var destinationContract common.Address
-	if oc.contractVersion == 1 {
+	switch oc.contractVersion {
+	case 1:
 		oc.lggr.Debugw("FunctionsContractTransmitter: start", "reportLenBytes", len(report))
 		requests, err2 := oc.reportCodec.DecodeReport(report)
 		if err2 != nil {
@@ -152,7 +153,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 			}
 		}
 		oc.lggr.Debugw("FunctionsContractTransmitter: ready", "nRequests", len(requests), "coordinatorContract", destinationContract.Hex())
-	} else {
+	default:
 		return fmt.Errorf("unsupported contract version: %d", oc.contractVersion)
 	}
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)

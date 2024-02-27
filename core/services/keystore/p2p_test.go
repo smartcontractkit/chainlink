@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_P2PKeyStore_E2E(t *testing.T) {
@@ -177,6 +177,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		RETURNING *;`, p2pTableName)
 		stmt, err := db.PrepareNamed(sql)
 		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, stmt.Close()) })
 		require.NoError(t, stmt.Get(&p2pPeer1, &p2pPeer1))
 		require.NoError(t, stmt.Get(&p2pPeer2, &p2pPeer2))
 		cltest.AssertCount(t, db, p2pTableName, 2)

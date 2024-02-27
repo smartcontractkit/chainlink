@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
@@ -25,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -41,7 +44,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 
 	defaultAutomationSettings = map[string]interface{}{
 		"replicas": 6,
-		"toml":     networks.AddNetworksConfig(baseTOML, networks.MustGetSelectedNetworksFromEnv()[0]),
+		"toml":     "",
 		"db": map[string]interface{}{
 			"stateful": true,
 			"capacity": "1Gi",
@@ -58,11 +61,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		},
 	}
 
-	defaultEthereumSettings = &ethereum.Props{
-		// utils.MustGetSelectedNetworksFromEnv()
-		NetworkName: networks.MustGetSelectedNetworksFromEnv()[0].Name,
-		Simulated:   networks.MustGetSelectedNetworksFromEnv()[0].Simulated,
-		WsURLs:      networks.MustGetSelectedNetworksFromEnv()[0].URLs,
+	defaultEthereumSettings = ethereum.Props{
 		Values: map[string]interface{}{
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{
@@ -96,6 +95,20 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 )
 
+func getDefaultAutomationSettings(config *tc.TestConfig) map[string]interface{} {
+	defaultAutomationSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.Pyroscope, networks.MustGetSelectedNetworkConfig(config.Network)[0])
+	return defaultAutomationSettings
+}
+
+func getDefaultEthereumSettings(config *tc.TestConfig) *ethereum.Props {
+	network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
+	defaultEthereumSettings.NetworkName = network.Name
+	defaultEthereumSettings.Simulated = network.Simulated
+	defaultEthereumSettings.WsURLs = network.URLs
+
+	return &defaultEthereumSettings
+}
+
 type KeeperConsumerContracts int32
 
 const (
@@ -113,12 +126,25 @@ func TestAutomationChaos(t *testing.T) {
 	registryVersions := map[string]eth_contracts.KeeperRegistryVersion{
 		"registry_2_0": eth_contracts.RegistryVersion_2_0,
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
+		"registry_2_2": eth_contracts.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
 		registryVersion := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
+			config, err := tc.GetConfig("Chaos", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var overrideFn = func(_ interface{}, target interface{}) {
+				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+				ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+			}
+
+			chainlinkCfg := chainlink.NewWithOverride(0, getDefaultAutomationSettings(&config), config.ChainlinkImage, overrideFn)
 
 			testCases := map[string]struct {
 				networkChart environment.ConnectedChart
@@ -128,8 +154,8 @@ func TestAutomationChaos(t *testing.T) {
 			}{
 				// see ocr_chaos.test.go for comments
 				PodChaosFailMinorityNodes: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlinkCfg,
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
@@ -137,8 +163,8 @@ func TestAutomationChaos(t *testing.T) {
 					},
 				},
 				PodChaosFailMajorityNodes: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlinkCfg,
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -146,8 +172,8 @@ func TestAutomationChaos(t *testing.T) {
 					},
 				},
 				PodChaosFailMajorityDB: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlinkCfg,
 					chaos.NewFailPods,
 					&chaos.Props{
 						LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -156,8 +182,8 @@ func TestAutomationChaos(t *testing.T) {
 					},
 				},
 				NetworkChaosFailMajorityNetwork: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlinkCfg,
 					chaos.NewNetworkPartition,
 					&chaos.Props{
 						FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -166,8 +192,8 @@ func TestAutomationChaos(t *testing.T) {
 					},
 				},
 				NetworkChaosFailBlockchainNode: {
-					ethereum.New(defaultEthereumSettings),
-					chainlink.New(0, defaultAutomationSettings),
+					ethereum.New(getDefaultEthereumSettings(&config)),
+					chainlinkCfg,
 					chaos.NewNetworkPartition,
 					&chaos.Props{
 						FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},
@@ -182,7 +208,7 @@ func TestAutomationChaos(t *testing.T) {
 				testCase := testCase
 				t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 					t.Parallel()
-					network := networks.MustGetSelectedNetworksFromEnv()[0] // Need a new copy of the network for each test
+					network := networks.MustGetSelectedNetworkConfig(config.Network)[0] // Need a new copy of the network for each test
 
 					testEnvironment := environment.
 						New(&environment.Config{
@@ -224,7 +250,7 @@ func TestAutomationChaos(t *testing.T) {
 						if chainClient != nil {
 							chainClient.GasStats().PrintStats()
 						}
-						err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+						err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
 						require.NoError(t, err, "Error tearing down environment")
 					})
 
@@ -251,17 +277,23 @@ func TestAutomationChaos(t *testing.T) {
 
 					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
 					nodesWithoutBootstrap := chainlinkNodes[1:]
-					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second)
+					defaultOCRRegistryConfig.RegistryVersion = registryVersion
+					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 					require.NoError(t, err, "Error building OCR config vars")
 					err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 					require.NoError(t, err, "Registry config should be be set successfully")
 					require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
-					consumers_conditional, upkeepIDs_conditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
-					consumers_logtrigger, upkeepIDs_logtrigger := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
+					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
+					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
 
-					consumers := append(consumers_conditional, consumers_logtrigger...)
-					upkeepIDs := append(upkeepIDs_conditional, upkeepIDs_logtrigger...)
+					consumers := append(consumersConditional, consumersLogtrigger...)
+					upkeepIDs := append(upkeepidsConditional, upkeepidsLogtrigger...)
+
+					for _, c := range consumersLogtrigger {
+						err = c.Start()
+						require.NoError(t, err, "Error starting consumer")
+					}
 
 					l.Info().Msg("Waiting for all upkeeps to be performed")
 

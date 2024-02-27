@@ -97,6 +97,14 @@ type staticMercuryProvider struct {
 	types.MercuryProvider
 }
 
+type staticAutomationProvider struct {
+	types.AutomationProvider
+}
+
+type staticPluginProvider struct {
+	types.PluginProvider
+}
+
 type mockRelayer struct {
 	types.Relayer
 }
@@ -111,6 +119,14 @@ func (m *mockRelayer) NewFunctionsProvider(rargs types.RelayArgs, pargs types.Pl
 
 func (m *mockRelayer) NewMercuryProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
 	return staticMercuryProvider{}, nil
+}
+
+func (m *mockRelayer) NewAutomationProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.AutomationProvider, error) {
+	return staticAutomationProvider{}, nil
+}
+
+func (m *mockRelayer) NewPluginProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	return staticPluginProvider{}, nil
 }
 
 type mockRelayerExt struct {
@@ -157,7 +173,7 @@ func TestRelayerServerAdapter(t *testing.T) {
 		},
 		{
 			ProviderType: string(types.GenericPlugin),
-			Error:        "unexpected call to NewPluginProvider",
+			Test:         isType[types.PluginProvider],
 		},
 	}
 

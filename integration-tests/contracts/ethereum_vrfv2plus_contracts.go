@@ -180,15 +180,14 @@ func (v *EthereumVRFCoordinatorV2_5) CancelSubscription(subID *big.Int, to commo
 	return tx, v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) OracleWithdraw(recipient common.Address, amount *big.Int) error {
+func (v *EthereumVRFCoordinatorV2_5) Withdraw(recipient common.Address) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	tx, err := v.coordinator.OracleWithdraw(
+	tx, err := v.coordinator.Withdraw(
 		opts,
 		recipient,
-		amount,
 	)
 	if err != nil {
 		return err
@@ -196,15 +195,14 @@ func (v *EthereumVRFCoordinatorV2_5) OracleWithdraw(recipient common.Address, am
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) OracleWithdrawNative(recipient common.Address, amount *big.Int) error {
+func (v *EthereumVRFCoordinatorV2_5) WithdrawNative(recipient common.Address) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	tx, err := v.coordinator.OracleWithdrawNative(
+	tx, err := v.coordinator.WithdrawNative(
 		opts,
 		recipient,
-		amount,
 	)
 	if err != nil {
 		return err
@@ -212,7 +210,16 @@ func (v *EthereumVRFCoordinatorV2_5) OracleWithdrawNative(recipient common.Addre
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFCoordinatorV2_5) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig) error {
+func (v *EthereumVRFCoordinatorV2_5) SetConfig(
+	minimumRequestConfirmations uint16,
+	maxGasLimit uint32,
+	stalenessSeconds uint32,
+	gasAfterPaymentCalculation uint32,
+	fallbackWeiPerUnitLink *big.Int,
+	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
+	nativePremiumPercentage uint8,
+	linkPremiumPercentage uint8) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -224,7 +231,10 @@ func (v *EthereumVRFCoordinatorV2_5) SetConfig(minimumRequestConfirmations uint1
 		stalenessSeconds,
 		gasAfterPaymentCalculation,
 		fallbackWeiPerUnitLink,
-		feeConfig,
+		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
+		nativePremiumPercentage,
+		linkPremiumPercentage,
 	)
 	if err != nil {
 		return err
@@ -249,14 +259,14 @@ func (v *EthereumVRFCoordinatorV2_5) SetLINKAndLINKNativeFeed(linkAddress string
 }
 
 func (v *EthereumVRFCoordinatorV2_5) RegisterProvingKey(
-	oracleAddr string,
 	publicProvingKey [2]*big.Int,
+	gasLaneMaxGas uint64,
 ) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, common.HexToAddress(oracleAddr), publicProvingKey)
+	tx, err := v.coordinator.RegisterProvingKey(opts, publicProvingKey, gasLaneMaxGas)
 	if err != nil {
 		return err
 	}
@@ -512,14 +522,14 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	averageFulfillmentInMillions, err := v.consumer.SAverageFulfillmentInMillions(&bind.CallOpts{
+	averageFulfillmentInMillions, err := v.consumer.SAverageResponseTimeInBlocksMillions(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
 	if err != nil {
 		return nil, err
 	}
-	slowestFulfillment, err := v.consumer.SSlowestFulfillment(&bind.CallOpts{
+	slowestFulfillment, err := v.consumer.SSlowestResponseTimeInBlocks(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
@@ -527,7 +537,30 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	fastestFulfillment, err := v.consumer.SFastestFulfillment(&bind.CallOpts{
+	fastestFulfillment, err := v.consumer.SFastestResponseTimeInBlocks(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	averageResponseTimeInSeconds, err := v.consumer.SAverageResponseTimeInSecondsMillions(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+	slowestResponseTimeInSeconds, err := v.consumer.SSlowestResponseTimeInSeconds(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	fastestResponseTimeInSeconds, err := v.consumer.SFastestResponseTimeInSeconds(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
@@ -536,11 +569,14 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	}
 
 	return &VRFLoadTestMetrics{
-		requestCount,
-		fulfilmentCount,
-		averageFulfillmentInMillions,
-		slowestFulfillment,
-		fastestFulfillment,
+		RequestCount:                         requestCount,
+		FulfilmentCount:                      fulfilmentCount,
+		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
+		SlowestFulfillment:                   slowestFulfillment,
+		FastestFulfillment:                   fastestFulfillment,
+		AverageResponseTimeInSecondsMillions: averageResponseTimeInSeconds,
+		SlowestResponseTimeInSeconds:         slowestResponseTimeInSeconds,
+		FastestResponseTimeInSeconds:         fastestResponseTimeInSeconds,
 	}, nil
 }
 
@@ -601,7 +637,16 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetSubscription(ctx contex
 	return subscription, nil
 }
 
-func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig) error {
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) SetConfig(
+	minimumRequestConfirmations uint16,
+	maxGasLimit uint32,
+	stalenessSeconds uint32,
+	gasAfterPaymentCalculation uint32,
+	fallbackWeiPerUnitLink *big.Int,
+	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
+	nativePremiumPercentage uint8,
+	linkPremiumPercentage uint8) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -613,7 +658,10 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) SetConfig(minimumRequestCo
 		stalenessSeconds,
 		gasAfterPaymentCalculation,
 		fallbackWeiPerUnitLink,
-		feeConfig,
+		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
+		nativePremiumPercentage,
+		linkPremiumPercentage,
 	)
 	if err != nil {
 		return err
@@ -638,14 +686,13 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) SetLINKAndLINKNativeFeed(l
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) RegisterProvingKey(
-	oracleAddr string,
 	publicProvingKey [2]*big.Int,
 ) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	tx, err := v.coordinator.RegisterProvingKey(opts, common.HexToAddress(oracleAddr), publicProvingKey)
+	tx, err := v.coordinator.RegisterProvingKey(opts, publicProvingKey)
 	if err != nil {
 		return err
 	}
@@ -1015,10 +1062,13 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLoadTestMetrics(ctx contex
 	}
 
 	return &VRFLoadTestMetrics{
-		requestCount,
-		fulfilmentCount,
-		averageFulfillmentInMillions,
-		slowestFulfillment,
-		fastestFulfillment,
+		RequestCount:                         requestCount,
+		FulfilmentCount:                      fulfilmentCount,
+		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
+		SlowestFulfillment:                   slowestFulfillment,
+		FastestFulfillment:                   fastestFulfillment,
+		AverageResponseTimeInSecondsMillions: nil,
+		SlowestResponseTimeInSeconds:         nil,
+		FastestResponseTimeInSeconds:         nil,
 	}, nil
 }

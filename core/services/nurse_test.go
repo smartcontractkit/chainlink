@@ -9,18 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type mockConfig struct {
 	t                    *testing.T
 	root                 string
-	pollInterval         *models.Duration
-	gatherDuration       *models.Duration
-	traceDuration        *models.Duration
+	pollInterval         *commonconfig.Duration
+	gatherDuration       *commonconfig.Duration
+	traceDuration        *commonconfig.Duration
 	profileSize          utils.FileSize
 	cpuProfileRate       int
 	memProfileRate       int
@@ -31,8 +31,8 @@ type mockConfig struct {
 }
 
 var (
-	testInterval = time.Duration(50 * time.Millisecond)
-	testDuration = time.Duration(20 * time.Millisecond)
+	testInterval = 50 * time.Millisecond
+	testDuration = 20 * time.Millisecond
 	testRate     = 100
 	testSize     = 16 * 1024 * 1024
 )
@@ -40,9 +40,9 @@ var (
 func newMockConfig(t *testing.T) *mockConfig {
 	return &mockConfig{
 		root:                 t.TempDir(),
-		pollInterval:         models.MustNewDuration(testInterval),
-		gatherDuration:       models.MustNewDuration(testDuration),
-		traceDuration:        models.MustNewDuration(testDuration),
+		pollInterval:         commonconfig.MustNewDuration(testInterval),
+		gatherDuration:       commonconfig.MustNewDuration(testDuration),
+		traceDuration:        commonconfig.MustNewDuration(testDuration),
 		profileSize:          utils.FileSize(testSize),
 		memProfileRate:       runtime.MemProfileRate,
 		blockProfileRate:     testRate,
@@ -57,15 +57,15 @@ func (c mockConfig) ProfileRoot() string {
 	return c.root
 }
 
-func (c mockConfig) PollInterval() models.Duration {
+func (c mockConfig) PollInterval() commonconfig.Duration {
 	return *c.pollInterval
 }
 
-func (c mockConfig) GatherDuration() models.Duration {
+func (c mockConfig) GatherDuration() commonconfig.Duration {
 	return *c.gatherDuration
 }
 
-func (c mockConfig) GatherTraceDuration() models.Duration {
+func (c mockConfig) GatherTraceDuration() commonconfig.Duration {
 	return *c.traceDuration
 }
 

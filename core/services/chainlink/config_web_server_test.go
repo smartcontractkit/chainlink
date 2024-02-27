@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestWebServerConfig(t *testing.T) {
@@ -24,8 +24,8 @@ func TestWebServerConfig(t *testing.T) {
 	assert.Equal(t, 1*time.Minute, ws.HTTPWriteTimeout())
 	assert.Equal(t, uint16(56), ws.HTTPPort())
 	assert.True(t, ws.SecureCookies())
-	assert.Equal(t, *models.MustNewDuration(1 * time.Hour), ws.SessionTimeout())
-	assert.Equal(t, *models.MustNewDuration(168 * time.Hour), ws.SessionReaperExpiration())
+	assert.Equal(t, *commonconfig.MustNewDuration(1 * time.Hour), ws.SessionTimeout())
+	assert.Equal(t, *commonconfig.MustNewDuration(168 * time.Hour), ws.SessionReaperExpiration())
 	assert.Equal(t, int64(32770), ws.HTTPMaxSize())
 	assert.Equal(t, 15*time.Second, ws.StartTimeout())
 	tls := ws.TLS()

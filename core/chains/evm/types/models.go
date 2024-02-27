@@ -16,13 +16,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Head represents a BlockNumber, BlockHash.
@@ -104,11 +105,10 @@ func (h *Head) IsInChain(blockHash common.Hash) bool {
 		if h.Hash == blockHash {
 			return true
 		}
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		h = h.Parent
 	}
 	return false
 }
@@ -120,11 +120,10 @@ func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 		if h.Number == blockNum {
 			return h.Hash
 		}
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		h = h.Parent
 	}
 	return common.Hash{}
 }
@@ -137,15 +136,14 @@ func (h *Head) ChainLength() uint32 {
 	l := uint32(1)
 
 	for {
-		if h.Parent != nil {
-			l++
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		l++
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		h = h.Parent
 	}
 	return l
 }
@@ -156,14 +154,13 @@ func (h *Head) ChainHashes() []common.Hash {
 
 	for {
 		hashes = append(hashes, h.Hash)
-		if h.Parent != nil {
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		h = h.Parent
 	}
 	return hashes
 }
@@ -185,15 +182,14 @@ func (h *Head) ChainString() string {
 
 	for {
 		sb.WriteString(h.String())
-		if h.Parent != nil {
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			sb.WriteString("->")
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		sb.WriteString("->")
+		h = h.Parent
 	}
 	sb.WriteString("->nil")
 	return sb.String()
@@ -315,7 +311,7 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 	if h.StateRoot != (common.Hash{}) {
 		jsonHead.StateRoot = &h.StateRoot
 	}
-	jsonHead.Number = (*hexutil.Big)(big.NewInt(int64(h.Number)))
+	jsonHead.Number = (*hexutil.Big)(big.NewInt(h.Number))
 	if h.ParentHash != (common.Hash{}) {
 		jsonHead.ParentHash = &h.ParentHash
 	}
@@ -500,7 +496,7 @@ func (f *FunctionSelector) SetBytes(b []byte) { copy(f[:], b[:FunctionSelectorLe
 var hexRegexp = regexp.MustCompile("^[0-9a-fA-F]*$")
 
 func unmarshalFromString(s string, f *FunctionSelector) error {
-	if utils.HasHexPrefix(s) {
+	if hex.HasPrefix(s) {
 		if !hexRegexp.Match([]byte(s)[2:]) {
 			return fmt.Errorf("function selector %s must be 0x-hex encoded", s)
 		}

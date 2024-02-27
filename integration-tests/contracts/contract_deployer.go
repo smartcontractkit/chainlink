@@ -1,11 +1,14 @@
 package contracts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,17 +21,25 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/arbitrum_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
+	registrylogica22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_a_wrapper_2_2"
+	registrylogicb22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_b_wrapper_2_2"
+	registry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_module_base"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
+	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
@@ -53,21 +64,22 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/optimism_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/scroll_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
-
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -83,6 +95,7 @@ type ContractDeployer interface {
 	LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error)
 	DeployVRFContract() (VRF, error)
 	DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error)
+	DeployVRFMockETHLINKFeed(answer *big.Int) (VRFMockETHLINKFeed, error)
 	LoadETHLINKFeed(address common.Address) (MockETHLINKFeed, error)
 	DeployMockGasFeed(answer *big.Int) (MockGasFeed, error)
 	LoadGasFeed(address common.Address) (MockGasFeed, error)
@@ -109,15 +122,19 @@ type ContractDeployer interface {
 	DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error)
 	DeployUpkeepPerformCounterRestrictive(testRange *big.Int, averageEligibilityCadence *big.Int) (UpkeepPerformCounterRestrictive, error)
 	DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error)
+	DeployVRFOwner(coordinatorAddr string) (VRFOwner, error)
+	DeployVRFCoordinatorTestV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (*EthereumVRFCoordinatorTestV2, error)
 	DeployVRFConsumerV2(linkAddr string, coordinatorAddr string) (VRFConsumerV2, error)
 	DeployVRFv2Consumer(coordinatorAddr string) (VRFv2Consumer, error)
 	DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error)
+	DeployVRFV2WrapperLoadTestConsumer(linkAddr string, vrfV2WrapperAddr string) (VRFv2WrapperLoadTestConsumer, error)
 	DeployVRFv2PlusLoadTestConsumer(coordinatorAddr string) (VRFv2PlusLoadTestConsumer, error)
 	DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)
 	DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error)
+	DeployVRFV2Wrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2Wrapper, error)
 	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2PlusWrapper, error)
 	DeployDKG() (DKG, error)
 	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string) (VRFCoordinatorV3, error)
@@ -145,6 +162,7 @@ type ContractDeployer interface {
 	DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
 	DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error)
 	DeployLogEmitterContract() (LogEmitter, error)
+	DeployMultiCallContract() (common.Address, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -182,6 +200,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &KromaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.WeMixClient:
 		return &WeMixContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.GnosisClient:
+		return &GnosisContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -254,6 +274,10 @@ type KromaContractDeployer struct {
 }
 
 type WeMixContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type GnosisContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -693,6 +717,23 @@ func (e *EthereumContractDeployer) DeployMockETHLINKFeed(answer *big.Int) (MockE
 	}, err
 }
 
+func (e *EthereumContractDeployer) DeployVRFMockETHLINKFeed(answer *big.Int) (VRFMockETHLINKFeed, error) {
+	address, _, instance, err := e.client.DeployContract("VRFMockETHLINKAggregator", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return vrf_mock_ethlink_aggregator.DeployVRFMockETHLINKAggregator(auth, backend, answer)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumVRFMockETHLINKFeed{
+		client:  e.client,
+		feed:    instance.(*vrf_mock_ethlink_aggregator.VRFMockETHLINKAggregator),
+		address: address,
+	}, err
+}
+
 // LoadETHLINKFeed returns deployed on given address EthereumMockETHLINKFeed
 func (e *EthereumContractDeployer) LoadETHLINKFeed(address common.Address) (MockETHLINKFeed, error) {
 	instance, err := e.client.LoadContract("MockETHLINKFeed", address, func(
@@ -806,7 +847,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
 			address:     address,
 		}, err
-	} else if registryVersion == eth_contracts.RegistryVersion_2_1 {
+	} else if registryVersion == eth_contracts.RegistryVersion_2_1 || registryVersion == eth_contracts.RegistryVersion_2_2 { // both 2.1 and 2.2 registry use registrar 2.1
 		// deploy registrar 2.1
 		address, _, instance, err := e.client.DeployContract("AutomationRegistrar", func(
 			opts *bind.TransactOpts,
@@ -1105,18 +1146,8 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		}, err
 
 	case eth_contracts.RegistryVersion_2_1:
-		automationForwarderLogicAddr, _, _, err := e.client.DeployContract("automationForwarderLogic", func(
-			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
-		) (common.Address, *types.Transaction, interface{}, error) {
-			return automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend)
-		})
-
+		automationForwarderLogicAddr, err := deployAutomationForwarderLogic(e.client)
 		if err != nil {
-			return nil, err
-		}
-
-		if err := e.client.WaitForEvents(); err != nil {
 			return nil, err
 		}
 
@@ -1191,9 +1222,160 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			registry2_1: registryMaster,
 			address:     address,
 		}, err
+	case eth_contracts.RegistryVersion_2_2:
+		var chainModuleAddr *common.Address
+		var err error
+		chainId := e.client.GetChainID().Int64()
+
+		if chainId == 534352 || chainId == 534351 { // Scroll / Scroll Sepolia
+			chainModuleAddr, _, _, err = e.client.DeployContract("ScrollModule", func(
+				auth *bind.TransactOpts,
+				backend bind.ContractBackend,
+			) (common.Address, *types.Transaction, interface{}, error) {
+				return scroll_module.DeployScrollModule(auth, backend)
+			})
+		} else if chainId == 42161 || chainId == 421614 || chainId == 421613 { // Arbitrum One / Sepolia / Goerli
+			chainModuleAddr, _, _, err = e.client.DeployContract("ArbitrumModule", func(
+				auth *bind.TransactOpts,
+				backend bind.ContractBackend,
+			) (common.Address, *types.Transaction, interface{}, error) {
+				return arbitrum_module.DeployArbitrumModule(auth, backend)
+			})
+		} else if chainId == 10 || chainId == 11155420 { // Optimism / Optimism Sepolia
+			chainModuleAddr, _, _, err = e.client.DeployContract("OptimismModule", func(
+				auth *bind.TransactOpts,
+				backend bind.ContractBackend,
+			) (common.Address, *types.Transaction, interface{}, error) {
+				return optimism_module.DeployOptimismModule(auth, backend)
+			})
+		} else {
+			chainModuleAddr, _, _, err = e.client.DeployContract("ChainModuleBase", func(
+				auth *bind.TransactOpts,
+				backend bind.ContractBackend,
+			) (common.Address, *types.Transaction, interface{}, error) {
+				return chain_module_base.DeployChainModuleBase(auth, backend)
+			})
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err = e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
+		automationForwarderLogicAddr, err := deployAutomationForwarderLogic(e.client)
+		if err != nil {
+			return nil, err
+		}
+
+		var allowedReadOnlyAddress common.Address
+		if chainId == 1101 || chainId == 1442 || chainId == 2442 {
+			allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
+		} else {
+			allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+		}
+		registryLogicBAddr, _, _, err := e.client.DeployContract("AutomationRegistryLogicB2_2", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+
+			return registrylogicb22.DeployAutomationRegistryLogicB(
+				auth,
+				backend,
+				common.HexToAddress(opts.LinkAddr),
+				common.HexToAddress(opts.ETHFeedAddr),
+				common.HexToAddress(opts.GasFeedAddr),
+				*automationForwarderLogicAddr,
+				allowedReadOnlyAddress,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if err := e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
+		registryLogicAAddr, _, _, err := e.client.DeployContract("AutomationRegistryLogicA2_2", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+
+			return registrylogica22.DeployAutomationRegistryLogicA(
+				auth,
+				backend,
+				*registryLogicBAddr,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
+		address, _, _, err := e.client.DeployContract("AutomationRegistry2_2", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return registry22.DeployAutomationRegistry(
+				auth,
+				backend,
+				*registryLogicAAddr,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
+		registryMaster, err := iregistry22.NewIAutomationRegistryMaster(
+			*address,
+			e.client.Backend(),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		chainModule, err := i_chain_module.NewIChainModule(
+			*chainModuleAddr,
+			e.client.Backend(),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		return &EthereumKeeperRegistry{
+			client:      e.client,
+			version:     eth_contracts.RegistryVersion_2_2,
+			registry2_2: registryMaster,
+			chainModule: chainModule,
+			address:     address,
+		}, err
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", opts.RegistryVersion)
 	}
+}
+
+func deployAutomationForwarderLogic(client blockchain.EVMClient) (*common.Address, error) {
+	automationForwarderLogicAddr, _, _, err := client.DeployContract("automationForwarderLogic", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := client.WaitForEvents(); err != nil {
+		return nil, err
+	}
+	return automationForwarderLogicAddr, nil
 }
 
 // LoadKeeperRegistry returns deployed on given address EthereumKeeperRegistry
@@ -1277,6 +1459,22 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address:     &address,
 			client:      e.client,
 			registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
+			version:     registryVersion,
+		}, err
+	case eth_contracts.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
+		instance, err := e.client.LoadContract("AutomationRegistry", address, func(
+			address common.Address,
+			backend bind.ContractBackend,
+		) (interface{}, error) {
+			return iregistry22.NewIAutomationRegistryMaster(address, backend)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistry{
+			address:     &address,
+			client:      e.client,
+			registry2_2: instance.(*iregistry22.IAutomationRegistryMaster),
 			version:     registryVersion,
 		}, err
 	default:
@@ -1710,4 +1908,33 @@ func (e *EthereumContractDeployer) DeployLogEmitterContract() (LogEmitter, error
 		address:  *address,
 		l:        e.l,
 	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMultiCallContract() (common.Address, error) {
+	multiCallABI, err := abi.JSON(strings.NewReader(MultiCallABI))
+	if err != nil {
+		return common.Address{}, err
+	}
+	address, tx, _, err := e.client.DeployContract("MultiCall Contract", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		address, tx, contract, err := bind.DeployContract(auth, multiCallABI, common.FromHex(MultiCallBIN), backend)
+		if err != nil {
+			return common.Address{}, nil, nil, err
+		}
+		return address, tx, contract, err
+	})
+	if err != nil {
+		return common.Address{}, err
+	}
+	r, err := bind.WaitMined(context.Background(), e.client.DeployBackend(), tx)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if r.Status != types.ReceiptStatusSuccessful {
+		return common.Address{}, fmt.Errorf("deploy multicall failed")
+	}
+	return *address, nil
+
 }

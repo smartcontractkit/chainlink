@@ -93,8 +93,6 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [AuditLogger]
 Enabled = false
@@ -281,6 +279,9 @@ LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
 LatestReportDeadline = '5s'
 
+[Mercury.TLS]
+CertFile = ''
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
@@ -292,6 +293,7 @@ LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -357,7 +359,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'fake'

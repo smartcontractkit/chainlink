@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -29,8 +28,10 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -49,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var nilOpts *bind.CallOpts
@@ -186,6 +186,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(5_000_000_000_000_000))
 	require.NoError(t, err)
 
+	// Deploy mock LINK/USD price feed
+	linkUsdFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(1_500_00_000))
+	require.NoError(t, err)
+
 	// Deploy Router contract
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
 	require.NoError(t, err)
@@ -211,7 +215,9 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		Enabled:         false, // TODO: true
 		SignerPublicKey: proofSignerPublicKey,
 	}
-	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig)
+	var initialAllowedSenders []common.Address
+	var initialBlockedSenders []common.Address
+	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig, initialAllowedSenders, initialBlockedSenders)
 	require.NoError(t, err)
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
@@ -220,16 +226,19 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		GasOverheadBeforeCallback:           uint32(325_000),
 		GasOverheadAfterCallback:            uint32(50_000),
 		RequestTimeoutSeconds:               uint32(300),
-		DonFee:                              big.NewInt(0),
+		DonFeeCentsUsd:                      uint16(0),
 		MaxSupportedRequestDataVersion:      uint16(1),
 		FulfillmentGasPriceOverEstimationBP: uint32(1_000),
 		FallbackNativePerUnitLink:           big.NewInt(5_000_000_000_000_000),
 		MinimumEstimateGasPriceWei:          big.NewInt(1_000_000_000),
+		OperationFeeCentsUsd:                uint16(0),
+		FallbackUsdPerUnitLink:              uint64(1_400_000_000),
+		FallbackUsdPerUnitLinkDecimals:      uint8(8),
 	}
 	require.NoError(t, err)
-	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
+	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
-	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
+	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
 
 	// Deploy Client contracts
@@ -319,14 +328,14 @@ func StartNewNode(
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.V2.Enabled = ptr(true)
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
 		if len(p2pV2Bootstrappers) > 0 {
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 		}
 
-		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
@@ -339,7 +348,7 @@ func StartNewNode(
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address
@@ -348,7 +357,7 @@ func StartNewNode(
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(
+	tx := cltest.NewLegacyTransaction(
 		n, transmitter,
 		assets.Ether(1).ToInt(),
 		21000,

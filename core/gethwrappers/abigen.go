@@ -17,7 +17,7 @@ import (
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"golang.org/x/tools/go/ast/astutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 const headerComment = `// Code generated - DO NOT EDIT.
@@ -147,11 +147,10 @@ func getContractName(fileNode *ast.File) string {
 				if len(n.Name) < 3 {
 					return true
 				}
-				if n.Name[len(n.Name)-3:] == "ABI" {
-					contractName = n.Name[:len(n.Name)-3]
-				} else {
+				if n.Name[len(n.Name)-3:] != "ABI" {
 					return true
 				}
+				contractName = n.Name[:len(n.Name)-3]
 			}
 		}
 		return false

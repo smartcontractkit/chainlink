@@ -91,8 +91,6 @@ type ConfigPoller struct {
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 	feedId             common.Hash
-	notifyCh           chan struct{}
-	subscription       pg.Subscription
 }
 
 func FilterName(addr common.Address, feedID common.Hash) string {
@@ -100,13 +98,8 @@ func FilterName(addr common.Address, feedID common.Hash) string {
 }
 
 // NewConfigPoller creates a new Mercury ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash, eventBroadcaster pg.EventBroadcaster) (*ConfigPoller, error) {
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr, feedId), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
-	if err != nil {
-		return nil, err
-	}
-
-	subscription, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnEVMLogs, "")
 	if err != nil {
 		return nil, err
 	}
@@ -116,27 +109,19 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 		feedId:             feedId,
-		notifyCh:           make(chan struct{}, 1),
-		subscription:       subscription,
 	}
 
 	return cp, nil
 }
 
-// Start the subscription to Postgres' notify events.
-func (cp *ConfigPoller) Start() {
-	go cp.startLogSubscription()
-}
+func (cp *ConfigPoller) Start() {}
 
-// Close the subscription to Postgres' notify events.
 func (cp *ConfigPoller) Close() error {
-	cp.subscription.Close()
 	return nil
 }
 
-// Notify abstracts the logpoller.LogPoller Notify() implementation
 func (cp *ConfigPoller) Notify() <-chan struct{} {
-	return cp.notifyCh
+	return nil // rely on libocr's builtin config polling
 }
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation
@@ -189,43 +174,4 @@ func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		return 0, err
 	}
 	return uint64(latest.BlockNumber), nil
-}
-
-func (cp *ConfigPoller) startLogSubscription() {
-	// trim the leading 0x to make it comparable to pg's hex encoding.
-	addressPgHex := cp.addr.Hex()[2:]
-	feedIdPgHex := cp.feedId.Hex()[2:]
-
-	for {
-		event, ok := <-cp.subscription.Events()
-		if !ok {
-			cp.lggr.Debug("eventBroadcaster subscription closed, exiting notify loop")
-			return
-		}
-
-		// Event payload should look like: "<address>:<topicVal1>,<topicVal2>"
-		addressTopicValues := strings.Split(event.Payload, ":")
-		if len(addressTopicValues) < 2 {
-			cp.lggr.Warnf("invalid event from %s channel: %s", pg.ChannelInsertOnEVMLogs, event.Payload)
-			continue
-		}
-
-		address := addressTopicValues[0]
-		if address != addressPgHex {
-			continue
-		}
-
-		topicValues := strings.Split(addressTopicValues[1], ",")
-		if len(topicValues) <= feedIdTopicIndex {
-			continue
-		}
-		if topicValues[feedIdTopicIndex] != feedIdPgHex {
-			continue
-		}
-
-		select {
-		case cp.notifyCh <- struct{}{}:
-		default:
-		}
-	}
 }

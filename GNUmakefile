@@ -6,7 +6,7 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
 .PHONY: install
-install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
+install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
 
 .PHONY: install-git-hooks
 install-git-hooks: ## Install git hooks.
@@ -14,8 +14,6 @@ install-git-hooks: ## Install git hooks.
 
 .PHONY: install-chainlink-autoinstall
 install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
-.PHONY: operator-ui-autoinstall
-operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 
 .PHONY: pnpmdep
 pnpmdep: ## Install solidity contract dependencies through pnpm
@@ -33,6 +31,7 @@ gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
+	cd ./integration-tests/load && go mod tidy
 
 .PHONY: godoc
 godoc: ## Install and run godoc
@@ -44,13 +43,16 @@ godoc: ## Install and run godoc
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
-chainlink: operator-ui ## Build the chainlink binary.
+.PHONY: chainlink
+chainlink: ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
-chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
+.PHONY: chainlink-dev
+chainlink-dev: ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
-chainlink-test: operator-ui ## Build a test build of chainlink binary.
+.PHONY: chainlink-test
+chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
 .PHONY: chainlink-local-start
@@ -60,6 +62,10 @@ chainlink-local-start:
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
+
+.PHONY: install-ocr3-capability
+install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -82,7 +88,7 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery ## Execute all go:generate commands.
+generate: abigen codecgen mockery protoc ## Execute all go:generate commands.
 	go generate -x ./...
 
 .PHONY: testscripts
@@ -117,6 +123,11 @@ mockery: $(mockery) ## Install mockery.
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
+
+.PHONY: protoc
+protoc: ## Install protoc
+	core/scripts/install-protoc.sh 25.1 /
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.

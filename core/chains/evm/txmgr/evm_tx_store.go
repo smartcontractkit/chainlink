@@ -150,7 +150,7 @@ func fromDBReceiptsPlus(rs []dbReceiptPlus) []ReceiptPlus {
 func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
 	receipts := make([]rawOnchainReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts[i] = rawOnchainReceipt(*rs[i])
+		receipts[i] = *rs[i]
 	}
 	return receipts
 }
@@ -1545,15 +1545,20 @@ func (o *evmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAt
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, etx *Tx, fromAddress common.Address, chainID *big.Int) error {
+func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, fromAddress common.Address, chainID *big.Int) (*Tx, error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	var dbEtx DbEthTx
+	etx := new(Tx)
 	err := qq.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
 	dbEtx.ToTx(etx)
-	return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+	}
+
+	return etx, nil
 }
 
 func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
@@ -1561,8 +1566,8 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-	if etx.State != txmgr.TxInProgress {
-		return pkgerrors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
+	if etx.State != txmgr.TxInProgress && etx.State != txmgr.TxUnstarted {
+		return pkgerrors.Errorf("can only transition to fatal_error from in_progress or unstarted, transaction is currently %s", etx.State)
 	}
 	if !etx.Error.Valid {
 		return errors.New("expected error field to be set")
@@ -1841,14 +1846,6 @@ RETURNING "txes".*
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}
-		var pruned int64
-		pruned, err = txRequest.Strategy.PruneQueue(ctx, o)
-		if err != nil {
-			return pkgerrors.Wrap(err, "CreateEthTransaction failed to prune evm.txes")
-		}
-		if pruned > 0 {
-			o.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", txRequest.FromAddress, "toAddress", txRequest.ToAddress, "meta", txRequest.Meta, "subject", txRequest.Strategy.Subject(), "replacementID", dbEtx.ID)
-		}
 		return nil
 	})
 	var etx Tx
@@ -1856,13 +1853,13 @@ RETURNING "txes".*
 	return etx, err
 }
 
-func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (n int64, err error) {
+func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (ids []int64, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
-		res, err := qq.Exec(`
+		err := qq.Select(&ids, `
 DELETE FROM evm.txes
 WHERE state = 'unstarted' AND subject = $1 AND
 id < (
@@ -1873,11 +1870,13 @@ id < (
 		ORDER BY id DESC
 		LIMIT $3
 	) numbers
-)`, subject, subject, queueSize)
+) RETURNING id`, subject, subject, queueSize)
 		if err != nil {
-			return pkgerrors.Wrap(err, "DeleteUnstartedEthTx failed")
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return fmt.Errorf("PruneUnstartedTxQueue failed: %w", err)
 		}
-		n, err = res.RowsAffected()
 		return err
 	})
 	return

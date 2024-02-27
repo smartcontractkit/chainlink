@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	automation21Utils "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -209,7 +209,7 @@ func TestPacker_UnpackPerformResult(t *testing.T) {
 	tests := []struct {
 		Name    string
 		RawData string
-		State   uint8
+		State   PipelineExecutionState
 	}{
 		{
 			Name:    "unpack success",

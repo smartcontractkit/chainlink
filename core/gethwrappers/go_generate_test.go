@@ -14,6 +14,7 @@ import (
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/fatih/color"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -112,7 +113,7 @@ func init() {
 	for db.Scan() {
 		line := strings.Fields(db.Text())
 		if stripTrailingColon(line[0], "") != "GETH_VERSION" {
-			if os.IsNotExist(utils.JustError(os.Stat(line[1]))) {
+			if os.IsNotExist(cutils.JustError(os.Stat(line[1]))) {
 				solidityArtifactsMissing = append(solidityArtifactsMissing, line[1])
 			}
 		}
@@ -137,11 +138,10 @@ func getProjectRoot(t *testing.T) (rootPath string) {
 	root, err := os.Getwd()
 	require.NoError(t, err, "could not get current working directory")
 	for root != "/" { // Walk up path to find dir containing go.mod
-		if _, err := os.Stat(filepath.Join(root, "go.mod")); os.IsNotExist(err) {
-			root = filepath.Dir(root)
-		} else {
+		if _, err := os.Stat(filepath.Join(root, "go.mod")); !os.IsNotExist(err) {
 			return root
 		}
+		root = filepath.Dir(root)
 	}
 	t.Fatal("could not find project root")
 	return

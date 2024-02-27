@@ -12,21 +12,27 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestForwarderOCRBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithForwarders().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
-		WithLogStream().
 		Build()
 	require.NoError(t, err)
 
@@ -68,7 +74,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID().String())
 	require.NoError(t, err, "failed to setup forwarder jobs")
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
@@ -79,7 +85,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(2, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")

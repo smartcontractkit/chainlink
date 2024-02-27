@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -81,15 +81,15 @@ func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evmrelay.Chai
 
 func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayExtenderConfig {
 	require.NotNil(t, testopts.KeyStore)
+	lggr := logger.TestLogger(t)
 	opts := legacyevm.ChainRelayExtenderConfig{
-		Logger:   logger.TestLogger(t),
+		Logger:   lggr,
 		KeyStore: testopts.KeyStore,
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:        testopts.GeneralConfig,
-			EventBroadcaster: pg.NewNullEventBroadcaster(),
-			MailMon:          testopts.MailMon,
-			GasEstimator:     testopts.GasEstimator,
-			DB:               testopts.DB,
+			AppConfig:    testopts.GeneralConfig,
+			MailMon:      testopts.MailMon,
+			GasEstimator: testopts.GasEstimator,
+			DB:           testopts.DB,
 		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
@@ -119,7 +119,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainR
 		}
 	}
 	if opts.MailMon == nil {
-		opts.MailMon = servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+		opts.MailMon = servicetest.Run(t, mailboxtest.NewMonitor(t))
 	}
 	if testopts.GasEstimator != nil {
 		opts.GenGasEstimator = func(*big.Int) gas.EvmFeeEstimator {

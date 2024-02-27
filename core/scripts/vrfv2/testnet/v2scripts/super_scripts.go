@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -51,8 +52,19 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	nodeSendingKeyFundingAmount := deployCmd.String("sending-key-funding-amount", constants.NodeSendingKeyFundingAmount, "CL node sending key funding amount")
 
 	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
+	batchFulfillmentGasMultiplier := deployCmd.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
+	estimateGasMultiplier := deployCmd.Float64("estimate-gas-multiplier", 1.1, "")
+	pollPeriod := deployCmd.String("poll-period", "300ms", "")
+	requestTimeout := deployCmd.String("request-timeout", "30m0s", "")
+	revertsPipelineEnabled := deployCmd.Bool("reverts-pipeline-enabled", true, "")
+	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
+	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
+	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
+	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
-	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", false, "whether to deploy VRF owner contracts")
+	deployVRFOwner := deployCmd.Bool("deploy-vrf-owner", true, "whether to deploy VRF owner contracts")
+	useTestCoordinator := deployCmd.Bool("use-test-coordinator", true, "whether to use test coordinator")
+	simulationBlock := deployCmd.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLink.String(), "fallback wei/link ratio")
@@ -75,6 +87,10 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	reqsForTier3 := deployCmd.Int64("reqs-for-tier-3", constants.ReqsForTier3, "requests for tier 3")
 	reqsForTier4 := deployCmd.Int64("reqs-for-tier-4", constants.ReqsForTier4, "requests for tier 4")
 	reqsForTier5 := deployCmd.Int64("reqs-for-tier-5", constants.ReqsForTier5, "requests for tier 5")
+
+	if *simulationBlock != "pending" && *simulationBlock != "latest" {
+		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+	}
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
@@ -136,15 +152,34 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
 	}
 
+	coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
+		BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
+		EstimateGasMultiplier:         *estimateGasMultiplier,
+		PollPeriod:                    *pollPeriod,
+		RequestTimeout:                *requestTimeout,
+		RevertsPipelineEnabled:        *revertsPipelineEnabled,
+	}
+
+	bhsJobSpecConfig := model.BHSJobSpecConfig{
+		RunTimeout:     *bhsJobRunTimeout,
+		WaitBlocks:     *bhsJobWaitBlocks,
+		LookBackBlocks: *bhsJobLookBackBlocks,
+		PollPeriod:     *bhsJobPollPeriod,
+	}
+
 	VRFV2DeployUniverse(
 		e,
 		subscriptionBalanceJuels,
 		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
-		*batchFulfillmentEnabled,
 		nodesMap,
 		*deployVRFOwner,
+		coordinatorJobSpecConfig,
+		bhsJobSpecConfig,
+		*useTestCoordinator,
+		*simulationBlock,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -160,9 +195,12 @@ func VRFV2DeployUniverse(
 	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2,
-	batchFulfillmentEnabled bool,
 	nodesMap map[string]model.Node,
 	deployVRFOwner bool,
+	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
+	bhsJobSpecConfig model.BHSJobSpecConfig,
+	useTestCoordinator bool,
+	simulationBlock string,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -211,9 +249,16 @@ func VRFV2DeployUniverse(
 		contractAddresses.BatchBHSAddress = DeployBatchBHS(e, contractAddresses.BhsContractAddress)
 	}
 
-	if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
-		fmt.Println("\nDeploying Coordinator...")
-		contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+	if useTestCoordinator {
+		if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+			fmt.Println("\nDeploying Test Coordinator...")
+			contractAddresses.CoordinatorAddress = DeployTestCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+		}
+	} else {
+		if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+			fmt.Println("\nDeploying Coordinator...")
+			contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
+		}
 	}
 
 	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(contractAddresses.CoordinatorAddress, e.Ec)
@@ -297,7 +342,7 @@ func VRFV2DeployUniverse(
 		tx, err := vrfOwner.SetAuthorizedSenders(e.Owner, authorizedSendersSlice)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf owner set authorized senders")
-		fmt.Printf("\nTransfering ownership of coordinator: %v, VRF Owner %v\n", contractAddresses.CoordinatorAddress, vrfOwnerAddress.String())
+		fmt.Printf("\nTransferring ownership of coordinator: %v, VRF Owner %v\n", contractAddresses.CoordinatorAddress, vrfOwnerAddress.String())
 		tx, err = coordinator.TransferOwnership(e.Owner, vrfOwnerAddress)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer ownership to", vrfOwnerAddress.String())
@@ -309,23 +354,29 @@ func VRFV2DeployUniverse(
 
 	formattedVrfPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFV2JobFormatted,
-		contractAddresses.CoordinatorAddress,      //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
-		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
-		compressedPkHex,                           //publicKey
-		coordinatorConfig.MinConfs,                //minIncomingConfirmations
-		e.ChainID,                                 //evmChainID
+		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
+		coordinatorJobSpecConfig.RevertsPipelineEnabled,        //revertsPipelineEnabled
+		compressedPkHex,            //publicKey
+		coordinatorConfig.MinConfs, //minIncomingConfirmations
+		e.ChainID,                  //evmChainID
 		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
+		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
-			} else {
-				return common.HexToAddress("0x0").String()
 			}
+			return common.HexToAddress("0x0").String()
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
+		simulationBlock,
 	)
 	if deployVRFOwner {
 		formattedVrfPrimaryJobSpec = strings.Replace(formattedVrfPrimaryJobSpec,
@@ -336,23 +387,29 @@ func VRFV2DeployUniverse(
 
 	formattedVrfBackupJobSpec := fmt.Sprintf(
 		jobs.VRFV2JobFormatted,
-		contractAddresses.CoordinatorAddress,      //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
-		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
-		compressedPkHex,                           //publicKey
-		100,                                       //minIncomingConfirmations
-		e.ChainID,                                 //evmChainID
+		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
+		coordinatorJobSpecConfig.RevertsPipelineEnabled,        //revertsPipelineEnabled
+		compressedPkHex, //publicKey
+		100,             //minIncomingConfirmations
+		e.ChainID,       //evmChainID
 		strings.Join(util.MapToAddressArr(nodesMap[model.VRFBackupNodeName].SendingKeys), "\",\""), //fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
+		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
-			} else {
-				return common.HexToAddress("0x0").String()
 			}
+			return common.HexToAddress("0x0").String()
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
+		simulationBlock,
 	)
 	if deployVRFOwner {
 		formattedVrfBackupJobSpec = strings.Replace(formattedVrfBackupJobSpec,
@@ -364,10 +421,12 @@ func VRFV2DeployUniverse(
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		30,                                   //waitBlocks
-		200,                                  //lookbackBlocks
+		bhsJobSpecConfig.WaitBlocks,          //waitBlocks
+		bhsJobSpecConfig.LookBackBlocks,      //lookbackBlocks
 		contractAddresses.BhsContractAddress, //bhs address
-		e.ChainID,                            //chain id
+		bhsJobSpecConfig.PollPeriod,
+		bhsJobSpecConfig.RunTimeout,
+		e.ChainID, //chain id
 		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), //sending addresses
 	)
 

@@ -22,6 +22,7 @@ import (
 // VU is a virtual user for the OCR load test
 // it creates a feed and triggers new rounds
 type VU struct {
+	*wasp.VUControl
 	rl            ratelimit.Limiter
 	rate          int
 	rateUnit      time.Duration
@@ -34,7 +35,6 @@ type VU struct {
 	msClient      *client2.MockserverClient
 	l             zerolog.Logger
 	ocrInstances  []contracts.OffchainAggregator
-	stop          chan struct{}
 }
 
 func NewVU(
@@ -49,6 +49,7 @@ func NewVU(
 	msClient *client2.MockserverClient,
 ) *VU {
 	return &VU{
+		VUControl:     wasp.NewVUControl(),
 		rl:            ratelimit.New(rate, ratelimit.Per(rateUnit)),
 		rate:          rate,
 		rateUnit:      rateUnit,
@@ -64,7 +65,7 @@ func NewVU(
 
 func (m *VU) Clone(_ *wasp.Generator) wasp.VirtualUser {
 	return &VU{
-		stop:          make(chan struct{}, 1),
+		VUControl:     wasp.NewVUControl(),
 		rl:            ratelimit.New(m.rate, ratelimit.Per(m.rateUnit)),
 		rate:          m.rate,
 		rateUnit:      m.rateUnit,
@@ -105,25 +106,17 @@ func (m *VU) Call(l *wasp.Generator) {
 		Msg("starting new round")
 	err := m.ocrInstances[0].RequestNewRound()
 	if err != nil {
-		l.ResponsesChan <- &wasp.CallResult{Error: err.Error(), Failed: true}
+		l.ResponsesChan <- &wasp.Response{Error: err.Error(), Failed: true}
 	}
 	for {
 		time.Sleep(5 * time.Second)
 		lr, err := m.ocrInstances[0].GetLatestRound(context.Background())
 		if err != nil {
-			l.ResponsesChan <- &wasp.CallResult{Error: err.Error(), Failed: true}
+			l.ResponsesChan <- &wasp.Response{Error: err.Error(), Failed: true}
 		}
 		m.l.Info().Interface("LatestRound", lr).Msg("latest round")
 		if lr.RoundId.Int64() >= requestedRound {
-			l.ResponsesChan <- &wasp.CallResult{}
+			l.ResponsesChan <- &wasp.Response{}
 		}
 	}
-}
-
-func (m *VU) Stop(_ *wasp.Generator) {
-	m.stop <- struct{}{}
-}
-
-func (m *VU) StopChan() chan struct{} {
-	return m.stop
 }

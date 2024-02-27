@@ -21,7 +21,6 @@ type Node struct {
 	NumberOfSendingKeysToCreate int
 	SendingKeyFundingAmount     *big.Int
 	VrfKeys                     []string
-	jobSpec                     string
 }
 
 type SendingKey struct {
@@ -49,4 +48,21 @@ type ContractAddresses struct {
 type VRFKeyRegistrationConfig struct {
 	VRFKeyUncompressedPubKey string
 	RegisterAgainstAddress   string
+}
+
+type CoordinatorJobSpecConfig struct {
+	BatchFulfillmentEnabled       bool
+	BatchFulfillmentGasMultiplier float64
+	EstimateGasMultiplier         float64
+	PollPeriod                    string
+	RequestTimeout                string
+	RevertsPipelineEnabled        bool
+}
+
+type BHSJobSpecConfig struct {
+	RunTimeout     string
+	WaitBlocks     int
+	LookBackBlocks int
+	PollPeriod     string
+	RequestTimeout string
 }

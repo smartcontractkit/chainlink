@@ -8,9 +8,10 @@ import (
 	"slices"
 	"strings"
 
+	cconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 var (
@@ -40,7 +41,7 @@ func init() {
 			Chain
 		}{}
 
-		if err := configutils.DecodeTOML(bytes.NewReader(b), &config); err != nil {
+		if err := cconfig.DecodeTOML(bytes.NewReader(b), &config); err != nil {
 			log.Fatalf("failed to decode %q: %v", path, err)
 		}
 		if fe.Name() == "fallback.toml" {
@@ -136,6 +137,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.LogKeepBlocksDepth; v != nil {
 		c.LogKeepBlocksDepth = v
 	}
+	if v := f.LogPrunePageSize; v != nil {
+		c.LogPrunePageSize = v
+	}
 	if v := f.MinIncomingConfirmations; v != nil {
 		c.MinIncomingConfirmations = v
 	}
@@ -177,4 +181,5 @@ func (c *Chain) SetFrom(f *Chain) {
 	c.NodePool.setFrom(&f.NodePool)
 	c.OCR.setFrom(&f.OCR)
 	c.OCR2.setFrom(&f.OCR2)
+	c.ChainWriter.setFrom(&f.ChainWriter)
 }

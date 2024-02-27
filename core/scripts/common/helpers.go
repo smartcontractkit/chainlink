@@ -171,6 +171,8 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 		prefix = "https://goerli.arbiscan.io"
 	case ArbitrumOneChainID: // Arbitrum mainnet
 		prefix = "https://arbiscan.io"
+	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
+		prefix = "https://sepolia.arbiscan.io"
 
 	case 56: // BSC mainnet
 		prefix = "https://bscscan.com"
@@ -233,6 +235,8 @@ func automationExplorerNetworkName(chainID int64) (prefix string) {
 		prefix = "arbitrum-goerli"
 	case ArbitrumOneChainID: // Arbitrum mainnet
 		prefix = "arbitrum"
+	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
+		prefix = "arbitrum-sepolia"
 
 	case 56: // BSC mainnet
 		prefix = "bsc"
@@ -395,12 +399,12 @@ func FundNode(e Environment, address string, fundingAmount *big.Int) {
 	var gasLimit uint64
 	if IsArbitrumChainID(e.ChainID) {
 		to := common.HexToAddress(address)
-		estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
+		estimated, err2 := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
 			From:  e.Owner.From,
 			To:    &to,
 			Value: fundingAmount,
 		})
-		PanicErr(err)
+		PanicErr(err2)
 		gasLimit = estimated
 	} else {
 		gasLimit = uint64(21_000)
@@ -461,7 +465,7 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 
 	hashes = make([]string, 0)
 
-	var offset *big.Int = big.NewInt(0)
+	offset := big.NewInt(0)
 	if getParentBlocks {
 		offset = big.NewInt(1)
 	}
@@ -475,15 +479,15 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			var h AvaHeader
 			// Get child block since it's the one that has the parent hash in its header.
 			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
-			err := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
-			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
+			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
 			}
 			// We can still use vanilla go-ethereum rlp.EncodeToBytes, see e.g
 			// https://github.com/ava-labs/coreth/blob/e3ca41bf5295a9a7ca1aeaf29d541fcbb94f79b1/core/types/hashing.go#L49-L57.
-			rlpHeader, err = rlp.EncodeToBytes(h)
-			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+			rlpHeader, err2 = rlp.EncodeToBytes(h)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
 			}
 
 			hashes = append(hashes, h.Hash().String())
@@ -494,7 +498,20 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			//fmt.Println("Calculated BH:", bh.String(),
 			//	"fetched BH:", h.Hash(),
 			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, offset).String())
+		} else if IsAvaxSubnet(env.ChainID) {
+			var h AvaSubnetHeader
+			// Get child block since it's the one that has the parent hash in its header.
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
+			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
+			}
+			rlpHeader, err2 = rlp.EncodeToBytes(h)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
+			}
 
+			hashes = append(hashes, h.Hash().String())
 		} else if IsPolygonEdgeNetwork(env.ChainID) {
 
 			// Get child block since it's the one that has the parent hash in its header.
@@ -509,16 +526,16 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 
 		} else {
 			// Get child block since it's the one that has the parent hash in its header.
-			h, err := env.Ec.HeaderByNumber(
+			h, err2 := env.Ec.HeaderByNumber(
 				context.Background(),
 				new(big.Int).Set(blockNum).Add(blockNum, offset),
 			)
-			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
 			}
-			rlpHeader, err = rlp.EncodeToBytes(h)
-			if err != nil {
-				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+			rlpHeader, err2 = rlp.EncodeToBytes(h)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
 			}
 
 			hashes = append(hashes, h.Hash().String())
@@ -566,12 +583,20 @@ func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err erro
 	return err
 }
 
-// IsAvaxNetwork returns true if the given chain ID corresponds to an avalanche network or subnet.
+// IsAvaxNetwork returns true if the given chain ID corresponds to an avalanche network.
 func IsAvaxNetwork(chainID int64) bool {
 	return chainID == 43114 || // C-chain mainnet
-		chainID == 43113 || // Fuji testnet
-		chainID == 335 || // DFK testnet
-		chainID == 53935 // DFK mainnet
+		chainID == 43113 // Fuji testnet
+}
+
+// IsAvaxSubnet returns true if the given chain ID corresponds to an avalanche subnet.
+func IsAvaxSubnet(chainID int64) bool {
+	return chainID == 335 || // DFK testnet
+		chainID == 53935 || // DFK mainnet
+		chainID == 955081 || // Nexon Dev
+		chainID == 595581 || // Nexon Test
+		chainID == 807424 || // Nexon QA
+		chainID == 847799 // Nexon Stage
 }
 
 func UpkeepLink(chainID int64, upkeepID *big.Int) string {

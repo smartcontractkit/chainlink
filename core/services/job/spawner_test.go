@@ -1,6 +1,7 @@
 package job_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -14,7 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -30,12 +33,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -52,7 +53,7 @@ func (d delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d delegate) ServicesForSpec(js job.Job) ([]job.ServiceCtx, error) {
+func (d delegate) ServicesForSpec(ctx context.Context, js job.Job) ([]job.ServiceCtx, error) {
 	if js.Type != d.jobType {
 		return nil, nil
 	}
@@ -129,7 +130,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2 := mocks.NewServiceCtx(t)
 		serviceA1.On("Start", mock.Anything).Return(nil).Once()
 		serviceA2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
-		mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 		dA := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, make(chan struct{}), dA}
 
@@ -188,7 +189,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
-		mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
@@ -222,7 +223,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
-		mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
@@ -285,10 +286,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
-			DB:               db,
-			QConfig:          testopts.GeneralConfig.Database(),
-			CSAETHKeystore:   keyStore,
-			EventBroadcaster: pg.NewNullEventBroadcaster(),
+			DB:             db,
+			QConfig:        testopts.GeneralConfig.Database(),
+			CSAETHKeystore: keyStore,
 		})
 		assert.NoError(t, err)
 
@@ -300,13 +300,13 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobOCR2VRF := makeOCR2VRFJobSpec(t, keyStore, config, address, chain.ID(), 2)
 
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
-		mailMon := servicetest.Run(t, mailbox.NewMonitor(t.Name()))
+		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil })
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), config.Database(), processConfig)
 
-		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, nil, monitoringEndpoint, legacyChains, lggr, ocr2DelegateConfig,
-			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon, nil)
+		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, nil, nil, monitoringEndpoint, legacyChains, lggr, ocr2DelegateConfig,
+			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon, capabilities.NewRegistry(lggr))
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{

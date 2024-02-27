@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,13 +22,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
@@ -37,8 +38,8 @@ type MockMercuryConfigProvider struct {
 	mock.Mock
 }
 
-func (m *MockMercuryConfigProvider) Credentials() *models.MercuryCredentials {
-	mc := &models.MercuryCredentials{
+func (m *MockMercuryConfigProvider) Credentials() *types.MercuryCredentials {
+	mc := &types.MercuryCredentials{
 		LegacyURL: "https://google.old.com",
 		URL:       "https://google.com",
 		Username:  "FakeClientID",
@@ -136,9 +137,9 @@ func TestStreams_CheckCallback(t *testing.T) {
 		performData  []byte
 		wantErr      assert.ErrorAssertionFunc
 
-		state     mercury.MercuryUpkeepState
+		state     encoding.PipelineExecutionState
 		retryable bool
-		registry  streamsRegistry
+		registry  streamRegistry
 	}{
 		{
 			name: "success - empty extra data",
@@ -230,7 +231,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 			callbackResp: []byte{},
 			callbackErr:  errors.New("bad response"),
 			wantErr:      assert.Error,
-			state:        mercury.RpcFlakyFailure,
+			state:        encoding.RpcFlakyFailure,
 			retryable:    true,
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -281,9 +282,9 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		allowed    bool
 		ethCallErr error
 		err        error
-		state      mercury.MercuryUpkeepState
-		reason     mercury.MercuryUpkeepFailureReason
-		registry   streamsRegistry
+		state      encoding.PipelineExecutionState
+		reason     encoding.UpkeepFailureReason
+		registry   streamRegistry
 		retryable  bool
 		config     []byte
 	}{
@@ -340,7 +341,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		{
 			name:   "failure - cannot unmarshal privilege config",
 			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
-			state:  mercury.MercuryUnmarshalError,
+			state:  encoding.MercuryUnmarshalError,
 			config: []byte{0, 1},
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -355,7 +356,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 			name:       "failure - flaky RPC",
 			retryable:  true,
 			err:        fmt.Errorf("failed to get upkeep privilege config: flaky RPC"),
-			state:      mercury.RpcFlakyFailure,
+			state:      encoding.RpcFlakyFailure,
 			ethCallErr: fmt.Errorf("flaky RPC"),
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -369,7 +370,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		{
 			name:   "failure - empty upkeep privilege config",
 			err:    fmt.Errorf("upkeep privilege config is empty"),
-			reason: mercury.MercuryUpkeepFailureReasonMercuryAccessNotAllowed,
+			reason: encoding.UpkeepFailureReasonMercuryAccessNotAllowed,
 			config: []byte{},
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -473,7 +474,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 		hasError          bool
 		hasPermission     bool
 		v3                bool
-		registry          streamsRegistry
+		registry          streamRegistry
 	}{
 		{
 			name: "success - happy path no cache",
@@ -484,7 +485,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: blockNum,
 					},
-					IneligibilityReason: uint8(mercury.MercuryUpkeepFailureReasonTargetCheckReverted),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonTargetCheckReverted),
 				},
 			},
 			blobs: map[string]string{
@@ -538,7 +539,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: blockNum,
 					},
-					IneligibilityReason: uint8(mercury.MercuryUpkeepFailureReasonTargetCheckReverted),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonTargetCheckReverted),
 				},
 			},
 			blobs: map[string]string{
@@ -711,7 +712,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: blockNum,
 					},
-					IneligibilityReason: uint8(mercury.MercuryUpkeepFailureReasonInvalidRevertDataInput),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput),
 				},
 			},
 			hasError: true,

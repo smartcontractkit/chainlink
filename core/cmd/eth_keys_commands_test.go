@@ -13,13 +13,14 @@ import (
 	"github.com/pkg/errors"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/stretchr/testify/assert"
@@ -147,7 +148,7 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 		withMocks(ethClient),
 	)
 	client, r := app.NewShellAndRenderer()
-	keys, err := app.KeyStore.Eth().GetAll()
+	keys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 	k := keys[0]
@@ -160,8 +161,8 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	assert.Nil(t, balances[0].LinkBalance)
 	assert.Nil(t, balances[0].MaxGasPriceWei)
 	assert.Equal(t, []string{
-		k.Address.String(), "0", "<nil>", "0", "false",
-		balances[0].UpdatedAt.String(), balances[0].CreatedAt.String(), "<nil>",
+		k.Address.String(), "0", "Unknown", "Unknown", "false",
+		balances[0].UpdatedAt.String(), balances[0].CreatedAt.String(), "None",
 	}, balances[0].ToRow())
 }
 
@@ -185,7 +186,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
-	keys, err := app.KeyStore.Eth().GetAll()
+	keys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 
@@ -201,7 +202,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	assert.NoError(t, client.CreateETHKey(c))
 
 	cltest.AssertCount(t, db, "evm.key_states", 2)
-	keys, err = app.KeyStore.Eth().GetAll()
+	keys, err = app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, 2, len(keys))
 }
@@ -220,7 +221,7 @@ func TestShell_DeleteETHKey(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	// Create the key
-	key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+	key, err := ethKeyStore.Create(testutils.Context(t), &cltest.FixtureChainID)
 	require.NoError(t, err)
 
 	// Delete the key
@@ -234,7 +235,7 @@ func TestShell_DeleteETHKey(t *testing.T) {
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
 
-	_, err = ethKeyStore.Get(key.Address.Hex())
+	_, err = ethKeyStore.Get(testutils.Context(t), key.Address.Hex())
 	assert.Error(t, err)
 }
 
@@ -302,7 +303,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
-	_, err = ethKeyStore.Get(address)
+	_, err = ethKeyStore.Get(testutils.Context(t), address)
 	require.Error(t, err)
 
 	cltest.AssertCount(t, app.GetSqlxDB(), "evm.key_states", 0)
@@ -327,7 +328,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
 	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
-	_, err = ethKeyStore.Get(address)
+	_, err = ethKeyStore.Get(testutils.Context(t), address)
 	require.NoError(t, err)
 
 	// Export test invalid id
@@ -410,7 +411,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
-	_, err = ethKeyStore.Get(address)
+	_, err = ethKeyStore.Get(testutils.Context(t), address)
 	require.Error(t, err)
 
 	// Import the key
@@ -434,7 +435,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
 	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
-	_, err = ethKeyStore.Get(address)
+	_, err = ethKeyStore.Get(testutils.Context(t), address)
 	require.NoError(t, err)
 
 	// Export test invalid id

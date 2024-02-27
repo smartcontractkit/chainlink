@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestLegacyChains(t *testing.T) {
@@ -34,10 +33,9 @@ func TestLegacyChains(t *testing.T) {
 
 func TestChainOpts_Validate(t *testing.T) {
 	type fields struct {
-		AppConfig        legacyevm.AppConfig
-		EventBroadcaster pg.EventBroadcaster
-		MailMon          *mailbox.Monitor
-		DB               *sqlx.DB
+		AppConfig legacyevm.AppConfig
+		MailMon   *mailbox.Monitor
+		DB        *sqlx.DB
 	}
 	tests := []struct {
 		name    string
@@ -47,19 +45,17 @@ func TestChainOpts_Validate(t *testing.T) {
 		{
 			name: "valid",
 			fields: fields{
-				AppConfig:        configtest.NewTestGeneralConfig(t),
-				EventBroadcaster: pg.NewNullEventBroadcaster(),
-				MailMon:          &mailbox.Monitor{},
-				DB:               pgtest.NewSqlxDB(t),
+				AppConfig: configtest.NewTestGeneralConfig(t),
+				MailMon:   &mailbox.Monitor{},
+				DB:        pgtest.NewSqlxDB(t),
 			},
 		},
 		{
 			name: "invalid",
 			fields: fields{
-				AppConfig:        nil,
-				EventBroadcaster: nil,
-				MailMon:          nil,
-				DB:               nil,
+				AppConfig: nil,
+				MailMon:   nil,
+				DB:        nil,
 			},
 			wantErr: true,
 		},
@@ -67,10 +63,9 @@ func TestChainOpts_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := legacyevm.ChainOpts{
-				AppConfig:        tt.fields.AppConfig,
-				EventBroadcaster: tt.fields.EventBroadcaster,
-				MailMon:          tt.fields.MailMon,
-				DB:               tt.fields.DB,
+				AppConfig: tt.fields.AppConfig,
+				MailMon:   tt.fields.MailMon,
+				DB:        tt.fields.DB,
 			}
 			if err := o.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("ChainOpts.Validate() error = %v, wantErr %v", err, tt.wantErr)

@@ -82,13 +82,14 @@ type Txm[
 	FEE feetypes.Fee,
 ] struct {
 	services.StateMachine
-	logger         logger.SugaredLogger
-	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	config         txmgrtypes.TransactionManagerChainConfig
-	txConfig       txmgrtypes.TransactionManagerTransactionsConfig
-	keyStore       txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
-	chainID        CHAIN_ID
-	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	logger                  logger.SugaredLogger
+	txStore                 txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	config                  txmgrtypes.TransactionManagerChainConfig
+	txConfig                txmgrtypes.TransactionManagerTransactionsConfig
+	keyStore                txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	chainID                 CHAIN_ID
+	checkerFactory          TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	pruneQueueAndCreateLock sync.Mutex
 
 	chHeads        chan HEAD
 	trigger        chan ADDR
@@ -191,10 +192,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
+		/* Tracker currently disabled for BCI-2638; refactor required
+		b.logger.Info("Txm starting tracker")
 		if err := ms.Start(ctx, b.tracker); err != nil {
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
 		}
+		*/
 
+		b.logger.Info("Txm starting runLoop")
 		b.wg.Add(1)
 		go b.runLoop()
 		<-b.chSubbed
@@ -204,7 +209,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 		}
 
 		if b.resender != nil {
-			b.resender.Start()
+			b.resender.Start(ctx)
 		}
 
 		if b.fwdMgr != nil {
@@ -240,7 +245,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while Broadcaster or Confirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(addr ADDR) (err error) {
-	ctx, cancel := services.StopChan(b.chStop).NewCtx()
+	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
 	if err = b.txStore.Abandon(ctx, b.chainID, addr); err != nil {
 		return fmt.Errorf("abandon failed to update txes for key %s: %w", addr.String(), err)
@@ -272,9 +277,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close TxAttemptBuilder: %w", err))
 		}
 
+		/* Tracker currently disabled for BCI-2638; refactor required
 		if err := b.tracker.Close(); err != nil {
 			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close Tracker: %w", err))
 		}
+		*/
 
 		return nil
 	})
@@ -301,10 +308,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
+	ctx, cancel := b.chStop.NewCtx()
+	defer cancel()
+
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
-	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges()
+	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges(ctx)
 	defer unsub()
 
 	close(b.chSubbed)
@@ -314,7 +324,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 
 	// execReset is defined as an inline function here because it closes over
 	// eb, ec and stopped
-	execReset := func(r *reset) {
+	execReset := func(ctx context.Context, r *reset) {
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
@@ -341,8 +351,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			ctx, cancel := b.chStop.NewCtx()
-			defer cancel()
 			// Retry indefinitely on failure
 			backoff := iutils.NewRedialBackoff()
 			for {
@@ -354,7 +362,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 						continue
 					}
 					return
-				case <-ctx.Done():
+				case <-b.chStop:
 					stopOnce.Do(func() { stopped = true })
 					return
 				}
@@ -367,7 +375,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.confirmer.startInternal(); err != nil {
+					if err := b.confirmer.startInternal(ctx); err != nil {
 						b.logger.Criticalw("Failed to start Confirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -389,7 +397,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			b.broadcaster.Trigger(address)
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
-			b.tracker.mb.Deliver(head.BlockNumber())
+			// Tracker currently disabled for BCI-2638; refactor required
+			// b.tracker.mb.Deliver(head.BlockNumber())
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -400,7 +409,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				reset.done <- errors.New("Txm was stopped")
 				continue
 			}
-			execReset(&reset)
+			execReset(ctx, &reset)
 		case <-b.chStop:
 			// close and exit
 			//
@@ -417,10 +426,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 			}
+			/* Tracker currently disabled for BCI-2638; refactor required
 			err = b.tracker.Close()
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
 			}
+			*/
 			return
 		case <-keysChanged:
 			// This check prevents the weird edge-case where you can select
@@ -431,7 +442,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if stopped {
 				continue
 			}
-			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(b.chainID)
+			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(ctx, b.chainID)
 			if err != nil {
 				b.logger.Critical("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
@@ -439,7 +450,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			}
 			b.logger.Debugw("Keys changed, reloading", "enabledAddresses", enabledAddresses)
 
-			execReset(nil)
+			execReset(ctx, nil)
 		}
 	}
 }
@@ -486,7 +497,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		}
 	}
 
-	if err = b.checkEnabled(txRequest.FromAddress); err != nil {
+	if err = b.checkEnabled(ctx, txRequest.FromAddress); err != nil {
 		return tx, err
 	}
 
@@ -513,7 +524,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		return tx, fmt.Errorf("Txm#CreateTransaction: %w", err)
 	}
 
-	tx, err = b.txStore.CreateTransaction(ctx, txRequest, b.chainID)
+	tx, err = b.pruneQueueAndCreateTxn(ctx, txRequest, b.chainID)
 	if err != nil {
 		return tx, err
 	}
@@ -533,8 +544,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForward
 	return
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(addr ADDR) error {
-	if err := b.keyStore.CheckEnabled(addr, b.chainID); err != nil {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(ctx context.Context, addr ADDR) error {
+	if err := b.keyStore.CheckEnabled(ctx, addr, b.chainID); err != nil {
 		return fmt.Errorf("cannot send transaction from %s on chain ID %s: %w", addr, b.chainID.String(), err)
 	}
 	return nil
@@ -553,7 +564,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		FeeLimit:       gasLimit,
 		Strategy:       NewSendEveryStrategy(),
 	}
-	etx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
+	etx, err = b.pruneQueueAndCreateTxn(ctx, txRequest, chainID)
 	if err != nil {
 		return etx, fmt.Errorf("SendNativeToken failed to insert tx: %w", err)
 	}
@@ -672,4 +683,40 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Fin
 
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error) {
 	return count, errors.New(n.ErrMsg)
+}
+
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueueAndCreateTxn(
+	ctx context.Context,
+	txRequest txmgrtypes.TxRequest[ADDR, TX_HASH],
+	chainID CHAIN_ID,
+) (
+	tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	err error,
+) {
+	b.pruneQueueAndCreateLock.Lock()
+	defer b.pruneQueueAndCreateLock.Unlock()
+
+	pruned, err := txRequest.Strategy.PruneQueue(ctx, b.txStore)
+	if err != nil {
+		return tx, err
+	}
+	if len(pruned) > 0 {
+		b.logger.Warnw(fmt.Sprintf("Pruned %d old unstarted transactions", len(pruned)),
+			"subject", txRequest.Strategy.Subject(),
+			"pruned-tx-ids", pruned,
+		)
+	}
+
+	tx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
+	if err != nil {
+		return tx, err
+	}
+	b.logger.Debugw("Created transaction",
+		"fromAddress", txRequest.FromAddress,
+		"toAddress", txRequest.ToAddress,
+		"meta", txRequest.Meta,
+		"transactionID", tx.ID,
+	)
+
+	return tx, nil
 }

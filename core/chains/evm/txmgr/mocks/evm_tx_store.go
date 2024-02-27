@@ -283,22 +283,34 @@ func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common
 	return r0, r1
 }
 
-// FindNextUnstartedTransactionFromAddress provides a mock function with given fields: ctx, etx, fromAddress, chainID
-func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], fromAddress common.Address, chainID *big.Int) error {
-	ret := _m.Called(ctx, etx, fromAddress, chainID)
+// FindNextUnstartedTransactionFromAddress provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, fromAddress common.Address, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindNextUnstartedTransactionFromAddress")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int) error); ok {
-		r0 = rf(ctx, etx, fromAddress, chainID)
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, fromAddress, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, fromAddress, chainID)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, fromAddress, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
@@ -1058,22 +1070,24 @@ func (_m *EvmTxStore) PreloadTxes(ctx context.Context, attempts []types.TxAttemp
 }
 
 // PruneUnstartedTxQueue provides a mock function with given fields: ctx, queueSize, subject
-func (_m *EvmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (int64, error) {
+func (_m *EvmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) ([]int64, error) {
 	ret := _m.Called(ctx, queueSize, subject)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PruneUnstartedTxQueue")
 	}
 
-	var r0 int64
+	var r0 []int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) ([]int64, error)); ok {
 		return rf(ctx, queueSize, subject)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) []int64); ok {
 		r0 = rf(ctx, queueSize, subject)
 	} else {
-		r0 = ret.Get(0).(int64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int64)
+		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, uint32, uuid.UUID) error); ok {

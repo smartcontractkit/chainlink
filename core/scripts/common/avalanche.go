@@ -79,8 +79,8 @@ func (b *AvaBloom) UnmarshalText(input []byte) error {
 // bloomValues returns the bytes (index-value pairs) to set for the given data
 func bloomValues(data []byte, hashbuf []byte) (uint, byte, uint, byte, uint, byte) {
 	sha := crypto.NewKeccakState()
-	sha.Write(data)
-	sha.Read(hashbuf)
+	sha.Write(data)   //nolint:errcheck
+	sha.Read(hashbuf) //nolint:errcheck
 	// The actual bits to flip
 	v1 := byte(1 << (hashbuf[1] & 0x7))
 	v2 := byte(1 << (hashbuf[3] & 0x7))
@@ -259,7 +259,7 @@ func (h *AvaHeader) Hash() common.Hash {
 func rlpHash(x interface{}) (h common.Hash) {
 	sha := crypto.NewKeccakState()
 	sha.Reset()
-	rlp.Encode(sha, x)
-	sha.Read(h[:])
+	rlp.Encode(sha, x) //nolint:errcheck
+	sha.Read(h[:])     //nolint:errcheck
 	return h
 }
