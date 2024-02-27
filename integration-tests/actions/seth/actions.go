@@ -28,13 +28,28 @@ import (
 
 var ContractDeploymentInterval = 200
 
+// FundChainlinkNodesFromRootAddress sends native token amount (expressed in human-scale) to each Chainlink Node
+// from root private key. It returns an error if any of the transactions failed.
+func FundChainlinkNodesFromRootAddress(
+	logger zerolog.Logger,
+	client *seth.Client,
+	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
+	amount *big.Float,
+) error {
+	if len(client.PrivateKeys) == 0 {
+		return errors.Wrap(errors.New(seth.ErrNoKeyLoaded), fmt.Sprintf("requested key: %d", 0))
+	}
+
+	return FundChainlinkNodes(logger, client, nodes, client.PrivateKeys[0], amount)
+}
+
 // FundChainlinkNodes sends native token amount (expressed in human-scale) to each Chainlink Node
-// using address at position x (fromKeyNum).
+// from private key's address. It returns an error if any of the transactions failed.
 func FundChainlinkNodes(
 	logger zerolog.Logger,
 	client *seth.Client,
 	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
-	fromKeyNum int,
+	privateKey *ecdsa.PrivateKey,
 	amount *big.Float,
 ) error {
 	refundErrors := []error{}
@@ -44,14 +59,10 @@ func FundChainlinkNodes(
 			return err
 		}
 
-		if fromKeyNum > len(client.PrivateKeys) || fromKeyNum > len(client.Addresses) {
-			return errors.Wrap(errors.New(seth.ErrNoKeyLoaded), fmt.Sprintf("requested key: %d", fromKeyNum))
-		}
-
 		err = SendFunds(logger, client, FundsToSendPayload{
 			ToAddress:  common.HexToAddress(toAddress),
 			Amount:     conversions.EtherToWei(amount),
-			PrivateKey: client.PrivateKeys[fromKeyNum],
+			PrivateKey: privateKey,
 		})
 		if err != nil {
 			refundErrors = append(refundErrors, err)

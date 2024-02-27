@@ -23,7 +23,7 @@ func SetupCluster(
 	seth *seth.Client,
 	workerNodes []*client.ChainlinkK8sClient,
 ) (common.Address, error) {
-	err := actions_seth.FundChainlinkNodes(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithAddress(workerNodes), 0, big.NewFloat(3))
+	err := actions_seth.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(3))
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -42,7 +42,7 @@ func SetupFeed(
 	bootstrapNode *client.ChainlinkK8sClient,
 	workerNodes []*client.ChainlinkK8sClient,
 ) ([]contracts.OffchainAggregator, error) {
-	ocrInstances, err := actions_seth.DeployOCRContracts(l, seth, 1, lta, workerNodes)
+	ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 	if err != nil {
 		return nil, err
 	}

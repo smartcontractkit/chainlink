@@ -152,7 +152,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	linkDeploymentData, err := contracts.DeployLinkTokenContract(env.SethClient)
 	require.NoError(t, err, "Error deploying link token contract")
 
-	err = actions_seth.FundChainlinkNodes(l, env.SethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), 0, big.NewFloat(.05))
+	err = actions_seth.FundChainlinkNodesFromRootAddress(l, env.SethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	// Gather transmitters

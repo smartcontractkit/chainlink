@@ -188,7 +188,7 @@ func TestOCRChaos(t *testing.T) {
 			linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
 			require.NoError(t, err, "Error deploying link token contract")
 
-			err = actions_seth.FundChainlinkNodes(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), 0, big.NewFloat(10))
+			err = actions_seth.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), big.NewFloat(10))
 			require.NoError(t, err)
 
 			ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, seth, 1, linkDeploymentData.Address, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
