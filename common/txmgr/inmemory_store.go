@@ -187,6 +187,24 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close
 
 // Abandon removes all transactions for a given address
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Abandon(ctx context.Context, chainID CHAIN_ID, addr ADDR) error {
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("abandon: %w", ErrInvalidChainID)
+	}
+
+	// Mark all persisted transactions as abandoned
+	if err := ms.txStore.Abandon(ctx, chainID, addr); err != nil {
+		return err
+	}
+
+	// check that the address exists in the unstarted transactions
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[addr]
+	if !ok {
+		return fmt.Errorf("abandon: %w", ErrAddressNotFound)
+	}
+	as.Abandon()
+
 	return nil
 }
 
