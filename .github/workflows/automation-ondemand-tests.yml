@@ -46,10 +46,11 @@ jobs:
       - name: Collect Metrics
         if: inputs.chainlinkImage == ''
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Build Chainlink Image ${{ matrix.image.name }}
         continue-on-error: true
       - name: Checkout the repo
@@ -59,7 +60,7 @@ jobs:
       - name: Check if image exists
         if: inputs.chainlinkImage == ''
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           repository: chainlink
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
@@ -67,7 +68,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage == ''
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -91,10 +92,11 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Build Test Image
         continue-on-error: true
       - name: Checkout the repo
@@ -119,32 +121,46 @@ jobs:
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
+      TEST_LOG_LEVEL: info
     strategy:
       fail-fast: false
       matrix:
         tests:
           - name: chaos
             suite: chaos
-            nodes: 5
+            nodes: 15
             os: ubuntu-latest
             pyroscope_env: ci-automation-on-demand-chaos
             network: SIMULATED
             command: -run ^TestAutomationChaos$ ./chaos
           - name: reorg
             suite: reorg
-            nodes: 1
+            nodes: 5
             os: ubuntu-latest
             pyroscope_env: ci-automation-on-demand-reorg
             network: SIMULATED_NONDEV
             command: -run ^TestAutomationReorg$ ./reorg
-          - name: upgrade
+          - name: upgrade 2.0
             suite: smoke
-            nodes: 6
+            nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED
-            command: -run ^TestAutomationNodeUpgrade$ ./smoke
+            command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
+          - name: upgrade 2.1
+            suite: smoke
+            nodes: 1
+            os: ubuntu20.04-8cores-32GB
+            pyroscope_env: ci-automation-on-demand-upgrade
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
+          - name: upgrade 2.2
+            suite: smoke
+            nodes: 1
+            os: ubuntu20.04-8cores-32GB
+            pyroscope_env: ci-automation-on-demand-upgrade
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_2 ./smoke
     runs-on: ${{ matrix.tests.os }}
     name: Automation On Demand ${{ matrix.tests.name }} Test
     steps:
@@ -216,14 +232,14 @@ jobs:
           enabled=$pyroscope_enabled
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"          
+          key_secret="$PYROSCOPE_KEY"          
           EOF
           
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
@@ -240,7 +256,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Upload test log
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         if: failure()
         with:
           name: test-log-${{ matrix.tests.name }}
@@ -250,10 +266,11 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Automation On Demand ${{ matrix.tests.name }} Test
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true

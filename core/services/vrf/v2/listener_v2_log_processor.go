@@ -155,22 +155,21 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 			Context: ctx}, sID)
 
 		if err != nil {
-			if strings.Contains(err.Error(), "execution reverted") {
-				// "execution reverted" indicates that the subscription no longer exists.
-				// We can no longer just mark these as processed and continue,
-				// since it could be that the subscription was canceled while there
-				// were still unfulfilled requests.
-				// The simplest approach to handle this is to enter the processRequestsPerSub
-				// loop rather than create a bunch of largely duplicated code
-				// to handle this specific situation, since we need to run the pipeline to get
-				// the VRF proof, abi-encode it, etc.
-				l.Warnw("Subscription not found - setting start balance to zero", "subID", subID, "err", err)
-				startLinkBalance = big.NewInt(0)
-			} else {
+			if !strings.Contains(err.Error(), "execution reverted") {
 				// Most likely this is an RPC error, so we re-try later.
 				l.Errorw("Unable to read subscription balance", "err", err)
 				return
 			}
+			// "execution reverted" indicates that the subscription no longer exists.
+			// We can no longer just mark these as processed and continue,
+			// since it could be that the subscription was canceled while there
+			// were still unfulfilled requests.
+			// The simplest approach to handle this is to enter the processRequestsPerSub
+			// loop rather than create a bunch of largely duplicated code
+			// to handle this specific situation, since we need to run the pipeline to get
+			// the VRF proof, abi-encode it, etc.
+			l.Warnw("Subscription not found - setting start balance to zero", "subID", subID, "err", err)
+			startLinkBalance = big.NewInt(0)
 		} else {
 			// Happy path - sub is active.
 			startLinkBalance = sub.Balance()
@@ -388,7 +387,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				"blockHash", p.req.req.Raw().BlockHash,
 			)
 			fromAddresses := lsn.fromAddresses()
-			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 			if err != nil {
 				l.Errorw("Couldn't get next from address", "err", err)
 				continue
@@ -718,7 +717,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
 			)
-			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 			if err != nil {
 				l.Errorw("Couldn't get next from address", "err", err)
 				continue

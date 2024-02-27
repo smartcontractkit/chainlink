@@ -35,10 +35,12 @@ export const deployRegistry21 = async (
 
 export const deployRegistry22 = async (
   from: Signer,
-  mode: Parameters<AutomationRegistryLogicBFactory['deploy']>[0],
-  link: Parameters<AutomationRegistryLogicBFactory['deploy']>[1],
-  linkNative: Parameters<AutomationRegistryLogicBFactory['deploy']>[2],
-  fastgas: Parameters<AutomationRegistryLogicBFactory['deploy']>[3],
+  link: Parameters<AutomationRegistryLogicBFactory['deploy']>[0],
+  linkNative: Parameters<AutomationRegistryLogicBFactory['deploy']>[1],
+  fastgas: Parameters<AutomationRegistryLogicBFactory['deploy']>[2],
+  allowedReadOnlyAddress: Parameters<
+    AutomationRegistryLogicBFactory['deploy']
+  >[3],
 ): Promise<IAutomationRegistry> => {
   const logicBFactory = await ethers.getContractFactory(
     'AutomationRegistryLogicB2_2',
@@ -55,7 +57,13 @@ export const deployRegistry22 = async (
   const forwarderLogic = await forwarderLogicFactory.connect(from).deploy()
   const logicB = await logicBFactory
     .connect(from)
-    .deploy(mode, link, linkNative, fastgas, forwarderLogic.address)
+    .deploy(
+      link,
+      linkNative,
+      fastgas,
+      forwarderLogic.address,
+      allowedReadOnlyAddress,
+    )
   const logicA = await logicAFactory.connect(from).deploy(logicB.address)
   const master = await registryFactory.connect(from).deploy(logicA.address)
   return IAutomationRegistryMasterFactory.connect(master.address, from)

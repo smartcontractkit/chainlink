@@ -4,16 +4,23 @@ import (
 	"fmt"
 	"sync"
 
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-type StreamID = string
+// alias for easier refactoring
+type StreamID = llotypes.StreamID
 
 type Registry interface {
-	Get(streamID StreamID) (strm Stream, exists bool)
+	Getter
 	Register(streamID StreamID, spec pipeline.Spec, rrs ResultRunSaver) error
 	Unregister(streamID StreamID)
+}
+
+type Getter interface {
+	Get(streamID StreamID) (strm Stream, exists bool)
 }
 
 type streamRegistry struct {
@@ -47,7 +54,7 @@ func (s *streamRegistry) Register(streamID StreamID, spec pipeline.Spec, rrs Res
 	s.Lock()
 	defer s.Unlock()
 	if _, exists := s.streams[streamID]; exists {
-		return fmt.Errorf("stream already registered for id: %q", streamID)
+		return fmt.Errorf("stream already registered for id: %d", streamID)
 	}
 	s.streams[streamID] = NewStream(s.lggr, streamID, spec, s.runner, rrs)
 	return nil

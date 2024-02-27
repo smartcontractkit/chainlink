@@ -14,7 +14,7 @@ import {FunctionsRouterSetup, FunctionsDONSetup, FunctionsSubscriptionSetup} fro
 /// @notice #constructor
 contract FunctionsCoordinator_Constructor is FunctionsRouterSetup {
   function test_Constructor_Success() public {
-    assertEq(s_functionsCoordinator.typeAndVersion(), "Functions Coordinator v1.2.0");
+    assertEq(s_functionsCoordinator.typeAndVersion(), "Functions Coordinator v1.3.0");
     assertEq(s_functionsCoordinator.owner(), OWNER_ADDRESS);
   }
 }
@@ -189,8 +189,9 @@ contract FunctionsCoordinator_StartRequest is FunctionsSubscriptionSetup {
       )
     );
 
+    // WARNING: Kludge in place. Remove in contracts v2.0.0
     FunctionsResponse.Commitment memory expectedComittment = FunctionsResponse.Commitment({
-      adminFee: s_adminFee,
+      adminFee: s_functionsCoordinator.getOperationFeeJuels(),
       coordinator: address(s_functionsCoordinator),
       client: address(s_functionsClient),
       subscriptionId: s_subscriptionId,
@@ -198,7 +199,7 @@ contract FunctionsCoordinator_StartRequest is FunctionsSubscriptionSetup {
       estimatedTotalCostJuels: costEstimate,
       timeoutTimestamp: timeoutTimestamp,
       requestId: expectedRequestId,
-      donFee: s_donFee,
+      donFee: s_functionsCoordinator.getDONFeeJuels(_requestData),
       gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback,
       gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback
     });

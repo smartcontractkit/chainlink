@@ -71,7 +71,7 @@ linters-settings:
       - name: identical-branches
       - name: get-return
       # - name: flag-parameter
-      # - name: early-return
+      - name: early-return
       - name: defer
       - name: constant-logical-expr
       # - name: confusing-naming

@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-...
+### Added
+
+- Gas bumping logic to the `SuggestedPriceEstimator`. The bumping mechanism for this estimator refetches the price from the RPC and adds a buffer on top using the greater of `BumpPercent` and `BumpMin`.
+- Add preliminary support for "llo" job type (Data Streams V1)
+- Add `LogPrunePageSize` parameter to the EVM configuration. This parameter controls the number of logs removed during prune phase in LogPoller. Default value is 0, which deletes all logs at once - exactly how it used to work, so it doesn't require any changes on the product's side.
+
+### Fixed
+
+- `P2P.V2` is required in configuration when either `OCR` or `OCR2` are enabled. The node will fail to boot if `P2P.V2` is not enabled.
+
+### Changed
+
+- Minimum required version of Postgres is now >= 12. Postgres 11 was EOL'd in November 2023. Added a new version check that will prevent Chainlink from running on EOL'd Postgres. If you are running Postgres <= 11 you should upgrade to the latest version. The check can be forcibly overridden by setting SKIP_PG_VERSION_CHECK=true.
 
 <!-- unreleasedstop -->
 

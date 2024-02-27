@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultConfigFilePath        = "../../../charts/chainlink-cluster/connect.toml"
+	DefaultConfigFilePath        = "connect.toml"
 	ErrReadConnectionConfig      = "failed to read TOML environment connection config"
 	ErrUnmarshalConnectionConfig = "failed to unmarshal TOML environment connection config"
 )

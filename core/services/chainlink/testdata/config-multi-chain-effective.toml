@@ -240,6 +240,7 @@ LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -305,7 +306,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'primary'
@@ -327,6 +328,7 @@ LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -392,7 +394,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -409,11 +411,12 @@ LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
 
 [EVM.Transactions]
@@ -473,7 +476,7 @@ ObservationGracePeriod = '1s'
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 
 [[EVM.Nodes]]
 Name = 'bar'

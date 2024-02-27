@@ -11,23 +11,24 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	jobORMMocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	testutils2 "github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestLoader_Chains(t *testing.T) {
@@ -40,21 +41,33 @@ func TestLoader_Chains(t *testing.T) {
 	chain := toml.EVMConfig{ChainID: one, Chain: toml.Defaults(one)}
 	two := ubig.NewI(2)
 	chain2 := toml.EVMConfig{ChainID: two, Chain: toml.Defaults(two)}
-	evmORM := evmtest.NewTestConfigs(&chain, &chain2)
-	app.On("EVMORM").Return(evmORM)
+	config1, err := chain.TOMLString()
+	require.NoError(t, err)
+	config2, err := chain2.TOMLString()
+	require.NoError(t, err)
+
+	app.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{
+		testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+			ID:      "1",
+			Enabled: true,
+			Config:  config1,
+		}}, testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+			ID:      "2",
+			Enabled: true,
+			Config:  config2,
+		}},
+	}})
 
 	batcher := chainBatcher{app}
-
 	keys := dataloader.NewKeysFromStrings([]string{"2", "1", "3"})
 	results := batcher.loadByIDs(ctx, keys)
 
 	assert.Len(t, results, 3)
-	config2, err := chain2.TOMLString()
+
 	require.NoError(t, err)
 	want2 := commontypes.ChainStatus{ID: "2", Enabled: true, Config: config2}
 	assert.Equal(t, want2, results[0].Data.(commontypes.ChainStatus))
-	config1, err := chain.TOMLString()
-	require.NoError(t, err)
+
 	want1 := commontypes.ChainStatus{ID: "1", Enabled: true, Config: config1}
 	assert.Equal(t, want1, results[1].Data.(commontypes.ChainStatus))
 	assert.Nil(t, results[2].Data)
@@ -367,7 +380,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	ethTxID := int64(3)
-	ethTxHash := utils.NewHash()
+	ethTxHash := evmutils.NewHash()
 
 	receipt := txmgr.Receipt{
 		ID:     int64(1),

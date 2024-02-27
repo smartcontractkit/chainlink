@@ -53,6 +53,10 @@ var typeMap = map[string]*ABIEncodingType{
 		native:  reflect.TypeOf(common.Address{}),
 		checked: reflect.TypeOf(common.Address{}),
 	},
+	"bytes": {
+		native:  reflect.TypeOf([]byte{}),
+		checked: reflect.TypeOf([]byte{}),
+	},
 }
 
 type ABIEncodingType struct {
