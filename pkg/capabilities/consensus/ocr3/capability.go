@@ -17,8 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
+const (
+	ocrCapabilityID = "offchain_reporting"
+)
+
 var info = capabilities.MustNewCapabilityInfo(
-	"offchain_reporting",
+	ocrCapabilityID,
 	capabilities.CapabilityTypeConsensus,
 	"OCR3 consensus exposed as a capability.",
 	"v1.0.0",
@@ -51,7 +55,7 @@ func newCapability(s *store, clock clockwork.Clock, encoderFactory EncoderFactor
 		newExpiryWorkerCh: make(chan *request),
 		clock:             clock,
 		stopCh:            make(chan struct{}),
-		lggr:              lggr,
+		lggr:              logger.Named(lggr, "OCR3CapabilityClient"),
 		encoderFactory:    encoderFactory,
 		aggregators:       map[string]types.Aggregator{},
 		encoders:          map[string]types.Encoder{},
@@ -73,6 +77,12 @@ func (o *capability) Close() error {
 		o.wg.Wait()
 		return nil
 	})
+}
+
+func (o *capability) Name() string { return o.lggr.Name() }
+
+func (o *capability) HealthReport() map[string]error {
+	return map[string]error{o.Name(): o.Healthy()}
 }
 
 type workflowConfig struct {

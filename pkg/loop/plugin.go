@@ -1,6 +1,7 @@
 package loop
 
 import (
+	"context"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -23,6 +24,20 @@ func (p *Plugin) SubService(s services.Service) {
 	p.mu.Lock()
 	p.ss = append(p.ss, s)
 	p.mu.Unlock()
+}
+
+func (p *Plugin) Start(ctx context.Context) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	var ms services.MultiStart
+	for _, s := range p.ss {
+		if err := ms.Start(ctx, s); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *Plugin) HealthReport() map[string]error {
