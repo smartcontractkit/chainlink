@@ -339,7 +339,94 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
-	return nil
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("mark_old_txes_missing_receipt_as_errored: %w", ErrInvalidChainID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, finalityDepth, chainID); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	type result struct {
+		ID                         int64
+		Sequence                   SEQ
+		FromAddress                ADDR
+		MaxBroadcastBeforeBlockNum int64
+		TxHashes                   []TX_HASH
+	}
+	var resultsLock sync.Mutex
+	var results []result
+	wg := sync.WaitGroup{}
+	errsLock := sync.Mutex{}
+	var errs error
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+				if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+					return false
+				}
+				if tx.State != TxConfirmedMissingReceipt {
+					return false
+				}
+				attempt := tx.TxAttempts[0]
+				if attempt.BroadcastBeforeBlockNum == nil {
+					return false
+				}
+
+				return *attempt.BroadcastBeforeBlockNum < blockNum-int64(finalityDepth)
+			}
+			states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
+			txs := as.FindTxs(states, filter)
+			for _, tx := range txs {
+				if err := as.MoveConfirmedMissingReceiptToFatalError(tx.ID, null.StringFrom(ErrCouldNotGetReceipt.Error())); err != nil {
+					err = fmt.Errorf("mark_old_txes_missing_receipt_as_errored: address: %s: %w", as.fromAddress, err)
+					errsLock.Lock()
+					errs = errors.Join(errs, err)
+					errsLock.Unlock()
+					continue
+				}
+				hashes := make([]TX_HASH, len(tx.TxAttempts))
+				maxBroadcastBeforeBlockNum := int64(0)
+				for i, attempt := range tx.TxAttempts {
+					hashes[i] = attempt.Hash
+					if attempt.BroadcastBeforeBlockNum != nil {
+						if *attempt.BroadcastBeforeBlockNum > maxBroadcastBeforeBlockNum {
+							maxBroadcastBeforeBlockNum = *attempt.BroadcastBeforeBlockNum
+						}
+					}
+				}
+				rr := result{
+					ID:                         tx.ID,
+					Sequence:                   *tx.Sequence,
+					FromAddress:                tx.FromAddress,
+					MaxBroadcastBeforeBlockNum: maxBroadcastBeforeBlockNum,
+					TxHashes:                   hashes,
+				}
+				resultsLock.Lock()
+				results = append(results, rr)
+				resultsLock.Unlock()
+			}
+			wg.Done()
+		}(as)
+	}
+	wg.Wait()
+
+	for _, r := range results {
+		ms.lggr.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+			"Current block height is %v, transaction was broadcast before block height %v. This transaction may not have not been sent and will be marked as fatally errored. "+
+			"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
+			"an external wallet has been used to send a transaction from account %s with nonce %v."+
+			" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
+			" chainlink instances, or using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
+			r.ID, blockNum, r.MaxBroadcastBeforeBlockNum, r.FromAddress, r.Sequence), "ethTxID", r.ID, "sequence", r.Sequence, "fromAddress", r.FromAddress, "txHashes", r.TxHashes)
+	}
+
+	return errs
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deepCopyTx(
