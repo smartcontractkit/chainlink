@@ -367,7 +367,7 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 }
 
 // IsSyncing provides a mock function with given fields: ctx
-func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD]) IsSyncing(ctx context.Context) (bool, error) {
+func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) IsSyncing(ctx context.Context) (bool, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {

@@ -502,6 +502,34 @@ func (_m *RPCClient) HeaderByNumber(ctx context.Context, n *big.Int) (*coretypes
 	return r0, r1
 }
 
+// IsSyncing provides a mock function with given fields: ctx
+func (_m *RPCClient) IsSyncing(ctx context.Context) (bool, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsSyncing")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (bool, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) bool); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LINKBalance provides a mock function with given fields: ctx, accountAddress, linkAddress
 func (_m *RPCClient) LINKBalance(ctx context.Context, accountAddress common.Address, linkAddress common.Address) (*assets.Link, error) {
 	ret := _m.Called(ctx, accountAddress, linkAddress)
