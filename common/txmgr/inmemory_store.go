@@ -192,6 +192,33 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 
 // SetBroadcastBeforeBlockNum sets the broadcast_before_block_num for a given chain ID
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error {
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("set_broadcast_before_block_num: %w", ErrInvalidChainID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.SetBroadcastBeforeBlockNum(ctx, blockNum, chainID); err != nil {
+		return fmt.Errorf("set_broadcast_before_block_num: %w", err)
+	}
+
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			attempt := tx.TxAttempts[i]
+			if attempt.State == txmgrtypes.TxAttemptBroadcast && attempt.BroadcastBeforeBlockNum == nil {
+				tx.TxAttempts[i].BroadcastBeforeBlockNum = &blockNum
+			}
+		}
+	}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.ApplyToTxsByState(nil, fn)
+	}
+
 	return nil
 }
 
