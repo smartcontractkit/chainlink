@@ -3,6 +3,7 @@ package ccip_test
 import (
 	"encoding/json"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,86 +19,128 @@ import (
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
+func setTestEnvVar(t *testing.T, name string, value string) {
+	oldValue, found := os.LookupEnv(name)
+	err := os.Setenv(name, value)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if found {
+			_ = os.Setenv(name, oldValue)
+		} else {
+			_ = os.Unsetenv(name)
+		}
+	})
+}
+
+func overrideEnv(t *testing.T, env map[string]string) {
+	for k, v := range env {
+		setTestEnvVar(t, k, v)
+	}
+}
+
 func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+	tests := []struct {
+		name string
+		env  map[string]string
+	}{
+		{name: "happy_case", env: nil},
+		{name: "init_failure_case", env: map[string]string{"TEST_CCIPCommitService_INIT_FAILURES": "2", "TEST_CCIPExecService_INIT_FAILURES": "2"}},
+	}
 
-	tokenPricesUSDPipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
-	defer linkUSD.Close()
-	defer ethUSD.Close()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			overrideEnv(t, test.env)
+			ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
 
-	test_CLOSpecApprovalFlow(t, ccipTH, tokenPricesUSDPipeline, "")
+			tokenPricesUSDPipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
+			defer linkUSD.Close()
+			defer ethUSD.Close()
+
+			test_CLOSpecApprovalFlow(t, ccipTH, tokenPricesUSDPipeline, "")
+		})
+	}
 }
 
 func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
-
-	//Set up the aggregators here to avoid modifying ccipTH.
-	srcLinkAddr := ccipTH.Source.LinkToken.Address()
-	dstLinkAddr := ccipTH.Dest.LinkToken.Address()
-	srcNativeAddr, err := ccipTH.Source.Router.GetWrappedNative(nil)
-	require.NoError(t, err)
-	aggDstNativeAddr := ccipTH.Dest.WrappedNative.Address()
-
-	aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(2e18))
-	require.NoError(t, err)
-	_, err = aggSrcNat.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(17000000), big.NewInt(1000), big.NewInt(1000))
-	require.NoError(t, err)
-	ccipTH.Source.Chain.Commit()
-
-	aggSrcLnkAddr, _, aggSrcLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(3e18))
-	require.NoError(t, err)
-	ccipTH.Dest.Chain.Commit()
-	_, err = aggSrcLnk.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
-	require.NoError(t, err)
-	ccipTH.Source.Chain.Commit()
-
-	aggDstLnkAddr, _, aggDstLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain, 18, big.NewInt(3e18))
-	require.NoError(t, err)
-	ccipTH.Dest.Chain.Commit()
-	_, err = aggDstLnk.UpdateRoundData(ccipTH.Dest.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
-	require.NoError(t, err)
-	ccipTH.Dest.Chain.Commit()
-
-	// Check content is ok on aggregator.
-	tmp, err := aggDstLnk.LatestRoundData(&bind.CallOpts{})
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(50), tmp.RoundId)
-	require.Equal(t, big.NewInt(8000000), tmp.Answer)
-
-	// deploy dest wrapped native aggregator
-	aggDstNativeAggrAddr, _, aggDstNativeAggr, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain, 18, big.NewInt(3e18))
-	require.NoError(t, err)
-	ccipTH.Dest.Chain.Commit()
-	_, err = aggDstNativeAggr.UpdateRoundData(ccipTH.Dest.User, big.NewInt(50), big.NewInt(500000), big.NewInt(1000), big.NewInt(1000))
-	require.NoError(t, err)
-	ccipTH.Dest.Chain.Commit()
-
-	priceGetterConfig := config.DynamicPriceGetterConfig{
-		AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{
-			srcLinkAddr: {
-				ChainID:                   ccipTH.Source.ChainID,
-				AggregatorContractAddress: aggSrcLnkAddr,
-			},
-			srcNativeAddr: {
-				ChainID:                   ccipTH.Source.ChainID,
-				AggregatorContractAddress: aggSrcNatAddr,
-			},
-			dstLinkAddr: {
-				ChainID:                   ccipTH.Dest.ChainID,
-				AggregatorContractAddress: aggDstLnkAddr,
-			},
-			aggDstNativeAddr: {
-				ChainID:                   ccipTH.Dest.ChainID,
-				AggregatorContractAddress: aggDstNativeAggrAddr,
-			},
-		},
-		StaticPrices: map[common.Address]config.StaticPriceConfig{},
+	tests := []struct {
+		name string
+		env  map[string]string
+	}{
+		{name: "happy_case", env: nil},
+		{name: "init_failure_case", env: map[string]string{"TEST_CCIPCommitService_INIT_FAILURES": "2", "TEST_CCIPExecService_INIT_FAILURES": "2"}},
 	}
-	priceGetterConfigBytes, err := json.MarshalIndent(priceGetterConfig, "", " ")
-	require.NoError(t, err)
-	priceGetterConfigJson := string(priceGetterConfigBytes)
 
-	test_CLOSpecApprovalFlow(t, ccipTH, "", priceGetterConfigJson)
+	for _, test := range tests {
+		overrideEnv(t, test.env)
+		ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+
+		//Set up the aggregators here to avoid modifying ccipTH.
+		srcLinkAddr := ccipTH.Source.LinkToken.Address()
+		dstLinkAddr := ccipTH.Dest.LinkToken.Address()
+		srcNativeAddr, err := ccipTH.Source.Router.GetWrappedNative(nil)
+		require.NoError(t, err)
+		aggDstNativeAddr := ccipTH.Dest.WrappedNative.Address()
+
+		aggSrcNatAddr, _, aggSrcNat, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(2e18))
+		require.NoError(t, err)
+		_, err = aggSrcNat.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(17000000), big.NewInt(1000), big.NewInt(1000))
+		require.NoError(t, err)
+		ccipTH.Source.Chain.Commit()
+
+		aggSrcLnkAddr, _, aggSrcLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Source.User, ccipTH.Source.Chain, 18, big.NewInt(3e18))
+		require.NoError(t, err)
+		ccipTH.Dest.Chain.Commit()
+		_, err = aggSrcLnk.UpdateRoundData(ccipTH.Source.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
+		require.NoError(t, err)
+		ccipTH.Source.Chain.Commit()
+
+		aggDstLnkAddr, _, aggDstLnk, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain, 18, big.NewInt(3e18))
+		require.NoError(t, err)
+		ccipTH.Dest.Chain.Commit()
+		_, err = aggDstLnk.UpdateRoundData(ccipTH.Dest.User, big.NewInt(50), big.NewInt(8000000), big.NewInt(1000), big.NewInt(1000))
+		require.NoError(t, err)
+		ccipTH.Dest.Chain.Commit()
+
+		// Check content is ok on aggregator.
+		tmp, err := aggDstLnk.LatestRoundData(&bind.CallOpts{})
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(50), tmp.RoundId)
+		require.Equal(t, big.NewInt(8000000), tmp.Answer)
+
+		// deploy dest wrapped native aggregator
+		aggDstNativeAggrAddr, _, aggDstNativeAggr, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(ccipTH.Dest.User, ccipTH.Dest.Chain, 18, big.NewInt(3e18))
+		require.NoError(t, err)
+		ccipTH.Dest.Chain.Commit()
+		_, err = aggDstNativeAggr.UpdateRoundData(ccipTH.Dest.User, big.NewInt(50), big.NewInt(500000), big.NewInt(1000), big.NewInt(1000))
+		require.NoError(t, err)
+		ccipTH.Dest.Chain.Commit()
+		priceGetterConfig := config.DynamicPriceGetterConfig{
+			AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{
+				srcLinkAddr: {
+					ChainID:                   ccipTH.Source.ChainID,
+					AggregatorContractAddress: aggSrcLnkAddr,
+				},
+				srcNativeAddr: {
+					ChainID:                   ccipTH.Source.ChainID,
+					AggregatorContractAddress: aggSrcNatAddr,
+				},
+				dstLinkAddr: {
+					ChainID:                   ccipTH.Dest.ChainID,
+					AggregatorContractAddress: aggDstLnkAddr,
+				},
+				aggDstNativeAddr: {
+					ChainID:                   ccipTH.Dest.ChainID,
+					AggregatorContractAddress: aggDstNativeAggrAddr,
+				},
+			},
+			StaticPrices: map[common.Address]config.StaticPriceConfig{},
+		}
+		priceGetterConfigBytes, err := json.MarshalIndent(priceGetterConfig, "", " ")
+		require.NoError(t, err)
+		priceGetterConfigJson := string(priceGetterConfigBytes)
+
+		test_CLOSpecApprovalFlow(t, ccipTH, "", priceGetterConfigJson)
+	}
 }
 
 func test_CLOSpecApprovalFlow(t *testing.T, ccipTH integrationtesthelpers.CCIPIntegrationTestHarness, tokenPricesUSDPipeline string, priceGetterConfiguration string) {
