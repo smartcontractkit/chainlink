@@ -14,7 +14,7 @@ import (
 	"github.com/K-Phoen/grabana/timeseries"
 	"github.com/K-Phoen/grabana/timeseries/axis"
 	"github.com/K-Phoen/grabana/variable/query"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 /*
@@ -954,10 +954,10 @@ func (m *CLClusterDashboard) Deploy(ctx context.Context) error {
 	client := grabana.NewClient(&http.Client{}, m.GrafanaURL, grabana.WithAPIToken(m.GrafanaToken))
 	folder, err := client.FindOrCreateFolder(ctx, m.Folder)
 	if err != nil {
-		return errors.Wrap(err, ErrFailedToCreateFolder)
+		return pkgerrors.Wrap(err, ErrFailedToCreateFolder)
 	}
 	if _, err := client.UpsertDashboard(ctx, folder, m.builder); err != nil {
-		return errors.Wrap(err, ErrFailedToCreateDashboard)
+		return pkgerrors.Wrap(err, ErrFailedToCreateDashboard)
 	}
 	return nil
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -145,7 +145,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 
 			hash := common.HexToHash(txHash)
 			_, err = ethClient.TransactionReceipt(testutils.Context(t), hash)
-			require.Equal(t, ethereum.NotFound, errors.Cause(err))
+			require.Equal(t, ethereum.NotFound, pkgerrors.Cause(err))
 		}
 	})
 }
