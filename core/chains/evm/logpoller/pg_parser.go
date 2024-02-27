@@ -219,21 +219,3 @@ func sanitizeTopicIndex(index int) (int, error) {
 	}
 	return index + 1, nil
 }
-
-func nestedBlockNumberQuery(confs Confirmations) string {
-	if confs == Finalized {
-		return `
-				(SELECT finalized_block_number 
-				FROM evm.log_poller_blocks 
-				WHERE evm_chain_id = :evm_chain_id 
-				ORDER BY block_number DESC LIMIT 1) `
-	}
-	// Intentionally wrap with greatest() function and don't return negative block numbers when :confs > :block_number
-	// It doesn't impact logic of the outer query, because block numbers are never less or equal to 0 (guarded by log_poller_blocks_block_number_check)
-	return `
-			(SELECT greatest(block_number - :confs, 0) 
-			FROM evm.log_poller_blocks 	
-			WHERE evm_chain_id = :evm_chain_id 
-			ORDER BY block_number DESC LIMIT 1) `
-
-}

@@ -120,13 +120,17 @@ func (o *DbORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 	}
 	query := fmt.Sprintf(`
 		INSERT INTO evm.log_poller_filters
-	  		(name, evm_chain_id, retention, created_at, address, event)
+	  		(name, evm_chain_id, retention, max_logs_kept, logs_per_block, created_at, address, event %s)
 		SELECT * FROM
-			(SELECT :name, :evm_chain_id ::::NUMERIC, :retention ::::BIGINT, NOW()) x,
+			(SELECT :name, :evm_chain_id ::::NUMERIC, :retention ::::BIGINT, :max_logs_kept ::::NUMERIC, :logs_per_block ::::NUMERIC, NOW()) x,
 			(SELECT unnest(:address_array ::::BYTEA[]) addr) a,
 			(SELECT unnest(:event_sig_array ::::BYTEA[]) ev) e
-		ON CONFLICT (name, evm_chain_id, address, event) 
-		DO UPDATE SET retention=:retention ::::BIGINT`, args)
+			%s
+		ON CONFLICT  (hash_record_extended((name, evm_chain_id, address, event, topic2, topic3, topic4), 0))
+		DO UPDATE SET retention=:retention ::::BIGINT, max_logs_kept=:max_logs_kept ::::NUMERIC, logs_per_block=:logs_per_block ::::NUMERIC`,
+		topicsColumns.String(),
+		topicsSql.String())
+	return o.q.WithOpts(qopts...).ExecQNamed(query, args)
 }
 
 // DeleteFilter removes all events,address pairs associated with the Filter
@@ -142,7 +146,12 @@ func (o *DbORM) LoadFilters(qopts ...pg.QOpt) (map[string]Filter, error) {
 	err := q.Select(&rows, `SELECT name,
 			ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses, 
 			ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs,
-			MAX(retention) AS retention
+			ARRAY_AGG(DISTINCT topic2 ORDER BY topic2) FILTER(WHERE topic2 IS NOT NULL) AS topic2,
+			ARRAY_AGG(DISTINCT topic3 ORDER BY topic3) FILTER(WHERE topic3 IS NOT NULL) AS topic3,
+			ARRAY_AGG(DISTINCT topic4 ORDER BY topic4) FILTER(WHERE topic4 IS NOT NULL) AS topic4,
+			MAX(logs_per_block) AS logs_per_block,
+			MAX(retention) AS retention,
+			MAX(max_logs_kept) AS max_logs_kept
 		FROM evm.log_poller_filters WHERE evm_chain_id = $1
 		GROUP BY name`, ubig.New(o.chainID))
 	filters := make(map[string]Filter)
@@ -205,13 +214,27 @@ func (o *DbORM) SelectLatestLogByEventSigWithConfs(eventSig common.Hash, address
 // Otherwise, it will delete all blocks at once.
 func (o *DbORM) DeleteBlocksBefore(end int64, limit int64, qopts ...pg.QOpt) (int64, error) {
 	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM evm.log_poller_blocks WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
-	return err
+	if limit > 0 {
+		return q.ExecQWithRowsAffected(
+			`DELETE FROM evm.log_poller_blocks
+        				WHERE block_number IN (
+            				SELECT block_number FROM evm.log_poller_blocks
+            				WHERE block_number <= $1 
+            				AND evm_chain_id = $2
+							LIMIT $3
+						)
+						AND evm_chain_id = $2`,
+			end, ubig.New(o.chainID), limit,
+		)
+	}
+	return q.ExecQWithRowsAffected(
+		`DELETE FROM evm.log_poller_blocks 
+       				WHERE block_number <= $1 AND evm_chain_id = $2`,
+		end, ubig.New(o.chainID),
+	)
 }
 
 func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
-	// These deletes are bounded by reorg depth, so they are
-	// fast and should not slow down the log readers.
 	return o.q.WithOpts(qopts...).Transaction(func(tx pg.Queryer) error {
 		args, err := newQueryArgs(o.chainID).
 			withStartBlock(start).
@@ -221,13 +244,24 @@ func (o *DbORM) DeleteLogsAndBlocksAfter(start int64, qopts ...pg.QOpt) error {
 			return err
 		}
 
-		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		// Applying upper bound filter is critical for Postgres performance (especially for evm.logs table)
+		// because it allows the planner to properly estimate the number of rows to be scanned.
+		// If not applied, these queries can become very slow. After some critical number
+		// of logs, Postgres will try to scan all the logs in the index by block_number.
+		// Latency without upper bound filter can be orders of magnitude higher for large number of logs.
+		_, err = tx.NamedExec(`DELETE FROM evm.log_poller_blocks 
+       						WHERE evm_chain_id = :evm_chain_id
+       						AND block_number >= :start_block
+       						AND block_number <= (SELECT MAX(block_number) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id)`, args)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
 			return err
 		}
 
-		_, err = tx.NamedExec(`DELETE FROM evm.logs WHERE block_number >= :start_block AND evm_chain_id = :evm_chain_id`, args)
+		_, err = tx.NamedExec(`DELETE FROM evm.logs 
+       						WHERE evm_chain_id = :evm_chain_id 
+       						AND block_number >= :start_block
+       						AND block_number <= (SELECT MAX(block_number) FROM evm.logs WHERE evm_chain_id = :evm_chain_id)`, args)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
 			return err
@@ -244,11 +278,30 @@ type Exp struct {
 	ShouldDelete bool
 }
 
-func (o *DbORM) DeleteExpiredLogs(qopts ...pg.QOpt) error {
+func (o *DbORM) DeleteExpiredLogs(limit int64, qopts ...pg.QOpt) (int64, error) {
 	qopts = append(qopts, pg.WithLongQueryTimeout())
 	q := o.q.WithOpts(qopts...)
 
-	return q.ExecQ(`WITH r AS
+	if limit > 0 {
+		return q.ExecQWithRowsAffected(`
+		DELETE FROM evm.logs
+		WHERE (evm_chain_id, address, event_sig, block_number) IN (
+			SELECT l.evm_chain_id, l.address, l.event_sig, l.block_number
+			FROM evm.logs l
+			INNER JOIN (
+				SELECT address, event, MAX(retention) AS retention
+				FROM evm.log_poller_filters
+				WHERE evm_chain_id = $1
+				GROUP BY evm_chain_id, address, event
+				HAVING NOT 0 = ANY(ARRAY_AGG(retention))
+			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
+			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
+			LIMIT $2
+		)`,
+			ubig.New(o.chainID), limit)
+	}
+
+	return q.ExecQWithRowsAffected(`WITH r AS
 		( SELECT address, event, MAX(retention) AS retention
 			FROM evm.log_poller_filters WHERE evm_chain_id=$1 
 			GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))

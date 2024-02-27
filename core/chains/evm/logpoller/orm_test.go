@@ -1608,21 +1608,6 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 			assert.NoError(t, err1)
 			assert.Len(t, logs, len(tt.expectedLogs))
 
-			filter := logpoller.NewAndFilter(
-				logpoller.NewAddressFilter(address),
-				logpoller.NewEventSigFilter(eventSig),
-				logpoller.NewDataWordGteFilter(1, logpoller.EvmWord(tt.wordValue)),
-				logpoller.NewDataWordLteFilter(0, logpoller.EvmWord(tt.wordValue)),
-				logpoller.NewConfirmationFilter(logpoller.Unconfirmed),
-			)
-			sortAndLimit := logpoller.DefaultSortAndLimit
-
-			logs2, err1 := th.ORM.SelectFilteredLogs(filter, sortAndLimit)
-			assert.NoError(t, err1)
-			assert.Len(t, logs, len(tt.expectedLogs))
-
-			assert.Equal(t, logs, logs2)
-
 			for index := range logs {
 				assert.Equal(t, tt.expectedLogs[index], logs[index].BlockNumber)
 			}

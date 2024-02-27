@@ -1230,10 +1230,6 @@ func (lp *logPoller) IndexedLogsWithSigsExcluding(address common.Address, eventS
 	return lp.orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, topicIndex, address, fromBlock, toBlock, confs, qopts...)
 }
 
-func (lp *logPoller) SelectFilteredLogs(queryName string, filter QFilter, limit SortAndLimit, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectFilteredLogs(filter, limit, qopts...)
-}
-
 func EvmWord(i uint64) common.Hash {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
