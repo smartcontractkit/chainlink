@@ -818,7 +818,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 				BackfillBatchSize:        3,
 				RpcBatchSize:             2,
 				KeepFinalizedBlocksDepth: 1000,
-				BackupPollerBlockDelay:   0,
 			}
 			th := SetupTH(t, lpOpts)
 
@@ -1075,7 +1074,6 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 				BackfillBatchSize:        3,
 				RpcBatchSize:             2,
 				KeepFinalizedBlocksDepth: 1000,
-				BackupPollerBlockDelay:   0,
 			}
 			th := SetupTH(t, lpOpts)
 
@@ -1144,7 +1142,6 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 		BackfillBatchSize:        3,
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
-		BackupPollerBlockDelay:   0,
 	}
 	th := SetupTH(t, lpOpts)
 
@@ -1213,7 +1210,6 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 		BackfillBatchSize:        3,
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
-		BackupPollerBlockDelay:   0,
 	}
 	th := SetupTH(t, lpOpts)
 
@@ -1333,7 +1329,6 @@ func TestGetReplayFromBlock(t *testing.T) {
 		BackfillBatchSize:        3,
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
-		BackupPollerBlockDelay:   0,
 	}
 	th := SetupTH(t, lpOpts)
 	// Commit a few blocks
@@ -1457,7 +1452,6 @@ func TestTooManyLogResults(t *testing.T) {
 		BackfillBatchSize:        20,
 		RpcBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
-		BackupPollerBlockDelay:   0,
 	}
 	lp := logpoller.NewLogPoller(o, ec, lggr, lpOpts)
 	expected := []int64{10, 5, 2, 1}
@@ -1551,7 +1545,6 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		BackfillBatchSize:        3,
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
-		BackupPollerBlockDelay:   0,
 	}
 	th := SetupTH(t, lpOpts)
 
@@ -1643,7 +1636,6 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 				BackfillBatchSize:        3,
 				RpcBatchSize:             2,
 				KeepFinalizedBlocksDepth: 1000,
-				BackupPollerBlockDelay:   0,
 			}
 			th := SetupTH(t, lpOpts)
 			// Should return error before the first poll and save
@@ -1796,7 +1788,6 @@ func Test_PruneOldBlocks(t *testing.T) {
 				BackfillBatchSize:        3,
 				RpcBatchSize:             2,
 				KeepFinalizedBlocksDepth: tt.keepFinalizedBlocksDepth,
-				BackupPollerBlockDelay:   0,
 			}
 			th := SetupTH(t, lpOpts)
 
