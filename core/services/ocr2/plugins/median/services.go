@@ -128,7 +128,7 @@ func NewMedianServices(ctx context.Context,
 
 	if !pluginConfig.JuelsPerFeeCoinCacheDisabled {
 		lggr.Infof("juelsPerFeeCoinSource caching is disabled for jb: %s", jb.Name.ValueOrZero())
-		if juelsPerFeeCoinSource, err = ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, pluginConfig.JuelsPerFeeCoinCacheDuration); err != nil {
+		if juelsPerFeeCoinSource, err = ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, pluginConfig.JuelsPerFeeCoinCacheDuration.Duration()); err != nil {
 			return nil, err
 		}
 	}

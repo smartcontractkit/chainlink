@@ -9,13 +9,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
 type PluginConfig struct {
-	JuelsPerFeeCoinPipeline      string        `json:"juelsPerFeeCoinSource"`
-	JuelsPerFeeCoinCacheDuration time.Duration `json:"juelsPerFeeCoinCacheDuration"`
-	JuelsPerFeeCoinCacheDisabled bool          `json:"juelsPerFeeCoinCacheDisabled"`
+	JuelsPerFeeCoinPipeline      string          `json:"juelsPerFeeCoinSource"`
+	JuelsPerFeeCoinCacheDuration models.Interval `json:"juelsPerFeeCoinCacheDuration"`
+	JuelsPerFeeCoinCacheDisabled bool            `json:"juelsPerFeeCoinCacheDisabled"`
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.
@@ -24,9 +25,13 @@ func ValidatePluginConfig(config PluginConfig) error {
 		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
 	}
 
-	if config.JuelsPerFeeCoinCacheDuration != 0 &&
-		(config.JuelsPerFeeCoinCacheDuration < time.Second*30 || config.JuelsPerFeeCoinCacheDuration > 20*time.Minute) {
-		return errors.Errorf("invalid juelsPerFeeCoinSource cache duration %s", config.JuelsPerFeeCoinCacheDuration.String())
+	// unset duration defaults later
+	if config.JuelsPerFeeCoinCacheDuration != 0 {
+		if config.JuelsPerFeeCoinCacheDuration.Duration() < time.Second*30 {
+			return errors.Errorf("juelsPerFeeCoinSource cache duration: %s is below 30 second minimum", config.JuelsPerFeeCoinCacheDuration.Duration().String())
+		} else if config.JuelsPerFeeCoinCacheDuration.Duration() > time.Minute*20 {
+			return errors.Errorf("juelsPerFeeCoinSource cache duration: %s is above 20 minute maximum", config.JuelsPerFeeCoinCacheDuration.Duration().String())
+		}
 	}
 
 	return nil
