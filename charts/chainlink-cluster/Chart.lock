@@ -1,0 +1,15 @@
+dependencies:
+- name: mockserver
+  repository: https://www.mock-server.com
+  version: 5.14.0
+- name: opentelemetry-collector
+  repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+  version: 0.81.2
+- name: tempo
+  repository: https://grafana.github.io/helm-charts
+  version: 1.7.2
+- name: grafana
+  repository: https://grafana.github.io/helm-charts
+  version: 7.3.2
+digest: sha256:fb13a8a7b490fd1e388a6b082e50d65a39f44a28030d66559d4640c687a70e20
+generated: "2024-02-23T15:22:09.284013-06:00"

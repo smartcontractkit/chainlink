@@ -165,10 +165,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @dev notably can be called even if there are pending requests, outstanding ones may fail onchain
    */
   function ownerCancelSubscription(uint256 subId) external onlyOwner {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    address owner = s_subscriptionConfigs[subId].owner;
+    if (owner == address(0)) {
       revert InvalidSubscription();
     }
-    _cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
+    _cancelSubscriptionHelper(subId, owner);
   }
 
   /**
@@ -306,14 +307,15 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     override
     returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers)
   {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    owner = s_subscriptionConfigs[subId].owner;
+    if (owner == address(0)) {
       revert InvalidSubscription();
     }
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].nativeBalance,
       s_subscriptions[subId].reqCount,
-      s_subscriptionConfigs[subId].owner,
+      owner,
       s_subscriptionConfigs[subId].consumers
     );
   }
@@ -324,13 +326,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   function getActiveSubscriptionIds(
     uint256 startIndex,
     uint256 maxCount
-  ) external view override returns (uint256[] memory) {
+  ) external view override returns (uint256[] memory ids) {
     uint256 numSubs = s_subIds.length();
     if (startIndex >= numSubs) revert IndexOutOfRange();
     uint256 endIndex = startIndex + maxCount;
     endIndex = endIndex > numSubs || maxCount == 0 ? numSubs : endIndex;
-    uint256[] memory ids = new uint256[](endIndex - startIndex);
-    for (uint256 idx = 0; idx < ids.length; idx++) {
+    uint256 idsLength = endIndex - startIndex;
+    ids = new uint256[](idsLength);
+    for (uint256 idx = 0; idx < idsLength; ++idx) {
       ids[idx] = s_subIds.at(idx + startIndex);
     }
     return ids;
@@ -339,13 +342,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function createSubscription() external override nonReentrant returns (uint256) {
+  function createSubscription() external override nonReentrant returns (uint256 subId) {
     // Generate a subscription id that is globally unique.
-    uint256 subId = uint256(
-      keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), s_currentSubNonce))
+    uint64 currentSubNonce = s_currentSubNonce;
+    subId = uint256(
+      keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), currentSubNonce))
     );
     // Increment the subscription nonce counter.
-    s_currentSubNonce++;
+    s_currentSubNonce = currentSubNonce + 1;
     // Initialize storage variables.
     address[] memory consumers = new address[](0);
     s_subscriptions[subId] = Subscription({balance: 0, nativeBalance: 0, reqCount: 0});
@@ -369,8 +373,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     address newOwner
   ) external override onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
-    if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
-      s_subscriptionConfigs[subId].requestedOwner = newOwner;
+    SubscriptionConfig storage subscriptionConfig = s_subscriptionConfigs[subId];
+    if (subscriptionConfig.requestedOwner != newOwner) {
+      subscriptionConfig.requestedOwner = newOwner;
       emit SubscriptionOwnerTransferRequested(subId, msg.sender, newOwner);
     }
   }
@@ -379,13 +384,13 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @inheritdoc IVRFSubscriptionV2Plus
    */
   function acceptSubscriptionOwnerTransfer(uint256 subId) external override nonReentrant {
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    address oldOwner = s_subscriptionConfigs[subId].owner;
+    if (oldOwner == address(0)) {
       revert InvalidSubscription();
     }
     if (s_subscriptionConfigs[subId].requestedOwner != msg.sender) {
       revert MustBeRequestedOwner(s_subscriptionConfigs[subId].requestedOwner);
     }
-    address oldOwner = s_subscriptionConfigs[subId].owner;
     s_subscriptionConfigs[subId].owner = msg.sender;
     s_subscriptionConfigs[subId].requestedOwner = address(0);
     emit SubscriptionOwnerTransferred(subId, oldOwner, msg.sender);
@@ -396,36 +401,42 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    */
   function addConsumer(uint256 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
+    address[] storage consumers = s_subscriptionConfigs[subId].consumers;
+    if (consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
-    if (s_consumers[consumer][subId] != 0) {
+    mapping(uint256 => uint64) storage nonces = s_consumers[consumer];
+    if (nonces[subId] != 0) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subId].consumers.
       return;
     }
     // Initialize the nonce to 1, indicating the consumer is allocated.
-    s_consumers[consumer][subId] = 1;
-    s_subscriptionConfigs[subId].consumers.push(consumer);
+    nonces[subId] = 1;
+    consumers.push(consumer);
 
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
   function _deleteSubscription(uint256 subId) internal returns (uint96 balance, uint96 nativeBalance) {
-    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
-    Subscription memory sub = s_subscriptions[subId];
-    balance = sub.balance;
-    nativeBalance = sub.nativeBalance;
+    address[] storage consumers = s_subscriptionConfigs[subId].consumers;
+    balance = s_subscriptions[subId].balance;
+    nativeBalance = s_subscriptions[subId].nativeBalance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
-    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      delete s_consumers[subConfig.consumers[i]][subId];
+    uint256 consumersLength = consumers.length;
+    for (uint256 i = 0; i < consumersLength; ++i) {
+      delete s_consumers[consumers[i]][subId];
     }
     delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];
     s_subIds.remove(subId);
-    s_totalBalance -= balance;
-    s_totalNativeBalance -= nativeBalance;
+    if (balance != 0) {
+      s_totalBalance -= balance;
+    }
+    if (nativeBalance != 0) {
+      s_totalNativeBalance -= nativeBalance;
+    }
     return (balance, nativeBalance);
   }
 

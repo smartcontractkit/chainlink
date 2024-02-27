@@ -31,14 +31,14 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 -- out.txt --
--JobSpawner
--Mailbox.Monitor
--Mercury.WSRPCPool
--Mercury.WSRPCPool.CacheSet
--PipelineORM
--PipelineRunner
--PromReporter
--TelemetryManager
+ok JobSpawner
+ok Mailbox.Monitor
+ok Mercury.WSRPCPool
+ok Mercury.WSRPCPool.CacheSet
+ok PipelineORM
+ok PipelineRunner
+ok PromReporter
+ok TelemetryManager
 
 -- out.json --
 {

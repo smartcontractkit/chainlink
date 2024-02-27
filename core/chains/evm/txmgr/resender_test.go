@@ -155,6 +155,7 @@ func Test_EthResender_Start(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
@@ -180,7 +181,7 @@ func Test_EthResender_Start(t *testing.T) {
 		})
 
 		func() {
-			er.Start()
+			er.Start(ctx)
 			defer er.Stop()
 
 			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)

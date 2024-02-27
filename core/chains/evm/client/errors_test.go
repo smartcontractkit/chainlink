@@ -195,6 +195,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas * price + value: address 0xb68D832c1241bc50db1CF09e96c0F4201D5539C9 have 9934612900000000 want 9936662900000000", true, "Arbitrum"},
 			{"call failed: InsufficientFunds", true, "Nethermind"},
 			{"call failed: InsufficientFunds, Account balance: 4740799397601480913, cumulative cost: 22019342038993800000", true, "Nethermind"},
+			{"call failed: InsufficientFunds, Balance is 1092404690719251702 less than sending value + gas 7165512000464000000", true, "Nethermind"},
 			{"insufficient funds", true, "Klaytn"},
 			{"insufficient funds for gas * price + value + gatewayFee", true, "celo"},
 			{"insufficient balance for transfer", true, "zkSync"},
@@ -205,6 +206,18 @@ func Test_Eth_Errors(t *testing.T) {
 			assert.Equal(t, err.IsInsufficientEth(), test.expect)
 			err = newSendErrorWrapped(test.message)
 			assert.Equal(t, err.IsInsufficientEth(), test.expect)
+		}
+	})
+
+	t.Run("IsServiceUnavailable", func(t *testing.T) {
+		tests := []errorCase{
+			{"call failed: 503 Service Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Nethermind"},
+		}
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsServiceUnavailable(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsServiceUnavailable(), test.expect)
 		}
 	})
 

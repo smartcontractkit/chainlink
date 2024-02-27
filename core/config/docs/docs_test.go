@@ -80,6 +80,10 @@ func TestDoc(t *testing.T) {
 		docDefaults.FlagsContractAddress = nil
 		docDefaults.LinkContractAddress = nil
 		docDefaults.OperatorFactoryAddress = nil
+		require.Empty(t, docDefaults.ChainWriter.FromAddress)
+		require.Empty(t, docDefaults.ChainWriter.ForwarderAddress)
+		docDefaults.ChainWriter.FromAddress = nil
+		docDefaults.ChainWriter.ForwarderAddress = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

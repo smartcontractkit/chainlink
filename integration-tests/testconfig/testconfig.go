@@ -84,6 +84,7 @@ type TestConfig struct {
 	Network                *ctf_config.NetworkConfig        `toml:"Network"`
 	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
 	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
+	WaspConfig             *ctf_config.WaspAutoBuildConfig  `toml:"WaspAutoBuild"`
 
 	Common     *Common                  `toml:"Common"`
 	Automation *a_config.Config         `toml:"Automation"`
@@ -206,6 +207,15 @@ func (c TestConfig) GetOCRConfig() *ocr_config.Config {
 
 func (c TestConfig) GetConfigurationName() string {
 	return c.ConfigurationName
+}
+
+func (c *TestConfig) AsBase64() (string, error) {
+	content, err := toml.Marshal(*c)
+	if err != nil {
+		return "", errors.Wrapf(err, "error marshaling test config")
+	}
+
+	return base64.StdEncoding.EncodeToString(content), nil
 }
 
 type Common struct {
@@ -510,6 +520,11 @@ func (c *TestConfig) Validate() error {
 		}
 	}
 
+	if c.WaspConfig != nil {
+		if err := c.WaspConfig.Validate(); err != nil {
+			return errors.Wrapf(err, "WaspAutoBuildConfig validation failed")
+		}
+	}
 	return nil
 }
 

@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
@@ -533,8 +532,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
 			//todo - move TransactionByHash to EVMClient in CTF
-			fulfillmentTx, _, err := env.EVMClient.(*blockchain.EthereumMultinodeClient).DefaultClient.(*blockchain.EthereumClient).
-				Client.TransactionByHash(testcontext.Get(t), randomWordsFulfilledEvent.Raw.TxHash)
+			fulfillmentTx, _, err := actions.GetTxByHash(testcontext.Get(t), env.EVMClient, randomWordsFulfilledEvent.Raw.TxHash)
 			require.NoError(t, err, "error getting tx from hash")
 			fulfillmentTxFromAddress, err := actions.GetTxFromAddress(fulfillmentTx)
 			require.NoError(t, err, "error getting tx from address")
@@ -543,7 +541,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		require.Equal(t, numberOfTxKeysToCreate+1, len(fulfillmentTxFromAddresses))
 		var txKeyAddresses []string
 		for _, txKey := range txKeys.Data {
-			txKeyAddresses = append(txKeyAddresses, txKey.ID)
+			txKeyAddresses = append(txKeyAddresses, txKey.Attributes.Address)
 		}
 		less := func(a, b string) bool { return a < b }
 		equalIgnoreOrder := cmp.Diff(txKeyAddresses, fulfillmentTxFromAddresses, cmpopts.SortSlices(less)) == ""
@@ -617,7 +615,7 @@ func TestVRFOwner(t *testing.T) {
 
 		err = linkToken.Transfer(
 			vrfv2Contracts.VRFV2Consumer[0].Address(),
-			conversions.EtherToWei(big.NewFloat(5)),
+			conversions.EtherToWei(big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink)),
 		)
 		require.NoError(t, err, "error transferring link to consumer contract")
 

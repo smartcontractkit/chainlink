@@ -45,7 +45,7 @@ jobs:
           echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
       - name: Enforce CTF Version
         if: steps.condition-check.outputs.should-enforce == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework
@@ -57,7 +57,7 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+      - uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
         id: changes
         with:
           filters: |
@@ -68,6 +68,7 @@ jobs:
               - '.github/workflows/integration-tests.yml'
               - '**/*Dockerfile'
               - 'core/**/config/**/*.toml'
+              - 'integration-tests/**/*.toml'
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -84,23 +85,32 @@ jobs:
   build-lint-integration-tests:
     name: Build and Lint integration-tests
     runs-on: ubuntu20.04-16cores-64GB
+    strategy:
+      matrix:
+        project:
+          - name: integration-tests
+            path: ./integration-tests
+            cache-id: e2e
+          - name: load
+            path: ./integration-tests/load
+            cache-id: load
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup Go
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          test_download_vendor_packages_command: cd ${{ matrix.project.path }} && go mod download
+          go_mod_path: ${{ matrix.project.path }}/go.mod
+          cache_key_id: core-${{ matrix.project.cache-id }}-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
       - name: Build Go
         run: |
-          cd ./integration-tests
+          cd ${{ matrix.project.path }}
           go build ./...
           go test -run=^# ./...
       - name: Lint Go
-        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
+        uses: golangci/golangci-lint-action@3cfe3a4abbb849e10058ce4af15d205b6da42804 # v4.0.0
         with:
           version: v1.55.2
           # We already cache these directories in setup-go
@@ -109,7 +119,7 @@ jobs:
           # only-new-issues is only applicable to PRs, otherwise it is always set to false
           only-new-issues: false # disabled for PRs due to unreliability
           args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
-          working-directory: ./integration-tests
+          working-directory: ${{ matrix.project.path }}
 
   build-chainlink:
     environment: integration
@@ -122,9 +132,9 @@ jobs:
           - name: ""
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
-          # - name: (plugins)
-          #   dockerfile: plugins/chainlink.Dockerfile
-          #   tag-suffix: -plugins
+          - name: (plugins)
+            dockerfile: plugins/chainlink.Dockerfile
+            tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes, enforce-ctf-version]
@@ -301,7 +311,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -317,9 +327,10 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
+          should_tidy: "false"
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
 
   eth-smoke-tests-matrix-log-poller:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
@@ -387,7 +398,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -403,6 +414,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
+          should_tidy: "false"
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -568,7 +580,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -585,10 +597,11 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
+          should_tidy: "false"
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -597,6 +610,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          should_tidy: "false"
       - name: Show Otel-Collector Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
@@ -613,7 +627,7 @@ jobs:
           path: ./integration-tests/smoke/traces/trace-data.json
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: ./integration-tests/smoke/
 
@@ -684,7 +698,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_download_vendor_packages_command: |
             cd ./integration-tests
@@ -740,7 +754,7 @@ jobs:
           upgradeImage: ${{ env.UPGRADE_IMAGE }}
           upgradeVersion: ${{ env.UPGRADE_VERSION }}
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -853,7 +867,7 @@ jobs:
     steps:
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -994,7 +1008,7 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           go_mod_path: ./integration-tests/go.mod
           cache_restore_only: true
@@ -1021,6 +1035,8 @@ jobs:
 
           # Remove the created container
           docker rm "$CONTAINER_ID"
+      - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
+        run: ./scripts/install-solana-ci.sh
       - name: Generate config overrides
         run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
           cat << EOF > config.toml
@@ -1036,7 +1052,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}

@@ -3,10 +3,11 @@ package s4
 import (
 	"context"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -70,12 +71,12 @@ type storage struct {
 	lggr       logger.Logger
 	contraints Constraints
 	orm        ORM
-	clock      utils.Clock
+	clock      clockwork.Clock
 }
 
 var _ Storage = (*storage)(nil)
 
-func NewStorage(lggr logger.Logger, contraints Constraints, orm ORM, clock utils.Clock) Storage {
+func NewStorage(lggr logger.Logger, contraints Constraints, orm ORM, clock clockwork.Clock) Storage {
 	return &storage{
 		lggr:       lggr.Named("S4Storage"),
 		contraints: contraints,

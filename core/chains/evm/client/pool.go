@@ -477,6 +477,10 @@ func (p *Pool) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 	return p.selectNode().CallContract(ctx, msg, blockNumber)
 }
 
+func (p *Pool) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	return p.selectNode().PendingCallContract(ctx, msg)
+}
+
 func (p *Pool) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	return p.selectNode().CodeAt(ctx, account, blockNumber)
 }

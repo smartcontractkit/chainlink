@@ -44,6 +44,7 @@ const (
 	StreamJobType                  string = "stream"
 	VRFJobType                     string = "vrf"
 	WebhookJobType                 string = "webhook"
+	WorkflowJobType                string = "workflow"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -672,12 +673,22 @@ func getJsonNumberValue(value json.Number) (interface{}, error) {
 		}
 	} else {
 		f, err := value.Float64()
-		if err == nil {
-			result = f
-		} else {
+		if err != nil {
 			return nil, pkgerrors.Errorf("failed to parse json.Value: %v", err)
 		}
+		result = f
 	}
 
 	return result, nil
+}
+
+func selectBlock(block string) (string, error) {
+	if block == "" {
+		return "latest", nil
+	}
+	block = strings.ToLower(block)
+	if block == "pending" || block == "latest" {
+		return block, nil
+	}
+	return "", pkgerrors.Errorf("unsupported block param: %s", block)
 }
