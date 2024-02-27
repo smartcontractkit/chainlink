@@ -25,7 +25,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/kylelemons/godebug/diff"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
@@ -54,7 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
-var ErrProfileTooLong = pkgerrors.New("requested profile duration too large")
+var ErrProfileTooLong = errors.New("requested profile duration too large")
 
 func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 	return []cli.Command{
@@ -274,14 +274,14 @@ func (s *Shell) runNode(c *cli.Context) error {
 	if passwordFile := c.String("password"); passwordFile != "" {
 		p, err := utils.PasswordFromFile(passwordFile)
 		if err != nil {
-			return pkgerrors.Wrap(err, "error reading password from file")
+			return errors.Wrap(err, "error reading password from file")
 		}
 		pwd = &p
 	}
 	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
 		p, err := utils.PasswordFromFile(vrfPasswordFile)
 		if err != nil {
-			return pkgerrors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
+			return errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
 		}
 		vrfpwd = &p
 	}
@@ -291,7 +291,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
 	if err := s.Config.Validate(); err != nil {
-		return pkgerrors.Wrap(err, "config validation failed")
+		return errors.Wrap(err, "config validation failed")
 	}
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
@@ -348,7 +348,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	// Try opening DB connection and acquiring DB locks at once
 	if err := ldb.Open(rootCtx); err != nil {
 		// If not successful, we know neither locks nor connection remains opened
-		return s.errorOut(pkgerrors.Wrap(err, "opening db"))
+		return s.errorOut(errors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
 
@@ -357,7 +357,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, ldb.DB())
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "fatal error instantiating application"))
+		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
 	// Local shell initialization always uses local auth users table for admin auth
@@ -365,7 +365,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	keyStore := app.GetKeyStore()
 	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config.Password())
 	if err != nil {
-		return pkgerrors.Wrap(err, "error authenticating keystore")
+		return errors.Wrap(err, "error authenticating keystore")
 	}
 
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
@@ -378,9 +378,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
-				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+				err2 := app.GetKeyStore().Eth().EnsureKeys(rootCtx, ch.ID())
 				if err2 != nil {
-					return pkgerrors.Wrap(err2, "failed to ensure keystore keys")
+					return errors.Wrap(err2, "failed to ensure keystore keys")
 				}
 			} else {
 				lggr.Debugf("AutoCreateKey=false, will not ensure EVM key for chain %s", ch.ID())
@@ -391,7 +391,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	if s.Config.OCR().Enabled() {
 		err2 := app.GetKeyStore().OCR().EnsureKey()
 		if err2 != nil {
-			return pkgerrors.Wrap(err2, "failed to ensure ocr key")
+			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
 	if s.Config.OCR2().Enabled() {
@@ -410,37 +410,37 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(enabledChains...)
 		if err2 != nil {
-			return pkgerrors.Wrap(err2, "failed to ensure ocr key")
+			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
 	if s.Config.P2P().Enabled() {
 		err2 := app.GetKeyStore().P2P().EnsureKey()
 		if err2 != nil {
-			return pkgerrors.Wrap(err2, "failed to ensure p2p key")
+			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
 	if s.Config.CosmosEnabled() {
 		err2 := app.GetKeyStore().Cosmos().EnsureKey()
 		if err2 != nil {
-			return pkgerrors.Wrap(err2, "failed to ensure cosmos key")
+			return errors.Wrap(err2, "failed to ensure cosmos key")
 		}
 	}
 	if s.Config.SolanaEnabled() {
 		err2 := app.GetKeyStore().Solana().EnsureKey()
 		if err2 != nil {
-			return pkgerrors.Wrap(err2, "failed to ensure solana key")
+			return errors.Wrap(err2, "failed to ensure solana key")
 		}
 	}
 	if s.Config.StarkNetEnabled() {
 		err2 := app.GetKeyStore().StarkNet().EnsureKey()
 		if err2 != nil {
-			return pkgerrors.Wrap(err2, "failed to ensure starknet key")
+			return errors.Wrap(err2, "failed to ensure starknet key")
 		}
 	}
 
 	err2 := app.GetKeyStore().CSA().EnsureKey()
 	if err2 != nil {
-		return pkgerrors.Wrap(err2, "failed to ensure CSA key")
+		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
 
 	if e := checkFilePermissions(lggr, s.Config.RootDir()); e != nil {
@@ -449,14 +449,14 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	var user sessions.User
 	if user, err = NewFileAPIInitializer(c.String("api")).Initialize(authProviderORM, lggr); err != nil {
-		if !pkgerrors.Is(err, ErrNoCredentialFile) {
-			return pkgerrors.Wrap(err, "error creating api initializer")
+		if !errors.Is(err, ErrNoCredentialFile) {
+			return errors.Wrap(err, "error creating api initializer")
 		}
 		if user, err = s.FallbackAPIInitializer.Initialize(authProviderORM, lggr); err != nil {
-			if pkgerrors.Is(err, ErrorNoAPICredentialsAvailable) {
-				return pkgerrors.WithStack(err)
+			if errors.Is(err, ErrorNoAPICredentialsAvailable) {
+				return errors.WithStack(err)
 			}
-			return pkgerrors.Wrap(err, "error creating fallback initializer")
+			return errors.Wrap(err, "error creating fallback initializer")
 		}
 	}
 
@@ -466,7 +466,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		// We do not try stopping any sub-services that might be started,
 		// because the app will exit immediately upon return.
 		// But LockedDB will be released by defer in above.
-		return pkgerrors.Wrap(err, "error starting app")
+		return errors.Wrap(err, "error starting app")
 	}
 
 	grp, grpCtx := errgroup.WithContext(rootCtx)
@@ -474,7 +474,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	grp.Go(func() error {
 		<-grpCtx.Done()
 		if errInternal := app.Stop(); errInternal != nil {
-			return pkgerrors.Wrap(errInternal, "error stopping app")
+			return errors.Wrap(errInternal, "error stopping app")
 		}
 		return nil
 	})
@@ -483,7 +483,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	grp.Go(func() error {
 		errInternal := s.Runner.Run(grpCtx, app)
-		if pkgerrors.Is(errInternal, http.ErrServerClosed) {
+		if errors.Is(errInternal, http.ErrServerClosed) {
 			errInternal = nil
 		}
 		// In tests we have custom runners that stop the app gracefully,
@@ -566,7 +566,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "could not decode address"))
+		return s.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
@@ -575,20 +575,20 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		var ok bool
 		chainID, ok = big.NewInt(0).SetString(chainIDStr, 10)
 		if !ok {
-			return s.errorOut(pkgerrors.New("invalid evmChainID"))
+			return s.errorOut(errors.New("invalid evmChainID"))
 		}
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
 	db, err := pg.OpenUnlockedDB(s.Config.AppID(), s.Config.Database())
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "opening DB"))
+		return s.errorOut(errors.Wrap(err, "opening DB"))
 	}
 	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
 	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, db)
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "fatal error instantiating application"))
+		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
 	// TODO: BCF-2511 once the dust settles on BCF-2440/1 evaluate how the
@@ -622,10 +622,10 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	err = keyStore.Unlock(s.Config.Password().Keystore())
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "error authenticating keystore"))
+		return s.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(ctx, address, chain.ID()); err != nil {
 		return s.errorOut(err)
 	}
 
@@ -685,7 +685,7 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-var errDBURLMissing = pkgerrors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 
 // ConfigValidate validate the client configuration and pretty-prints results
 func (s *Shell) ConfigFileValidate(_ *cli.Context) error {
@@ -911,7 +911,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		arg := c.Args().First()
 		numVersion, err := strconv.ParseInt(arg, 10, 64)
 		if err != nil {
-			return s.errorOut(pkgerrors.Errorf("Unable to parse %v as integer", arg))
+			return s.errorOut(errors.Errorf("Unable to parse %v as integer", arg))
 		}
 		version = null.IntFrom(numVersion)
 	}
@@ -962,7 +962,7 @@ func (s *Shell) StatusDatabase(_ *cli.Context) error {
 // CreateMigration displays the database migration status
 func (s *Shell) CreateMigration(c *cli.Context) error {
 	if !c.Args().Present() {
-		return s.errorOut(pkgerrors.New("You must specify a migration name"))
+		return s.errorOut(errors.New("You must specify a migration name"))
 	}
 	db, err := newConnection(s.Config.Database())
 	if err != nil {
@@ -995,44 +995,43 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 
 	db, err := newConnection(cfg)
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "error connecting to the database"))
+		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
 	}
 	defer db.Close()
 
 	// some tables with evm_chain_id (mostly job specs) are in public schema
 	tablesToDeleteFromQuery := `SELECT table_name, table_schema FROM information_schema.columns WHERE "column_name"=$1;`
 	// Delete rows from each table based on the chain_id.
-	if strings.EqualFold("EVM", c.String("type")) {
-		rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
-		if err != nil {
+	if !strings.EqualFold("EVM", c.String("type")) {
+		return s.errorOut(errors.New("unknown chain type"))
+	}
+	rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var tablesToDeleteFrom []string
+	for rows.Next() {
+		var name string
+		var schema string
+		if err = rows.Scan(&name, &schema); err != nil {
 			return err
 		}
-		defer rows.Close()
+		tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
+	}
+	if rows.Err() != nil {
+		return rows.Err()
+	}
 
-		var tablesToDeleteFrom []string
-		for rows.Next() {
-			var name string
-			var schema string
-			if err = rows.Scan(&name, &schema); err != nil {
-				return err
-			}
-			tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
+	for _, tableName := range tablesToDeleteFrom {
+		query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
+		_, err = db.Exec(query, c.String("id"))
+		if err != nil {
+			fmt.Printf("Error deleting rows containing evm_chain_id from %s: %v\n", tableName, err)
+		} else {
+			fmt.Printf("Rows with evm_chain_id %s deleted from %s.\n", c.String("id"), tableName)
 		}
-		if rows.Err() != nil {
-			return rows.Err()
-		}
-
-		for _, tableName := range tablesToDeleteFrom {
-			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
-			_, err = db.Exec(query, c.String("id"))
-			if err != nil {
-				fmt.Printf("Error deleting rows containing evm_chain_id from %s: %v\n", tableName, err)
-			} else {
-				fmt.Printf("Rows with evm_chain_id %s deleted from %s.\n", c.String("id"), tableName)
-			}
-		}
-	} else {
-		return s.errorOut(pkgerrors.New("unknown chain type"))
 	}
 	return nil
 }
@@ -1130,7 +1129,7 @@ func dumpSchema(dbURL url.URL) (string, error) {
 	schema, err := cmd.Output()
 	if err != nil {
 		var ee *exec.ExitError
-		if pkgerrors.As(err, &ee) {
+		if errors.As(err, &ee) {
 			return "", fmt.Errorf("failed to dump schema: %v\n%s", err, string(ee.Stderr))
 		}
 		return "", fmt.Errorf("failed to dump schema: %v", err)
@@ -1146,7 +1145,7 @@ func checkSchema(dbURL url.URL, prevSchema string) error {
 	df := diff.Diff(prevSchema, newSchema)
 	if len(df) > 0 {
 		fmt.Println(df)
-		return pkgerrors.New("schema pre- and post- rollback does not match (ctrl+f for '+' or '-' to find the changed lines)")
+		return errors.New("schema pre- and post- rollback does not match (ctrl+f for '+' or '-' to find the changed lines)")
 	}
 	return nil
 }
@@ -1164,7 +1163,7 @@ func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
-		return pkgerrors.New("could not get runtime.Caller(1)")
+		return errors.New("could not get runtime.Caller(1)")
 	}
 	filepath := path.Join(path.Dir(filename), pathToFixtures)
 	fixturesSQL, err := os.ReadFile(filepath)

@@ -24,7 +24,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -89,7 +89,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, logger lo
 var (
 	// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
 	// and no API credentials have been provided
-	ErrorNoAPICredentialsAvailable = pkgerrors.New("API credentials must be supplied")
+	ErrorNoAPICredentialsAvailable = errors.New("API credentials must be supplied")
 )
 
 // Shell for the node, local commands and remote commands.
@@ -129,7 +129,7 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
 		fmt.Println()
-		return s.errorOut(pkgerrors.New("invalid configuration"))
+		return s.errorOut(errors.New("invalid configuration"))
 	}
 	return nil
 }
@@ -263,7 +263,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 		backupCfg := cfg.Backup()
 		if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.OnVersionUpgrade() {
 			if err = takeBackupIfVersionUpgrade(cfg.URL(), rootDir, cfg.Backup(), appLggr, appv, dbv, healthReportPort); err != nil {
-				if pkgerrors.Is(err, sql.ErrNoRows) {
+				if errors.Is(err, sql.ErrNoRows) {
 					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
 				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
 					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
@@ -308,7 +308,7 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 
 	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbUrl, rootDir, cfg, lggr)
 	if err != nil {
-		return pkgerrors.Wrap(err, "takeBackupIfVersionUpgrade failed")
+		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
 	}
 
 	//Because backups can take a long time we must start a "fake" health report to prevent
@@ -343,17 +343,17 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	}
 
 	if err := sentryInit(config.Sentry()); err != nil {
-		return pkgerrors.Wrap(err, "failed to initialize sentry")
+		return errors.Wrap(err, "failed to initialize sentry")
 	}
 
 	ws := config.WebServer()
 	if ws.HTTPPort() == 0 && ws.TLS().HTTPSPort() == 0 {
-		return pkgerrors.New("You must specify at least one port to listen on")
+		return errors.New("You must specify at least one port to listen on")
 	}
 
 	handler, err := web.NewRouter(app, prometheus)
 	if err != nil {
-		return pkgerrors.Wrap(err, "failed to create web router")
+		return errors.Wrap(err, "failed to create web router")
 	}
 	server := server{handler: handler, lggr: app.GetLogger()}
 
@@ -381,15 +381,15 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		<-gCtx.Done()
 		var err error
 		if server.httpServer != nil {
-			err = pkgerrors.WithStack(server.httpServer.Shutdown(context.Background()))
+			err = errors.WithStack(server.httpServer.Shutdown(context.Background()))
 		}
 		if server.tlsServer != nil {
-			err = multierr.Combine(err, pkgerrors.WithStack(server.tlsServer.Shutdown(context.Background())))
+			err = multierr.Combine(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
 		}
 		return err
 	})
 
-	return pkgerrors.WithStack(g.Wait())
+	return errors.WithStack(g.Wait())
 }
 
 func sentryInit(cfg config.Sentry) error {
@@ -429,7 +429,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
-			if !pkgerrors.Is(err, http.ErrServerClosed) {
+			if !errors.Is(err, http.ErrServerClosed) {
 				lggr.Criticalf("Error starting server: %v", err)
 			}
 		}
@@ -455,7 +455,7 @@ func (s *server) run(ip net.IP, port uint16, writeTimeout time.Duration) error {
 	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTP on %s", addr), "ip", ip, "port", port)
 	s.httpServer = createServer(s.handler, addr, writeTimeout)
 	err := s.httpServer.ListenAndServe()
-	return pkgerrors.Wrap(err, "failed to run plaintext HTTP server")
+	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
 func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, requestTimeout time.Duration) error {
@@ -463,7 +463,7 @@ func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, reques
 	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTPS on %s", addr), "ip", ip, "port", port)
 	s.tlsServer = createServer(s.handler, addr, requestTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	return pkgerrors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
+	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
 }
 
 func createServer(handler *gin.Engine, addr string, requestTimeout time.Duration) *http.Server {
@@ -646,7 +646,7 @@ func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRe
 
 	cookies := resp.Cookies()
 	if len(cookies) == 0 {
-		return nil, pkgerrors.New("did not receive cookie with session id")
+		return nil, errors.New("did not receive cookie with session id")
 	}
 	sc := web.FindSessionCookie(cookies)
 	return sc, t.store.Save(sc)
@@ -713,14 +713,14 @@ func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, multierr.Append(pkgerrors.New("unable to retrieve credentials, you must first login through the CLI"), err)
+		return nil, multierr.Append(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
 	}
 	header := http.Header{}
 	header.Add("Cookie", string(b))
 	request := http.Request{Header: header}
 	cookies := request.Cookies()
 	if len(cookies) == 0 {
-		return nil, pkgerrors.New("Cookie not in file, you must first login through the CLI")
+		return nil, errors.New("Cookie not in file, you must first login through the CLI")
 	}
 	return request.Cookies()[0], nil
 }
@@ -812,7 +812,7 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lg
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, pkgerrors.Wrap(err, "Unable to List users for initialization")
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, prompt for initial admin user creation
@@ -871,14 +871,14 @@ func (f fileAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr log
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, pkgerrors.Wrap(err, "Unable to List users for initialization")
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, create initial admin user from session request from file creds
 	if len(dbUsers) == 0 {
 		user, err2 := sessions.NewUser(request.Email, request.Password, sessions.UserRoleAdmin)
 		if err2 != nil {
-			return user, pkgerrors.Wrap(err2, "failed to instantiate new user")
+			return user, errors.Wrap(err2, "failed to instantiate new user")
 		}
 		return user, orm.CreateUser(&user)
 	}
@@ -930,7 +930,7 @@ func attemptAssumeAdminUser(users []sessions.User, lggr logger.Logger) (sessions
 	return sessions.User{}, false
 }
 
-var ErrNoCredentialFile = pkgerrors.New("no API user credential file was passed")
+var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
 func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionRequest, error) {
 	if len(file) == 0 {
@@ -979,7 +979,7 @@ func (c changePasswordPrompter) Prompt() (web.UpdatePasswordRequest, error) {
 	confirmPassword := c.prompter.PasswordPrompt("Confirmation:")
 
 	if newPassword != confirmPassword {
-		return web.UpdatePasswordRequest{}, pkgerrors.New("new password and confirmation did not match")
+		return web.UpdatePasswordRequest{}, errors.New("new password and confirmation did not match")
 	}
 
 	return web.UpdatePasswordRequest{

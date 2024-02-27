@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
@@ -157,7 +157,7 @@ func (s *Shell) CreateP2PKey(_ *cli.Context) (err error) {
 // key ID must be passed
 func (s *Shell) DeleteP2PKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(pkgerrors.New("Must pass the key ID to be deleted"))
+		return s.errorOut(errors.New("Must pass the key ID to be deleted"))
 	}
 	id := c.Args().Get(0)
 
@@ -187,16 +187,16 @@ func (s *Shell) DeleteP2PKey(c *cli.Context) (err error) {
 // path to key must be passed
 func (s *Shell) ImportP2PKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(pkgerrors.New("Must pass the filepath of the key to be imported"))
+		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
 
 	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return s.errorOut(pkgerrors.New("Must specify --old-password/-p flag"))
+		return s.errorOut(errors.New("Must specify --old-password/-p flag"))
 	}
 	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
+		return s.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
@@ -223,21 +223,21 @@ func (s *Shell) ImportP2PKey(c *cli.Context) (err error) {
 // key ID must be passed
 func (s *Shell) ExportP2PKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return s.errorOut(pkgerrors.New("Must pass the ID of the key to export"))
+		return s.errorOut(errors.New("Must pass the ID of the key to export"))
 	}
 
 	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return s.errorOut(pkgerrors.New("Must specify --new-password/-p flag"))
+		return s.errorOut(errors.New("Must specify --new-password/-p flag"))
 	}
 	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "Could not read password file"))
+		return s.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(filepath) == 0 {
-		return s.errorOut(pkgerrors.New("Must specify --output/-o flag"))
+		return s.errorOut(errors.New("Must specify --output/-o flag"))
 	}
 
 	ID := c.Args().Get(0)
@@ -245,7 +245,7 @@ func (s *Shell) ExportP2PKey(c *cli.Context) (err error) {
 	normalizedPassword := normalizePassword(string(newPassword))
 	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/p2p/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -259,12 +259,12 @@ func (s *Shell) ExportP2PKey(c *cli.Context) (err error) {
 
 	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrap(err, "Could not read response body"))
+		return s.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
 	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
-		return s.errorOut(pkgerrors.Wrapf(err, "Could not write %v", filepath))
+		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported P2P key %s to %s\n", ID, filepath))

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,7 +23,7 @@ type keystorePassword interface {
 func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master, password keystorePassword) error {
 	isEmpty, err := keyStore.IsEmpty()
 	if err != nil {
-		return pkgerrors.Wrap(err, "error determining if keystore is empty")
+		return errors.Wrap(err, "error determining if keystore is empty")
 	}
 	pw := password.Keystore()
 
@@ -38,7 +38,7 @@ func (auth TerminalKeyStoreAuthenticator) authenticate(keyStore keystore.Master,
 	}
 	interactive := auth.Prompter.IsTerminal()
 	if !interactive {
-		return pkgerrors.New("no password provided")
+		return errors.New("no password provided")
 	} else if !isEmpty {
 		pw = auth.promptExistingPassword()
 	} else {

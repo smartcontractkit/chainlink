@@ -55,13 +55,13 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	n1 := nodes[0]
 	n2 := nodes[1]
 	assert.Equal(t, id, n1.ChainID)
-	assert.Equal(t, *node1.Name, n1.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, *node1.Name), n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
 	wantConfig, err := toml.Marshal(node1)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n1.Config)
 	assert.Equal(t, id, n2.ChainID)
-	assert.Equal(t, *node2.Name, n2.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, *node2.Name), n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
 	wantConfig2, err := toml.Marshal(node2)
 	require.NoError(t, err)

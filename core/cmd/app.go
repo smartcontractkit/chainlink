@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -98,7 +98,7 @@ func NewApp(s *Shell) *cli.App {
 		urlStr := c.String("remote-node-url")
 		remoteNodeURL, err := url.Parse(urlStr)
 		if err != nil {
-			return pkgerrors.Wrapf(err, "%s is not a valid URL", urlStr)
+			return errors.Wrapf(err, "%s is not a valid URL", urlStr)
 		}
 
 		insecureSkipVerify := c.Bool("insecure-skip-verify")
@@ -108,8 +108,8 @@ func NewApp(s *Shell) *cli.App {
 
 		credentialsFile := c.String("admin-credentials-file")
 		sr, err := sessionRequestBuilder.Build(credentialsFile)
-		if err != nil && !pkgerrors.Is(pkgerrors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
-			return pkgerrors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
+		if err != nil && !errors.Is(errors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
+			return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
 		}
 
 		s.HTTP = NewAuthenticatedHTTPClient(s.Logger, clientOpts, cookieAuth, sr)
