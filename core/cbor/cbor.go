@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // ParseDietCBOR attempts to coerce the input byte array into valid CBOR.
@@ -28,7 +28,7 @@ func ParseDietCBOR(b []byte) (map[string]interface{}, error) {
 
 	output, ok := coerced.(map[string]interface{})
 	if !ok {
-		return nil, errors.New("cbor data cannot be coerced to map")
+		return nil, pkgerrors.New("cbor data cannot be coerced to map")
 	}
 
 	return output, nil
