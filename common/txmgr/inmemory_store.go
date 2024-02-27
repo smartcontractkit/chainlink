@@ -178,6 +178,37 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 
 // UpdateTxFatalError updates a transaction to fatal_error.
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalError(ctx context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	if tx.State != TxInProgress && tx.State != TxUnstarted {
+		return fmt.Errorf("update_tx_fatal_error: can only transition to fatal_error from in_progress, transaction is currently %s", tx.State)
+	}
+	if !tx.Error.Valid {
+		return fmt.Errorf("update_tx_fatal_error: expected error field to be set")
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[tx.FromAddress]
+	if !ok {
+		return fmt.Errorf("update_tx_fatal_error: %w", ErrAddressNotFound)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateTxFatalError(ctx, tx); err != nil {
+		return fmt.Errorf("update_tx_fatal_error: %w", err)
+	}
+
+	// Update in memory store
+	switch tx.State {
+	case TxInProgress:
+		if err := as.MoveInProgressToFatalError(tx.Error); err != nil {
+			return fmt.Errorf("update_tx_fatal_error: %w", err)
+		}
+	case TxUnstarted:
+		if err := as.MoveUnstartedToFatalError(tx.ID, tx.Error); err != nil {
+			return fmt.Errorf("update_tx_fatal_error: %w", err)
+		}
+	}
+
 	return nil
 }
 
