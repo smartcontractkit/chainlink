@@ -29,8 +29,10 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-// RPCCLient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
-type RPCCLient interface {
+// RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
+//
+//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
+type RPCClient interface {
 	commonclient.RPC[
 		*big.Int,
 		evmtypes.Nonce,
@@ -90,7 +92,7 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
-) RPCCLient {
+) RPCClient {
 	r := new(rpcClient)
 	r.name = name
 	r.id = id
@@ -1104,6 +1106,33 @@ func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context)
 
 func (r *rpcClient) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
 	return makeQueryCtx(ctx, r.getChStopInflight())
+}
+
+func (r *rpcClient) IsSyncing(ctx context.Context) (bool, error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer cancel()
+	lggr := r.newRqLggr()
+
+	lggr.Debug("RPC call: evmclient.Client#SyncProgress")
+	var syncProgress *ethereum.SyncProgress
+	start := time.Now()
+	if http != nil {
+		syncProgress, err = http.geth.SyncProgress(ctx)
+		err = r.wrapHTTP(err)
+	} else {
+		syncProgress, err = ws.geth.SyncProgress(ctx)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "BlockNumber",
+		"syncProgress", syncProgress,
+	)
+
+	return syncProgress != nil, nil
 }
 
 // getChStopInflight provides a convenience helper that mutex wraps a
