@@ -183,6 +183,16 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // Close closes the InMemoryStore
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
+	// Close the event recorder
+	ms.txStore.Close()
+
+	// Clear all address states
+	ms.addressStatesLock.Lock()
+	for _, as := range ms.addressStates {
+		as.Close()
+	}
+	clear(ms.addressStates)
+	ms.addressStatesLock.Unlock()
 }
 
 // Abandon removes all transactions for a given address
