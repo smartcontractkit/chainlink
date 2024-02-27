@@ -48,7 +48,7 @@ jobs:
       - name: Notify Slack
         # Only run this notification for merge to develop failures
         if: failure() && github.event_name != 'workflow_dispatch'
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
