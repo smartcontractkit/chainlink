@@ -359,6 +359,28 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveCo
 	return nil
 }
 
+// Close releases all resources held by the address state.
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
+	clear(as.idempotencyKeyToTx)
+
+	as.unstartedTxs.Close()
+	as.unstartedTxs = nil
+	as.inprogressTx = nil
+
+	clear(as.unconfirmedTxs)
+	clear(as.confirmedMissingReceiptTxs)
+	clear(as.confirmedTxs)
+	clear(as.allTxs)
+	clear(as.fatalErroredTxs)
+
+	as.idempotencyKeyToTx = nil
+	as.unconfirmedTxs = nil
+	as.confirmedMissingReceiptTxs = nil
+	as.confirmedTxs = nil
+	as.allTxs = nil
+	as.fatalErroredTxs = nil
+}
+
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxs(
 	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
