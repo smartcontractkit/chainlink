@@ -105,7 +105,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 ) {
 	tx := txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	if ms.chainID.String() != chainID.String() {
-		return tx, fmt.Errorf("create_transaction: %w", ErrInvalidChainID)
+		panic(fmt.Sprintf("create_transaction: invalid chain ID: %s", chainID))
 	}
 
 	ms.addressStatesLock.RLock()
