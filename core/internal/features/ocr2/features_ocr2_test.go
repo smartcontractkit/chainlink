@@ -487,6 +487,7 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
+juelsPerFeeCoinCacheDuration = "1m"
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), chainReaderSpec, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
 				err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
@@ -839,6 +840,7 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
+juelsPerFeeCoinCacheDuration = "1m"
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
