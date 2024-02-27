@@ -70,6 +70,7 @@ compileContract automation/testhelpers/KeeperConsumerPerformance.sol
 compileContract automation/testhelpers/PerformDataChecker.sol
 compileContract automation/testhelpers/UpkeepPerformCounterRestrictive.sol
 compileContract automation/testhelpers/UpkeepCounter.sol
+compileContract automation/testhelpers/LogTriggeredLoad.sol
 
 compileContract automation/interfaces/StreamsLookupCompatibleInterface.sol
 
