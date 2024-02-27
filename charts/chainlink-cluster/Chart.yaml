@@ -9,7 +9,7 @@ dependencies:
     repository: "https://www.mock-server.com"
     condition: mockserver.enabled
   - name: opentelemetry-collector
-    version: "0.95.0"
+    version: "0.82.0"
     repository: "https://open-telemetry.github.io/opentelemetry-helm-charts"
     condition: opentelemetry-collector.enabled
   - name: tempo
