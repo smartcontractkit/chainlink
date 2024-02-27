@@ -320,6 +320,37 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[attempt.Tx.FromAddress]
+	if !ok {
+		return fmt.Errorf("save_insufficient_funds_attempt: %w", ErrAddressNotFound)
+	}
+	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientFunds) {
+		return fmt.Errorf("expected state to be in_progress or insufficient_funds")
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.SaveInsufficientFundsAttempt(ctx, timeout, attempt, broadcastAt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.ID != attempt.TxID {
+			return
+		}
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+		if tx.BroadcastAt.Before(broadcastAt) {
+			tx.BroadcastAt = &broadcastAt
+		}
+
+		tx.TxAttempts[0].State = txmgrtypes.TxAttemptInsufficientFunds
+	}
+	as.ApplyToTxsByState(nil, fn, attempt.TxID)
+
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
