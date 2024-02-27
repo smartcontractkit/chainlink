@@ -327,7 +327,7 @@ func (s *SendError) IsCanceled() bool {
 	if s.err == nil {
 		return false
 	}
-	return errors.Is(s.err, context.Canceled)
+	return pkgerrors.Is(s.err, context.Canceled)
 }
 
 func NewFatalSendError(e error) *SendError {

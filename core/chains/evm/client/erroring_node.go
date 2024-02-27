@@ -104,7 +104,7 @@ func (e *erroringNode) CallContract(ctx context.Context, msg ethereum.CallMsg, b
 }
 
 func (e *erroringNode) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
-	return nil, errors.New(e.errMsg)
+	return nil, pkgerrors.New(e.errMsg)
 }
 
 func (e *erroringNode) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
