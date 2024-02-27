@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -244,7 +244,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast.On("String").Return("").Maybe()
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything).Return(pkgerrors.New("something exploded"))
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 
 		uni.requestRoundTracker.HandleLog(logBroadcast)
 

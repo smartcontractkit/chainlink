@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -140,7 +140,7 @@ func TestMercury_Observe(t *testing.T) {
 		})
 		t.Run("if querying latest report fails", func(t *testing.T) {
 			orm.report = nil
-			orm.err = pkgerrors.New("something exploded")
+			orm.err = errors.New("something exploded")
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -164,7 +164,7 @@ func TestMercury_Observe(t *testing.T) {
 
 		t.Run("without latest report in database", func(t *testing.T) {
 			t.Run("if FetchInitialMaxFinalizedBlockNumber returns error", func(t *testing.T) {
-				fetcher.err = pkgerrors.New("mock fetcher error")
+				fetcher.err = errors.New("mock fetcher error")
 
 				obs, err := ds.Observe(ctx, repts, true)
 				assert.NoError(t, err)
@@ -228,7 +228,7 @@ func TestMercury_Observe(t *testing.T) {
 			t.Cleanup(func() {
 				runner.Err = nil
 			})
-			runner.Err = pkgerrors.New("run execution failed")
+			runner.Err = errors.New("run execution failed")
 
 			_, err := ds.Observe(ctx, repts, false)
 			assert.EqualError(t, err, "Observe failed while executing run: error executing run for spec ID 0: run execution failed")

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -35,7 +35,7 @@ func NewRoundRequestedDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) 
 func (d *requestRoundDB) SaveLatestRoundRequested(tx pg.Queryer, rr ocr2aggregator.OCR2AggregatorRoundRequested) error {
 	rawLog, err := json.Marshal(rr.Raw)
 	if err != nil {
-		return pkgerrors.Wrap(err, "could not marshal log as JSON")
+		return errors.Wrap(err, "could not marshal log as JSON")
 	}
 	_, err = tx.Exec(`
 INSERT INTO ocr2_latest_round_requested (ocr2_oracle_spec_id, requester, config_digest, epoch, round, raw)
@@ -47,7 +47,7 @@ VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (ocr2_oracle_spec_id) DO UPDATE SET
 	raw = EXCLUDED.raw
 `, d.oracleSpecID, rr.Requester, rr.ConfigDigest[:], rr.Epoch, rr.Round, rawLog)
 
-	return pkgerrors.Wrap(err, "could not save latest round requested")
+	return errors.Wrap(err, "could not save latest round requested")
 }
 
 func (d *requestRoundDB) LoadLatestRoundRequested() (ocr2aggregator.OCR2AggregatorRoundRequested, error) {
@@ -59,7 +59,7 @@ WHERE ocr2_oracle_spec_id = $1
 LIMIT 1
 `, d.oracleSpecID)
 	if err != nil {
-		return rr, pkgerrors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
+		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
 	defer rows.Close()
 
@@ -69,17 +69,17 @@ LIMIT 1
 
 		err = rows.Scan(&rr.Requester, &configDigest, &rr.Epoch, &rr.Round, &rawLog)
 		if err != nil {
-			return rr, pkgerrors.Wrap(err, "LoadLatestRoundRequested failed to scan row")
+			return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to scan row")
 		}
 
 		rr.ConfigDigest, err = ocrtypes.BytesToConfigDigest(configDigest)
 		if err != nil {
-			return rr, pkgerrors.Wrap(err, "LoadLatestRoundRequested failed to decode config digest")
+			return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to decode config digest")
 		}
 
 		err = json.Unmarshal(rawLog, &rr.Raw)
 		if err != nil {
-			return rr, pkgerrors.Wrap(err, "LoadLatestRoundRequested failed to unmarshal raw log")
+			return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to unmarshal raw log")
 		}
 	}
 

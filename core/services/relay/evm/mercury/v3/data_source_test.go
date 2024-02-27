@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
@@ -121,7 +121,7 @@ func Test_Datasource(t *testing.T) {
 		})
 		t.Run("if querying latest report fails", func(t *testing.T) {
 			orm.report = nil
-			orm.err = pkgerrors.New("something exploded")
+			orm.err = errors.New("something exploded")
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -144,7 +144,7 @@ func Test_Datasource(t *testing.T) {
 		orm.err = nil
 
 		t.Run("if LatestTimestamp returns error", func(t *testing.T) {
-			fetcher.tsErr = pkgerrors.New("some error")
+			fetcher.tsErr = errors.New("some error")
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
@@ -216,7 +216,7 @@ func Test_Datasource(t *testing.T) {
 
 			ds.pipelineRunner = &mercurymocks.MockRunner{
 				Trrs: goodTrrs,
-				Err:  pkgerrors.New("run execution failed"),
+				Err:  errors.New("run execution failed"),
 			}
 
 			_, err := ds.Observe(ctx, repts, false)
@@ -245,7 +245,7 @@ func Test_Datasource(t *testing.T) {
 				},
 				{
 					// ask
-					Result: pipeline.Result{Error: pkgerrors.New("some error with ask")},
+					Result: pipeline.Result{Error: errors.New("some error with ask")},
 					Task:   &mercurymocks.MockTask{},
 				},
 			}
@@ -291,8 +291,8 @@ func Test_Datasource(t *testing.T) {
 					fetcher.nativePriceErr = nil
 				})
 
-				fetcher.linkPriceErr = pkgerrors.New("some error fetching link price")
-				fetcher.nativePriceErr = pkgerrors.New("some error fetching native price")
+				fetcher.linkPriceErr = errors.New("some error fetching link price")
+				fetcher.nativePriceErr = errors.New("some error fetching native price")
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)

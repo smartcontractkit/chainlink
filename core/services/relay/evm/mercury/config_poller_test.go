@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -115,7 +115,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 func onchainPublicKeyToAddress(publicKeys []types.OnchainPublicKey) (addresses []common.Address, err error) {
 	for _, signer := range publicKeys {
 		if len(signer) != 20 {
-			return []common.Address{}, pkgerrors.Errorf("address is not 20 bytes %s", signer)
+			return []common.Address{}, errors.Errorf("address is not 20 bytes %s", signer)
 		}
 		addresses = append(addresses, common.BytesToAddress(signer))
 	}

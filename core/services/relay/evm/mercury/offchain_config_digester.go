@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
@@ -32,7 +32,7 @@ func (d OffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractConfig) (ocrtyp
 	signers := []common.Address{}
 	for i, signer := range cc.Signers {
 		if len(signer) != 20 {
-			return ocrtypes.ConfigDigest{}, pkgerrors.Errorf("%v-th evm signer should be a 20 byte address, but got %x", i, signer)
+			return ocrtypes.ConfigDigest{}, errors.Errorf("%v-th evm signer should be a 20 byte address, but got %x", i, signer)
 		}
 		a := common.BytesToAddress(signer)
 		signers = append(signers, a)
@@ -40,12 +40,12 @@ func (d OffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractConfig) (ocrtyp
 	transmitters := []credentials.StaticSizedPublicKey{}
 	for i, transmitter := range cc.Transmitters {
 		if len(transmitter) != 2*ed25519.PublicKeySize {
-			return ocrtypes.ConfigDigest{}, pkgerrors.Errorf("%v-th evm transmitter should be a 64 character hex-encoded ed25519 public key, but got '%v' (%d chars)", i, transmitter, len(transmitter))
+			return ocrtypes.ConfigDigest{}, errors.Errorf("%v-th evm transmitter should be a 64 character hex-encoded ed25519 public key, but got '%v' (%d chars)", i, transmitter, len(transmitter))
 		}
 		var t credentials.StaticSizedPublicKey
 		b, err := hex.DecodeString(string(transmitter))
 		if err != nil {
-			return ocrtypes.ConfigDigest{}, pkgerrors.Wrapf(err, "%v-th evm transmitter is not valid hex, got: %q", i, transmitter)
+			return ocrtypes.ConfigDigest{}, errors.Wrapf(err, "%v-th evm transmitter is not valid hex, got: %q", i, transmitter)
 		}
 		copy(t[:], b)
 

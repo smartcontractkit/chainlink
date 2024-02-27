@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -156,7 +156,7 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 	if err != nil {
 		w.dialErrorCountMetric.Inc()
 		setLivenessMetric(false)
-		return pkgerrors.Wrap(err, "failed to dial wsrpc client")
+		return errors.Wrap(err, "failed to dial wsrpc client")
 	}
 	w.dialSuccessCountMetric.Inc()
 	setLivenessMetric(true)
@@ -193,16 +193,16 @@ func (w *client) resetTransport() {
 	b := utils.NewRedialBackoff()
 	for {
 		// Will block until successful dial, or context is canceled (i.e. on close)
-		if err := w.dial(ctx, wsrpc.WithBlock()); err != nil {
-			if ctx.Err() != nil {
-				w.logger.Debugw("ResetTransport exiting due to client Close", "err", err)
-				return
-			}
-			w.logger.Errorw("ResetTransport failed to redial", "err", err)
-			time.Sleep(b.Duration())
-		} else {
+		err := w.dial(ctx, wsrpc.WithBlock())
+		if err == nil {
 			break
 		}
+		if ctx.Err() != nil {
+			w.logger.Debugw("ResetTransport exiting due to client Close", "err", err)
+			return
+		}
+		w.logger.Errorw("ResetTransport failed to redial", "err", err)
+		time.Sleep(b.Duration())
 	}
 	w.logger.Info("ResetTransport successfully redialled")
 }
@@ -231,7 +231,7 @@ func (w *client) Healthy() (err error) {
 	}
 	state := w.conn.GetState()
 	if state != connectivity.Ready {
-		return pkgerrors.Errorf("client state should be %s; got %s", connectivity.Ready, state)
+		return errors.Errorf("client state should be %s; got %s", connectivity.Ready, state)
 	}
 	return nil
 }
@@ -239,12 +239,12 @@ func (w *client) Healthy() (err error) {
 func (w *client) waitForReady(ctx context.Context) (err error) {
 	ok := w.IfStarted(func() {
 		if ready := w.conn.WaitForReady(ctx); !ready {
-			err = pkgerrors.Errorf("websocket client not ready; got state: %v", w.conn.GetState())
+			err = errors.Errorf("websocket client not ready; got state: %v", w.conn.GetState())
 			return
 		}
 	})
 	if !ok {
-		return pkgerrors.New("client is not started")
+		return errors.New("client is not started")
 	}
 	return
 }
@@ -253,7 +253,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	w.logger.Trace("Transmit")
 	start := time.Now()
 	if err = w.waitForReady(ctx); err != nil {
-		return nil, pkgerrors.Wrap(err, "Transmit call failed")
+		return nil, errors.Wrap(err, "Transmit call failed")
 	}
 	resp, err = w.rawClient.Transmit(ctx, req)
 	w.handleTimeout(err)
@@ -269,7 +269,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 }
 
 func (w *client) handleTimeout(err error) {
-	if pkgerrors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.DeadlineExceeded) {
 		w.timeoutCountMetric.Inc()
 		cnt := w.consecutiveTimeoutCnt.Add(1)
 		if cnt == MaxConsecutiveRequestFailures {
@@ -305,7 +305,7 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	lggr := w.logger.With("req.FeedId", hexutil.Encode(req.FeedId))
 	lggr.Trace("LatestReport")
 	if err = w.waitForReady(ctx); err != nil {
-		return nil, pkgerrors.Wrap(err, "LatestReport failed")
+		return nil, errors.Wrap(err, "LatestReport failed")
 	}
 	var cached bool
 	if w.cache == nil {

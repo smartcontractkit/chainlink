@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -73,7 +73,7 @@ func NewFunctionsContractTransmitter(
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
-		return nil, pkgerrors.New("invalid ABI, missing transmitted")
+		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
 	if contractVersion != 1 {
@@ -106,7 +106,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	var ss [][32]byte
 	var vs [32]byte
 	if len(signatures) > 32 {
-		return pkgerrors.New("too many signatures, maximum is 32")
+		return errors.New("too many signatures, maximum is 32")
 	}
 	for i, as := range signatures {
 		r, s, v, err := evmutil.SplitSignature(as.Signature)
@@ -125,21 +125,22 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 
 	var destinationContract common.Address
-	if oc.contractVersion == 1 {
+	switch oc.contractVersion {
+	case 1:
 		oc.lggr.Debugw("FunctionsContractTransmitter: start", "reportLenBytes", len(report))
 		requests, err2 := oc.reportCodec.DecodeReport(report)
 		if err2 != nil {
-			return pkgerrors.Wrap(err2, "FunctionsContractTransmitter: DecodeReport failed")
+			return errors.Wrap(err2, "FunctionsContractTransmitter: DecodeReport failed")
 		}
 		if len(requests) == 0 {
-			return pkgerrors.New("FunctionsContractTransmitter: no requests in report")
+			return errors.New("FunctionsContractTransmitter: no requests in report")
 		}
 		if len(requests[0].CoordinatorContract) != common.AddressLength {
 			return fmt.Errorf("FunctionsContractTransmitter: incorrect length of CoordinatorContract field: %d", len(requests[0].CoordinatorContract))
 		}
 		destinationContract.SetBytes(requests[0].CoordinatorContract)
 		if destinationContract == (common.Address{}) {
-			return pkgerrors.New("FunctionsContractTransmitter: destination coordinator contract is zero")
+			return errors.New("FunctionsContractTransmitter: destination coordinator contract is zero")
 		}
 		// Sanity check - every report should contain requests with the same coordinator contract.
 		for _, req := range requests[1:] {
@@ -152,16 +153,16 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 			}
 		}
 		oc.lggr.Debugw("FunctionsContractTransmitter: ready", "nRequests", len(requests), "coordinatorContract", destinationContract.Hex())
-	} else {
+	default:
 		return fmt.Errorf("unsupported contract version: %d", oc.contractVersion)
 	}
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
-		return pkgerrors.Wrap(err, "abi.Pack failed")
+		return errors.Wrap(err, "abi.Pack failed")
 	}
 
 	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "txMeta", txMeta, "payloadSize", len(payload))
-	return pkgerrors.Wrap(oc.transmitter.CreateEthTransaction(ctx, destinationContract, payload, txMeta), "failed to send Eth transaction")
+	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, destinationContract, payload, txMeta), "failed to send Eth transaction")
 }
 
 type contractReader interface {
@@ -184,7 +185,7 @@ func parseTransmitted(log []byte) ([32]byte, uint32, error) {
 		return [32]byte{}, 0, err
 	}
 	if len(transmitted) < 2 {
-		return [32]byte{}, 0, pkgerrors.New("transmitted event log has too few arguments")
+		return [32]byte{}, 0, errors.New("transmitted event log has too few arguments")
 	}
 	configDigest := *abi.ConvertType(transmitted[0], new([32]byte)).(*[32]byte)
 	epoch := *abi.ConvertType(transmitted[1], new(uint32)).(*uint32)
@@ -209,7 +210,7 @@ func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI,
 func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
 	contractAddr := oc.contractAddress.Load()
 	if contractAddr == nil {
-		return ocrtypes.ConfigDigest{}, 0, pkgerrors.New("destination contract address not set")
+		return ocrtypes.ConfigDigest{}, 0, errors.New("destination contract address not set")
 	}
 	latestConfigDigestAndEpoch, err := callContract(ctx, *contractAddr, oc.contractABI, "latestConfigDigestAndEpoch", nil, oc.contractReader)
 	if err != nil {
@@ -230,7 +231,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	latest, err := oc.lp.LatestLogByEventSigWithConfs(
 		oc.transmittedEventSig, *contractAddr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
-		if pkgerrors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet
 			return configDigest, 0, nil
 		}

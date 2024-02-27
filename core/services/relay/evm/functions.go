@@ -4,13 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	pkgerrors "github.com/pkg/errors"
-
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/pkg/errors"
 
 	"go.uber.org/multierr"
 
@@ -94,7 +90,7 @@ func (p *functionsProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
+func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
 	relayOpts := evmRelayTypes.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -108,7 +104,7 @@ func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pa
 		return nil, err
 	}
 	if !common.IsHexAddress(rargs.ContractID) {
-		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
+		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
 	var pluginConfig config.PluginConfig
 	if err2 := json.Unmarshal(pargs.PluginConfig, &pluginConfig); err2 != nil {
@@ -125,7 +121,7 @@ func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pa
 	}
 	var contractTransmitter ContractTransmitter
 	if relayConfig.SendingKeys != nil {
-		contractTransmitter, err = newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
+		contractTransmitter, err = newFunctionsContractTransmitter(ctx, pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -141,14 +137,10 @@ func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pa
 
 func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
 	if !common.IsHexAddress(args.ContractID) {
-		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
+		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
 
 	routerContractAddress := common.HexToAddress(args.ContractID)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "could not get contract ABI JSON")
-	}
 
 	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), lggr)
 	if err != nil {
@@ -159,10 +151,10 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	offchainConfigDigester := functionsRelay.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64())
 	logPollerWrapper.SubscribeToUpdates("FunctionsOffchainConfigDigester", offchainConfigDigester)
 
-	return newConfigWatcher(lggr, routerContractAddress, contractABI, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
+	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
-func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
+func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
 	var relayConfig evmRelayTypes.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -170,23 +162,23 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.R
 	var fromAddresses []common.Address
 	sendingKeys := relayConfig.SendingKeys
 	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
+		return nil, errors.New("EffectiveTransmitterID must be specified")
 	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 
 	sendingKeysLength := len(sendingKeys)
 	if sendingKeysLength == 0 {
-		return nil, pkgerrors.New("no sending keys provided")
+		return nil, errors.New("no sending keys provided")
 	}
 
 	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
 	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
 	for _, s := range sendingKeys {
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
-			return nil, pkgerrors.New("the transmitter is a local sending key with transaction forwarding enabled")
+			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
-		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
-			return nil, pkgerrors.Wrap(err, "one of the sending keys given is not enabled")
+		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
+			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
@@ -217,12 +209,12 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.R
 	)
 
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
+		return nil, errors.Wrap(err, "failed to create transmitter")
 	}
 
 	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
 		configWatcher.chain.Client(),
-		configWatcher.contractABI,
+		OCR2AggregatorTransmissionContractABI,
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,

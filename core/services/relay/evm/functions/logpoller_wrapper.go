@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
@@ -92,7 +92,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	}
 	if blockOffset >= pastBlocksToPoll || requestBlockOffset >= pastBlocksToPoll || responseBlockOffset >= pastBlocksToPoll {
 		lggr.Errorw("invalid config: number of required confirmation blocks >= pastBlocksToPoll", "pastBlocksToPoll", pastBlocksToPoll, "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations, "minRequestConfirmations", pluginConfig.MinRequestConfirmations, "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
-		return nil, pkgerrors.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll")
+		return nil, errors.Errorf("invalid config: number of required confirmation blocks >= pastBlocksToPoll")
 	}
 
 	return &logPollerWrapper{
@@ -118,7 +118,7 @@ func (l *logPollerWrapper) Start(context.Context) error {
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		if l.pluginConfig.ContractVersion != 1 {
-			return pkgerrors.New("only contract version 1 is supported")
+			return errors.New("only contract version 1 is supported")
 		}
 		l.closeWait.Add(1)
 		go l.checkForRouteUpdates()
@@ -168,7 +168,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	resultsResp := []evmRelayTypes.OracleResponse{}
 	if len(coordinators) == 0 {
 		l.lggr.Debug("LatestEvents: no non-zero coordinators to check")
-		return resultsReq, resultsResp, pkgerrors.New("no non-zero coordinators to check")
+		return resultsReq, resultsResp, errors.New("no non-zero coordinators to check")
 	}
 
 	for _, coordinator := range coordinators {
@@ -304,12 +304,11 @@ func (l *logPollerWrapper) filterPreviouslyDetectedEvents(logs []logpoller.Log, 
 	expiredRequests := 0
 	for _, detectedEvent := range detectedEvents.detectedEventsOrdered {
 		expirationTime := time.Now().Add(-time.Second * time.Duration(l.logPollerCacheDurationSec))
-		if detectedEvent.timeDetected.Before(expirationTime) {
-			delete(detectedEvents.isPreviouslyDetected, detectedEvent.requestId)
-			expiredRequests++
-		} else {
+		if !detectedEvent.timeDetected.Before(expirationTime) {
 			break
 		}
+		delete(detectedEvents.isPreviouslyDetected, detectedEvent.requestId)
+		expiredRequests++
 	}
 	detectedEvents.detectedEventsOrdered = detectedEvents.detectedEventsOrdered[expiredRequests:]
 	l.lggr.Debugw("filterPreviouslyDetectedEvents: done", "filterType", filterType, "nLogs", len(logs), "nFilteredLogs", len(filteredLogs), "nExpiredRequests", expiredRequests, "previouslyDetectedCacheSize", len(detectedEvents.detectedEventsOrdered))
