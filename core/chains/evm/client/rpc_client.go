@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -28,8 +29,10 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-// RPCCLient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
-type RPCCLient interface {
+// RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
+//
+//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
+type RPCClient interface {
 	commonclient.RPC[
 		*big.Int,
 		evmtypes.Nonce,
@@ -42,6 +45,7 @@ type RPCCLient interface {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
+		rpc.BatchElem,
 	]
 	BlockByHashGeth(ctx context.Context, hash common.Hash) (b *types.Block, err error)
 	BlockByNumberGeth(ctx context.Context, number *big.Int) (b *types.Block, err error)
@@ -88,7 +92,7 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
-) RPCCLient {
+) RPCClient {
 	r := new(rpcClient)
 	r.name = name
 	r.id = id
@@ -315,14 +319,10 @@ func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method 
 	return err
 }
 
-func (r *rpcClient) BatchCallContext(ctx context.Context, b []any) error {
+func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return err
-	}
-	batch := make([]rpc.BatchElem, len(b))
-	for i, arg := range b {
-		batch[i] = arg.(rpc.BatchElem)
 	}
 	defer cancel()
 	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
@@ -330,9 +330,9 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []any) error {
 	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
 	if http != nil {
-		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, batch))
+		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
 	} else {
-		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, batch))
+		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, b))
 	}
 	duration := time.Since(start)
 
@@ -775,12 +775,16 @@ func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumb
 
 	lggr.Debug("RPC call: evmclient.Client#CallContract")
 	start := time.Now()
+	var hex hexutil.Bytes
 	if http != nil {
-		val, err = http.geth.CallContract(ctx, message, blockNumber)
+		err = http.rpc.CallContext(ctx, &hex, "eth_call", toCallArg(message), toBlockNumArg(blockNumber))
 		err = r.wrapHTTP(err)
 	} else {
-		val, err = ws.geth.CallContract(ctx, message, blockNumber)
+		err = ws.rpc.CallContext(ctx, &hex, "eth_call", toCallArg(message), toBlockNumArg(blockNumber))
 		err = r.wrapWS(err)
+	}
+	if err == nil {
+		val = hex
 	}
 	duration := time.Since(start)
 
@@ -789,7 +793,6 @@ func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumb
 	)
 
 	return
-
 }
 
 func (r *rpcClient) PendingCallContract(ctx context.Context, msg interface{}) (val []byte, err error) {
@@ -803,12 +806,16 @@ func (r *rpcClient) PendingCallContract(ctx context.Context, msg interface{}) (v
 
 	lggr.Debug("RPC call: evmclient.Client#PendingCallContract")
 	start := time.Now()
+	var hex hexutil.Bytes
 	if http != nil {
-		val, err = http.geth.PendingCallContract(ctx, message)
+		err = http.rpc.CallContext(ctx, &hex, "eth_call", toCallArg(message), "pending")
 		err = r.wrapHTTP(err)
 	} else {
-		val, err = ws.geth.PendingCallContract(ctx, message)
+		err = ws.rpc.CallContext(ctx, &hex, "eth_call", toCallArg(message), "pending")
 		err = r.wrapWS(err)
+	}
+	if err == nil {
+		val = hex
 	}
 	duration := time.Since(start)
 
@@ -817,7 +824,51 @@ func (r *rpcClient) PendingCallContract(ctx context.Context, msg interface{}) (v
 	)
 
 	return
+}
 
+// COPIED FROM go-ethereum/ethclient/gethclient - must be kept up to date!
+func toBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	if number.Sign() >= 0 {
+		return hexutil.EncodeBig(number)
+	}
+	// It's negative.
+	if number.IsInt64() {
+		return rpc.BlockNumber(number.Int64()).String()
+	}
+	// It's negative and large, which is invalid.
+	return fmt.Sprintf("<invalid %d>", number)
+}
+
+// COPIED FROM go-ethereum/ethclient/gethclient - must be kept up to date!
+// Modified to include legacy 'data' as well as 'input' in order to support non-compliant servers.
+func toCallArg(msg ethereum.CallMsg) interface{} {
+	arg := map[string]interface{}{
+		"from": msg.From,
+		"to":   msg.To,
+	}
+	if len(msg.Data) > 0 {
+		arg["input"] = hexutil.Bytes(msg.Data)
+		arg["data"] = hexutil.Bytes(msg.Data) // duplicate legacy field for compatibility
+	}
+	if msg.Value != nil {
+		arg["value"] = (*hexutil.Big)(msg.Value)
+	}
+	if msg.Gas != 0 {
+		arg["gas"] = hexutil.Uint64(msg.Gas)
+	}
+	if msg.GasPrice != nil {
+		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
+	}
+	if msg.GasFeeCap != nil {
+		arg["maxFeePerGas"] = (*hexutil.Big)(msg.GasFeeCap)
+	}
+	if msg.GasTipCap != nil {
+		arg["maxPriorityFeePerGas"] = (*hexutil.Big)(msg.GasTipCap)
+	}
+	return arg
 }
 
 func (r *rpcClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {

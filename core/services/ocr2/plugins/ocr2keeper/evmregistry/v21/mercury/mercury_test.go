@@ -5,12 +5,17 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 )
 
@@ -239,4 +244,128 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 			assert.Equal(t, test.State, state)
 		})
 	}
+}
+
+func TestPacker_PackUserCheckErrorHandler(t *testing.T) {
+	tests := []struct {
+		name      string
+		errCode   encoding.ErrCode
+		extraData []byte
+		rawOutput []byte
+		errored   bool
+	}{
+		{
+			name:    "happy path",
+			errCode: encoding.ErrCodeStreamsBadRequest,
+			extraData: func() []byte {
+				b, _ := hexutil.Decode("0x19d97a94737c9583000000000000000000000001ea8ed6d0617dd5b3b87374020efaf030")
+
+				return b
+			}(),
+			rawOutput: []byte{0xf, 0xb1, 0x72, 0xfb, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xc, 0x55, 0xd0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x40, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x24, 0x19, 0xd9, 0x7a, 0x94, 0x73, 0x7c, 0x95, 0x83, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0xea, 0x8e, 0xd6, 0xd0, 0x61, 0x7d, 0xd5, 0xb3, 0xb8, 0x73, 0x74, 0x2, 0xe, 0xfa, 0xf0, 0x30, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+			errored:   false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			packer := NewAbiPacker()
+
+			b, err := packer.PackUserCheckErrorHandler(test.errCode, test.extraData)
+
+			if !test.errored {
+				require.NoError(t, err, "no error expected from packing")
+
+				assert.Equal(t, test.rawOutput, b, "raw bytes for output should match expected")
+			} else {
+				assert.NotNil(t, err, "error expected from packing function")
+			}
+		})
+	}
+}
+
+func Test_CalculateRetryConfigFn(t *testing.T) {
+	tests := []struct {
+		name       string
+		times      int
+		upkeepType automationTypes.UpkeepType
+		expected   time.Duration
+	}{
+		{
+			name:       "first retry",
+			times:      1,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   1 * time.Second,
+		},
+		{
+			name:       "second retry",
+			times:      2,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   1 * time.Second,
+		},
+		{
+			name:       "fifth retry",
+			times:      5,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   1 * time.Second,
+		},
+		{
+			name:       "sixth retry",
+			times:      6,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   5 * time.Second,
+		},
+		{
+			name:       "timeout",
+			times:      totalMediumPluginRetries + 1,
+			upkeepType: automationTypes.LogTrigger,
+			expected:   RetryIntervalTimeout,
+		},
+		{
+			name:       "conditional first timeout",
+			times:      1,
+			upkeepType: automationTypes.ConditionTrigger,
+			expected:   RetryIntervalTimeout,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := newMercuryConfigMock()
+			var result time.Duration
+			for i := 0; i < tc.times; i++ {
+				result = CalculateStreamsRetryConfigFn(tc.upkeepType, "prk", cfg)
+			}
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+type mercuryConfigMock struct {
+	pluginRetryCache *cache.Cache
+}
+
+func newMercuryConfigMock() *mercuryConfigMock {
+	return &mercuryConfigMock{
+		pluginRetryCache: cache.New(10*time.Second, time.Minute),
+	}
+}
+
+func (c *mercuryConfigMock) Credentials() *types.MercuryCredentials {
+	return nil
+}
+
+func (c *mercuryConfigMock) IsUpkeepAllowed(k string) (interface{}, bool) {
+	return nil, false
+}
+
+func (c *mercuryConfigMock) SetUpkeepAllowed(k string, v interface{}, d time.Duration) {
+}
+
+func (c *mercuryConfigMock) GetPluginRetry(k string) (interface{}, bool) {
+	return c.pluginRetryCache.Get(k)
+}
+
+func (c *mercuryConfigMock) SetPluginRetry(k string, v interface{}, d time.Duration) {
+	c.pluginRetryCache.Set(k, v, d)
 }

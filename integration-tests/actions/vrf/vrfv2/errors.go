@@ -1,7 +1,6 @@
 package vrfv2
 
 const (
-	ErrCreatingVRFv2Key     = "error creating VRFv2 key"
 	ErrDeployVRFV2Wrapper   = "error deploying VRFV2Wrapper"
 	ErrCreateVRFV2Jobs      = "error creating VRF V2 Jobs"
 	ErrDeployVRFV2Contracts = "error deploying VRFV2 contracts"

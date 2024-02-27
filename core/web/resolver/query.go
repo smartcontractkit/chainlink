@@ -417,12 +417,12 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 	ks := r.App.GetKeyStore().Eth()
 
-	keys, err := ks.GetAll()
+	keys, err := ks.GetAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
 	}
 
-	states, err := ks.GetStatesForKeys(keys)
+	states, err := ks.GetStatesForKeys(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("error getting key states: %v", err)
 	}
@@ -430,7 +430,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 	var ethKeys []ETHKey
 
 	for _, state := range states {
-		k, err := ks.Get(state.Address.Hex())
+		k, err := ks.Get(ctx, state.Address.Hex())
 		if err != nil {
 			return nil, err
 		}
