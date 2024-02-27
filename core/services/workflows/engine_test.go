@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -41,15 +42,23 @@ func (m *mockCapability) Execute(ctx context.Context, ch chan<- capabilities.Cap
 	return nil
 }
 
+func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
 type mockTriggerCapability struct {
 	capabilities.CapabilityInfo
-	ch chan<- capabilities.CapabilityResponse
+	triggerEvent capabilities.CapabilityResponse
 }
 
 var _ capabilities.TriggerCapability = (*mockTriggerCapability)(nil)
 
 func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, ch chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {
-	m.ch = ch
+	ch <- m.triggerEvent
 	return nil
 }
 
@@ -58,8 +67,8 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
-	ctx := context.Background()
-	reg := coreCap.NewRegistry()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
@@ -73,7 +82,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	consensus := newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"off-chain-reporting",
+			"offchain_reporting",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
@@ -88,7 +97,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	target := newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"write_polygon_mainnet",
+			"write_polygon-testnet-mumbai",
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mainnet",
 			"v1.0.0",
@@ -107,10 +116,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	eng, err := NewEngine(lggr, reg)
 	require.NoError(t, err)
 
-	err = eng.Start(ctx)
-	require.NoError(t, err)
-	defer eng.Close()
-
 	resp, err := values.NewMap(map[string]any{
 		"123": decimal.NewFromFloat(1.00),
 		"456": decimal.NewFromFloat(1.25),
@@ -120,6 +125,10 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	cr := capabilities.CapabilityResponse{
 		Value: resp,
 	}
-	trigger.ch <- cr
+	trigger.triggerEvent = cr
+
+	err = eng.Start(ctx)
+	require.NoError(t, err)
+	defer eng.Close()
 	assert.Equal(t, cr, <-target.response)
 }
