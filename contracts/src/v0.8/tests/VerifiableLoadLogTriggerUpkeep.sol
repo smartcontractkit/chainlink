@@ -116,4 +116,12 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupComp
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
   }
+
+  function checkErrorHandler(
+    uint256 errCode,
+    bytes memory extraData
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function with default values
+    return (false, new bytes(0));
+  }
 }
