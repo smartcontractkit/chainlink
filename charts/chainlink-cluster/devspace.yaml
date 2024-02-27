@@ -89,6 +89,8 @@ pipelines:
 commands:
   connect: |-
     sudo kubefwd svc -n $1
+  ttl: |-
+    kubectl annotate namespace $1 janitor/ttl=$2 --overwrite
 
 images:
   app:
