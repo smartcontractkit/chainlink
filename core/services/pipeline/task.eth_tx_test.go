@@ -83,7 +83,7 @@ func TestETHTxTask(t *testing.T) {
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),
 				}
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
@@ -131,7 +131,7 @@ func TestETHTxTask(t *testing.T) {
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),
 				}
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
@@ -169,7 +169,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				addr := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, addr).Return(addr, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, addr).Return(addr, nil)
 				txManager.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 					return tx.MinConfirmations == clnull.Uint32From(2)
 				})).Return(txmgr.Tx{}, nil)
@@ -209,7 +209,7 @@ func TestETHTxTask(t *testing.T) {
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),
 				}
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
@@ -255,7 +255,7 @@ func TestETHTxTask(t *testing.T) {
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),
 				}
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
@@ -286,7 +286,7 @@ func TestETHTxTask(t *testing.T) {
 				data := []byte("foobar")
 				gasLimit := uint32(12345)
 				txMeta := &txmgr.TxMeta{FailOnRevert: null.BoolFrom(false)}
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
@@ -321,7 +321,7 @@ func TestETHTxTask(t *testing.T) {
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),
 				}
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
@@ -356,7 +356,7 @@ func TestETHTxTask(t *testing.T) {
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),
 				}
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
@@ -395,7 +395,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(nil, errors.New("uh oh"))
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID).Return(nil, errors.New("uh oh"))
 			},
 			nil, pipeline.ErrTaskRunFailed, "while querying keystore", pipeline.RunInfo{IsRetryable: true},
 		},
@@ -422,7 +422,7 @@ func TestETHTxTask(t *testing.T) {
 					RequestTxHash: &reqTxHash,
 					FailOnRevert:  null.BoolFrom(false),
 				}
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 					FromAddress:    from,
 					ToAddress:      to,
@@ -519,7 +519,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				from := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
-				keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID, from).Return(from, nil)
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
 				txManager.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 					return tx.MinConfirmations == clnull.Uint32From(3) && tx.PipelineTaskRunID != nil
 				})).Return(txmgr.Tx{}, nil)
