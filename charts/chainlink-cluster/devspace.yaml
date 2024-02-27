@@ -300,12 +300,6 @@ deployments:
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
 
-        networkPolicy:
-          ingress:
-            # Should be a comma separated list of CIDR blocks. To include
-            # AWS ALB private CIDRs and optionally other custom CIDRs.
-            # Example format: 10.0.0.0/16,192.168.0.1/24
-            allowCustomCidrs: ${DEVSPACE_INGRESS_CIDRS}
         # These ingresses create AWS ALB resources and Route 53 Records.
         ingress:
           enabled: true
@@ -411,7 +405,13 @@ deployments:
                         name: mockserver
                         port:
                           number: 1080
-
+        networkPolicyDefault:
+          ingress:
+            allowCustomCidrs: true
+            # Should be a comma separated list of CIDR blocks. To include
+            # AWS ALB private CIDRs and optionally other custom CIDRs.
+            # Example format: 10.0.0.0/16,192.168.0.1/24
+            customCidrs: ${DEVSPACE_INGRESS_CIDRS}
         # deployment placement, standard helm stuff
         podAnnotations:
         nodeSelector:
