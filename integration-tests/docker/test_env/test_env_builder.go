@@ -10,12 +10,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/osutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"

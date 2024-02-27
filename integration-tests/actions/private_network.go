@@ -3,7 +3,7 @@ package actions
 import (
 	"github.com/rs/zerolog"
 
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/libs/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 

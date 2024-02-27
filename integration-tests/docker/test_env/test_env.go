@@ -12,12 +12,12 @@ import (
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/docker"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"

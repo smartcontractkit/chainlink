@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"

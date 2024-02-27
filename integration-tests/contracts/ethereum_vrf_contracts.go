@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"

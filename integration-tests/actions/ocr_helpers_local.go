@@ -12,8 +12,8 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/docker/test_env"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"

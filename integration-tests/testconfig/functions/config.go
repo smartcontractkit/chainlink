@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/net"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/net"
 )
 
 const (

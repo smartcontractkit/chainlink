@@ -13,8 +13,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"

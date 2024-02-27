@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/libs/client"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"

@@ -21,11 +21,11 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/libs/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"

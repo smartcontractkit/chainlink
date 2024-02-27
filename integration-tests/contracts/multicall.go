@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 )
 
 const (

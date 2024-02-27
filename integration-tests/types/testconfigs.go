@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/testreporters"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 

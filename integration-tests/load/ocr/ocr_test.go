@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/wasp"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/k8s"

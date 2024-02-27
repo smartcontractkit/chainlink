@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"

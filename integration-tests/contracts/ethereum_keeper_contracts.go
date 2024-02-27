@@ -17,7 +17,7 @@ import (
 	"github.com/rs/zerolog"
 	goabi "github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"

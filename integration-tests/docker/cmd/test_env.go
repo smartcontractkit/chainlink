@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/testcontainers/testcontainers-go"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 

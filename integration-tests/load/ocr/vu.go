@@ -7,12 +7,12 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 
 	"github.com/smartcontractkit/wasp"
 	"go.uber.org/ratelimit"
 
-	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
+	client2 "github.com/smartcontractkit/chainlink-testing-framework/libs/client"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"

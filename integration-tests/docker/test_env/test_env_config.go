@@ -3,7 +3,7 @@ package test_env
 import (
 	"encoding/json"
 
-	cte "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	cte "github.com/smartcontractkit/chainlink-testing-framework/libs/docker/test_env"
 	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 )
 

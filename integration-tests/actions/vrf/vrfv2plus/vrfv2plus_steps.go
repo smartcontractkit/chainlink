@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/conversions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"

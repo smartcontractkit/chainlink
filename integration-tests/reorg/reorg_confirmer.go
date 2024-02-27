@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/k8s/pkg/helm/reorg"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/ptr"
 )
 
 // The steps are:

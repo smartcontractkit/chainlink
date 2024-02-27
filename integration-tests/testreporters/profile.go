@@ -10,7 +10,7 @@ import (
 	"github.com/slack-go/slack"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 

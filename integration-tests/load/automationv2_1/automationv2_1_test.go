@@ -23,14 +23,14 @@ import (
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/networks"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/libs/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"

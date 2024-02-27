@@ -12,9 +12,9 @@ import (
 
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/testcontext"
 
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"

@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 

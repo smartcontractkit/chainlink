@@ -7,9 +7,9 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/k8s/environment"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/libs/testreporters"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"

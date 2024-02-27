@@ -9,8 +9,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/test-go/testify/require"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/libs/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/ptr"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 )
 

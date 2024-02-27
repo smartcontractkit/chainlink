@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -20,7 +20,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"

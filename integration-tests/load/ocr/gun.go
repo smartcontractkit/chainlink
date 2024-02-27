@@ -7,7 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/smartcontractkit/wasp"

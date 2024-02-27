@@ -20,8 +20,8 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"

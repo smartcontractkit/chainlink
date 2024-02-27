@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"

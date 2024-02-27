@@ -14,9 +14,9 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/testcontext"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"

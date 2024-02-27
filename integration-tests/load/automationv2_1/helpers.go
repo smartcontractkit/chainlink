@@ -6,7 +6,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slack-go/slack"
 
-	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/libs/testreporters"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 

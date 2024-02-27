@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 

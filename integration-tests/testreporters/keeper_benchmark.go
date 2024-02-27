@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/libs/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
