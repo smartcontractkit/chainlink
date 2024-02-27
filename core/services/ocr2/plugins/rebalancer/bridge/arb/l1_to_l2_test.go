@@ -3,18 +3,23 @@ package arb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/test-go/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/l2_arbitrum_gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/mocks/mock_arbitrum_inbox"
@@ -83,7 +88,6 @@ func Test_l1ToL2Bridge_QuorumizedBridgePayload(t *testing.T) {
 				require.Equal(t, unpackedExpected.GasLimit, unpackedGot.GasLimit)
 				require.Equal(t, unpackedExpected.MaxSubmissionCost, unpackedGot.MaxSubmissionCost)
 				require.Equal(t, unpackedExpected.MaxFeePerGas, unpackedGot.MaxFeePerGas)
-				// require.Equal(t, tt.want, got)
 			}
 		})
 	}
@@ -559,6 +563,32 @@ func Test_matchingExecutionExists(t *testing.T) {
 			false,
 			false,
 		},
+		{
+			"bad bridge return data",
+			args{
+				readyCandidate: &rebalancer.RebalancerLiquidityTransferred{
+					BridgeReturnData: []byte{1, 2, 3},
+				},
+				receivedLogs: []*rebalancer.RebalancerLiquidityTransferred{},
+			},
+			false,
+			true,
+		},
+		{
+			"bad bridge specific data",
+			args{
+				readyCandidate: &rebalancer.RebalancerLiquidityTransferred{
+					BridgeReturnData: mustPackReturnData(t, big.NewInt(10)),
+				},
+				receivedLogs: []*rebalancer.RebalancerLiquidityTransferred{
+					{
+						BridgeSpecificData: []byte{1, 2, 3},
+					},
+				},
+			},
+			false,
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -950,6 +980,415 @@ func Test_getEffectiveEvents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotEffectiveDepositFinalized := getEffectiveEvents(tt.args.localToken, tt.args.l1BridgeAdapterAddress, tt.args.l2RebalancerAddress, tt.args.depositFinalizedLogs)
 			require.Equal(t, tt.wantEffectiveDepositFinalized, gotEffectiveDepositFinalized)
+		})
+	}
+}
+
+func Test_l1ToL2Bridge_toPendingTransfers(t *testing.T) {
+	type fields struct {
+		localSelector       models.NetworkSelector
+		remoteSelector      models.NetworkSelector
+		l1Rebalancer        rebalancer.RebalancerInterface
+		l2RebalancerAddress common.Address
+	}
+	var (
+		localSelector       = models.NetworkSelector(1)
+		remoteSelector      = models.NetworkSelector(2)
+		l2Rebalancer        = testutils.NewAddress()
+		localToken          = models.Address(testutils.NewAddress())
+		remoteToken         = models.Address(testutils.NewAddress())
+		l1RebalancerAddress = testutils.NewAddress()
+		l1Rebalancer, err   = rebalancer.NewRebalancer(l1RebalancerAddress, nil)
+	)
+	require.NoError(t, err)
+	type args struct {
+		localToken  models.Address
+		remoteToken models.Address
+		notReady    []*rebalancer.RebalancerLiquidityTransferred
+		ready       []*rebalancer.RebalancerLiquidityTransferred
+		readyData   [][]byte
+		parsedToLP  map[logKey]logpoller.Log
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []models.PendingTransfer
+		wantErr bool
+	}{
+		{
+			"len(ready) not equal to len(readyData)",
+			fields{
+				localSelector:       localSelector,
+				remoteSelector:      remoteSelector,
+				l1Rebalancer:        l1Rebalancer,
+				l2RebalancerAddress: l2Rebalancer,
+			},
+			args{
+				localToken:  localToken,
+				remoteToken: remoteToken,
+				notReady:    nil,
+				ready: []*rebalancer.RebalancerLiquidityTransferred{
+					{},
+					{},
+				},
+				readyData: [][]byte{
+					{},
+				},
+				parsedToLP: nil,
+			},
+			nil,
+			true,
+		},
+		{
+			"not ready and ready",
+			fields{
+				localSelector:       localSelector,
+				remoteSelector:      remoteSelector,
+				l1Rebalancer:        l1Rebalancer,
+				l2RebalancerAddress: l2Rebalancer,
+			},
+			args{
+				localToken:  localToken,
+				remoteToken: remoteToken,
+				notReady: []*rebalancer.RebalancerLiquidityTransferred{
+					{
+						Amount: big.NewInt(100),
+						Raw: types.Log{
+							TxHash: common.HexToHash("0x1"),
+							Index:  1,
+						},
+					},
+				},
+				ready: []*rebalancer.RebalancerLiquidityTransferred{
+					{
+						Amount: big.NewInt(300),
+						Raw: types.Log{
+							TxHash: common.HexToHash("0x2"),
+							Index:  2,
+						},
+					},
+				},
+				readyData: [][]byte{
+					{1, 2, 3},
+				},
+				parsedToLP: make(map[logKey]logpoller.Log),
+			},
+			[]models.PendingTransfer{
+				{
+					Transfer: models.Transfer{
+						From:               localSelector,
+						To:                 remoteSelector,
+						Sender:             models.Address(l1RebalancerAddress),
+						Receiver:           models.Address(l2Rebalancer),
+						LocalTokenAddress:  localToken,
+						RemoteTokenAddress: remoteToken,
+						Amount:             ubig.NewI(100),
+						Date:               time.Time{},
+						BridgeData:         []byte{},
+					},
+					Status: models.TransferStatusNotReady,
+					ID:     fmt.Sprintf("%s-%d", common.HexToHash("0x1"), 1),
+				},
+				{
+					Transfer: models.Transfer{
+						From:               localSelector,
+						To:                 remoteSelector,
+						Sender:             models.Address(l1RebalancerAddress),
+						Receiver:           models.Address(l2Rebalancer),
+						LocalTokenAddress:  localToken,
+						RemoteTokenAddress: remoteToken,
+						Amount:             ubig.NewI(300),
+						Date:               time.Time{},
+						BridgeData:         []byte{1, 2, 3},
+					},
+					Status: models.TransferStatusReady,
+					ID:     fmt.Sprintf("%s-%d", common.HexToHash("0x2"), 2),
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := &l1ToL2Bridge{
+				localSelector:       tt.fields.localSelector,
+				remoteSelector:      tt.fields.remoteSelector,
+				l1Rebalancer:        tt.fields.l1Rebalancer,
+				l2RebalancerAddress: tt.fields.l2RebalancerAddress,
+			}
+			got, err := l.toPendingTransfers(tt.args.localToken, tt.args.remoteToken, tt.args.notReady, tt.args.ready, tt.args.readyData, tt.args.parsedToLP)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_l1ToL2Bridge_getLogs(t *testing.T) {
+	type fields struct {
+		localSelector       models.NetworkSelector
+		remoteSelector      models.NetworkSelector
+		l1Rebalancer        rebalancer.RebalancerInterface
+		l2RebalancerAddress common.Address
+		l2Gateway           l2_arbitrum_gateway.L2ArbitrumGatewayInterface
+		l1LogPoller         *lpmocks.LogPoller
+		l2LogPoller         *lpmocks.LogPoller
+	}
+	type args struct {
+		ctx    context.Context
+		fromTs time.Time
+	}
+	var (
+		localSelector       = models.NetworkSelector(1)
+		remoteSelector      = models.NetworkSelector(2)
+		l2RebalancerAddress = testutils.NewAddress()
+		l2GatewayAddress    = testutils.NewAddress()
+		l1RebalancerAddress = testutils.NewAddress()
+	)
+	l1Rebalancer, err := rebalancer.NewRebalancer(l1RebalancerAddress, nil)
+	require.NoError(t, err)
+	l2Gateway, err := l2_arbitrum_gateway.NewL2ArbitrumGateway(l2GatewayAddress, nil)
+	require.NoError(t, err)
+	tests := []struct {
+		name                     string
+		fields                   fields
+		args                     args
+		before                   func(t *testing.T, f fields, a args)
+		assertions               func(t *testing.T, f fields)
+		wantSendLogs             []logpoller.Log
+		wantDepositFinalizedLogs []logpoller.Log
+		wantReceiveLogs          []logpoller.Log
+		wantErr                  bool
+	}{
+		{
+			"error getting l1 liquidity transferred events",
+			fields{
+				localSelector:       localSelector,
+				remoteSelector:      remoteSelector,
+				l1Rebalancer:        l1Rebalancer,
+				l2RebalancerAddress: l2RebalancerAddress,
+				l2Gateway:           l2Gateway,
+				l1LogPoller:         lpmocks.NewLogPoller(t),
+				l2LogPoller:         lpmocks.NewLogPoller(t),
+			},
+			args{
+				ctx:    testutils.Context(t),
+				fromTs: time.Now(),
+			},
+			func(t *testing.T, f fields, a args) {
+				f.l1LogPoller.On("IndexedLogsCreatedAfter",
+					LiquidityTransferredTopic,
+					l1Rebalancer.Address(),
+					LiquidityTransferredToChainSelectorTopicIndex,
+					[]common.Hash{toHash(remoteSelector)},
+					a.fromTs,
+					logpoller.Confirmations(1),
+					mock.Anything,
+				).Return(nil, errors.New("error"))
+			},
+			func(t *testing.T, f fields) {
+				f.l1LogPoller.AssertExpectations(t)
+			},
+			nil,
+			nil,
+			nil,
+			true,
+		},
+		{
+			"error getting l2 deposit finalized events",
+			fields{
+				localSelector:       localSelector,
+				remoteSelector:      remoteSelector,
+				l1Rebalancer:        l1Rebalancer,
+				l2RebalancerAddress: l2RebalancerAddress,
+				l2Gateway:           l2Gateway,
+				l1LogPoller:         lpmocks.NewLogPoller(t),
+				l2LogPoller:         lpmocks.NewLogPoller(t),
+			},
+			args{
+				ctx:    testutils.Context(t),
+				fromTs: time.Now(),
+			},
+			func(t *testing.T, f fields, a args) {
+				f.l1LogPoller.On("IndexedLogsCreatedAfter",
+					LiquidityTransferredTopic,
+					l1Rebalancer.Address(),
+					LiquidityTransferredToChainSelectorTopicIndex,
+					[]common.Hash{toHash(remoteSelector)},
+					a.fromTs,
+					logpoller.Confirmations(1),
+					mock.Anything,
+				).Return([]logpoller.Log{{}, {}}, nil)
+				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					DepositFinalizedTopic,
+					l2Gateway.Address(),
+					DepositFinalizedToAddressTopicIndex,
+					[]common.Hash{common.HexToHash(l2RebalancerAddress.Hex())},
+					a.fromTs,
+					logpoller.Finalized,
+					mock.Anything,
+				).Return(nil, errors.New("error"))
+			},
+			func(t *testing.T, f fields) {
+				f.l1LogPoller.AssertExpectations(t)
+				f.l2LogPoller.AssertExpectations(t)
+			},
+			nil,
+			nil,
+			nil,
+			true,
+		},
+		{
+			"error getting l2 liquidity transferred events",
+			fields{
+				localSelector:       localSelector,
+				remoteSelector:      remoteSelector,
+				l1Rebalancer:        l1Rebalancer,
+				l2RebalancerAddress: l2RebalancerAddress,
+				l2Gateway:           l2Gateway,
+				l1LogPoller:         lpmocks.NewLogPoller(t),
+				l2LogPoller:         lpmocks.NewLogPoller(t),
+			},
+			args{
+				ctx:    testutils.Context(t),
+				fromTs: time.Now(),
+			},
+			func(t *testing.T, f fields, a args) {
+				f.l1LogPoller.On("IndexedLogsCreatedAfter",
+					LiquidityTransferredTopic,
+					l1Rebalancer.Address(),
+					LiquidityTransferredToChainSelectorTopicIndex,
+					[]common.Hash{toHash(remoteSelector)},
+					a.fromTs,
+					logpoller.Confirmations(1),
+					mock.Anything,
+				).Return([]logpoller.Log{{}, {}}, nil)
+				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					DepositFinalizedTopic,
+					l2Gateway.Address(),
+					DepositFinalizedToAddressTopicIndex,
+					[]common.Hash{common.HexToHash(l2RebalancerAddress.Hex())},
+					a.fromTs,
+					logpoller.Finalized,
+					mock.Anything,
+				).Return([]logpoller.Log{{}, {}}, nil)
+				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					LiquidityTransferredTopic,
+					l2RebalancerAddress,
+					LiquidityTransferredFromChainSelectorTopicIndex,
+					[]common.Hash{toHash(localSelector)},
+					a.fromTs,
+					logpoller.Confirmations(1),
+					mock.Anything,
+				).Return(nil, errors.New("error"))
+			},
+			func(t *testing.T, f fields) {
+				f.l1LogPoller.AssertExpectations(t)
+				f.l2LogPoller.AssertExpectations(t)
+			},
+			nil,
+			nil,
+			nil,
+			true,
+		},
+		{
+			"happy path",
+			fields{
+				localSelector:       localSelector,
+				remoteSelector:      remoteSelector,
+				l1Rebalancer:        l1Rebalancer,
+				l2RebalancerAddress: l2RebalancerAddress,
+				l2Gateway:           l2Gateway,
+				l1LogPoller:         lpmocks.NewLogPoller(t),
+				l2LogPoller:         lpmocks.NewLogPoller(t),
+			},
+			args{
+				ctx:    testutils.Context(t),
+				fromTs: time.Now(),
+			},
+			func(t *testing.T, f fields, a args) {
+				f.l1LogPoller.On("IndexedLogsCreatedAfter",
+					LiquidityTransferredTopic,
+					l1Rebalancer.Address(),
+					LiquidityTransferredToChainSelectorTopicIndex,
+					[]common.Hash{toHash(remoteSelector)},
+					a.fromTs,
+					logpoller.Confirmations(1),
+					mock.Anything,
+				).Return([]logpoller.Log{
+					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x1")},
+					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x2")},
+				}, nil)
+				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					DepositFinalizedTopic,
+					l2Gateway.Address(),
+					DepositFinalizedToAddressTopicIndex,
+					[]common.Hash{common.HexToHash(l2RebalancerAddress.Hex())},
+					a.fromTs,
+					logpoller.Finalized,
+					mock.Anything,
+				).Return([]logpoller.Log{
+					{EventSig: DepositFinalizedTopic, TxHash: common.HexToHash("0x3")},
+					{EventSig: DepositFinalizedTopic, TxHash: common.HexToHash("0x4")},
+				}, nil)
+				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					LiquidityTransferredTopic,
+					l2RebalancerAddress,
+					LiquidityTransferredFromChainSelectorTopicIndex,
+					[]common.Hash{toHash(localSelector)},
+					a.fromTs,
+					logpoller.Confirmations(1),
+					mock.Anything,
+				).Return([]logpoller.Log{
+					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x5")},
+					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x6")},
+				}, nil)
+			},
+			func(t *testing.T, f fields) {
+				f.l1LogPoller.AssertExpectations(t)
+				f.l2LogPoller.AssertExpectations(t)
+			},
+			[]logpoller.Log{
+				{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x1")},
+				{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x2")},
+			},
+			[]logpoller.Log{
+				{EventSig: DepositFinalizedTopic, TxHash: common.HexToHash("0x3")},
+				{EventSig: DepositFinalizedTopic, TxHash: common.HexToHash("0x4")},
+			},
+			[]logpoller.Log{
+				{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x5")},
+				{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x6")},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := &l1ToL2Bridge{
+				localSelector:       tt.fields.localSelector,
+				remoteSelector:      tt.fields.remoteSelector,
+				l1Rebalancer:        tt.fields.l1Rebalancer,
+				l2RebalancerAddress: tt.fields.l2RebalancerAddress,
+				l2Gateway:           tt.fields.l2Gateway,
+				l1LogPoller:         tt.fields.l1LogPoller,
+				l2LogPoller:         tt.fields.l2LogPoller,
+			}
+			tt.before(t, tt.fields, tt.args)
+			defer tt.assertions(t, tt.fields)
+			gotSendLogs, gotDepositFinalizedLogs, gotReceiveLogs, err := l.getLogs(tt.args.ctx, tt.args.fromTs)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.wantSendLogs, gotSendLogs)
+				require.Equal(t, tt.wantDepositFinalizedLogs, gotDepositFinalizedLogs)
+				require.Equal(t, tt.wantReceiveLogs, gotReceiveLogs)
+			}
 		})
 	}
 }

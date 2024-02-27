@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,7 +11,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/test-go/testify/require"
 
-	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -21,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/mocks/mock_arbitrum_rollup_core"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
 
@@ -490,41 +487,4 @@ func mustPackFinalizationPayload(t *testing.T, finalizationIndex *big.Int) []byt
 	packed, err := l1AdapterABI.Methods["exposeArbitrumFinalizationPayload"].Inputs.Pack(payload)
 	require.NoError(t, err)
 	return packed
-}
-
-func TestNewL2ToL1Bridge(t *testing.T) {
-	type args struct {
-		lggr                logger.Logger
-		localSelector       models.NetworkSelector
-		remoteSelector      models.NetworkSelector
-		l1RollupAddress     common.Address
-		l1RebalancerAddress common.Address
-		l2RebalancerAddress common.Address
-		l2LogPoller         *lpmocks.LogPoller
-		l1LogPoller         *lpmocks.LogPoller
-		l2Client            *evmclientmocks.Client
-		l1Client            *evmclientmocks.Client
-	}
-	tests := []struct {
-		name       string
-		args       args
-		want       *l2ToL1Bridge
-		wantErr    bool
-		before     func(*testing.T, args)
-		assertions func(*testing.T, args)
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewL2ToL1Bridge(tt.args.lggr, tt.args.localSelector, tt.args.remoteSelector, tt.args.l1RollupAddress, tt.args.l1RebalancerAddress, tt.args.l2RebalancerAddress, tt.args.l2LogPoller, tt.args.l1LogPoller, tt.args.l2Client, tt.args.l1Client)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewL2ToL1Bridge() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewL2ToL1Bridge() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }

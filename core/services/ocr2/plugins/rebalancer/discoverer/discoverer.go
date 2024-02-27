@@ -38,7 +38,7 @@ type factory struct {
 
 type Opt func(f *factory)
 
-func NewFactory(lggr logger.Logger, opts ...Opt) Factory {
+func NewFactory(lggr logger.Logger, opts ...Opt) *factory {
 	f := &factory{
 		evmDeps: make(map[models.NetworkSelector]evmDep),
 		lggr:    lggr,

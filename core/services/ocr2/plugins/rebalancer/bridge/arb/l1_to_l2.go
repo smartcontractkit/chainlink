@@ -201,53 +201,15 @@ func (l *l1ToL2Bridge) GetTransfers(
 		"localToken", localToken,
 		"remoteToken", remoteToken,
 	)
-	lggr.Info("getting transfers")
+	lggr.Info("getting transfers from L1 -> L2")
+
 	// TODO: check that l1Rebalancer token matches localToken
 	// TODO: check that l2Rebalancer token matches remoteToken
 	fromTs := time.Now().Add(-24 * time.Hour) // last day
-	sendLogs, err := l.l1LogPoller.IndexedLogsCreatedAfter(
-		LiquidityTransferredTopic,
-		l.l1Rebalancer.Address(),
-		3, // topic index 3: toChainSelector in event
-		[]common.Hash{
-			toHash(l.remoteSelector),
-		},
-		fromTs,
-		1,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("get LiquidityTransferred events from L1 rebalancer: %w", err)
-	}
 
-	depositFinalizedLogs, err := l.l2LogPoller.IndexedLogsCreatedAfter(
-		DepositFinalizedTopic,
-		l.l2Gateway.Address(),
-		3, // topic index 3: to address of deposit on L2
-		[]common.Hash{
-			common.HexToHash(l.l2RebalancerAddress.Hex()),
-		},
-		fromTs,
-		logpoller.Finalized,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("get DepositFinalized events from L2 gateway: %w", err)
-	}
-
-	receiveLogs, err := l.l2LogPoller.IndexedLogsCreatedAfter(
-		LiquidityTransferredTopic,
-		l.l2RebalancerAddress,
-		2, // topic index 2: fromChainSelector
-		[]common.Hash{
-			toHash(l.localSelector),
-		},
-		fromTs,
-		1,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("get LiquidityTransferred events from L2 rebalancer: %w", err)
+	sendLogs, depositFinalizedLogs, receiveLogs, err := l.getLogs(ctx, fromTs)
+	if err != nil {
+		return nil, err
 	}
 
 	slices.SortFunc(sendLogs, func(a, b logpoller.Log) int {
@@ -311,6 +273,55 @@ func (l *l1ToL2Bridge) GetTransfers(
 	return l.toPendingTransfers(localToken, remoteToken, notReady, ready, readyData, parsedToLP)
 }
 
+func (l *l1ToL2Bridge) getLogs(ctx context.Context, fromTs time.Time) (sendLogs []logpoller.Log, depositFinalizedLogs []logpoller.Log, receiveLogs []logpoller.Log, err error) {
+	sendLogs, err = l.l1LogPoller.IndexedLogsCreatedAfter(
+		LiquidityTransferredTopic,
+		l.l1Rebalancer.Address(),
+		LiquidityTransferredToChainSelectorTopicIndex,
+		[]common.Hash{
+			toHash(l.remoteSelector),
+		},
+		fromTs,
+		1,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil, fmt.Errorf("get LiquidityTransferred events from L1 rebalancer: %w", err)
+	}
+
+	depositFinalizedLogs, err = l.l2LogPoller.IndexedLogsCreatedAfter(
+		DepositFinalizedTopic,
+		l.l2Gateway.Address(),
+		DepositFinalizedToAddressTopicIndex,
+		[]common.Hash{
+			common.HexToHash(l.l2RebalancerAddress.Hex()),
+		},
+		fromTs,
+		logpoller.Finalized,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil, fmt.Errorf("get DepositFinalized events from L2 gateway: %w", err)
+	}
+
+	receiveLogs, err = l.l2LogPoller.IndexedLogsCreatedAfter(
+		LiquidityTransferredTopic,
+		l.l2RebalancerAddress,
+		LiquidityTransferredFromChainSelectorTopicIndex,
+		[]common.Hash{
+			toHash(l.localSelector),
+		},
+		fromTs,
+		1,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil, fmt.Errorf("get LiquidityTransferred events from L2 rebalancer: %w", err)
+	}
+
+	return sendLogs, depositFinalizedLogs, receiveLogs, nil
+}
+
 func (l *l1ToL2Bridge) toPendingTransfers(
 	localToken, remoteToken models.Address,
 	notReady,
@@ -349,7 +360,7 @@ func (l *l1ToL2Bridge) toPendingTransfers(
 				From:               l.localSelector,
 				To:                 l.remoteSelector,
 				Sender:             models.Address(l.l1Rebalancer.Address()),
-				Receiver:           models.Address(l.l1Rebalancer.Address()),
+				Receiver:           models.Address(l.l2RebalancerAddress),
 				LocalTokenAddress:  localToken,
 				RemoteTokenAddress: remoteToken,
 				Amount:             ubig.New(transfer.Amount),
@@ -499,7 +510,6 @@ func (l *l1ToL2Bridge) QuorumizedBridgePayload(payloads [][]byte, f int) ([]byte
 	if len(payloads) <= f {
 		return nil, fmt.Errorf("not enough payloads to quorumize, need at least f+1: len(payloads) = %d, f = %d", len(payloads), f)
 	}
-	// TODO: decode and take top n-f index after decoding and sorting asc gasLimit/maxSubmissionCost/maxFeePerGas
 	var (
 		gasLimits          []*big.Int
 		maxSubmissionCosts []*big.Int

@@ -25,6 +25,16 @@ import (
 
 const (
 	DurationMonth = 720 * time.Hour
+
+	// LiquidityTransferredToChainSelectorTopicIndex is the index of the topic in the LiquidityTransferred event
+	// that contains the "to" chain selector.
+	LiquidityTransferredToChainSelectorTopicIndex = 3
+	// LiquidityTransferredFromChainSelectorTopicIndex is the index of the topic in the LiquidityTransferred event
+	// that contains the "from" chain selector.
+	LiquidityTransferredFromChainSelectorTopicIndex = 2
+	// DepositFinalizedToAddressTopicIndex is the index of the topic in the DepositFinalized event
+	// that contains the "to" address.
+	DepositFinalizedToAddressTopicIndex = 3
 )
 
 var (

@@ -110,7 +110,6 @@ func DecodeOutcome(b []byte) (Outcome, error) {
 }
 
 type ConfigDigestWithMeta struct {
-	Digest         ConfigDigest
-	NetworkSel     NetworkSelector
-	RebalancerAddr Address
+	Digest     ConfigDigest
+	NetworkSel NetworkSelector
 }

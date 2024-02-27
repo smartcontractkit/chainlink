@@ -34,7 +34,6 @@ type Plugin struct {
 	mu                      sync.RWMutex
 	rebalancerGraph         graph.Graph
 	liquidityRebalancer     liquidityrebalancer.Rebalancer
-	pendingTransfers        *PendingTransfersCache
 	lggr                    logger.Logger
 }
 
@@ -59,7 +58,6 @@ func NewPlugin(
 		bridgeFactory:           bridgeFactory,
 		rebalancerGraph:         graph.NewGraph(),
 		liquidityRebalancer:     liquidityRebalancer,
-		pendingTransfers:        NewPendingTransfersCache(),
 		lggr:                    lggr,
 		mu:                      sync.RWMutex{},
 	}
@@ -74,13 +72,17 @@ func (p *Plugin) Observation(ctx context.Context, outcomeCtx ocr3types.OutcomeCo
 	lggr := p.lggr.With("seqNr", outcomeCtx.SeqNr, "phase", "Observation")
 	lggr.Infow("in observation", "seqNr", outcomeCtx.SeqNr)
 
-	if err := p.syncGraphEdges(ctx); err != nil {
+	if err := p.syncGraph(ctx); err != nil {
 		return ocrtypes.Observation{}, fmt.Errorf("sync graph edges: %w", err)
 	}
 
-	networkLiquidities, err := p.syncGraphBalances(ctx, lggr)
-	if err != nil {
-		return ocrtypes.Observation{}, fmt.Errorf("sync graph balances: %w", err)
+	networkLiquidities := make([]models.NetworkLiquidity, 0)
+	for _, net := range p.rebalancerGraph.GetNetworks() {
+		liq, err := p.rebalancerGraph.GetLiquidity(net)
+		if err != nil {
+			return ocrtypes.Observation{}, err
+		}
+		networkLiquidities = append(networkLiquidities, models.NewNetworkLiquidity(net, liq))
 	}
 
 	pendingTransfers, err := p.loadPendingTransfers(ctx, lggr)
@@ -105,9 +107,8 @@ func (p *Plugin) Observation(ctx context.Context, outcomeCtx ocr3types.OutcomeCo
 			return nil, fmt.Errorf("get rb %d data: %w", net, err)
 		}
 		configDigests = append(configDigests, models.ConfigDigestWithMeta{
-			Digest:         data.ConfigDigest,
-			NetworkSel:     data.NetworkSelector,
-			RebalancerAddr: data.RebalancerAddress,
+			Digest:     data.ConfigDigest,
+			NetworkSel: data.NetworkSelector,
 		})
 	}
 
@@ -236,15 +237,13 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 	)
 	lggr.Debugw("generated incoming and outgoing transfers")
 
-	configDigestsMap := map[models.NetworkSelector]map[models.Address]types.ConfigDigest{}
+	configDigestsMap := map[models.NetworkSelector]types.ConfigDigest{}
 	for _, cd := range decodedOutcome.ConfigDigests {
 		_, found := configDigestsMap[cd.NetworkSel]
 		if found {
 			return nil, fmt.Errorf("found duplicate config digest for %v", cd.NetworkSel)
 		}
-		configDigestsMap[cd.NetworkSel] = map[models.Address]types.ConfigDigest{
-			cd.RebalancerAddr: cd.Digest.ConfigDigest,
-		}
+		configDigestsMap[cd.NetworkSel] = cd.Digest.ConfigDigest
 	}
 
 	var reports []ocr3types.ReportWithInfo[models.Report]
@@ -254,13 +253,9 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 			return nil, fmt.Errorf("liquidity manager for %v does not exist", networkID)
 		}
 
-		configDigests, found := configDigestsMap[networkID]
+		configDigest, found := configDigestsMap[networkID]
 		if !found {
 			return nil, fmt.Errorf("cannot find config digest for %v", networkID)
-		}
-		configDigest, found := configDigests[rebalancerAddress]
-		if !found {
-			return nil, fmt.Errorf("cannot find config digest for %v:%s", networkID, rebalancerAddress)
 		}
 
 		report := models.NewReport(transfers, rebalancerAddress, networkID, configDigest)
@@ -359,7 +354,7 @@ func (p *Plugin) Close() error {
 	return multierr.Combine(errs...)
 }
 
-func (p *Plugin) syncGraphEdges(ctx context.Context) error {
+func (p *Plugin) syncGraph(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -384,86 +379,43 @@ func (p *Plugin) syncGraphEdges(ctx context.Context) error {
 	return nil
 }
 
-func (p *Plugin) syncGraphBalances(ctx context.Context, lggr logger.Logger) ([]models.NetworkLiquidity, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	networks := p.rebalancerGraph.GetNetworks()
-	lggr.Infow("syncing graph balances", "networks", networks)
-
-	networkLiquidities := make([]models.NetworkLiquidity, 0, len(networks))
-	for _, networkID := range networks {
-		lmAddr, err := p.rebalancerGraph.GetRebalancerAddress(networkID)
-		if err != nil {
-			return nil, fmt.Errorf("liquidity manager for network %v was not found", networkID)
-		}
-
-		lm, err := p.liquidityManagerFactory.NewRebalancer(networkID, lmAddr)
-		if err != nil {
-			return nil, fmt.Errorf("init liquidity manager: %w", err)
-		}
-
-		balance, err := lm.GetBalance(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("get %v balance: %w", networkID, err)
-		}
-
-		p.rebalancerGraph.SetLiquidity(networkID, balance)
-		networkLiquidities = append(networkLiquidities, models.NewNetworkLiquidity(networkID, balance))
-	}
-
-	return networkLiquidities, nil
-}
-
 func (p *Plugin) loadPendingTransfers(ctx context.Context, lggr logger.Logger) ([]models.PendingTransfer, error) {
 	p.lggr.Infow("loading pending transfers")
 
 	pendingTransfers := make([]models.PendingTransfer, 0)
-	for _, networkID := range p.rebalancerGraph.GetNetworks() {
-		neighbors, ok := p.rebalancerGraph.GetNeighbors(networkID)
-		if !ok {
-			lggr.Warnw("no neighbors found for network", "network", networkID)
+	edges, err := p.rebalancerGraph.GetEdges()
+	if err != nil {
+		return nil, fmt.Errorf("get edges: %w", err)
+	}
+	for _, edge := range edges {
+		bridge, err := p.bridgeFactory.NewBridge(edge.Source, edge.Dest)
+		if err != nil {
+			return nil, fmt.Errorf("init bridge: %w", err)
+		}
+
+		if bridge == nil {
+			lggr.Warnw("no bridge found for network pair", "sourceNetwork", edge.Source, "destNetwork", edge.Dest)
 			continue
 		}
 
-		// todo: figure out what to do with this
-		// dateToStartLookingFrom := time.Now().Add(-10 * 24 * time.Hour)
-
-		// if mostRecentTransfer, exists := p.pendingTransfers.LatestNetworkTransfer(networkID); exists {
-		// 	dateToStartLookingFrom = mostRecentTransfer.Date
-		// }
-
-		for _, neighbor := range neighbors {
-			bridge, err := p.bridgeFactory.NewBridge(networkID, neighbor)
-			if err != nil {
-				return nil, fmt.Errorf("init bridge: %w", err)
-			}
-
-			if bridge == nil {
-				lggr.Warnw("no bridge found for network pair", "sourceNetwork", networkID, "destNetwork", neighbor)
-				continue
-			}
-
-			localToken, err := p.rebalancerGraph.GetTokenAddress(networkID)
-			if err != nil {
-				return nil, fmt.Errorf("get local token address for %v: %w", networkID, err)
-			}
-			remoteToken, err := p.rebalancerGraph.GetTokenAddress(neighbor)
-			if err != nil {
-				return nil, fmt.Errorf("get remote token address for %v: %w", neighbor, err)
-			}
-
-			netPendingTransfers, err := bridge.GetTransfers(ctx, localToken, remoteToken)
-			if err != nil {
-				return nil, fmt.Errorf("get pending transfers: %w", err)
-			}
-
-			lggr.Infow("loaded pending transfers for network", "network", networkID, "pendingTransfers", netPendingTransfers)
-			pendingTransfers = append(pendingTransfers, netPendingTransfers...)
+		localToken, err := p.rebalancerGraph.GetTokenAddress(edge.Source)
+		if err != nil {
+			return nil, fmt.Errorf("get local token address for %v: %w", edge.Source, err)
 		}
+		remoteToken, err := p.rebalancerGraph.GetTokenAddress(edge.Dest)
+		if err != nil {
+			return nil, fmt.Errorf("get remote token address for %v: %w", edge.Dest, err)
+		}
+
+		netPendingTransfers, err := bridge.GetTransfers(ctx, localToken, remoteToken)
+		if err != nil {
+			return nil, fmt.Errorf("get pending transfers: %w", err)
+		}
+
+		lggr.Infow("loaded pending transfers for network", "network", edge.Source, "pendingTransfers", netPendingTransfers)
+		pendingTransfers = append(pendingTransfers, netPendingTransfers...)
 	}
 
-	p.pendingTransfers.Add(pendingTransfers)
 	return pendingTransfers, nil
 }
 
@@ -516,7 +468,7 @@ func (p *Plugin) computePendingTransfersConsensus(observations []models.Observat
 
 func (p *Plugin) computeConfigDigestsConsensus(observations []models.Observation) ([]models.ConfigDigestWithMeta, error) {
 	key := func(meta models.ConfigDigestWithMeta) string {
-		return fmt.Sprintf("%d-%s-%s", meta.NetworkSel, meta.RebalancerAddr, meta.Digest.Hex())
+		return fmt.Sprintf("%d-%s", meta.NetworkSel, meta.Digest.Hex())
 	}
 	counts := make(map[string]int)
 	cds := make(map[string]models.ConfigDigestWithMeta)

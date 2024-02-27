@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 	"math/big"
+	"reflect"
 	"sort"
 	"sync"
 
@@ -59,14 +60,18 @@ type Graph interface {
 	// String returns the string representation of the graph.
 	String() string
 
+	// Len returns the number of vertices in the graph.
 	Len() int
+
+	// Equals returns true if and only if the provided graph is equal to the receiver graph.
+	Equals(other Graph) bool
 }
 
 func NewGraphFromEdges(edges []models.Edge) (Graph, error) {
 	g := NewGraph()
 	for _, edge := range edges {
-		g.AddNetwork(edge.Source, Data{})
-		g.AddNetwork(edge.Dest, Data{})
+		g.AddNetwork(edge.Source, Data{NetworkSelector: edge.Source})
+		g.AddNetwork(edge.Dest, Data{NetworkSelector: edge.Dest})
 		if err := g.AddConnection(edge.Source, edge.Dest); err != nil {
 			return nil, fmt.Errorf("add connection %d -> %d: %w", edge.Source, edge.Dest, err)
 		}
@@ -80,6 +85,12 @@ type XChainRebalancerData struct {
 	RemoteTokenAddress        models.Address
 }
 
+func (d XChainRebalancerData) Equals(other XChainRebalancerData) bool {
+	return d.RemoteRebalancerAddress == other.RemoteRebalancerAddress &&
+		d.LocalBridgeAdapterAddress == other.LocalBridgeAdapterAddress &&
+		d.RemoteTokenAddress == other.RemoteTokenAddress
+}
+
 type Data struct {
 	Liquidity         *big.Int
 	TokenAddress      models.Address
@@ -87,6 +98,15 @@ type Data struct {
 	XChainRebalancers map[models.NetworkSelector]XChainRebalancerData
 	ConfigDigest      models.ConfigDigest
 	NetworkSelector   models.NetworkSelector
+}
+
+func (d Data) Equals(other Data) bool {
+	return d.Liquidity.Cmp(other.Liquidity) == 0 &&
+		d.TokenAddress == other.TokenAddress &&
+		d.RebalancerAddress == other.RebalancerAddress &&
+		reflect.DeepEqual(d.XChainRebalancers, other.XChainRebalancers) &&
+		d.ConfigDigest == other.ConfigDigest &&
+		d.NetworkSelector == other.NetworkSelector
 }
 
 type gph struct {
@@ -101,6 +121,46 @@ func NewGraph() Graph {
 		data: make(map[models.NetworkSelector]Data),
 		mu:   &sync.RWMutex{},
 	}
+}
+
+func (g *gph) Equals(other Graph) bool {
+	if g.Len() != other.Len() {
+		return false
+	}
+
+	for _, n := range g.GetNetworks() {
+		if !other.HasNetwork(n) {
+			return false
+		}
+		otherData, err := other.GetData(n)
+		if err != nil {
+			return false
+		}
+		data, err := g.GetData(n)
+		if err != nil {
+			return false
+		}
+		if !otherData.Equals(data) {
+			return false
+		}
+		neibs, exists := g.GetNeighbors(n)
+		if !exists {
+			return false
+		}
+		otherNeibs, exists := other.GetNeighbors(n)
+		if !exists {
+			return false
+		}
+		if len(neibs) != len(otherNeibs) {
+			return false
+		}
+		for i, neib := range neibs {
+			if neib != otherNeibs[i] {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (g *gph) AddNetwork(n models.NetworkSelector, data Data) bool {
