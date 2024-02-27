@@ -311,25 +311,10 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 }
 
 // MoveUnstartedToFatalError moves the unstarted transaction to the fatal error state.
-// It returns an error if there is no unstarted transaction with the given ID.
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnstartedToFatalError(
-	txID int64, txError null.String,
+	etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	txError null.String,
 ) error {
-	as.Lock()
-	defer as.Unlock()
-
-	tx := as.unstartedTxs.RemoveTxByID(txID)
-	if tx == nil {
-		return fmt.Errorf("move_unstarted_to_fatal_error: no unstarted transaction with ID %d", txID)
-	}
-
-	tx.State = TxFatalError
-	tx.Sequence = nil
-	tx.TxAttempts = nil
-	tx.InitialBroadcastAt = nil
-	tx.Error = txError
-	as.fatalErroredTxs[tx.ID] = tx
-
 	return nil
 }
 
