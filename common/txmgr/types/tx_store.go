@@ -34,6 +34,7 @@ type TxStore[
 	UnstartedTxQueuePruner
 	TxHistoryReaper[CHAIN_ID]
 	TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	InMemoryInitializer[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
 	// Find confirmed txes beyond the minConfirmations param that require callback but have not yet been signaled
 	FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []ReceiptPlus[R], err error)
@@ -53,6 +54,19 @@ type TxStore[
 	FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (tx []*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	// Find transactions loaded with transaction attempts and receipts by transaction IDs and states
 	FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []TxState, chainID *big.Int) (tx []*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+}
+
+// InMemoryInitializer encapsulates the methods that are used by the txmgr to initialize the in memory tx store.
+type InMemoryInitializer[
+	ADDR types.Hashable,
+	CHAIN_ID types.ID,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	R ChainReceipt[TX_HASH, BLOCK_HASH],
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
+] interface {
+	AllTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
 }
 
 // TransactionStore contains the persistence layer methods needed to manage Txs and TxAttempts
