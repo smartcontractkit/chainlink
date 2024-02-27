@@ -259,6 +259,66 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prune
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("reap_tx_history: %w", ErrInvalidChainID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, chainID); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	states := []txmgrtypes.TxState{TxConfirmed}
+	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return false
+		}
+		for _, attempt := range tx.TxAttempts {
+			if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+				continue
+			}
+			if attempt.Receipts[0].GetBlockNumber() == nil {
+				continue
+			}
+			if attempt.Receipts[0].GetBlockNumber().Int64() >= minBlockNumberToKeep {
+				continue
+			}
+			if tx.CreatedAt.After(timeThreshold) {
+				continue
+			}
+			return tx.State == TxConfirmed
+		}
+		return false
+	}
+
+	wg := sync.WaitGroup{}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			as.DeleteTxs(as.FindTxs(states, filterFn)...)
+			wg.Done()
+		}(as)
+	}
+	wg.Wait()
+
+	filterFn = func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return tx.State == TxFatalError && tx.CreatedAt.Before(timeThreshold)
+	}
+	states = []txmgrtypes.TxState{TxFatalError}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			as.DeleteTxs(as.FindTxs(states, filterFn)...)
+			wg.Done()
+		}(as)
+	}
+	wg.Wait()
+
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(_ context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (uint32, error) {
