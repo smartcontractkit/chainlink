@@ -210,6 +210,28 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // UpdateTxsUnconfirmed updates the unconfirmed transactions for a given set of ids
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx context.Context, txIDs []int64) error {
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateTxsUnconfirmed(ctx, txIDs); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	wg := sync.WaitGroup{}
+	for _, as := range ms.addressStates {
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			for _, txID := range txIDs {
+				if err := as.MoveConfirmedMissingReceiptToUnconfirmed(txID); err != nil {
+					continue
+				}
+			}
+			wg.Done()
+		}(as)
+	}
+	wg.Wait()
+
 	return nil
 }
 
