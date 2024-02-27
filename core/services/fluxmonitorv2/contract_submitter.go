@@ -52,7 +52,7 @@ func NewFluxAggregatorContractSubmitter(
 // Submit submits the answer by writing a EthTx for the txmgr to
 // pick up
 func (c *FluxAggregatorContractSubmitter) Submit(ctx context.Context, roundID *big.Int, submission *big.Int, idempotencyKey *string) error {
-	fromAddress, err := c.keyStore.GetRoundRobinAddress(c.chainID)
+	fromAddress, err := c.keyStore.GetRoundRobinAddress(ctx, c.chainID)
 	if err != nil {
 		return err
 	}

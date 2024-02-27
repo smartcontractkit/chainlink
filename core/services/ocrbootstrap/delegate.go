@@ -79,7 +79,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
 	spec := jb.BootstrapSpec
 	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jb)
@@ -109,7 +109,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		ContractID: spec.ContractID,
 		FeedID:     spec.FeedID,
 	}
-	ctx := ctxVals.ContextWithValues(context.Background())
+	ctx = ctxVals.ContextWithValues(ctx)
 
 	var relayCfg relayConfig
 	if err = json.Unmarshal(spec.RelayConfig.Bytes(), &relayCfg); err != nil {
