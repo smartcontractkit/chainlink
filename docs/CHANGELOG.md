@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Minimum required version of Postgres is now >= 12. Postgres 11 was EOL'd in November 2023. Added a new version check that will prevent Chainlink from running on EOL'd Postgres. If you are running Postgres <= 11 you should upgrade to the latest version. The check can be forcibly overridden by setting SKIP_PG_VERSION_CHECK=true.
 
-## 2.9.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.9.0 - 2024-02-22
 
 ### Added
 
@@ -53,8 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   URL = '...'
   ServerPubKey = '...'
 ```
-
-<!-- unreleasedstop -->
 
 ## 2.8.0 - 2024-01-24
 
