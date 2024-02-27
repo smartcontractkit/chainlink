@@ -28,6 +28,8 @@ import (
 
 var ContractDeploymentInterval = 200
 
+// FundChainlinkNodes sends native token amount (expressed in human-scale) to each Chainlink Node
+// using address at position x (fromKeyNum).
 func FundChainlinkNodes(
 	logger zerolog.Logger,
 	client *seth.Client,
@@ -75,6 +77,8 @@ type FundsToSendPayload struct {
 }
 
 // TODO: move to CTF?
+// SendFunds sends native token amount (expressed in human-scale) from address controlled by private key
+// to given address. If no gas limit is set, then network's default will be used.
 func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) error {
 	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
 
@@ -90,7 +94,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		return err
 	}
 
-	gasLimit := uint64(client.Cfg.Network.TransferGasFee)
+	gasLimit := uint64(client.Cfg.Network.GasLimit)
 	if payload.GasLimit != nil {
 		gasLimit = *payload.GasLimit
 	}
@@ -117,6 +121,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	return err
 }
 
+// DeployForwarderContracts first deploys Operator Factory and then uses it to deploy given number of
+// operator and forwarder pairs. It waits for each transaction to be mined and then extracts operator and
+// forwarder addresses from emitted events.
 func DeployForwarderContracts(
 	t *testing.T,
 	seth *seth.Client,
@@ -153,7 +160,8 @@ func DeployForwarderContracts(
 }
 
 // WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
-// round from the contract, as this can cause some odd behavior in some cases
+// round from the contract, as this can cause some odd behavior in some cases. It announces success if latest round
+// is >= roundNumber.
 func WatchNewRound(
 	l zerolog.Logger,
 	seth *seth.Client,
@@ -161,37 +169,44 @@ func WatchNewRound(
 	ocrInstances []contracts.OffChainAggregatorWithRounds,
 	timeout time.Duration,
 ) error {
-	endTime := time.Now().Add(timeout)
 	confirmed := make(map[string]bool)
+	timeoutC := time.After(timeout)
+	ticker := time.NewTicker(time.Millisecond * 200)
+	defer ticker.Stop()
 
 	l.Info().Msgf("Waiting for round %d to be confirmed by all nodes", roundNumber)
 
 	for {
-		if time.Now().After(endTime) {
+		select {
+		case <-timeoutC:
 			return fmt.Errorf("timeout waiting for round %d to be confirmed. %d/%d nodes confirmed it", roundNumber, len(confirmed), len(ocrInstances))
-		}
-		for i := 0; i < len(ocrInstances); i++ {
-			if confirmed[ocrInstances[i].Address()] {
-				continue
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), seth.Cfg.Network.TxnTimeout.Duration())
-			roundData, err := ocrInstances[i].GetLatestRound(ctx)
-			if err != nil {
+		case <-ticker.C:
+			for i := 0; i < len(ocrInstances); i++ {
+				if confirmed[ocrInstances[i].Address()] {
+					continue
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), seth.Cfg.Network.TxnTimeout.Duration())
+				roundData, err := ocrInstances[i].GetLatestRound(ctx)
+				if err != nil {
+					cancel()
+					return fmt.Errorf("getting latest round from OCR instance %d have failed: %w", i+1, err)
+				}
 				cancel()
-				return fmt.Errorf("getting latest round from OCR instance %d have failed: %w", i+1, err)
+				if roundData.RoundId.Cmp(big.NewInt(roundNumber)) >= 0 {
+					l.Debug().Msgf("OCR instance %d/%d confirmed round %d", i+1, len(ocrInstances), roundNumber)
+					confirmed[ocrInstances[i].Address()] = true
+				}
 			}
-			cancel()
-			if roundData.RoundId.Cmp(big.NewInt(roundNumber)) >= 0 {
-				l.Debug().Msgf("OCR instance %d/%d confirmed round %d", i+1, len(ocrInstances), roundNumber)
-				confirmed[ocrInstances[i].Address()] = true
+			if len(confirmed) == len(ocrInstances) {
+				return nil
 			}
-		}
-		if len(confirmed) == len(ocrInstances) {
-			return nil
 		}
 	}
 }
 
+// AcceptAuthorizedReceiversOperator sets authorized receivers for each operator contract to
+// authorizedForwarder and authorized EA to nodeAddresses. Once done, it confirms that authorizations
+// were set correctly.
 func AcceptAuthorizedReceiversOperator(
 	t *testing.T,
 	logger zerolog.Logger,
@@ -221,6 +236,7 @@ func AcceptAuthorizedReceiversOperator(
 	require.Equal(t, operator.Hex(), owner, "Forwarder owner should match operator")
 }
 
+// TrackForwarder creates forwarder track for a given Chainlink node
 func TrackForwarder(
 	t *testing.T,
 	seth *seth.Client,
@@ -282,6 +298,7 @@ func DeployOCRv2Contracts(
 	return ocrInstances, nil
 }
 
+// ConfigureOCRv2AggregatorContracts sets configuration for a number of OCRv2 contracts
 func ConfigureOCRv2AggregatorContracts(
 	contractConfig *contracts.OCRv2Config,
 	ocrv2Contracts []contracts.OffchainAggregatorV2,
@@ -299,6 +316,7 @@ func ConfigureOCRv2AggregatorContracts(
 	return nil
 }
 
+// TeardownRemoteSuite sends a report and returns funds from chainlink nodes to network's default wallet
 func TeardownRemoteSuite(
 	t *testing.T,
 	client *seth.Client,
@@ -308,12 +326,11 @@ func TeardownRemoteSuite(
 	grafnaUrlProvider testreporters.GrafanaURLProvider,
 ) error {
 	l := logging.GetTestLogger(t)
-	var err error
-	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter, grafnaUrlProvider); err != nil {
+	if err := testreporters.SendReport(t, namespace, "./", optionalTestReporter, grafnaUrlProvider); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
-	err = DeleteAllJobs(chainlinkNodes)
+	err := DeleteAllJobs(chainlinkNodes)
 	if err != nil {
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
@@ -326,6 +343,7 @@ func TeardownRemoteSuite(
 	return err
 }
 
+// DeleteAllJobs deletes all jobs from all chainlink nodes
 // added here temporarily to avoid circular import
 func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 	for _, node := range chainlinkNodes {
@@ -350,7 +368,7 @@ func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 	return nil
 }
 
-// StartNewRound requests a new round from the ocr contracts and waits for confirmation
+// StartNewRound requests a new round from the ocr contracts and returns once transaction was mined
 func StartNewRound(
 	ocrInstances []contracts.OffChainAggregatorWithRounds,
 ) error {
