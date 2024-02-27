@@ -73,7 +73,7 @@ func (h *heads) MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool 
 		return false
 	}
 
-	// deep copy to avoid race
+	// deep copy to avoid race on head.Parent
 	h.heads = deepCopy(h.heads, minBlockToKeep)
 
 	head := h.heads[0]
@@ -143,6 +143,6 @@ func (h *heads) AddHeads(newHeads ...*evmtypes.Head) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// deep copy to avoid race
+	// deep copy to avoid race on head.Parent
 	h.heads = deepCopy(append(h.heads, newHeads...), 0)
 }

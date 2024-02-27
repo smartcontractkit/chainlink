@@ -338,7 +338,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx cont
 	return ht.client.HeadByNumber(ctx, big.NewInt(finalizedBlockNumber))
 }
 
-// backfill fetches all missing heads up until the base height
+// backfill fetches all missing heads up until the latestFinalizedHead
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head, latestFinalizedHead HTH) (err error) {
 	headBlockNumber := head.BlockNumber()
 	mark := time.Now()

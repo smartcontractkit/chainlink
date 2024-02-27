@@ -21,7 +21,7 @@ type ORM interface {
 	// IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 	// No advisory lock required because this is thread safe.
 	IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error
-	// TrimOldHeads deletes heads such that only the top N block numbers remain
+	// TrimOldHeads deletes heads such that only blocks >= minBlockNumber remain
 	TrimOldHeads(ctx context.Context, minBlockNumber int64) (err error)
 	// LatestHead returns the highest seen head
 	LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
