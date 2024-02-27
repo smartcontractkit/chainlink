@@ -229,6 +229,33 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error {
+	if ms.chainID.String() != chainId.String() {
+		return fmt.Errorf("update_tx_callback_completed: %w", ErrInvalidChainID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateTxCallbackCompleted(ctx, pipelineTaskRunRid, chainId); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.PipelineTaskRunID.UUID == pipelineTaskRunRid {
+			tx.CallbackCompleted = true
+		}
+	}
+	wg := sync.WaitGroup{}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		wg.Add(1)
+		go func(as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+			as.ApplyToTxsByState(nil, fn)
+			wg.Done()
+		}(as)
+	}
+	wg.Wait()
+
 	return nil
 }
 
