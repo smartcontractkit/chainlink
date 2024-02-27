@@ -4311,6 +4311,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
