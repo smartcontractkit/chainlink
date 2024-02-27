@@ -150,7 +150,7 @@ func TestAutomationBenchmark(t *testing.T) {
 				PaymentPremiumPPB:    uint32(0),
 				FlatFeeMicroLINK:     uint32(40000),
 				BlockCountPerTurn:    big.NewInt(100),
-				CheckGasLimit:        uint32(45_000_000), //45M
+				CheckGasLimit:        uint32(45_000_000), // 45M
 				StalenessSeconds:     big.NewInt(90_000),
 				GasCeilingMultiplier: uint16(2),
 				MaxPerformGas:        uint32(*config.Keeper.Common.MaxPerformGas),
@@ -251,13 +251,13 @@ func getNetworkConfig(networkName string, config *tc.TestConfig) NetworkConfig {
 
 var networkConfig = map[string]NetworkConfig{
 	"SimulatedGeth": {
-		upkeepSLA:  int64(120), //2 minutes
+		upkeepSLA:  int64(120), // 2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	"geth": {
-		upkeepSLA:  int64(120), //2 minutes
+		upkeepSLA:  int64(120), // 2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
@@ -301,6 +301,11 @@ var networkConfig = map[string]NetworkConfig{
 		upkeepSLA:  int64(120),
 		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
+	},
+	"Quorum": {
+		upkeepSLA:  int64(20),
+		blockTime:  12 * time.Second,
+		deltaStage: 30 * time.Second,
 	},
 }
 
