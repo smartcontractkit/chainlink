@@ -190,7 +190,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			// If all messages are already executed and finalized, snooze the root for
 			// config.PermissionLessExecutionThresholdSeconds so it will never be considered again.
 			if allMsgsExecutedAndFinalized := rep.allRequestsAreExecutedAndFinalized(); allMsgsExecutedAndFinalized {
-				rootLggr.Infof("Snoozing root %s forever since there are no executable txs anymore", hex.EncodeToString(merkleRoot[:]))
+				rootLggr.Infow("Snoozing root forever since there are no executable txs anymore", "root", hex.EncodeToString(merkleRoot[:]))
 				r.snoozedRoots.MarkAsExecuted(merkleRoot)
 				continue
 			}
@@ -1006,7 +1006,11 @@ func (r *ExecutionReportingPlugin) getUnexpiredCommitReports(
 	notSnoozedReports := make([]cciptypes.CommitStoreReport, 0)
 	for _, report := range reports {
 		if r.snoozedRoots.IsSnoozed(report.MerkleRoot) {
-			lggr.Debug("Skipping snoozed root", "minSeqNr", report.Interval.Min, "maxSeqNr", report.Interval.Max)
+			lggr.Debugw("Skipping snoozed root",
+				"minSeqNr", report.Interval.Min,
+				"maxSeqNr", report.Interval.Max,
+				"root", hex.EncodeToString(report.MerkleRoot[:]),
+			)
 			continue
 		}
 		notSnoozedReports = append(notSnoozedReports, report)
