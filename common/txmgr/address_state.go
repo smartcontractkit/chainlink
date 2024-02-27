@@ -381,6 +381,39 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close(
 	as.fatalErroredTxs = nil
 }
 
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Abandon() {
+	as.Lock()
+	defer as.Unlock()
+
+	for as.unstartedTxs.Len() > 0 {
+		tx := as.unstartedTxs.RemoveNextTx()
+		as.abandonTx(tx)
+	}
+
+	if as.inprogressTx != nil {
+		tx := as.inprogressTx
+		as.abandonTx(tx)
+		as.inprogressTx = nil
+	}
+	for _, tx := range as.unconfirmedTxs {
+		as.abandonTx(tx)
+	}
+
+	clear(as.unconfirmedTxs)
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandonTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	if tx == nil {
+		return
+	}
+
+	tx.State = TxFatalError
+	tx.Sequence = nil
+	tx.Error = null.NewString("abandoned", true)
+
+	as.fatalErroredTxs[tx.ID] = tx
+}
+
 func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxs(
 	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
