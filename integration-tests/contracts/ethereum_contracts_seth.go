@@ -117,7 +117,7 @@ func (o *EthereumOffchainAggregator) SetPayees(
 
 // SetConfig sets the payees and the offchain reporting protocol configuration
 func (o *EthereumOffchainAggregator) SetConfig(
-	chainlinkNodes []ChainlinkNodeWithKeys,
+	chainlinkNodes []ChainlinkNodeWithKeysAndAddress,
 	ocrConfig OffChainAggregatorConfig,
 	transmitters []common.Address,
 ) error {

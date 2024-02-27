@@ -134,13 +134,10 @@ type OffchainAggregatorData struct {
 	LatestRoundData RoundData // Data about the latest round
 }
 
-type ChainlinkNodeWithKeys interface {
+type ChainlinkNodeWithKeysAndAddress interface {
 	MustReadOCRKeys() (*client.OCRKeys, error)
 	MustReadP2PKeys() (*client.P2PKeys, error)
 	ExportEVMKeysForChain(string) ([]*client.ExportedEVMKey, error)
-}
-
-type ChainlinkNodeWithAddress interface {
 	PrimaryEthAddress() (string, error)
 }
 
@@ -152,7 +149,7 @@ type OffChainAggregatorWithRounds interface {
 
 type OffchainAggregator interface {
 	Address() string
-	SetConfig(chainlinkNodes []ChainlinkNodeWithKeys, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
+	SetConfig(chainlinkNodes []ChainlinkNodeWithKeysAndAddress, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
 	SetPayees([]string, []string) error
 	RequestNewRound() error
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)

@@ -188,10 +188,10 @@ func TestOCRChaos(t *testing.T) {
 			linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
 			require.NoError(t, err, "Error deploying link token contract")
 
-			err = actions_seth.FundChainlinkNodes(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithAddress(chainlinkNodes), 0, big.NewFloat(10))
+			err = actions_seth.FundChainlinkNodes(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), 0, big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions_seth.DeployOCRContracts(l, seth, 1, linkDeploymentData.Address, workerNodes)
+			ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, seth, 1, linkDeploymentData.Address, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 			require.NoError(t, err)
 			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, fmt.Sprint(seth.ChainID))
 			require.NoError(t, err)

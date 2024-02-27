@@ -230,7 +230,7 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 // ReturnFunds returns funds from the given chainlink nodes to the default network wallet. It will use a variety
 // of strategies to attempt to return funds, including retrying with less funds if the transaction fails due to
 // insufficient funds, and retrying with a higher gas limit if the transaction fails due to gas too low.
-func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeys) error {
+func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
 	if seth == nil {
 		return fmt.Errorf("Seth client is nil, unable to return funds from chainlink nodes")
 	}

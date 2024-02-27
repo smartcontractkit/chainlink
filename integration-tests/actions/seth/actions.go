@@ -33,7 +33,7 @@ var ContractDeploymentInterval = 200
 func FundChainlinkNodes(
 	logger zerolog.Logger,
 	client *seth.Client,
-	nodes []contracts.ChainlinkNodeWithAddress,
+	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
 	fromKeyNum int,
 	amount *big.Float,
 ) error {
@@ -335,7 +335,7 @@ func TeardownRemoteSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if err = ReturnFunds(l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeys(chainlinkNodes)); err != nil {
+	if err = ReturnFunds(l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
@@ -388,7 +388,7 @@ func DeployOCRContractsForwarderFlow(
 	seth *seth.Client,
 	numberOfContracts int,
 	linkTokenContractAddress common.Address,
-	workerNodes []*client.ChainlinkK8sClient,
+	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 	forwarderAddresses []common.Address,
 ) ([]contracts.OffchainAggregator, error) {
 	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
@@ -410,13 +410,13 @@ func DeployOCRContractsForwarderFlow(
 	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
 }
 
-// DeployOCRContracts deploys and funds a certain number of offchain aggregator contracts
-func DeployOCRContracts(
+// DeployOCRv1Contracts deploys and funds a certain number of offchain aggregator contracts
+func DeployOCRv1Contracts(
 	logger zerolog.Logger,
 	seth *seth.Client,
 	numberOfContracts int,
 	linkTokenContractAddress common.Address,
-	workerNodes []*client.ChainlinkK8sClient,
+	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 ) ([]contracts.OffchainAggregator, error) {
 	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
 		transmitters = make([]string, 0)
@@ -456,7 +456,7 @@ func deployAnyOCRv1Contracts(
 	seth *seth.Client,
 	numberOfContracts int,
 	linkTokenContractAddress common.Address,
-	workerNodes []*client.ChainlinkK8sClient,
+	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 	getTransmitterAndPayeesFn func() ([]string, []string, error),
 	getTransmitterAddressesFn func() ([]common.Address, error),
 ) ([]contracts.OffchainAggregator, error) {
@@ -501,7 +501,7 @@ func deployAnyOCRv1Contracts(
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfig(
-			contracts.ChainlinkK8sClientToChainlinkNodeWithKeys(workerNodes),
+			workerNodes,
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			transmitterAddresses,
 		)

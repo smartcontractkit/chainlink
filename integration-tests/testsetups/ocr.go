@@ -189,7 +189,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
-	err = actions_seth.FundChainlinkNodes(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithAddress(o.workerNodes), 0, big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
+	err = actions_seth.FundChainlinkNodes(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), 0, big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	var forwarders []common.Address
@@ -217,17 +217,17 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 				o.seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
 				linkDeploymentData.Address,
-				o.workerNodes,
+				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 				forwarders,
 			)
 			require.NoError(o.t, err, "Error deploying OCR Forwarder contracts")
 		} else {
-			o.ocrV1Instances, err = actions_seth.DeployOCRContracts(
+			o.ocrV1Instances, err = actions_seth.DeployOCRv1Contracts(
 				o.log,
 				seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
 				linkDeploymentData.Address,
-				o.workerNodes,
+				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 			)
 			require.NoError(o.t, err)
 		}

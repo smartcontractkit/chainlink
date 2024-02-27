@@ -1329,7 +1329,7 @@ func (o *LegacyEthereumOffchainAggregator) SetPayees(
 
 // SetConfig sets the payees and the offchain reporting protocol configuration
 func (o *LegacyEthereumOffchainAggregator) SetConfig(
-	chainlinkNodes []ChainlinkNodeWithKeys,
+	chainlinkNodes []ChainlinkNodeWithKeysAndAddress,
 	ocrConfig OffChainAggregatorConfig,
 	transmitters []common.Address,
 ) error {
@@ -2474,8 +2474,8 @@ func (e *EthereumWERC20Mock) Mint(account common.Address, amount *big.Int) (*typ
 	return tx, e.client.ProcessTransaction(tx)
 }
 
-func ChainlinkK8sClientToChainlinkNodeWithKeys(k8sNodes []*client.ChainlinkK8sClient) []ChainlinkNodeWithKeys {
-	var nodesAsInterface = make([]ChainlinkNodeWithKeys, len(k8sNodes))
+func ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*client.ChainlinkK8sClient) []ChainlinkNodeWithKeysAndAddress {
+	var nodesAsInterface = make([]ChainlinkNodeWithKeysAndAddress, len(k8sNodes))
 	for i, node := range k8sNodes {
 		nodesAsInterface[i] = node
 	}
@@ -2483,26 +2483,8 @@ func ChainlinkK8sClientToChainlinkNodeWithKeys(k8sNodes []*client.ChainlinkK8sCl
 	return nodesAsInterface
 }
 
-func ChainlinkClientToChainlinkNodeWithKeys(k8sNodes []*client.ChainlinkClient) []ChainlinkNodeWithKeys {
-	var nodesAsInterface = make([]ChainlinkNodeWithKeys, len(k8sNodes))
-	for i, node := range k8sNodes {
-		nodesAsInterface[i] = node
-	}
-
-	return nodesAsInterface
-}
-
-func ChainlinkK8sClientToChainlinkNodeWithAddress(k8sNodes []*client.ChainlinkK8sClient) []ChainlinkNodeWithAddress {
-	var nodesAsInterface = make([]ChainlinkNodeWithAddress, len(k8sNodes))
-	for i, node := range k8sNodes {
-		nodesAsInterface[i] = node
-	}
-
-	return nodesAsInterface
-}
-
-func ChainlinkClientToChainlinkNodeWithAddress(k8sNodes []*client.ChainlinkClient) []ChainlinkNodeWithAddress {
-	var nodesAsInterface = make([]ChainlinkNodeWithAddress, len(k8sNodes))
+func ChainlinkClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*client.ChainlinkClient) []ChainlinkNodeWithKeysAndAddress {
+	var nodesAsInterface = make([]ChainlinkNodeWithKeysAndAddress, len(k8sNodes))
 	for i, node := range k8sNodes {
 		nodesAsInterface[i] = node
 	}
@@ -2511,6 +2493,15 @@ func ChainlinkClientToChainlinkNodeWithAddress(k8sNodes []*client.ChainlinkClien
 }
 
 func V2OffChainAgrregatorToOffChainAggregatorWithRounds(contracts []OffchainAggregatorV2) []OffChainAggregatorWithRounds {
+	var contractsAsInterface = make([]OffChainAggregatorWithRounds, len(contracts))
+	for i, contract := range contracts {
+		contractsAsInterface[i] = contract
+	}
+
+	return contractsAsInterface
+}
+
+func V1OffChainAgrregatorToOffChainAggregatorWithRounds(contracts []OffchainAggregator) []OffChainAggregatorWithRounds {
 	var contractsAsInterface = make([]OffChainAggregatorWithRounds, len(contracts))
 	for i, contract := range contracts {
 		contractsAsInterface[i] = contract

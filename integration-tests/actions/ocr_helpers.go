@@ -90,7 +90,7 @@ func DeployOCRContracts(
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfig(
-			contracts.ChainlinkK8sClientToChainlinkNodeWithKeys(workerNodes),
+			contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			transmitterAddresses,
 		)
@@ -164,7 +164,7 @@ func DeployOCRContractsForwarderFlow(
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfig(
-			contracts.ChainlinkK8sClientToChainlinkNodeWithKeys(workerNodes),
+			contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			forwarderAddresses,
 		)
@@ -433,7 +433,7 @@ func SetAllAdapterResponsesToDifferentValues(
 }
 
 // BuildNodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCR contract
-func BuildNodeContractPairID(node *client.ChainlinkK8sClient, ocrInstance contracts.OffchainAggregator) (string, error) {
+func BuildNodeContractPairID(node contracts.ChainlinkNodeWithKeysAndAddress, ocrInstance contracts.OffchainAggregator) (string, error) {
 	if node == nil {
 		return "", fmt.Errorf("chainlink node is nil")
 	}

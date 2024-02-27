@@ -458,7 +458,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 		if b.hasSeth {
-			if err := actions_seth.FundChainlinkNodes(b.l, b.te.SethClient, contracts.ChainlinkClientToChainlinkNodeWithAddress(b.te.ClCluster.NodeAPIs()), 0, b.ETHFunds); err != nil {
+			if err := actions_seth.FundChainlinkNodes(b.l, b.te.SethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(b.te.ClCluster.NodeAPIs()), 0, b.ETHFunds); err != nil {
 				return nil, err
 			}
 		}
