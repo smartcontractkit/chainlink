@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   URL = '...'
   ServerPubKey = '...'
 ```
+- Automation v2 jobs no longer record pipeline runs when performing upkeeps. Please check logs or on-chain txs to verify node is working as expected.
 
 <!-- unreleasedstop -->
 
