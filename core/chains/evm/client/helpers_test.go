@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -45,7 +45,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 	}
 
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
+		return nil, pkgerrors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
 	lggr := logger.Sugared(logger.Test(t))
@@ -56,7 +56,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 	var sendonlys []SendOnlyNode
 	for i, url := range sendonlyRPCURLs {
 		if url.Scheme != "http" && url.Scheme != "https" {
-			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", url.String())
+			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", url.String())
 		}
 		s := NewSendOnlyNode(lggr, url, fmt.Sprintf("eth-sendonly-%d", i), chainID)
 		sendonlys = append(sendonlys, s)
@@ -89,7 +89,7 @@ func NewChainClientWithTestNode(
 	}
 
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
+		return nil, pkgerrors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
 	lggr := logger.Test(t)
@@ -102,7 +102,7 @@ func NewChainClientWithTestNode(
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
-			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
+			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
 		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
