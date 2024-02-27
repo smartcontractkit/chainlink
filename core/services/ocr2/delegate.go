@@ -1058,6 +1058,9 @@ func (d *Delegate) newServicesOCR2Keepers(
 	switch cfg.ContractVersion {
 	case "v2.1":
 		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+	case "v2.1+":
+		// Future contracts of v2.1 (v2.x) will use the same job spec as v2.1
+		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
 		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
