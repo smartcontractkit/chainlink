@@ -326,7 +326,20 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 	return nil
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	return nil
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[etx.FromAddress]
+	if !ok {
+		return fmt.Errorf("update_tx_for_rebroadcast: %w", ErrAddressNotFound)
+	}
+
+	// Persist to persistent storage
+	if err := ms.txStore.UpdateTxForRebroadcast(ctx, etx, etxAttempt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	return as.MoveConfirmedToUnconfirmed(etxAttempt)
 }
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (bool, error) {
 	return false, nil
