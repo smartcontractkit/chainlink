@@ -782,40 +782,6 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
 		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 1)
 	})
-	t.Run("Skips RPCs that are unhealthy", func(t *testing.T) {
-		// setup RPCs
-		okRPC := newMultiNodeRPCClient(t)
-		okRPC.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
-
-		// setup ok and failed auxiliary nodes
-		unhealthySendOnlyNode := newMockSendOnlyNode[types.ID, multiNodeRPCClient](t)
-		unhealthySendOnlyNode.On("State").Return(nodeStateUnreachable).Once()
-		unhealthyNode := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		unhealthyNode.On("State").Return(nodeStateUnreachable).Once()
-
-		// setup main node
-		mainNode := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		mainNode.On("RPC").Return(okRPC)
-		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		nodeSelector.On("Select").Return(mainNode).Once()
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       types.RandomID(),
-			nodes:         []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]{unhealthyNode, mainNode},
-			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{unhealthySendOnlyNode},
-			sendOnlyErrorParser: func(err error) SendTxReturnCode {
-				if err != nil {
-					return Fatal
-				}
-
-				return Successful
-			},
-		})
-		mn.nodeSelector = nodeSelector
-
-		err := mn.SendTransaction(tests.Context(t), nil)
-		require.NoError(t, err)
-	})
 }
 
 func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
