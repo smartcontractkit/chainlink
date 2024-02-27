@@ -10,21 +10,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestORM_broadcasts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	lggr := logger.Test(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ctx := testutils.Context(t)
 
-	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
+	orm := log.NewORM(db, cltest.FixtureChainID)
 
 	_, addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
@@ -45,12 +44,12 @@ func TestORM_broadcasts(t *testing.T) {
 	require.Zero(t, rowsAffected)
 
 	t.Run("WasBroadcastConsumed_DNE", func(t *testing.T) {
-		_, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
+		_, err := orm.WasBroadcastConsumed(ctx, rawLog.BlockHash, rawLog.Index, listener.JobID())
 		require.NoError(t, err)
 	})
 
 	require.True(t, t.Run("CreateBroadcast", func(t *testing.T) {
-		err := orm.CreateBroadcast(rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
+		err := orm.CreateBroadcast(ctx, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
 		require.NoError(t, err)
 
 		var consumed null.Bool
@@ -60,13 +59,13 @@ func TestORM_broadcasts(t *testing.T) {
 	}))
 
 	t.Run("WasBroadcastConsumed_false", func(t *testing.T) {
-		was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
+		was, err := orm.WasBroadcastConsumed(ctx, rawLog.BlockHash, rawLog.Index, listener.JobID())
 		require.NoError(t, err)
 		require.False(t, was)
 	})
 
 	require.True(t, t.Run("MarkBroadcastConsumed", func(t *testing.T) {
-		err := orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
+		err := orm.MarkBroadcastConsumed(ctx, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
 		require.NoError(t, err)
 
 		var consumed null.Bool
@@ -85,7 +84,7 @@ func TestORM_broadcasts(t *testing.T) {
 		)
 		for i := 0; i < 3; i++ {
 			l := cltest.RandomLog(t)
-			err = orm.CreateBroadcast(l.BlockHash, l.BlockNumber, l.Index, listener.JobID())
+			err = orm.CreateBroadcast(ctx, l.BlockHash, l.BlockNumber, l.Index, listener.JobID())
 			require.NoError(t, err)
 			blockHashes = append(blockHashes, l.BlockHash)
 			blockNumbers = append(blockNumbers, l.BlockNumber)
@@ -93,11 +92,11 @@ func TestORM_broadcasts(t *testing.T) {
 			jobIDs = append(jobIDs, listener.JobID())
 
 		}
-		err = orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs, pg.WithLongQueryTimeout())
+		err = orm.MarkBroadcastsConsumed(ctx, blockHashes, blockNumbers, logIndexes, jobIDs)
 		require.NoError(t, err)
 
 		for i := range blockHashes {
-			was, err := orm.WasBroadcastConsumed(blockHashes[i], logIndexes[i], jobIDs[i])
+			was, err := orm.WasBroadcastConsumed(ctx, blockHashes[i], logIndexes[i], jobIDs[i])
 			require.NoError(t, err)
 			require.True(t, was)
 		}
@@ -113,19 +112,19 @@ func TestORM_broadcasts(t *testing.T) {
 		)
 		for i := 0; i < 5; i++ {
 			l := cltest.RandomLog(t)
-			err = orm.CreateBroadcast(l.BlockHash, l.BlockNumber, l.Index, listener.JobID())
+			err = orm.CreateBroadcast(ctx, l.BlockHash, l.BlockNumber, l.Index, listener.JobID())
 			require.NoError(t, err)
 			blockHashes = append(blockHashes, l.BlockHash)
 			blockNumbers = append(blockNumbers, l.BlockNumber)
 			logIndexes = append(logIndexes, l.Index)
 			jobIDs = append(jobIDs, listener.JobID())
 		}
-		err = orm.MarkBroadcastsConsumed(blockHashes[:len(blockHashes)-2], blockNumbers, logIndexes, jobIDs, pg.WithLongQueryTimeout())
+		err = orm.MarkBroadcastsConsumed(ctx, blockHashes[:len(blockHashes)-2], blockNumbers, logIndexes, jobIDs)
 		require.Error(t, err)
 	})
 
 	t.Run("WasBroadcastConsumed_true", func(t *testing.T) {
-		was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
+		was, err := orm.WasBroadcastConsumed(ctx, rawLog.BlockHash, rawLog.Index, listener.JobID())
 		require.NoError(t, err)
 		require.True(t, was)
 	})
@@ -133,26 +132,25 @@ func TestORM_broadcasts(t *testing.T) {
 
 func TestORM_pending(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	lggr := logger.Test(t)
-	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
+	orm := log.NewORM(db, cltest.FixtureChainID)
+	ctx := testutils.Context(t)
 
-	num, err := orm.GetPendingMinBlock()
+	num, err := orm.GetPendingMinBlock(ctx)
 	require.NoError(t, err)
 	require.Nil(t, num)
 
 	var num10 int64 = 10
-	err = orm.SetPendingMinBlock(&num10)
+	err = orm.SetPendingMinBlock(ctx, &num10)
 	require.NoError(t, err)
 
-	num, err = orm.GetPendingMinBlock()
+	num, err = orm.GetPendingMinBlock(ctx)
 	require.NoError(t, err)
 	require.Equal(t, num10, *num)
 
-	err = orm.SetPendingMinBlock(nil)
+	err = orm.SetPendingMinBlock(ctx, nil)
 	require.NoError(t, err)
 
-	num, err = orm.GetPendingMinBlock()
+	num, err = orm.GetPendingMinBlock(ctx)
 	require.NoError(t, err)
 	require.Nil(t, num)
 }
@@ -160,10 +158,10 @@ func TestORM_pending(t *testing.T) {
 func TestORM_MarkUnconsumed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	lggr := logger.Test(t)
+	ctx := testutils.Context(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
+	orm := log.NewORM(db, cltest.FixtureChainID)
 
 	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	job1 := cltest.MustInsertV2JobSpec(t, db, addr1)
@@ -174,36 +172,36 @@ func TestORM_MarkUnconsumed(t *testing.T) {
 	logBefore := cltest.RandomLog(t)
 	logBefore.BlockNumber = 34
 	require.NoError(t,
-		orm.CreateBroadcast(logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
+		orm.CreateBroadcast(ctx, logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
 	require.NoError(t,
-		orm.MarkBroadcastConsumed(logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
+		orm.MarkBroadcastConsumed(ctx, logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
 
 	logAt := cltest.RandomLog(t)
 	logAt.BlockNumber = 38
 	require.NoError(t,
-		orm.CreateBroadcast(logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
+		orm.CreateBroadcast(ctx, logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
 	require.NoError(t,
-		orm.MarkBroadcastConsumed(logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
+		orm.MarkBroadcastConsumed(ctx, logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
 
 	logAfter := cltest.RandomLog(t)
 	logAfter.BlockNumber = 40
 	require.NoError(t,
-		orm.CreateBroadcast(logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
+		orm.CreateBroadcast(ctx, logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
 	require.NoError(t,
-		orm.MarkBroadcastConsumed(logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
+		orm.MarkBroadcastConsumed(ctx, logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
 
 	// logAt and logAfter should now be marked unconsumed. logBefore is still consumed.
-	require.NoError(t, orm.MarkBroadcastsUnconsumed(38))
+	require.NoError(t, orm.MarkBroadcastsUnconsumed(ctx, 38))
 
-	consumed, err := orm.WasBroadcastConsumed(logBefore.BlockHash, logBefore.Index, job1.ID)
+	consumed, err := orm.WasBroadcastConsumed(ctx, logBefore.BlockHash, logBefore.Index, job1.ID)
 	require.NoError(t, err)
 	require.True(t, consumed)
 
-	consumed, err = orm.WasBroadcastConsumed(logAt.BlockHash, logAt.Index, job1.ID)
+	consumed, err = orm.WasBroadcastConsumed(ctx, logAt.BlockHash, logAt.Index, job1.ID)
 	require.NoError(t, err)
 	require.False(t, consumed)
 
-	consumed, err = orm.WasBroadcastConsumed(logAfter.BlockHash, logAfter.Index, job2.ID)
+	consumed, err = orm.WasBroadcastConsumed(ctx, logAfter.BlockHash, logAfter.Index, job2.ID)
 	require.NoError(t, err)
 	require.False(t, consumed)
 }
@@ -258,35 +256,34 @@ func TestORM_Reinitialize(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			cfg := configtest.NewGeneralConfig(t, nil)
-			lggr := logger.Test(t)
-			orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
+			orm := log.NewORM(db, cltest.FixtureChainID)
+			ctx := testutils.Context(t)
 
 			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
 
 			for _, b := range tt.broadcasts {
 				if b.Consumed {
-					err := orm.MarkBroadcastConsumed(b.BlockHash, b.BlockNumber.Uint64(), b.LogIndex, jobID)
+					err := orm.MarkBroadcastConsumed(ctx, b.BlockHash, b.BlockNumber.Uint64(), b.LogIndex, jobID)
 					require.NoError(t, err)
 				} else {
-					err := orm.CreateBroadcast(b.BlockHash, b.BlockNumber.Uint64(), b.LogIndex, jobID)
+					err := orm.CreateBroadcast(ctx, b.BlockHash, b.BlockNumber.Uint64(), b.LogIndex, jobID)
 					require.NoError(t, err)
 				}
 			}
 			if tt.pendingBlockNum != nil {
-				require.NoError(t, orm.SetPendingMinBlock(tt.pendingBlockNum))
+				require.NoError(t, orm.SetPendingMinBlock(ctx, tt.pendingBlockNum))
 			}
 
-			pendingBlockNum, err := orm.Reinitialize()
+			pendingBlockNum, err := orm.Reinitialize(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expPendingBlockNum, pendingBlockNum)
 
-			pendingBlockNum, err = orm.GetPendingMinBlock()
+			pendingBlockNum, err = orm.GetPendingMinBlock(ctx)
 			if assert.NoError(t, err) {
 				assert.Equal(t, tt.expPendingBlockNum, pendingBlockNum)
 			}
 
-			bs, err := orm.FindBroadcasts(0, 20)
+			bs, err := orm.FindBroadcasts(ctx, 0, 20)
 			if assert.NoError(t, err) {
 				for _, b := range bs {
 					assert.True(t, b.Consumed)

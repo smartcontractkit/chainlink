@@ -8,8 +8,6 @@ import (
 	log "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -104,24 +102,17 @@ func (_m *Broadcaster) IsConnected() bool {
 	return r0
 }
 
-// MarkConsumed provides a mock function with given fields: lb, qopts
-func (_m *Broadcaster) MarkConsumed(lb log.Broadcast, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, lb)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// MarkConsumed provides a mock function with given fields: ctx, lb
+func (_m *Broadcaster) MarkConsumed(ctx context.Context, lb log.Broadcast) error {
+	ret := _m.Called(ctx, lb)
 
 	if len(ret) == 0 {
 		panic("no return value specified for MarkConsumed")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(log.Broadcast, ...pg.QOpt) error); ok {
-		r0 = rf(lb, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, log.Broadcast) error); ok {
+		r0 = rf(ctx, lb)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -129,24 +120,17 @@ func (_m *Broadcaster) MarkConsumed(lb log.Broadcast, qopts ...pg.QOpt) error {
 	return r0
 }
 
-// MarkManyConsumed provides a mock function with given fields: lbs, qopts
-func (_m *Broadcaster) MarkManyConsumed(lbs []log.Broadcast, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, lbs)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// MarkManyConsumed provides a mock function with given fields: ctx, lbs
+func (_m *Broadcaster) MarkManyConsumed(ctx context.Context, lbs []log.Broadcast) error {
+	ret := _m.Called(ctx, lbs)
 
 	if len(ret) == 0 {
 		panic("no return value specified for MarkManyConsumed")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]log.Broadcast, ...pg.QOpt) error); ok {
-		r0 = rf(lbs, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, []log.Broadcast) error); ok {
+		r0 = rf(ctx, lbs)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -238,16 +222,9 @@ func (_m *Broadcaster) Start(_a0 context.Context) error {
 	return r0
 }
 
-// WasAlreadyConsumed provides a mock function with given fields: lb, qopts
-func (_m *Broadcaster) WasAlreadyConsumed(lb log.Broadcast, qopts ...pg.QOpt) (bool, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, lb)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// WasAlreadyConsumed provides a mock function with given fields: ctx, lb
+func (_m *Broadcaster) WasAlreadyConsumed(ctx context.Context, lb log.Broadcast) (bool, error) {
+	ret := _m.Called(ctx, lb)
 
 	if len(ret) == 0 {
 		panic("no return value specified for WasAlreadyConsumed")
@@ -255,17 +232,17 @@ func (_m *Broadcaster) WasAlreadyConsumed(lb log.Broadcast, qopts ...pg.QOpt) (b
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(log.Broadcast, ...pg.QOpt) (bool, error)); ok {
-		return rf(lb, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, log.Broadcast) (bool, error)); ok {
+		return rf(ctx, lb)
 	}
-	if rf, ok := ret.Get(0).(func(log.Broadcast, ...pg.QOpt) bool); ok {
-		r0 = rf(lb, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, log.Broadcast) bool); ok {
+		r0 = rf(ctx, lb)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(log.Broadcast, ...pg.QOpt) error); ok {
-		r1 = rf(lb, qopts...)
+	if rf, ok := ret.Get(1).(func(context.Context, log.Broadcast) error); ok {
+		r1 = rf(ctx, lb)
 	} else {
 		r1 = ret.Error(1)
 	}

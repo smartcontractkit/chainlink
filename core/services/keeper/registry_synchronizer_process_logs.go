@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
-func (rs *RegistrySynchronizer) processLogs() {
+func (rs *RegistrySynchronizer) processLogs(ctx context.Context) {
 	for _, broadcast := range rs.mbLogs.RetrieveAll() {
 		eventLog := broadcast.DecodedLog()
 		if eventLog == nil || reflect.ValueOf(eventLog).IsNil() {
@@ -22,7 +23,7 @@ func (rs *RegistrySynchronizer) processLogs() {
 			continue
 		}
 
-		was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
+		was, err := rs.logBroadcaster.WasAlreadyConsumed(ctx, broadcast)
 		if err != nil {
 			rs.logger.Warn(errors.Wrap(err, "unable to check if log was consumed"))
 			continue
@@ -84,7 +85,7 @@ func (rs *RegistrySynchronizer) processLogs() {
 			rs.logger.Error(err)
 		}
 
-		err = rs.logBroadcaster.MarkConsumed(broadcast)
+		err = rs.logBroadcaster.MarkConsumed(ctx, broadcast)
 		if err != nil {
 			rs.logger.Error(errors.Wrapf(err, "unable to mark %T log as consumed, log: %v", broadcast.RawLog(), broadcast.String()))
 		}
