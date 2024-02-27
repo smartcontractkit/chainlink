@@ -197,7 +197,7 @@ opentelemetry-collector:
   mode: deployment
   image:
     repository: otel/opentelemetry-collector
-    tag: 0.81.2
+    tag: 0.95.0
   command:
     name: otelcol
   extraVolumes:
