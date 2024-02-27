@@ -819,17 +819,23 @@ func (b *BlockHistoryEstimator) setPercentileTipCap(tipCap *assets.Wei) {
 func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *assets.Wei) {
 	max := b.eConfig.PriceMax()
 	min := b.eConfig.PriceMin()
+	eip1559 := b.eConfig.EIP1559DynamicFees()
+	var warn string
 
 	b.priceMu.Lock()
 	defer b.priceMu.Unlock()
 	if gasPrice.Cmp(max) > 0 {
-		b.logger.Warnw(fmt.Sprintf("Calculated gas price of %s exceeds EVM.GasEstimator.PriceMax=%[2]s, setting gas price to the maximum allowed value of %[2]s instead", gasPrice.String(), max.String()), "gasPriceWei", gasPrice, "maxGasPriceWei", max)
+		warn = fmt.Sprintf("Calculated gas price of %s exceeds EVM.GasEstimator.PriceMax=%[2]s, setting gas price to the maximum allowed value of %[2]s instead", gasPrice.String(), max.String())
 		b.gasPrice = max
 	} else if gasPrice.Cmp(min) < 0 {
-		b.logger.Warnw(fmt.Sprintf("Calculated gas price of %s falls below EVM.Transactions.PriceMin=%[2]s, setting gas price to the minimum allowed value of %[2]s instead", gasPrice.String(), min.String()), "gasPriceWei", gasPrice, "minGasPriceWei", min)
+		warn = fmt.Sprintf("Calculated gas price of %s falls below EVM.GasEstimator.PriceMin=%[2]s, setting gas price to the minimum allowed value of %[2]s instead", gasPrice.String(), min.String())
 		b.gasPrice = min
 	} else {
 		b.gasPrice = gasPrice
+	}
+
+	if !eip1559 {
+		b.logger.Warnw(warn, "gasPriceWei", gasPrice, "maxGasPriceWei", max, "minGasPriceWei", min)
 	}
 }
 
