@@ -31,6 +31,8 @@ func TestOCRBasic(t *testing.T) {
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
 
+	require.False(t, true, "fail on purpose")
+
 	err := actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err, "Error setting all adapter responses to the same value")
 	err = actions_seth.WatchNewRound(l, env.SethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
