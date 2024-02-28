@@ -324,6 +324,7 @@ PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = true
 
 [EVM.OCR]
 ContractConfirmations = 11

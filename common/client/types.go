@@ -71,6 +71,7 @@ type NodeClient[
 	SubscribersCount() int32
 	SetAliveLoopSub(types.Subscription)
 	UnsubscribeAllExceptAliveLoop()
+	IsSyncing(ctx context.Context) (bool, error)
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.

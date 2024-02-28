@@ -12,7 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgx/v4"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -205,109 +205,117 @@ func TestORM(t *testing.T) {
 	require.NoError(t, o1.DeleteLogsAndBlocksAfter(10))
 	_, err = o1.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 
 	// Delete blocks from another chain.
 	require.NoError(t, o2.DeleteLogsAndBlocksAfter(11))
 	_, err = o2.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	// Delete blocks after should also delete block 12.
 	_, err = o2.SelectBlockByHash(common.HexToHash("0x1235"))
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 
 	// Should be able to insert and read back a log.
 	topic := common.HexToHash("0x1599")
 	topic2 := common.HexToHash("0x1600")
 	require.NoError(t, o1.InsertLogs([]logpoller.Log{
 		{
-			EvmChainId:  ubig.New(th.ChainID),
-			LogIndex:    1,
-			BlockHash:   common.HexToHash("0x1234"),
-			BlockNumber: int64(10),
-			EventSig:    topic,
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1888"),
-			Data:        []byte("hello"),
+			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       1,
+			BlockHash:      common.HexToHash("0x1234"),
+			BlockNumber:    int64(10),
+			EventSig:       topic,
+			Topics:         [][]byte{topic[:]},
+			Address:        common.HexToAddress("0x1234"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello"),
+			BlockTimestamp: time.Now(),
 		},
 		{
-			EvmChainId:  ubig.New(th.ChainID),
-			LogIndex:    2,
-			BlockHash:   common.HexToHash("0x1234"),
-			BlockNumber: int64(11),
-			EventSig:    topic,
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1888"),
-			Data:        []byte("hello"),
+			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       2,
+			BlockHash:      common.HexToHash("0x1234"),
+			BlockNumber:    int64(11),
+			EventSig:       topic,
+			Topics:         [][]byte{topic[:]},
+			Address:        common.HexToAddress("0x1234"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello"),
+			BlockTimestamp: time.Now(),
 		},
 		{
-			EvmChainId:  ubig.New(th.ChainID),
-			LogIndex:    3,
-			BlockHash:   common.HexToHash("0x1234"),
-			BlockNumber: int64(12),
-			EventSig:    topic,
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1235"),
-			TxHash:      common.HexToHash("0x1888"),
-			Data:        []byte("hello"),
+			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       3,
+			BlockHash:      common.HexToHash("0x1234"),
+			BlockNumber:    int64(12),
+			EventSig:       topic,
+			Topics:         [][]byte{topic[:]},
+			Address:        common.HexToAddress("0x1235"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello"),
+			BlockTimestamp: time.Now(),
 		},
 		{
-			EvmChainId:  ubig.New(th.ChainID),
-			LogIndex:    4,
-			BlockHash:   common.HexToHash("0x1234"),
-			BlockNumber: int64(13),
-			EventSig:    topic,
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1235"),
-			TxHash:      common.HexToHash("0x1888"),
-			Data:        []byte("hello"),
+			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       4,
+			BlockHash:      common.HexToHash("0x1234"),
+			BlockNumber:    int64(13),
+			EventSig:       topic,
+			Topics:         [][]byte{topic[:]},
+			Address:        common.HexToAddress("0x1235"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello"),
+			BlockTimestamp: time.Now(),
 		},
 		{
-			EvmChainId:  ubig.New(th.ChainID),
-			LogIndex:    5,
-			BlockHash:   common.HexToHash("0x1234"),
-			BlockNumber: int64(14),
-			EventSig:    topic2,
-			Topics:      [][]byte{topic2[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1888"),
-			Data:        []byte("hello2"),
+			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       5,
+			BlockHash:      common.HexToHash("0x1234"),
+			BlockNumber:    int64(14),
+			EventSig:       topic2,
+			Topics:         [][]byte{topic2[:]},
+			Address:        common.HexToAddress("0x1234"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello2"),
+			BlockTimestamp: time.Now(),
 		},
 		{
-			EvmChainId:  ubig.New(th.ChainID),
-			LogIndex:    6,
-			BlockHash:   common.HexToHash("0x1234"),
-			BlockNumber: int64(15),
-			EventSig:    topic2,
-			Topics:      [][]byte{topic2[:]},
-			Address:     common.HexToAddress("0x1235"),
-			TxHash:      common.HexToHash("0x1888"),
-			Data:        []byte("hello2"),
+			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       6,
+			BlockHash:      common.HexToHash("0x1234"),
+			BlockNumber:    int64(15),
+			EventSig:       topic2,
+			Topics:         [][]byte{topic2[:]},
+			Address:        common.HexToAddress("0x1235"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello2"),
+			BlockTimestamp: time.Now(),
 		},
 		{
-			EvmChainId:  ubig.New(th.ChainID),
-			LogIndex:    7,
-			BlockHash:   common.HexToHash("0x1237"),
-			BlockNumber: int64(16),
-			EventSig:    topic,
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1236"),
-			TxHash:      common.HexToHash("0x1888"),
-			Data:        []byte("hello short retention"),
+			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       7,
+			BlockHash:      common.HexToHash("0x1237"),
+			BlockNumber:    int64(16),
+			EventSig:       topic,
+			Topics:         [][]byte{topic[:]},
+			Address:        common.HexToAddress("0x1236"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello short retention"),
+			BlockTimestamp: time.Now(),
 		},
 		{
-			EvmChainId:  ubig.New(th.ChainID),
-			LogIndex:    8,
-			BlockHash:   common.HexToHash("0x1238"),
-			BlockNumber: int64(17),
-			EventSig:    topic2,
-			Topics:      [][]byte{topic2[:]},
-			Address:     common.HexToAddress("0x1236"),
-			TxHash:      common.HexToHash("0x1888"),
-			Data:        []byte("hello2 long retention"),
+			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       8,
+			BlockHash:      common.HexToHash("0x1238"),
+			BlockNumber:    int64(17),
+			EventSig:       topic2,
+			Topics:         [][]byte{topic2[:]},
+			Address:        common.HexToAddress("0x1236"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello2 long retention"),
+			BlockTimestamp: time.Now(),
 		},
 	}))
 
@@ -331,7 +339,7 @@ func TestORM(t *testing.T) {
 	// With no blocks, should be an error
 	_, err = o1.SelectLatestLogByEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	// With block 10, only 0 confs should work
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 10, time.Now(), 0))
 	log, err := o1.SelectLatestLogByEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
@@ -339,7 +347,7 @@ func TestORM(t *testing.T) {
 	assert.Equal(t, int64(10), log.BlockNumber)
 	_, err = o1.SelectLatestLogByEventSigWithConfs(topic, common.HexToAddress("0x1234"), 1)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	// With block 12, anything <=2 should work
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 11, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1235"), 12, time.Now(), 0))
@@ -351,7 +359,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	_, err = o1.SelectLatestLogByEventSigWithConfs(topic, common.HexToAddress("0x1234"), 3)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 
 	// Required for confirmations to work
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 13, time.Now(), 0))

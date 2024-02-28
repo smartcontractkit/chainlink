@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -286,7 +286,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	// Replay() should return error code received from replayComplete
 	t.Run("returns error code on replay complete", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		anyErr := errors.New("any error")
+		anyErr := pkgerrors.New("any error")
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -412,7 +412,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		t.Cleanup(lp.reset)
 		servicetest.Run(t, lp)
 
-		anyErr := errors.New("async error")
+		anyErr := pkgerrors.New("async error")
 		observedLogs.TakeAll()
 
 		lp.ReplayAsync(4)

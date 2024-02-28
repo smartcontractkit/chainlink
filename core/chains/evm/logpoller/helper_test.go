@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -99,7 +99,7 @@ func (th *TestHarness) PollAndSaveLogs(ctx context.Context, currentBlockNumber i
 func (th *TestHarness) assertDontHave(t *testing.T, start, end int) {
 	for i := start; i < end; i++ {
 		_, err := th.ORM.SelectBlockByNumber(int64(i))
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
+		assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	}
 }
 
