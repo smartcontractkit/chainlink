@@ -14,6 +14,6 @@ PriceMax = '200 gwei'
 LimitDefault = 100000000
 FeeCapDefault = '200 gwei'
 
-[BlockHistory]
+[GasEstimator.BlockHistory]
 BlockHistorySize = 200
 EIP1559FeeCapBufferBlocks = 0
