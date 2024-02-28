@@ -152,6 +152,7 @@ func TestVRFv2Basic(t *testing.T) {
 
 		// Request Randomness and wait for fulfillment event
 		randomWordsFulfilledEvent, err := vrfv2.DirectFundingRequestRandomnessAndWaitForFulfillment(
+			testcontext.Get(t),
 			l,
 			wrapperConsumer,
 			vrfv2Contracts.CoordinatorV2,
