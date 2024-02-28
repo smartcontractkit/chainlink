@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -113,7 +113,7 @@ func HomeDir(str string) (string, error) {
 func DatabaseURL(s string) (url.URL, error) {
 	uri, err := url.Parse(s)
 	if err != nil {
-		return url.URL{}, errors.Wrapf(err, "invalid database url %s", s)
+		return url.URL{}, pkgerrors.Wrapf(err, "invalid database url %s", s)
 	}
 	if uri.String() == "" {
 		return *uri, nil

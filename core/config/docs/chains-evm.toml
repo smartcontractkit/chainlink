@@ -332,6 +332,12 @@ SyncThreshold = 5 # Default
 #
 # Set to '0s' to disable
 LeaseDuration = '0s' # Default
+# NodeIsSyncingEnabled is a flag that enables `syncing` health check on each reconnection to an RPC.
+# Node transitions and remains in `Syncing` state while RPC signals this state (In case of Ethereum `eth_syncing` returns anything other than false).
+# All of the requests to node in state `Syncing` are rejected.
+#
+# Set true to enable this check
+NodeIsSyncingEnabled = false # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
