@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/jmoiron/sqlx"
 
@@ -47,7 +47,7 @@ func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) e
 	:hash, :number, :parent_hash, :created_at, :timestamp, :l1_block_number, :evm_chain_id, :base_fee_per_gas)
 	ON CONFLICT (evm_chain_id, hash) DO NOTHING`
 	err := q.ExecQNamed(query, head)
-	return errors.Wrap(err, "IdempotentInsertHead failed to insert head")
+	return pkgerrors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
 func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
@@ -69,17 +69,17 @@ func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
 	head = new(evmtypes.Head)
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Get(head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
-	err = errors.Wrap(err, "LatestHead failed")
+	err = pkgerrors.Wrap(err, "LatestHead failed")
 	return
 }
 
 func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Select(&heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
-	err = errors.Wrap(err, "LatestHeads failed")
+	err = pkgerrors.Wrap(err, "LatestHeads failed")
 	return
 }
 
@@ -87,7 +87,7 @@ func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtype
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	head = new(evmtypes.Head)
 	err = q.Get(head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return head, err
