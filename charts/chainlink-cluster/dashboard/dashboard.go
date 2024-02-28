@@ -6,6 +6,7 @@ import (
 	"github.com/K-Phoen/grabana"
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/variable/query"
+	wasp "github.com/smartcontractkit/wasp/dashboard"
 	"net/http"
 	"os"
 )
@@ -57,26 +58,23 @@ func NewDashboard(
 	}
 	db.init()
 	db.addCoreVariables()
-	if Contains(db.panels, "wasp") {
-		// waspVariables := wasp.AddVariables(db.PrometheusDataSourceName)
-		// db.opts = append(db.opts, waspVariables...)
-	}
 
 	if Contains(db.panels, "core") {
 		db.addCorePanels()
-	}
-
-	if Contains(db.panels, "wasp") {
-		// waspPanelsLoadStats := wasp.WASPLoadStatsRow(db.PrometheusDataSourceName)
-		// waspPanelsDebugData := wasp.WASPDebugDataRow(db.PrometheusDataSourceName)
-		// db.opts = append(db.opts, waspPanelsLoadStats...)
-		// db.opts = append(db.opts, waspPanelsDebugData...)
 	}
 
 	switch db.platform {
 	case "kubernetes":
 		db.addKubernetesVariables()
 		db.addKubernetesPanels()
+		panelQuery := map[string]string{
+			"branch": `=~"${branch:pipe}"`,
+			"commit": `=~"${commit:pipe}"`,
+		}
+		waspPanelsLoadStats := wasp.WASPLoadStatsRow(db.PrometheusDataSourceName, panelQuery)
+		waspPanelsDebugData := wasp.WASPDebugDataRow(db.PrometheusDataSourceName, panelQuery, false)
+		db.opts = append(db.opts, waspPanelsLoadStats)
+		db.opts = append(db.opts, waspPanelsDebugData)
 		break
 	}
 
@@ -169,4 +167,6 @@ func (m *Dashboard) addKubernetesVariables() {
 	}
 
 	m.opts = append(m.opts, opts...)
+	waspVariables := wasp.AddVariables(m.PrometheusDataSourceName)
+	m.opts = append(m.opts, waspVariables...)
 }
