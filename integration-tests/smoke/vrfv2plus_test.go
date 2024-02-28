@@ -60,6 +60,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	numberOfTxKeysToCreate := 2
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 		&config,
@@ -184,6 +185,7 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
+			testcontext.Get(t),
 			env,
 			&configCopy,
 			linkToken,
@@ -680,6 +682,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 
 	numberOfTxKeysToCreate := 2
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 		&config,
@@ -773,6 +776,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, "error deploying LINK contract")
 
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 		&config,
@@ -994,6 +998,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 	numberOfTxKeysToCreate := 0
 	vrfContracts, subIDs, vrfKeyData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
 		&config,
@@ -1192,6 +1197,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 
 	numberOfTxKeysToCreate := 2
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 		&config,

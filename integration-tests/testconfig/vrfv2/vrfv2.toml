@@ -28,6 +28,7 @@ reqs_for_tier_3 = 0
 reqs_for_tier_4 = 0
 reqs_for_tier_5 = 0
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
@@ -77,6 +78,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 
 [Soak.VRFv2.Performance]
@@ -92,6 +94,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 
 [Load.VRFv2.Performance]
@@ -108,6 +111,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 
 [Stress.VRFv2.Performance]

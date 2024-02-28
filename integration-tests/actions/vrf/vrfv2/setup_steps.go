@@ -4,13 +4,17 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/google/uuid"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -72,6 +76,7 @@ func CreateVRFV2Job(
 
 // SetupVRFV2Environment will create specified number of subscriptions and add the same conumer/s to each of them
 func SetupVRFV2Environment(
+	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
 	nodesToCreate []vrfcommon.VRFNodeType,
 	vrfv2TestConfig types.VRFv2TestConfig,
@@ -113,7 +118,7 @@ func SetupVRFV2Environment(
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrRegisteringProvingKey, err)
 	}
-	keyHash, err := vrfContracts.CoordinatorV2.HashOfKey(context.Background(), provingKey)
+	keyHash, err := vrfContracts.CoordinatorV2.HashOfKey(ctx, provingKey)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrCreatingProvingKeyHash, err)
 	}
@@ -229,6 +234,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, vrfv2Conf
 }
 
 func SetupVRFV2WrapperEnvironment(
+	ctx context.Context,
 	env *test_env.CLClusterTestEnv,
 	vrfv2TestConfig tc.VRFv2TestConfig,
 	linkToken contracts.LinkToken,
@@ -273,7 +279,7 @@ func SetupVRFV2WrapperEnvironment(
 	}
 
 	// Fetch wrapper subscription ID
-	wrapperSubID, err := wrapperContracts.VRFV2Wrapper.GetSubID(context.Background())
+	wrapperSubID, err := wrapperContracts.VRFV2Wrapper.GetSubID(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -302,4 +308,214 @@ func SetupVRFV2WrapperEnvironment(
 	}
 
 	return wrapperContracts, &wrapperSubID, nil
+}
+
+func ReturnFundsForFulfilledRequests(ctx context.Context, client blockchain.EVMClient, coordinator contracts.VRFCoordinatorV2_5, l zerolog.Logger) error {
+	linkTotalBalance, err := coordinator.GetLinkTotalBalance(ctx)
+	if err != nil {
+		return fmt.Errorf("Error getting LINK total balance, err: %w", err)
+	}
+	defaultWallet := client.GetDefaultWallet().Address()
+	l.Info().
+		Str("LINK amount", linkTotalBalance.String()).
+		Str("Returning to", defaultWallet).
+		Msg("Returning LINK for fulfilled requests")
+	err = coordinator.Withdraw(
+		common.HexToAddress(defaultWallet),
+	)
+	if err != nil {
+		return fmt.Errorf("Error withdrawing LINK from coordinator to default wallet, err: %w", err)
+	}
+	nativeTotalBalance, err := coordinator.GetNativeTokenTotalBalance(ctx)
+	if err != nil {
+		return fmt.Errorf("Error getting NATIVE total balance, err: %w", err)
+	}
+	l.Info().
+		Str("Native Token amount", nativeTotalBalance.String()).
+		Str("Returning to", defaultWallet).
+		Msg("Returning Native Token for fulfilled requests")
+	err = coordinator.WithdrawNative(
+		common.HexToAddress(defaultWallet),
+	)
+	if err != nil {
+		return fmt.Errorf("Error withdrawing NATIVE from coordinator to default wallet, err: %w", err)
+	}
+	return nil
+}
+
+func SetupVRFV2Universe(ctx context.Context, t *testing.T, testConfig tc.TestConfig, cleanupFn func(), newEnvConfig vrfcommon.NewEnvConfig, l zerolog.Logger) (*test_env.CLClusterTestEnv, *vrfcommon.VRFContracts, []uint64, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
+	var (
+		env            *test_env.CLClusterTestEnv
+		vrfContracts   *vrfcommon.VRFContracts
+		vrfKey         *vrfcommon.VRFKeyData
+		subIDs         []uint64
+		nodeTypeToNode map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		err            error
+	)
+	if *testConfig.VRFv2Plus.General.UseExistingEnv {
+		vrfContracts, subIDs, vrfKey, env, err = SetupVRFV2ForExistingEnv(ctx, t, testConfig, cleanupFn, l)
+		if err != nil {
+			return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 for Existing env", err)
+		}
+	} else {
+		vrfContracts, subIDs, vrfKey, env, nodeTypeToNode, err = SetupVRFV2ForNewEnv(ctx, t, testConfig, cleanupFn, newEnvConfig, l)
+		if err != nil {
+			return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 for New env", err)
+		}
+	}
+	return env, vrfContracts, subIDs, vrfKey, nodeTypeToNode, nil
+}
+
+func SetupVRFV2ForNewEnv(
+	ctx context.Context,
+	t *testing.T,
+	testConfig tc.TestConfig,
+	cleanupFn func(),
+	newEnvConfig vrfcommon.NewEnvConfig,
+	l zerolog.Logger,
+) (*vrfcommon.VRFContracts, []uint64, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &testConfig)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error building ethereum network config", err)
+	}
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&testConfig).
+		WithPrivateEthereumNetwork(network).
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
+		WithCustomCleanup(cleanupFn).
+		Build()
+
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
+	}
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*testConfig.VRFv2Plus.General.LinkNativeFeedResponse))
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying mock ETH/LINK feed", err)
+	}
+
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying LINK contract", err)
+	}
+
+	vrfContracts, subIDs, vrfKey, nodeTypeToNode, err := SetupVRFV2Environment(
+		ctx,
+		env,
+		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
+		&testConfig,
+		newEnvConfig.UseVRFOwner,
+		newEnvConfig.UseTestCoordinator,
+		linkToken,
+		mockETHLinkFeed,
+		//register proving key against EOA address in order to return funds to this address
+		env.EVMClient.GetDefaultWallet().Address(),
+		newEnvConfig.NumberOfTxKeysToCreate,
+		newEnvConfig.NumberOfConsumers,
+		newEnvConfig.NumberOfSubToCreate,
+		l,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error setting up VRF v2 env", err)
+	}
+	return vrfContracts, subIDs, vrfKey, env, nodeTypeToNode, nil
+}
+
+func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.TestConfig, cleanupFn func(), l zerolog.Logger) (*vrfcommon.VRFContracts, []uint64, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, error) {
+	commonExistingEnvConfig := testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
+	var subIDs []uint64
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&testConfig).
+		WithCustomCleanup(cleanupFn).
+		Build()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
+	}
+
+	coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2(*commonExistingEnvConfig.CoordinatorAddress)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2", err)
+	}
+
+	var consumers []contracts.VRFv2LoadTestConsumer
+	if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
+		linkToken, err := env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
+		}
+		consumers, err = DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), 1)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
+		}
+		err = env.EVMClient.WaitForEvents()
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", vrfcommon.ErrWaitTXsComplete, err)
+		}
+		l.Info().
+			Str("Coordinator", *commonExistingEnvConfig.CoordinatorAddress).
+			Int("Number of Subs to create", *testConfig.VRFv2Plus.General.NumberOfSubToCreate).
+			Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
+		subIDs, err = CreateFundSubsAndAddConsumers(
+			env,
+			big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountLink),
+			linkToken,
+			coordinator,
+			consumers,
+			*testConfig.VRFv2Plus.General.NumberOfSubToCreate,
+		)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
+		}
+	} else {
+		consumer, err := env.ContractLoader.LoadVRFv2LoadTestConsumer(*commonExistingEnvConfig.ConsumerAddress)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
+		}
+		consumers = append(consumers, consumer)
+		subIDs = append(subIDs, *testConfig.VRFv2.ExistingEnvConfig.SubID)
+	}
+
+	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, env.EVMClient, l)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
+	}
+
+	vrfContracts := &vrfcommon.VRFContracts{
+		CoordinatorV2: coordinator,
+		VRFV2Consumer: consumers,
+		BHS:           nil,
+	}
+
+	vrfKey := &vrfcommon.VRFKeyData{
+		VRFKey:            nil,
+		EncodedProvingKey: [2]*big.Int{},
+		KeyHash:           common.HexToHash(*commonExistingEnvConfig.KeyHash),
+	}
+	return vrfContracts, subIDs, vrfKey, env, nil
+}
+
+func CancelSubsAndReturnFunds(ctx context.Context, vrfContracts *vrfcommon.VRFContracts, eoaWalletAddress string, subIDs []uint64, l zerolog.Logger) {
+	for _, subID := range subIDs {
+		l.Info().
+			Uint64("Returning funds from SubID", subID).
+			Str("Returning funds to", eoaWalletAddress).
+			Msg("Canceling subscription and returning funds to subscription owner")
+		pendingRequestsExist, err := vrfContracts.CoordinatorV2.PendingRequestsExist(ctx, subID)
+		if err != nil {
+			l.Error().Err(err).Msg("Error checking if pending requests exist")
+		}
+		if !pendingRequestsExist {
+			_, err := vrfContracts.CoordinatorV2.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
+			if err != nil {
+				l.Error().Err(err).Msg("Error canceling subscription")
+			}
+		} else {
+			l.Error().Uint64("Sub ID", subID).Msg("Pending requests exist for subscription, cannot cancel subscription and return funds")
+		}
+	}
 }

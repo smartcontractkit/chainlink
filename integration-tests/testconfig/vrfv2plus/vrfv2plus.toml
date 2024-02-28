@@ -21,6 +21,7 @@ fallback_wei_per_unit_link = 60000000000000000
 staleness_seconds = 86400
 gas_after_payment_calculation = 33825
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
@@ -70,6 +71,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 subscription_funding_amount_native=1
 
@@ -86,6 +88,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 subscription_funding_amount_native=1
 
@@ -103,6 +106,7 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 subscription_funding_amount_native=1
 

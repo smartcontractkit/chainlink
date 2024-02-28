@@ -75,7 +75,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		} else {
 			if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(vrfContracts, eoaWalletAddress, subIDs, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
 			}
 		}
 		if !*testConfig.VRFv2Plus.General.UseExistingEnv {
@@ -85,14 +85,14 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		}
 	}
 
-	newEnvConfig := vrfv2plus.NewEnvConfig{
+	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: 0,
+		NumberOfTxKeysToCreate: *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
 		NumberOfConsumers:      1,
 		NumberOfSubToCreate:    *vrfv2PlusConfig.General.NumberOfSubToCreate,
 	}
 
-	env, vrfContracts, subIDs, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(t, testConfig, cleanupFn, newEnvConfig, l)
+	env, vrfContracts, subIDs, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 	eoaWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 
@@ -132,8 +132,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			vrfv2PlusConfig.Performance.TestDuration.Duration,
 		)
 		_, err = wasp.NewProfile().
-			Add(wasp.NewGenerator(singleFeedConfig)).
-			Add(wasp.NewGenerator(singleFeedConfig)).
 			Add(wasp.NewGenerator(singleFeedConfig)).
 			Run(true)
 		require.NoError(t, err)

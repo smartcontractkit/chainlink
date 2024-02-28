@@ -132,7 +132,8 @@ type General struct {
 	StalenessSeconds              *uint32  `toml:"staleness_seconds"`                // Staleness in seconds for the VRF Coordinator config
 	GasAfterPaymentCalculation    *uint32  `toml:"gas_after_payment_calculation"`    // Gas after payment calculation for the VRF Coordinator
 
-	NumberOfSubToCreate *int `toml:"number_of_sub_to_create"` // Number of subscriptions to create
+	NumberOfSubToCreate         *int `toml:"number_of_sub_to_create"`          // Number of subscriptions to create
+	NumberOfSendingKeysToCreate *int `toml:"number_of_sending_keys_to_create"` // Number of sending keys to create
 
 	RandomnessRequestCountPerRequest          *uint16 `toml:"randomness_request_count_per_request"`           // How many randomness requests to send per request
 	RandomnessRequestCountPerRequestDeviation *uint16 `toml:"randomness_request_count_per_request_deviation"` // How many randomness requests to send per request
@@ -200,6 +201,11 @@ func (c *General) Validate() error {
 	if c.NumberOfSubToCreate == nil || *c.NumberOfSubToCreate == 0 {
 		return errors.New("number_of_sub_to_create must be set to a positive value")
 	}
+
+	if c.NumberOfSendingKeysToCreate == nil || *c.NumberOfSendingKeysToCreate < 0 {
+		return errors.New("number_of_sending_keys_to_create must be set to 0 or a positive value")
+	}
+
 	if c.RandomnessRequestCountPerRequest == nil || *c.RandomnessRequestCountPerRequest == 0 {
 		return errors.New("randomness_request_count_per_request must be set to a positive value")
 	}

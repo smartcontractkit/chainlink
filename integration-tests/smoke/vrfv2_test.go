@@ -62,6 +62,7 @@ func TestVRFv2Basic(t *testing.T) {
 
 	numberOfTxKeysToCreate := 1
 	vrfv2Contracts, subIDs, vrfv2KeyData, nodesMap, err := vrfv2.SetupVRFV2Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 		&config,
@@ -132,6 +133,7 @@ func TestVRFv2Basic(t *testing.T) {
 	t.Run("Direct Funding (VRFV2Wrapper)", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2.SetupVRFV2WrapperEnvironment(
+			testcontext.Get(t),
 			env,
 			&configCopy,
 			linkToken,
@@ -487,6 +489,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 
 	numberOfTxKeysToCreate := 2
 	vrfv2Contracts, subIDs, vrfv2KeyData, nodesMap, err := vrfv2.SetupVRFV2Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 		&config,
@@ -585,6 +588,7 @@ func TestVRFOwner(t *testing.T) {
 
 	numberOfTxKeysToCreate := 1
 	vrfv2Contracts, subIDs, vrfv2Data, _, err := vrfv2.SetupVRFV2Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 		&config,
@@ -725,6 +729,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 	numberOfTxKeysToCreate := 0
 	vrfv2Contracts, subIDs, vrfv2KeyData, nodesMap, err := vrfv2.SetupVRFV2Environment(
+		testcontext.Get(t),
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
 		&config,
