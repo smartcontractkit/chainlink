@@ -17,6 +17,7 @@ import (
 	"go.uber.org/multierr"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 
@@ -158,6 +159,13 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 	if err != nil {
 		return nil, nil, err
 	}
+
+	lggr.Infow("Initializing exec plugin",
+		"CommitStore", params.offRampConfig.CommitStore,
+		"OnRamp", params.offRampConfig.OnRamp,
+		"ArmProxy", params.offRampConfig.ArmProxy,
+		"SourceChainSelector", params.offRampConfig.SourceChainSelector,
+		"DestChainSelector", params.offRampConfig.ChainSelector)
 
 	sourceChainID := params.sourceChain.ID().Int64()
 	destChainID := params.destChain.ID().Int64()
