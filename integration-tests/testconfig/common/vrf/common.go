@@ -168,7 +168,7 @@ func (c *General) Validate() error {
 		return errors.New("use_existing_env must not be nil")
 	}
 	if c.CLNodeMaxGasPriceGWei == nil || *c.CLNodeMaxGasPriceGWei == 0 {
-		return errors.New("max_gas_price_gwei must be set to a positive value")
+		return errors.New("cl_node_max_gas_price_gwei must be set to a positive value")
 	}
 	if c.LinkNativeFeedResponse == nil || *c.LinkNativeFeedResponse == 0 {
 		return errors.New("link_native_feed_response must be set to a positive value")

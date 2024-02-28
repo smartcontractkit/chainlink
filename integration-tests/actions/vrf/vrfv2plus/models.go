@@ -1,10 +1,18 @@
 package vrfv2plus
 
 import (
+	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 type VRFV2PlusWrapperContracts struct {
 	VRFV2PlusWrapper  contracts.VRFV2PlusWrapper
 	LoadTestConsumers []contracts.VRFv2PlusWrapperLoadTestConsumer
+}
+
+type NewEnvConfig struct {
+	NodesToCreate          []vrfcommon.VRFNodeType
+	NumberOfTxKeysToCreate int
+	NumberOfConsumers      int
+	NumberOfSubToCreate    int
 }

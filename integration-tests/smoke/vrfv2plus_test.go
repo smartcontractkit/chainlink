@@ -58,9 +58,6 @@ func TestVRFv2Plus(t *testing.T) {
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	// default wallet address is used to test Withdraw
-	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
-
 	numberOfTxKeysToCreate := 2
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
 		env,
@@ -74,6 +71,9 @@ func TestVRFv2Plus(t *testing.T) {
 		l,
 	)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
+
+	// default wallet address is used to test Withdraw
+	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
 
 	subID := subIDs[0]
 
