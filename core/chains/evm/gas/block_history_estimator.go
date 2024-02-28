@@ -834,7 +834,7 @@ func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *assets.Wei) {
 		b.gasPrice = gasPrice
 	}
 
-	if !eip1559 {
+	if !eip1559 && len(warn) > 0 {
 		b.logger.Warnw(warn, "gasPriceWei", gasPrice, "maxGasPriceWei", max, "minGasPriceWei", min)
 	}
 }
