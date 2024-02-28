@@ -54,13 +54,13 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
-		_, err := delegate.ServicesForSpec(spec)
+		_, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 		assert.Error(t, err, "expects a *job.DirectRequestSpec to be present")
 	})
 
 	t.Run("Spec with DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{EVMChainID: (*ubig.Big)(testutils.FixtureChainID)}, PipelineSpec: &pipeline.Spec{}}
-		services, err := delegate.ServicesForSpec(spec)
+		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 		require.NoError(t, err)
 		assert.Len(t, services, 1)
 	})
@@ -100,7 +100,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 		specF(jb)
 	}
 	require.NoError(t, jobORM.CreateJob(jb))
-	serviceArray, err := delegate.ServicesForSpec(*jb)
+	serviceArray, err := delegate.ServicesForSpec(testutils.Context(t), *jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]

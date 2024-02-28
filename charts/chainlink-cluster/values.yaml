@@ -197,7 +197,7 @@ opentelemetry-collector:
   mode: deployment
   image:
     repository: otel/opentelemetry-collector
-    tag: 0.81.2
+    tag: 0.95.0
   command:
     name: otelcol
   extraVolumes:
@@ -272,6 +272,8 @@ grafana:
   enabled: true
   image:
     tag: 7.3.2
+  rbac:
+    namespaced: true
   datasources:
     datasources.yaml:
       apiVersion: 1
@@ -402,6 +404,55 @@ affinity:
 
 networkPolicies:
   enabled: true
+  customPolicies:
+    grafanaToTempoEgress:
+      podSelector:
+        matchLabels:
+          app: grafana
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app: tempo
+          ports:
+            - protocol: TCP
+              port: 3100
+    tempoIngressFromGrafana:
+      podSelector:
+        matchLabels:
+          app: tempo
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app: grafana
+          ports:
+            - protocol: TCP
+              port: 3100
+    chainlinkToOtelCollectorEgress:
+      podSelector:
+        matchLabels:
+          app: chainlink
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app: otel-collector
+          ports:
+            - protocol: TCP
+              port: 4317
+    otelCollectorToTempoEgress:
+      podSelector:
+        matchLabels:
+          app: otel-collector
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app: tempo
+          ports:
+            - protocol: TCP
+              port: 3100
 
 # Configure the default network policy.
 networkPolicyDefault:

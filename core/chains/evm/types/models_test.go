@@ -12,7 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -99,7 +99,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := ethKeyStore.SignTx(fromAddress, tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(testutils.Context(t), fromAddress, tx, chainID)
 	require.NoError(t, err)
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
@@ -935,8 +935,8 @@ func TestBlock_UnmarshalJSON(t *testing.T) {
 		b := new(evmtypes.Block)
 		err := b.UnmarshalJSON([]byte("null"))
 		assert.Error(t, err)
-		assert.Equal(t, errors.Cause(err), evmtypes.ErrMissingBlock)
-		assert.True(t, errors.Is(err, evmtypes.ErrMissingBlock))
+		assert.Equal(t, pkgerrors.Cause(err), evmtypes.ErrMissingBlock)
+		assert.True(t, pkgerrors.Is(err, evmtypes.ErrMissingBlock))
 	})
 	t.Run("unmarshals EIP-4844 block", func(t *testing.T) {
 		b := new(evmtypes.Block)

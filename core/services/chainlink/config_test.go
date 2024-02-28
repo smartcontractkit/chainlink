@@ -559,6 +559,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SelectionMode:        &selectionMode,
 					SyncThreshold:        ptr[uint32](13),
 					LeaseDuration:        &zeroSeconds,
+					NodeIsSyncingEnabled: ptr(true),
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -995,6 +996,7 @@ PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = true
 
 [EVM.OCR]
 ContractConfirmations = 11

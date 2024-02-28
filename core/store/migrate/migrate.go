@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
 	"gopkg.in/guregu/null.v4"
 
@@ -62,7 +62,7 @@ func ensureMigrated(ctx context.Context, db *sql.DB, lggr logger.Logger) error {
 		}
 	}
 	if !found {
-		return errors.New("database state is too old. Need to migrate to chainlink version 0.9.10 first before upgrading to this version. This upgrade is NOT REVERSIBLE, so it is STRONGLY RECOMMENDED that you take a database backup before continuing")
+		return pkgerrors.New("database state is too old. Need to migrate to chainlink version 0.9.10 first before upgrading to this version. This upgrade is NOT REVERSIBLE, so it is STRONGLY RECOMMENDED that you take a database backup before continuing")
 	}
 
 	// ensure a goose migrations table exists with it's initial v0
@@ -88,7 +88,7 @@ func ensureMigrated(ctx context.Context, db *sql.DB, lggr logger.Logger) error {
 
 				id, err = strconv.ParseInt(name[:idx], 10, 64)
 				if err == nil && id <= 0 {
-					return errors.New("migration IDs must be greater than zero")
+					return pkgerrors.New("migration IDs must be greater than zero")
 				}
 			}
 
@@ -144,7 +144,7 @@ func SetMigrationENVVars(generalConfig chainlink.GeneralConfig) error {
 	if generalConfig.EVMEnabled() {
 		err := os.Setenv(env.EVMChainIDNotNullMigration0195, generalConfig.EVMConfigs()[0].ChainID.String())
 		if err != nil {
-			panic(errors.Wrap(err, "failed to set migrations env variables"))
+			panic(pkgerrors.Wrap(err, "failed to set migrations env variables"))
 		}
 	}
 	return nil

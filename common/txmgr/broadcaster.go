@@ -208,7 +208,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 		return errors.New("Broadcaster is already started")
 	}
 	var err error
-	eb.enabledAddresses, err = eb.ks.EnabledAddressesForChain(eb.chainID)
+	eb.enabledAddresses, err = eb.ks.EnabledAddressesForChain(ctx, eb.chainID)
 	if err != nil {
 		return fmt.Errorf("Broadcaster: failed to load EnabledAddressesForChain: %w", err)
 	}
