@@ -35,6 +35,7 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
 let config = {
   abiExporter: {
     path: './abi',
+    runOnCompile: true,
   },
   paths: {
     artifacts: './artifacts',

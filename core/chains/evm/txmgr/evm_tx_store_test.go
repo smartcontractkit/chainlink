@@ -1261,16 +1261,16 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	t.Run("cannot find unstarted tx", func(t *testing.T) {
 		mustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
 
-		resultEtx := new(txmgr.Tx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
+		resultEtx, err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		assert.ErrorIs(t, err, sql.ErrNoRows)
+		assert.Nil(t, resultEtx)
 	})
 
 	t.Run("finds unstarted tx", func(t *testing.T) {
 		mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
-		resultEtx := new(txmgr.Tx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
+		resultEtx, err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
+		assert.NotNil(t, resultEtx)
 	})
 }
 
