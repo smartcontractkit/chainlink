@@ -76,6 +76,7 @@ func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig
 			p.discovererFactory,
 			p.bridgeFactory,
 			liquidityRebalancer,
+			liquiditymanager.NewEvmReportCodec(),
 			p.lggr,
 		),
 		ocr3types.ReportingPluginInfo{

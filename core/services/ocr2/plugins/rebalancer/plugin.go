@@ -35,6 +35,7 @@ type Plugin struct {
 	rebalancerGraph         graph.Graph
 	liquidityRebalancer     liquidityrebalancer.Rebalancer
 	lggr                    logger.Logger
+	reportCodec             liquiditymanager.OnchainReportCodec
 }
 
 func NewPlugin(
@@ -46,6 +47,7 @@ func NewPlugin(
 	discovererFactory discoverer.Factory,
 	bridgeFactory bridge.Factory,
 	liquidityRebalancer liquidityrebalancer.Rebalancer,
+	reportCodec liquiditymanager.OnchainReportCodec,
 	lggr logger.Logger,
 ) *Plugin {
 	return &Plugin{
@@ -58,6 +60,7 @@ func NewPlugin(
 		bridgeFactory:           bridgeFactory,
 		rebalancerGraph:         graph.NewGraph(),
 		liquidityRebalancer:     liquidityRebalancer,
+		reportCodec:             reportCodec,
 		lggr:                    lggr,
 		mu:                      sync.RWMutex{},
 	}
@@ -123,6 +126,7 @@ func (p *Plugin) Observation(ctx context.Context, outcomeCtx ocr3types.OutcomeCo
 }
 
 func (p *Plugin) ValidateObservation(outctx ocr3types.OutcomeContext, query ocrtypes.Query, ao ocrtypes.AttributedObservation) error {
+	// todo: improve logging - including duration of each phase, etc.
 	p.lggr.Infow("in validate observation", "seqNr", outctx.SeqNr, "phase", "ValidateObservation")
 
 	_, err := models.DecodeObservation(ao.Observation)
@@ -214,18 +218,15 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 	// incoming transfers will need to be finalized
 	// outgoing transfers will need to be executed
 	incomingAndOutgoing := make(map[models.NetworkSelector][]models.Transfer)
-	for _, networkID := range p.rebalancerGraph.GetNetworks() {
-		for _, outgoing := range decodedOutcome.ResolvedTransfers {
-			if outgoing.From == networkID {
-				incomingAndOutgoing[networkID] = append(incomingAndOutgoing[networkID], outgoing)
-			}
-		}
-		for _, incoming := range decodedOutcome.PendingTransfers {
-			if incoming.To == networkID &&
-				(incoming.Status == models.TransferStatusReady ||
-					incoming.Status == models.TransferStatusFinalized) {
-				incomingAndOutgoing[networkID] = append(incomingAndOutgoing[networkID], incoming.Transfer)
-			}
+
+	for _, outgoing := range decodedOutcome.ResolvedTransfers {
+		incomingAndOutgoing[outgoing.From] = append(incomingAndOutgoing[outgoing.From], outgoing)
+	}
+
+	for _, incoming := range decodedOutcome.PendingTransfers {
+		if incoming.Status == models.TransferStatusReady ||
+			incoming.Status == models.TransferStatusFinalized {
+			incomingAndOutgoing[incoming.To] = append(incomingAndOutgoing[incoming.To], incoming.Transfer)
 		}
 	}
 
@@ -248,6 +249,7 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 
 	var reports []ocr3types.ReportWithInfo[models.Report]
 	for networkID, transfers := range incomingAndOutgoing {
+		// todo: we shouldn't use plugin state
 		rebalancerAddress, err := p.rebalancerGraph.GetRebalancerAddress(networkID)
 		if err != nil {
 			return nil, fmt.Errorf("liquidity manager for %v does not exist", networkID)
@@ -259,7 +261,7 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 		}
 
 		report := models.NewReport(transfers, rebalancerAddress, networkID, configDigest)
-		encoded, err := report.OnchainEncode()
+		encoded, err := p.reportCodec.Encode(report)
 		if err != nil {
 			return nil, fmt.Errorf("encode report metadata for onchain usage: %w", err)
 		}
@@ -268,6 +270,7 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 			Info:   report,
 		})
 	}
+	sort.Slice(reports, func(i, j int) bool { return reports[i].Info.NetworkID < reports[j].Info.NetworkID })
 
 	lggr.Infow("generated reports", "numReports", len(reports))
 	return reports, nil
@@ -277,7 +280,7 @@ func (p *Plugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, r
 	lggr := p.lggr.With("seqNr", seqNr, "reportMeta", r.Info, "reportLen", len(r.Report), "phase", "ShouldAcceptAttestedReport")
 	lggr.Infow("in should accept attested report")
 
-	report, instructions, err := models.DecodeReport(r.Info.NetworkID, r.Info.LiquidityManagerAddress, r.Report)
+	report, instructions, err := p.reportCodec.Decode(r.Info.NetworkID, r.Info.LiquidityManagerAddress, r.Report)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode report: %w", err)
 	}
@@ -295,7 +298,7 @@ func (p *Plugin) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64,
 	lggr := p.lggr.With("seqNr", seqNr, "reportMeta", r.Info, "reportLen", len(r.Report), "phase", "ShouldTransmitAcceptedReport")
 	lggr.Infow("in should transmit accepted report")
 
-	report, instructions, err := models.DecodeReport(r.Info.NetworkID, r.Info.LiquidityManagerAddress, r.Report)
+	report, instructions, err := p.reportCodec.Decode(r.Info.NetworkID, r.Info.LiquidityManagerAddress, r.Report)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode report: %w", err)
 	}
@@ -305,9 +308,10 @@ func (p *Plugin) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64,
 		"sendInstructions", instructions.SendLiquidityParams,
 		"receiveInstructions", instructions.ReceiveLiquidityParams)
 
+	// todo: work on plugin wording - rebalancer / lm / etc...
 	rebalancer, err := p.liquidityManagerFactory.NewRebalancer(r.Info.NetworkID, r.Info.LiquidityManagerAddress)
 	if err != nil {
-		return false, fmt.Errorf("init liquidity manager: %w", err)
+		return false, fmt.Errorf("init rebalancer: %w", err)
 	}
 
 	// check sequence number to see if its already transmitted onchain
@@ -322,7 +326,6 @@ func (p *Plugin) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64,
 	}
 
 	lggr.Infow("transmitting accepted report", "latestSeqNr", latestSeqNr)
-
 	return true, nil
 }
 
@@ -333,22 +336,26 @@ func (p *Plugin) Close() error {
 
 	var errs []error
 	for _, networkID := range p.rebalancerGraph.GetNetworks() {
+		p.lggr.Infow("closing rebalancer network", "network", networkID)
+
 		rebalancerAddress, err := p.rebalancerGraph.GetRebalancerAddress(networkID)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("get rebalancer address for %v: %w", networkID, err))
+			errs = append(errs, fmt.Errorf("get rebalancer address for %d: %w", networkID, err))
 			continue
 		}
 
 		rb, err := p.liquidityManagerFactory.GetRebalancer(networkID, rebalancerAddress)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("get rebalancer (%d, %v): %w", networkID, rebalancerAddress, err))
+			errs = append(errs, fmt.Errorf("get rebalancer (%d, %s): %w", networkID, rebalancerAddress.String(), err))
 			continue
 		}
 
 		if err := rb.Close(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("close rebalancer (%d, %v): %w", networkID, rebalancerAddress, err))
+			errs = append(errs, fmt.Errorf("close rebalancer (%d, %s): %w", networkID, rebalancerAddress.String(), err))
 			continue
 		}
+
+		p.lggr.Infow("finished closing rebalancer network", "network", networkID, "rebalancer", rebalancerAddress.String())
 	}
 
 	return multierr.Combine(errs...)
@@ -358,15 +365,16 @@ func (p *Plugin) syncGraph(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// todo: if there wasn't any change to the graph stop earlier
 	p.lggr.Infow("syncing graph edges")
 
+	// todo: discoverer factory is not required we can pass a discoverer instance to the plugin
 	p.lggr.Infow("discovering rebalancers")
 	discoverer, err := p.discovererFactory.NewDiscoverer(p.rootNetwork, p.rootAddress)
 	if err != nil {
 		return fmt.Errorf("init discoverer: %w", err)
 	}
 
+	// todo: discoverer should immediately return without making any rpc calls if there wasn't any change
 	g, err := discoverer.Discover(ctx)
 	if err != nil {
 		return fmt.Errorf("discovering rebalancers: %w", err)
@@ -416,6 +424,7 @@ func (p *Plugin) loadPendingTransfers(ctx context.Context, lggr logger.Logger) (
 		pendingTransfers = append(pendingTransfers, netPendingTransfers...)
 	}
 
+	// todo: why do we add this here? it's not used anywhere
 	return pendingTransfers, nil
 }
 
@@ -452,7 +461,7 @@ func (p *Plugin) computePendingTransfersConsensus(observations []models.Observat
 		}
 	}
 
-	var quorumEvents []models.PendingTransfer
+	quorumEvents := make([]models.PendingTransfer, 0, len(counts))
 	for h, count := range counts {
 		if count >= p.f+1 {
 			ev, exists := eventFromHash[h]
@@ -482,7 +491,7 @@ func (p *Plugin) computeConfigDigestsConsensus(observations []models.Observation
 		}
 	}
 
-	var quorumCds []models.ConfigDigestWithMeta
+	quorumCds := make([]models.ConfigDigestWithMeta, 0, len(counts))
 	for k, count := range counts {
 		if count >= p.f+1 {
 			cd, exists := cds[k]
@@ -530,7 +539,7 @@ func (p *Plugin) computeMedianGraph(
 
 	for _, medianLiq := range medianLiquidities {
 		if !g.SetLiquidity(medianLiq.Network, medianLiq.Liquidity.ToInt()) {
-			p.lggr.Errorw("median liquidity on network not found on edges quorum", "net", medianLiq.Network)
+			p.lggr.Debugw("median liquidity on network not found on edges quorum", "net", medianLiq.Network)
 		}
 	}
 
@@ -570,7 +579,7 @@ func (p *Plugin) computeResolvedTransfersQuorum(observations []models.Observatio
 
 	p.lggr.Debugw("resolved transfers counts", "counts", len(counts))
 
-	var quorumTransfers []models.Transfer
+	quorumTransfers := make([]models.Transfer, 0)
 	for k, transfers := range counts {
 		if len(transfers) >= p.f+1 {
 			p.lggr.Debugw("quorum reached on transfer", "transfer", k, "votes", len(transfers))
@@ -585,7 +594,7 @@ func (p *Plugin) computeResolvedTransfersQuorum(observations []models.Observatio
 			for _, tr := range transfers {
 				bridgeFees = append(bridgeFees, tr.NativeBridgeFee.ToInt())
 				bridgePayloads = append(bridgePayloads, tr.BridgeData)
-				datesUnix = append(datesUnix, big.NewInt(tr.Date.Unix()))
+				datesUnix = append(datesUnix, big.NewInt(tr.Date.UTC().Unix()))
 			}
 			medianizedNativeFee := bigIntSortedMiddle(bridgeFees)
 			medianizedDateUnix := bigIntSortedMiddle(datesUnix)
@@ -601,7 +610,7 @@ func (p *Plugin) computeResolvedTransfersQuorum(observations []models.Observatio
 				From:               k.From,
 				To:                 k.To,
 				Amount:             transfers[0].Amount,
-				Date:               time.Unix(medianizedDateUnix.Int64(), 0), // medianized, not in the key
+				Date:               time.Unix(medianizedDateUnix.Int64(), 0).In(time.UTC), // medianized, not in the key
 				Sender:             transfers[0].Sender,
 				Receiver:           transfers[0].Receiver,
 				LocalTokenAddress:  transfers[0].LocalTokenAddress,
@@ -622,7 +631,7 @@ func (p *Plugin) resolveProposedTransfers(ctx context.Context, lggr logger.Logge
 	lggr.Infow("resolving proposed transfers", "prevSeqNr", outcomeCtx.SeqNr-1)
 
 	if len(outcomeCtx.PreviousOutcome) == 0 {
-		return nil, nil
+		return []models.Transfer{}, nil
 	}
 
 	outcome, err := models.DecodeOutcome(outcomeCtx.PreviousOutcome)
@@ -630,7 +639,7 @@ func (p *Plugin) resolveProposedTransfers(ctx context.Context, lggr logger.Logge
 		return nil, fmt.Errorf("decode previous outcome: %w", err)
 	}
 
-	var resolvedTransfers []models.Transfer
+	resolvedTransfers := make([]models.Transfer, 0, len(outcome.ProposedTransfers))
 	for _, proposedTransfer := range outcome.ProposedTransfers {
 		bridge, err := p.bridgeFactory.NewBridge(proposedTransfer.From, proposedTransfer.To)
 		if err != nil {

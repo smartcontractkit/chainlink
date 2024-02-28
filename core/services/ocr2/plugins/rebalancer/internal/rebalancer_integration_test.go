@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/test-go/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
@@ -122,6 +123,7 @@ func setupNodeOCR3(
 	})
 
 	lggr := logger.TestLogger(t)
+	lggr.SetLogLevel(zapcore.InfoLevel)
 	clients := make(map[int64]client.Client)
 
 	for chainID, backend := range chainIDToBackend {

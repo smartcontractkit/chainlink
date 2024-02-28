@@ -222,6 +222,8 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 		[]common.Hash{
 			toHash(l.remoteSelector),
 		},
+		// todo: this should not be hardcoded
+		// todo: heavy query warning
 		time.Now().Add(-DurationMonth/2),
 		logpoller.Finalized,
 		pg.WithParentCtx(ctx),
