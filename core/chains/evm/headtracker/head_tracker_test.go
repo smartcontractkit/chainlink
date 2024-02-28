@@ -99,7 +99,7 @@ func TestHeadTracker_MarkFinalized_MarksAndTrimsTable(t *testing.T) {
 	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), latest))
 
 	ht := createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
-	_, err := ht.headSaver.Load(testutils.Context(t), latest)
+	_, err := ht.headSaver.Load(testutils.Context(t), latest.Number)
 	require.NoError(t, err)
 	require.NoError(t, ht.headSaver.MarkFinalized(testutils.Context(t), latest))
 	assert.Equal(t, big.NewInt(201), ht.headSaver.LatestChain().ToInt())
@@ -831,7 +831,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
 		ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
-		_, err := ht.headSaver.Load(testutils.Context(t), cltest.Head(0))
+		_, err := ht.headSaver.Load(testutils.Context(t), 0)
 		require.NoError(t, err)
 		return ht
 	}

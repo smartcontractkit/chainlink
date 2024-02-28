@@ -43,8 +43,8 @@ func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
 	return nil
 }
 
-func (hs *headSaver) Load(ctx context.Context, latestFinalized *evmtypes.Head) (chain *evmtypes.Head, err error) {
-	minBlockNumber := hs.calculateMinBlockToKeep(latestFinalized.BlockNumber())
+func (hs *headSaver) Load(ctx context.Context, latestFinalized int64) (chain *evmtypes.Head, err error) {
+	minBlockNumber := hs.calculateMinBlockToKeep(latestFinalized)
 	heads, err := hs.orm.LatestHeads(ctx, minBlockNumber)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ var NullSaver httypes.HeadSaver = &nullSaver{}
 type nullSaver struct{}
 
 func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error { return nil }
-func (*nullSaver) Load(ctx context.Context, latestFinalized *evmtypes.Head) (*evmtypes.Head, error) {
+func (*nullSaver) Load(ctx context.Context, latestFinalized int64) (*evmtypes.Head, error) {
 	return nil, nil
 }
 func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error) { return nil, nil }

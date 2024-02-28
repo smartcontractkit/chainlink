@@ -131,7 +131,7 @@ func TestHeadSaver_Load(t *testing.T) {
 	}
 
 	// load all from [h5-historyDepth, h5]
-	latestHead, err := saver.Load(testutils.Context(t), h5)
+	latestHead, err := saver.Load(testutils.Context(t), h5.BlockNumber())
 	require.NoError(t, err)
 	// verify latest head loaded from db
 	verifyLatestHead(latestHead)

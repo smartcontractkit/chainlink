@@ -37,7 +37,7 @@ type HeadSaver[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	// this number in case of reboot.
 	Save(ctx context.Context, head H) error
 	// Load loads latest heads up to latestFinalized - historyDepth, returns the latest chain.
-	Load(ctx context.Context, latestFinalized H) (H, error)
+	Load(ctx context.Context, latestFinalized int64) (H, error)
 	// LatestChain returns the block header with the highest number that has been seen, or nil.
 	LatestChain() H
 	// Chain returns a head for the specified hash, or nil.
