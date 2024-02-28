@@ -116,7 +116,7 @@ runs:
         [Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
-        bearer_token="$GRAFANA_BEARER_TOKEN
+        bearer_token="$GRAFANA_BEARER_TOKEN"
         EOF
 
         BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
