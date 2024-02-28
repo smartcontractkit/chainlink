@@ -352,7 +352,7 @@ func SetupVRFV2Universe(ctx context.Context, t *testing.T, testConfig tc.TestCon
 		nodeTypeToNode map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 		err            error
 	)
-	if *testConfig.VRFv2Plus.General.UseExistingEnv {
+	if *testConfig.VRFv2.General.UseExistingEnv {
 		vrfContracts, subIDs, vrfKey, env, err = SetupVRFV2ForExistingEnv(ctx, t, testConfig, cleanupFn, l)
 		if err != nil {
 			return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 for Existing env", err)
@@ -393,7 +393,7 @@ func SetupVRFV2ForNewEnv(
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*testConfig.VRFv2Plus.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*testConfig.VRFv2.General.LinkNativeFeedResponse))
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying mock ETH/LINK feed", err)
 	}
@@ -426,7 +426,7 @@ func SetupVRFV2ForNewEnv(
 }
 
 func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.TestConfig, cleanupFn func(), l zerolog.Logger) (*vrfcommon.VRFContracts, []uint64, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, error) {
-	commonExistingEnvConfig := testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
+	commonExistingEnvConfig := testConfig.VRFv2.ExistingEnvConfig.ExistingEnvConfig
 	var subIDs []uint64
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
@@ -458,15 +458,15 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 		}
 		l.Info().
 			Str("Coordinator", *commonExistingEnvConfig.CoordinatorAddress).
-			Int("Number of Subs to create", *testConfig.VRFv2Plus.General.NumberOfSubToCreate).
+			Int("Number of Subs to create", *testConfig.VRFv2.General.NumberOfSubToCreate).
 			Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 		subIDs, err = CreateFundSubsAndAddConsumers(
 			env,
-			big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountLink),
+			big.NewFloat(*testConfig.VRFv2.General.SubscriptionFundingAmountLink),
 			linkToken,
 			coordinator,
 			consumers,
-			*testConfig.VRFv2Plus.General.NumberOfSubToCreate,
+			*testConfig.VRFv2.General.NumberOfSubToCreate,
 		)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
