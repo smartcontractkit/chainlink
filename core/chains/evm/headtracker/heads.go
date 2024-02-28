@@ -99,6 +99,10 @@ func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) []*evmtypes.Head 
 			// shouldn't happen but it is untrusted input
 			continue
 		}
+		if head.BlockNumber() < minBlockToKeep {
+			// trim redundant blocks
+			continue
+		}
 		// copy all head objects to avoid races when a previous head chain is used
 		// elsewhere (since we mutate Parent here)
 		headCopy := *head
@@ -114,9 +118,6 @@ func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) []*evmtypes.Head 
 	// unsorted unique heads
 	{
 		for _, head := range headsMap {
-			if head.BlockNumber() < minBlockToKeep {
-				continue
-			}
 			heads = append(heads, head)
 		}
 	}
@@ -128,7 +129,7 @@ func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) []*evmtypes.Head 
 	})
 
 	// assign parents
-	for i := 0; i < len(heads)-1; i++ {
+	for i := 0; i < len(heads); i++ {
 		head := heads[i]
 		parent, exists := headsMap[head.ParentHash]
 		if exists {

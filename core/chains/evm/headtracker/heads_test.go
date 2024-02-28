@@ -111,8 +111,8 @@ func TestHeads_MarkFinalized(t *testing.T) {
 
 	// create chain
 	// H0 <- H1 <- H2 <- H3 <- H4 <- H5
-	//         \
-	//           H2Uncle
+	//   \      \
+	//    H1Uncle       H2Uncle
 	//
 	newHead := func(num int, parent common.Hash) *evmtypes.Head {
 		h := evmtypes.NewHead(big.NewInt(int64(num)), utils.NewHash(), parent, uint64(time.Now().Unix()), ubig.NewI(0))
@@ -120,13 +120,14 @@ func TestHeads_MarkFinalized(t *testing.T) {
 	}
 	h0 := newHead(0, utils.NewHash())
 	h1 := newHead(1, h0.Hash)
+	h1Uncle := newHead(1, h0.Hash)
 	h2 := newHead(2, h1.Hash)
 	h3 := newHead(3, h2.Hash)
 	h4 := newHead(4, h3.Hash)
 	h5 := newHead(5, h4.Hash)
 	h2Uncle := newHead(2, h1.Hash)
 
-	allHeads := []*evmtypes.Head{h0, h1, h2, h2Uncle, h3, h4, h5}
+	allHeads := []*evmtypes.Head{h0, h1, h1Uncle, h2, h2Uncle, h3, h4, h5}
 	heads.AddHeads(allHeads...)
 	// mark h3 and all ancestors as finalized
 	require.True(t, heads.MarkFinalized(h3.Hash, h1.BlockNumber()), "expected MarkFinalized succeed")
@@ -139,6 +140,7 @@ func TestHeads_MarkFinalized(t *testing.T) {
 	// h0 is too old. It should not be available directly or through its children
 	assert.Nil(t, heads.HeadByHash(h0.Hash))
 	assert.Nil(t, heads.HeadByHash(h1.Hash).Parent)
+	assert.Nil(t, heads.HeadByHash(h1Uncle.Hash).Parent)
 	assert.Nil(t, heads.HeadByHash(h2Uncle.Hash).Parent.Parent)
 
 	require.False(t, heads.MarkFinalized(utils.NewHash(), 0), "expected false if finalized hash was not found in existing LatestHead chain")
