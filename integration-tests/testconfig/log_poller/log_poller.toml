@@ -5,6 +5,9 @@ generator = "looped"
 contracts = 2
 events_per_tx = 4
 use_finality_tag = true
+log_poll_interval = "500ms"
+# 0 disables backup poller
+backup_log_poller_block_delay = 0
 
 [LogPoller.Looped]
 execution_count = 100
