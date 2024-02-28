@@ -33,6 +33,7 @@ import (
 )
 
 // DeployOCRv2Contracts deploys a number of OCRv2 contracts and configures them with defaults
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.DeployOCRv2Contracts
 func DeployOCRv2Contracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
@@ -85,6 +86,7 @@ func DeployOCRv2Contracts(
 	return ocrInstances, client.WaitForEvents()
 }
 
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.ConfigureOCRv2AggregatorContracts
 func ConfigureOCRv2AggregatorContracts(
 	client blockchain.EVMClient,
 	contractConfig *contracts.OCRv2Config,
@@ -266,7 +268,7 @@ func CreateOCRv2Jobs(
 	workerChainlinkNodes []*client.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 	mockServerValue int, // Value to get from the mock server when querying the path
-	chainId uint64, // EVM chain ID
+	chainId int64, // EVM chain ID
 	forwardingAllowed bool,
 ) error {
 	// Collect P2P ID
