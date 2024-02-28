@@ -57,8 +57,20 @@ func NewDashboard(
 	}
 	db.init()
 	db.addCoreVariables()
+	if Contains(db.panels, "wasp") {
+		// waspVariables := wasp.AddVariables(db.PrometheusDataSourceName)
+		// db.opts = append(db.opts, waspVariables...)
+	}
+
 	if Contains(db.panels, "core") {
 		db.addCorePanels()
+	}
+
+	if Contains(db.panels, "wasp") {
+		// waspPanelsLoadStats := wasp.WASPLoadStatsRow(db.PrometheusDataSourceName)
+		// waspPanelsDebugData := wasp.WASPDebugDataRow(db.PrometheusDataSourceName)
+		// db.opts = append(db.opts, waspPanelsLoadStats...)
+		// db.opts = append(db.opts, waspPanelsDebugData...)
 	}
 
 	switch db.platform {
