@@ -113,22 +113,40 @@ func NewMedianServices(ctx context.Context,
 		}
 	}
 
-	dataSource, juelsPerFeeCoinSource := ocrcommon.NewDataSourceV2(pipelineRunner,
+	dataSource := ocrcommon.NewDataSourceV2(pipelineRunner,
 		jb,
 		*jb.PipelineSpec,
 		lggr,
 		runSaver,
-		chEnhancedTelem,
-	), ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
+		chEnhancedTelem)
+
+	juelsPerFeeCoinSource := ocrcommon.NewInMemoryDataSource(pipelineRunner, jb, pipeline.Spec{
 		ID:           jb.ID,
 		DotDagSource: pluginConfig.JuelsPerFeeCoinPipeline,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
-	if cmdName := env.MedianPluginCmd.Get(); cmdName != "" {
+	if !pluginConfig.JuelsPerFeeCoinCacheDisabled {
+		lggr.Infof("juelsPerFeeCoin data source caching is enabled")
+		if juelsPerFeeCoinSource, err = ocrcommon.NewInMemoryDataSourceCache(juelsPerFeeCoinSource, pluginConfig.JuelsPerFeeCoinCacheDuration.Duration()); err != nil {
+			return nil, err
+		}
+	}
+
+	if cmdName := env.MedianPlugin.Cmd.Get(); cmdName != "" {
 		// use unique logger names so we can use it to register a loop
 		medianLggr := lggr.Named("Median").Named(spec.ContractID).Named(spec.GetID())
-		cmdFn, telem, err2 := cfg.RegisterLOOP(medianLggr.Name(), cmdName)
+		envVars, err2 := plugins.ParseEnvFile(env.MedianPlugin.Env.Get())
+		if err2 != nil {
+			err = fmt.Errorf("failed to parse median env file: %w", err2)
+			abort()
+			return
+		}
+		cmdFn, telem, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
+			ID:  medianLggr.Name(),
+			Cmd: cmdName,
+			Env: envVars,
+		})
 		if err2 != nil {
 			err = fmt.Errorf("failed to register loop: %w", err2)
 			abort()

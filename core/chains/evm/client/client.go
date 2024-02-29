@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 const queryTimeout = 10 * time.Second
@@ -91,6 +91,7 @@ type Client interface {
 	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
 
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error)
 
 	IsL2() bool
 }
@@ -125,7 +126,7 @@ func NewClientWithNodes(lggr logger.Logger, selectionMode string, leaseDuration 
 // node's remote chain ID matches the local one
 func (client *client) Dial(ctx context.Context) error {
 	if err := client.pool.Dial(ctx); err != nil {
-		return errors.Wrap(err, "failed to dial pool")
+		return pkgerrors.Wrap(err, "failed to dial pool")
 	}
 	return nil
 }
@@ -258,6 +259,10 @@ func (client *client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 
 func (client *client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	return client.pool.CallContract(ctx, msg, blockNumber)
+}
+
+func (client *client) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	return client.pool.PendingCallContract(ctx, msg)
 }
 
 func (client *client) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {

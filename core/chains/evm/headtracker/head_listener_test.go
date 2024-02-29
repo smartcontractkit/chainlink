@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -155,7 +155,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 		closeErr bool
 	}{
 		{"nil error", nil, false},
-		{"socket error", errors.New("close 1006 (abnormal closure): unexpected EOF"), false},
+		{"socket error", pkgerrors.New("close 1006 (abnormal closure): unexpected EOF"), false},
 		{"close Err channel", nil, true},
 	}
 

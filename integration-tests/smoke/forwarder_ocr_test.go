@@ -12,14 +12,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestForwarderOCRBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
+	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
+		WithTestConfig(&config).
 		WithGeth().
 		WithMockAdapter().
 		WithForwarders().
@@ -43,10 +50,12 @@ func TestForwarderOCRBasic(t *testing.T) {
 	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
+	//nolint:staticcheck //ignore SA1019 we will migrate that test later
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
 		t, env.ContractDeployer, linkTokenContract, env.EVMClient, len(workerNodes),
 	)
 	for i := range workerNodes {
+		//nolint:staticcheck //ignore SA1019 we will migrate that test later
 		actions.AcceptAuthorizedReceiversOperator(
 			t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.EVMClient, env.ContractLoader,
 		)

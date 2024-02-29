@@ -3,6 +3,7 @@ package streams
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 type mockRegistry struct{}
@@ -35,13 +35,13 @@ func Test_Delegate(t *testing.T) {
 
 	t.Run("ServicesForSpec", func(t *testing.T) {
 		jb := job.Job{PipelineSpec: &pipeline.Spec{ID: 1}}
-		t.Run("errors if job is missing name", func(t *testing.T) {
-			_, err := d.ServicesForSpec(jb)
-			assert.EqualError(t, err, "job name is required to be present for stream specs")
+		t.Run("errors if job is missing streamID", func(t *testing.T) {
+			_, err := d.ServicesForSpec(testutils.Context(t), jb)
+			assert.EqualError(t, err, "streamID is required to be present for stream specs")
 		})
-		jb.Name = null.StringFrom("jobname")
+		jb.StreamID = ptr(uint32(42))
 		t.Run("returns services", func(t *testing.T) {
-			srvs, err := d.ServicesForSpec(jb)
+			srvs, err := d.ServicesForSpec(testutils.Context(t), jb)
 			require.NoError(t, err)
 
 			assert.Len(t, srvs, 2)
@@ -49,7 +49,7 @@ func Test_Delegate(t *testing.T) {
 
 			strmSrv := srvs[1].(*StreamService)
 			assert.Equal(t, registry, strmSrv.registry)
-			assert.Equal(t, StreamID("jobname"), strmSrv.id)
+			assert.Equal(t, StreamID(42), strmSrv.id)
 			assert.Equal(t, jb.PipelineSpec, strmSrv.spec)
 			assert.NotNil(t, strmSrv.lggr)
 			assert.Equal(t, srvs[0], strmSrv.rrs)
@@ -67,6 +67,7 @@ func Test_ValidatedStreamSpec(t *testing.T) {
 			name: "minimal stream spec",
 			toml: `
 type               = "stream"
+streamID 		   = 12345
 name 			   = "voter-turnout"
 schemaVersion      = 1
 observationSource  = """
@@ -82,6 +83,8 @@ answer1      [type=median index=0];
 				assert.Equal(t, job.Type("stream"), jb.Type)
 				assert.Equal(t, uint32(1), jb.SchemaVersion)
 				assert.True(t, jb.Name.Valid)
+				require.NotNil(t, jb.StreamID)
+				assert.Equal(t, uint32(12345), *jb.StreamID)
 				assert.Equal(t, "voter-turnout", jb.Name.String)
 			},
 		},
@@ -134,7 +137,25 @@ answer1      [type=median index=0];
 			},
 		},
 		{
-			name: "error if missing name",
+			name: "no error if missing name",
+			toml: `
+type               = "stream"
+schemaVersion      = 1
+streamID 		   = 12345
+observationSource  = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`,
+			assertion: func(t *testing.T, jb job.Job, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "error if missing streamID",
 			toml: `
 type               = "stream"
 schemaVersion      = 1
@@ -147,7 +168,7 @@ answer1      [type=median index=0];
 """
 `,
 			assertion: func(t *testing.T, jb job.Job, err error) {
-				assert.EqualError(t, err, "jobs of type 'stream' require a non-blank name as stream ID")
+				assert.EqualError(t, err, "jobs of type 'stream' require streamID to be specified")
 			},
 		},
 	}
@@ -159,3 +180,4 @@ answer1      [type=median index=0];
 		})
 	}
 }
+func ptr[T any](t T) *T { return &t }

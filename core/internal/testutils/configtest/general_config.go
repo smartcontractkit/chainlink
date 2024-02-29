@@ -66,9 +66,13 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.WebServer.TLS.ListenIP = &testIP
 
 	chainID := big.NewI(evmclient.NullClientChainID)
+
+	chainCfg := evmcfg.Defaults(chainID)
+	chainCfg.LogPollInterval = commonconfig.MustNewDuration(1 * time.Second) // speed it up from the standard 15s for tests
+
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg.Defaults(chainID),
+		Chain:   chainCfg,
 		Nodes: evmcfg.EVMNodes{
 			&evmcfg.Node{
 				Name:     ptr("test"),

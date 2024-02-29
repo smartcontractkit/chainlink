@@ -31,6 +31,7 @@ gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
+	cd ./integration-tests/load && go mod tidy
 
 .PHONY: godoc
 godoc: ## Install and run godoc
@@ -42,12 +43,15 @@ godoc: ## Install and run godoc
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
+.PHONY: chainlink
 chainlink: ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
+.PHONY: chainlink-dev
 chainlink-dev: ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
+.PHONY: chainlink-test
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
@@ -58,6 +62,10 @@ chainlink-local-start:
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
+
+.PHONY: install-ocr3-capability
+install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -80,7 +88,7 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery ## Execute all go:generate commands.
+generate: abigen codecgen mockery protoc ## Execute all go:generate commands.
 	go generate -x ./...
 
 .PHONY: testscripts
@@ -116,6 +124,11 @@ mockery: $(mockery) ## Install mockery.
 codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
 
+.PHONY: protoc
+protoc: ## Install protoc
+	core/scripts/install-protoc.sh 25.1 /
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
+
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
 	protoc \
@@ -132,7 +145,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.56.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml

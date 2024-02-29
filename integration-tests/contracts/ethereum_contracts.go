@@ -1289,45 +1289,17 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	return tx, l.client.ProcessTransaction(tx)
 }
 
-// EthereumOffchainAggregator represents the offchain aggregation contract
-type EthereumOffchainAggregator struct {
+// LegacyEthereumOffchainAggregator represents the offchain aggregation contract
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumOffchainAggregator instead
+type LegacyEthereumOffchainAggregator struct {
 	client  blockchain.EVMClient
 	ocr     *offchainaggregator.OffchainAggregator
 	address *common.Address
 	l       zerolog.Logger
 }
 
-// Fund sends specified currencies to the contract
-func (o *EthereumOffchainAggregator) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{
-		To: o.address,
-	})
-	if err != nil {
-		return err
-	}
-	return o.client.Fund(o.address.Hex(), ethAmount, gasEstimates)
-}
-
-// GetContractData retrieves basic data for the offchain aggregator contract
-func (o *EthereumOffchainAggregator) GetContractData(ctxt context.Context) (*OffchainAggregatorData, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(o.client.GetDefaultWallet().Address()),
-		Context: ctxt,
-	}
-
-	lr, err := o.ocr.LatestRoundData(opts)
-	if err != nil {
-		return &OffchainAggregatorData{}, err
-	}
-	latestRound := RoundData(lr)
-
-	return &OffchainAggregatorData{
-		LatestRoundData: latestRound,
-	}, nil
-}
-
 // SetPayees sets wallets for the contract to pay out to?
-func (o *EthereumOffchainAggregator) SetPayees(
+func (o *LegacyEthereumOffchainAggregator) SetPayees(
 	transmitters, payees []string,
 ) error {
 	opts, err := o.client.TransactionOpts(o.client.GetDefaultWallet())
@@ -1356,8 +1328,8 @@ func (o *EthereumOffchainAggregator) SetPayees(
 }
 
 // SetConfig sets the payees and the offchain reporting protocol configuration
-func (o *EthereumOffchainAggregator) SetConfig(
-	chainlinkNodes []*client.ChainlinkK8sClient,
+func (o *LegacyEthereumOffchainAggregator) SetConfig(
+	chainlinkNodes []ChainlinkNodeWithKeysAndAddress,
 	ocrConfig OffChainAggregatorConfig,
 	transmitters []common.Address,
 ) error {
@@ -1441,7 +1413,7 @@ func (o *EthereumOffchainAggregator) SetConfig(
 }
 
 // RequestNewRound requests the OCR contract to create a new round
-func (o *EthereumOffchainAggregator) RequestNewRound() error {
+func (o *LegacyEthereumOffchainAggregator) RequestNewRound() error {
 	opts, err := o.client.TransactionOpts(o.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1456,7 +1428,7 @@ func (o *EthereumOffchainAggregator) RequestNewRound() error {
 }
 
 // GetLatestAnswer returns the latest answer from the OCR contract
-func (o *EthereumOffchainAggregator) GetLatestAnswer(ctxt context.Context) (*big.Int, error) {
+func (o *LegacyEthereumOffchainAggregator) GetLatestAnswer(ctxt context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(o.client.GetDefaultWallet().Address()),
 		Context: ctxt,
@@ -1464,12 +1436,12 @@ func (o *EthereumOffchainAggregator) GetLatestAnswer(ctxt context.Context) (*big
 	return o.ocr.LatestAnswer(opts)
 }
 
-func (o *EthereumOffchainAggregator) Address() string {
+func (o *LegacyEthereumOffchainAggregator) Address() string {
 	return o.address.Hex()
 }
 
 // GetLatestRound returns data from the latest round
-func (o *EthereumOffchainAggregator) GetLatestRound(ctx context.Context) (*RoundData, error) {
+func (o *LegacyEthereumOffchainAggregator) GetLatestRound(ctx context.Context) (*RoundData, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(o.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1489,7 +1461,7 @@ func (o *EthereumOffchainAggregator) GetLatestRound(ctx context.Context) (*Round
 	}, err
 }
 
-func (o *EthereumOffchainAggregator) LatestRoundDataUpdatedAt() (*big.Int, error) {
+func (o *LegacyEthereumOffchainAggregator) LatestRoundDataUpdatedAt() (*big.Int, error) {
 	data, err := o.ocr.LatestRoundData(&bind.CallOpts{
 		From:    common.HexToAddress(o.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
@@ -1501,7 +1473,7 @@ func (o *EthereumOffchainAggregator) LatestRoundDataUpdatedAt() (*big.Int, error
 }
 
 // GetRound retrieves an OCR round by the round ID
-func (o *EthereumOffchainAggregator) GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error) {
+func (o *LegacyEthereumOffchainAggregator) GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(o.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1521,7 +1493,7 @@ func (o *EthereumOffchainAggregator) GetRound(ctx context.Context, roundID *big.
 }
 
 // ParseEventAnswerUpdated parses the log for event AnswerUpdated
-func (o *EthereumOffchainAggregator) ParseEventAnswerUpdated(eventLog types.Log) (*offchainaggregator.OffchainAggregatorAnswerUpdated, error) {
+func (o *LegacyEthereumOffchainAggregator) ParseEventAnswerUpdated(eventLog types.Log) (*offchainaggregator.OffchainAggregatorAnswerUpdated, error) {
 	return o.ocr.ParseAnswerUpdated(eventLog)
 }
 
@@ -1808,26 +1780,27 @@ func (e *EthereumFlags) GetFlag(ctx context.Context, addr string) (bool, error) 
 	return flag, nil
 }
 
-// EthereumOperatorFactory represents operator factory contract
-type EthereumOperatorFactory struct {
+// LegacyEthereumOperatorFactory represents operator factory contract
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumOperatorFactory instead
+type LegacyEthereumOperatorFactory struct {
 	address         *common.Address
 	client          blockchain.EVMClient
 	operatorFactory *operator_factory.OperatorFactory
 }
 
-func (e *EthereumOperatorFactory) ParseAuthorizedForwarderCreated(eventLog types.Log) (*operator_factory.OperatorFactoryAuthorizedForwarderCreated, error) {
+func (e *LegacyEthereumOperatorFactory) ParseAuthorizedForwarderCreated(eventLog types.Log) (*operator_factory.OperatorFactoryAuthorizedForwarderCreated, error) {
 	return e.operatorFactory.ParseAuthorizedForwarderCreated(eventLog)
 }
 
-func (e *EthereumOperatorFactory) ParseOperatorCreated(eventLog types.Log) (*operator_factory.OperatorFactoryOperatorCreated, error) {
+func (e *LegacyEthereumOperatorFactory) ParseOperatorCreated(eventLog types.Log) (*operator_factory.OperatorFactoryOperatorCreated, error) {
 	return e.operatorFactory.ParseOperatorCreated(eventLog)
 }
 
-func (e *EthereumOperatorFactory) Address() string {
+func (e *LegacyEthereumOperatorFactory) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.Transaction, error) {
+func (e *LegacyEthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return nil, err
@@ -1839,19 +1812,20 @@ func (e *EthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.Transa
 	return tx, nil
 }
 
-// EthereumOperator represents operator contract
-type EthereumOperator struct {
+// LegacyEthereumOperator represents operator contract
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumOperator instead
+type LegacyEthereumOperator struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	operator *operator_wrapper.Operator
 	l        zerolog.Logger
 }
 
-func (e *EthereumOperator) Address() string {
+func (e *LegacyEthereumOperator) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address, eoa []common.Address) error {
+func (e *LegacyEthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address, eoa []common.Address) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1867,15 +1841,16 @@ func (e *EthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address
 	return e.client.ProcessTransaction(tx)
 }
 
-// EthereumAuthorizedForwarder represents authorized forwarder contract
-type EthereumAuthorizedForwarder struct {
+// LegacyEthereumAuthorizedForwarder represents authorized forwarder contract
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumAuthorizedForwarder instead
+type LegacyEthereumAuthorizedForwarder struct {
 	address             common.Address
 	client              blockchain.EVMClient
 	authorizedForwarder *authorized_forwarder.AuthorizedForwarder
 }
 
 // Owner return authorized forwarder owner address
-func (e *EthereumAuthorizedForwarder) Owner(ctx context.Context) (string, error) {
+func (e *LegacyEthereumAuthorizedForwarder) Owner(ctx context.Context) (string, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1885,7 +1860,7 @@ func (e *EthereumAuthorizedForwarder) Owner(ctx context.Context) (string, error)
 	return owner.Hex(), err
 }
 
-func (e *EthereumAuthorizedForwarder) GetAuthorizedSenders(ctx context.Context) ([]string, error) {
+func (e *LegacyEthereumAuthorizedForwarder) GetAuthorizedSenders(ctx context.Context) ([]string, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1901,7 +1876,7 @@ func (e *EthereumAuthorizedForwarder) GetAuthorizedSenders(ctx context.Context) 
 	return sendersAddrs, nil
 }
 
-func (e *EthereumAuthorizedForwarder) Address() string {
+func (e *LegacyEthereumAuthorizedForwarder) Address() string {
 	return e.address.Hex()
 }
 
@@ -1949,7 +1924,8 @@ func channelClosed(ch <-chan struct{}) bool {
 	return false
 }
 
-type EthereumOffchainAggregatorV2 struct {
+// Deprecated: we are moving away from blockchain.EVMClient, use EthereumOffchainAggregatorV2 instead
+type LegacyEthereumOffchainAggregatorV2 struct {
 	address  *common.Address
 	client   blockchain.EVMClient
 	contract *ocr2aggregator.OCR2Aggregator
@@ -1966,21 +1942,11 @@ type OCRv2Config struct {
 	OffchainConfig        []byte
 }
 
-func (e *EthereumOffchainAggregatorV2) Address() string {
+func (e *LegacyEthereumOffchainAggregatorV2) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumOffchainAggregatorV2) Fund(nativeAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
-		To: e.address,
-	})
-	if err != nil {
-		return err
-	}
-	return e.client.Fund(e.address.Hex(), nativeAmount, gasEstimates)
-}
-
-func (e *EthereumOffchainAggregatorV2) RequestNewRound() error {
+func (e *LegacyEthereumOffchainAggregatorV2) RequestNewRound() error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1992,7 +1958,7 @@ func (e *EthereumOffchainAggregatorV2) RequestNewRound() error {
 	return e.client.ProcessTransaction(tx)
 }
 
-func (e *EthereumOffchainAggregatorV2) GetLatestAnswer(ctx context.Context) (*big.Int, error) {
+func (e *LegacyEthereumOffchainAggregatorV2) GetLatestAnswer(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -2000,7 +1966,7 @@ func (e *EthereumOffchainAggregatorV2) GetLatestAnswer(ctx context.Context) (*bi
 	return e.contract.LatestAnswer(opts)
 }
 
-func (e *EthereumOffchainAggregatorV2) GetLatestRound(ctx context.Context) (*RoundData, error) {
+func (e *LegacyEthereumOffchainAggregatorV2) GetLatestRound(ctx context.Context) (*RoundData, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -2018,7 +1984,7 @@ func (e *EthereumOffchainAggregatorV2) GetLatestRound(ctx context.Context) (*Rou
 	}, nil
 }
 
-func (e *EthereumOffchainAggregatorV2) GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error) {
+func (e *LegacyEthereumOffchainAggregatorV2) GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -2036,7 +2002,7 @@ func (e *EthereumOffchainAggregatorV2) GetRound(ctx context.Context, roundID *bi
 	}, nil
 }
 
-func (e *EthereumOffchainAggregatorV2) SetPayees(transmitters, payees []string) error {
+func (e *LegacyEthereumOffchainAggregatorV2) SetPayees(transmitters, payees []string) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -2062,7 +2028,7 @@ func (e *EthereumOffchainAggregatorV2) SetPayees(transmitters, payees []string) 
 	return e.client.ProcessTransaction(tx)
 }
 
-func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
+func (e *LegacyEthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -2091,19 +2057,7 @@ func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 	return e.client.ProcessTransaction(tx)
 }
 
-func (e *EthereumOffchainAggregatorV2) GetConfig(ctx context.Context) ([32]byte, uint32, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	details, err := e.contract.LatestConfigDetails(opts)
-	if err != nil {
-		return [32]byte{}, 0, err
-	}
-	return details.ConfigDigest, details.BlockNumber, err
-}
-
-func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error) {
+func (e *LegacyEthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error) {
 	return e.contract.ParseAnswerUpdated(log)
 }
 
@@ -2408,6 +2362,19 @@ func (e *EthereumMercuryFeeManager) Address() common.Address {
 	return e.address
 }
 
+func (e *EthereumMercuryFeeManager) UpdateSubscriberDiscount(subscriber common.Address, feedId [32]byte, token common.Address, discount uint64) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.UpdateSubscriberDiscount(opts, subscriber, feedId, token, discount)
+	e.l.Info().Err(err).Msg("Called EthereumMercuryFeeManager.UpdateSubscriberDiscount()")
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
 type EthereumMercuryRewardManager struct {
 	address  common.Address
 	client   blockchain.EVMClient
@@ -2505,4 +2472,40 @@ func (e *EthereumWERC20Mock) Mint(account common.Address, amount *big.Int) (*typ
 		return tx, err
 	}
 	return tx, e.client.ProcessTransaction(tx)
+}
+
+func ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*client.ChainlinkK8sClient) []ChainlinkNodeWithKeysAndAddress {
+	var nodesAsInterface = make([]ChainlinkNodeWithKeysAndAddress, len(k8sNodes))
+	for i, node := range k8sNodes {
+		nodesAsInterface[i] = node
+	}
+
+	return nodesAsInterface
+}
+
+func ChainlinkClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*client.ChainlinkClient) []ChainlinkNodeWithKeysAndAddress {
+	var nodesAsInterface = make([]ChainlinkNodeWithKeysAndAddress, len(k8sNodes))
+	for i, node := range k8sNodes {
+		nodesAsInterface[i] = node
+	}
+
+	return nodesAsInterface
+}
+
+func V2OffChainAgrregatorToOffChainAggregatorWithRounds(contracts []OffchainAggregatorV2) []OffChainAggregatorWithRounds {
+	var contractsAsInterface = make([]OffChainAggregatorWithRounds, len(contracts))
+	for i, contract := range contracts {
+		contractsAsInterface[i] = contract
+	}
+
+	return contractsAsInterface
+}
+
+func V1OffChainAgrregatorToOffChainAggregatorWithRounds(contracts []OffchainAggregator) []OffChainAggregatorWithRounds {
+	var contractsAsInterface = make([]OffChainAggregatorWithRounds, len(contracts))
+	for i, contract := range contracts {
+		contractsAsInterface[i] = contract
+	}
+
+	return contractsAsInterface
 }

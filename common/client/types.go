@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -24,7 +25,7 @@ type RPC[
 	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
-
+	BATCH_ELEM any,
 ] interface {
 	NodeClient[
 		CHAIN_ID,
@@ -42,6 +43,7 @@ type RPC[
 		TX_RECEIPT,
 		FEE,
 		HEAD,
+		BATCH_ELEM,
 	]
 }
 
@@ -69,6 +71,7 @@ type NodeClient[
 	SubscribersCount() int32
 	SetAliveLoopSub(types.Subscription)
 	UnsubscribeAllExceptAliveLoop()
+	IsSyncing(ctx context.Context) (bool, error)
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.
@@ -84,6 +87,7 @@ type clientAPI[
 	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
+	BATCH_ELEM any,
 ] interface {
 	connection[CHAIN_ID, HEAD]
 
@@ -118,11 +122,15 @@ type clientAPI[
 	FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error)
 
 	// Misc
-	BatchCallContext(ctx context.Context, b []any) error
+	BatchCallContext(ctx context.Context, b []BATCH_ELEM) error
 	CallContract(
 		ctx context.Context,
 		msg interface{},
 		blockNumber *big.Int,
+	) (rpcErr []byte, extractErr error)
+	PendingCallContract(
+		ctx context.Context,
+		msg interface{},
 	) (rpcErr []byte, extractErr error)
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error)

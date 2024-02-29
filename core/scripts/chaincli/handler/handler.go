@@ -333,7 +333,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create toml file: %w", err)
 	}
-	var secretTOMLStr = fmt.Sprintf(secretTOML, h.cfg.MercuryURL, h.cfg.MercuryID, h.cfg.MercuryKey)
+	var secretTOMLStr = fmt.Sprintf(secretTOML, h.cfg.DataStreamsURL, h.cfg.DataStreamsID, h.cfg.DataStreamsKey)
 	secretFile, secretTOMLFileCleanup, err := createTomlFile(secretTOMLStr)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create secret toml file: %w", err)

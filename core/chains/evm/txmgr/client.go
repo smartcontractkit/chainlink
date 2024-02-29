@@ -145,7 +145,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 // May be useful for clearing stuck nonces
 func (c *evmTxmClient) SendEmptyTransaction(
 	ctx context.Context,
-	newTxAttempt func(seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
+	newTxAttempt func(ctx context.Context, seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
 	seq evmtypes.Nonce,
 	gasLimit uint32,
 	fee gas.EvmFee,
@@ -153,7 +153,7 @@ func (c *evmTxmClient) SendEmptyTransaction(
 ) (txhash string, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	attempt, err := newTxAttempt(seq, gasLimit, fee, fromAddress)
+	attempt, err := newTxAttempt(ctx, seq, gasLimit, fee, fromAddress)
 	if err != nil {
 		return txhash, err
 	}

@@ -26,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	fallow "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
+	fsub "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
@@ -37,9 +39,9 @@ type functionsConnectorHandler struct {
 	signerKey                  *ecdsa.PrivateKey
 	nodeAddress                string
 	storage                    s4.Storage
-	allowlist                  functions.OnchainAllowlist
+	allowlist                  fallow.OnchainAllowlist
 	rateLimiter                *hc.RateLimiter
-	subscriptions              functions.OnchainSubscriptions
+	subscriptions              fsub.OnchainSubscriptions
 	minimumBalance             assets.Link
 	listener                   FunctionsListener
 	offchainTransmitter        OffchainTransmitter
@@ -72,7 +74,7 @@ func InternalId(sender []byte, requestId []byte) RequestID {
 	return RequestID(crypto.Keccak256Hash(append(sender, requestId...)).Bytes())
 }
 
-func NewFunctionsConnectorHandler(pluginConfig *config.PluginConfig, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, listener FunctionsListener, offchainTransmitter OffchainTransmitter, lggr logger.Logger) (*functionsConnectorHandler, error) {
+func NewFunctionsConnectorHandler(pluginConfig *config.PluginConfig, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist fallow.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions fsub.OnchainSubscriptions, listener FunctionsListener, offchainTransmitter OffchainTransmitter, lggr logger.Logger) (*functionsConnectorHandler, error) {
 	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil || listener == nil || offchainTransmitter == nil {
 		return nil, fmt.Errorf("all dependencies must be non-nil")
 	}
@@ -269,7 +271,7 @@ func (h *functionsConnectorHandler) handleOffchainRequest(request *OffchainReque
 	defer cancel()
 	err := h.listener.HandleOffchainRequest(ctx, request)
 	if err != nil {
-		h.lggr.Errorw("internal error while processing", "id", request.RequestId, "error", err)
+		h.lggr.Errorw("internal error while processing", "id", request.RequestId, "err", err)
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		state, ok := h.heartbeatRequests[RequestID(request.RequestId)]
@@ -328,7 +330,7 @@ func (h *functionsConnectorHandler) cacheNewRequestLocked(requestId RequestID, r
 func (h *functionsConnectorHandler) sendResponseAndLog(ctx context.Context, gatewayId string, requestBody *api.MessageBody, payload any) {
 	err := h.sendResponse(ctx, gatewayId, requestBody, payload)
 	if err != nil {
-		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
+		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "err", err)
 	} else {
 		h.lggr.Debugw("sent to gateway", "id", gatewayId, "messageId", requestBody.MessageId, "donId", requestBody.DonId, "method", requestBody.Method)
 	}

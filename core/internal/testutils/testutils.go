@@ -290,6 +290,8 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 			var resp JSONRPCResponse
 			if chainID != nil && m.String() == "eth_chainId" {
 				resp.Result = `"0x` + chainID.Text(16) + `"`
+			} else if m.String() == "eth_syncing" {
+				resp.Result = "false"
 			} else {
 				resp = callback(m.String(), req.Get("params"))
 			}
@@ -445,4 +447,13 @@ func MustDecodeBase64(s string) (b []byte) {
 
 func SkipFlakey(t *testing.T, ticketURL string) {
 	t.Skip("Flakey", ticketURL)
+}
+
+func MustRandBytes(n int) (b []byte) {
+	b = make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return
 }

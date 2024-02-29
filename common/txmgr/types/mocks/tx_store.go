@@ -280,22 +280,34 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestS
 	return r0, r1
 }
 
-// FindNextUnstartedTransactionFromAddress provides a mock function with given fields: ctx, etx, fromAddress, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, etx, fromAddress, chainID)
+// FindNextUnstartedTransactionFromAddress provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindNextUnstartedTransactionFromAddress")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], ADDR, CHAIN_ID) error); ok {
-		r0 = rf(ctx, etx, fromAddress, chainID)
+	var r0 *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, fromAddress, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, fromAddress, chainID)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, ADDR, CHAIN_ID) error); ok {
+		r1 = rf(ctx, fromAddress, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
@@ -937,22 +949,24 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PreloadTxes
 }
 
 // PruneUnstartedTxQueue provides a mock function with given fields: ctx, queueSize, subject
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (int64, error) {
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) ([]int64, error) {
 	ret := _m.Called(ctx, queueSize, subject)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PruneUnstartedTxQueue")
 	}
 
-	var r0 int64
+	var r0 []int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) ([]int64, error)); ok {
 		return rf(ctx, queueSize, subject)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint32, uuid.UUID) []int64); ok {
 		r0 = rf(ctx, queueSize, subject)
 	} else {
-		r0 = ret.Get(0).(int64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int64)
+		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, uint32, uuid.UUID) error); ok {

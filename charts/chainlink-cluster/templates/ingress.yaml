@@ -15,6 +15,7 @@ metadata:
     alb.ingress.kubernetes.io/group.name: {{ $.Values.ingress.annotation_group_name | quote }}
     alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/target-type: ip
+    external-dns.alpha.kubernetes.io/ttl: "120"
   {{- if .Values.ingress.extra_annotations }}
   {{- range $key, $value := .Values.ingress.extra_annotations }}
     {{ $key }}: {{ $value | quote }}
@@ -30,7 +31,7 @@ spec:
       http:
         paths:
         {{- range .http.paths }}
-          - path: /
+          - path: "/*"
             pathType: ImplementationSpecific
             backend:
               service:

@@ -24,9 +24,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
   VRFV2PlusWrapper s_wrapper;
   VRFV2PlusWrapperConsumerExample s_consumer;
 
-  VRFCoordinatorV2_5.FeeConfig basicFeeConfig =
-    VRFCoordinatorV2_5.FeeConfig({fulfillmentFlatFeeLinkPPM: 0, fulfillmentFlatFeeNativePPM: 0});
-
   function setUp() public override {
     BaseTest.setUp();
 
@@ -46,20 +43,23 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
     // Configure the coordinator.
     s_testCoordinator.setLINKAndLINKNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
-    setConfigCoordinator(basicFeeConfig);
+    setConfigCoordinator();
     setConfigWrapper();
 
     s_testCoordinator.s_config();
   }
 
-  function setConfigCoordinator(VRFCoordinatorV2_5.FeeConfig memory feeConfig) internal {
+  function setConfigCoordinator() internal {
     s_testCoordinator.setConfig(
       0, // minRequestConfirmations
       2_500_000, // maxGasLimit
       1, // stalenessSeconds
       50_000, // gasAfterPaymentCalculation
       50000000000000000, // fallbackWeiPerUnitLink
-      feeConfig
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
     );
   }
 

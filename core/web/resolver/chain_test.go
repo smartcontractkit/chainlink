@@ -8,8 +8,13 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestResolver_Chains(t *testing.T) {
@@ -40,6 +45,8 @@ LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 13
 MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
@@ -70,13 +77,24 @@ ResendAfterThreshold = '1h0m0s'
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 
-				f.Mocks.evmORM.PutChains(evmtoml.EVMConfig{
+				chainConf := evmtoml.EVMConfig{
 					ChainID: &chainID,
 					Enabled: chain.Enabled,
 					Chain:   chain.Chain,
-				})
+				}
+
+				chainConfToml, err2 := chainConf.TOMLString()
+				require.NoError(t, err2)
+
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{
+					testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
+						ID:      chainID.String(),
+						Enabled: *chain.Enabled,
+						Config:  chainConfToml,
+					}},
+				}})
+
 			},
 			query: query,
 			result: fmt.Sprintf(`
@@ -92,6 +110,25 @@ ResendAfterThreshold = '1h0m0s'
 					}
 				}
 			}`, configTOMLEscaped),
+		},
+		unauthorizedTestCase(GQLTestCase{query: query}, "chains"),
+		{
+			name:          "no chains",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
+
+			},
+			query: query,
+			result: `
+			{
+				"chains": {
+					"results": [],
+					"metadata": {
+						"total": 0
+					}
+				}
+			}`,
 		},
 	}
 
@@ -127,6 +164,8 @@ LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 13
 MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
