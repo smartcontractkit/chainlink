@@ -82,7 +82,7 @@ runs:
         [CCIP.Env.Logging.Loki]
         tenant_id="$LOKI_TENANT_ID"
         endpoint="$LOKI_ENDPOINT"
-        basic_auth="$LOKI_BASIC_AUTH"
+        basic_auth_secret="$LOKI_BASIC_AUTH"
         
         [CCIP.Env.Logging.Grafana]
         base_url="$GRAFANA_URL"

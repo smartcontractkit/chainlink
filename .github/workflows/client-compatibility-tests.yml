@@ -202,7 +202,7 @@ jobs:
           enabled=$pyroscope_enabled
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+          key_secret="$PYROSCOPE_KEY"
 
           [PrivateEthereumNetwork]
           consensus_type="pos"
