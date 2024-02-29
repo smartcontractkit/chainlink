@@ -147,7 +147,12 @@ func TestTxm_SignTx(t *testing.T) {
 			DynamicFeeCap: assets.NewWei(big.NewInt(1000000000000)),
     		DynamicTipCap: assets.NewWei(big.NewInt(1000000000000)),
 		}
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, config.ChainZkSync, newFeeConfig(), keystore.Eth(), nil)
+		feeConfig := &feeConfig{
+			tipCapMin: assets.NewWeiI(0),
+			priceMin:  assets.NewWeiI(0),
+			priceMax:  assets.NewWeiI(1_000_000_000),
+		}
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, config.ChainZkSync, feeConfig, keystore.Eth(), nil)
 		attempt, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, fee, 242, 0x1, logger.Test(t))
 		require.NoError(t, err)
 		require.Equal(t, "", hexutil.Encode(attempt.SignedRawTx))
