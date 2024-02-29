@@ -65,8 +65,8 @@ func TestVRFv2Basic(t *testing.T) {
 		NumberOfTxKeysToCreate: 0,
 		NumberOfConsumers:      1,
 		NumberOfSubToCreate:    1,
-		UseVRFOwner:            false,
-		UseTestCoordinator:     false,
+		UseVRFOwner:            true,
+		UseTestCoordinator:     true,
 	}
 
 	env, vrfContracts, subIDs, vrfKey, _, err := vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
@@ -452,78 +452,74 @@ func TestVRFv2Basic(t *testing.T) {
 
 func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	t.Parallel()
+	var (
+		env              *test_env.CLClusterTestEnv
+		vrfContracts     *vrfcommon.VRFContracts
+		subIDs           []uint64
+		eoaWalletAddress string
+	)
+
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	if err != nil {
 		t.Fatal(err)
 	}
+	vrfv2Config := config.VRFv2
 
-	useVRFOwner := false
-	useTestCoordinator := false
+	cleanupFn := func() {
+		if env.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", env.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*vrfv2Config.General.UseExistingEnv {
+			if err := env.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
 
-	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
-	require.NoError(t, err, "Error building ethereum network config")
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate: 2,
+		NumberOfConsumers:      1,
+		NumberOfSubToCreate:    1,
+		UseVRFOwner:            true,
+		UseTestCoordinator:     true,
+	}
 
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestConfig(&config).
-		WithTestInstance(t).
-		WithPrivateEthereumNetwork(network).
-		WithCLNodes(1).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
-		WithStandardCleanup().
-		Build()
-	require.NoError(t, err, "error creating test env")
-
-	env.ParallelTransactions(true)
-
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
-	require.NoError(t, err)
-	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	env, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err := vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
-	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
-
-	numberOfTxKeysToCreate := 2
-	vrfv2Contracts, subIDs, vrfv2KeyData, nodesMap, err := vrfv2.SetupVRFV2Environment(
-		testcontext.Get(t),
-		env,
-		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
-		&config,
-		useVRFOwner,
-		useTestCoordinator,
-		linkToken,
-		mockETHLinkFeed,
-		defaultWalletAddress,
-		numberOfTxKeysToCreate,
-		1,
-		1,
-		l,
-	)
-	require.NoError(t, err, "error setting up VRF v2 env")
-
+	eoaWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 	subID := subIDs[0]
 
-	subscription, err := vrfv2Contracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
+	subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
 	require.NoError(t, err, "error getting subscription information")
 
-	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.CoordinatorV2)
+	vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
-		txKeys, _, err := nodesMap[vrfcommon.VRF].CLNode.API.ReadTxKeys("evm")
+		txKeys, _, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
 
-		require.Equal(t, numberOfTxKeysToCreate+1, len(txKeys.Data))
+		require.Equal(t, newEnvConfig.NumberOfTxKeysToCreate+1, len(txKeys.Data))
 
 		var fulfillmentTxFromAddresses []string
-		for i := 0; i < numberOfTxKeysToCreate+1; i++ {
+		for i := 0; i < newEnvConfig.NumberOfTxKeysToCreate+1; i++ {
 			randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
 				l,
-				vrfv2Contracts.VRFV2Consumer[0],
-				vrfv2Contracts.CoordinatorV2,
+				vrfContracts.VRFV2Consumer[0],
+				vrfContracts.CoordinatorV2,
 				subID,
-				vrfv2KeyData,
+				vrfKey,
 				*config.VRFv2.General.MinimumConfirmations,
 				*config.VRFv2.General.CallbackGasLimit,
 				*config.VRFv2.General.NumberOfWords,
@@ -540,7 +536,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			require.NoError(t, err, "error getting tx from address")
 			fulfillmentTxFromAddresses = append(fulfillmentTxFromAddresses, fulfillmentTxFromAddress)
 		}
-		require.Equal(t, numberOfTxKeysToCreate+1, len(fulfillmentTxFromAddresses))
+		require.Equal(t, newEnvConfig.NumberOfTxKeysToCreate+1, len(fulfillmentTxFromAddresses))
 		var txKeyAddresses []string
 		for _, txKey := range txKeys.Data {
 			txKeyAddresses = append(txKeyAddresses, txKey.Attributes.Address)
@@ -553,71 +549,67 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 
 func TestVRFOwner(t *testing.T) {
 	t.Parallel()
+	var (
+		env              *test_env.CLClusterTestEnv
+		vrfContracts     *vrfcommon.VRFContracts
+		subIDs           []uint64
+		eoaWalletAddress string
+	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
+	vrfv2Config := config.VRFv2
 
-	useVRFOwner := true
-	useTestCoordinator := true
-	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
-	require.NoError(t, err, "Error building ethereum network config")
+	cleanupFn := func() {
+		if env.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", env.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*vrfv2Config.General.UseExistingEnv {
+			if err := env.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
 
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestInstance(t).
-		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(network).
-		WithCLNodes(1).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
-		WithStandardCleanup().
-		Build()
-	require.NoError(t, err, "error creating test env")
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate: 0,
+		NumberOfConsumers:      1,
+		NumberOfSubToCreate:    1,
+		UseVRFOwner:            true,
+		UseTestCoordinator:     true,
+	}
 
-	env.ParallelTransactions(true)
-
-	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
-
-	require.NoError(t, err)
-	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	env, vrfContracts, subIDs, vrfKey, _, err := vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
-	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
-
-	numberOfTxKeysToCreate := 1
-	vrfv2Contracts, subIDs, vrfv2Data, _, err := vrfv2.SetupVRFV2Environment(
-		testcontext.Get(t),
-		env,
-		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
-		&config,
-		useVRFOwner,
-		useTestCoordinator,
-		linkToken,
-		mockETHLinkFeed,
-		defaultWalletAddress,
-		numberOfTxKeysToCreate,
-		1,
-		1,
-		l,
-	)
-	require.NoError(t, err, "error setting up VRF v2 env")
+	eoaWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 
 	subID := subIDs[0]
 
-	subscription, err := vrfv2Contracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
+	subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
 	require.NoError(t, err, "error getting subscription information")
 
-	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.CoordinatorV2)
+	vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
 
 	t.Run("Request Randomness With Force-Fulfill", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 
-		vrfCoordinatorOwner, err := vrfv2Contracts.CoordinatorV2.GetOwner(testcontext.Get(t))
+		vrfCoordinatorOwner, err := vrfContracts.CoordinatorV2.GetOwner(testcontext.Get(t))
 		require.NoError(t, err)
-		require.Equal(t, vrfv2Contracts.VRFOwner.Address(), vrfCoordinatorOwner.String())
+		require.Equal(t, vrfContracts.VRFOwner.Address(), vrfCoordinatorOwner.String())
 
-		err = linkToken.Transfer(
-			vrfv2Contracts.VRFV2Consumer[0].Address(),
+		err = vrfContracts.LinkToken.Transfer(
+			vrfContracts.VRFV2Consumer[0].Address(),
 			conversions.EtherToWei(big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink)),
 		)
 		require.NoError(t, err, "error transferring link to consumer contract")
@@ -625,14 +617,14 @@ func TestVRFOwner(t *testing.T) {
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
-		consumerLinkBalance, err := linkToken.BalanceOf(testcontext.Get(t), vrfv2Contracts.VRFV2Consumer[0].Address())
+		consumerLinkBalance, err := vrfContracts.LinkToken.BalanceOf(testcontext.Get(t), vrfContracts.VRFV2Consumer[0].Address())
 		require.NoError(t, err, "error getting consumer link balance")
 		l.Info().
 			Str("Balance", conversions.WeiToEther(consumerLinkBalance).String()).
-			Str("Consumer", vrfv2Contracts.VRFV2Consumer[0].Address()).
+			Str("Consumer", vrfContracts.VRFV2Consumer[0].Address()).
 			Msg("Consumer Link Balance")
 
-		err = mockETHLinkFeed.SetBlockTimestampDeduction(big.NewInt(3))
+		err = vrfContracts.MockETHLINKFeed.SetBlockTimestampDeduction(big.NewInt(3))
 		require.NoError(t, err)
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
@@ -640,23 +632,23 @@ func TestVRFOwner(t *testing.T) {
 		// test and assert
 		_, randFulfilledEvent, _, err := vrfv2.RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 			l,
-			vrfv2Contracts.VRFV2Consumer[0],
-			vrfv2Contracts.CoordinatorV2,
-			vrfv2Contracts.VRFOwner,
-			vrfv2Data,
+			vrfContracts.VRFV2Consumer[0],
+			vrfContracts.CoordinatorV2,
+			vrfContracts.VRFOwner,
+			vrfKey,
 			*configCopy.VRFv2.General.MinimumConfirmations,
 			*configCopy.VRFv2.General.CallbackGasLimit,
 			*configCopy.VRFv2.General.NumberOfWords,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
 			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
 			conversions.EtherToWei(big.NewFloat(5)),
-			common.HexToAddress(linkToken.Address()),
+			common.HexToAddress(vrfContracts.LinkToken.Address()),
 			time.Minute*2,
 		)
 		require.NoError(t, err, "error requesting randomness with force-fulfillment and waiting for fulfilment")
 		require.Equal(t, 0, randFulfilledEvent.Payment.Cmp(big.NewInt(0)), "Forced Fulfilled Randomness's Payment should be 0")
 
-		status, err := vrfv2Contracts.VRFV2Consumer[0].GetRequestStatus(testcontext.Get(t), randFulfilledEvent.RequestId)
+		status, err := vrfContracts.VRFV2Consumer[0].GetRequestStatus(testcontext.Get(t), randFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
@@ -667,13 +659,13 @@ func TestVRFOwner(t *testing.T) {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
 
-		coordinatorConfig, err := vrfv2Contracts.CoordinatorV2.GetConfig(testcontext.Get(t))
+		coordinatorConfig, err := vrfContracts.CoordinatorV2.GetConfig(testcontext.Get(t))
 		require.NoError(t, err, "error getting coordinator config")
 
-		coordinatorFeeConfig, err := vrfv2Contracts.CoordinatorV2.GetFeeConfig(testcontext.Get(t))
+		coordinatorFeeConfig, err := vrfContracts.CoordinatorV2.GetFeeConfig(testcontext.Get(t))
 		require.NoError(t, err, "error getting coordinator fee config")
 
-		coordinatorFallbackWeiPerUnitLinkConfig, err := vrfv2Contracts.CoordinatorV2.GetFallbackWeiPerUnitLink(testcontext.Get(t))
+		coordinatorFallbackWeiPerUnitLinkConfig, err := vrfContracts.CoordinatorV2.GetFallbackWeiPerUnitLink(testcontext.Get(t))
 		require.NoError(t, err, "error getting coordinator FallbackWeiPerUnitLink")
 
 		require.Equal(t, *configCopy.VRFv2.General.StalenessSeconds, coordinatorConfig.StalenessSeconds)
@@ -687,75 +679,63 @@ func TestVRFOwner(t *testing.T) {
 
 func TestVRFV2WithBHS(t *testing.T) {
 	t.Parallel()
+	var (
+		env              *test_env.CLClusterTestEnv
+		vrfContracts     *vrfcommon.VRFContracts
+		subIDs           []uint64
+		eoaWalletAddress string
+	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
+	vrfv2Config := config.VRFv2
 
-	useVRFOwner := true
-	useTestCoordinator := true
-	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
-	require.NoError(t, err, "Error building ethereum network config")
+	cleanupFn := func() {
+		if env.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", env.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*vrfv2Config.General.UseExistingEnv {
+			if err := env.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
 
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestInstance(t).
-		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(network).
-		WithCLNodes(2).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
-		WithStandardCleanup().
-		Build()
-	require.NoError(t, err, "error creating test env")
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate: 0,
+		NumberOfConsumers:      1,
+		NumberOfSubToCreate:    1,
+		UseVRFOwner:            true,
+		UseTestCoordinator:     true,
+	}
 
-	env.ParallelTransactions(true)
-
-	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*config.VRFv2.General.LinkNativeFeedResponse))
-
-	require.NoError(t, err)
-	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	env, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err := vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
-	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
-
-	//Underfund Subscription
-	config.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
-
-	//decrease default span for checking blockhashes for unfulfilled requests
-	config.VRFv2.General.BHSJobWaitBlocks = ptr.Ptr(2)
-	config.VRFv2.General.BHSJobLookBackBlocks = ptr.Ptr(20)
-
-	numberOfTxKeysToCreate := 0
-	vrfv2Contracts, subIDs, vrfv2KeyData, nodesMap, err := vrfv2.SetupVRFV2Environment(
-		testcontext.Get(t),
-		env,
-		[]vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
-		&config,
-		useVRFOwner,
-		useTestCoordinator,
-		linkToken,
-		mockETHLinkFeed,
-		defaultWalletAddress,
-		numberOfTxKeysToCreate,
-		1,
-		1,
-		l,
-	)
-	require.NoError(t, err, "error setting up VRF v2 env")
-
+	eoaWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 	subID := subIDs[0]
 
-	subscription, err := vrfv2Contracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
+	subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
 	require.NoError(t, err, "error getting subscription information")
 
-	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.CoordinatorV2)
+	vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
 
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
 		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
-		_, err := vrfv2Contracts.VRFV2Consumer[0].RequestRandomness(
-			vrfv2KeyData.KeyHash,
+		_, err := vrfContracts.VRFV2Consumer[0].RequestRandomness(
+			vrfKey.KeyHash,
 			subID,
 			*configCopy.VRFv2.General.MinimumConfirmations,
 			*configCopy.VRFv2.General.CallbackGasLimit,
@@ -764,14 +744,14 @@ func TestVRFV2WithBHS(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness")
 
-		randomWordsRequestedEvent, err := vrfv2Contracts.CoordinatorV2.WaitForRandomWordsRequestedEvent(
-			[][32]byte{vrfv2KeyData.KeyHash},
+		randomWordsRequestedEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsRequestedEvent(
+			[][32]byte{vrfKey.KeyHash},
 			[]uint64{subID},
-			[]common.Address{common.HexToAddress(vrfv2Contracts.VRFV2Consumer[0].Address())},
+			[]common.Address{common.HexToAddress(vrfContracts.VRFV2Consumer[0].Address())},
 			time.Minute*1,
 		)
 		require.NoError(t, err, "error waiting for randomness requested event")
-		vrfv2.LogRandomnessRequestedEvent(l, vrfv2Contracts.CoordinatorV2, randomWordsRequestedEvent)
+		vrfv2.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2, randomWordsRequestedEvent)
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -779,15 +759,15 @@ func TestVRFV2WithBHS(t *testing.T) {
 		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(257), env.EVMClient, &wg, time.Second*260, t)
 		wg.Wait()
 		require.NoError(t, err)
-		err = vrfv2.FundSubscriptions(env, big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), linkToken, vrfv2Contracts.CoordinatorV2, subIDs)
+		err = vrfv2.FundSubscriptions(env, big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDs)
 		require.NoError(t, err, "error funding subscriptions")
-		randomWordsFulfilledEvent, err := vrfv2Contracts.CoordinatorV2.WaitForRandomWordsFulfilledEvent(
+		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsFulfilledEvent(
 			[]*big.Int{randomWordsRequestedEvent.RequestId},
 			time.Second*30,
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
-		vrfv2.LogRandomWordsFulfilledEvent(l, vrfv2Contracts.CoordinatorV2, randomWordsFulfilledEvent)
-		status, err := vrfv2Contracts.VRFV2Consumer[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		vrfv2.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2, randomWordsFulfilledEvent)
+		status, err := vrfContracts.VRFV2Consumer[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
@@ -796,8 +776,8 @@ func TestVRFV2WithBHS(t *testing.T) {
 	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
-		_, err := vrfv2Contracts.VRFV2Consumer[0].RequestRandomness(
-			vrfv2KeyData.KeyHash,
+		_, err := vrfContracts.VRFV2Consumer[0].RequestRandomness(
+			vrfKey.KeyHash,
 			subID,
 			*configCopy.VRFv2.General.MinimumConfirmations,
 			*configCopy.VRFv2.General.CallbackGasLimit,
@@ -806,17 +786,17 @@ func TestVRFV2WithBHS(t *testing.T) {
 		)
 		require.NoError(t, err, "error requesting randomness")
 
-		randomWordsRequestedEvent, err := vrfv2Contracts.CoordinatorV2.WaitForRandomWordsRequestedEvent(
-			[][32]byte{vrfv2KeyData.KeyHash},
+		randomWordsRequestedEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsRequestedEvent(
+			[][32]byte{vrfKey.KeyHash},
 			[]uint64{subID},
-			[]common.Address{common.HexToAddress(vrfv2Contracts.VRFV2Consumer[0].Address())},
+			[]common.Address{common.HexToAddress(vrfContracts.VRFV2Consumer[0].Address())},
 			time.Minute*1,
 		)
 		require.NoError(t, err, "error waiting for randomness requested event")
-		vrfv2.LogRandomnessRequestedEvent(l, vrfv2Contracts.CoordinatorV2, randomWordsRequestedEvent)
+		vrfv2.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2, randomWordsRequestedEvent)
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
 
-		_, err = vrfv2Contracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
 		require.Error(t, err, "error not occurred when getting blockhash for a blocknumber which was not stored in BHS contract")
 
 		var wg sync.WaitGroup
@@ -827,7 +807,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
-		metrics, err := vrfv2Contracts.VRFV2Consumer[0].GetLoadTestMetrics(testcontext.Get(t))
+		metrics, err := vrfContracts.VRFV2Consumer[0].GetLoadTestMetrics(testcontext.Get(t))
 		require.Equal(t, 0, metrics.RequestCount.Cmp(big.NewInt(1)))
 		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)))
 
@@ -835,14 +815,14 @@ func TestVRFV2WithBHS(t *testing.T) {
 		var txHash string
 		gom := gomega.NewGomegaWithT(t)
 		gom.Eventually(func(g gomega.Gomega) {
-			clNodeTxs, _, err = nodesMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
+			clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
 			l.Debug().Int("Number of TXs", len(clNodeTxs.Data)).Msg("BHS Node txs")
 			g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
 			txHash = clNodeTxs.Data[0].Attributes.Hash
 		}, "2m", "1s").Should(gomega.Succeed())
 
-		require.Equal(t, strings.ToLower(vrfv2Contracts.BHS.Address()), strings.ToLower(clNodeTxs.Data[0].Attributes.To))
+		require.Equal(t, strings.ToLower(vrfContracts.BHS.Address()), strings.ToLower(clNodeTxs.Data[0].Attributes.To))
 
 		bhsStoreTx, _, err := actions.GetTxByHash(testcontext.Get(t), env.EVMClient, common.HexToHash(txHash))
 		require.NoError(t, err, "error getting tx from hash")
@@ -858,7 +838,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 		var randRequestBlockHash [32]byte
 		gom.Eventually(func(g gomega.Gomega) {
-			randRequestBlockHash, err = vrfv2Contracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+			randRequestBlockHash, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting blockhash for a blocknumber which was stored in BHS contract")
 		}, "2m", "1s").Should(gomega.Succeed())
 		l.Info().

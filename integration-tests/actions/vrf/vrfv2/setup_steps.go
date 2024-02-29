@@ -82,7 +82,7 @@ func SetupVRFV2Environment(
 	useVRFOwner bool,
 	useTestCoordinator bool,
 	linkToken contracts.LinkToken,
-	mockNativeLINKFeed contracts.MockETHLINKFeed,
+	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
 	registerProvingKeyAgainstAddress string,
 	numberOfTxKeysToCreate int,
 	numberOfConsumers int,
@@ -237,7 +237,7 @@ func SetupVRFV2WrapperEnvironment(
 	env *test_env.CLClusterTestEnv,
 	vrfv2TestConfig tc.VRFv2TestConfig,
 	linkToken contracts.LinkToken,
-	mockNativeLINKFeed contracts.MockETHLINKFeed,
+	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
 	coordinator contracts.VRFCoordinatorV2,
 	keyHash [32]byte,
 	wrapperConsumerContractsAmount int,
@@ -359,7 +359,7 @@ func SetupVRFV2ForNewEnv(
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*testConfig.VRFv2.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*testConfig.VRFv2.General.LinkNativeFeedResponse))
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying mock ETH/LINK feed", err)
 	}

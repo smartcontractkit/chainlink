@@ -25,7 +25,7 @@ import (
 func DeployVRFV2Contracts(
 	env *test_env.CLClusterTestEnv,
 	linkTokenContract contracts.LinkToken,
-	linkEthFeedContract contracts.MockETHLINKFeed,
+	linkEthFeedContract contracts.VRFMockETHLINKFeed,
 	consumerContractsAmount int,
 	useVRFOwner bool,
 	useTestCoordinator bool,
@@ -174,7 +174,7 @@ func VRFV2RegisterProvingKey(
 func SetupVRFV2Contracts(
 	env *test_env.CLClusterTestEnv,
 	linkToken contracts.LinkToken,
-	mockNativeLINKFeed contracts.MockETHLINKFeed,
+	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
 	numberOfConsumers int,
 	useVRFOwner bool,
 	useTestCoordinator bool,

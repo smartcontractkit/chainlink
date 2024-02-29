@@ -48,7 +48,7 @@ type VRFContracts struct {
 	VRFV2Consumer     []contracts.VRFv2LoadTestConsumer
 	VRFV2PlusConsumer []contracts.VRFv2PlusLoadTestConsumer
 	LinkToken         contracts.LinkToken
-	MockETHLINKFeed   contracts.MockETHLINKFeed
+	MockETHLINKFeed   contracts.VRFMockETHLINKFeed
 }
 
 type VRFOwnerConfig struct {
