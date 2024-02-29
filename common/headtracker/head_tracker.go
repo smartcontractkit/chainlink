@@ -142,7 +142,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Con
 
 	latestChain, err := ht.headSaver.Load(ctx, latestFinalized.BlockNumber())
 	if err != nil {
-		return fmt.Errorf("failed to initialzed headSaver: %w", err)
+		return fmt.Errorf("failed to initialized headSaver: %w", err)
 	}
 
 	if latestChain.IsValid() {
