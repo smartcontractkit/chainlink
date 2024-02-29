@@ -28,6 +28,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -89,7 +90,15 @@ func TestConfigPoller(t *testing.T) {
 		cfg := pgtest.NewQConfig(false)
 		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
-		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
+
+		lpOpts := logpoller.Opts{
+			PollPeriod:               100 * time.Millisecond,
+			FinalityDepth:            1,
+			BackfillBatchSize:        2,
+			RpcBatchSize:             2,
+			KeepFinalizedBlocksDepth: 1000,
+		}
+		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)
 	}
 

@@ -637,7 +637,7 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOffchainAggregator{
+	return &LegacyEthereumOffchainAggregator{
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 		address: address,
@@ -656,7 +656,7 @@ func (e *EthereumContractDeployer) LoadOffChainAggregator(address *common.Addres
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOffchainAggregator{
+	return &LegacyEthereumOffchainAggregator{
 		address: address,
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
@@ -1562,7 +1562,7 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpke
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
-			auth, backend, false, false,
+			auth, backend, false, false, false,
 		)
 	})
 	if err != nil {
@@ -1708,7 +1708,7 @@ func (e *EthereumContractDeployer) DeployOperatorFactory(linkAddr string) (Opera
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOperatorFactory{
+	return &LegacyEthereumOperatorFactory{
 		address:         addr,
 		client:          e.client,
 		operatorFactory: instance.(*operator_factory.OperatorFactory),
@@ -1775,7 +1775,7 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOffchainAggregatorV2{
+	return &LegacyEthereumOffchainAggregatorV2{
 		client:   e.client,
 		contract: instance.(*ocr2aggregator.OCR2Aggregator),
 		address:  address,
@@ -1794,7 +1794,7 @@ func (e *EthereumContractDeployer) LoadOffChainAggregatorV2(address *common.Addr
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOffchainAggregatorV2{
+	return &LegacyEthereumOffchainAggregatorV2{
 		client:   e.client,
 		contract: instance.(*ocr2aggregator.OCR2Aggregator),
 		address:  address,

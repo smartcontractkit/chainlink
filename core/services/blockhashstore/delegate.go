@@ -51,7 +51,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.BlockhashStoreSpec == nil {
 		return nil, errors.Errorf(
 			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
@@ -67,7 +67,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.New("log poller must be enabled to run blockhashstore")
 	}
 
-	keys, err := d.ks.EnabledKeysForChain(chain.ID())
+	keys, err := d.ks.EnabledKeysForChain(ctx, chain.ID())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}

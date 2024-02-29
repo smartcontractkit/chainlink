@@ -37,7 +37,7 @@ pipelines:
       run_dependencies --all
       ensure_pull_secrets --all
       build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
-      kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL} || true
+      kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
       if [ -n "$1" ]; then
         echo "Deploying tag $1"
@@ -71,7 +71,9 @@ pipelines:
       --set=helm.values.chainlink.nodes[3].image=$image \
       --set=helm.values.chainlink.nodes[4].image=$image \
       --set=helm.values.chainlink.nodes[5].image=$image
+      echo
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
+      echo "To extend the TTL for e.g. 72 hours, run: devspace ttl ${DEVSPACE_NAMESPACE} 72h"
 
       echo
       echo "############################################"
@@ -89,6 +91,8 @@ pipelines:
 commands:
   connect: |-
     sudo kubefwd svc -n $1
+  ttl: |-
+    kubectl label namespace $1 cleanup.kyverno.io/ttl=$2 --overwrite
 
 images:
   app:
@@ -300,12 +304,6 @@ deployments:
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
 
-        networkPolicy:
-          ingress:
-            # Should be a comma separated list of CIDR blocks. To include
-            # AWS ALB private CIDRs and optionally other custom CIDRs.
-            # Example format: 10.0.0.0/16,192.168.0.1/24
-            allowCustomCidrs: ${DEVSPACE_INGRESS_CIDRS}
         # These ingresses create AWS ALB resources and Route 53 Records.
         ingress:
           enabled: true
@@ -411,7 +409,13 @@ deployments:
                         name: mockserver
                         port:
                           number: 1080
-
+        networkPolicyDefault:
+          ingress:
+            allowCustomCidrs: true
+            # Should be a comma separated list of CIDR blocks. To include
+            # AWS ALB private CIDRs and optionally other custom CIDRs.
+            # Example format: 10.0.0.0/16,192.168.0.1/24
+            customCidrs: ${DEVSPACE_INGRESS_CIDRS}
         # deployment placement, standard helm stuff
         podAnnotations:
         nodeSelector:

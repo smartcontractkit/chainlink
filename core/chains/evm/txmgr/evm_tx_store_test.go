@@ -411,8 +411,8 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 
 	t.Run("only updates evm.tx_attempts for the current chain", func(t *testing.T) {
-		require.NoError(t, ethKeyStore.Add(fromAddress, testutils.SimulatedChainID))
-		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Add(testutils.Context(t), fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Enable(testutils.Context(t), fromAddress, testutils.SimulatedChainID))
 		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.EVM().ChainID())
 		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, testutils.SimulatedChainID)
 
