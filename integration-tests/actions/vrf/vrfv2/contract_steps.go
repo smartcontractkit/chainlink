@@ -84,10 +84,12 @@ func DeployVRFV2Contracts(
 			return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 		}
 		return &vrfcommon.VRFContracts{
-			CoordinatorV2: coordinator,
-			VRFOwner:      vrfOwner,
-			BHS:           bhs,
-			VRFV2Consumer: consumers,
+			CoordinatorV2:   coordinator,
+			VRFOwner:        vrfOwner,
+			BHS:             bhs,
+			VRFV2Consumer:   consumers,
+			LinkToken:       linkTokenContract,
+			MockETHLINKFeed: linkEthFeedContract,
 		}, nil
 	}
 	return &vrfcommon.VRFContracts{
