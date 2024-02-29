@@ -306,7 +306,6 @@ var networkConfig = map[string]NetworkConfig{
 		upkeepSLA:  int64(120),
 		blockTime:  6 * time.Second,
 		deltaStage: 20 * time.Second,
-		funding:    big.NewFloat(ChainlinkNodeFunding),
 	},
 }
 
