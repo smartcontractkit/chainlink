@@ -188,7 +188,7 @@ jobs:
   publish-beta:
     name: Publish Beta NPM
     environment: publish
-    needs: [initialize, changes, lint, prettier, native-compile, prepublish-test ]
+    needs: [initialize, changes, lint, prettier, native-compile, prepublish-test]
     runs-on: ubuntu-latest
     if: needs.initialize.outputs.is-pre-release == 'true'
     steps:
@@ -220,7 +220,7 @@ jobs:
   publish-prod:
     name: Publish Prod NPM
     environment: publish
-    needs: [initialize, changes, lint, prettier,  native-compile, prepublish-test ]
+    needs: [initialize, changes, lint, prettier, native-compile, prepublish-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
