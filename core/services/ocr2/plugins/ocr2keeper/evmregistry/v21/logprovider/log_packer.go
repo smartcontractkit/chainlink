@@ -19,7 +19,7 @@ type logEventsPacker struct {
 }
 
 func NewLogEventsPacker() *logEventsPacker {
-	return &logEventsPacker{abi: core.UtilsABI}
+	return &logEventsPacker{abi: core.ConvenienceABI}
 }
 
 func (p *logEventsPacker) PackLogData(log logpoller.Log) ([]byte, error) {

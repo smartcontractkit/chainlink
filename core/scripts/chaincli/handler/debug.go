@@ -30,7 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -213,7 +213,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to fetch trigger config for upkeep", err)
 		}
-		var triggerConfig automation_utils_2_1.LogTriggerConfig
+		var triggerConfig automation_convenience.LogTriggerConfig
 		triggerConfig, err = packer.UnpackLogTriggerConfig(rawTriggerConfig)
 		if err != nil {
 			failUnknown("failed to unpack trigger config", err)
@@ -469,7 +469,7 @@ func (bs *blockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
 	}
 }
 
-func logMatchesTriggerConfig(log *types.Log, config automation_utils_2_1.LogTriggerConfig) bool {
+func logMatchesTriggerConfig(log *types.Log, config automation_convenience.LogTriggerConfig) bool {
 	if log.Topics[0] != config.Topic0 {
 		return false
 	}
@@ -490,7 +490,7 @@ func packTriggerData(log *types.Log, blockTime uint64) ([]byte, error) {
 	for _, topic := range log.Topics {
 		topics = append(topics, topic)
 	}
-	b, err := core.UtilsABI.Methods["_log"].Inputs.Pack(&automation_utils_2_1.Log{
+	b, err := core.ConvenienceABI.Methods["_log"].Inputs.Pack(&automation_convenience.Log{
 		Index:       big.NewInt(int64(log.Index)),
 		Timestamp:   big.NewInt(int64(blockTime)),
 		TxHash:      log.TxHash,

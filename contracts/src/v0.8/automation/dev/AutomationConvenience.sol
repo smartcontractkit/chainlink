@@ -135,16 +135,16 @@ struct ConditionalTrigger {
   bytes32 blockHash;
 }
 
-interface AutomationConvenience {
-  function _onChainConfig22Plus(OnchainConfig memory) external;
-  function _onChainConfig21(OnchainConfigLegacy memory) external;
-  function _report(Report memory) external; // 0xe65d6546
+contract AutomationConvenience {
+  function _onChainConfig22Plus(OnchainConfig memory) external {}
+  function _onChainConfig21(OnchainConfigLegacy memory) external {}
+  function _report(Report memory) external {}
 
-  function _logTriggerConfig(LogTriggerConfig memory) external; // 0x21f373d7
+  function _logTriggerConfig(LogTriggerConfig memory) external {}
 
-  function _logTrigger(LogTrigger memory) external; // 0x1c8d8260
+  function _logTrigger(LogTrigger memory) external {}
 
-  function _conditionalTrigger(ConditionalTrigger memory) external; // 0x4b6df294
+  function _conditionalTrigger(ConditionalTrigger memory) external {}
 
-  function _log(Log memory) external; // 0xe9720a49
+  function _log(Log memory) external {}
 }

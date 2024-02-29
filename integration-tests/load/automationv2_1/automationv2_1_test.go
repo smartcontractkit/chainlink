@@ -40,7 +40,7 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 )
@@ -320,7 +320,7 @@ Load Config:
 	triggerContracts := make([]contracts.LogEmitter, 0)
 	triggerAddresses := make([]common.Address, 0)
 
-	utilsABI, err := automation_utils_2_1.AutomationUtilsMetaData.GetAbi()
+	convenienceABI, err := automation_convenience.AutomationConvenienceMetaData.GetAbi()
 	require.NoError(t, err, "Error getting automation utils abi")
 	emitterABI, err := log_emitter.LogEmitterMetaData.GetAbi()
 	require.NoError(t, err, "Error getting log emitter abi")
@@ -382,7 +382,7 @@ Load Config:
 	}
 
 	for i, consumerContract := range consumerContracts {
-		logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+		logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
 			ContractAddress: triggerAddresses[i],
 			FilterSelector:  1,
 			Topic0:          emitterABI.Events["Log4"].ID,
@@ -390,7 +390,7 @@ Load Config:
 			Topic2:          bytes0,
 			Topic3:          bytes0,
 		}
-		encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+		encodedLogTriggerConfig, err := convenienceABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 		require.NoError(t, err, "Error encoding log trigger config")
 		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
 

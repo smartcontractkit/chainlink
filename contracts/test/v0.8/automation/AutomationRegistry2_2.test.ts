@@ -27,7 +27,7 @@ import { OptimismModule__factory as OptimismModuleFactory } from '../../../typec
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
-import { AutomationUtils2_2 as AutomationUtils } from '../../../typechain/AutomationUtils2_2'
+import { AutomationConvenience } from '../../../typechain/AutomationConvenience'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
@@ -75,11 +75,15 @@ enum Trigger {
 }
 
 // un-exported types that must be extracted from the utils contract
-type Report = Parameters<AutomationUtils['_report']>[0]
-type OnChainConfig = Parameters<AutomationUtils['_onChainConfig']>[0]
-type LogTrigger = Parameters<AutomationUtils['_logTrigger']>[0]
-type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
-type Log = Parameters<AutomationUtils['_log']>[0]
+type Report = Parameters<AutomationConvenience['_report']>[0]
+type OnChainConfig = Parameters<
+  AutomationConvenience['_onChainConfig22Plus']
+>[0]
+type LogTrigger = Parameters<AutomationConvenience['_logTrigger']>[0]
+type ConditionalTrigger = Parameters<
+  AutomationConvenience['_conditionalTrigger']
+>[0]
+type Log = Parameters<AutomationConvenience['_log']>[0]
 
 // -----------------------------------------------------------------------------------------------
 
@@ -170,7 +174,7 @@ let chainModuleBase: ChainModuleBase
 let arbitrumModule: ArbitrumModule
 let optimismModule: OptimismModule
 let streamsLookupUpkeep: StreamsLookupUpkeep
-let automationUtils: AutomationUtils
+let automationConv: AutomationConvenience
 
 function now() {
   return Math.floor(Date.now() / 1000)
@@ -203,8 +207,8 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
 const encodeConfig = (onchainConfig: OnChainConfig) => {
   return (
     '0x' +
-    automationUtils.interface
-      .encodeFunctionData('_onChainConfig', [onchainConfig])
+    automationConv.interface
+      .encodeFunctionData('_onChainConfig22Plus', [onchainConfig])
       .slice(10)
   )
 }
@@ -212,7 +216,7 @@ const encodeConfig = (onchainConfig: OnChainConfig) => {
 const encodeBlockTrigger = (conditionalTrigger: ConditionalTrigger) => {
   return (
     '0x' +
-    automationUtils.interface
+    automationConv.interface
       .encodeFunctionData('_conditionalTrigger', [conditionalTrigger])
       .slice(10)
   )
@@ -221,7 +225,7 @@ const encodeBlockTrigger = (conditionalTrigger: ConditionalTrigger) => {
 const encodeLogTrigger = (logTrigger: LogTrigger) => {
   return (
     '0x' +
-    automationUtils.interface
+    automationConv.interface
       .encodeFunctionData('_logTrigger', [logTrigger])
       .slice(10)
   )
@@ -229,14 +233,14 @@ const encodeLogTrigger = (logTrigger: LogTrigger) => {
 
 const encodeLog = (log: Log) => {
   return (
-    '0x' + automationUtils.interface.encodeFunctionData('_log', [log]).slice(10)
+    '0x' + automationConv.interface.encodeFunctionData('_log', [log]).slice(10)
   )
 }
 
 const encodeReport = (report: Report) => {
   return (
     '0x' +
-    automationUtils.interface.encodeFunctionData('_report', [report]).slice(10)
+    automationConv.interface.encodeFunctionData('_report', [report]).slice(10)
   )
 }
 
@@ -417,8 +421,8 @@ describe('AutomationRegistry2_2', () => {
   before(async () => {
     personas = (await getUsers()).personas
 
-    const utilsFactory = await ethers.getContractFactory('AutomationUtils2_2')
-    automationUtils = await utilsFactory.deploy()
+    const convFactory = await ethers.getContractFactory('AutomationConvenience')
+    automationConv = await convFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
       'src/v0.4/LinkToken.sol:LinkToken',
@@ -502,7 +506,7 @@ describe('AutomationRegistry2_2', () => {
 
     logTriggerConfig =
       '0x' +
-      automationUtils.interface
+      automationConv.interface
         .encodeFunctionData('_logTriggerConfig', [
           {
             contractAddress: randomAddress(),
@@ -1326,7 +1330,7 @@ describe('AutomationRegistry2_2', () => {
           ['conditional', upkeepId],
           ['log-trigger', logUpkeepId],
         ]
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -1358,7 +1362,7 @@ describe('AutomationRegistry2_2', () => {
       })
 
       it('allows very old trigger block numbers when bypassing reorg protection with reorgProtectionEnabled config', async () => {
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -1459,7 +1463,7 @@ describe('AutomationRegistry2_2', () => {
       })
 
       it('returns early when future block number is provided as trigger, irrespective of reorgProtectionEnabled config', async () => {
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -2891,7 +2895,7 @@ describe('AutomationRegistry2_2', () => {
       await registry.connect(owner).addFunds(upkeepID, minBalance1)
 
       // upkeep check should return false, 2 should return true
-      let checkUpkeepResult = await registry
+      const checkUpkeepResult = await registry
         .connect(zeroAddress)
         .callStatic['checkUpkeep(uint256)'](upkeepID)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
