@@ -148,7 +148,24 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // GetTxInProgress returns the in_progress transaction for a given address.
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTxInProgress(ctx context.Context, fromAddress ADDR) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return nil, nil
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[fromAddress]
+	if !ok {
+		return nil, fmt.Errorf("get_tx_in_progress: %w", ErrAddressNotFound)
+	}
+
+	tx := as.PeekInProgressTx()
+	if tx == nil {
+		return nil, fmt.Errorf("get_tx_in_progress: %w", ErrTxnNotFound)
+	}
+
+	if len(tx.TxAttempts) != 1 || tx.TxAttempts[0].State != txmgrtypes.TxAttemptInProgress {
+		return nil, fmt.Errorf("get_tx_in_progress: invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
+			"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", tx.ID)
+	}
+
+	return ms.deepCopyTx(*tx), nil
 }
 
 // UpdateTxAttemptInProgressToBroadcast updates a transaction attempt from in_progress to broadcast.
@@ -164,6 +181,22 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // FindNextUnstartedTransactionFromAddress returns the next unstarted transaction for a given address.
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(_ context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR, chainID CHAIN_ID) error {
+	if ms.chainID.String() != chainID.String() {
+		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
+	}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[fromAddress]
+	if !ok {
+		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrAddressNotFound)
+	}
+
+	etx := as.PeekNextUnstartedTx()
+	if etx == nil {
+		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrTxnNotFound)
+	}
+	tx = ms.deepCopyTx(*etx)
+
 	return nil
 }
 
