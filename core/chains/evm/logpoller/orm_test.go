@@ -880,7 +880,7 @@ func TestORM_DeleteBlocksBefore(t *testing.T) {
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1235"), 2, time.Now(), 0))
 	deleted, err := o1.DeleteBlocksBefore(ctx, 1, 0)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), deleted)
+	require.Equal(t, int64(1), deleted)
 	// 1 should be gone.
 	_, err = o1.SelectBlockByNumber(ctx, 1)
 	require.Equal(t, err, sql.ErrNoRows)
