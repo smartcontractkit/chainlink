@@ -24,10 +24,9 @@ import (
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -39,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
@@ -51,7 +49,7 @@ import (
 )
 
 var utilsABI21 = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
-var utilsABI22 = cltypes.MustGetABI(automation_utils_2_2.AutomationUtilsABI)
+var convenienceABI = cltypes.MustGetABI(automation_convenience.AutomationConvenienceABI)
 var registrarABI = cltypes.MustGetABI(registrar21.AutomationRegistrarABI)
 
 type KeeperRegistrar interface {
@@ -251,7 +249,7 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 
 func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) ([]byte, error) {
 	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
-		onchainConfigStruct := registry21.KeeperRegistryBase21OnchainConfig{
+		onchainConfigStruct := automation_convenience.OnchainConfigLegacy{
 			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 			FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
 			CheckGasLimit:          rcs.CheckGasLimit,
@@ -269,7 +267,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 			UpkeepPrivilegeManager: registryOwnerAddress,
 		}
 
-		encodedOnchainConfig, err := utilsABI21.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
+		encodedOnchainConfig, err := convenienceABI.Methods["_onChainConfig21"].Inputs.Pack(&onchainConfigStruct)
 
 		return encodedOnchainConfig, err
 	} else if rcs.RegistryVersion == ethereum.RegistryVersion_2_2 {
@@ -296,7 +294,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 }
 
 func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddr common.Address, reorgProtectionEnabled bool) ([]byte, error) {
-	onchainConfigStruct := automation_registry_wrapper_2_2.AutomationRegistryBase22OnchainConfig{
+	onchainConfigStruct := automation_convenience.OnchainConfig{
 		PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 		FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
 		CheckGasLimit:          rcs.CheckGasLimit,
@@ -316,7 +314,7 @@ func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, regis
 		ReorgProtectionEnabled: reorgProtectionEnabled,
 	}
 
-	encodedOnchainConfig, err := utilsABI22.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
+	encodedOnchainConfig, err := convenienceABI.Methods["_onChainConfig22Plus"].Inputs.Pack(&onchainConfigStruct)
 
 	return encodedOnchainConfig, err
 }
@@ -2236,7 +2234,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 				}
 			}
 
-			logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+			logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
 				ContractAddress: common.HexToAddress(upkeepAddr),
 				FilterSelector:  0,
 				Topic0:          topic0InBytes,
@@ -2244,7 +2242,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 				Topic2:          bytes0,
 				Topic3:          bytes0,
 			}
-			encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+			encodedLogTriggerConfig, err := convenienceABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 			if err != nil {
 				return nil, err
 			}

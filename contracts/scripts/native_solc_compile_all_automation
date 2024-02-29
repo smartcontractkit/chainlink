@@ -96,3 +96,4 @@ compileContract automation/dev/chains/ChainModuleBase.sol
 compileContract automation/dev/chains/OptimismModule.sol
 compileContract automation/dev/chains/ScrollModule.sol
 compileContract automation/dev/interfaces/v2_2/IChainModule.sol
+compileContract automation/dev/AutomationConvenience.sol
