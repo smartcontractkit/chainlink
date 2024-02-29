@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -247,7 +246,6 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 type simpleLogListener struct {
 	name                string
 	lggr                logger.SugaredLogger
-	cfg                 pg.QConfig
 	received            *received
 	t                   *testing.T
 	db                  *sqlx.DB
@@ -272,7 +270,6 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 	return &simpleLogListener{
 		db:       db,
 		lggr:     logger.Sugared(logger.Test(t)),
-		cfg:      helper.config.Database(),
 		name:     name,
 		received: &rec,
 		t:        t,
