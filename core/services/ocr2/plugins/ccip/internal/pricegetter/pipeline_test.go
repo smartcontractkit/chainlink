@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,19 +127,19 @@ func TestParsingDifferentFormats(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			token := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				_, err := w.Write([]byte(fmt.Sprintf(`{"MyCoin": %s}`, tt.inputValue)))
+				_, err := fmt.Fprintf(w, `{"MyCoin": %s}`, tt.inputValue)
 				require.NoError(t, err)
 			}))
 			defer token.Close()
 
-			address := common.HexToAddress("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e05")
+			address := common.HexToAddress("0x94025780a1aB58868D9B2dBBB775f44b32e8E6e5")
 			source := fmt.Sprintf(`
 			// Price 1
 			coin [type=http method=GET url="%s"];
 			coin_parse [type=jsonparse path="MyCoin"];
 			coin->coin_parse;
 			merge [type=merge left="{}" right="{\"%s\":$(coin_parse)}"];
-			`, token.URL, address)
+			`, token.URL, strings.ToLower(address.String()))
 
 			prices, err := newTestPipelineGetter(t, source).
 				TokenPricesUSD(context.Background(), []cciptypes.Address{ccipcalc.EvmAddrToGeneric(address)})

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/parseutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -66,16 +67,17 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.
 		return nil, errors.Errorf("expected map output of price pipeline, got %T", finalResult.Values[0])
 	}
 
-	providedTokensSet := mapset.NewSet[cciptypes.Address](tokens...)
+	providedTokensSet := mapset.NewSet(tokens...)
 	tokenPrices := make(map[cciptypes.Address]*big.Int)
 	for tokenAddressStr, rawPrice := range prices {
+		tokenAddressStr := ccipcalc.HexToAddress(tokenAddressStr)
 		castedPrice, err := parseutil.ParseBigIntFromAny(rawPrice)
 		if err != nil {
 			return nil, err
 		}
 
-		if providedTokensSet.Contains(cciptypes.Address(tokenAddressStr)) {
-			tokenPrices[cciptypes.Address(tokenAddressStr)] = castedPrice
+		if providedTokensSet.Contains(tokenAddressStr) {
+			tokenPrices[tokenAddressStr] = castedPrice
 		}
 	}
 
@@ -83,7 +85,7 @@ func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.
 	// Best we can do is sanity check that the token price spec covers all our desired execution token prices.
 	for _, token := range tokens {
 		if _, ok = tokenPrices[token]; !ok {
-			return nil, errors.Errorf("missing token %s from tokensForFeeCoin spec", token)
+			return nil, errors.Errorf("missing token %s from tokensForFeeCoin spec, got %v", token, prices)
 		}
 	}
 
