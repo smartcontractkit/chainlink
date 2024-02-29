@@ -34,8 +34,11 @@ func TestOCR3Capability(t *testing.T) {
 	lggr := logger.Test(t)
 
 	ctx := tests.Context(t)
-	s := newStore(1*time.Second, fc)
-	cp := newCapability(s, fc, mockEncoderFactory, lggr)
+
+	s := newStore()
+	s.evictedCh = make(chan *request)
+
+	cp := newCapability(s, fc, 1*time.Second, mockEncoderFactory, lggr)
 	require.NoError(t, cp.Start(ctx))
 
 	callback := make(chan capabilities.CapabilityResponse, 10)
@@ -65,8 +68,10 @@ func TestOCR3Capability(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mock the oracle returning a response
-	err = cp.transmitResponse(ctx, response{
-		Value:               obsv,
+	err = cp.transmitResponse(ctx, &response{
+		CapabilityResponse: capabilities.CapabilityResponse{
+			Value: obsv,
+		},
 		WorkflowExecutionID: workflowExecutionTestID,
 	})
 	require.NoError(t, err)
@@ -74,7 +79,10 @@ func TestOCR3Capability(t *testing.T) {
 	expectedCapabilityResponse := capabilities.CapabilityResponse{
 		Value: obsv,
 	}
-	assert.Len(t, callback, 1)
+
+	gotR := <-s.evictedCh
+	assert.Equal(t, workflowExecutionTestID, gotR.WorkflowExecutionID)
+
 	assert.Equal(t, expectedCapabilityResponse, <-callback)
 }
 
@@ -85,8 +93,8 @@ func TestOCR3Capability_Eviction(t *testing.T) {
 
 	ctx := tests.Context(t)
 	rea := time.Second
-	s := newStore(rea, fc)
-	cp := newCapability(s, fc, mockEncoderFactory, lggr)
+	s := newStore()
+	cp := newCapability(s, fc, rea, mockEncoderFactory, lggr)
 	require.NoError(t, cp.Start(ctx))
 
 	config, err := values.NewMap(map[string]any{"aggregation_method": "data_feeds_2_0"})
@@ -114,8 +122,8 @@ func TestOCR3Capability_Eviction(t *testing.T) {
 	resp := <-callback
 	assert.ErrorContains(t, resp.Err, "timeout exceeded: could not process request before expiry")
 
-	_, err = s.get(ctx, rid)
-	assert.ErrorContains(t, err, "not found")
+	_, ok := s.requests[rid]
+	assert.False(t, ok)
 }
 
 func TestOCR3Capability_Registration(t *testing.T) {
@@ -124,8 +132,8 @@ func TestOCR3Capability_Registration(t *testing.T) {
 	lggr := logger.Test(t)
 
 	ctx := tests.Context(t)
-	s := newStore(1*time.Second, fc)
-	cp := newCapability(s, fc, mockEncoderFactory, lggr)
+	s := newStore()
+	cp := newCapability(s, fc, 1*time.Second, mockEncoderFactory, lggr)
 	require.NoError(t, cp.Start(ctx))
 
 	config, err := values.NewMap(map[string]any{"aggregation_method": "data_feeds_2_0"})

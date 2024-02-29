@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -16,7 +17,7 @@ import (
 var _ ocr3types.ReportingPlugin[[]byte] = (*reportingPlugin)(nil)
 
 type capabilityIface interface {
-	transmitResponse(ctx context.Context, resp response) error
+	transmitResponse(ctx context.Context, resp *response) error
 	getAggregator(workflowID string) (pbtypes.Aggregator, error)
 	getEncoder(workflowID string) (pbtypes.Encoder, error)
 }
@@ -257,8 +258,10 @@ func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr 
 
 	b := values.NewBytes(rwi.Report)
 	r.lggr.Debugw("ShouldAcceptAttestedReport transmitting", "len", len(b.Underlying))
-	err = r.r.transmitResponse(ctx, response{
-		Value:               b,
+	err = r.r.transmitResponse(ctx, &response{
+		CapabilityResponse: capabilities.CapabilityResponse{
+			Value: b,
+		},
 		WorkflowExecutionID: id.WorkflowExecutionId,
 	})
 	if err != nil {

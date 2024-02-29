@@ -20,7 +20,6 @@ type request struct {
 }
 
 type response struct {
-	Value               values.Value
-	Err                 error
 	WorkflowExecutionID string
+	capabilities.CapabilityResponse
 }

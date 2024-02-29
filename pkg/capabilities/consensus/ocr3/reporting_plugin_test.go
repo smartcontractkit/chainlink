@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,8 +18,7 @@ import (
 func TestReportingPlugin_Query_ErrorInQueueCall(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	fc := clockwork.NewFakeClock()
-	s := newStore(0, fc)
+	s := newStore()
 	batchSize := 0
 	rp, err := newReportingPlugin(s, nil, batchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
@@ -35,8 +33,7 @@ func TestReportingPlugin_Query_ErrorInQueueCall(t *testing.T) {
 func TestReportingPlugin_Query(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	fc := clockwork.NewFakeClock()
-	s := newStore(0, fc)
+	s := newStore()
 	rp, err := newReportingPlugin(s, nil, defaultBatchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
 
@@ -65,8 +62,7 @@ func TestReportingPlugin_Query(t *testing.T) {
 func TestReportingPlugin_Observation(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	fc := clockwork.NewFakeClock()
-	s := newStore(0, fc)
+	s := newStore()
 	rp, err := newReportingPlugin(s, nil, defaultBatchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
 
