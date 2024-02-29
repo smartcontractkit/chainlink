@@ -74,7 +74,7 @@ func (m *mockCapabilityWithExecute) Execute(ctx context.Context, callback chan<-
 func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
 	mcwe := &mockCapabilityWithExecute{
 		ExecuteFn: func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {
-			val, _ := values.NewString("hello")
+			val := values.NewString("hello")
 			callback <- CapabilityResponse{val, nil}
 
 			close(callback)
@@ -90,7 +90,7 @@ func Test_ExecuteSyncReturnSingleValue(t *testing.T) {
 }
 
 func Test_ExecuteSyncReturnMultipleValues(t *testing.T) {
-	es, _ := values.NewString("hello")
+	es := values.NewString("hello")
 	expectedList := []values.Value{es, es, es}
 	mcwe := &mockCapabilityWithExecute{
 		ExecuteFn: func(ctx context.Context, callback chan<- CapabilityResponse, req CapabilityRequest) error {

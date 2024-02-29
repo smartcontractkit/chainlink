@@ -70,7 +70,7 @@ func TestReportingPlugin_Observation(t *testing.T) {
 	rp, err := newReportingPlugin(s, nil, defaultBatchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
 
-	o, err := values.NewString("hello")
+	o := values.NewString("hello")
 	require.NoError(t, err)
 
 	eid := uuid.New().String()

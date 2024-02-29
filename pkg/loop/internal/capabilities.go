@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	valuespb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 )
 
 type ActionCapabilityClient struct {
@@ -442,19 +441,9 @@ func toProto(req capabilities.CapabilityRequest) (*pb.CapabilityRequest, error) 
 		inputs = req.Inputs
 	}
 
-	inputsPb, err := inputs.Proto()
-	if err != nil {
-		return nil, err
-	}
-
 	config := &values.Map{Underlying: map[string]values.Value{}}
 	if req.Config != nil {
 		config = req.Config
-	}
-
-	configPb, err := config.Proto()
-	if err != nil {
-		return nil, err
 	}
 
 	return &pb.CapabilityRequest{
@@ -462,8 +451,8 @@ func toProto(req capabilities.CapabilityRequest) (*pb.CapabilityRequest, error) 
 			WorkflowId:          req.Metadata.WorkflowID,
 			WorkflowExecutionId: req.Metadata.WorkflowExecutionID,
 		},
-		Inputs: inputsPb,
-		Config: configPb,
+		Inputs: values.Proto(inputs),
+		Config: values.Proto(config),
 	}, nil
 }
 
@@ -499,19 +488,14 @@ func (c *callbackExecutableClient) UnregisterFromWorkflow(ctx context.Context, r
 		config = req.Config
 	}
 
-	configPb, err := config.Proto()
-	if err != nil {
-		return err
-	}
-
 	r := &pb.UnregisterFromWorkflowRequest{
-		Config: configPb,
+		Config: values.Proto(config),
 		Metadata: &pb.RegistrationMetadata{
 			WorkflowId: req.Metadata.WorkflowID,
 		},
 	}
 
-	_, err = c.grpc.UnregisterFromWorkflow(ctx, r)
+	_, err := c.grpc.UnregisterFromWorkflow(ctx, r)
 	return err
 }
 
@@ -521,19 +505,14 @@ func (c *callbackExecutableClient) RegisterToWorkflow(ctx context.Context, req c
 		config = req.Config
 	}
 
-	configPb, err := config.Proto()
-	if err != nil {
-		return err
-	}
-
 	r := &pb.RegisterToWorkflowRequest{
-		Config: configPb,
+		Config: values.Proto(config),
 		Metadata: &pb.RegistrationMetadata{
 			WorkflowId: req.Metadata.WorkflowID,
 		},
 	}
 
-	_, err = c.grpc.RegisterToWorkflow(ctx, r)
+	_, err := c.grpc.RegisterToWorkflow(ctx, r)
 	return err
 }
 
@@ -594,24 +573,15 @@ func callbackIssuer(ctx context.Context, client pb.CallbackClient, callbackChann
 				}
 				return
 			}
-			var (
-				val    *valuespb.Value
-				errStr string
-			)
+
+			errStr := ""
 			if resp.Err != nil {
 				errStr = resp.Err.Error()
 			}
-			if resp.Value != nil {
-				v, err := resp.Value.Proto()
-				if err != nil {
-					errStr = err.Error()
-				} else {
-					val = v
-				}
-			}
+
 			cr := &pb.CapabilityResponse{
 				Error: errStr,
-				Value: val,
+				Value: values.Proto(resp.Value),
 			}
 
 			_, err := client.SendResponse(ctx, cr)

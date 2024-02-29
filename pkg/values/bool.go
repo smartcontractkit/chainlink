@@ -8,11 +8,11 @@ type Bool struct {
 	Underlying bool
 }
 
-func NewBool(b bool) (*Bool, error) {
-	return &Bool{Underlying: b}, nil
+func NewBool(b bool) *Bool {
+	return &Bool{Underlying: b}
 }
 
-func (b *Bool) Proto() (*pb.Value, error) {
+func (b *Bool) Proto() *pb.Value {
 	return pb.NewBoolValue(b.Underlying)
 }
 

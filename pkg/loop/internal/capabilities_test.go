@@ -140,7 +140,7 @@ func Test_Capabilities(t *testing.T) {
 			capabilities.CapabilityRequest{})
 		require.NoError(t, err)
 
-		vs, err := values.NewString("hello")
+		vs := values.NewString("hello")
 		require.NoError(t, err)
 		cr := capabilities.CapabilityResponse{
 			Value: vs,

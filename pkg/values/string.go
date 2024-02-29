@@ -8,11 +8,11 @@ type String struct {
 	Underlying string
 }
 
-func NewString(s string) (*String, error) {
-	return &String{Underlying: s}, nil
+func NewString(s string) *String {
+	return &String{Underlying: s}
 }
 
-func (s *String) Proto() (*pb.Value, error) {
+func (s *String) Proto() *pb.Value {
 	return pb.NewStringValue(s.Underlying)
 }
 

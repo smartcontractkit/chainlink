@@ -22,19 +22,11 @@ func AppendWorkflowIDs(outcome *AggregationOutcome, workflowID string, workflowE
 	if err != nil {
 		return nil, err
 	}
-	protoWID, err := valueWID.Proto()
-	if err != nil {
-		return nil, err
-	}
-	outcome.EncodableOutcome.Fields[WorkflowIDFieldName] = protoWID
+	outcome.EncodableOutcome.Fields[WorkflowIDFieldName] = values.Proto(valueWID)
 	valueWEID, err := values.Wrap(workflowExecutionID)
 	if err != nil {
 		return nil, err
 	}
-	protoWEID, err := valueWEID.Proto()
-	if err != nil {
-		return nil, err
-	}
-	outcome.EncodableOutcome.Fields[ExecutionIDFieldName] = protoWEID
+	outcome.EncodableOutcome.Fields[ExecutionIDFieldName] = values.Proto(valueWEID)
 	return outcome, nil
 }

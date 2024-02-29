@@ -82,14 +82,8 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 
 	obs := &pbtypes.Observations{}
 	for _, rq := range reqs {
-		obsPb, err := rq.Observations.Proto()
-		if err != nil {
-			r.lggr.Errorw("could not marshal observation to proto", "error", err, "request", rq)
-			continue
-		}
-
 		r := &pbtypes.Observation{
-			Observation: obsPb,
+			Observation: values.Proto(rq.Observations),
 			Id: &pbtypes.Id{
 				WorkflowExecutionId: rq.WorkflowExecutionID,
 				WorkflowId:          rq.WorkflowID,
@@ -254,19 +248,14 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 }
 
 func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte]) (bool, error) {
-	b, err := values.NewBytes(rwi.Report)
-	if err != nil {
-		r.lggr.Errorw("could not convert report bytes into value", "error", err)
-		return false, err
-	}
-
 	id := &pbtypes.Id{}
-	err = proto.Unmarshal(rwi.Info, id)
+	err := proto.Unmarshal(rwi.Info, id)
 	if err != nil {
 		r.lggr.Error("could not unmarshal id")
 		return false, err
 	}
 
+	b := values.NewBytes(rwi.Report)
 	r.lggr.Debugw("ShouldAcceptAttestedReport transmitting", "len", len(b.Underlying))
 	err = r.r.transmitResponse(ctx, response{
 		Value:               b,
