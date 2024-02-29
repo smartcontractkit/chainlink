@@ -75,7 +75,7 @@ func NewInMemoryStore[
 	}
 
 	maxUnstarted := int(config.MaxQueued())
-	addresses, err := keyStore.EnabledAddressesForChain(chainID)
+	addresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("new_in_memory_store: %w", err)
 	}
