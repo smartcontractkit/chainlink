@@ -1,10 +1,12 @@
 package zcluster
 
 import (
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"testing"
+
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
-	"testing"
+
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestClusterEntrypoint(t *testing.T) {

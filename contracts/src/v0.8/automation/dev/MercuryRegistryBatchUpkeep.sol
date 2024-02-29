@@ -61,6 +61,14 @@ contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInter
     return i_registry.checkCallback(values, lookupData);
   }
 
+  function checkErrorHandler(
+    uint256 /* errCode */,
+    bytes memory /* extraData */
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function with default values
+    return (false, new bytes(0));
+  }
+
   // Use the master registry to update state.
   function performUpkeep(bytes calldata performData) external override {
     i_registry.performUpkeep(performData);
