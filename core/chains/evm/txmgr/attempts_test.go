@@ -23,15 +23,13 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewEvmAddress() gethcommon.Address {
@@ -133,26 +131,26 @@ func TestTxm_SignTx(t *testing.T) {
 	})
 
 	t.Run("can properly encoded and decode raw transaction for ZkSyncTx", func(t *testing.T) {
-		cfg, db := heavyweight.FullTestDBV2(t, nil)
-		chainID := big.NewInt(300)
-		keystore := keystore.NewInMemory(db, utils.FastScryptParams, corelogger.TestLogger(t), cfg.Database())
-		nonce:= evmtypes.Nonce(42)
+		db := pgtest.NewSqlxDB(t)
+		ccfg := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr[bool](true)
+			c.EVM[0].GasEstimator.PriceMax = assets.NewWei(big.NewInt(100_000_000))
+		}))
+		chainID := big.NewInt(324)
+		keystore := cltest.NewKeyStore(t, db, ccfg.Database()).Eth()
+		nonce := evmtypes.Nonce(42)
 		txmTx := txmgr.Tx{
-			Sequence: &nonce,
+			Sequence:  &nonce,
 			ToAddress: to,
-			Value: *big.NewInt(142),
-			FeeLimit: 500_000,
+			Value:     *big.NewInt(142),
+			FeeLimit:  500_000,
 		}
 		fee := gas.EvmFee{
-			DynamicFeeCap: assets.NewWei(big.NewInt(1000000000000)),
-    		DynamicTipCap: assets.NewWei(big.NewInt(1000000000000)),
+			DynamicFeeCap: assets.NewWei(big.NewInt(100_000_000)),
+			DynamicTipCap: assets.NewWei(big.NewInt(10_000_000)),
 		}
-		feeConfig := &feeConfig{
-			tipCapMin: assets.NewWeiI(0),
-			priceMin:  assets.NewWeiI(0),
-			priceMax:  assets.NewWeiI(1_000_000_000),
-		}
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, config.ChainZkSync, feeConfig, keystore.Eth(), nil)
+		cltest.MustInsertRandomKeyReturningState(t, keystore)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, config.ChainZkSync, ccfg.EVM().GasEstimator(), keystore, nil)
 		attempt, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, fee, 242, 0x1, logger.Test(t))
 		require.NoError(t, err)
 		require.Equal(t, "", hexutil.Encode(attempt.SignedRawTx))
