@@ -273,71 +273,32 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUn
 	return nil
 }
 
-// MoveUnstartedToFatalError moves the unstarted transaction to the fatal error state.
-// It returns an error if there is no unstarted transaction with the given ID.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveUnstartedToFatalError(
+// MoveTxToFatalError moves a transaction to the fatal error state.
+// It returns an error if there is no transaction with the given ID.
+// It returns an error if the transaction is not in an expected state.
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveTxToFatalError(
 	txID int64, txError null.String,
 ) error {
 	as.Lock()
 	defer as.Unlock()
 
-	tx := as.unstartedTxs.RemoveTxByID(txID)
+	tx := as.allTxs[txID]
 	if tx == nil {
-		return fmt.Errorf("move_unstarted_to_fatal_error: no unstarted transaction with ID %d", txID)
+		return fmt.Errorf("move_tx_to_fatal_error: no transaction with ID %d", txID)
 	}
 
-	tx.State = TxFatalError
-	tx.Sequence = nil
-	tx.TxAttempts = nil
-	tx.InitialBroadcastAt = nil
-	tx.Error = txError
-	as.fatalErroredTxs[tx.ID] = tx
+	as.moveTxToFatalError(tx, txError)
 
-	return nil
-}
-
-// MoveInProgressToFatalError moves the in-progress transaction to the fatal error state.
-// If there is no in-progress transaction, an error is returned.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveInProgressToFatalError(txError null.String) error {
-	as.Lock()
-	defer as.Unlock()
-
-	tx := as.inprogressTx
-	if tx == nil {
-		return fmt.Errorf("move_in_progress_to_fatal_error: no transaction in progress")
+	switch tx.State {
+	case TxUnstarted:
+		_ = as.unstartedTxs.RemoveTxByID(txID)
+	case TxInProgress:
+		as.inprogressTx = nil
+	case TxConfirmedMissingReceipt:
+		delete(as.confirmedMissingReceiptTxs, tx.ID)
+	default:
+		return fmt.Errorf("move_tx_to_fatal_error: transaction with ID %d is in an unexpected state: %s", txID, tx.State)
 	}
-
-	tx.State = TxFatalError
-	tx.Sequence = nil
-	tx.TxAttempts = nil
-	tx.InitialBroadcastAt = nil
-	tx.Error = txError
-	as.fatalErroredTxs[tx.ID] = tx
-	as.inprogressTx = nil
-
-	return nil
-}
-
-// MoveConfirmedMissingReceiptToFatalError moves the confirmed missing receipt transaction to the fatal error state.
-// If there is no confirmed missing receipt transaction with the given ID, an error is returned.
-func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MoveConfirmedMissingReceiptToFatalError(
-	txID int64, txError null.String,
-) error {
-	as.Lock()
-	defer as.Unlock()
-
-	tx, ok := as.confirmedMissingReceiptTxs[txID]
-	if !ok || tx == nil {
-		return fmt.Errorf("move_confirmed_missing_receipt_to_fatal_error: no confirmed_missing_receipt transaction with ID %d", txID)
-	}
-
-	tx.State = TxFatalError
-	tx.Sequence = nil
-	tx.TxAttempts = nil
-	tx.InitialBroadcastAt = nil
-	tx.Error = txError
-	as.fatalErroredTxs[tx.ID] = tx
-	delete(as.confirmedMissingReceiptTxs, tx.ID)
 
 	return nil
 }
@@ -493,4 +454,16 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) delete
 		delete(as.fatalErroredTxs, txID)
 		as.unstartedTxs.RemoveTxByID(txID)
 	}
+}
+
+func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTxToFatalError(
+	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	txError null.String,
+) {
+	tx.State = TxFatalError
+	tx.Sequence = nil
+	tx.TxAttempts = nil
+	tx.InitialBroadcastAt = nil
+	tx.Error = txError
+	as.fatalErroredTxs[tx.ID] = tx
 }
