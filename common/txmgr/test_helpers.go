@@ -91,7 +91,7 @@ func (b *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTes
 ) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, as := range b.addressStates {
-		txs = append(txs, as.FetchTxs(txStates, filter, txIDs...)...)
+		txs = append(txs, as.FindTxs(txStates, filter, txIDs...)...)
 	}
 
 	return txs
