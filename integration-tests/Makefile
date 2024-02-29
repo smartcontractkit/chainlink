@@ -130,7 +130,7 @@ test_node_migrations: install_gotestfmt ## Run all node migration tests.
 	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
 
 .PHONY: test_node_migrations_simulated
-test_node_migrations_simulated: install_gotestfmt 
+test_node_migrations_simulated: install_gotestfmt
 	TEST_LOG_LEVEL="disabled" \
 	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
 
@@ -145,30 +145,22 @@ test_node_migrations_simulated_verbose:
 # Soak
 .PHONY: test_soak_ocr
 test_soak_ocr:
-	go test -v -count=1 -run TestOCRSoak ./soak
-
-.PHONY: test_soak_ocr_simulated
-test_soak_ocr_simulated:
+	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run TestOCRSoak ./soak
 
 .PHONY: test_soak_forwarder_ocr
 test_soak_forwarder_ocr:
-	go test -v -count=1 -run TestForwarderOCRSoak ./soak
-
-.PHONY: test_soak_forwarder_ocr_simulated
-test_soak_forwarder_ocr_simulated:
+	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run TestForwarderOCRSoak ./soak
 
 .PHONY: test_soak_automation
 test_soak_automation:
-	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
-
-.PHONY: test_soak_automation_simulated
-test_soak_automation_simulated:
+	. ./scripts/check_base64_env_var.sh
 	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_benchmark_automation
 test_benchmark_automation: ## Run the automation benchmark tests
+	. ./scripts/check_base64_env_var.sh
 	go test -timeout 30m -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_reorg_automation

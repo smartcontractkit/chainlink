@@ -1,6 +1,8 @@
 package types
 
 import (
+	"sync"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -12,6 +14,7 @@ type PriorityQueue[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	sync.RWMutex
 	txs       []*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	idToIndex map[int64]int
 }
@@ -34,12 +37,18 @@ func NewPriorityQueue[
 
 // Close clears the queue
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
+	pq.Lock()
+	defer pq.Unlock()
+
 	clear(pq.txs)
 	clear(pq.idToIndex)
 }
 
 // FindIndexByID returns the index of the transaction with the given ID
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindIndexByID(id int64) int {
+	pq.RLock()
+	defer pq.RUnlock()
+
 	i, ok := pq.idToIndex[id]
 	if !ok {
 		return -1
@@ -49,6 +58,9 @@ func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindI
 
 // Peek returns the next transaction to be processed
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Peek() *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	pq.RLock()
+	defer pq.RUnlock()
+
 	if len(pq.txs) == 0 {
 		return nil
 	}
@@ -57,26 +69,43 @@ func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Peek(
 
 // Cap returns the capacity of the queue
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Cap() int {
+	pq.RLock()
+	defer pq.RUnlock()
+
 	return cap(pq.txs)
 }
 
 // Len, Less, Swap, Push, and Pop methods implement the heap interface
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Len() int {
+	pq.RLock()
+	defer pq.RUnlock()
+
 	return len(pq.txs)
 }
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Less(i, j int) bool {
+	pq.RLock()
+	defer pq.RUnlock()
 	// We want Pop to give us the oldest, not newest, transaction based on creation time
 	return pq.txs[i].CreatedAt.Before(pq.txs[j].CreatedAt)
 }
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Swap(i, j int) {
+	pq.Lock()
+	defer pq.Unlock()
+
 	pq.txs[i], pq.txs[j] = pq.txs[j], pq.txs[i]
 	pq.idToIndex[pq.txs[i].ID] = j
 	pq.idToIndex[pq.txs[j].ID] = i
 }
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Push(tx any) {
+	pq.Lock()
+	defer pq.Unlock()
+
 	pq.txs = append(pq.txs, tx.(*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]))
 }
 func (pq *PriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pop() any {
+	pq.Lock()
+	defer pq.Unlock()
+
 	old := pq.txs
 	n := len(old)
 	tx := old[n-1]

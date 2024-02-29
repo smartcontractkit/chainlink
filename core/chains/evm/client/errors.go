@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -36,7 +36,7 @@ func (s *SendError) Fatal() bool {
 // CauseStr returns the string of the original error
 func (s *SendError) CauseStr() string {
 	if s.err != nil {
-		return errors.Cause(s.err).Error()
+		return pkgerrors.Cause(s.err).Error()
 	}
 	return ""
 }
@@ -316,7 +316,7 @@ func (s *SendError) IsTimeout() bool {
 	if s.err == nil {
 		return false
 	}
-	return errors.Is(s.err, context.DeadlineExceeded)
+	return pkgerrors.Is(s.err, context.DeadlineExceeded)
 }
 
 // IsCanceled indicates if the error was caused by an context cancellation
@@ -327,18 +327,18 @@ func (s *SendError) IsCanceled() bool {
 	if s.err == nil {
 		return false
 	}
-	return errors.Is(s.err, context.Canceled)
+	return pkgerrors.Is(s.err, context.Canceled)
 }
 
 func NewFatalSendError(e error) *SendError {
 	if e == nil {
 		return nil
 	}
-	return &SendError{err: errors.WithStack(e), fatal: true}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: true}
 }
 
 func NewSendErrorS(s string) *SendError {
-	return NewSendError(errors.New(s))
+	return NewSendError(pkgerrors.New(s))
 }
 
 func NewSendError(e error) *SendError {
@@ -346,7 +346,7 @@ func NewSendError(e error) *SendError {
 		return nil
 	}
 	fatal := isFatalSendError(e)
-	return &SendError{err: errors.WithStack(e), fatal: fatal}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
@@ -356,7 +356,7 @@ func isFatalSendError(err error) bool {
 	if err == nil {
 		return false
 	}
-	str := errors.Cause(err).Error()
+	str := pkgerrors.Cause(err).Error()
 	for _, client := range clients {
 		if _, ok := client[Fatal]; !ok {
 			continue
@@ -414,20 +414,20 @@ func ExtractRPCErrorOrNil(err error) *JsonError {
 // { "error":  { "code": 3, "data": "0xABC123...", "message": "execution reverted: hello world" } } // revert reason automatically parsed if a simple require and included in message.
 func ExtractRPCError(baseErr error) (*JsonError, error) {
 	if baseErr == nil {
-		return nil, errors.New("no error present")
+		return nil, pkgerrors.New("no error present")
 	}
-	cause := errors.Cause(baseErr)
+	cause := pkgerrors.Cause(baseErr)
 	jsonBytes, err := json.Marshal(cause)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to marshal err to json")
+		return nil, pkgerrors.Wrap(err, "unable to marshal err to json")
 	}
 	jErr := JsonError{}
 	err = json.Unmarshal(jsonBytes, &jErr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to unmarshal json into jsonError struct (got: %v)", baseErr)
+		return nil, pkgerrors.Wrapf(err, "unable to unmarshal json into jsonError struct (got: %v)", baseErr)
 	}
 	if jErr.Code == 0 {
-		return nil, errors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
+		return nil, pkgerrors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
 	}
 	return &jErr, nil
 }
@@ -443,7 +443,7 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		return commonclient.Fatal
 	}
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
-		lggr.Debugw("Transaction already confirmed for this nonce: %d", tx.Nonce(), "err", sendError, "etx", tx)
+		lggr.Debugw(fmt.Sprintf("Transaction already confirmed for this nonce: %d", tx.Nonce()), "err", sendError, "etx", tx)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
 		return commonclient.TransactionAlreadyKnown
@@ -491,15 +491,15 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		return commonclient.InsufficientFunds
 	}
 	if sendError.IsServiceUnavailable() {
-		lggr.Errorw("service unavailable while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		lggr.Errorw(fmt.Sprintf("service unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsTimeout() {
-		lggr.Errorw("timeout while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		lggr.Errorw(fmt.Sprintf("timeout while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsCanceled() {
-		lggr.Errorw("context was canceled while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		lggr.Errorw(fmt.Sprintf("context was canceled while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsTxFeeExceedsCap() {

@@ -22,7 +22,7 @@ import (
 // This actions file often returns functions, rather than just values. These are used as common test helpers, and are
 // handy to have returning as functions so that Ginkgo can use them in an aesthetically pleasing way.
 
-// DeployOCRContracts deploys and funds a certain number of offchain aggregator contracts
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.DeployOCRContracts
 func DeployOCRContracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
@@ -90,7 +90,7 @@ func DeployOCRContracts(
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfig(
-			workerNodes,
+			contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			transmitterAddresses,
 		)
@@ -113,6 +113,7 @@ func DeployOCRContracts(
 
 // DeployOCRContractsForwarderFlow deploys and funds a certain number of offchain
 // aggregator contracts with forwarders as effectiveTransmitters
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.DeployOCRContractsForwarderFlow
 func DeployOCRContractsForwarderFlow(
 	t *testing.T,
 	numberOfContracts int,
@@ -163,7 +164,7 @@ func DeployOCRContractsForwarderFlow(
 	for contractCount, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfig(
-			workerNodes,
+			contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
 			forwarderAddresses,
 		)
@@ -267,7 +268,7 @@ func CreateOCRJobsWithForwarder(
 	workerNodes []*client.ChainlinkK8sClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
-	evmChainID string,
+	evmChainID int64,
 ) {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -276,7 +277,7 @@ func CreateOCRJobsWithForwarder(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
-			EVMChainID:      evmChainID,
+			EVMChainID:      fmt.Sprint(evmChainID),
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -307,7 +308,7 @@ func CreateOCRJobsWithForwarder(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
-				EVMChainID:         evmChainID,
+				EVMChainID:         fmt.Sprint(evmChainID),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
@@ -322,6 +323,7 @@ func CreateOCRJobsWithForwarder(
 }
 
 // StartNewRound requests a new round from the ocr contracts and waits for confirmation
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.StartNewRound
 func StartNewRound(
 	roundNumber int64,
 	ocrInstances []contracts.OffchainAggregator,
@@ -345,6 +347,7 @@ func StartNewRound(
 
 // WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
 // round from the contract, as this can cause some odd behavior in some cases
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.WatchNewRound
 func WatchNewRound(
 	roundNumber int64,
 	ocrInstances []contracts.OffchainAggregator,
@@ -430,7 +433,7 @@ func SetAllAdapterResponsesToDifferentValues(
 }
 
 // BuildNodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCR contract
-func BuildNodeContractPairID(node *client.ChainlinkK8sClient, ocrInstance contracts.OffchainAggregator) (string, error) {
+func BuildNodeContractPairID(node contracts.ChainlinkNodeWithKeysAndAddress, ocrInstance contracts.OffchainAggregator) (string, error) {
 	if node == nil {
 		return "", fmt.Errorf("chainlink node is nil")
 	}
