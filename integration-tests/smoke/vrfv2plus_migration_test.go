@@ -216,9 +216,9 @@ func TestVRFv2PlusWrapperMigration(t *testing.T) {
 
 	// Verify rand requests fulfills with Link Token billing
 	isNativeBilling := false
-	randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
+	randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillmentUpgraded(
 		wrapperContracts.LoadTestConsumers[0],
-		vrfv2PlusContracts.CoordinatorV2Plus,
+		newCoordinator,
 		vrfv2PlusData,
 		wrapperSubID,
 		isNativeBilling,
@@ -237,9 +237,9 @@ func TestVRFv2PlusWrapperMigration(t *testing.T) {
 
 	// Verify rand requests fulfills with Native Token billing
 	isNativeBilling = true
-	randomWordsFulfilledEvent, err = vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
+	randomWordsFulfilledEvent, err = vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillmentUpgraded(
 		wrapperContracts.LoadTestConsumers[0],
-		vrfv2PlusContracts.CoordinatorV2Plus,
+		newCoordinator,
 		vrfv2PlusData,
 		wrapperSubID,
 		isNativeBilling,
