@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -48,4 +49,37 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestRes
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestAbandon(addr ADDR) (err error) {
 	return b.abandon(addr)
+}
+
+func (b *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestInsertTx(fromAddr ADDR, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	as, ok := b.addressStates[fromAddr]
+	if !ok {
+		return fmt.Errorf("address not found: %s", fromAddr)
+	}
+
+	as.allTxs[tx.ID] = tx
+	if tx.IdempotencyKey != nil && *tx.IdempotencyKey != "" {
+		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
+	}
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		txAttempt := tx.TxAttempts[i]
+		as.attemptHashToTxAttempt[txAttempt.Hash] = txAttempt
+	}
+
+	switch tx.State {
+	case TxUnstarted:
+		as.unstartedTxs.AddTx(tx)
+	case TxInProgress:
+		as.inprogressTx = tx
+	case TxUnconfirmed:
+		as.unconfirmedTxs[tx.ID] = tx
+	case TxConfirmed:
+		as.confirmedTxs[tx.ID] = tx
+	case TxConfirmedMissingReceipt:
+		as.confirmedMissingReceiptTxs[tx.ID] = tx
+	case TxFatalError:
+		as.fatalErroredTxs[tx.ID] = tx
+	}
+
+	return nil
 }
