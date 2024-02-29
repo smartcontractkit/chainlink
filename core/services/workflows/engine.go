@@ -115,6 +115,7 @@ func (e *Engine) registerTrigger(ctx context.Context) error {
 	triggerInputs, err := values.NewMap(
 		map[string]any{
 			"triggerId": mockedTriggerID,
+			"feedIds":   []any{837699011992234352, 199223435283769901, 352837699011992234},
 		},
 	)
 	if err != nil {
@@ -247,7 +248,7 @@ func NewEngine(lggr logger.Logger, registry types.CapabilitiesRegistry) (engine 
 	}
 
 	// Trigger
-	engine.triggerType = "on_mercury_report"
+	engine.triggerType = "mercury-trigger"
 	engine.triggerConfig, err = values.NewMap(
 		map[string]any{
 			"feedlist": []any{

@@ -12,8 +12,8 @@ ALTER TABLE evm.log_poller_filters
     ADD COLUMN topic2 BYTEA CHECK (octet_length(topic2) = 32),
     ADD COLUMN topic3 BYTEA CHECK (octet_length(topic3) = 32),
     ADD COLUMN topic4 BYTEA CHECK (octet_length(topic4) = 32),
-    ADD COLUMN max_logs_kept BIGINT,
-    ADD COLUMN logs_per_block BIGINT;
+    ADD COLUMN max_logs_kept BIGINT not null default 0,
+    ADD COLUMN logs_per_block BIGINT not null default 0;
 
 CREATE UNIQUE INDEX log_poller_filters_hash_key ON evm.log_poller_filters (evm.f_log_poller_filter_hash(name, evm_chain_id, address, event, topic2, topic3, topic4));
 
