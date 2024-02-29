@@ -936,6 +936,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		*config.VRFv2Plus.General.NumberOfWords,
 		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
 		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+		config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -952,6 +953,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		*config.VRFv2Plus.General.NumberOfWords,
 		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
 		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+		config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

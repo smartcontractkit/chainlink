@@ -50,6 +50,69 @@ type EthereumVRFV2PlusWrapper struct {
 	wrapper *vrfv2plus_wrapper.VRFV2PlusWrapper
 }
 
+func (v *EthereumVRFV2PlusWrapper) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
+	coordinatorGasOverhead uint32,
+	wrapperPremiumPercentage uint8,
+	keyHash [32]byte,
+	maxNumWords uint8,
+	stalenessSeconds uint32,
+	fallbackWeiPerUnitLink *big.Int,
+	fulfillmentFlatFeeLinkPPM uint32,
+	fulfillmentFlatFeeNativePPM uint32,
+) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.wrapper.SetConfig(
+		opts,
+		wrapperGasOverhead,
+		coordinatorGasOverhead,
+		wrapperPremiumPercentage,
+		keyHash,
+		maxNumWords,
+		stalenessSeconds,
+		fallbackWeiPerUnitLink,
+		fulfillmentFlatFeeLinkPPM,
+		fulfillmentFlatFeeNativePPM,
+	)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFV2PlusWrapper) GetSubID(ctx context.Context) (*big.Int, error) {
+	return v.wrapper.SUBSCRIPTIONID(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumVRFV2PlusWrapper) Migrate(ctx context.Context, newCoordinator common.Address) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.wrapper.Migrate(opts, newCoordinator)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFV2PlusWrapper) Coordinator(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	return v.wrapper.SVrfCoordinator(opts)
+}
+
 // DeployVRFCoordinatorV2_5 deploys VRFV2_5 coordinator contract
 func (e *EthereumContractDeployer) DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV2Plus", func(
@@ -901,10 +964,6 @@ func (e *EthereumContractDeployer) DeployVRFV2PlusWrapper(linkAddr string, linkE
 	}, err
 }
 
-func (v *EthereumVRFV2PlusWrapper) Address() string {
-	return v.address.Hex()
-}
-
 func (e *EthereumContractDeployer) DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFV2PlusWrapperLoadTestConsumer", func(
 		auth *bind.TransactOpts,
@@ -924,45 +983,6 @@ func (e *EthereumContractDeployer) DeployVRFV2PlusWrapperLoadTestConsumer(linkAd
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Address() string {
 	return v.address.Hex()
-}
-
-func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
-	coordinatorGasOverhead uint32,
-	wrapperPremiumPercentage uint8,
-	keyHash [32]byte,
-	maxNumWords uint8,
-	stalenessSeconds uint32,
-	fallbackWeiPerUnitLink *big.Int,
-	fulfillmentFlatFeeLinkPPM uint32,
-	fulfillmentFlatFeeNativePPM uint32,
-) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.wrapper.SetConfig(
-		opts,
-		wrapperGasOverhead,
-		coordinatorGasOverhead,
-		wrapperPremiumPercentage,
-		keyHash,
-		maxNumWords,
-		stalenessSeconds,
-		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
-		fulfillmentFlatFeeNativePPM,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumVRFV2PlusWrapper) GetSubID(ctx context.Context) (*big.Int, error) {
-	return v.wrapper.SUBSCRIPTIONID(&bind.CallOpts{
-		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	})
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Fund(ethAmount *big.Float) error {

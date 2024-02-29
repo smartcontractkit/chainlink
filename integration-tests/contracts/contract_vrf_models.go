@@ -166,6 +166,8 @@ type VRFV2PlusWrapper interface {
 	Address() string
 	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) error
 	GetSubID(ctx context.Context) (*big.Int, error)
+	Migrate(ctx context.Context, newCoordinator common.Address) error
+	Coordinator(ctx context.Context) (common.Address, error)
 }
 
 type VRFOwner interface {
