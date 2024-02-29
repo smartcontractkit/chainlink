@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
@@ -458,7 +459,13 @@ type configTransmitterOpts struct {
 	pluginGasLimit *uint32
 }
 
+// newOnChainContractTransmitter creates a new contract transmitter with the default queueing topic.
 func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI) (*contractTransmitter, error) {
+	return newOnChainContractTransmitterForTopic(ctx, rargs.ExternalJobID, lggr, rargs, transmitterID, ethKeystore, configWatcher, opts, transmissionContractABI)
+}
+
+// newOnChainContractTransmitterForTopic creates a new contract transmitter with the specified queueing topic.
+func newOnChainContractTransmitterForTopic(ctx context.Context, topic uuid.UUID, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -488,7 +495,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	}
 
 	scoped := configWatcher.chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(topic, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
 	var checker txm.TransmitCheckerSpec
 	if configWatcher.chain.Config().OCR2().SimulateTransactions() {
