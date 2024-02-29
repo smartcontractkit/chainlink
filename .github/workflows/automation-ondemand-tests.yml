@@ -141,6 +141,7 @@ jobs:
 #            network: SIMULATED_NONDEV
 #            command: -run ^TestAutomationReorg$ ./reorg
           - name: upgrade 2.0
+            type: upgrade
             suite: smoke
             nodes: 1
             os: ubuntu20.04-8cores-32GB
@@ -148,6 +149,7 @@ jobs:
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
           - name: upgrade 2.1
+            type: upgrade
             suite: smoke
             nodes: 5
             os: ubuntu20.04-8cores-32GB
@@ -155,6 +157,7 @@ jobs:
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
           - name: upgrade 2.2
+            type: upgrade
             suite: smoke
             nodes: 5
             os: ubuntu20.04-8cores-32GB
@@ -185,7 +188,7 @@ jobs:
             echo "upgrade_version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
             echo "upgrade_image=$READ_CL_IMAGE" >>$GITHUB_OUTPUT
           fi
-          if [[ "${{ matrix.tests.name }}" == "upgrade" ]]; then
+          if [[ "${{ matrix.tests.type }}" == "upgrade" ]]; then
             READ_CL_UPGR_IMAGE=$(jq -r '.inputs.chainlinkImageUpdate' $GITHUB_EVENT_PATH)
             echo ::add-mask::$READ_CL_UPGR_IMAGE
             echo "image=$READ_CL_UPGR_IMAGE" >>$GITHUB_OUTPUT
