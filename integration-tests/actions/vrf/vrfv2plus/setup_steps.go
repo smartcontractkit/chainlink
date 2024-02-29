@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -307,39 +306,6 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 	return wrapperContracts, wrapperSubID, nil
-}
-
-func ReturnFundsForFulfilledRequests(ctx context.Context, client blockchain.EVMClient, coordinator contracts.VRFCoordinatorV2_5, l zerolog.Logger) error {
-	linkTotalBalance, err := coordinator.GetLinkTotalBalance(ctx)
-	if err != nil {
-		return fmt.Errorf("Error getting LINK total balance, err: %w", err)
-	}
-	defaultWallet := client.GetDefaultWallet().Address()
-	l.Info().
-		Str("LINK amount", linkTotalBalance.String()).
-		Str("Returning to", defaultWallet).
-		Msg("Returning LINK for fulfilled requests")
-	err = coordinator.Withdraw(
-		common.HexToAddress(defaultWallet),
-	)
-	if err != nil {
-		return fmt.Errorf("Error withdrawing LINK from coordinator to default wallet, err: %w", err)
-	}
-	nativeTotalBalance, err := coordinator.GetNativeTokenTotalBalance(ctx)
-	if err != nil {
-		return fmt.Errorf("Error getting NATIVE total balance, err: %w", err)
-	}
-	l.Info().
-		Str("Native Token amount", nativeTotalBalance.String()).
-		Str("Returning to", defaultWallet).
-		Msg("Returning Native Token for fulfilled requests")
-	err = coordinator.WithdrawNative(
-		common.HexToAddress(defaultWallet),
-	)
-	if err != nil {
-		return fmt.Errorf("Error withdrawing NATIVE from coordinator to default wallet, err: %w", err)
-	}
-	return nil
 }
 
 func SetupVRFV2PlusUniverse(ctx context.Context, t *testing.T, testConfig tc.TestConfig, cleanupFn func(), newEnvConfig vrfcommon.NewEnvConfig, l zerolog.Logger) (*test_env.CLClusterTestEnv, *vrfcommon.VRFContracts, []*big.Int, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
