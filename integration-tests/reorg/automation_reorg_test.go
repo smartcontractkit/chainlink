@@ -151,8 +151,8 @@ func TestAutomationReorg(t *testing.T) {
 			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
 
 			var overrideFn = func(_ interface{}, target interface{}) {
-				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
-				ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+				ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 			}
 
 			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
