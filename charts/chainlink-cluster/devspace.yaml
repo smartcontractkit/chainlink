@@ -37,7 +37,7 @@ pipelines:
       run_dependencies --all
       ensure_pull_secrets --all
       build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
-      kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL} || true
+      kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
       if [ -n "$1" ]; then
         echo "Deploying tag $1"
@@ -71,7 +71,9 @@ pipelines:
       --set=helm.values.chainlink.nodes[3].image=$image \
       --set=helm.values.chainlink.nodes[4].image=$image \
       --set=helm.values.chainlink.nodes[5].image=$image
+      echo
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
+      echo "To extend the TTL for e.g. 72 hours, run: devspace ttl ${DEVSPACE_NAMESPACE} 72h"
 
       echo
       echo "############################################"
@@ -90,7 +92,7 @@ commands:
   connect: |-
     sudo kubefwd svc -n $1
   ttl: |-
-    kubectl annotate namespace $1 janitor/ttl=$2 --overwrite
+    kubectl label namespace $1 cleanup.kyverno.io/ttl=$2 --overwrite
 
 images:
   app:
