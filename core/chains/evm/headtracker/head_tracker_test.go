@@ -826,7 +826,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 		for i := range opts.Heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &heads[i]))
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &opts.Heads[i]))
 		}
 		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
@@ -969,6 +969,20 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		// Should contain 14, 13 (15 was never added). When trying to get the parent of h13 by hash, a reorg happened and backfill exited.
 		assert.Equal(t, 2, int(h.ChainLength()))
 		assert.Equal(t, int64(13), h.EarliestInChain().BlockNumber())
+	})
+	t.Run("marks head as finalized, if latestHead = finalizedHead (0 finality depth)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{Heads: []evmtypes.Head{h15}})
+		finalizedH15 := h15 // copy h15 to have different addresses
+		err := htu.headTracker.Backfill(ctx, &h15, &finalizedH15)
+		require.NoError(t, err)
+
+		h := htu.headSaver.LatestChain()
+
+		// Should contain 14, 13 (15 was never added). When trying to get the parent of h13 by hash, a reorg happened and backfill exited.
+		assert.Equal(t, 1, int(h.ChainLength()))
+		assert.True(t, h.IsFinalized)
+		assert.Equal(t, h15.BlockNumber(), h.BlockNumber())
+		assert.Equal(t, h15.Hash, h.Hash)
 	})
 }
 
