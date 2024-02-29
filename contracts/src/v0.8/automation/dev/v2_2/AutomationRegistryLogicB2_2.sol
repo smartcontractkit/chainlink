@@ -232,7 +232,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    * @notice pauses the entire registry
    */
   function pause() external onlyOwner {
-    s_hotVars.paused = true;
+    s_hotVars.boolFlags = s_hotVars.boolFlags | (1 << 0);
     emit Paused(msg.sender);
   }
 
@@ -240,7 +240,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    * @notice unpauses the entire registry
    */
   function unpause() external onlyOwner {
-    s_hotVars.paused = false;
+    uint8 mask = 1 << 0;
+    s_hotVars.boolFlags = s_hotVars.boolFlags & ~mask;
     emit Unpaused(msg.sender);
   }
 
@@ -429,7 +430,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       latestConfigDigest: s_latestConfigDigest,
       latestEpoch: s_hotVars.latestEpoch,
-      paused: s_hotVars.paused
+      paused: _isRegistryPaused(s_hotVars.boolFlags)
     });
 
     config = OnchainConfigLegacy({
@@ -458,13 +459,6 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
    */
   function getChainModule() external view returns (IChainModule chainModule) {
     return s_hotVars.chainModule;
-  }
-
-  /**
-   * @notice if this registry has reorg protection enabled
-   */
-  function getReorgProtectionEnabled() external view returns (bool reorgProtectionEnabled) {
-    return s_hotVars.reorgProtectionEnabled;
   }
 
   /**
