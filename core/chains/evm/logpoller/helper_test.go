@@ -3,11 +3,12 @@ package logpoller_test
 import (
 	"context"
 	"database/sql"
-	"github.com/pkg/errors"
 	"math/big"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
