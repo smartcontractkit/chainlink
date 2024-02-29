@@ -23,25 +23,25 @@ type ORM interface {
 	FindForwardersInListByChain(ctx context.Context, evmChainId big.Big, addrs []common.Address) ([]Forwarder, error)
 }
 
-type DbORM struct {
+type orm struct {
 	db sqlutil.Queryer
 }
 
-var _ ORM = &DbORM{}
+var _ ORM = &orm{}
 
-func NewORM(db sqlutil.Queryer) *DbORM {
-	return &DbORM{db: db}
+func NewORM(db sqlutil.Queryer) *orm {
+	return &orm{db: db}
 }
 
-func (o *DbORM) Transaction(ctx context.Context, fn func(*DbORM) error) (err error) {
+func (o *orm) Transaction(ctx context.Context, fn func(*orm) error) (err error) {
 	return sqlutil.Transact(ctx, o.new, o.db, nil, fn)
 }
 
 // new returns a NewORM like o, but backed by q.
-func (o *DbORM) new(q sqlutil.Queryer) *DbORM { return NewORM(q) }
+func (o *orm) new(q sqlutil.Queryer) *orm { return NewORM(q) }
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.
-func (o *DbORM) CreateForwarder(ctx context.Context, addr common.Address, evmChainId big.Big) (fwd Forwarder, err error) {
+func (o *orm) CreateForwarder(ctx context.Context, addr common.Address, evmChainId big.Big) (fwd Forwarder, err error) {
 	sql := `INSERT INTO evm.forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
 	err = o.db.GetContext(ctx, &fwd, sql, addr, evmChainId)
 	return fwd, err
@@ -50,8 +50,8 @@ func (o *DbORM) CreateForwarder(ctx context.Context, addr common.Address, evmCha
 // DeleteForwarder removes a forwarder address.
 // If cleanup is non-nil, it can be used to perform any chain- or contract-specific cleanup that need to happen atomically
 // on forwarder deletion.  If cleanup returns an error, forwarder deletion will be aborted.
-func (o *DbORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.Queryer, evmChainID int64, addr common.Address) error) (err error) {
-	return o.Transaction(ctx, func(orm *DbORM) error {
+func (o *orm) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.Queryer, evmChainID int64, addr common.Address) error) (err error) {
+	return o.Transaction(ctx, func(orm *orm) error {
 		var dest struct {
 			EvmChainId int64
 			Address    common.Address
@@ -82,7 +82,7 @@ func (o *DbORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx s
 }
 
 // FindForwarders returns all forwarder addresses from offset up until limit.
-func (o *DbORM) FindForwarders(ctx context.Context, offset, limit int) (fwds []Forwarder, count int, err error) {
+func (o *orm) FindForwarders(ctx context.Context, offset, limit int) (fwds []Forwarder, count int, err error) {
 	sql := `SELECT count(*) FROM evm.forwarders`
 	if err = o.db.GetContext(ctx, &count, sql); err != nil {
 		return
@@ -96,13 +96,13 @@ func (o *DbORM) FindForwarders(ctx context.Context, offset, limit int) (fwds []F
 }
 
 // FindForwardersByChain returns all forwarder addresses for a chain.
-func (o *DbORM) FindForwardersByChain(ctx context.Context, evmChainId big.Big) (fwds []Forwarder, err error) {
+func (o *orm) FindForwardersByChain(ctx context.Context, evmChainId big.Big) (fwds []Forwarder, err error) {
 	sql := `SELECT * FROM evm.forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC`
 	err = o.db.SelectContext(ctx, &fwds, sql, evmChainId)
 	return
 }
 
-func (o *DbORM) FindForwardersInListByChain(ctx context.Context, evmChainId big.Big, addrs []common.Address) ([]Forwarder, error) {
+func (o *orm) FindForwardersInListByChain(ctx context.Context, evmChainId big.Big, addrs []common.Address) ([]Forwarder, error) {
 	var fwdrs []Forwarder
 
 	arg := map[string]interface{}{
