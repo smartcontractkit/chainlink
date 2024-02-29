@@ -411,7 +411,7 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 	var consumers []contracts.VRFv2LoadTestConsumer
 	var linkToken contracts.LinkToken
 	if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
-		linkToken, err := env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
+		linkToken, err = env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 		}
