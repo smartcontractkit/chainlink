@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
@@ -140,12 +141,13 @@ func TestTxm_SignTx(t *testing.T) {
 			Sequence: &nonce,
 			ToAddress: to,
 			Value: *big.NewInt(142),
+			FeeLimit: 500_000,
 		}
 		fee := gas.EvmFee{
 			DynamicFeeCap: assets.NewWei(big.NewInt(1000000000000)),
     		DynamicTipCap: assets.NewWei(big.NewInt(1000000000000)),
 		}
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), keystore.Eth(), nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, config.ChainZkSync, newFeeConfig(), keystore.Eth(), nil)
 		attempt, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, fee, 242, 0x1, logger.Test(t))
 		require.NoError(t, err)
 		require.Equal(t, "", hexutil.Encode(attempt.SignedRawTx))

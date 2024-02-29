@@ -6,9 +6,10 @@ MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'
 
 [GasEstimator]
-LimitDefault = 3_500_000
+EIP1559DynamicFees = true
 PriceMax = 18446744073709551615
-PriceMin = 0
+PriceMin = '1 wei'
+BumpMin = '100 wei'
 
 [HeadTracker]
 HistoryDepth = 5
