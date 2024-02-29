@@ -411,8 +411,8 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 
 	t.Run("only updates evm.tx_attempts for the current chain", func(t *testing.T) {
-		require.NoError(t, ethKeyStore.Add(fromAddress, testutils.SimulatedChainID))
-		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Add(testutils.Context(t), fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Enable(testutils.Context(t), fromAddress, testutils.SimulatedChainID))
 		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.EVM().ChainID())
 		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, testutils.SimulatedChainID)
 
@@ -1261,16 +1261,16 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	t.Run("cannot find unstarted tx", func(t *testing.T) {
 		mustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
 
-		resultEtx := new(txmgr.Tx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
+		resultEtx, err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		assert.ErrorIs(t, err, sql.ErrNoRows)
+		assert.Nil(t, resultEtx)
 	})
 
 	t.Run("finds unstarted tx", func(t *testing.T) {
 		mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
-		resultEtx := new(txmgr.Tx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
+		resultEtx, err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
+		assert.NotNil(t, resultEtx)
 	})
 }
 

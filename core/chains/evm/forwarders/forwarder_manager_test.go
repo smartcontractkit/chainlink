@@ -60,7 +60,15 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	t.Log(authorized)
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
+
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, lpOpts)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM(), evmcfg.Database())
 	fwdMgr.ORM = forwarders.NewORM(db, logger.Test(t), cfg.Database())
 
@@ -113,7 +121,14 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	ec.Commit()
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, lpOpts)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM(), evmcfg.Database())
 	fwdMgr.ORM = forwarders.NewORM(db, logger.Test(t), cfg.Database())
 

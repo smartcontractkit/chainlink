@@ -134,6 +134,10 @@ func (e *evmConfig) LogKeepBlocksDepth() uint32 {
 	return *e.c.LogKeepBlocksDepth
 }
 
+func (e *evmConfig) BackupLogPollerBlockDelay() uint64 {
+	return *e.c.BackupLogPollerBlockDelay
+}
+
 func (e *evmConfig) NonceAutoSync() bool {
 	return *e.c.NonceAutoSync
 }
@@ -192,4 +196,8 @@ func (e *evmConfig) OperatorFactoryAddress() string {
 		return ""
 	}
 	return e.c.OperatorFactoryAddress.String()
+}
+
+func (e *evmConfig) LogPrunePageSize() uint32 {
+	return *e.c.LogPrunePageSize
 }
