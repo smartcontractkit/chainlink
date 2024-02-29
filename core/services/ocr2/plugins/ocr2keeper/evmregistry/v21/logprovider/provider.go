@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
@@ -50,7 +50,7 @@ var (
 )
 
 // LogTriggerConfig is an alias for log trigger config.
-type LogTriggerConfig automation_utils_2_1.LogTriggerConfig
+type LogTriggerConfig automation_convenience.LogTriggerConfig
 
 type FilterOptions struct {
 	UpkeepID      *big.Int
