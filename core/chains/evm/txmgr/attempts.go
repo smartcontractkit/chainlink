@@ -3,30 +3,36 @@ package txmgr
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/zksync"
 )
 
 type TxAttemptSigner[ADDR commontypes.Hashable] interface {
 	SignTx(ctx context.Context, fromAddress ADDR, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignZkSyncTx(ctx context.Context, address common.Address, tx *zksync.Transaction712, chainID *big.Int) ([]byte, error)
 }
 
 var _ TxAttemptBuilder = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
 	chainID   big.Int
+	chainType config.ChainType
 	feeConfig evmTxAttemptBuilderFeeConfig
 	keystore  TxAttemptSigner[common.Address]
 	gas.EvmFeeEstimator
@@ -39,8 +45,8 @@ type evmTxAttemptBuilderFeeConfig interface {
 	PriceMaxKey(common.Address) *assets.Wei
 }
 
-func NewEvmTxAttemptBuilder(chainID big.Int, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
-	return &evmTxAttemptBuilder{chainID, feeConfig, keystore, estimator}
+func NewEvmTxAttemptBuilder(chainID big.Int, chainType config.ChainType, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
+	return &evmTxAttemptBuilder{chainID, chainType, feeConfig, keystore, estimator}
 }
 
 // NewTxAttempt builds an new attempt using the configured fee estimator + using the EIP1559 config to determine tx type
@@ -83,6 +89,20 @@ func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, prev
 // NewCustomTxAttempt is the lowest level func where the fee parameters + tx type must be passed in
 // used in the txm for force rebroadcast where fees and tx type are pre-determined without an estimator
 func (c *evmTxAttemptBuilder) NewCustomTxAttempt(ctx context.Context, etx Tx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt TxAttempt, retryable bool, err error) {
+	if c.chainType.IsValid() && c.chainType == config.ChainZkSync {
+		if !fee.ValidDynamic() {
+			err = pkgerrors.Errorf("Attempt %v is a type 71 transaction but estimator did not return dynamic fee bump", attempt.ID)
+			logger.Sugared(lggr).AssumptionViolation(err.Error())
+			return attempt, false, err // not retryable
+		}
+		// TODO: add config for GasPerPubdata
+		attempt, err = c.newZkSyncAttempt(ctx, etx, gas.DynamicFee{
+			FeeCap: fee.DynamicFeeCap,
+			TipCap: fee.DynamicTipCap,
+		}, gasLimit, assets.NewWei(big.NewInt(50000)))
+		return attempt, true, err
+	}
+	
 	switch txType {
 	case 0x0: // legacy
 		if fee.Legacy == nil {
@@ -330,4 +350,81 @@ func newEvmPriorAttempts(attempts []TxAttempt) (prior []gas.EvmPriorAttempt) {
 		prior = append(prior, priorAttempt)
 	}
 	return
+}
+
+func (c *evmTxAttemptBuilder) newZkSyncAttempt(ctx context.Context, etx Tx, fee gas.DynamicFee, gasLimit uint32, gasPerPubdata *assets.Wei) (attempt TxAttempt, err error) {
+	if err = validateDynamicFeeGas(c.feeConfig, c.feeConfig.TipCapMin(), fee, gasLimit, etx); err != nil {
+		return attempt, pkgerrors.Wrap(err, "error validating gas")
+	}
+
+	d := newZkSyncTransaction(
+		uint64(*etx.Sequence),
+		etx.ToAddress,
+		&etx.Value,
+		gasLimit,
+		&c.chainID,
+		fee.TipCap,
+		fee.FeeCap,
+		etx.EncodedPayload,
+		gasPerPubdata,
+	)
+	attempt, err = c.newZkSyncSignedAttempt(ctx, etx, &d)
+	if err != nil {
+		return attempt, err
+	}
+	attempt.TxFee = gas.EvmFee{
+		DynamicFeeCap: fee.FeeCap,
+		DynamicTipCap: fee.TipCap,
+	}
+	attempt.ChainSpecificFeeLimit = gasLimit
+	attempt.TxType = 2
+	return attempt, nil
+}
+
+func (c *evmTxAttemptBuilder) newZkSyncSignedAttempt(ctx context.Context, etx Tx, tx *zksync.Transaction712) (attempt TxAttempt, err error) {
+	signedTxBytes, err := c.keystore.SignZkSyncTx(ctx, etx.FromAddress, tx, &c.chainID)
+	if err != nil {
+		return attempt, pkgerrors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
+	}
+
+	signedRawTx, err := tx.RLPValues(signedTxBytes)
+	if err != nil {
+		return attempt, pkgerrors.Wrapf(err, "")
+	}
+
+	attempt.State = txmgrtypes.TxAttemptInProgress
+	attempt.SignedRawTx = signedRawTx
+	attempt.TxID = etx.ID
+	attempt.Tx = etx
+	attempt.Hash = common.HexToHash(hex.EncodeToString(signedRawTx))
+
+	return attempt, nil
+}
+
+func validateZkSyncFeeGas(kse keySpecificEstimator, tipCapMinimum *assets.Wei, fee gas.DynamicFee, gasLimit uint32, gasPerPubdata *assets.Wei, etx Tx) error {
+	if err := validateDynamicFeeGas(kse, tipCapMinimum, fee, gasLimit, etx); err != nil {
+		return pkgerrors.Wrap(err, "error validating gas")
+	}
+
+	return nil
+}
+
+func newZkSyncTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, gasPerPubdata *assets.Wei) zksync.Transaction712 {
+	
+	return zksync.Transaction712{
+		ChainID:   chainID,
+		Nonce:     big.NewInt(int64(nonce)),
+		GasTipCap: gasTipCap.ToInt(),
+		GasFeeCap: gasFeeCap.ToInt(),
+		Gas:       big.NewInt(int64(gasLimit)),
+		To:        &to,
+		Value:     value,
+		Data:      data,
+		AccessList: nil,
+		Meta: &zksync.Eip712Meta{
+			GasPerPubdata:   (*hexutil.Big)(big.NewInt(50000)),
+			CustomSignature: nil,
+			FactoryDeps:     nil,
+		},
+	 }
 }

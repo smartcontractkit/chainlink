@@ -2,6 +2,7 @@ package keystore
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sort"
@@ -13,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/zksync"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -37,6 +39,7 @@ type Eth interface {
 	SubscribeToKeyChanges(ctx context.Context) (ch chan struct{}, unsub func())
 
 	SignTx(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignZkSyncTx(ctx context.Context, address common.Address, tx *zksync.Transaction712, chainID *big.Int) ([]byte, error)
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
@@ -320,6 +323,31 @@ func (ks *eth) SignTx(ctx context.Context, address common.Address, tx *types.Tra
 	}
 	signer := types.LatestSignerForChainID(chainID)
 	return types.SignTx(tx, signer, key.ToEcdsaPrivKey())
+}
+
+func (ks *eth) SignZkSyncTx(ctx context.Context, address common.Address, tx *zksync.Transaction712, chainID *big.Int) ([]byte, error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	key, err := ks.getByID(address.String())
+	if err != nil {
+		return nil, err
+	}
+	b, err := hex.DecodeString(key.String())
+	if err != nil {
+		return nil, err
+	}
+	signer, err := zksync.NewBaseSignerFromRawPrivateKey(b, chainID.Int64())
+	if err != nil {
+		return nil, err
+	}
+	data, err := signer.SignTypedData(zksync.ZkSyncEraEIP712Domain(300), tx)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 // EnabledKeysForChain returns all keys that are enabled for the given chain

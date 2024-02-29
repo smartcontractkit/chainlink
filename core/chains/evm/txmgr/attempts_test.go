@@ -1,10 +1,12 @@
 package txmgr_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -20,11 +22,15 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewEvmAddress() gethcommon.Address {
@@ -69,7 +75,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", mock.Anything, to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), kst, nil)
 		hash, rawBytes, err := cks.SignTx(testutils.Context(t), addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
@@ -80,7 +86,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", mock.Anything, to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), kst, nil)
 		hash, rawBytes, err := cks.SignTx(testutils.Context(t), addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
@@ -90,7 +96,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", mock.Anything, to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), kst, nil)
 
 		_, rawBytes, err := cks.SignTx(testutils.Context(t), addr, tx)
 		require.NoError(t, err)
@@ -113,7 +119,7 @@ func TestTxm_SignTx(t *testing.T) {
 			Data:  []byte{1, 2, 3},
 		})
 		kst.On("SignTx", mock.Anything, to, typedTx, chainID).Return(typedTx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), kst, nil)
 		_, rawBytes, err := cks.SignTx(testutils.Context(t), addr, typedTx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
@@ -123,6 +129,32 @@ func TestTxm_SignTx(t *testing.T) {
 		decodedTx, err = txmgr.GetGethSignedTx(rawBytes)
 		require.NoError(t, err)
 		require.Equal(t, typedTx.Hash(), decodedTx.Hash())
+	})
+
+	t.Run("can properly encoded and decode raw transaction for ZkSyncTx", func(t *testing.T) {
+		cfg, db := heavyweight.FullTestDBV2(t, nil)
+		chainID := big.NewInt(300)
+		keystore := keystore.NewInMemory(db, utils.FastScryptParams, corelogger.TestLogger(t), cfg.Database())
+		nonce:= evmtypes.Nonce(42)
+		txmTx := txmgr.Tx{
+			Sequence: &nonce,
+			ToAddress: to,
+			Value: *big.NewInt(142),
+		}
+		fee := gas.EvmFee{
+			DynamicFeeCap: assets.NewWei(big.NewInt(1000000000000)),
+    		DynamicTipCap: assets.NewWei(big.NewInt(1000000000000)),
+		}
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), keystore.Eth(), nil)
+		attempt, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, fee, 242, 0x1, logger.Test(t))
+		require.NoError(t, err)
+		require.Equal(t, "", hexutil.Encode(attempt.SignedRawTx))
+
+		var decodedTx *gethtypes.Transaction
+		decodedTx, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
+		require.NoError(t, err)
+		hash := common.HexToHash(hex.EncodeToString(attempt.SignedRawTx))
+		require.Equal(t, hash, decodedTx.Hash())
 	})
 }
 
@@ -137,7 +169,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		feeCfg := newFeeConfig()
 		feeCfg.priceMax = assets.GWei(200)
-		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), feeCfg, kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", feeCfg, kst, nil)
 		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
 		a, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
 			DynamicTipCap: dynamicFee.TipCap,
@@ -179,7 +211,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				gcfg := configtest.NewGeneralConfig(t, test.setCfg)
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
-				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM().GasEstimator(), kst, nil)
+				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", cfg.EVM().GasEstimator(), kst, nil)
 				dynamicFee := gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}
 				_, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
 					DynamicTipCap: dynamicFee.TipCap,
@@ -203,7 +235,7 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	gc := newFeeConfig()
 	gc.priceMin = assets.NewWeiI(10)
 	gc.priceMax = assets.NewWeiI(50)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), gc, kst, nil)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", gc, kst, nil)
 	lggr := logger.Test(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
@@ -229,7 +261,7 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 
 	kst := ksmocks.NewEth(t)
 	lggr := logger.Test(t)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), newFeeConfig(), kst, nil)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", newFeeConfig(), kst, nil)
 
 	dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
 	legacyFee := assets.NewWeiI(100)
@@ -263,7 +295,7 @@ func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 	kst := ksmocks.NewEth(t)
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), &feeConfig{eip1559DynamicFees: true}, kst, est)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", &feeConfig{eip1559DynamicFees: true}, kst, est)
 
 	t.Run("NewAttempt", func(t *testing.T) {
 		_, _, _, retryable, err := cks.NewTxAttempt(ctx, txmgr.Tx{}, lggr)
