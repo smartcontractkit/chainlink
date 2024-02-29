@@ -3,6 +3,7 @@ package logpoller_test
 import (
 	"context"
 	"database/sql"
+	"github.com/pkg/errors"
 	"math/big"
 	"strings"
 	"testing"
@@ -15,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -45,7 +45,7 @@ type TestHarness struct {
 	EthDB                            ethdb.Database
 }
 
-func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize, rpcBatchSize, keepFinalizedBlocksDepth int64) TestHarness {
+func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
@@ -66,7 +66,11 @@ func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize
 	// Mark genesis block as finalized to avoid any nulls in the tests
 	head := esc.Backend().Blockchain().CurrentHeader()
 	esc.Backend().Blockchain().SetFinalized(head)
-	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, useFinalityTag, finalityDepth, backfillBatchSize, rpcBatchSize, keepFinalizedBlocksDepth, 0)
+
+	if opts.PollPeriod == 0 {
+		opts.PollPeriod = 1 * time.Hour
+	}
+	lp := logpoller.NewLogPoller(o, esc, lggr, opts)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)

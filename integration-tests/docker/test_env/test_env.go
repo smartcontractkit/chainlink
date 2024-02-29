@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/seth"
 	tc "github.com/testcontainers/testcontainers-go"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -20,9 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
 	core_testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -31,21 +32,23 @@ var (
 )
 
 type CLClusterTestEnv struct {
-	Cfg       *TestEnvConfig
-	Network   *tc.DockerNetwork
-	LogStream *logstream.LogStream
+	Cfg           *TestEnvConfig
+	DockerNetwork *tc.DockerNetwork
+	LogStream     *logstream.LogStream
 
 	/* components */
 	ClCluster             *ClCluster
 	PrivateChain          []test_env.PrivateChain // for tests using non-dev networks -- unify it with new approach
 	MockAdapter           *test_env.Killgrave
 	EVMClient             blockchain.EVMClient
+	SethClient            *seth.Client
 	ContractDeployer      contracts.ContractDeployer
 	ContractLoader        contracts.ContractLoader
 	RpcProvider           test_env.RpcProvider
 	PrivateEthereumConfig *test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
 	l                     zerolog.Logger
 	t                     *testing.T
+	isSimulatedNetwork    bool
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
@@ -55,8 +58,8 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 		return nil, err
 	}
 	return &CLClusterTestEnv{
-		Network: network,
-		l:       log.Logger,
+		DockerNetwork: network,
+		l:             log.Logger,
 	}, nil
 }
 
@@ -65,7 +68,7 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
 	te.Cfg = cfg
 	if cfg.MockAdapter.ContainerName != "" {
-		n := []string{te.Network.Name}
+		n := []string{te.DockerNetwork.Name}
 		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName), test_env.WithLogStream(te.LogStream))
 	}
 	return te
@@ -81,14 +84,16 @@ func (te *CLClusterTestEnv) WithTestInstance(t *testing.T) *CLClusterTestEnv {
 }
 
 func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
-	te.EVMClient.ParallelTransactions(enabled)
+	if te.EVMClient != nil {
+		te.EVMClient.ParallelTransactions(enabled)
+	}
 }
 
 func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
 	var chains []test_env.PrivateChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		pgc := test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
+		pgc := test_env.NewPrivateGethChain(&n, []string{te.DockerNetwork.Name})
 		if te.t != nil {
 			pgc.GetPrimaryNode().WithTestInstance(te.t)
 		}
@@ -96,9 +101,9 @@ func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork
 		var privateChain test_env.PrivateChain
 		switch n.SimulationType {
 		case "besu":
-			privateChain = test_env.NewPrivateBesuChain(&n, []string{te.Network.Name})
+			privateChain = test_env.NewPrivateBesuChain(&n, []string{te.DockerNetwork.Name})
 		default:
-			privateChain = test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
+			privateChain = test_env.NewPrivateGethChain(&n, []string{te.DockerNetwork.Name})
 		}
 		chains = append(chains, privateChain)
 	}
@@ -158,7 +163,7 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 		opts = append(opts, WithSecrets(secretsConfig), WithLogStream(te.LogStream))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode, err := NewClNode([]string{te.Network.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, opts...)
+			ocrNode, err := NewClNode([]string{te.DockerNetwork.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, opts...)
 			if err != nil {
 				return err
 			}
@@ -212,11 +217,10 @@ func (te *CLClusterTestEnv) Cleanup() error {
 
 	te.logWhetherAllContainersAreRunning()
 
-	if te.EVMClient == nil {
-		return fmt.Errorf("evm client is nil, unable to return funds from chainlink nodes during cleanup")
-	} else if te.EVMClient.NetworkSimulated() {
+	if te.EVMClient == nil && te.SethClient == nil {
+		return fmt.Errorf("both EVMClient and SethClient are nil, unable to return funds from chainlink nodes during cleanup")
+	} else if te.isSimulatedNetwork {
 		te.l.Info().
-			Str("Network Name", te.EVMClient.GetNetworkName()).
 			Msg("Network is a simulated network. Skipping fund return.")
 	} else {
 		if err := te.returnFunds(); err != nil {
@@ -228,6 +232,10 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	if te.EVMClient != nil {
 		err := te.EVMClient.Close()
 		return err
+	}
+
+	if te.SethClient != nil {
+		te.SethClient.Client.Close()
 	}
 
 	return nil
@@ -270,10 +278,18 @@ func (te *CLClusterTestEnv) returnFunds() error {
 			if err != nil {
 				return err
 			}
-			if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
-				// If we fail to return funds from one, go on to try the others anyway
-				te.l.Error().Err(err).Str("Node", chainlinkNode.ContainerName).Msg("Error returning funds from node")
+			if te.EVMClient != nil {
+				if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
+					// If we fail to return funds from one, go on to try the others anyway
+					te.l.Error().Err(err).Str("Node", chainlinkNode.ContainerName).Msg("Error returning funds from node")
+				}
 			}
+		}
+	}
+
+	if te.SethClient != nil {
+		if err := actions_seth.ReturnFunds(te.l, te.SethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
+			te.l.Error().Err(err).Msg("Error returning funds from node")
 		}
 	}
 

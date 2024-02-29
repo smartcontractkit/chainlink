@@ -149,7 +149,14 @@ func TestPopulateLoadedDB(t *testing.T) {
 }
 
 func TestLogPoller_Integration(t *testing.T) {
-	th := SetupTH(t, false, 2, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+		BackupPollerBlockDelay:   100,
+	}
+	th := SetupTH(t, lpOpts)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
 	ctx := testutils.Context(t)
 
@@ -243,7 +250,16 @@ func Test_BackupLogPoller(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			th := SetupTH(t, tt.finalityTag, tt.finalityDepth, 3, 2, 1000)
+			th := SetupTH(t,
+				logpoller.Opts{
+					UseFinalityTag:           tt.finalityTag,
+					FinalityDepth:            tt.finalityDepth,
+					BackfillBatchSize:        3,
+					RpcBatchSize:             2,
+					KeepFinalizedBlocksDepth: 1000,
+					BackupPollerBlockDelay:   100,
+				},
+			)
 			// later, we will need at least 32 blocks filled with logs for cache invalidation
 			for i := int64(0); i < 32; i++ {
 				// to invalidate geth's internal read-cache, a matching log must be found in the bloom Filter
@@ -350,7 +366,7 @@ func Test_BackupLogPoller(t *testing.T) {
 			// Run ordinary poller + backup poller at least once
 			currentBlock, _ := th.LogPoller.LatestBlock(ctx)
 			th.LogPoller.PollAndSaveLogs(ctx, currentBlock.BlockNumber+1)
-			th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
+			th.LogPoller.BackupPollAndSaveLogs(ctx)
 			currentBlock, _ = th.LogPoller.LatestBlock(ctx)
 
 			require.Equal(t, int64(37), currentBlock.BlockNumber+1)
@@ -365,7 +381,7 @@ func Test_BackupLogPoller(t *testing.T) {
 
 			// Run ordinary poller + backup poller at least once more
 			th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber+1)
-			th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
+			th.LogPoller.BackupPollAndSaveLogs(ctx)
 			currentBlock, _ = th.LogPoller.LatestBlock(ctx)
 
 			require.Equal(t, int64(38), currentBlock.BlockNumber+1)
@@ -387,9 +403,15 @@ func Test_BackupLogPoller(t *testing.T) {
 func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 	emittedLogs := 30
 	// Intentionally use very low backupLogPollerDelay to verify if finality is used properly
-	backupLogPollerDelay := int64(0)
 	ctx := testutils.Context(t)
-	th := SetupTH(t, true, 0, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		UseFinalityTag:           true,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+		BackupPollerBlockDelay:   1,
+	}
+	th := SetupTH(t, lpOpts)
 
 	header, err := th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
@@ -420,7 +442,7 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 
 	// LogPoller should backfill starting from the last finalized block stored in db (genesis block)
 	// till the latest finalized block reported by chain.
-	th.LogPoller.BackupPollAndSaveLogs(ctx, backupLogPollerDelay)
+	th.LogPoller.BackupPollAndSaveLogs(ctx)
 	require.NoError(t, err)
 
 	logs, err := th.LogPoller.Logs(
@@ -436,7 +458,7 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 	// Progressing even more, move blockchain forward by 1 block and mark it as finalized
 	th.Client.Commit()
 	markBlockAsFinalized(t, th, currentBlock)
-	th.LogPoller.BackupPollAndSaveLogs(ctx, backupLogPollerDelay)
+	th.LogPoller.BackupPollAndSaveLogs(ctx)
 
 	// All emitted logs should be backfilled
 	logs, err = th.LogPoller.Logs(
@@ -453,7 +475,14 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 func TestLogPoller_BackupPollAndSaveLogsWithDeepBlockDelay(t *testing.T) {
 	emittedLogs := 30
 	ctx := testutils.Context(t)
-	th := SetupTH(t, true, 0, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		UseFinalityTag:           true,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+		BackupPollerBlockDelay:   int64(emittedLogs),
+	}
+	th := SetupTH(t, lpOpts)
 
 	// Emit some logs in blocks
 	for i := 0; i < emittedLogs; i++ {
@@ -489,7 +518,7 @@ func TestLogPoller_BackupPollAndSaveLogsWithDeepBlockDelay(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should fallback to the backupPollerBlockDelay when finalization was very high in a previous PollAndSave
-	th.LogPoller.BackupPollAndSaveLogs(ctx, int64(emittedLogs))
+	th.LogPoller.BackupPollAndSaveLogs(ctx)
 	require.NoError(t, err)
 
 	// All emitted logs should be backfilled
@@ -508,8 +537,14 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	logsBatch := 10
 	// Intentionally use very low backupLogPollerDelay to verify if finality is used properly
 	ctx := testutils.Context(t)
-	th := SetupTH(t, true, 0, 3, 2, 1000)
-
+	lpOpts := logpoller.Opts{
+		UseFinalityTag:           true,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+		BackupPollerBlockDelay:   1,
+	}
+	th := SetupTH(t, lpOpts)
 	//header, err := th.Client.HeaderByNumber(ctx, nil)
 	//require.NoError(t, err)
 
@@ -547,7 +582,7 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	require.NoError(t, err)
 
 	// Should pick logs starting from one block behind the latest finalized block
-	th.LogPoller.BackupPollAndSaveLogs(ctx, 0)
+	th.LogPoller.BackupPollAndSaveLogs(ctx)
 	require.NoError(t, err)
 
 	// Only the 2nd batch + 1 log from a previous batch should be backfilled, because we perform backfill starting
@@ -567,7 +602,13 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 func TestLogPoller_BlockTimestamps(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	th := SetupTH(t, false, 2, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	th := SetupTH(t, lpOpts)
 
 	addresses := []common.Address{th.EmitterAddress1, th.EmitterAddress2}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}
@@ -670,7 +711,15 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		}, 10e6)
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
-		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, false, int64(finalityDepth), 3, 2, 1000, 0)
+
+		lpOpts := logpoller.Opts{
+			PollPeriod:               15 * time.Second,
+			FinalityDepth:            int64(finalityDepth),
+			BackfillBatchSize:        3,
+			RpcBatchSize:             2,
+			KeepFinalizedBlocksDepth: 1000,
+		}
+		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, lpOpts)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
@@ -757,7 +806,14 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			th := SetupTH(t, tt.finalityTag, tt.finalityDepth, 3, 2, 1000)
+			lpOpts := logpoller.Opts{
+				UseFinalityTag:           tt.finalityTag,
+				FinalityDepth:            tt.finalityDepth,
+				BackfillBatchSize:        3,
+				RpcBatchSize:             2,
+				KeepFinalizedBlocksDepth: 1000,
+			}
+			th := SetupTH(t, lpOpts)
 
 			// Set up a log poller listening for log emitter logs.
 			err := th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
@@ -1006,7 +1062,14 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			th := SetupTH(t, tt.finalityTag, tt.finalityDepth, 3, 2, 1000)
+			lpOpts := logpoller.Opts{
+				UseFinalityTag:           tt.finalityTag,
+				FinalityDepth:            tt.finalityDepth,
+				BackfillBatchSize:        3,
+				RpcBatchSize:             2,
+				KeepFinalizedBlocksDepth: 1000,
+			}
+			th := SetupTH(t, lpOpts)
 
 			// Set up a log poller listening for log emitter logs.
 			err := th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
@@ -1066,7 +1129,15 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 
 func TestLogPoller_LoadFilters(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, false, 2, 3, 2, 1000)
+
+	lpOpts := logpoller.Opts{
+		UseFinalityTag:           false,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	th := SetupTH(t, lpOpts)
 
 	filter1 := logpoller.Filter{
 		Name: "first Filter",
@@ -1127,7 +1198,14 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, false, 2, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		UseFinalityTag:           false,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	th := SetupTH(t, lpOpts)
 
 	err := th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
 		Name:      "GetBlocks Test",
@@ -1237,7 +1315,14 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 
 func TestGetReplayFromBlock(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, false, 2, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		UseFinalityTag:           false,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	th := SetupTH(t, lpOpts)
 	// Commit a few blocks
 	for i := 0; i < 10; i++ {
 		th.Client.Commit()
@@ -1298,7 +1383,14 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	ec.Commit()
 	ec.Commit()
 
-	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 1*time.Hour, false, 2, 3, 2, 1000, 0)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, lpOpts)
 
 	err = lp.Replay(ctx, 5) // block number too high
 	require.ErrorContains(t, err, "Invalid replay block number")
@@ -1330,7 +1422,6 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 
 	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
 	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
-	assert.Contains(t, logMsgs, "Backup log poller ran before filters loaded, skipping")
 }
 
 type getLogErrData struct {
@@ -1345,8 +1436,17 @@ func TestTooManyLogResults(t *testing.T) {
 	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
+
 	o := logpoller.NewORM(chainID, db, lggr)
-	lp := logpoller.NewLogPoller(o, ec, lggr, 1*time.Hour, false, 2, 20, 10, 1000, 0)
+
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Hour,
+		FinalityDepth:            2,
+		BackfillBatchSize:        20,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(o, ec, lggr, lpOpts)
 	expected := []int64{10, 5, 2, 1}
 
 	clientErr := client.JsonError{
@@ -1433,7 +1533,13 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 	firstBatchLen := 3
 	secondBatchLen := 5
 
-	th := SetupTH(t, true, 2, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		UseFinalityTag:           true,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	th := SetupTH(t, lpOpts)
 
 	eventSig := EmitterABI.Events["Log1"].ID
 	err := th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
@@ -1473,7 +1579,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		logpoller.Finalized,
 	)
 	require.NoError(t, err)
-	require.Len(t, finalizedLogs, firstBatchLen)
+	require.Len(t, finalizedLogs, firstBatchLen, fmt.Sprintf("len(finalizedLogs) = %d, should have been %d", len(finalizedLogs), firstBatchLen))
 
 	numberOfConfirmations := 1
 	logsByConfs, err := th.LogPoller.LogsDataWordGreaterThan(
@@ -1519,7 +1625,14 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			th := SetupTH(t, tt.useFinalityTag, tt.finalityDepth, 3, 2, 1000)
+			lpOpts := logpoller.Opts{
+				UseFinalityTag:           tt.useFinalityTag,
+				FinalityDepth:            tt.finalityDepth,
+				BackfillBatchSize:        3,
+				RpcBatchSize:             2,
+				KeepFinalizedBlocksDepth: 1000,
+			}
+			th := SetupTH(t, lpOpts)
 			// Should return error before the first poll and save
 			_, err := th.LogPoller.LatestBlock(testutils.Context(t))
 			require.Error(t, err)
@@ -1566,7 +1679,15 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			th := SetupTH(t, tt.finalityTag, tt.finalityDepth, 3, 2, 1000)
+			lpOpts := logpoller.Opts{
+				UseFinalityTag:           tt.finalityTag,
+				FinalityDepth:            tt.finalityDepth,
+				BackfillBatchSize:        3,
+				RpcBatchSize:             2,
+				KeepFinalizedBlocksDepth: 1000,
+				BackupPollerBlockDelay:   100,
+			}
+			th := SetupTH(t, lpOpts)
 
 			header, err := th.Client.HeaderByNumber(ctx, nil)
 			require.NoError(t, err)
@@ -1597,7 +1718,7 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 			}
 
 			// LogPoller should backfill entire history
-			th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
+			th.LogPoller.BackupPollAndSaveLogs(ctx)
 			require.NoError(t, err)
 
 			// Make sure that all logs are backfilled
@@ -1657,7 +1778,13 @@ func Test_PruneOldBlocks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			th := SetupTH(t, true, 0, 3, 2, tt.keepFinalizedBlocksDepth)
+			lpOpts := logpoller.Opts{
+				UseFinalityTag:           true,
+				BackfillBatchSize:        3,
+				RpcBatchSize:             2,
+				KeepFinalizedBlocksDepth: tt.keepFinalizedBlocksDepth,
+			}
+			th := SetupTH(t, lpOpts)
 
 			for i := 1; i <= tt.blockToCreate; i++ {
 				err := th.ORM.InsertBlock(testutils.Context(t), utils.RandomBytes32(), int64(i+10), time.Now(), int64(i))

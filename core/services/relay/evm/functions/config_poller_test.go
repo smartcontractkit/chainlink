@@ -79,8 +79,16 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	defer ethClient.Close()
 	lggr := logger.TestLogger(t)
+
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000, 0)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            1,
+		BackfillBatchSize:        2,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, lpOpts)
 	servicetest.Run(t, lp)
 	configPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, lggr)
 	require.NoError(t, err)

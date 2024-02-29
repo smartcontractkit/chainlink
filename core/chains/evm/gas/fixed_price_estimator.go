@@ -3,7 +3,7 @@ package gas
 import (
 	"context"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
@@ -99,7 +99,7 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 	gasTipCap := f.config.TipCapDefault()
 
 	if gasTipCap == nil {
-		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
+		return d, 0, pkgerrors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
 	}
 	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(originalGasLimit, f.config.LimitMultiplier())
 	if err != nil {

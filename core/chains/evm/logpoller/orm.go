@@ -105,10 +105,11 @@ func (o *orm) InsertFilter(ctx context.Context, filter Filter) (err error) {
 			(SELECT $1, $2 ::NUMERIC, $3 ::BIGINT, NOW()) x,
 			(SELECT unnest($4 ::BYTEA[]) addr) a,
 			(SELECT unnest($5 ::BYTEA[]) ev) e
-		ON CONFLICT (name, evm_chain_id, address, event) 
-		DO UPDATE SET retention=$3 ::BIGINT`
+		ON CONFLICT (evm.f_log_poller_filter_hash(name, evm_chain_id, address, event, topic2, topic3, topic4))
+		DO UPDATE SET retention=$3 ::BIGINT, max_logs_kept=$6 ::NUMERIC, logs_per_block=$7 ::NUMERIC`
 
-	_, err = o.db.ExecContext(ctx, query, filter.Name, ubig.New(o.chainID), filter.Retention, concatBytes(filter.Addresses), concatBytes(filter.EventSigs))
+	_, err = o.db.ExecContext(ctx, query, filter.Name, ubig.New(o.chainID), filter.Retention,
+		concatBytes(filter.Addresses), concatBytes(filter.EventSigs), filter.MaxLogsKept, filter.LogsPerBlock)
 	return err
 }
 
