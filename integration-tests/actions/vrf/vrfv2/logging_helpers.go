@@ -81,6 +81,7 @@ func logRandRequest(
 	numberOfWords uint32,
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
+	keyhash [32]byte,
 ) {
 	l.Info().
 		Str("Consumer", consumer).
@@ -91,5 +92,6 @@ func logRandRequest(
 		Uint32("NumberOfWords", numberOfWords).
 		Uint16("RandomnessRequestCountPerRequest", randomnessRequestCountPerRequest).
 		Uint16("RandomnessRequestCountPerRequestDeviation", randomnessRequestCountPerRequestDeviation).
+		Str("Keyhash", fmt.Sprintf("0x%x", keyhash)).
 		Msg("Requesting randomness")
 }

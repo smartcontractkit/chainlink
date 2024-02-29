@@ -499,8 +499,8 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(requestID []
 }
 
 func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
-	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
-	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, randomWordsFulfilledEventsChannel, keyHash, subID, sender)
+	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, eventsChannel, keyHash, subID, sender)
 	if err != nil {
 		return nil, err
 	}
@@ -512,8 +512,8 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][3
 			return nil, err
 		case <-time.After(timeout):
 			return nil, fmt.Errorf("timeout waiting for RandomWordsRequested event")
-		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
-			return randomWordsFulfilledEvent, nil
+		case event := <-eventsChannel:
+			return event, nil
 		}
 	}
 }

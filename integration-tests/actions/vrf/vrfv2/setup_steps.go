@@ -345,12 +345,12 @@ func ReturnFundsForFulfilledRequests(ctx context.Context, client blockchain.EVMC
 
 func SetupVRFV2Universe(ctx context.Context, t *testing.T, testConfig tc.TestConfig, cleanupFn func(), newEnvConfig vrfcommon.NewEnvConfig, l zerolog.Logger) (*test_env.CLClusterTestEnv, *vrfcommon.VRFContracts, []uint64, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	var (
-		env            *test_env.CLClusterTestEnv
-		vrfContracts   *vrfcommon.VRFContracts
-		vrfKey         *vrfcommon.VRFKeyData
-		subIDs         []uint64
-		nodeTypeToNode map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
-		err            error
+		env               *test_env.CLClusterTestEnv
+		vrfContracts      *vrfcommon.VRFContracts
+		vrfKey            *vrfcommon.VRFKeyData
+		subIDs            []uint64
+		nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		err               error
 	)
 	if *testConfig.VRFv2.General.UseExistingEnv {
 		vrfContracts, subIDs, vrfKey, env, err = SetupVRFV2ForExistingEnv(ctx, t, testConfig, cleanupFn, l)
@@ -358,12 +358,12 @@ func SetupVRFV2Universe(ctx context.Context, t *testing.T, testConfig tc.TestCon
 			return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 for Existing env", err)
 		}
 	} else {
-		vrfContracts, subIDs, vrfKey, env, nodeTypeToNode, err = SetupVRFV2ForNewEnv(ctx, t, testConfig, cleanupFn, newEnvConfig, l)
+		vrfContracts, subIDs, vrfKey, env, nodeTypeToNodeMap, err = SetupVRFV2ForNewEnv(ctx, t, testConfig, cleanupFn, newEnvConfig, l)
 		if err != nil {
 			return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 for New env", err)
 		}
 	}
-	return env, vrfContracts, subIDs, vrfKey, nodeTypeToNode, nil
+	return env, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, nil
 }
 
 func SetupVRFV2ForNewEnv(
@@ -443,6 +443,7 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 	}
 
 	var consumers []contracts.VRFv2LoadTestConsumer
+	var linkToken contracts.LinkToken
 	if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
 		linkToken, err := env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
 		if err != nil {
@@ -488,6 +489,7 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 	vrfContracts := &vrfcommon.VRFContracts{
 		CoordinatorV2: coordinator,
 		VRFV2Consumer: consumers,
+		LinkToken:     linkToken,
 		BHS:           nil,
 	}
 
