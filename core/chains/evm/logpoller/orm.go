@@ -243,8 +243,9 @@ func (o *orm) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig c
 }
 
 // DeleteBlocksBefore delete all blocks before and including end.
-func (o *orm) DeleteBlocksBefore(ctx context.Context, limit int64, end int64) (int64, error) {
+func (o *orm) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error) {
 	if limit > 0 {
+		fmt.Println("Deleting all blocks before with limit", end, limit)
 		result, err := o.db.ExecContext(ctx,
 			`DELETE FROM evm.log_poller_blocks
         				WHERE block_number IN (
