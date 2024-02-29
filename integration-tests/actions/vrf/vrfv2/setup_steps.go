@@ -106,7 +106,10 @@ func SetupVRFV2Environment(
 		return nil, nil, nil, nil, err
 	}
 
-	nodeTypeToNodeMap := vrfcommon.CreateNodeTypeToNodeMap(env.ClCluster, nodesToCreate)
+	nodeTypeToNodeMap, err := vrfcommon.CreateNodeTypeToNodeMap(env.ClCluster, nodesToCreate)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	vrfKey, pubKeyCompressed, err := vrfcommon.CreateVRFKeyOnVRFNode(nodeTypeToNodeMap[vrfcommon.VRF], l)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -348,7 +351,7 @@ func SetupVRFV2ForNewEnv(
 		WithTestInstance(t).
 		WithTestConfig(&testConfig).
 		WithPrivateEthereumNetwork(network).
-		WithCLNodes(1).
+		WithCLNodes(len(newEnvConfig.NodesToCreate)).
 		WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
 		WithCustomCleanup(cleanupFn).
 		Build()
@@ -372,7 +375,7 @@ func SetupVRFV2ForNewEnv(
 	vrfContracts, subIDs, vrfKey, nodeTypeToNode, err := SetupVRFV2Environment(
 		ctx,
 		env,
-		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
+		newEnvConfig.NodesToCreate,
 		&testConfig,
 		newEnvConfig.UseVRFOwner,
 		newEnvConfig.UseTestCoordinator,

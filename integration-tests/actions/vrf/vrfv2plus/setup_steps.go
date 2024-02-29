@@ -92,7 +92,10 @@ func SetupVRFV2_5Environment(
 		return nil, nil, nil, nil, err
 	}
 
-	nodeTypeToNodeMap := vrfcommon.CreateNodeTypeToNodeMap(env.ClCluster, nodesToCreate)
+	nodeTypeToNodeMap, err := vrfcommon.CreateNodeTypeToNodeMap(env.ClCluster, nodesToCreate)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	vrfKey, pubKeyCompressed, err := vrfcommon.CreateVRFKeyOnVRFNode(nodeTypeToNodeMap[vrfcommon.VRF], l)
 	if err != nil {
 		return nil, nil, nil, nil, err

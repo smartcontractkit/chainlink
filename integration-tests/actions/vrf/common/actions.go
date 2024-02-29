@@ -192,14 +192,17 @@ func retrieveLoadTestMetrics(
 	metricsChannel <- metrics
 }
 
-func CreateNodeTypeToNodeMap(cluster *test_env.ClCluster, nodesToCreate []VRFNodeType) map[VRFNodeType]*VRFNode {
+func CreateNodeTypeToNodeMap(cluster *test_env.ClCluster, nodesToCreate []VRFNodeType) (map[VRFNodeType]*VRFNode, error) {
 	var nodesMap = make(map[VRFNodeType]*VRFNode)
+	if len(cluster.Nodes) < len(nodesToCreate) {
+		return nil, fmt.Errorf("not enough nodes in the cluster (cluster size is %d nodes) to create %d nodes", len(cluster.Nodes), len(nodesToCreate))
+	}
 	for i, nodeType := range nodesToCreate {
 		nodesMap[nodeType] = &VRFNode{
 			CLNode: cluster.Nodes[i],
 		}
 	}
-	return nodesMap
+	return nodesMap, nil
 }
 
 func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, string, error) {

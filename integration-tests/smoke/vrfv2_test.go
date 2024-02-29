@@ -709,8 +709,15 @@ func TestVRFV2WithBHS(t *testing.T) {
 		}
 	}
 
+	//Underfund Subscription
+	vrfv2Config.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
+
+	//decrease default span for checking blockhashes for unfulfilled requests
+	vrfv2Config.General.BHSJobWaitBlocks = ptr.Ptr(2)
+	vrfv2Config.General.BHSJobLookBackBlocks = ptr.Ptr(20)
+
 	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
 		NumberOfTxKeysToCreate: 0,
 		NumberOfConsumers:      1,
 		NumberOfSubToCreate:    1,
