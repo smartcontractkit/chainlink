@@ -121,9 +121,9 @@ func (o *ObservedORM) DeleteFilter(ctx context.Context, name string) error {
 	})
 }
 
-func (o *ObservedORM) DeleteBlocksBefore(ctx context.Context, end int64) error {
-	return withObservedExec(o, "DeleteBlocksBefore", del, func() error {
-		return o.ORM.DeleteBlocksBefore(ctx, end)
+func (o *ObservedORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error) {
+	return withObservedExecAndRowsAffected(o, "DeleteBlocksBefore", del, func() (int64, error) {
+		return o.ORM.DeleteBlocksBefore(ctx, end, limit)
 	})
 }
 
@@ -133,9 +133,9 @@ func (o *ObservedORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64)
 	})
 }
 
-func (o *ObservedORM) DeleteExpiredLogs(ctx context.Context) error {
-	return withObservedExec(o, "DeleteExpiredLogs", del, func() error {
-		return o.ORM.DeleteExpiredLogs(ctx)
+func (o *ObservedORM) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error) {
+	return withObservedExecAndRowsAffected(o, "DeleteExpiredLogs", del, func() (int64, error) {
+		return o.ORM.DeleteExpiredLogs(ctx, limit)
 	})
 }
 
@@ -261,6 +261,22 @@ func withObservedQueryAndResults[T any](o *ObservedORM, queryName string, query 
 			Set(float64(len(results)))
 	}
 	return results, err
+}
+
+func withObservedExecAndRowsAffected(o *ObservedORM, queryName string, queryType queryType, exec func() (int64, error)) (int64, error) {
+	queryStarted := time.Now()
+	rowsAffected, err := exec()
+	o.queryDuration.
+		WithLabelValues(o.chainId, queryName, string(queryType)).
+		Observe(float64(time.Since(queryStarted)))
+
+	if err != nil {
+		o.datasetSize.
+			WithLabelValues(o.chainId, queryName, string(queryType)).
+			Set(float64(rowsAffected))
+	}
+
+	return rowsAffected, err
 }
 
 func withObservedQuery[T any](o *ObservedORM, queryName string, query func() (T, error)) (T, error) {

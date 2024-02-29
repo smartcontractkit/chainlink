@@ -29,9 +29,9 @@ type ORM interface {
 	DeleteFilter(ctx context.Context, name string) error
 
 	InsertBlock(ctx context.Context, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error
-	DeleteBlocksBefore(ctx context.Context, end int64) error
+	DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error)
 	DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
-	DeleteExpiredLogs(ctx context.Context) error
+	DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error)
 
 	GetBlocksRange(ctx context.Context, start int64, end int64) ([]LogPollerBlock, error)
 	SelectBlockByNumber(ctx context.Context, blockNumber int64) (*LogPollerBlock, error)
@@ -126,7 +126,12 @@ func (o *orm) LoadFilters(ctx context.Context) (map[string]Filter, error) {
 	query := `SELECT name,
 			ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses, 
 			ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs,
-			MAX(retention) AS retention
+			ARRAY_AGG(DISTINCT topic2 ORDER BY topic2) FILTER(WHERE topic2 IS NOT NULL) AS topic2,
+			ARRAY_AGG(DISTINCT topic3 ORDER BY topic3) FILTER(WHERE topic3 IS NOT NULL) AS topic3,
+			ARRAY_AGG(DISTINCT topic4 ORDER BY topic4) FILTER(WHERE topic4 IS NOT NULL) AS topic4,
+			MAX(logs_per_block) AS logs_per_block,
+			MAX(retention) AS retention,
+			MAX(max_logs_kept) AS max_logs_kept
 		FROM evm.log_poller_filters WHERE evm_chain_id = $1
 		GROUP BY name`
 	var rows []Filter
@@ -180,9 +185,29 @@ func (o *orm) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig c
 }
 
 // DeleteBlocksBefore delete all blocks before and including end.
-func (o *orm) DeleteBlocksBefore(ctx context.Context, end int64) error {
-	_, err := o.db.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
-	return err
+func (o *orm) DeleteBlocksBefore(ctx context.Context, limit int64, end int64) (int64, error) {
+	var err error
+	var result sql.Result
+	if limit > 0 {
+		result, err = o.db.ExecContext(ctx,
+			`DELETE FROM evm.log_poller_blocks
+        				WHERE block_number IN (
+            				SELECT block_number FROM evm.log_poller_blocks
+            				WHERE block_number <= $1 
+            				AND evm_chain_id = $2
+							LIMIT $3
+						)
+						AND evm_chain_id = $2`,
+			end, ubig.New(o.chainID), limit)
+	} else {
+		result, err = o.db.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
+	}
+
+	rowsAffected, affectedErr := result.RowsAffected()
+	if affectedErr != nil {
+		err = errors.Wrap(err, affectedErr.Error())
+	}
+	return rowsAffected, err
 }
 
 func (o *orm) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
@@ -227,16 +252,41 @@ type Exp struct {
 	ShouldDelete bool
 }
 
-func (o *orm) DeleteExpiredLogs(ctx context.Context) error {
-	_, err := o.db.ExecContext(ctx, `WITH r AS
+func (o *orm) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error) {
+	var err error
+	var result sql.Result
+	if limit > 0 {
+		result, err = o.db.ExecContext(ctx, `
+		DELETE FROM evm.logs
+		WHERE (evm_chain_id, address, event_sig, block_number) IN (
+			SELECT l.evm_chain_id, l.address, l.event_sig, l.block_number
+			FROM evm.logs l
+			INNER JOIN (
+				SELECT address, event, MAX(retention) AS retention
+				FROM evm.log_poller_filters
+				WHERE evm_chain_id = $1
+				GROUP BY evm_chain_id, address, event
+				HAVING NOT 0 = ANY(ARRAY_AGG(retention))
+			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
+			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
+			LIMIT $2
+		)`, ubig.New(o.chainID), limit)
+	} else {
+		result, err = o.db.ExecContext(ctx, `WITH r AS
 		( SELECT address, event, MAX(retention) AS retention
 			FROM evm.log_poller_filters WHERE evm_chain_id=$1 
 			GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))
 		) DELETE FROM evm.logs l USING r
 			WHERE l.evm_chain_id = $1 AND l.address=r.address AND l.event_sig=r.event
 			AND l.created_at <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`, // retention is in nanoseconds (time.Duration aka BIGINT)
-		ubig.New(o.chainID))
-	return err
+			ubig.New(o.chainID))
+	}
+
+	rowsAffected, affectedErr := result.RowsAffected()
+	if affectedErr != nil {
+		err = errors.Wrap(err, affectedErr.Error())
+	}
+	return rowsAffected, err
 }
 
 // InsertLogs is idempotent to support replays.

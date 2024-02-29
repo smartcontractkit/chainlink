@@ -2,6 +2,8 @@ package pg
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +17,24 @@ import (
 
 	"github.com/XSAM/otelsql"
 )
+
+var MinRequiredPGVersion = 110000
+
+func init() {
+	// from: https://www.postgresql.org/support/versioning/
+	now := time.Now()
+	if now.Year() > 2023 {
+		MinRequiredPGVersion = 120000
+	} else if now.Year() > 2024 {
+		MinRequiredPGVersion = 130000
+	} else if now.Year() > 2025 {
+		MinRequiredPGVersion = 140000
+	} else if now.Year() > 2026 {
+		MinRequiredPGVersion = 150000
+	} else if now.Year() > 2027 {
+		MinRequiredPGVersion = 160000
+	}
+}
 
 type ConnectionConfig interface {
 	DefaultIdleInTxSessionTimeout() time.Duration
@@ -65,7 +85,33 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 	db.SetMaxOpenConns(config.MaxOpenConns())
 	db.SetMaxIdleConns(config.MaxIdleConns())
 
+	if os.Getenv("SKIP_PG_VERSION_CHECK") != "true" {
+		if err := checkVersion(db, MinRequiredPGVersion); err != nil {
+			return nil, err
+		}
+	}
+
 	return db, disallowReplica(db)
+}
+
+type Getter interface {
+	Get(dest interface{}, query string, args ...interface{}) error
+}
+
+func checkVersion(db Getter, minVersion int) error {
+	var version int
+	if err := db.Get(&version, "SHOW server_version_num"); err != nil {
+		log.Printf("Error getting server version, skipping Postgres version check: %s", err.Error())
+		return nil
+	}
+	if version < 10000 {
+		log.Printf("Unexpectedly small version, skipping Postgres version check (you are running: %d)", version)
+		return nil
+	}
+	if version < minVersion {
+		return fmt.Errorf("The minimum required Postgres server version is %d, you are running: %d, which is EOL (see: https://www.postgresql.org/support/versioning/). It is recommended to upgrade your Postgres server. To forcibly override this check, set SKIP_PG_VERSION_CHECK=true", minVersion/10000, version/10000)
+	}
+	return nil
 }
 
 func disallowReplica(db *sqlx.DB) error {

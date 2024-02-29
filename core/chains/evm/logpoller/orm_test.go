@@ -2,14 +2,17 @@ package logpoller_test
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"math"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -433,8 +436,9 @@ func TestORM(t *testing.T) {
 
 	// Delete expired logs
 	time.Sleep(2 * time.Millisecond) // just in case we haven't reached the end of the 1ms retention period
-	err = o1.DeleteExpiredLogs(ctx)
+	deleted, err := o1.DeleteExpiredLogs(ctx, 0)
 	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
 	logs, err = o1.SelectLogsByBlockRange(ctx, 1, latest.BlockNumber)
 	require.NoError(t, err)
 	// The only log which should be deleted is the one which matches filter1 (ret=1ms) but not filter12 (ret=1 hour)
@@ -448,6 +452,102 @@ func TestORM(t *testing.T) {
 	logs, err = o1.SelectLogsByBlockRange(ctx, 1, latest.BlockNumber)
 	require.NoError(t, err)
 	require.Zero(t, len(logs))
+}
+
+type PgxLogger struct {
+	lggr logger.Logger
+}
+
+func NewPgxLogger(lggr logger.Logger) PgxLogger {
+	return PgxLogger{lggr}
+}
+
+func (l PgxLogger) Log(ctx context.Context, log pgx.LogLevel, msg string, data map[string]interface{}) {
+
+}
+
+func TestLogPollerFilters(t *testing.T) {
+	lggr := logger.Test(t)
+	chainID := testutils.NewRandomEVMChainID()
+
+	dbx := pgtest.NewSqlxDB(t)
+	orm := logpoller.NewORM(chainID, dbx, lggr)
+
+	event1 := EmitterABI.Events["Log1"].ID
+	event2 := EmitterABI.Events["Log2"].ID
+	address := common.HexToAddress("0x1234")
+	topicA := common.HexToHash("0x1111")
+	topicB := common.HexToHash("0x2222")
+	topicC := common.HexToHash("0x3333")
+	topicD := common.HexToHash("0x4444")
+
+	ctx := testutils.Context(t)
+
+	filters := []logpoller.Filter{{
+		Name:      "filter by topic2",
+		EventSigs: types.HashArray{event1, event2},
+		Addresses: types.AddressArray{address},
+		Topic2:    types.HashArray{topicA, topicB},
+	}, {
+		Name:      "filter by topic3",
+		Addresses: types.AddressArray{address},
+		EventSigs: types.HashArray{event1},
+		Topic3:    types.HashArray{topicB, topicC, topicD},
+	}, {
+		Name:      "filter by topic4",
+		Addresses: types.AddressArray{address},
+		EventSigs: types.HashArray{event1},
+		Topic4:    types.HashArray{topicC},
+	}, {
+		Name:      "filter by topics 2 and 4",
+		Addresses: types.AddressArray{address},
+		EventSigs: types.HashArray{event2},
+		Topic2:    types.HashArray{topicA},
+		Topic4:    types.HashArray{topicC, topicD},
+	}, {
+		Name:         "10 lpb rate limit, 1M max logs",
+		Addresses:    types.AddressArray{address},
+		EventSigs:    types.HashArray{event1},
+		MaxLogsKept:  1000000,
+		LogsPerBlock: 10,
+	}, { // ensure that the UNIQUE CONSTRAINT isn't too strict (should only error if all fields are identical)
+		Name:      "duplicate of filter by topic4",
+		Addresses: types.AddressArray{address},
+		EventSigs: types.HashArray{event1},
+		Topic3:    types.HashArray{topicC},
+	}}
+
+	for _, filter := range filters {
+		t.Run("Save filter: "+filter.Name, func(t *testing.T) {
+			var count int
+			err := orm.InsertFilter(ctx, filter)
+			require.NoError(t, err)
+			err = dbx.Get(&count, `SELECT COUNT(*) FROM evm.log_poller_filters WHERE evm_chain_id = $1 AND name = $2`, ubig.New(chainID), filter.Name)
+			require.NoError(t, err)
+			expectedCount := len(filter.Addresses) * len(filter.EventSigs)
+			if len(filter.Topic2) > 0 {
+				expectedCount *= len(filter.Topic2)
+			}
+			if len(filter.Topic3) > 0 {
+				expectedCount *= len(filter.Topic3)
+			}
+			if len(filter.Topic4) > 0 {
+				expectedCount *= len(filter.Topic4)
+			}
+			assert.Equal(t, count, expectedCount)
+		})
+	}
+
+	// Make sure they all come back the same when we reload them
+	t.Run("Load filters", func(t *testing.T) {
+		loadedFilters, err := orm.LoadFilters(ctx)
+		require.NoError(t, err)
+		for _, filter := range filters {
+			loadedFilter, ok := loadedFilters[filter.Name]
+			require.True(t, ok, `Failed to reload filter "%s"`, filter.Name)
+			assert.Equal(t, filter, loadedFilter)
+		}
+	})
 }
 
 func insertLogsTopicValueRange(t *testing.T, chainID *big.Int, o logpoller.ORM, addr common.Address, blockNumber int, eventSig common.Hash, start, stop int) {
@@ -762,9 +862,11 @@ func TestORM_DeleteBlocksBefore(t *testing.T) {
 	ctx := testutils.Context(t)
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1234"), 1, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1235"), 2, time.Now(), 0))
-	require.NoError(t, o1.DeleteBlocksBefore(ctx, 1))
+	deleted, err := o1.DeleteBlocksBefore(ctx, 1, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
 	// 1 should be gone.
-	_, err := o1.SelectBlockByNumber(ctx, 1)
+	_, err = o1.SelectBlockByNumber(ctx, 1)
 	require.Equal(t, err, sql.ErrNoRows)
 	b, err := o1.SelectBlockByNumber(ctx, 2)
 	require.NoError(t, err)
@@ -772,7 +874,9 @@ func TestORM_DeleteBlocksBefore(t *testing.T) {
 	// Clear multiple
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1236"), 3, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1237"), 4, time.Now(), 0))
-	require.NoError(t, o1.DeleteBlocksBefore(ctx, 3))
+	deleted, err = o1.DeleteBlocksBefore(ctx, 3, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), deleted)
 	_, err = o1.SelectBlockByNumber(ctx, 2)
 	require.Equal(t, err, sql.ErrNoRows)
 	_, err = o1.SelectBlockByNumber(ctx, 3)
@@ -1582,5 +1686,60 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 		)
 		assert.NoError(b, err)
 		assert.Len(b, logs, 1)
+	}
+}
+
+func Benchmark_DeleteExpiredLogs(b *testing.B) {
+	chainId := big.NewInt(137)
+	_, db := heavyweight.FullTestDBV2(b, nil)
+	o := logpoller.NewORM(chainId, db, logger.Test(b))
+	ctx := testutils.Context(b)
+
+	numberOfReports := 200_000
+	commitStoreAddress := utils.RandomAddress()
+	commitReportAccepted := utils.RandomBytes32()
+
+	past := time.Now().Add(-1 * time.Hour)
+
+	err := o.InsertFilter(ctx, logpoller.Filter{
+		Name:      "test filter",
+		EventSigs: []common.Hash{commitReportAccepted},
+		Addresses: []common.Address{commitStoreAddress},
+		Retention: 1 * time.Millisecond,
+	})
+	require.NoError(b, err)
+
+	for j := 0; j < 5; j++ {
+		var dbLogs []logpoller.Log
+		for i := 0; i < numberOfReports; i++ {
+
+			dbLogs = append(dbLogs, logpoller.Log{
+				EvmChainId:     ubig.New(chainId),
+				LogIndex:       int64(i + 1),
+				BlockHash:      utils.RandomBytes32(),
+				BlockNumber:    int64(i + 1),
+				BlockTimestamp: past,
+				EventSig:       commitReportAccepted,
+				Topics:         [][]byte{},
+				Address:        commitStoreAddress,
+				TxHash:         utils.RandomHash(),
+				Data:           []byte{},
+				CreatedAt:      past,
+			})
+		}
+		require.NoError(b, o.InsertLogs(ctx, dbLogs))
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		tx, err1 := db.Beginx()
+		assert.NoError(b, err1)
+
+		_, err1 = o.DeleteExpiredLogs(ctx, 0)
+		assert.NoError(b, err1)
+
+		err1 = tx.Rollback()
+		assert.NoError(b, err1)
 	}
 }

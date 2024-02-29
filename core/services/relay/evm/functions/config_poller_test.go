@@ -80,7 +80,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	defer ethClient.Close()
 	lggr := logger.TestLogger(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000, 0)
 	servicetest.Run(t, lp)
 	configPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, lggr)
 	require.NoError(t, err)
