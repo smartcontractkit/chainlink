@@ -43,7 +43,7 @@ on:
           - "Base Sepolia"
           - "Polygon Mumbai"
           - "Avalanche Fuji"
-          - "Fantom Testnet"''
+          - "Fantom Testnet"
           - "Celo Alfajores"
           - "Linea Goerli"
           - "BSC Testnet"
@@ -232,7 +232,7 @@ jobs:
 
   sepolia-smoke-tests:
     environment: integration
-    if: ${{ (github.event.inputs.network == 'All' || github.event.inputs.network == 'Sepolia') && (github.event.inputs.product == 'All' || github.event.inputs.product == matrix.product) }}
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Sepolia' }}
     permissions:
       checks: write
       pull-requests: write
@@ -259,6 +259,14 @@ jobs:
     name: Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
+      - name: Check if we should run tests
+        id: check-should-run
+        run: |
+          if [ [ "${{ github.event.inputs.product }}" == "All" ] || [ "${{ github.event.inputs.product }}" == "${{ matrix.product }}" ] ]; then
+            echo "##[set-output name=skip;]false"
+          else
+          echo "##[set-output name=skip;]true"
+          fi
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
