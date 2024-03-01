@@ -31,12 +31,12 @@ import (
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
 	var (
-		testEnv          *test_env.CLClusterTestEnv
-		vrfContracts     *vrfcommon.VRFContracts
-		subIDs           []uint64
-		eoaWalletAddress string
-		vrfKey           *vrfcommon.VRFKeyData
-		//nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		testEnv           *test_env.CLClusterTestEnv
+		vrfContracts      *vrfcommon.VRFContracts
+		subIDs            []uint64
+		eoaWalletAddress  string
+		vrfKey            *vrfcommon.VRFKeyData
+		nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
 	l := logging.GetTestLogger(t)
 
@@ -65,8 +65,8 @@ func TestVRFv2Basic(t *testing.T) {
 		NumberOfTxKeysToCreate: 0,
 		NumberOfConsumers:      1,
 		NumberOfSubToCreate:    1,
-		UseVRFOwner:            false,
-		UseTestCoordinator:     false,
+		UseVRFOwner:            true,
+		UseTestCoordinator:     true,
 	}
 
 	testEnv, vrfContracts, subIDs, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
@@ -85,10 +85,6 @@ func TestVRFv2Basic(t *testing.T) {
 	t.Run("Request Randomness", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		subBalanceBeforeRequest := subscription.Balance
-
-		//todo
-		//jobRunsBeforeTest, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
-		//require.NoError(t, err, "error reading job runs")
 
 		// test and assert
 		randomWordsFulfilledEvent, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
@@ -111,10 +107,6 @@ func TestVRFv2Basic(t *testing.T) {
 		require.NoError(t, err, "error getting subscription information")
 		subBalanceAfterRequest := subscription.Balance
 		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
-		//todo
-		//jobRuns, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
-		//require.NoError(t, err, "error reading job runs")
-		//require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
 		status, err := vrfContracts.VRFV2Consumer[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
@@ -126,6 +118,32 @@ func TestVRFv2Basic(t *testing.T) {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
 		}
+	})
+
+	t.Run("CL Node VRF Job Runs", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		jobRunsBeforeTest, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+
+		// test and assert
+		_, err = vrfv2.RequestRandomnessAndWaitForFulfillment(
+			l,
+			vrfContracts.VRFV2Consumer[0],
+			vrfContracts.CoordinatorV2,
+			subID,
+			vrfKey,
+			*configCopy.VRFv2.General.MinimumConfirmations,
+			*configCopy.VRFv2.General.CallbackGasLimit,
+			*configCopy.VRFv2.General.NumberOfWords,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
+			configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+		jobRuns, err := nodeTypeToNodeMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodeTypeToNodeMap[vrfcommon.VRF].Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 	})
 
 	t.Run("Direct Funding (VRFV2Wrapper)", func(t *testing.T) {
@@ -554,7 +572,6 @@ func TestVRFOwner(t *testing.T) {
 		subIDs           []uint64
 		eoaWalletAddress string
 		vrfKey           *vrfcommon.VRFKeyData
-		//nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
 	l := logging.GetTestLogger(t)
 
