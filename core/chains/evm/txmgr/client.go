@@ -30,8 +30,6 @@ type evmTxmClient struct {
 	chainType config.ChainType
 }
 
-type newTxAttemptFunc = func(ctx context.Context, seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error)
-
 func NewEvmTxmClient(c client.Client, chainType config.ChainType) *evmTxmClient {
 	return &evmTxmClient{client: c, chainType: chainType}
 }
@@ -98,16 +96,16 @@ func (c *evmTxmClient) BatchSendTransactions(
 }
 
 func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.SugaredLogger) (commonclient.SendTxReturnCode, error) {
+	if c.chainType == config.ChainZkSync {
+		_, code, err := c.client.SendRawTransactionReturnCode(ctx, attempt.SignedRawTx, etx.FromAddress)
+		return code, err
+	}
 	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
 		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
 		return commonclient.Fatal, err
 	}
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)
-}
-
-func (c *evmTxmClient) SendRawTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt) (common.Hash, commonclient.SendTxReturnCode, error) {
-	return c.client.SendRawTransactionReturnCode(ctx, attempt.SignedRawTx, etx.FromAddress)
 }
 
 func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n evmtypes.Nonce, err error) {
@@ -153,18 +151,13 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 // May be useful for clearing stuck nonces
 func (c *evmTxmClient) SendEmptyTransaction(
 	ctx context.Context,
-	newTxAttempt newTxAttemptFunc,
+	attempt TxAttempt,
 	seq evmtypes.Nonce,
 	gasLimit uint32,
 	fee gas.EvmFee,
 	fromAddress common.Address,
 ) (txhash string, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
-
-	attempt, err := newTxAttempt(ctx, seq, gasLimit, fee, fromAddress)
-	if err != nil {
-		return txhash, err
-	}
 
 	// Send as raw transaction for ZkSync since it requires a custom EIP-712 tx
 	if c.chainType == config.ChainZkSync {

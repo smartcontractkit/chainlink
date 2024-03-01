@@ -52,21 +52,7 @@ func NewChainClient(
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
-	multiNode := commonclient.NewMultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCClient,
-		rpc.BatchElem,
-	](
+	multiNode := commonclient.NewMultiNode(
 		lggr,
 		selectionMode,
 		leaseDuration,

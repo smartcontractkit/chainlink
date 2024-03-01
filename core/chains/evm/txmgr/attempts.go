@@ -136,6 +136,35 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(ctx context.Context, nonce evmty
 	value := big.NewInt(0)
 	payload := []byte{}
 
+	// Send EIP-712 tx for zkSync
+	if c.chainType == config.ChainZkSync {
+		if fee.DynamicFeeCap == nil || fee.DynamicTipCap == nil {
+			return attempt, pkgerrors.New("NewEmptyTranscation for EIP-712 tx: DynamicFeeCap or DynamicTipCap cannot be nil")
+		}
+		tx := newZkSyncTransaction(
+			uint64(nonce),
+			fromAddress,
+			fromAddress,
+			value,
+			feeLimit,
+			&c.chainID,
+			fee.DynamicTipCap,
+			fee.DynamicFeeCap,
+			payload,
+			c.feeConfig.GasPerPubdata(),
+		)
+
+		signedRawTx, err := c.keystore.SignZkSyncTx(ctx, fromAddress, &tx, &c.chainID)
+		if err != nil {
+			return attempt, pkgerrors.Wrapf(err, "error using account %s to sign empty EIP-712 transaction", fromAddress.String())
+		}
+
+		attempt.SignedRawTx = signedRawTx
+		attempt.Hash = common.HexToHash(hex.EncodeToString(signedRawTx))
+		return attempt, nil
+	}
+
+	// Send Legacy tx for all other chains
 	if fee.Legacy == nil {
 		return attempt, pkgerrors.New("NewEmptyTranscation: legacy fee cannot be nil")
 	}
@@ -152,7 +181,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(ctx context.Context, nonce evmty
 	transaction := types.NewTx(&tx)
 	hash, signedTxBytes, err := c.SignTx(ctx, fromAddress, transaction)
 	if err != nil {
-		return attempt, pkgerrors.Wrapf(err, "error using account %s to sign empty transaction", fromAddress.String())
+		return attempt, pkgerrors.Wrapf(err, "error using account %s to sign empty legacy transaction", fromAddress.String())
 	}
 
 	attempt.SignedRawTx = signedTxBytes
@@ -421,33 +450,4 @@ func newZkSyncTransaction(nonce uint64, from common.Address, to common.Address, 
 			FactoryDeps:     nil,
 		},
 	}
-}
-
-// NewEmpty712TxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
-func (c *evmTxAttemptBuilder) NewEmpty712TxAttempt(ctx context.Context, nonce evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error) {
-	value := big.NewInt(0)
-	payload := []byte{}
-
-	tx := newZkSyncTransaction(
-		uint64(nonce),
-		fromAddress,
-		fromAddress,
-		value,
-		feeLimit,
-		&c.chainID,
-		fee.DynamicTipCap,
-		fee.DynamicFeeCap,
-		payload,
-		c.feeConfig.GasPerPubdata(),
-	)
-
-	signedRawTx, err := c.keystore.SignZkSyncTx(ctx, fromAddress, &tx, &c.chainID)
-	if err != nil {
-		return attempt, pkgerrors.Wrapf(err, "error using account %s to sign empty transaction", fromAddress.String())
-	}
-
-	attempt.SignedRawTx = signedRawTx
-	attempt.Hash = common.HexToHash(hex.EncodeToString(signedRawTx))
-	return attempt, nil
-
 }

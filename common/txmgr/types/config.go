@@ -2,8 +2,6 @@ package types
 
 import (
 	"time"
-
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 )
 
 type TransactionManagerChainConfig interface {
@@ -28,7 +26,6 @@ type TransactionManagerTransactionsConfig interface {
 }
 
 type BroadcasterChainConfig interface {
-	ChainType() config.ChainType
 	IsL2() bool
 }
 
@@ -58,7 +55,6 @@ type ConfirmerFeeConfig interface {
 type ConfirmerChainConfig interface {
 	RPCDefaultBatchSize() uint32
 	FinalityDepth() uint32
-	ChainType() config.ChainType
 }
 
 type ConfirmerDatabaseConfig interface {

@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
@@ -822,11 +821,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
 	var errType client.SendTxReturnCode
 	var sendError error
-	if ec.chainConfig.ChainType() == config.ChainZkSync {
-		_, errType, sendError = ec.client.SendRawTransactionReturnCode(ctx, etx, attempt)
-	} else {
-		errType, sendError = ec.client.SendTransactionReturnCode(ctx, etx, attempt, lggr)
-	}
+	errType, sendError = ec.client.SendTransactionReturnCode(ctx, etx, attempt, lggr)
 
 	switch errType {
 	case client.Underpriced:
@@ -1079,17 +1074,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 			}
 			attempt.Tx = *etx // for logging
 			ec.lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt)
-			if ec.chainConfig.ChainType() == config.ChainZkSync {
-				if _, errCode, err := ec.client.SendRawTransactionReturnCode(ctx, *etx, attempt); errCode != client.Successful && err != nil {
-					ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast raw tx %v with sequence %v and gas limit %v: %s", etx.ID, *etx.Sequence, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
-					continue
-				}
-			} else {
-				if errCode, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr); errCode != client.Successful && err != nil {
-					ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast tx %v with sequence %v and gas limit %v: %s", etx.ID, *etx.Sequence, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
-					continue
-				}
+			if errCode, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr); errCode != client.Successful && err != nil {
+				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast tx %v with sequence %v and gas limit %v: %s", etx.ID, *etx.Sequence, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
+				continue
 			}
+
 			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast tx %v with hash: 0x%x", etx.ID, attempt.Hash)
 		}
 	}
@@ -1101,13 +1090,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 	if gasLimit == 0 {
 		gasLimit = ec.feeConfig.LimitDefault()
 	}
-	var txhash string
-	var err error
-	if ec.chainConfig.ChainType() == config.ChainZkSync {
-		txhash, err = ec.client.SendEmptyTransaction(ctx, ec.TxAttemptBuilder.NewEmpty712TxAttempt, seq, gasLimit, fee, fromAddress)
-	} else {
-		txhash, err = ec.client.SendEmptyTransaction(ctx, ec.TxAttemptBuilder.NewEmptyTxAttempt, seq, gasLimit, fee, fromAddress)
+	attempt, err := ec.TxAttemptBuilder.NewEmptyTxAttempt(ctx, seq, gasLimit, fee, fromAddress)
+	if err != nil {
+		return "", fmt.Errorf("(Confirmer).sendEmptyTransaction failed to create empty tx attempt: %w", err)
 	}
+	var txhash string
+	txhash, err = ec.client.SendEmptyTransaction(ctx, attempt, seq, gasLimit, fee, fromAddress)
 	if err != nil {
 		return "", fmt.Errorf("(Confirmer).sendEmptyTransaction failed: %w", err)
 	}
