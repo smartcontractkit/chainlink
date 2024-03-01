@@ -795,9 +795,9 @@ func DeployVRFV2PlusDirectFundingContracts(
 	return &VRFV2PlusWrapperContracts{vrfv2PlusWrapper, consumers}, nil
 }
 
-func DirectFundingRequestRandomnessAndWaitForFulfillment(
+func WrapperRequestRandomness(
 	consumer contracts.VRFv2PlusWrapperLoadTestConsumer,
-	coordinator contracts.VRFCoordinatorV2_5,
+	coordinatorAddress string,
 	vrfKeyData *vrfcommon.VRFKeyData,
 	subID *big.Int,
 	isNativeBilling bool,
@@ -807,12 +807,11 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
 	randomWordsFulfilledEventTimeout time.Duration,
-	l zerolog.Logger,
-) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
+	l zerolog.Logger) (string, error) {
 	logRandRequest(
 		l,
 		consumer.Address(),
-		coordinator.Address(),
+		coordinatorAddress,
 		subID,
 		isNativeBilling,
 		minimumConfirmations,
@@ -830,7 +829,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 			randomnessRequestCountPerRequest,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingNativePayment, err)
+			return "", fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingNativePayment, err)
 		}
 	} else {
 		_, err := consumer.RequestRandomness(
@@ -840,15 +839,39 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 			randomnessRequestCountPerRequest,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingLinkPayment, err)
+			return "", fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingLinkPayment, err)
 		}
 	}
 	wrapperAddress, err := consumer.GetWrapper(context.Background())
 	if err != nil {
+		return "", fmt.Errorf("error getting wrapper address, err: %w", err)
+	}
+	return wrapperAddress.Hex(), nil
+}
+
+func DirectFundingRequestRandomnessAndWaitForFulfillment(
+	consumer contracts.VRFv2PlusWrapperLoadTestConsumer,
+	coordinator contracts.VRFCoordinatorV2_5,
+	vrfKeyData *vrfcommon.VRFKeyData,
+	subID *big.Int,
+	isNativeBilling bool,
+	minimumConfirmations uint16,
+	callbackGasLimit uint32,
+	numberOfWords uint32,
+	randomnessRequestCountPerRequest uint16,
+	randomnessRequestCountPerRequestDeviation uint16,
+	randomWordsFulfilledEventTimeout time.Duration,
+	l zerolog.Logger,
+) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
+	wrapperAddress, err := WrapperRequestRandomness(consumer, coordinator.Address(), vrfKeyData, subID,
+		isNativeBilling, minimumConfirmations, callbackGasLimit, numberOfWords,
+		randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation,
+		randomWordsFulfilledEventTimeout, l)
+	if err != nil {
 		return nil, fmt.Errorf("error getting wrapper address, err: %w", err)
 	}
 	return WaitForRequestAndFulfillmentEvents(
-		wrapperAddress.String(),
+		wrapperAddress,
 		coordinator,
 		vrfKeyData,
 		subID,
@@ -872,46 +895,15 @@ func DirectFundingRequestRandomnessAndWaitForFulfillmentUpgraded(
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error) {
-	logRandRequest(
-		l,
-		consumer.Address(),
-		coordinator.Address(),
-		subID,
-		isNativeBilling,
-		minimumConfirmations,
-		callbackGasLimit,
-		numberOfWords,
-		vrfKeyData.KeyHash,
-		randomnessRequestCountPerRequest,
-		randomnessRequestCountPerRequestDeviation,
-	)
-	if isNativeBilling {
-		_, err := consumer.RequestRandomnessNative(
-			minimumConfirmations,
-			callbackGasLimit,
-			numberOfWords,
-			randomnessRequestCountPerRequest,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingNativePayment, err)
-		}
-	} else {
-		_, err := consumer.RequestRandomness(
-			minimumConfirmations,
-			callbackGasLimit,
-			numberOfWords,
-			randomnessRequestCountPerRequest,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("%s, err %w", ErrRequestRandomnessDirectFundingLinkPayment, err)
-		}
-	}
-	wrapperAddress, err := consumer.GetWrapper(context.Background())
+	wrapperAddress, err := WrapperRequestRandomness(consumer, coordinator.Address(), vrfKeyData, subID,
+		isNativeBilling, minimumConfirmations, callbackGasLimit, numberOfWords,
+		randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation,
+		randomWordsFulfilledEventTimeout, l)
 	if err != nil {
 		return nil, fmt.Errorf("error getting wrapper address, err: %w", err)
 	}
 	return WaitForRequestAndFulfillmentEventsUpgraded(
-		wrapperAddress.String(),
+		wrapperAddress,
 		coordinator,
 		vrfKeyData,
 		subID,
