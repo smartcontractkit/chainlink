@@ -74,8 +74,8 @@ func NewDashboard(
 			"branch": `=~"${branch:pipe}"`,
 			"commit": `=~"${commit:pipe}"`,
 		}
-		waspPanelsLoadStats := wasp.WASPLoadStatsRow(db.PrometheusDataSourceName, panelQuery)
-		waspPanelsDebugData := wasp.WASPDebugDataRow(db.PrometheusDataSourceName, panelQuery, false)
+		waspPanelsLoadStats := wasp.WASPLoadStatsRow(db.LokiDataSourceName, panelQuery)
+		waspPanelsDebugData := wasp.WASPDebugDataRow(db.LokiDataSourceName, panelQuery, false)
 		db.opts = append(db.opts, waspPanelsLoadStats)
 		db.opts = append(db.opts, waspPanelsDebugData)
 		break
@@ -187,6 +187,6 @@ func (m *Dashboard) addKubernetesVariables() {
 	}
 
 	m.opts = append(m.opts, opts...)
-	waspVariables := wasp.AddVariables(m.PrometheusDataSourceName)
+	waspVariables := wasp.AddVariables(m.LokiDataSourceName)
 	m.opts = append(m.opts, waspVariables...)
 }
