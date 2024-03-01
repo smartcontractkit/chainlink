@@ -42,7 +42,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMin = '1'
-GasPerPubdata = '50000 wei'
+GasPerPubdata = '50 kwei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
