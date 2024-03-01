@@ -21,16 +21,6 @@ on:
         description: "The Slack member ID to notify"
         required: true
         type: string
-      product:
-        description: "The product to run tests for"
-        required: true
-        type: choice
-        options:
-          - "All"
-          - "OCR"
-          - "VRF"
-          - "VRFv2"
-          - "VRFv2Plus"
       network:
         description: "The network to run tests on"
         required: true
@@ -232,7 +222,7 @@ jobs:
 
   sepolia-smoke-tests:
     environment: integration
-    if: ${{ (github.event.inputs.network == 'All' || github.event.inputs.network == 'Sepolia') && ( inputs.product == 'All' || inputs.product == matrix.product ) }}
+    if: ${{ (github.event.inputs.network == 'All' || github.event.inputs.network == 'Sepolia') }}
     permissions:
       checks: write
       pull-requests: write
@@ -250,12 +240,6 @@ jobs:
             test: TestAutomationBasic/registry_2_1_conditional
           - product: Automation Log Trigger
             test: TestAutomationBasic/registry_2_1_logtrigger
-          - product: VRF
-            test: TestVRFBasic
-          - product: VRFv2
-            test: TestVRFv2Basic
-          - product: VRFv2Plus
-            test: TestVRFv2Plus
     name: Sepolia ${{ matrix.product }} Tests
     runs-on: ubuntu-latest
     steps:
