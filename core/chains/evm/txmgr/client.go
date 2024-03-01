@@ -171,15 +171,15 @@ func (c *evmTxmClient) SendEmptyTransaction(
 		var hash common.Hash
 		hash, _, err = c.client.SendRawTransactionReturnCode(ctx, attempt.SignedRawTx, fromAddress)
 		return hash.String(), err
-	} else {
-		signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
-		if err != nil {
-			return txhash, err
-		}
-
-		_, err = c.client.SendTransactionReturnCode(ctx, signedTx, fromAddress)
-		return signedTx.Hash().String(), err
 	}
+	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
+	if err != nil {
+		return txhash, err
+	}
+
+	_, err = c.client.SendTransactionReturnCode(ctx, signedTx, fromAddress)
+	return signedTx.Hash().String(), err
+
 }
 
 func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumber *big.Int) (rpcErr fmt.Stringer, extractErr error) {

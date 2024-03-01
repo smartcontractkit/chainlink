@@ -66,8 +66,6 @@ func NewEvmTxmConfig(c ChainConfig) *evmTxmConfig {
 
 func (c evmTxmConfig) IsL2() bool { return c.ChainType().IsL2() }
 
-func (c evmTxmConfig) ChainType() config.ChainType { return c.ChainType() }
-
 var _ EvmTxmFeeConfig = (*evmTxmFeeConfig)(nil)
 
 type evmTxmFeeConfig struct {
