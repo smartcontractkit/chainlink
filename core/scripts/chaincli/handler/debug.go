@@ -213,7 +213,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to fetch trigger config for upkeep", err)
 		}
-		var triggerConfig automation_convenience.LogTriggerConfig
+		var triggerConfig automation_convenience.IAutomationV2CommonLogTriggerConfig
 		triggerConfig, err = packer.UnpackLogTriggerConfig(rawTriggerConfig)
 		if err != nil {
 			failUnknown("failed to unpack trigger config", err)
@@ -469,7 +469,7 @@ func (bs *blockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
 	}
 }
 
-func logMatchesTriggerConfig(log *types.Log, config automation_convenience.LogTriggerConfig) bool {
+func logMatchesTriggerConfig(log *types.Log, config automation_convenience.IAutomationV2CommonLogTriggerConfig) bool {
 	if log.Topics[0] != config.Topic0 {
 		return false
 	}

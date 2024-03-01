@@ -60,7 +60,7 @@ var (
 )
 
 var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID *big.Int, emitterAddress common.Address, topic common.Hash) error {
-	logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
+	logTriggerConfigStruct := automation_convenience.IAutomationV2CommonLogTriggerConfig{
 		ContractAddress: emitterAddress,
 		FilterSelector:  0,
 		Topic0:          topic,

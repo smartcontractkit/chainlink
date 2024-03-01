@@ -37,7 +37,7 @@ interface IAutomationV2Common {
     bytes offchainConfig;
   }
 
-/// @dev Report transmitted by OCR to transmit function
+  /// @dev Report transmitted by OCR to transmit function
   struct Report {
     uint256 fastGasWei;
     uint256 linkNative;
@@ -47,9 +47,9 @@ interface IAutomationV2Common {
     bytes[] performDatas;
   }
 
-/**
- * @notice structure of trigger for log triggers
- */
+  /**
+   * @notice structure of trigger for log triggers
+   */
   struct LogTriggerConfig {
     address contractAddress;
     uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
@@ -59,11 +59,11 @@ interface IAutomationV2Common {
     bytes32 topic3;
   }
 
-/**
- * @notice the trigger structure of log upkeeps
- * @dev NOTE that blockNum / blockHash describe the block used for the callback,
- * not necessarily the block number that the log was emitted in!!!!
- */
+  /**
+   * @notice the trigger structure of log upkeeps
+   * @dev NOTE that blockNum / blockHash describe the block used for the callback,
+   * not necessarily the block number that the log was emitted in!!!!
+   */
   struct LogTrigger {
     bytes32 logBlockHash;
     bytes32 txHash;
@@ -72,16 +72,16 @@ interface IAutomationV2Common {
     bytes32 blockHash;
   }
 
-/**
- * @notice the trigger structure conditional trigger type
- */
+  /**
+   * @notice the trigger structure conditional trigger type
+   */
   struct ConditionalTrigger {
     uint32 blockNum;
     bytes32 blockHash;
   }
 
-/**
- * @notice state of the registry
+  /**
+   * @notice state of the registry
    * @dev only used in params and return values
    * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
    * @member nonce used for ID generation

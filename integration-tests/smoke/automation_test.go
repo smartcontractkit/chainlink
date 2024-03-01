@@ -313,7 +313,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			for i := 0; i < len(consumers); i++ {
 				upkeepAddr := consumers[i].Address()
 
-				logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
+				logTriggerConfigStruct := automation_convenience.IAutomationV2CommonLogTriggerConfig{
 					ContractAddress: common.HexToAddress(upkeepAddr),
 					FilterSelector:  0,
 					Topic0:          topic0InBytesNoMatch,
@@ -361,7 +361,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			for i := 0; i < len(consumers); i++ {
 				upkeepAddr := consumers[i].Address()
 
-				logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
+				logTriggerConfigStruct := automation_convenience.IAutomationV2CommonLogTriggerConfig{
 					ContractAddress: common.HexToAddress(upkeepAddr),
 					FilterSelector:  0,
 					Topic0:          topic0InBytesMatch,

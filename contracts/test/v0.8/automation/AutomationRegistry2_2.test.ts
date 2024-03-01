@@ -76,9 +76,7 @@ enum Trigger {
 
 // un-exported types that must be extracted from the utils contract
 type Report = Parameters<AutomationConvenience['_report']>[0]
-type OnChainConfig = Parameters<
-  AutomationConvenience['_onChainConfig22Plus']
->[0]
+type OnChainConfig = Parameters<AutomationConvenience['_onChainConfig22']>[0]
 type LogTrigger = Parameters<AutomationConvenience['_logTrigger']>[0]
 type ConditionalTrigger = Parameters<
   AutomationConvenience['_conditionalTrigger']
@@ -208,7 +206,7 @@ const encodeConfig = (onchainConfig: OnChainConfig) => {
   return (
     '0x' +
     automationConv.interface
-      .encodeFunctionData('_onChainConfig22Plus', [onchainConfig])
+      .encodeFunctionData('_onChainConfig22', [onchainConfig])
       .slice(10)
   )
 }
