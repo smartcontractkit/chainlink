@@ -18,7 +18,7 @@ import {IChainModule} from "../interfaces/IChainModule.sol";
  * AutomationRegistry and AutomationRegistryLogic
  * @dev all errors, events, and internal functions should live here
  */
-abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
+abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
