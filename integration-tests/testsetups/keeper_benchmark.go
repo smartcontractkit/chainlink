@@ -33,8 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
-	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
@@ -537,9 +536,9 @@ func (k *KeeperBenchmarkTest) contractABI(rIndex int) *abi.ABI {
 	case ethereum.RegistryVersion_2_0:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	case ethereum.RegistryVersion_2_1:
-		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
+		contractABI, err = autov2common.IAutomationV2CommonMetaData.GetAbi()
 	case ethereum.RegistryVersion_2_2:
-		contractABI, err = iregistry22.IAutomationRegistryMasterMetaData.GetAbi()
+		contractABI, err = autov2common.IAutomationV2CommonMetaData.GetAbi()
 	default:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	}

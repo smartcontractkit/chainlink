@@ -41,7 +41,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -51,16 +51,16 @@ import (
 )
 
 var (
-	EmitterABI, _      = abi.JSON(strings.NewReader(le.LogEmitterABI))
-	automationUtilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
-	bytes0             = [32]byte{
+	EmitterABI, _     = abi.JSON(strings.NewReader(le.LogEmitterABI))
+	automatoinConvABI = cltypes.MustGetABI(automation_convenience.AutomationConvenienceABI)
+	bytes0            = [32]byte{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	} // bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
 
 )
 
 var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID *big.Int, emitterAddress common.Address, topic common.Hash) error {
-	logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+	logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
 		ContractAddress: emitterAddress,
 		FilterSelector:  0,
 		Topic0:          topic,
@@ -68,7 +68,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 		Topic2:          bytes0,
 		Topic3:          bytes0,
 	}
-	encodedLogTriggerConfig, err := automationUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+	encodedLogTriggerConfig, err := automatoinConvABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 // 		return err
 // 	}
 
-// 	logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+// 	logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
 // 		ContractAddress: emitterAddress,
 // 		FilterSelector:  filterSelector,
 // 		Topic0:          getTopic(topics, 0),
@@ -126,7 +126,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 // 		Topic2:          getTopic(topics, 2),
 // 		Topic3:          getTopic(topics, 3),
 // 	}
-// 	encodedLogTriggerConfig, err := automationUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+// 	encodedLogTriggerConfig, err := automatoinConvABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 // 	if err != nil {
 // 		return err
 // 	}

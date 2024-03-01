@@ -39,8 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
 	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
@@ -1209,7 +1209,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return nil, err
 		}
 
-		registryMaster, err := iregistry21.NewIKeeperRegistryMaster(
+		registryMaster, err := autov2common.NewIAutomationV2Common(
 			*address,
 			e.client.Backend(),
 		)
@@ -1332,7 +1332,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return nil, err
 		}
 
-		registryMaster, err := iregistry22.NewIAutomationRegistryMaster(
+		registryMaster, err := autov2common.NewIAutomationV2Common(
 			*address,
 			e.client.Backend(),
 		)
@@ -1450,7 +1450,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address common.Address,
 			backend bind.ContractBackend,
 		) (interface{}, error) {
-			return iregistry21.NewIKeeperRegistryMaster(address, backend)
+			return autov2common.NewIAutomationV2Common(address, backend)
 		})
 		if err != nil {
 			return nil, err
@@ -1458,7 +1458,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		return &EthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
-			registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
+			registry2_1: instance.(*autov2common.IAutomationV2Common),
 			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
@@ -1474,7 +1474,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		return &EthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
-			registry2_2: instance.(*iregistry22.IAutomationRegistryMaster),
+			registry2_2: instance.(*autov2common.IAutomationV2Common),
 			version:     registryVersion,
 		}, err
 	default:
