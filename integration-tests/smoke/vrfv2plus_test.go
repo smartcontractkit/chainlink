@@ -787,7 +787,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
 
-	t.Run("Migration of VRF requests with subscription billing", func(t *testing.T) {
+	t.Run("Test migration of Subscription Billing subID", func(t *testing.T) {
 		// Migrate subscription from old coordinator to new coordinator, verify if balances
 		// are moved correctly and requests can be made successfully in the subscription in
 		// new coordinator
@@ -795,7 +795,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			linkAddress, mockETHLinkFeedAddress, nodesMap)
 	})
 
-	t.Run("Migration of VRF requests with direct billing", func(t *testing.T) {
+	t.Run("Test migration of direct billing using VRFV2PlusWrapper subID", func(t *testing.T) {
 		// Migrate wrapper subscription from old coordinator to new coordinator, verify if balances
 		// are moved correctly and requests can be made successfully in the subscription in
 		// new coordinator
