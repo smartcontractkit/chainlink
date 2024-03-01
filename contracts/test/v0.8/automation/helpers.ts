@@ -38,7 +38,7 @@ export const deployRegistry22 = async (
   link: Parameters<AutomationRegistryLogicBFactory['deploy']>[0],
   linkNative: Parameters<AutomationRegistryLogicBFactory['deploy']>[1],
   fastgas: Parameters<AutomationRegistryLogicBFactory['deploy']>[2],
-  allowedReadOnlyAddress: Parameters<
+  allowedReadOnlyAddresses: Parameters<
     AutomationRegistryLogicBFactory['deploy']
   >[3],
 ): Promise<IAutomationRegistry> => {
@@ -62,7 +62,7 @@ export const deployRegistry22 = async (
       linkNative,
       fastgas,
       forwarderLogic.address,
-      allowedReadOnlyAddress,
+      allowedReadOnlyAddresses,
     )
   const logicA = await logicAFactory.connect(from).deploy(logicB.address)
   const master = await registryFactory.connect(from).deploy(logicA.address)

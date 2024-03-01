@@ -21,8 +21,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     address linkNativeFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address allowedReadOnlyAddress
-  ) AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
+    address[] memory allowedReadOnlyAddresses
+  ) AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddresses) {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -257,6 +257,18 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
   }
 
+  /**
+   * @notice sets an array of allowed read only addresses
+   * @param addresses the new allowed read only addresses
+   */
+  function setAllowedReadOnlyAddresses(address[] calldata addresses) external onlyOwner {
+    if (addresses.length == 0) {
+      revert EmptyAllowedReadOnlyAddresses();
+    }
+    s_allowedReadOnlyAddresses = addresses;
+    emit AllowedReadOnlyAddressesUpdated(addresses);
+  }
+
   // ================================================================
   // |                           GETTERS                            |
   // ================================================================
@@ -305,8 +317,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     return i_automationForwarderLogic;
   }
 
-  function getAllowedReadOnlyAddress() external view returns (address) {
-    return i_allowedReadOnlyAddress;
+  function getAllowedReadOnlyAddresses() external view returns (address[] memory) {
+    return s_allowedReadOnlyAddresses;
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
