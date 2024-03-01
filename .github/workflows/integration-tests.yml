@@ -689,7 +689,7 @@ jobs:
   eth-smoke-go-mod-cache:
     environment: integration
     needs: [eth-smoke-tests]
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu-latest
     name: ETH Smoke Tests Go Mod Cache
     continue-on-error: true
     steps:
