@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -25,51 +27,39 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
+)
+
+var (
+	env               *test_env.CLClusterTestEnv
+	vrfContracts      *vrfcommon.VRFContracts
+	subIDs            []uint64
+	eoaWalletAddress  string
+	vrfKey            *vrfcommon.VRFKeyData
+	nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 )
 
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
-	var (
-		env              *test_env.CLClusterTestEnv
-		vrfContracts     *vrfcommon.VRFContracts
-		subIDs           []uint64
-		eoaWalletAddress string
-	)
+
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-
-	cleanupFn := func() {
-		if env.EVMClient.NetworkSimulated() {
-			l.Info().
-				Str("Network Name", env.EVMClient.GetNetworkName()).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
+	cleanupFn := getCleanupFn(testcontext.Get(t), l, vrfv2Config)
 
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 0,
 		NumberOfConsumers:      1,
 		NumberOfSubToCreate:    1,
-		UseVRFOwner:            true,
-		UseTestCoordinator:     true,
+		UseVRFOwner:            false,
+		UseTestCoordinator:     false,
 	}
 
-	env, vrfContracts, subIDs, vrfKey, _, err := vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
+	env, vrfContracts, subIDs, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
@@ -452,13 +442,6 @@ func TestVRFv2Basic(t *testing.T) {
 
 func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	t.Parallel()
-	var (
-		env              *test_env.CLClusterTestEnv
-		vrfContracts     *vrfcommon.VRFContracts
-		subIDs           []uint64
-		eoaWalletAddress string
-	)
-
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
@@ -466,25 +449,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	vrfv2Config := config.VRFv2
-
-	cleanupFn := func() {
-		if env.EVMClient.NetworkSimulated() {
-			l.Info().
-				Str("Network Name", env.EVMClient.GetNetworkName()).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
-
+	cleanupFn := getCleanupFn(testcontext.Get(t), l, vrfv2Config)
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 2,
@@ -494,7 +459,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	env, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err := vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
+	env, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
@@ -549,36 +514,12 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 
 func TestVRFOwner(t *testing.T) {
 	t.Parallel()
-	var (
-		env              *test_env.CLClusterTestEnv
-		vrfContracts     *vrfcommon.VRFContracts
-		subIDs           []uint64
-		eoaWalletAddress string
-	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-
-	cleanupFn := func() {
-		if env.EVMClient.NetworkSimulated() {
-			l.Info().
-				Str("Network Name", env.EVMClient.GetNetworkName()).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
-
+	cleanupFn := getCleanupFn(testcontext.Get(t), l, vrfv2Config)
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 0,
@@ -588,7 +529,7 @@ func TestVRFOwner(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	env, vrfContracts, subIDs, vrfKey, _, err := vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
+	env, vrfContracts, subIDs, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
@@ -679,35 +620,13 @@ func TestVRFOwner(t *testing.T) {
 
 func TestVRFV2WithBHS(t *testing.T) {
 	t.Parallel()
-	var (
-		env              *test_env.CLClusterTestEnv
-		vrfContracts     *vrfcommon.VRFContracts
-		subIDs           []uint64
-		eoaWalletAddress string
-	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
 
-	cleanupFn := func() {
-		if env.EVMClient.NetworkSimulated() {
-			l.Info().
-				Str("Network Name", env.EVMClient.GetNetworkName()).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
-			}
-		}
-		if !*vrfv2Config.General.UseExistingEnv {
-			if err := env.Cleanup(); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
+	cleanupFn := getCleanupFn(testcontext.Get(t), l, vrfv2Config)
 
 	//Underfund Subscription
 	vrfv2Config.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
@@ -725,7 +644,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	env, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err := vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
+	env, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
@@ -854,4 +773,24 @@ func TestVRFV2WithBHS(t *testing.T) {
 			Msg("BHS Contract's stored Blockhash for Randomness Request")
 		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
 	})
+}
+
+func getCleanupFn(ctx context.Context, l zerolog.Logger, config *vrfv2_config.Config) func() {
+	return func() {
+		if env.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", env.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(ctx, vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*config.General.UseExistingEnv {
+			if err := env.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
 }
