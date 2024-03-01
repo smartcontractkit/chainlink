@@ -12,7 +12,10 @@ import (
 )
 
 type PanelOption struct {
-	labelFilter string
+	labelFilters map[string]string
+	labelFilter  string
+	legendString string
+	labelQuery   string
 }
 
 type Dashboard struct {
@@ -119,15 +122,32 @@ func (m *Dashboard) init() {
 		dashboard.Tags(m.grafanaTags),
 	}
 
+	m.panelOption.labelFilters = map[string]string{
+		"instance": `=~"${instance}"`,
+		"commit":   `=~"${commit:pipe}"`,
+	}
+
 	switch m.platform {
 	case "kubernetes":
+		m.panelOption.labelFilters = map[string]string{
+			"job":       `=~"${instance}"`,
+			"namespace": `=~"${namespace}"`,
+		}
 		m.panelOption.labelFilter = "job"
+		m.panelOption.legendString = "pod"
 		break
 	case "docker":
+		m.panelOption.labelFilters = map[string]string{
+			"instance": `=~"${instance}"`,
+		}
 		m.panelOption.labelFilter = "instance"
+		m.panelOption.legendString = "instance"
 		break
 	}
 
+	for key, value := range m.panelOption.labelFilters {
+		m.panelOption.labelQuery += key + value + ", "
+	}
 	m.opts = append(m.opts, opts...)
 }
 
@@ -138,7 +158,7 @@ func (m *Dashboard) addCoreVariables() {
 			query.DataSource(m.PrometheusDataSourceName),
 			query.Multiple(),
 			query.IncludeAll(),
-			query.Request(fmt.Sprintf("label_values(%s)", m.panelOption.labelFilter)),
+			query.Request(fmt.Sprintf("label_values(%s)", "instance")),
 			query.Sort(query.NumericalAsc),
 		),
 		dashboard.VariableAsQuery(
