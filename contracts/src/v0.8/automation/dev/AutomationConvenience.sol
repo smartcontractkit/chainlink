@@ -28,7 +28,7 @@ import {Log} from "../interfaces/ILogAutomation.sol";
  * @member registrars addresses of the registrar contracts
  * @member upkeepPrivilegeManager address which can set privilege for upkeeps
  */
-struct OnchainConfigLegacy {
+struct OnchainConfigV21 {
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
   uint32 checkGasLimit;
@@ -72,7 +72,7 @@ struct OnchainConfigLegacy {
  * @member reorgProtectionEnabled if this registry enables re-org protection checks
  * @member chainModule the chain specific module
  */
-struct OnchainConfig {
+struct OnchainConfigV22 {
   uint32 paymentPremiumPPB;
   uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
   uint32 checkGasLimit;
@@ -90,49 +90,6 @@ struct OnchainConfig {
   address upkeepPrivilegeManager;
   IChainModule chainModule;
   bool reorgProtectionEnabled;
-}
-
-/// @dev Report transmitted by OCR to transmit function
-struct Report {
-  uint256 fastGasWei;
-  uint256 linkNative;
-  uint256[] upkeepIds;
-  uint256[] gasLimits;
-  bytes[] triggers;
-  bytes[] performDatas;
-}
-
-/**
- * @notice structure of trigger for log triggers
- */
-struct LogTriggerConfig {
-  address contractAddress;
-  uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
-  bytes32 topic0;
-  bytes32 topic1;
-  bytes32 topic2;
-  bytes32 topic3;
-}
-
-/**
- * @notice the trigger structure of log upkeeps
- * @dev NOTE that blockNum / blockHash describe the block used for the callback,
- * not necessarily the block number that the log was emitted in!!!!
- */
-struct LogTrigger {
-  bytes32 logBlockHash;
-  bytes32 txHash;
-  uint32 logIndex;
-  uint32 blockNum;
-  bytes32 blockHash;
-}
-
-/**
- * @notice the trigger structure conditional trigger type
- */
-struct ConditionalTrigger {
-  uint32 blockNum;
-  bytes32 blockHash;
 }
 
 contract AutomationConvenience {

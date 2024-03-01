@@ -45,6 +45,7 @@ function entryID(entry: Entry) {
   return ethers.utils.id(JSON.stringify(preimage))
 }
 
+// potentially use this to test for interface compatibility
 /**
  * @dev because the keeper master interface is a composit of several different contracts,
  * it is possible that a interface could be satisfied by functions across different
