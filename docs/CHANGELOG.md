@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- unreleasedstop -->
 
+## 2.9.1
+
+### Changed
+
+- `eth_call` RPC requests are now sent with both `input` and `data` fields to increase compability with servers that recognize only one.
+
 ## 2.9.0 - 2024-02-22
 
 ### Added
