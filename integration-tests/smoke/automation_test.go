@@ -1192,7 +1192,7 @@ func setupAutomationTestDocker(
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithGeth().
+			WithPrivateEthereumNetwork(ethNetwork).
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).
