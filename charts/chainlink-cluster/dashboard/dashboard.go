@@ -132,6 +132,7 @@ func (m *Dashboard) init() {
 		m.panelOption.labelFilters = map[string]string{
 			"job":       `=~"${instance}"`,
 			"namespace": `=~"${namespace}"`,
+			"pod":       `=~"${pod}"`,
 		}
 		m.panelOption.labelFilter = "job"
 		m.panelOption.legendString = "pod"
@@ -178,10 +179,18 @@ func (m *Dashboard) addKubernetesVariables() {
 	opts := []dashboard.Option{
 		dashboard.VariableAsQuery(
 			"namespace",
-			query.DataSource(m.LokiDataSourceName),
+			query.DataSource(m.PrometheusDataSourceName),
 			query.Multiple(),
 			query.IncludeAll(),
 			query.Request(fmt.Sprintf("label_values(%s)", "namespace")),
+			query.Sort(query.NumericalAsc),
+		),
+		dashboard.VariableAsQuery(
+			"pod",
+			query.DataSource(m.PrometheusDataSourceName),
+			query.Multiple(),
+			query.IncludeAll(),
+			query.Request("label_values(kube_pod_container_info{namespace=\"$namespace\"}, pod)"),
 			query.Sort(query.NumericalAsc),
 		),
 	}

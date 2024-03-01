@@ -109,7 +109,7 @@ func (m *Dashboard) addMainPanels() {
 			),
 			timeseries.WithPrometheusTarget(
 				`eth_balance{`+m.panelOption.labelQuery+`}`,
-				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
+				prometheus.Legend("{{"+m.panelOption.legendString+"}} - {{account}}"),
 			),
 		),
 		row.WithTimeSeries(
@@ -123,7 +123,7 @@ func (m *Dashboard) addMainPanels() {
 			),
 			timeseries.WithPrometheusTarget(
 				`solana_balance{`+m.panelOption.labelQuery+`}`,
-				prometheus.Legend("{{"+m.panelOption.labelFilter+"}} - {{account}}"),
+				prometheus.Legend("{{"+m.panelOption.legendString+"}} - {{account}}"),
 			),
 		),
 	}
