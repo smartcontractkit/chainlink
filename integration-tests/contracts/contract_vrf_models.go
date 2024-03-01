@@ -173,6 +173,7 @@ type VRFOwner interface {
 	SetAuthorizedSenders(senders []common.Address) error
 	AcceptVRFOwnership() error
 	WaitForRandomWordsForcedEvent(requestIDs []*big.Int, subIds []uint64, senders []common.Address, timeout time.Duration) (*vrf_owner.VRFOwnerRandomWordsForced, error)
+	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
 }
 
 type VRFConsumer interface {

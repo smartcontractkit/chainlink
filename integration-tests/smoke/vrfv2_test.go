@@ -65,8 +65,8 @@ func TestVRFv2Basic(t *testing.T) {
 		NumberOfTxKeysToCreate: 0,
 		NumberOfConsumers:      1,
 		NumberOfSubToCreate:    1,
-		UseVRFOwner:            true,
-		UseTestCoordinator:     true,
+		UseVRFOwner:            false,
+		UseTestCoordinator:     false,
 	}
 
 	testEnv, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
@@ -507,8 +507,8 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		NumberOfTxKeysToCreate: 2,
 		NumberOfConsumers:      1,
 		NumberOfSubToCreate:    1,
-		UseVRFOwner:            true,
-		UseTestCoordinator:     true,
+		UseVRFOwner:            false,
+		UseTestCoordinator:     false,
 	}
 
 	testEnv, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
@@ -691,6 +691,37 @@ func TestVRFOwner(t *testing.T) {
 		require.Equal(t, *configCopy.VRFv2.General.ReqsForTier2, coordinatorFeeConfig.ReqsForTier2.Int64())
 		require.Equal(t, *configCopy.VRFv2.General.FallbackWeiPerUnitLink, coordinatorFallbackWeiPerUnitLinkConfig.Int64())
 	})
+
+	t.Run("Only VRF Coordinator Owner can invoke 'only-owner' methods", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
+		subIDsForCancelling, err := vrfv2.CreateFundSubsAndAddConsumers(
+			testEnv,
+			big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink),
+			vrfContracts.LinkToken,
+			vrfContracts.CoordinatorV2,
+			vrfContracts.VRFV2Consumer,
+			1,
+		)
+		require.NoError(t, err)
+
+		subIDForCancelling := subIDsForCancelling[0]
+
+		subscriptionForCancelling, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForCancelling)
+		require.NoError(t, err, "Error getting subscription information")
+
+		vrfv2.LogSubDetails(l, subscriptionForCancelling, subIDForCancelling, vrfContracts.CoordinatorV2)
+
+		// Call OwnerCancelSubscription on Coordinator contract - should fail since ownership is transferred to VRFOwner contract
+		_, err = vrfContracts.CoordinatorV2.OwnerCancelSubscription(subIDForCancelling)
+		require.Error(t, err, "error should occur when not the owner of Coordinator contract tries to owner-cancel subscription")
+
+		_, err = vrfContracts.VRFOwner.OwnerCancelSubscription(subIDForCancelling)
+		require.Error(t, err)
+
+		_, err = vrfContracts.CoordinatorV2.WaitForSubscriptionCanceledEvent([]uint64{subIDForCancelling}, time.Second*30)
+		require.NoError(t, err, "error waiting for subscription canceled event")
+	})
 }
 
 func TestVRFV2WithBHS(t *testing.T) {
@@ -739,8 +770,8 @@ func TestVRFV2WithBHS(t *testing.T) {
 		NumberOfTxKeysToCreate: 0,
 		NumberOfConsumers:      1,
 		NumberOfSubToCreate:    1,
-		UseVRFOwner:            true,
-		UseTestCoordinator:     true,
+		UseVRFOwner:            false,
+		UseTestCoordinator:     false,
 	}
 
 	testEnv, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
@@ -873,32 +904,3 @@ func TestVRFV2WithBHS(t *testing.T) {
 		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
 	})
 }
-
-//todo
-//func getCleanupFn(
-//	ctx context.Context,
-//	testEnv *test_env.CLClusterTestEnv,
-//	config *vrfv2_config.Config,
-//	vrfContracts *vrfcommon.VRFContracts,
-//	eoaWalletAddress string,
-//	subIDs []uint64,
-//	l zerolog.Logger,
-//) func() {
-//	return func() {
-//		if testEnv.EVMClient.NetworkSimulated() {
-//			l.Info().
-//				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
-//				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-//		} else {
-//			if *config.General.CancelSubsAfterTestRun {
-//				//cancel subs and return funds to sub owner
-//				vrfv2.CancelSubsAndReturnFunds(ctx, vrfContracts, eoaWalletAddress, subIDs, l)
-//			}
-//		}
-//		if !*config.General.UseExistingEnv {
-//			if err := testEnv.Cleanup(); err != nil {
-//				l.Error().Err(err).Msg("Error cleaning up test environment")
-//			}
-//		}
-//	}
-//}
