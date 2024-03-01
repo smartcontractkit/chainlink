@@ -925,7 +925,7 @@ func testSubMigration(subIDs []*big.Int,
 		err = vrfv2PlusContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
 	} else {
 		// Migrate sub using VRFV2PlusWrapper's migrate method
-		err = wrapperContracts.VRFV2PlusWrapper.Migrate(testcontext.Get(t), common.HexToAddress(newCoordinator.Address()))
+		err = wrapperContracts.VRFV2PlusWrapper.Migrate(common.HexToAddress(newCoordinator.Address()))
 	}
 
 	require.NoError(t, err, "error migrating sub id ", subID.String(), " from ", vrfv2PlusContracts.CoordinatorV2Plus.Address(), " to new Coordinator address ", newCoordinator.Address())

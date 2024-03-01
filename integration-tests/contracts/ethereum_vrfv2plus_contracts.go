@@ -93,7 +93,7 @@ func (v *EthereumVRFV2PlusWrapper) GetSubID(ctx context.Context) (*big.Int, erro
 	})
 }
 
-func (v *EthereumVRFV2PlusWrapper) Migrate(ctx context.Context, newCoordinator common.Address) error {
+func (v *EthereumVRFV2PlusWrapper) Migrate(newCoordinator common.Address) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err

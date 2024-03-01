@@ -806,7 +806,6 @@ func WrapperRequestRandomness(
 	numberOfWords uint32,
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
-	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger) (string, error) {
 	logRandRequest(
 		l,
@@ -866,7 +865,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	wrapperAddress, err := WrapperRequestRandomness(consumer, coordinator.Address(), vrfKeyData, subID,
 		isNativeBilling, minimumConfirmations, callbackGasLimit, numberOfWords,
 		randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation,
-		randomWordsFulfilledEventTimeout, l)
+		l)
 	if err != nil {
 		return nil, fmt.Errorf("error getting wrapper address, err: %w", err)
 	}
@@ -898,7 +897,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillmentUpgraded(
 	wrapperAddress, err := WrapperRequestRandomness(consumer, coordinator.Address(), vrfKeyData, subID,
 		isNativeBilling, minimumConfirmations, callbackGasLimit, numberOfWords,
 		randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation,
-		randomWordsFulfilledEventTimeout, l)
+		l)
 	if err != nil {
 		return nil, fmt.Errorf("error getting wrapper address, err: %w", err)
 	}
@@ -966,7 +965,7 @@ func WaitForRequestAndFulfillmentEventsUpgraded(
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitRandomWordsRequestedEvent, err)
 	}
 
-	LogRandomnessRequestedEventUpgraded(l, coordinator, randomWordsRequestedEvent)
+	LogRandomnessRequestedEventUpgraded(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
 
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
 		[]*big.Int{subID},
@@ -976,7 +975,7 @@ func WaitForRequestAndFulfillmentEventsUpgraded(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitRandomWordsFulfilledEvent, err)
 	}
-	LogRandomWordsFulfilledEventUpgraded(l, coordinator, randomWordsFulfilledEvent)
+	LogRandomWordsFulfilledEventUpgraded(l, coordinator, randomWordsFulfilledEvent, isNativeBilling)
 	return randomWordsFulfilledEvent, err
 }
 
@@ -1028,9 +1027,11 @@ func LogRandomnessRequestedEventUpgraded(
 	l zerolog.Logger,
 	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
 	randomWordsRequestedEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsRequested,
+	isNativeBilling bool,
 ) {
 	l.Debug().
 		Str("Coordinator", coordinator.Address()).
+		Bool("Native Billing", isNativeBilling).
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
 		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
 		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
@@ -1045,9 +1046,11 @@ func LogRandomWordsFulfilledEventUpgraded(
 	l zerolog.Logger,
 	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
 	randomWordsFulfilledEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled,
+	isNativeBilling bool,
 ) {
 	l.Debug().
 		Str("Coordinator", coordinator.Address()).
+		Bool("Native Billing", isNativeBilling).
 		Str("Total Payment in Juels", randomWordsFulfilledEvent.Payment.String()).
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
 		Str("Subscription ID", randomWordsFulfilledEvent.SubID.String()).
