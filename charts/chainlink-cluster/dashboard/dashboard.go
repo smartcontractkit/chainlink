@@ -159,7 +159,7 @@ func (m *Dashboard) addCoreVariables() {
 			query.DataSource(m.PrometheusDataSourceName),
 			query.Multiple(),
 			query.IncludeAll(),
-			query.Request(fmt.Sprintf("label_values(%s)", "instance")),
+			query.Request(fmt.Sprintf("label_values(%s)", m.panelOption.labelFilter)),
 			query.Sort(query.NumericalAsc),
 		),
 		dashboard.VariableAsQuery(
