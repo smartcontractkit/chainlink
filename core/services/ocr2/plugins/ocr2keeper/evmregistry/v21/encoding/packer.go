@@ -18,15 +18,15 @@ import (
 type triggerWrapper = automation_convenience.LogTrigger
 
 type abiPacker struct {
-	registryABI abi.ABI
-	utilsABI    abi.ABI
+	autoV2CommonABI abi.ABI
+	utilsABI        abi.ABI
 	streamsABI  abi.ABI
 }
 
 var _ Packer = (*abiPacker)(nil)
 
 func NewAbiPacker() *abiPacker {
-	return &abiPacker{registryABI: core.RegistryABI, utilsABI: core.ConvenienceABI, streamsABI: core.StreamsCompatibleABI}
+	return &abiPacker{autoV2CommonABI: core.AutoV2CommonABI, utilsABI: core.ConvenienceABI, streamsABI: core.StreamsCompatibleABI}
 }
 
 func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
@@ -37,7 +37,7 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 			fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
 	}
 
-	out, err := p.registryABI.Methods["checkUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.autoV2CommonABI.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		// unpack failed, not retryable
 		return GetIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
@@ -72,7 +72,7 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 		return PackUnpackDecodeFailed, false, err
 	}
 
-	out, err := p.registryABI.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.autoV2CommonABI.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, err
 	}

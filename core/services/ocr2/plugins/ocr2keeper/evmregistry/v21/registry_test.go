@@ -22,7 +22,7 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
@@ -209,7 +209,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		wantErr          error
 	}{
 		{
-			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepUnpaused errors",
+			name: "an error is returned when fetching indexed logs for IAutomationV2CommonUpkeepUnpaused errors",
 			ids: []*big.Int{
 				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 			},
@@ -222,7 +222,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			},
 			poller: &mockLogPoller{
 				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
-					if eventSig == (iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic()) {
+					if eventSig == (autov2common.IAutomationV2CommonUpkeepUnpaused{}.Topic()) {
 						return nil, errors.New("indexed logs boom")
 					}
 					return nil, nil
@@ -232,7 +232,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			wantErr:    errors.New("indexed logs boom"),
 		},
 		{
-			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepTriggerConfigSet errors",
+			name: "an error is returned when fetching indexed logs for IAutomationV2CommonUpkeepTriggerConfigSet errors",
 			ids: []*big.Int{
 				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
@@ -247,7 +247,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			},
 			poller: &mockLogPoller{
 				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
-					if eventSig == (iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic()) {
+					if eventSig == (autov2common.IAutomationV2CommonUpkeepTriggerConfigSet{}.Topic()) {
 						return nil, errors.New("indexed logs boom")
 					}
 					return nil, nil
@@ -317,12 +317,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			registry: &mockRegistry{
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
-						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
+						return &autov2common.IAutomationV2CommonUpkeepTriggerConfigSet{
 							TriggerConfig: []byte{1, 2, 3},
 							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 						}, nil
 					}
-					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
+					return &autov2common.IAutomationV2CommonUpkeepUnpaused{
 						Id: core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 					}, nil
 				},
@@ -371,12 +371,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			registry: &mockRegistry{
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
-						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
+						return &autov2common.IAutomationV2CommonUpkeepTriggerConfigSet{
 							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
-					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
+					return &autov2common.IAutomationV2CommonUpkeepUnpaused{
 						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},
@@ -423,12 +423,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			registry: &mockRegistry{
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
-						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
+						return &autov2common.IAutomationV2CommonUpkeepTriggerConfigSet{
 							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
-					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
+					return &autov2common.IAutomationV2CommonUpkeepUnpaused{
 						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},
@@ -477,12 +477,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			registry: &mockRegistry{
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
-						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
+						return &autov2common.IAutomationV2CommonUpkeepTriggerConfigSet{
 							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
-					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
+					return &autov2common.IAutomationV2CommonUpkeepUnpaused{
 						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},

@@ -16,7 +16,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -24,7 +24,7 @@ import (
 
 var _ types.TransmitEventProvider = &EventProvider{}
 
-type logParser func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error)
+type logParser func(registry *autov2common.IAutomationV2Common, log logpoller.Log) (transmitEventLog, error)
 
 type EventProvider struct {
 	sync     services.StateMachine
@@ -34,7 +34,7 @@ type EventProvider struct {
 
 	logger    logger.Logger
 	logPoller logpoller.LogPoller
-	registry  *iregistry21.IKeeperRegistryMaster
+	registry  *autov2common.IAutomationV2Common
 	client    evmclient.Client
 
 	registryAddress common.Address
@@ -57,7 +57,7 @@ func NewTransmitEventProvider(
 ) (*EventProvider, error) {
 	var err error
 
-	contract, err := iregistry21.NewIKeeperRegistryMaster(registryAddress, client)
+	contract, err := autov2common.NewIAutomationV2Common(registryAddress, client)
 	if err != nil {
 		return nil, err
 	}
@@ -65,12 +65,12 @@ func NewTransmitEventProvider(
 		Name: EventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			// These are the events that are emitted when a node transmits a report
-			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),               // Happy path: report performed the upkeep
-			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),           // Report checkBlockNumber was reorged
-			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(), // Upkeep didn't have sufficient funds when report reached chain, perform was aborted early
+			autov2common.IAutomationV2CommonUpkeepPerformed{}.Topic(),               // Happy path: report performed the upkeep
+			autov2common.IAutomationV2CommonReorgedUpkeepReport{}.Topic(),           // Report checkBlockNumber was reorged
+			autov2common.IAutomationV2CommonInsufficientFundsUpkeepReport{}.Topic(), // Upkeep didn't have sufficient funds when report reached chain, perform was aborted early
 			// Report was too old when it reached the chain. For conditionals upkeep was already performed on a higher block than checkBlockNum
 			// for logs upkeep was already performed for the particular log
-			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
+			autov2common.IAutomationV2CommonStaleUpkeepReport{}.Topic(),
 		},
 		Addresses: []common.Address{registryAddress},
 	})
@@ -147,10 +147,10 @@ func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.Tran
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
-			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
-			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
-			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			autov2common.IAutomationV2CommonUpkeepPerformed{}.Topic(),
+			autov2common.IAutomationV2CommonStaleUpkeepReport{}.Topic(),
+			autov2common.IAutomationV2CommonReorgedUpkeepReport{}.Topic(),
+			autov2common.IAutomationV2CommonInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),

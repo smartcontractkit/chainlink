@@ -6,7 +6,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
 )
 
 type UpkeepFailureReason uint8
@@ -85,7 +85,7 @@ func HttpToStreamsErrCode(statusCode int) ErrCode {
 	}
 }
 
-type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
+type UpkeepInfo = autov2common.IAutomationV2CommonUpkeepInfo
 
 type Packer interface {
 	UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error)
