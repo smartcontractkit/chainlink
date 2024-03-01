@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"math/big"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
