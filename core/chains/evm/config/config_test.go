@@ -269,6 +269,7 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	t.Parallel()
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
+		c.EVM[0].GasEstimator.GasPerPubdata = assets.NewWeiI(50_000)
 	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
@@ -288,6 +289,7 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	assert.Equal(t, assets.GWei(100), ge.FeeCapDefault())
 	assert.Equal(t, assets.NewWeiI(1), ge.TipCapDefault())
 	assert.Equal(t, assets.NewWeiI(1), ge.TipCapMin())
+	assert.Equal(t, assets.NewWeiI(50_000), ge.GasPerPubdata())
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {

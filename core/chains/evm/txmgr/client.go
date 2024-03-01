@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -25,11 +26,14 @@ import (
 var _ TxmClient = (*evmTxmClient)(nil)
 
 type evmTxmClient struct {
-	client client.Client
+	client    client.Client
+	chainType config.ChainType
 }
 
-func NewEvmTxmClient(c client.Client) *evmTxmClient {
-	return &evmTxmClient{client: c}
+type newTxAttemptFunc = func(ctx context.Context, seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error)
+
+func NewEvmTxmClient(c client.Client, chainType config.ChainType) *evmTxmClient {
+	return &evmTxmClient{client: c, chainType: chainType}
 }
 
 func (c *evmTxmClient) PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error) {
@@ -102,6 +106,10 @@ func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, at
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)
 }
 
+func (c *evmTxmClient) SendRawTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt) (common.Hash, commonclient.SendTxReturnCode, error) {
+	return c.client.SendRawTransactionReturnCode(ctx, attempt.SignedRawTx, etx.FromAddress)
+}
+
 func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n evmtypes.Nonce, err error) {
 	nextNonce, err := c.client.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
@@ -145,7 +153,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 // May be useful for clearing stuck nonces
 func (c *evmTxmClient) SendEmptyTransaction(
 	ctx context.Context,
-	newTxAttempt func(ctx context.Context, seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
+	newTxAttempt newTxAttemptFunc,
 	seq evmtypes.Nonce,
 	gasLimit uint32,
 	fee gas.EvmFee,
@@ -158,13 +166,20 @@ func (c *evmTxmClient) SendEmptyTransaction(
 		return txhash, err
 	}
 
-	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
-	if err != nil {
-		return txhash, err
-	}
+	// Send as raw transaction for ZkSync since it requires a custom EIP-712 tx
+	if c.chainType == config.ChainZkSync {
+		var hash common.Hash
+		hash, _, err = c.client.SendRawTransactionReturnCode(ctx, attempt.SignedRawTx, fromAddress)
+		return hash.String(), err
+	} else {
+		signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
+		if err != nil {
+			return txhash, err
+		}
 
-	_, err = c.client.SendTransactionReturnCode(ctx, signedTx, fromAddress)
-	return signedTx.Hash().String(), err
+		_, err = c.client.SendTransactionReturnCode(ctx, signedTx, fromAddress)
+		return signedTx.Hash().String(), err
+	}
 }
 
 func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumber *big.Int) (rpcErr fmt.Stringer, extractErr error) {

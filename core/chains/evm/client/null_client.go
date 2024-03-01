@@ -126,6 +126,11 @@ func (nc *NullClient) SendTransactionReturnCode(ctx context.Context, tx *types.T
 	return commonclient.Successful, nil
 }
 
+func (nc *NullClient) SendRawTransactionReturnCode(ctx context.Context, rawTx []byte, sender common.Address) (common.Hash, commonclient.SendTxReturnCode, error) {
+	nc.lggr.Debug("SendRawTransactionReturnCode")
+	return common.Hash{}, commonclient.Successful, nil
+}
+
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	nc.lggr.Debug("SendTransaction")
 	return nil

@@ -145,6 +145,7 @@ type MockGasEstimatorConfig struct {
 	FeeCapDefaultF      *assets.Wei
 	LimitMaxF           uint32
 	ModeF               string
+	GasPerPubdataF      *assets.Wei
 }
 
 func (m *MockGasEstimatorConfig) BumpPercent() uint16 {
@@ -197,4 +198,8 @@ func (m *MockGasEstimatorConfig) LimitMax() uint32 {
 
 func (m *MockGasEstimatorConfig) Mode() string {
 	return m.ModeF
+}
+
+func (m *MockGasEstimatorConfig) GasPerPubdata() *assets.Wei {
+	return m.GasPerPubdataF
 }

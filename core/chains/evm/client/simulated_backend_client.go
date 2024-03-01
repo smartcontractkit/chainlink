@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -104,6 +105,8 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 		return c.ethGetHeaderByNumber(ctx, result, args...)
 	case "eth_estimateGas":
 		return c.ethEstimateGas(ctx, result, args...)
+	case "eth_sendRawTransaction":
+		return c.sendRawTransaction(ctx, args...)
 	default:
 		return fmt.Errorf("second arg to SimulatedBackendClient.Call is an RPC API method which has not yet been implemented: %s. Add processing for it here", method)
 	}
@@ -346,6 +349,20 @@ func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, 
 	return commonclient.Unknown, err
 }
 
+func (c *SimulatedBackendClient) SendRawTransactionReturnCode(ctx context.Context, rawTx []byte, fromAddress common.Address) (common.Hash, commonclient.SendTxReturnCode, error) {
+	txHash := common.Hash{}
+	hexdata := common.Bytes2Hex(rawTx)
+	err := c.CallContext(ctx, &txHash, "eth_sendRawTransaction", fmt.Sprintf("0x%v", hexdata))
+	if err == nil {
+		return txHash, commonclient.Successful, nil
+	}
+	if strings.Contains(err.Error(), "could not fetch parent") || strings.Contains(err.Error(), "invalid transaction") {
+		return txHash, commonclient.Fatal, err
+	}
+	// All remaining error messages returned from SendTransaction are considered Unknown.
+	return txHash, commonclient.Unknown, err
+}
+
 // SendTransaction sends a transaction.
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	sender, err := types.Sender(types.NewLondonSigner(c.chainId), tx)
@@ -516,6 +533,23 @@ func (c *SimulatedBackendClient) fetchHeader(ctx context.Context, blockNumOrTag 
 		}
 		return c.b.HeaderByNumber(ctx, blockNum)
 	}
+}
+
+func (c *SimulatedBackendClient) sendRawTransaction(ctx context.Context, args ...interface{}) error {
+	if len(args) != 1 {
+		return fmt.Errorf("SimulatedBackendClient expected 1 arg, got %d for eth_sendRawTransaction", len(args))
+	}
+
+	rawTx, is := args[0].([]byte)
+	if !is {
+		return fmt.Errorf("SimulatedBackendClient expected arg to be a []byte], got: %T", args[0])
+	}
+	s := rlp.NewStream(bytes.NewReader(rawTx), 0)
+	signedTx := new(types.Transaction)
+	if err := signedTx.DecodeRLP(s); err != nil {
+		return err
+	}
+	return c.b.SendTransaction(ctx, signedTx)
 }
 
 func (c *SimulatedBackendClient) ethGetTransactionReceipt(ctx context.Context, result interface{}, args ...interface{}) error {

@@ -60,6 +60,11 @@ type TransactionClient[
 		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		lggr logger.SugaredLogger,
 	) (client.SendTxReturnCode, error)
+	SendRawTransactionReturnCode(
+		ctx context.Context,
+		tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	) (TX_HASH, client.SendTxReturnCode, error)
 	SendEmptyTransaction(
 		ctx context.Context,
 		newTxAttempt func(ctx context.Context, seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error),

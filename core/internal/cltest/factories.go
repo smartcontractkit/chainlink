@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/zksync"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -159,6 +160,27 @@ func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	return types.NewTx(&tx)
 }
 
+func NewZkSyncTransaction(nonce uint64, from common.Address, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, gasPerPubdata *assets.Wei) zksync.Transaction712 {
+
+	return zksync.Transaction712{
+		ChainID:    chainID,
+		Nonce:      big.NewInt(int64(nonce)),
+		GasTipCap:  gasTipCap.ToInt(),
+		GasFeeCap:  gasFeeCap.ToInt(),
+		Gas:        big.NewInt(int64(gasLimit)),
+		To:         &to,
+		From:       &from,
+		Value:      value,
+		Data:       data,
+		AccessList: nil,
+		Meta: &zksync.Eip712Meta{
+			GasPerPubdata:   (*hexutil.Big)(gasPerPubdata.ToInt()),
+			CustomSignature: nil,
+			FactoryDeps:     nil,
+		},
+	}
+}
+
 func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
@@ -194,6 +216,26 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
 	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func MustInsertUnconfirmedEthTxWithBroadcastZkSyncAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
+	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
+	attempt := NewLegacyEthTxAttempt(t, etx.ID)
+
+	tx := NewZkSyncTransaction(uint64(nonce), testutils.NewAddress(), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), assets.NewWeiI(100), assets.NewWeiI(200), []byte{1, 2, 3}, assets.NewWeiI(50_000))
+	signer, err := zksync.NewBaseSignerFromRawPrivateKey([]byte{1, 2, 3}, FixtureChainID.Int64())
+	require.NoError(t, err)
+	data, err := signer.SignTypedData(zksync.ZkSyncEraEIP712Domain(FixtureChainID.Int64()), &tx)
+	require.NoError(t, err)
+	sigedRawTx, err := tx.RLPValues(data)
+	require.NoError(t, err)
+	attempt.SignedRawTx = sigedRawTx
+
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }

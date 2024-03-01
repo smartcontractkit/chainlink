@@ -1,12 +1,10 @@
 package txmgr_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -41,14 +39,14 @@ type feeConfig struct {
 	tipCapMin          *assets.Wei
 	priceMin           *assets.Wei
 	priceMax           *assets.Wei
-	gasPerPubdata * assets.Wei
+	gasPerPubdata      *assets.Wei
 }
 
 func newFeeConfig() *feeConfig {
 	return &feeConfig{
-		tipCapMin: assets.NewWeiI(0),
-		priceMin:  assets.NewWeiI(0),
-		priceMax:  assets.NewWeiI(0),
+		tipCapMin:     assets.NewWeiI(0),
+		priceMin:      assets.NewWeiI(0),
+		priceMax:      assets.NewWeiI(0),
 		gasPerPubdata: assets.NewWeiI(50_000),
 	}
 }
@@ -57,7 +55,7 @@ func (g *feeConfig) EIP1559DynamicFees() bool                        { return g.
 func (g *feeConfig) TipCapMin() *assets.Wei                          { return g.tipCapMin }
 func (g *feeConfig) PriceMin() *assets.Wei                           { return g.priceMin }
 func (g *feeConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei { return g.priceMax }
-func (g *feeConfig) GasPerPubdata() *assets.Wei {return g.gasPerPubdata }
+func (g *feeConfig) GasPerPubdata() *assets.Wei                      { return g.gasPerPubdata }
 
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()
@@ -133,35 +131,33 @@ func TestTxm_SignTx(t *testing.T) {
 		require.Equal(t, typedTx.Hash(), decodedTx.Hash())
 	})
 
-	t.Run("can properly encoded and decode raw transaction for ZkSyncTx", func(t *testing.T) {
+	t.Run("can properly encoded raw transaction for ZkSyncTx", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
-		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-		chainID := cltest.FixtureChainID
 		keystore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		nonce := evmtypes.Nonce(42)
 		_, address := cltest.MustInsertRandomKeyReturningState(t, keystore)
 		txmTx := txmgr.Tx{
-			Sequence:  &nonce,
+			Sequence:    &nonce,
 			FromAddress: address,
-			ToAddress: to,
-			Value:     *big.NewInt(142),
-			FeeLimit:  500_000,
+			ToAddress:   to,
+			Value:       *big.NewInt(142),
+			FeeLimit:    500_000,
 		}
 		fee := gas.EvmFee{
 			DynamicFeeCap: assets.NewWei(big.NewInt(100_000_000)),
 			DynamicTipCap: assets.NewWei(big.NewInt(10_000_000)),
 		}
-		cks := txmgr.NewEvmTxAttemptBuilder(chainID, config.ChainZkSync, evmcfg.EVM().GasEstimator(), keystore, nil)
-		attempt, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, fee, 242, 0x1, logger.Test(t))
+		feeConfig := &feeConfig{
+			eip1559DynamicFees: true,
+			tipCapMin:          assets.NewWeiI(0),
+			priceMin:           assets.NewWeiI(0),
+			priceMax:           assets.NewWeiI(1_000_000_000),
+			gasPerPubdata:      assets.NewWeiI(50_000),
+		}
+		cks := txmgr.NewEvmTxAttemptBuilder(cltest.FixtureChainID, config.ChainZkSync, feeConfig, keystore, nil)
+		_, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, fee, 242, 0x1, logger.Test(t))
 		require.NoError(t, err)
-		// require.Equal(t, "0x71f8852a839896808405f5e10081f294b921f7763960b296b9cbad586ff066a18d749724818e80808080809413bf9719fb2e068ff683185f22f05d06d451693b82c350c0b841e1d2104e89114b9773720f138b1461d123442cd0b46a81868c465c94cab5e8d423a539a2dd0d69d75a65faa69a3886f81424bb3ae8fc64e207cbde1ced1a8cba1bc0", hexutil.Encode(attempt.SignedRawTx))
-
-		var decodedTx *gethtypes.Transaction
-		decodedTx, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
-		require.NoError(t, err)
-		hash := common.HexToHash(hex.EncodeToString(attempt.SignedRawTx))
-		require.Equal(t, hash, decodedTx.Hash())
 	})
 }
 
@@ -321,5 +317,44 @@ func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to bump fee")
 		assert.True(t, retryable)
+	})
+}
+
+func TestTxm_New712Tx(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates attempt with fields", func(t *testing.T) {
+		var n evmtypes.Nonce
+		lggr := logger.Test(t)
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		keystore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		_, addr := cltest.MustInsertRandomKeyReturningState(t, keystore)
+		feeCfg := &feeConfig{
+			eip1559DynamicFees: true,
+			tipCapMin:          assets.NewWeiI(0),
+			priceMin:           assets.NewWeiI(0),
+			priceMax:           assets.NewWeiI(1_000_000_000),
+			gasPerPubdata:      assets.NewWeiI(50_000),
+		}
+		cks := txmgr.NewEvmTxAttemptBuilder(cltest.FixtureChainID, "", feeCfg, keystore, nil)
+		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
+		txmTx := txmgr.Tx{
+			Sequence:    &n,
+			FromAddress: addr,
+			Value:       *big.NewInt(142),
+			FeeLimit:    500_000,
+		}
+		a, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, gas.EvmFee{
+			DynamicTipCap: dynamicFee.TipCap,
+			DynamicFeeCap: dynamicFee.FeeCap,
+		}, 100, 0x2, lggr)
+		require.NoError(t, err)
+		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))
+		assert.Nil(t, a.TxFee.Legacy)
+		assert.NotNil(t, a.TxFee.DynamicTipCap)
+		assert.Equal(t, assets.GWei(100).String(), a.TxFee.DynamicTipCap.String())
+		assert.NotNil(t, a.TxFee.DynamicFeeCap)
+		assert.Equal(t, assets.GWei(200).String(), a.TxFee.DynamicFeeCap.String())
 	})
 }

@@ -36,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -69,8 +68,8 @@ func NewTestEthBroadcaster(
 		return gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), ge.BlockHistory(), lggr)
 	}, ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), "", ge, keyStore, estimator)
-	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient)
-	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), config.Database().Listener(), keyStore, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
+	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, "")
+	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, ""), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), config.Database().Listener(), keyStore, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
 
 	// Mark instance as test
 	ethBroadcaster.XXXTestDisableUnstartedTxAutoProcessing()
@@ -90,7 +89,7 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	eb := txmgr.NewEvmBroadcaster(
 		txStore,
-		txmgr.NewEvmTxmClient(ethClient),
+		txmgr.NewEvmTxmClient(ethClient, ""),
 		txmgr.NewEvmTxmConfig(evmcfg.EVM()),
 		txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()),
 		evmcfg.EVM().Transactions(),
@@ -148,7 +147,7 @@ func TestEthBroadcaster_LoadNextSequenceMapFailure_StartupSuccess(t *testing.T) 
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), errors.New("Getting on-chain nonce failed"))
 	eb := txmgr.NewEvmBroadcaster(
 		txStore,
-		txmgr.NewEvmTxmClient(ethClient),
+		txmgr.NewEvmTxmClient(ethClient, ""),
 		txmgr.NewEvmTxmConfig(evmcfg.EVM()),
 		txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()),
 		evmcfg.EVM().Transactions(),
@@ -622,7 +621,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil)
 	eb := txmgr.NewEvmBroadcaster(
 		txStore,
-		txmgr.NewEvmTxmClient(ethClient),
+		txmgr.NewEvmTxmClient(ethClient, ""),
 		evmcfg,
 		txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()),
 		ccfg.EVM().Transactions(),
@@ -1143,7 +1142,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), "", evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					localNextNonce = getLocalNextNonce(t, eb, fromAddress)
 					ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
-					eb2 := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, txBuilder, nil, lggr, &testCheckerFactory{}, false)
+					eb2 := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, ""), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, txBuilder, nil, lggr, &testCheckerFactory{}, false)
 					retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
 					assert.NoError(t, err)
 					assert.False(t, retryable)
@@ -1679,7 +1678,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		assert.Len(t, etx.TxAttempts, 0)
 
 		// Check that the key did not have its nonce incremented
-		var nonce types.Nonce
+		var nonce evmtypes.Nonce
 		nonce, err = eb.GetNextSequence(ctx, fromAddress)
 		require.NoError(t, err)
 		require.Equal(t, int64(localNonce), int64(nonce))
@@ -1779,7 +1778,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
-		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, nil, lggr, checkerFactory, false)
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, ""), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, nil, lggr, checkerFactory, false)
 		err := eb.Start(ctx)
 		assert.NoError(t, err)
 
@@ -1792,12 +1791,12 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), "", ge, kst, estimator)
 
-		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient)
+		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, "")
 		kst := ksmocks.NewEth(t)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
-		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, ""), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(ethNodeNonce, nil).Once()
 		servicetest.Run(t, eb)
@@ -1820,14 +1819,14 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	t.Run("when nonce syncer returns error, retries and successfully sets nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), "", ge, kst, estimator)
-		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient)
+		txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, "")
 
 		kst := ksmocks.NewEth(t)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Once()
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 
-		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
+		eb := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, ""), evmTxmCfg, txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), cfg.Database().Listener(), kst, txBuilder, txNonceSyncer, lggr, checkerFactory, true)
 		eb.XXXTestDisableUnstartedTxAutoProcessing()
 
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), errors.New("something exploded")).Once()
@@ -2017,6 +2016,66 @@ func Test_SetNextNonce(t *testing.T) {
 		newNextNonce, err := eb.GetNextSequence(ctx, fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(24), int64(newNextNonce))
+	})
+}
+
+func TestEthBroadcaster_ZkSyncBroadcaster(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	chainType := "zksync"
+	overrides := func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].ChainType = &chainType
+	}
+	cfg := configtest.NewGeneralConfig(t, overrides)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
+
+	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
+	ethClient.On("PendingNonceAt", mock.Anything, otherAddress).Return(uint64(0), nil).Once()
+	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmcfg, checkerFactory, false)
+
+	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
+	rnd := int64(1000000000 + rand.Intn(5000))
+	gasLimit := uint32(242)
+
+	t.Run("sends raw transactions when chain type is zkSync", func(t *testing.T) {
+		ethClient.On("SendRawTransactionReturnCode", mock.Anything, mock.AnythingOfType("[]byte"), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, []byte{42, 42, 0}, gasLimit, big.Int(assets.NewEthValue(242)), &cltest.FixtureChainID)
+		// Do the thing
+		{
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
+		}
+
+		// Check eipTxWithAl and it's attempt
+		// This was the earlier one sent so it has the lower nonce
+		etx, err := txStore.FindTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		assert.False(t, etx.Error.Valid)
+		require.NotNil(t, etx.FromAddress)
+		assert.Equal(t, fromAddress, etx.FromAddress)
+		require.NotNil(t, etx.Sequence)
+		assert.Equal(t, evmtypes.Nonce(343), *etx.Sequence)
+		assert.NotNil(t, etx.BroadcastAt)
+		assert.NotNil(t, etx.InitialBroadcastAt)
+		assert.Len(t, etx.TxAttempts, 1)
+
+		attempt := etx.TxAttempts[0]
+
+		assert.Equal(t, etx.ID, attempt.TxID)
+		assert.Nil(t, attempt.TxFee.Legacy)
+		assert.Equal(t, rnd, attempt.TxFee.DynamicTipCap.ToInt().Int64())
+		assert.Equal(t, rnd+1, attempt.TxFee.DynamicFeeCap.ToInt().Int64())
 	})
 }
 

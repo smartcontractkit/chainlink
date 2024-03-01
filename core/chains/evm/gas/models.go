@@ -63,6 +63,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 		"tipCapMin", geCfg.TipCapMin(),
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
+		"gasPerPubdata", geCfg.GasPerPubdata(),
 	)
 	df := geCfg.EIP1559DynamicFees()
 

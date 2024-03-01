@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -565,7 +566,13 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 
 	lgr := etx.GetLogger(logger.With(eb.lggr, "fee", attempt.TxFee))
 	lgr.Infow("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
-	errType, err := eb.client.SendTransactionReturnCode(ctx, etx, attempt, lgr)
+	var errType client.SendTxReturnCode
+	var err error
+	if eb.config.ChainType() == config.ChainZkSync {
+		_, errType, err = eb.client.SendRawTransactionReturnCode(ctx, etx, attempt)
+	} else {
+		errType, err = eb.client.SendTransactionReturnCode(ctx, etx, attempt, lgr)
+	}
 
 	if errType != client.Fatal {
 		etx.InitialBroadcastAt = &initialBroadcastAt

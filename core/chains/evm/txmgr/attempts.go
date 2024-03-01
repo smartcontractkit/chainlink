@@ -102,7 +102,7 @@ func (c *evmTxAttemptBuilder) NewCustomTxAttempt(ctx context.Context, etx Tx, fe
 		}, gasLimit, c.feeConfig.GasPerPubdata())
 		return attempt, true, err
 	}
-	
+
 	switch txType {
 	case 0x0: // legacy
 		if fee.Legacy == nil {
@@ -403,22 +403,51 @@ func (c *evmTxAttemptBuilder) newZkSyncSignedAttempt(ctx context.Context, etx Tx
 }
 
 func newZkSyncTransaction(nonce uint64, from common.Address, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, gasPerPubdata *assets.Wei) zksync.Transaction712 {
-	
+
 	return zksync.Transaction712{
-		ChainID:   chainID,
-		Nonce:     big.NewInt(int64(nonce)),
-		GasTipCap: gasTipCap.ToInt(),
-		GasFeeCap: gasFeeCap.ToInt(),
-		Gas:       big.NewInt(int64(gasLimit)),
-		To:        &to,
-		From: &from,
-		Value:     value,
-		Data:      data,
+		ChainID:    chainID,
+		Nonce:      big.NewInt(int64(nonce)),
+		GasTipCap:  gasTipCap.ToInt(),
+		GasFeeCap:  gasFeeCap.ToInt(),
+		Gas:        big.NewInt(int64(gasLimit)),
+		To:         &to,
+		From:       &from,
+		Value:      value,
+		Data:       data,
 		AccessList: nil,
 		Meta: &zksync.Eip712Meta{
-			GasPerPubdata:   (*hexutil.Big)(big.NewInt(50000)),
+			GasPerPubdata:   (*hexutil.Big)(gasPerPubdata.ToInt()),
 			CustomSignature: nil,
 			FactoryDeps:     nil,
 		},
-	 }
+	}
+}
+
+// NewEmpty712TxAttempt is used in ForceRebroadcast to create a signed tx with zero value sent to the zero address
+func (c *evmTxAttemptBuilder) NewEmpty712TxAttempt(ctx context.Context, nonce evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error) {
+	value := big.NewInt(0)
+	payload := []byte{}
+
+	tx := newZkSyncTransaction(
+		uint64(nonce),
+		fromAddress,
+		fromAddress,
+		value,
+		feeLimit,
+		&c.chainID,
+		fee.DynamicTipCap,
+		fee.DynamicFeeCap,
+		payload,
+		c.feeConfig.GasPerPubdata(),
+	)
+
+	signedRawTx, err := c.keystore.SignZkSyncTx(ctx, fromAddress, &tx, &c.chainID)
+	if err != nil {
+		return attempt, pkgerrors.Wrapf(err, "error using account %s to sign empty transaction", fromAddress.String())
+	}
+
+	attempt.SignedRawTx = signedRawTx
+	attempt.Hash = common.HexToHash(hex.EncodeToString(signedRawTx))
+	return attempt, nil
+
 }

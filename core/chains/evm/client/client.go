@@ -65,6 +65,7 @@ type Client interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
+	SendRawTransactionReturnCode(ctx context.Context, rawTx []byte, fromAddress common.Address) (common.Hash, commonclient.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
 	// blockNumber can be specified as `nil` to imply latest block
@@ -223,6 +224,16 @@ func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.T
 	err := client.SendTransaction(ctx, tx)
 	returnCode := ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
 	return returnCode, err
+}
+
+func (client *client) SendRawTransactionReturnCode(ctx context.Context, rawTx []byte, fromAddress common.Address) (common.Hash, commonclient.SendTxReturnCode, error) {
+	txHash := common.Hash{}
+	hexdata := common.Bytes2Hex(rawTx)
+	err := client.CallContext(ctx, &txHash, "eth_sendRawTransaction", fmt.Sprintf("0x%v", hexdata))
+	// Sending empty transaction will not log any useful fields when classifying errors
+	// This method is expected to only be used by zkSync which does not provide a way to decode EIP-712 transactions into the geth type
+	returnCode := ClassifySendError(err, client.logger, &types.Transaction{}, fromAddress, client.IsL2())
+	return txHash, returnCode, err
 }
 
 // SendTransaction also uses the sendonly HTTP RPC URLs if set
