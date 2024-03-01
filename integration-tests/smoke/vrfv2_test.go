@@ -69,7 +69,7 @@ func TestVRFv2Basic(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	testEnv, vrfContracts, subIDs, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, subIDs, vrfKey, nodeTypeToNodeMap, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
 	// register proving key against oracle address (sending key) in order to test oracleWithdraw
