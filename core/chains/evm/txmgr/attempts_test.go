@@ -145,8 +145,8 @@ func TestTxm_SignTx(t *testing.T) {
 			FeeLimit:    500_000,
 		}
 		fee := gas.EvmFee{
-			DynamicFeeCap: assets.NewWei(big.NewInt(100_000_000)),
-			DynamicTipCap: assets.NewWei(big.NewInt(10_000_000)),
+			DynamicFeeCap: assets.NewWeiI(100_000_000),
+			DynamicTipCap: assets.NewWeiI(10_000_000),
 		}
 		feeConfig := &feeConfig{
 			eip1559DynamicFees: true,
@@ -338,7 +338,7 @@ func TestTxm_New712Tx(t *testing.T) {
 			gasPerPubdata:      assets.NewWeiI(50_000),
 		}
 		cks := txmgr.NewEvmTxAttemptBuilder(cltest.FixtureChainID, "", feeCfg, keystore, nil)
-		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
+		dynamicFee := gas.DynamicFee{TipCap: assets.NewWeiI(100_000_000), FeeCap: assets.NewWeiI(200_000_000)}
 		txmTx := txmgr.Tx{
 			Sequence:    &n,
 			FromAddress: addr,
@@ -353,8 +353,8 @@ func TestTxm_New712Tx(t *testing.T) {
 		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))
 		assert.Nil(t, a.TxFee.Legacy)
 		assert.NotNil(t, a.TxFee.DynamicTipCap)
-		assert.Equal(t, assets.GWei(100).String(), a.TxFee.DynamicTipCap.String())
+		assert.Equal(t, assets.NewWeiI(100_000_000).String(), a.TxFee.DynamicTipCap.String())
 		assert.NotNil(t, a.TxFee.DynamicFeeCap)
-		assert.Equal(t, assets.GWei(200).String(), a.TxFee.DynamicFeeCap.String())
+		assert.Equal(t, assets.NewWeiI(200_000_000).String(), a.TxFee.DynamicFeeCap.String())
 	})
 }
