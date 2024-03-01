@@ -957,23 +957,13 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	var mode uint8
 	switch e.client.GetChainID().Int64() {
 	//Arbitrum payment model
-	//Goerli Arbitrum
-	case networks.ArbitrumGoerli.ChainID:
-		mode = uint8(1)
-	//Sepolia Arbitrum
-	case networks.ArbitrumSepolia.ChainID:
+	case networks.ArbitrumMainnet.ChainID, networks.ArbitrumSepolia.ChainID:
 		mode = uint8(1)
 	//Optimism payment model
-	//Goerli Optimism
-	case networks.OptimismGoerli.ChainID:
+	case networks.OptimismMainnet.ChainID, networks.OptimismSepolia.ChainID:
 		mode = uint8(2)
-	case networks.OptimismSepolia.ChainID:
-		mode = uint8(2)
-	//Goerli Base
-	case networks.BaseGoerli.ChainID:
-		mode = uint8(2)
-	//Goerli Sepolia
-	case networks.BaseSepolia.ChainID:
+	//Base
+	case networks.BaseMainnet.ChainID, networks.BaseSepolia.ChainID:
 		mode = uint8(2)
 	default:
 		mode = uint8(0)
@@ -1233,7 +1223,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		var err error
 		chainId := e.client.GetChainID().Int64()
 
-		if chainId == networks.ScrollSepolia.ChainID || chainId == networks.ScrollMainnet.ChainID {
+		if chainId == networks.ScrollMainnet.ChainID || chainId == networks.ScrollSepolia.ChainID {
 			chainModuleAddr, _, _, err = e.client.DeployContract("ScrollModule", func(
 				auth *bind.TransactOpts,
 				backend bind.ContractBackend,
