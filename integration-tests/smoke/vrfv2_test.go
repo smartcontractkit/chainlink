@@ -28,17 +28,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 )
 
-var (
-	testEnv           *test_env.CLClusterTestEnv
-	vrfContracts      *vrfcommon.VRFContracts
-	subIDs            []uint64
-	eoaWalletAddress  string
-	vrfKey            *vrfcommon.VRFKeyData
-	nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
-)
-
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
+	var (
+		testEnv          *test_env.CLClusterTestEnv
+		vrfContracts     *vrfcommon.VRFContracts
+		subIDs           []uint64
+		eoaWalletAddress string
+		vrfKey           *vrfcommon.VRFKeyData
+		//nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
@@ -453,6 +452,14 @@ func TestVRFv2Basic(t *testing.T) {
 
 func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	t.Parallel()
+	var (
+		testEnv           *test_env.CLClusterTestEnv
+		vrfContracts      *vrfcommon.VRFContracts
+		subIDs            []uint64
+		eoaWalletAddress  string
+		vrfKey            *vrfcommon.VRFKeyData
+		nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
@@ -541,6 +548,14 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 
 func TestVRFOwner(t *testing.T) {
 	t.Parallel()
+	var (
+		testEnv          *test_env.CLClusterTestEnv
+		vrfContracts     *vrfcommon.VRFContracts
+		subIDs           []uint64
+		eoaWalletAddress string
+		vrfKey           *vrfcommon.VRFKeyData
+		//nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
@@ -663,6 +678,14 @@ func TestVRFOwner(t *testing.T) {
 
 func TestVRFV2WithBHS(t *testing.T) {
 	t.Parallel()
+	var (
+		testEnv           *test_env.CLClusterTestEnv
+		vrfContracts      *vrfcommon.VRFContracts
+		subIDs            []uint64
+		eoaWalletAddress  string
+		vrfKey            *vrfcommon.VRFKeyData
+		nodeTypeToNodeMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+	)
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
