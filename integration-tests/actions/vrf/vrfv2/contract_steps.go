@@ -534,13 +534,15 @@ func RequestRandomnessAndWaitForFulfillment(
 		}
 		ch <- fulfillmentEvents
 	}()
-	select {
-	case err := <-errorChannel:
-		return nil, err
-	case fulfillmentEvent := <-ch:
-		return fulfillmentEvent, nil
-	case <-time.After(randomWordsFulfilledEventTimeout):
-		return nil, fmt.Errorf("timeout waiting for RandomnessRequested and RandomWordsFulfilled events")
+	for {
+		select {
+		case err := <-errorChannel:
+			return nil, err
+		case fulfillmentEvent := <-ch:
+			return fulfillmentEvent, nil
+		case <-time.After(randomWordsFulfilledEventTimeout):
+			return nil, fmt.Errorf("timeout waiting for RandomnessRequested and RandomWordsFulfilled events")
+		}
 	}
 }
 
