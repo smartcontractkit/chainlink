@@ -33,7 +33,7 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 		return nil, ErrEmptyResults
 	}
 
-	report := automation_convenience.Report{
+	report := automation_convenience.IAutomationV2CommonReport{
 		FastGasWei:   big.NewInt(0),
 		LinkNative:   big.NewInt(0),
 		UpkeepIds:    make([]*big.Int, len(results)),

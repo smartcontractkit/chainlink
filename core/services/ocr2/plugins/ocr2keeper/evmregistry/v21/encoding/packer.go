@@ -9,13 +9,13 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
 // triggerWrapper is a wrapper for the different trigger types (log and condition triggers).
 // NOTE: we use log trigger because it extends condition trigger,
-type triggerWrapper = automation_convenience.LogTrigger
+type triggerWrapper = ac.IAutomationV2CommonLogTrigger
 
 type abiPacker struct {
 	autoV2CommonABI abi.ABI
@@ -81,15 +81,15 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
-func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_convenience.LogTriggerConfig, error) {
-	var cfg automation_convenience.LogTriggerConfig
+func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error) {
+	var cfg ac.IAutomationV2CommonLogTriggerConfig
 
 	out, err := core.ConvenienceABI.Methods["_logTriggerConfig"].Inputs.UnpackValues(raw)
 	if err != nil {
 		return cfg, fmt.Errorf("%w: unpack _logTriggerConfig return: %s", err, raw)
 	}
 
-	converted, ok := abi.ConvertType(out[0], new(automation_convenience.LogTriggerConfig)).(*automation_convenience.LogTriggerConfig)
+	converted, ok := abi.ConvertType(out[0], new(ac.IAutomationV2CommonLogTriggerConfig)).(*ac.IAutomationV2CommonLogTriggerConfig)
 	if !ok {
 		return cfg, fmt.Errorf("failed to convert type during UnpackLogTriggerConfig")
 	}
@@ -97,7 +97,7 @@ func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_convenience.L
 }
 
 // PackReport packs the report with abi definitions from the contract.
-func (p *abiPacker) PackReport(report automation_convenience.Report) ([]byte, error) {
+func (p *abiPacker) PackReport(report ac.IAutomationV2CommonReport) ([]byte, error) {
 	bts, err := p.utilsABI.Methods["_report"].Inputs.Pack(&report)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to pack report", err)
@@ -106,16 +106,16 @@ func (p *abiPacker) PackReport(report automation_convenience.Report) ([]byte, er
 }
 
 // UnpackReport unpacks the report from the given raw data.
-func (p *abiPacker) UnpackReport(raw []byte) (automation_convenience.Report, error) {
+func (p *abiPacker) UnpackReport(raw []byte) (ac.IAutomationV2CommonReport, error) {
 	unpacked, err := p.utilsABI.Methods["_report"].Inputs.Unpack(raw)
 	if err != nil {
-		return automation_convenience.Report{}, fmt.Errorf("%w: failed to unpack report", err)
+		return ac.IAutomationV2CommonReport{}, fmt.Errorf("%w: failed to unpack report", err)
 	}
-	converted, ok := abi.ConvertType(unpacked[0], new(automation_convenience.Report)).(*automation_convenience.Report)
+	converted, ok := abi.ConvertType(unpacked[0], new(ac.IAutomationV2CommonReport)).(*ac.IAutomationV2CommonReport)
 	if !ok {
-		return automation_convenience.Report{}, fmt.Errorf("failed to convert type")
+		return ac.IAutomationV2CommonReport{}, fmt.Errorf("failed to convert type")
 	}
-	report := automation_convenience.Report{
+	report := ac.IAutomationV2CommonReport{
 		FastGasWei:   converted.FastGasWei,
 		LinkNative:   converted.LinkNative,
 		UpkeepIds:    make([]*big.Int, len(converted.UpkeepIds)),

@@ -3,10 +3,10 @@ pragma solidity 0.8.19;
 
 import {IChainModule} from "./interfaces/v2_2/IChainModule.sol";
 import {Log} from "../interfaces/ILogAutomation.sol";
+import {IAutomationV2Common} from "./interfaces/IAutomationV2Common.sol";
 
 /**
- * @notice OnchainConfigLegacy of the registry
- * @dev only used in params and return values
+ * @notice OnchainConfig of the registry v2.1
  * @member paymentPremiumPPB payment premium rate oracles receive on top of
  * being reimbursed for gas, measured in parts per billion
  * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
@@ -47,8 +47,7 @@ struct OnchainConfigV21 {
 }
 
 /**
- * @notice OnchainConfig of the registry
- * @dev used only in setConfig()
+ * @notice OnchainConfig of the registry v2.2
  * @member paymentPremiumPPB payment premium rate oracles receive on top of
  * being reimbursed for gas, measured in parts per billion
  * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
@@ -93,15 +92,15 @@ struct OnchainConfigV22 {
 }
 
 contract AutomationConvenience {
-  function _onChainConfig22Plus(OnchainConfig memory) external {}
-  function _onChainConfig21(OnchainConfigLegacy memory) external {}
-  function _report(Report memory) external {}
+  function _onChainConfig22(OnchainConfigV22 memory) external {}
+  function _onChainConfig21(OnchainConfigV21 memory) external {}
+  function _report(IAutomationV2Common.Report memory) external {}
 
-  function _logTriggerConfig(LogTriggerConfig memory) external {}
+  function _logTriggerConfig(IAutomationV2Common.LogTriggerConfig memory) external {}
 
-  function _logTrigger(LogTrigger memory) external {}
+  function _logTrigger(IAutomationV2Common.LogTrigger memory) external {}
 
-  function _conditionalTrigger(ConditionalTrigger memory) external {}
+  function _conditionalTrigger(IAutomationV2Common.ConditionalTrigger memory) external {}
 
   function _log(Log memory) external {}
 }

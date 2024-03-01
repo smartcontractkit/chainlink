@@ -940,12 +940,13 @@ describe('AutomationRegistry2_2', () => {
       offchainBytes,
     ]
 
+    const allowedReadOnlyAddresses = [zeroAddress]
     registry = await deployRegistry22(
       owner,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      zeroAddress,
+      allowedReadOnlyAddresses,
     )
 
     arbRegistry = await deployRegistry22(
@@ -953,7 +954,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      zeroAddress,
+      allowedReadOnlyAddresses,
     )
 
     opRegistry = await deployRegistry22(
@@ -961,7 +962,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      zeroAddress,
+      allowedReadOnlyAddresses,
     )
 
     mgRegistry = await deployRegistry22(
@@ -969,7 +970,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      zeroAddress,
+      allowedReadOnlyAddresses,
     )
 
     blankRegistry = await deployRegistry22(
@@ -977,7 +978,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      zeroAddress,
+      allowedReadOnlyAddresses,
     )
 
     registryConditionalOverhead = await registry.getConditionalGasOverhead()
@@ -3035,7 +3036,7 @@ describe('AutomationRegistry2_2', () => {
         registry
           .connect(await owner.getAddress())
           .callStatic.simulatePerformUpkeep(upkeepId, '0x'),
-        'OnlySimulatedBackend()',
+        'OnlySimulatedBackend(address)',
       )
     })
 
@@ -3095,7 +3096,7 @@ describe('AutomationRegistry2_2', () => {
         registry
           .connect(await owner.getAddress())
           .callStatic['checkUpkeep(uint256)'](upkeepId),
-        'OnlySimulatedBackend()',
+        'OnlySimulatedBackend(address)',
       )
     })
 
@@ -3425,17 +3426,15 @@ describe('AutomationRegistry2_2', () => {
 
     beforeEach(async () => {
       const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
-      maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei
-        .mul(16)
-        .mul(
-          maxPerformDataSize
-            .add(registryTransmitCalldataFixedBytesOverhead)
-            .add(
-              registryTransmitCalldataPerSignerBytesOverhead.mul(
-                BigNumber.from(f + 1),
-              ),
+      maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei.mul(
+        maxPerformDataSize
+          .add(registryTransmitCalldataFixedBytesOverhead)
+          .add(
+            registryTransmitCalldataPerSignerBytesOverhead.mul(
+              BigNumber.from(f + 1),
             ),
-        )
+          ),
+      )
       maxl1CostWeiOptWithoutMultiplier = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     })
 

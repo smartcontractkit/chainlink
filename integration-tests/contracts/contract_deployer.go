@@ -1268,11 +1268,18 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return nil, err
 		}
 
-		var allowedReadOnlyAddress common.Address
+		var allowedReadOnlyAddresses []common.Address
 		if chainId == 1101 || chainId == 1442 || chainId == 2442 {
-			allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
+			// for polygon zkEVM, this address is dependent on RPC provider
+			// the implementation is provided by zkEVM team and set to 0x1111111111111111111111111111111111111111
+			allowedReadOnlyAddresses = append(allowedReadOnlyAddresses, common.HexToAddress("0x1111111111111111111111111111111111111111"))
+		} else if chainId == 100 || chainId == 10200 {
+			// for gnosis chain, this address is dependent on RPC provider
+			// address(0) for erigon and 0xfffffffffffffffffffffffffffffffffffffffe for nethermind
+			allowedReadOnlyAddresses = append(allowedReadOnlyAddresses, common.HexToAddress("0x0000000000000000000000000000000000000000"))
+			allowedReadOnlyAddresses = append(allowedReadOnlyAddresses, common.HexToAddress("0xfffffffffffffffffffffffffffffffffffffffe"))
 		} else {
-			allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+			allowedReadOnlyAddresses = append(allowedReadOnlyAddresses, common.HexToAddress("0x0000000000000000000000000000000000000000"))
 		}
 		registryLogicBAddr, _, _, err := e.client.DeployContract("AutomationRegistryLogicB2_2", func(
 			auth *bind.TransactOpts,
@@ -1286,7 +1293,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),
 				*automationForwarderLogicAddr,
-				allowedReadOnlyAddress,
+				allowedReadOnlyAddresses,
 			)
 		})
 		if err != nil {

@@ -52,7 +52,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       logicA.getLinkNativeFeedAddress(),
       logicA.getFastGasFeedAddress(),
       logicA.getAutomationForwarderLogic(),
-      logicA.getAllowedReadOnlyAddress()
+      logicA.getAllowedReadOnlyAddresses()
     )
     Chainable(address(logicA))
   {}

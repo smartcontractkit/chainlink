@@ -5,7 +5,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
 )
 
@@ -90,7 +90,7 @@ type UpkeepInfo = autov2common.IAutomationV2CommonUpkeepInfo
 type Packer interface {
 	UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error)
 	UnpackPerformResult(raw string) (PipelineExecutionState, bool, error)
-	UnpackLogTriggerConfig(raw []byte) (automation_convenience.LogTriggerConfig, error)
-	PackReport(report automation_convenience.Report) ([]byte, error)
-	UnpackReport(raw []byte) (automation_convenience.Report, error)
+	UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error)
+	PackReport(report ac.IAutomationV2CommonReport) ([]byte, error)
+	UnpackReport(raw []byte) (ac.IAutomationV2CommonReport, error)
 }

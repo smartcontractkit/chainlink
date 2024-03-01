@@ -246,7 +246,7 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 
 func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) ([]byte, error) {
 	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
-		onchainConfigStruct := automation_convenience.OnchainConfigLegacy{
+		onchainConfigStruct := automation_convenience.OnchainConfigV21{
 			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 			FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
 			CheckGasLimit:          rcs.CheckGasLimit,
@@ -291,7 +291,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 }
 
 func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddr common.Address, reorgProtectionEnabled bool) ([]byte, error) {
-	onchainConfigStruct := automation_convenience.OnchainConfig{
+	onchainConfigStruct := automation_convenience.OnchainConfigV22{
 		PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 		FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
 		CheckGasLimit:          rcs.CheckGasLimit,
@@ -2231,7 +2231,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 				}
 			}
 
-			logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
+			logTriggerConfigStruct := automation_convenience.IAutomationV2CommonLogTriggerConfig{
 				ContractAddress: common.HexToAddress(upkeepAddr),
 				FilterSelector:  0,
 				Topic0:          topic0InBytes,

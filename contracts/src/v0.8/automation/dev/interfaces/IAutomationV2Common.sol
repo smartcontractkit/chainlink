@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.4;
 
-import {OnchainConfigLegacy} from "../AutomationConvenience.sol";
+import {OnchainConfigV21} from "../AutomationConvenience.sol";
 
 interface IAutomationV2Common {
   event UpkeepPerformed(
@@ -15,7 +15,6 @@ interface IAutomationV2Common {
   event StaleUpkeepReport(uint256 indexed id, bytes trigger);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
   event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
-
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepRegistered(uint256 indexed id, uint32 performGas, address admin);
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
@@ -23,7 +22,6 @@ interface IAutomationV2Common {
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
-
   event DedupKeyAdded(bytes32 indexed dedupKey);
 
   struct UpkeepInfo {
@@ -39,7 +37,7 @@ interface IAutomationV2Common {
     bytes offchainConfig;
   }
 
-  /// @dev Report transmitted by OCR to transmit function
+/// @dev Report transmitted by OCR to transmit function
   struct Report {
     uint256 fastGasWei;
     uint256 linkNative;
@@ -82,8 +80,8 @@ interface IAutomationV2Common {
     bytes32 blockHash;
   }
 
-  /**
-   * @notice state of the registry
+/**
+ * @notice state of the registry
    * @dev only used in params and return values
    * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
    * @member nonce used for ID generation
@@ -166,7 +164,7 @@ interface IAutomationV2Common {
     view
     returns (
       State memory state,
-      OnchainConfigLegacy memory config,
+      OnchainConfigV21 memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f

@@ -14,7 +14,7 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
   address internal constant LINK_ETH_FEED = 0x1111111111111111111111111111111111111110;
   address internal constant FAST_GAS_FEED = 0x1111111111111111111111111111111111111112;
   address internal constant LINK_TOKEN = 0x1111111111111111111111111111111111111113;
-  address internal constant ZERO_ADDRESS = address(0);
+  address[] internal ALLOWED_READ_ONLY_ADDRESSES = [address(0)];
 
   // Signer private keys used for these test
   uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -52,7 +52,7 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
       LINK_ETH_FEED,
       FAST_GAS_FEED,
       address(forwarderLogic),
-      ZERO_ADDRESS
+      ALLOWED_READ_ONLY_ADDRESSES
     );
     AutomationRegistryLogicA2_2 logicA2_2 = new AutomationRegistryLogicA2_2(logicB2_2);
     registryMaster = IAutomationRegistryMaster(
@@ -77,7 +77,12 @@ contract AutomationRegistry2_2_CheckUpkeep is AutomationRegistry2_2_SetUp {
 
     // The tx.origin is the DEFAULT_SENDER (0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) of foundry
     // Expecting a revert since the tx.origin is not address(0)
-    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster.OnlySimulatedBackend.selector));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IAutomationRegistryMaster.OnlySimulatedBackend.selector,
+        0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38
+      )
+    );
     registryMaster.checkUpkeep(id, triggerData);
   }
 }
@@ -194,5 +199,21 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
     uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
+  }
+}
+
+contract AutomationRegistry2_2_SetAllowedReadOnlyAddresses is AutomationRegistry2_2_SetUp {
+  event AllowedReadOnlyAddressesUpdated(address[] addresses);
+
+  function testSetAllowedReadOnlyAddresses() public {
+    address[] memory addresses = new address[](3);
+    addresses[0] = address(0);
+    addresses[1] = address(1);
+    addresses[2] = address(2);
+
+    vm.expectEmit();
+    emit AllowedReadOnlyAddressesUpdated(addresses);
+
+    registryMaster.setAllowedReadOnlyAddresses(addresses);
   }
 }

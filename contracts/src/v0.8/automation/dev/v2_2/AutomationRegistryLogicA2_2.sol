@@ -30,7 +30,7 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
       logicB.getLinkNativeFeedAddress(),
       logicB.getFastGasFeedAddress(),
       logicB.getAutomationForwarderLogic(),
-      logicB.getAllowedReadOnlyAddress()
+      logicB.getAllowedReadOnlyAddresses()
     )
     Chainable(address(logicB))
   {}

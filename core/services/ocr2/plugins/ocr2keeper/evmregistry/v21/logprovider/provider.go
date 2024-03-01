@@ -50,7 +50,7 @@ var (
 )
 
 // LogTriggerConfig is an alias for log trigger config.
-type LogTriggerConfig automation_convenience.LogTriggerConfig
+type LogTriggerConfig automation_convenience.IAutomationV2CommonLogTriggerConfig
 
 type FilterOptions struct {
 	UpkeepID      *big.Int
