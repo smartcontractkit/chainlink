@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -20,6 +21,7 @@ import (
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -785,7 +787,61 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
 
+	t.Run("Migration of VRF requests with subscription billing", func(t *testing.T) {
+		// Migrate subscription from old coordinator to new coordinator, verify if balances
+		// are moved correctly and requests can be made successfully in the subscription in
+		// new coordinator
+		testSubMigration(subIDs, false, vrfv2PlusContracts, t, l, env, vrfv2PlusData, config,
+			linkAddress, mockETHLinkFeedAddress, nodesMap)
+	})
+
+	t.Run("Migration of VRF requests with direct billing", func(t *testing.T) {
+		// Migrate wrapper subscription from old coordinator to new coordinator, verify if balances
+		// are moved correctly and requests can be made successfully in the subscription in
+		// new coordinator
+		testSubMigration(subIDs, true, vrfv2PlusContracts, t, l, env, vrfv2PlusData, config,
+			linkAddress, mockETHLinkFeedAddress, nodesMap)
+	})
+}
+
+func testSubMigration(subIDs []*big.Int,
+	isDirectBilling bool,
+	vrfv2PlusContracts *vrfcommon.VRFContracts,
+	t *testing.T,
+	l zerolog.Logger,
+	env *test_env.CLClusterTestEnv,
+	vrfv2PlusData *vrfcommon.VRFKeyData,
+	config tc.TestConfig,
+	linkAddress contracts.LinkToken,
+	mockETHLinkFeedAddress contracts.MockETHLINKFeed,
+	nodesMap map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode) {
+
 	subID := subIDs[0]
+	var err error
+	var wrapperContracts *vrfv2plus.VRFV2PlusWrapperContracts
+	configCopy := config.MustCopy().(tc.TestConfig)
+	expectedNumSubs := 1
+	if isDirectBilling {
+		activeSubIdsOldCoordinatorBeforeMigration, err := vrfv2PlusContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
+		if err != nil {
+			// Empty subscriptions in coordinator throws IndexOutOfRange revert error
+			activeSubIdsOldCoordinatorBeforeMigration = []*big.Int{}
+		}
+		expectedNumSubs = len(activeSubIdsOldCoordinatorBeforeMigration) + 1
+
+		var wrapperSubID *big.Int
+		wrapperContracts, wrapperSubID, err = vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
+			env,
+			&configCopy,
+			linkAddress,
+			mockETHLinkFeedAddress,
+			vrfv2PlusContracts.CoordinatorV2Plus,
+			vrfv2PlusData.KeyHash,
+			1,
+		)
+		require.NoError(t, err)
+		subID = wrapperSubID
+	}
 
 	subscription, err := vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 	require.NoError(t, err, "error getting subscription information")
@@ -794,8 +850,9 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	activeSubIdsOldCoordinatorBeforeMigration, err := vrfv2PlusContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
 	require.NoError(t, err, "error occurred getting active sub ids")
-	require.Len(t, activeSubIdsOldCoordinatorBeforeMigration, 1, "Active Sub Ids length is not equal to 1")
-	require.Equal(t, subID, activeSubIdsOldCoordinatorBeforeMigration[0])
+	require.Len(t, activeSubIdsOldCoordinatorBeforeMigration, expectedNumSubs, fmt.Sprintf("Active Sub Ids length is not equal to %d", expectedNumSubs))
+	activeSubID := activeSubIdsOldCoordinatorBeforeMigration[expectedNumSubs-1]
+	require.Equal(t, subID, activeSubID)
 
 	oldSubscriptionBeforeMigration, err := vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 	require.NoError(t, err, "error getting subscription information")
@@ -864,7 +921,13 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
-	err = vrfv2PlusContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
+	if !isDirectBilling {
+		err = vrfv2PlusContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
+	} else {
+		// Migrate sub using VRFV2PlusWrapper's migrate method
+		err = wrapperContracts.VRFV2PlusWrapper.Migrate(testcontext.Get(t), common.HexToAddress(newCoordinator.Address()))
+	}
+
 	require.NoError(t, err, "error migrating sub id ", subID.String(), " from ", vrfv2PlusContracts.CoordinatorV2Plus.Address(), " to new Coordinator address ", newCoordinator.Address())
 	migrationCompletedEvent, err := vrfv2PlusContracts.CoordinatorV2Plus.WaitForMigrationCompletedEvent(time.Minute * 1)
 	require.NoError(t, err, "error waiting for MigrationCompleted event")
@@ -885,14 +948,25 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	vrfv2plus.LogSubDetailsAfterMigration(l, newCoordinator, subID, migratedSubscription)
 
 	//Verify that Coordinators were updated in Consumers
-	for _, consumer := range vrfv2PlusContracts.VRFV2PlusConsumer {
-		coordinatorAddressInConsumerAfterMigration, err := consumer.GetCoordinator(testcontext.Get(t))
-		require.NoError(t, err, "error getting Coordinator from Consumer contract")
+	if !isDirectBilling {
+		for _, consumer := range vrfv2PlusContracts.VRFV2PlusConsumer {
+			coordinatorAddressInConsumerAfterMigration, err := consumer.GetCoordinator(testcontext.Get(t))
+			require.NoError(t, err, "error getting Coordinator from Consumer contract")
+			require.Equal(t, newCoordinator.Address(), coordinatorAddressInConsumerAfterMigration.String())
+			l.Debug().
+				Str("Consumer", consumer.Address()).
+				Str("Coordinator", coordinatorAddressInConsumerAfterMigration.String()).
+				Msg("Coordinator Address in Consumer After Migration")
+		}
+	} else {
+		// Verify that Coordinators were updated in Consumers- Consumer in this case is the VRFV2PlusWrapper
+		coordinatorAddressInConsumerAfterMigration, err := wrapperContracts.VRFV2PlusWrapper.Coordinator(testcontext.Get(t))
+		require.NoError(t, err, "error getting Coordinator from Consumer contract- VRFV2PlusWrapper")
 		require.Equal(t, newCoordinator.Address(), coordinatorAddressInConsumerAfterMigration.String())
 		l.Debug().
-			Str("Consumer", consumer.Address()).
+			Str("Consumer-VRFV2PlusWrapper", wrapperContracts.VRFV2PlusWrapper.Address()).
 			Str("Coordinator", coordinatorAddressInConsumerAfterMigration.String()).
-			Msg("Coordinator Address in Consumer After Migration")
+			Msg("Coordinator Address in VRFV2PlusWrapper After Migration")
 	}
 
 	//Verify old and migrated subs
@@ -902,11 +976,18 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.Equal(t, oldSubscriptionBeforeMigration.Consumers, migratedSubscription.Consumers)
 
 	//Verify that old sub was deleted from old Coordinator
-	_, err = vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+	activeSubIdsOldCoordinator, err := vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 	require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
 
 	_, err = vrfv2PlusContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
-	require.Error(t, err, "error not occurred getting active sub ids. Should occur since it should revert when sub id array is empty")
+	// If (subscription billing) or (direct billing and numActiveSubs is 0 before this method call) -> numActiveSub should be 0 after migration in oldCoordinator
+	if !isDirectBilling || expectedNumSubs == 1 {
+		require.Error(t, err, "error not occurred getting active sub ids. Should occur since it should revert when sub id array is empty")
+	} else {
+		require.NoError(t, err, "error occurred getting active sub ids")
+		require.Len(t, activeSubIdsOldCoordinator, expectedNumSubs-1, "Active SubIds length is not 1 for old Coordinator after migration- wrapper subId should be removed")
+		require.NotContains(t, activeSubIdsOldCoordinator, subID)
+	}
 
 	activeSubIdsMigratedCoordinator, err := newCoordinator.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
 	require.NoError(t, err, "error occurred getting active sub ids")
@@ -924,39 +1005,83 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.Equal(t, 0, expectedLinkTotalBalanceForOldCoordinator.Cmp(oldCoordinatorLinkTotalBalanceAfterMigration))
 	require.Equal(t, 0, expectedEthTotalBalanceForOldCoordinator.Cmp(oldCoordinatorEthTotalBalanceAfterMigration))
 
-	//Verify rand requests fulfills with Link Token billing
-	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
-		vrfv2PlusContracts.VRFV2PlusConsumer[0],
-		newCoordinator,
-		vrfv2PlusData,
-		subID,
-		false,
-		*config.VRFv2Plus.General.MinimumConfirmations,
-		*config.VRFv2Plus.General.CallbackGasLimit,
-		*config.VRFv2Plus.General.NumberOfWords,
-		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-		config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
-		l,
-	)
-	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+	if !isDirectBilling {
+		//Verify rand requests fulfills with Link Token billing
+		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
+			vrfv2PlusContracts.VRFV2PlusConsumer[0],
+			newCoordinator,
+			vrfv2PlusData,
+			subID,
+			false,
+			*config.VRFv2Plus.General.MinimumConfirmations,
+			*config.VRFv2Plus.General.CallbackGasLimit,
+			*config.VRFv2Plus.General.NumberOfWords,
+			*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+			config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-	//Verify rand requests fulfills with Native Token billing
-	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
-		vrfv2PlusContracts.VRFV2PlusConsumer[1],
-		newCoordinator,
-		vrfv2PlusData,
-		subID,
-		true,
-		*config.VRFv2Plus.General.MinimumConfirmations,
-		*config.VRFv2Plus.General.CallbackGasLimit,
-		*config.VRFv2Plus.General.NumberOfWords,
-		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-		config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
-		l,
-	)
-	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+		//Verify rand requests fulfills with Native Token billing
+		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
+			vrfv2PlusContracts.VRFV2PlusConsumer[1],
+			newCoordinator,
+			vrfv2PlusData,
+			subID,
+			true,
+			*config.VRFv2Plus.General.MinimumConfirmations,
+			*config.VRFv2Plus.General.CallbackGasLimit,
+			*config.VRFv2Plus.General.NumberOfWords,
+			*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+			config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+	} else {
+		// Verify rand requests fulfills with Link Token billing
+		isNativeBilling := false
+		randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillmentUpgraded(
+			wrapperContracts.LoadTestConsumers[0],
+			newCoordinator,
+			vrfv2PlusData,
+			subID,
+			isNativeBilling,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+		consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, consumerStatus.Fulfilled)
+
+		// Verify rand requests fulfills with Native Token billing
+		isNativeBilling = true
+		randomWordsFulfilledEvent, err = vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillmentUpgraded(
+			wrapperContracts.LoadTestConsumers[0],
+			newCoordinator,
+			vrfv2PlusData,
+			subID,
+			isNativeBilling,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+		consumerStatus, err = wrapperContracts.LoadTestConsumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, consumerStatus.Fulfilled)
+	}
 }
 
 func TestVRFV2PlusWithBHS(t *testing.T) {
