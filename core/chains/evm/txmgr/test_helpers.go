@@ -89,6 +89,9 @@ func (g *TestGasEstimatorConfig) LimitJobType() evmconfig.LimitJobType {
 func (g *TestGasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
 	return assets.NewWeiI(42)
 }
+func (g *TestGasEstimatorConfig) GasPerPubdata() *assets.Wei {
+	return assets.NewWeiI(50_000)
+}
 
 func (e *TestEvmConfig) GasEstimator() evmconfig.GasEstimator {
 	return &TestGasEstimatorConfig{bumpThreshold: e.BumpThreshold}

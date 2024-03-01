@@ -497,6 +497,7 @@ type GasEstimator struct {
 	FeeCapDefault *assets.Wei
 	TipCapDefault *assets.Wei
 	TipCapMin     *assets.Wei
+	GasPerPubdata *assets.Wei
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
 }
@@ -587,6 +588,9 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	}
 	if v := f.PriceMin; v != nil {
 		e.PriceMin = v
+	}
+	if v := f.GasPerPubdata; v != nil {
+		e.GasPerPubdata = v
 	}
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)

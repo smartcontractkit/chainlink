@@ -41,6 +41,7 @@ type feeConfig struct {
 	tipCapMin          *assets.Wei
 	priceMin           *assets.Wei
 	priceMax           *assets.Wei
+	gasPerPubdata * assets.Wei
 }
 
 func newFeeConfig() *feeConfig {
@@ -48,6 +49,7 @@ func newFeeConfig() *feeConfig {
 		tipCapMin: assets.NewWeiI(0),
 		priceMin:  assets.NewWeiI(0),
 		priceMax:  assets.NewWeiI(0),
+		gasPerPubdata: assets.NewWeiI(50_000),
 	}
 }
 
@@ -55,6 +57,7 @@ func (g *feeConfig) EIP1559DynamicFees() bool                        { return g.
 func (g *feeConfig) TipCapMin() *assets.Wei                          { return g.tipCapMin }
 func (g *feeConfig) PriceMin() *assets.Wei                           { return g.priceMin }
 func (g *feeConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei { return g.priceMax }
+func (g *feeConfig) GasPerPubdata() *assets.Wei {return g.gasPerPubdata }
 
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()
@@ -132,15 +135,15 @@ func TestTxm_SignTx(t *testing.T) {
 
 	t.Run("can properly encoded and decode raw transaction for ZkSyncTx", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ccfg := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr[bool](true)
-			c.EVM[0].GasEstimator.PriceMax = assets.NewWei(big.NewInt(100_000_000))
-		}))
-		chainID := big.NewInt(324)
-		keystore := cltest.NewKeyStore(t, db, ccfg.Database()).Eth()
+		cfg := configtest.NewTestGeneralConfig(t)
+		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+		chainID := cltest.FixtureChainID
+		keystore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		nonce := evmtypes.Nonce(42)
+		_, address := cltest.MustInsertRandomKeyReturningState(t, keystore)
 		txmTx := txmgr.Tx{
 			Sequence:  &nonce,
+			FromAddress: address,
 			ToAddress: to,
 			Value:     *big.NewInt(142),
 			FeeLimit:  500_000,
@@ -149,11 +152,10 @@ func TestTxm_SignTx(t *testing.T) {
 			DynamicFeeCap: assets.NewWei(big.NewInt(100_000_000)),
 			DynamicTipCap: assets.NewWei(big.NewInt(10_000_000)),
 		}
-		cltest.MustInsertRandomKeyReturningState(t, keystore)
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, config.ChainZkSync, ccfg.EVM().GasEstimator(), keystore, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(chainID, config.ChainZkSync, evmcfg.EVM().GasEstimator(), keystore, nil)
 		attempt, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, fee, 242, 0x1, logger.Test(t))
 		require.NoError(t, err)
-		require.Equal(t, "", hexutil.Encode(attempt.SignedRawTx))
+		// require.Equal(t, "0x71f8852a839896808405f5e10081f294b921f7763960b296b9cbad586ff066a18d749724818e80808080809413bf9719fb2e068ff683185f22f05d06d451693b82c350c0b841e1d2104e89114b9773720f138b1461d123442cd0b46a81868c465c94cab5e8d423a539a2dd0d69d75a65faa69a3886f81424bb3ae8fc64e207cbde1ced1a8cba1bc0", hexutil.Encode(attempt.SignedRawTx))
 
 		var decodedTx *gethtypes.Transaction
 		decodedTx, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)

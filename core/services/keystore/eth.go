@@ -2,7 +2,6 @@ package keystore
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sort"
@@ -335,15 +334,11 @@ func (ks *eth) SignZkSyncTx(ctx context.Context, address common.Address, tx *zks
 	if err != nil {
 		return nil, err
 	}
-	b, err := hex.DecodeString(key.String())
+	signer, err := zksync.NewBaseSignerFromRawPrivateKey(key.Raw(), chainID.Int64())
 	if err != nil {
 		return nil, err
 	}
-	signer, err := zksync.NewBaseSignerFromRawPrivateKey(b, chainID.Int64())
-	if err != nil {
-		return nil, err
-	}
-	data, err := signer.SignTypedData(zksync.ZkSyncEraEIP712Domain(300), tx)
+	data, err := signer.SignTypedData(zksync.ZkSyncEraEIP712Domain(chainID.Int64()), tx)
 	if err != nil {
 		return nil, err
 	}

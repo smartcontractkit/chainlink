@@ -3057,18 +3057,19 @@ Enabled = true
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '18.446744073709551615 ether'
-PriceMin = '0'
-LimitDefault = 3500000
+PriceMin = '1 wei'
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+GasPerPubdata = '50 kwei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -3141,18 +3142,19 @@ Enabled = true
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '18.446744073709551615 ether'
-PriceMin = '0'
-LimitDefault = 3500000
+PriceMin = '1 wei'
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '100 wei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+GasPerPubdata = '50 kwei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25

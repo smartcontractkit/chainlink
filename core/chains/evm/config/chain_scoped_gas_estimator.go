@@ -108,6 +108,10 @@ func (g *gasEstimatorConfig) LimitJobType() LimitJobType {
 	return &limitJobTypeConfig{c: g.c.LimitJobType}
 }
 
+func (g *gasEstimatorConfig) GasPerPubdata() *assets.Wei {
+	return g.c.GasPerPubdata
+}
+
 type limitJobTypeConfig struct {
 	c toml.GasLimitJobType
 }

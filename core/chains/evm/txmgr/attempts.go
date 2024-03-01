@@ -43,6 +43,7 @@ type evmTxAttemptBuilderFeeConfig interface {
 	TipCapMin() *assets.Wei
 	PriceMin() *assets.Wei
 	PriceMaxKey(common.Address) *assets.Wei
+	GasPerPubdata() *assets.Wei
 }
 
 func NewEvmTxAttemptBuilder(chainID big.Int, chainType config.ChainType, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
@@ -95,11 +96,10 @@ func (c *evmTxAttemptBuilder) NewCustomTxAttempt(ctx context.Context, etx Tx, fe
 			logger.Sugared(lggr).AssumptionViolation(err.Error())
 			return attempt, false, err // not retryable
 		}
-		// TODO: add config for GasPerPubdata
 		attempt, err = c.newZkSyncAttempt(ctx, etx, gas.DynamicFee{
 			FeeCap: fee.DynamicFeeCap,
 			TipCap: fee.DynamicTipCap,
-		}, gasLimit, assets.NewWei(big.NewInt(50000)))
+		}, gasLimit, c.feeConfig.GasPerPubdata())
 		return attempt, true, err
 	}
 	
@@ -359,6 +359,7 @@ func (c *evmTxAttemptBuilder) newZkSyncAttempt(ctx context.Context, etx Tx, fee 
 
 	d := newZkSyncTransaction(
 		uint64(*etx.Sequence),
+		etx.FromAddress,
 		etx.ToAddress,
 		&etx.Value,
 		gasLimit,
@@ -389,7 +390,7 @@ func (c *evmTxAttemptBuilder) newZkSyncSignedAttempt(ctx context.Context, etx Tx
 
 	signedRawTx, err := tx.RLPValues(signedTxBytes)
 	if err != nil {
-		return attempt, pkgerrors.Wrapf(err, "")
+		return attempt, pkgerrors.Wrapf(err, "error rlp encoding zkSync transaction")
 	}
 
 	attempt.State = txmgrtypes.TxAttemptInProgress
@@ -401,15 +402,7 @@ func (c *evmTxAttemptBuilder) newZkSyncSignedAttempt(ctx context.Context, etx Tx
 	return attempt, nil
 }
 
-func validateZkSyncFeeGas(kse keySpecificEstimator, tipCapMinimum *assets.Wei, fee gas.DynamicFee, gasLimit uint32, gasPerPubdata *assets.Wei, etx Tx) error {
-	if err := validateDynamicFeeGas(kse, tipCapMinimum, fee, gasLimit, etx); err != nil {
-		return pkgerrors.Wrap(err, "error validating gas")
-	}
-
-	return nil
-}
-
-func newZkSyncTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, gasPerPubdata *assets.Wei) zksync.Transaction712 {
+func newZkSyncTransaction(nonce uint64, from common.Address, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, gasPerPubdata *assets.Wei) zksync.Transaction712 {
 	
 	return zksync.Transaction712{
 		ChainID:   chainID,
@@ -418,6 +411,7 @@ func newZkSyncTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 		GasFeeCap: gasFeeCap.ToInt(),
 		Gas:       big.NewInt(int64(gasLimit)),
 		To:        &to,
+		From: &from,
 		Value:     value,
 		Data:      data,
 		AccessList: nil,
