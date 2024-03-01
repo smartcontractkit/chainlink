@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -27,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 )
 
@@ -47,16 +44,23 @@ func TestVRFv2Basic(t *testing.T) {
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-	cleanupFn := getCleanupFn(
-		testcontext.Get(t),
-		testEnv,
-		vrfv2Config,
-		vrfContracts,
-		eoaWalletAddress,
-		subIDs,
-		l,
-	)
-
+	cleanupFn := func() {
+		if testEnv.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*vrfv2Config.General.UseExistingEnv {
+			if err := testEnv.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 0,
@@ -456,15 +460,23 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	vrfv2Config := config.VRFv2
-	cleanupFn := getCleanupFn(
-		testcontext.Get(t),
-		testEnv,
-		vrfv2Config,
-		vrfContracts,
-		eoaWalletAddress,
-		subIDs,
-		l,
-	)
+	cleanupFn := func() {
+		if testEnv.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*vrfv2Config.General.UseExistingEnv {
+			if err := testEnv.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 2,
@@ -534,15 +546,23 @@ func TestVRFOwner(t *testing.T) {
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-	cleanupFn := getCleanupFn(
-		testcontext.Get(t),
-		testEnv,
-		vrfv2Config,
-		vrfContracts,
-		eoaWalletAddress,
-		subIDs,
-		l,
-	)
+	cleanupFn := func() {
+		if testEnv.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*vrfv2Config.General.UseExistingEnv {
+			if err := testEnv.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 0,
@@ -649,15 +669,23 @@ func TestVRFV2WithBHS(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
 
-	cleanupFn := getCleanupFn(
-		testcontext.Get(t),
-		testEnv,
-		vrfv2Config,
-		vrfContracts,
-		eoaWalletAddress,
-		subIDs,
-		l,
-	)
+	cleanupFn := func() {
+		if testEnv.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*vrfv2Config.General.UseExistingEnv {
+			if err := testEnv.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
 
 	//Underfund Subscription
 	vrfv2Config.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
@@ -806,30 +834,31 @@ func TestVRFV2WithBHS(t *testing.T) {
 	})
 }
 
-func getCleanupFn(
-	ctx context.Context,
-	testEnv *test_env.CLClusterTestEnv,
-	config *vrfv2_config.Config,
-	vrfContracts *vrfcommon.VRFContracts,
-	eoaWalletAddress string,
-	subIDs []uint64,
-	l zerolog.Logger,
-) func() {
-	return func() {
-		if testEnv.EVMClient.NetworkSimulated() {
-			l.Info().
-				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
-				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(ctx, vrfContracts, eoaWalletAddress, subIDs, l)
-			}
-		}
-		if !*config.General.UseExistingEnv {
-			if err := testEnv.Cleanup(); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		}
-	}
-}
+//todo
+//func getCleanupFn(
+//	ctx context.Context,
+//	testEnv *test_env.CLClusterTestEnv,
+//	config *vrfv2_config.Config,
+//	vrfContracts *vrfcommon.VRFContracts,
+//	eoaWalletAddress string,
+//	subIDs []uint64,
+//	l zerolog.Logger,
+//) func() {
+//	return func() {
+//		if testEnv.EVMClient.NetworkSimulated() {
+//			l.Info().
+//				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+//				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+//		} else {
+//			if *config.General.CancelSubsAfterTestRun {
+//				//cancel subs and return funds to sub owner
+//				vrfv2.CancelSubsAndReturnFunds(ctx, vrfContracts, eoaWalletAddress, subIDs, l)
+//			}
+//		}
+//		if !*config.General.UseExistingEnv {
+//			if err := testEnv.Cleanup(); err != nil {
+//				l.Error().Err(err).Msg("Error cleaning up test environment")
+//			}
+//		}
+//	}
+//}
