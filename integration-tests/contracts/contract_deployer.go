@@ -1293,7 +1293,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 				common.HexToAddress(opts.ETHFeedAddr),
 				common.HexToAddress(opts.GasFeedAddr),
 				*automationForwarderLogicAddr,
-				[]common.Address{allowedReadOnlyAddresses},
+				allowedReadOnlyAddresses,
 			)
 		})
 		if err != nil {

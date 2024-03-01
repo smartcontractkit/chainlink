@@ -14,7 +14,7 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
   address internal constant LINK_ETH_FEED = 0x1111111111111111111111111111111111111110;
   address internal constant FAST_GAS_FEED = 0x1111111111111111111111111111111111111112;
   address internal constant LINK_TOKEN = 0x1111111111111111111111111111111111111113;
-  address internal constant ZERO_ADDRESS = address(0);
+  address[] internal constant ALLOWED_READ_ONLY_ADDRESSES = [address(0)];
 
   // Signer private keys used for these test
   uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -52,7 +52,7 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
       LINK_ETH_FEED,
       FAST_GAS_FEED,
       address(forwarderLogic),
-      ZERO_ADDRESS
+      ALLOWED_READ_ONLY_ADDRESSES
     );
     AutomationRegistryLogicA2_2 logicA2_2 = new AutomationRegistryLogicA2_2(logicB2_2);
     registryMaster = IAutomationRegistryMaster(

@@ -3032,7 +3032,7 @@ describe('AutomationRegistry2_2', () => {
         registry
           .connect(await owner.getAddress())
           .callStatic.simulatePerformUpkeep(upkeepId, '0x'),
-        'OnlySimulatedBackend()',
+        'OnlySimulatedBackend(address)',
       )
     })
 
@@ -3092,7 +3092,7 @@ describe('AutomationRegistry2_2', () => {
         registry
           .connect(await owner.getAddress())
           .callStatic['checkUpkeep(uint256)'](upkeepId),
-        'OnlySimulatedBackend()',
+        'OnlySimulatedBackend(address)',
       )
     })
 
