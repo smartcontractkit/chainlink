@@ -54,7 +54,7 @@ gas_tip_cap = 3_000_000_000
 [[Seth.networks]]
 name = "Fuji"
 chain_id = "43113"
-transaction_timeout = "30s"
+transaction_timeout = "3m"
 transfer_gas_fee = 21_000
 # legacy transactions
 gas_price = 30_000_000_000
@@ -66,20 +66,20 @@ gas_tip_cap = 1_800_000_000
 [[Seth.networks]]
 name = "Sepolia"
 chain_id = "11155111"
-transaction_timeout = "30s"
-transfer_gas_fee = 21_000
-gas_limit = 14_000_000
+transaction_timeout = "3m"
+transfer_gas_fee = 40_000
+gas_limit = 30_000_000
 # legacy transactions
-gas_price = 1_000_000_000
+gas_price = 20_000_000_000
 # EIP-1559 transactions
-eip_1559_dynamic_fees = true
-gas_fee_cap = 25_000_000_000
-gas_tip_cap = 5_000_000_000
+# eip_1559_dynamic_fees = true2
+gas_fee_cap = 45_000_000_000
+gas_tip_cap = 10_000_000_000
 
 [[Seth.networks]]
 name = "Mumbai"
 chain_id = "80001"
-transaction_timeout = "30s"
+transaction_timeout = "3m"
 transfer_gas_fee = 21_000
 # legacy transactions
 #gas_price = 1_800_000_000
@@ -91,7 +91,7 @@ gas_tip_cap = 1_800_000_000
 [[Seth.networks]]
 name = "zkEVM"
 chain_id = "1442"
-transaction_timeout = "30s"
+transaction_timeout = "3m"
 transfer_gas_fee = 21_000
 gas_limit = 3_000_000
 # legacy transactions
