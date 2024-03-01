@@ -12,7 +12,10 @@ import (
 )
 
 type PanelOption struct {
-	labelFilter string
+	labelFilters map[string]string
+	labelFilter  string
+	legendString string
+	labelQuery   string
 }
 
 type Dashboard struct {
@@ -71,8 +74,8 @@ func NewDashboard(
 			"branch": `=~"${branch:pipe}"`,
 			"commit": `=~"${commit:pipe}"`,
 		}
-		waspPanelsLoadStats := wasp.WASPLoadStatsRow(db.PrometheusDataSourceName, panelQuery)
-		waspPanelsDebugData := wasp.WASPDebugDataRow(db.PrometheusDataSourceName, panelQuery, false)
+		waspPanelsLoadStats := wasp.WASPLoadStatsRow(db.LokiDataSourceName, panelQuery)
+		waspPanelsDebugData := wasp.WASPDebugDataRow(db.LokiDataSourceName, panelQuery, false)
 		db.opts = append(db.opts, waspPanelsLoadStats)
 		db.opts = append(db.opts, waspPanelsDebugData)
 		break
@@ -119,15 +122,33 @@ func (m *Dashboard) init() {
 		dashboard.Tags(m.grafanaTags),
 	}
 
+	m.panelOption.labelFilters = map[string]string{
+		"instance": `=~"${instance}"`,
+		"commit":   `=~"${commit:pipe}"`,
+	}
+
 	switch m.platform {
 	case "kubernetes":
+		m.panelOption.labelFilters = map[string]string{
+			"job":       `=~"${instance}"`,
+			"namespace": `=~"${namespace}"`,
+			"pod":       `=~"${pod}"`,
+		}
 		m.panelOption.labelFilter = "job"
+		m.panelOption.legendString = "pod"
 		break
 	case "docker":
+		m.panelOption.labelFilters = map[string]string{
+			"instance": `=~"${instance}"`,
+		}
 		m.panelOption.labelFilter = "instance"
+		m.panelOption.legendString = "instance"
 		break
 	}
 
+	for key, value := range m.panelOption.labelFilters {
+		m.panelOption.labelQuery += key + value + ", "
+	}
 	m.opts = append(m.opts, opts...)
 }
 
@@ -158,15 +179,23 @@ func (m *Dashboard) addKubernetesVariables() {
 	opts := []dashboard.Option{
 		dashboard.VariableAsQuery(
 			"namespace",
-			query.DataSource(m.LokiDataSourceName),
+			query.DataSource(m.PrometheusDataSourceName),
 			query.Multiple(),
 			query.IncludeAll(),
 			query.Request(fmt.Sprintf("label_values(%s)", "namespace")),
 			query.Sort(query.NumericalAsc),
 		),
+		dashboard.VariableAsQuery(
+			"pod",
+			query.DataSource(m.PrometheusDataSourceName),
+			query.Multiple(),
+			query.IncludeAll(),
+			query.Request("label_values(kube_pod_container_info{namespace=\"$namespace\"}, pod)"),
+			query.Sort(query.NumericalAsc),
+		),
 	}
 
 	m.opts = append(m.opts, opts...)
-	waspVariables := wasp.AddVariables(m.PrometheusDataSourceName)
+	waspVariables := wasp.AddVariables(m.LokiDataSourceName)
 	m.opts = append(m.opts, waspVariables...)
 }
