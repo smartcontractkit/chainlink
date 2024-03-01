@@ -70,7 +70,7 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.Equal(t, 1.0, newState.FeedInfo[feedIDA.String()].Price)
 
 	// validate encodable outcome
-	val, err := values.FromMapValueProto(outcome.EncodableOutcome)
+	val := values.FromMapValueProto(outcome.EncodableOutcome)
 	require.NoError(t, err)
 	topLevelMap, err := val.Unwrap()
 	require.NoError(t, err)

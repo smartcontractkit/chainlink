@@ -1,8 +1,6 @@
 package pb
 
 import (
-	"encoding/base64"
-
 	"github.com/shopspring/decimal"
 )
 
@@ -15,10 +13,9 @@ func NewBoolValue(b bool) *Value {
 }
 
 func NewBytesValue(b []byte) *Value {
-	bs := base64.StdEncoding.EncodeToString(b)
 	return &Value{
 		Value: &Value_BytesValue{
-			BytesValue: bs,
+			BytesValue: b,
 		},
 	}
 }

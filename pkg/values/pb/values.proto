@@ -8,7 +8,7 @@ message Value {
   oneof value {
     string string_value = 1;
     bool bool_value = 2;
-    string bytes_value = 3;
+    bytes bytes_value = 3;
     Map map_value = 4;
     List list_value = 5;
     string decimal_value = 6;

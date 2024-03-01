@@ -5,9 +5,6 @@ option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/inter
 package loop.internal.pb.ocr3;
 
 import "google/protobuf/empty.proto";
-import "relayer.proto";
-
-
 
 service ReportingPluginFactory {
   rpc NewReportingPlugin (NewReportingPluginRequest) returns (NewReportingPluginReply) {}

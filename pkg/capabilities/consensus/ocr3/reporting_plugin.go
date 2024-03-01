@@ -123,13 +123,7 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 				m[weid] = make(map[ocrcommon.OracleID][]values.Value)
 			}
 
-			val, err := values.FromProto(rq.Observation)
-			if err != nil {
-				r.lggr.Errorw("could not unmarshal observation payload", "error", err, "payload", rq)
-				continue
-			}
-
-			m[weid][o.Observer] = append(m[weid][o.Observer], val)
+			m[weid][o.Observer] = append(m[weid][o.Observer], values.FromProto(rq.Observation))
 		}
 	}
 
@@ -214,11 +208,6 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 			r.lggr.Errorw("could not append IDs")
 			continue
 		}
-		mv, err := values.FromMapValueProto(outcome.EncodableOutcome)
-		if err != nil {
-			r.lggr.Errorw("could not convert outcome to value", "workflowID", id.WorkflowId)
-			continue
-		}
 
 		enc, err := r.r.getEncoder(id.WorkflowId)
 		if err != nil {
@@ -226,6 +215,7 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 			continue
 		}
 
+		mv := values.FromMapValueProto(outcome.EncodableOutcome)
 		report, err := enc.Encode(context.Background(), *mv)
 		if err != nil {
 			r.lggr.Errorw("could not encode report for workflow", "error", err, "workflowID", id.WorkflowId)

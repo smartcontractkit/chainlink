@@ -211,17 +211,8 @@ func (t *triggerExecutableServer) RegisterTrigger(ctx context.Context, request *
 	cr := request.CapabilityRequest
 	md := cr.Metadata
 
-	config, err := values.FromProto(cr.Config)
-	if err != nil {
-		connCancel()
-		return nil, err
-	}
-
-	inputs, err := values.FromProto(cr.Inputs)
-	if err != nil {
-		connCancel()
-		return nil, err
-	}
+	config := values.FromProto(cr.Config)
+	inputs := values.FromProto(cr.Inputs)
 
 	req := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
@@ -246,17 +237,10 @@ func (t *triggerExecutableServer) UnregisterTrigger(ctx context.Context, request
 	req := request.CapabilityRequest
 	md := req.Metadata
 
-	config, err := values.FromProto(req.Config)
-	if err != nil {
-		return nil, err
-	}
+	config := values.FromProto(req.Config)
+	inputs := values.FromProto(req.Inputs)
 
-	inputs, err := values.FromProto(req.Inputs)
-	if err != nil {
-		return nil, err
-	}
-
-	err = t.impl.UnregisterTrigger(ctx, capabilities.CapabilityRequest{
+	err := t.impl.UnregisterTrigger(ctx, capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          md.WorkflowId,
 			WorkflowExecutionID: md.WorkflowExecutionId,
@@ -347,12 +331,9 @@ func newCallbackExecutableServer(brokerExt *BrokerExt, impl capabilities.Callbac
 var _ pb.CallbackExecutableServer = (*callbackExecutableServer)(nil)
 
 func (c *callbackExecutableServer) RegisterToWorkflow(ctx context.Context, req *pb.RegisterToWorkflowRequest) (*emptypb.Empty, error) {
-	config, err := values.FromProto(req.Config)
-	if err != nil {
-		return nil, err
-	}
+	config := values.FromProto(req.Config)
 
-	err = c.impl.RegisterToWorkflow(ctx, capabilities.RegisterToWorkflowRequest{
+	err := c.impl.RegisterToWorkflow(ctx, capabilities.RegisterToWorkflowRequest{
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID: req.Metadata.WorkflowId,
 		},
@@ -362,12 +343,9 @@ func (c *callbackExecutableServer) RegisterToWorkflow(ctx context.Context, req *
 }
 
 func (c *callbackExecutableServer) UnregisterFromWorkflow(ctx context.Context, req *pb.UnregisterFromWorkflowRequest) (*emptypb.Empty, error) {
-	config, err := values.FromProto(req.Config)
-	if err != nil {
-		return nil, err
-	}
+	config := values.FromProto(req.Config)
 
-	err = c.impl.UnregisterFromWorkflow(ctx, capabilities.UnregisterFromWorkflowRequest{
+	err := c.impl.UnregisterFromWorkflow(ctx, capabilities.UnregisterFromWorkflowRequest{
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID: req.Metadata.WorkflowId,
 		},
@@ -390,17 +368,8 @@ func (c *callbackExecutableServer) Execute(ctx context.Context, req *pb.ExecuteR
 	cr := req.CapabilityRequest
 	md := cr.Metadata
 
-	config, err := values.FromProto(cr.Config)
-	if err != nil {
-		connCancel()
-		return nil, err
-	}
-
-	inputs, err := values.FromProto(cr.Inputs)
-	if err != nil {
-		connCancel()
-		return nil, err
-	}
+	config := values.FromProto(cr.Config)
+	inputs := values.FromProto(cr.Inputs)
 
 	r := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
@@ -535,12 +504,9 @@ func (c *callbackServer) SendResponse(ctx context.Context, req *pb.CapabilityRes
 		return nil, errors.New("cannot send response: the underlying channel has been closed")
 	}
 
-	val, err := values.FromProto(req.Value)
-	if err != nil {
-		return nil, err
-	}
+	val := values.FromProto(req.Value)
 
-	err = nil
+	var err error
 	if req.Error != "" {
 		err = errors.New(req.Error)
 	}

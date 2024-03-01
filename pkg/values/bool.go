@@ -12,7 +12,7 @@ func NewBool(b bool) *Bool {
 	return &Bool{Underlying: b}
 }
 
-func (b *Bool) Proto() *pb.Value {
+func (b *Bool) proto() *pb.Value {
 	return pb.NewBoolValue(b.Underlying)
 }
 

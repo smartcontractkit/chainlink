@@ -4,8 +4,6 @@ option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/inter
 
 package loop;
 
-import "google/protobuf/empty.proto";
-
 service Codec {
   rpc GetEncoding(GetEncodingRequest) returns (GetEncodingResponse);
   rpc GetDecoding(GetDecodingRequest) returns (GetDecodingResponse);

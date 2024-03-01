@@ -1,8 +1,6 @@
 package values
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
 	"github.com/shopspring/decimal"
@@ -15,7 +13,7 @@ type Unwrappable interface {
 }
 
 type Value interface {
-	Proto() *pb.Value
+	proto() *pb.Value
 
 	Unwrappable
 }
@@ -73,75 +71,57 @@ func Proto(v Value) *pb.Value {
 		return &pb.Value{}
 	}
 
-	return v.Proto()
+	return v.proto()
 }
 
-func FromProto(val *pb.Value) (Value, error) {
+func FromProto(val *pb.Value) Value {
 	if val == nil {
-		return nil, nil
+		return nil
 	}
 
 	switch val.Value.(type) {
 	case nil:
-		return nil, nil
+		return nil
 	case *pb.Value_StringValue:
-		return NewString(val.GetStringValue()), nil
+		return NewString(val.GetStringValue())
 	case *pb.Value_BoolValue:
-		return NewBool(val.GetBoolValue()), nil
+		return NewBool(val.GetBoolValue())
 	case *pb.Value_DecimalValue:
-		return FromDecimalValueProto(val.GetDecimalValue())
+		return fromDecimalValueProto(val.GetDecimalValue())
 	case *pb.Value_Int64Value:
-		return NewInt64(val.GetInt64Value()), nil
+		return NewInt64(val.GetInt64Value())
 	case *pb.Value_BytesValue:
-		return FromBytesValueProto(val.GetBytesValue())
+		return NewBytes(val.GetBytesValue())
 	case *pb.Value_ListValue:
 		return FromListValueProto(val.GetListValue())
 	case *pb.Value_MapValue:
 		return FromMapValueProto(val.GetMapValue())
 	}
 
-	return nil, fmt.Errorf("unsupported type %T: %+v", val, val)
+	panic(fmt.Errorf("unsupported type %T: %+v", val, val))
 }
 
-func FromBytesValueProto(bv string) (*Bytes, error) {
-	p, err := base64.StdEncoding.DecodeString(bv)
-	if err != nil {
-		return nil, err
-	}
-	return NewBytes(p), nil
-}
-
-func FromMapValueProto(mv *pb.Map) (*Map, error) {
+func FromMapValueProto(mv *pb.Map) *Map {
 	nm := map[string]Value{}
 	for k, v := range mv.Fields {
-		val, err := FromProto(v)
-		if err != nil {
-			return nil, err
-		}
-
-		nm[k] = val
+		nm[k] = FromProto(v)
 	}
-	return &Map{Underlying: nm}, nil
+	return &Map{Underlying: nm}
 }
 
-func FromListValueProto(lv *pb.List) (*List, error) {
+func FromListValueProto(lv *pb.List) *List {
 	nl := []Value{}
 	for _, el := range lv.Fields {
-		elv, err := FromProto(el)
-		if err != nil {
-			return nil, err
-		}
-
-		nl = append(nl, elv)
+		nl = append(nl, FromProto(el))
 	}
-	return &List{Underlying: nl}, nil
+	return &List{Underlying: nl}
 }
 
-func FromDecimalValueProto(decStr string) (*Decimal, error) {
-	dec := decimal.Decimal{}
-	err := json.Unmarshal([]byte(decStr), &dec)
+func fromDecimalValueProto(decStr string) *Decimal {
+	dec, err := decimal.NewFromString(decStr)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return NewDecimal(dec), nil
+
+	return NewDecimal(dec)
 }

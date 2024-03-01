@@ -14,7 +14,7 @@ func NewDecimal(d decimal.Decimal) *Decimal {
 	return &Decimal{Underlying: d}
 }
 
-func (d *Decimal) Proto() *pb.Value {
+func (d *Decimal) proto() *pb.Value {
 	return pb.NewDecimalValue(d.Underlying)
 }
 

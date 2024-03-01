@@ -26,7 +26,7 @@ func NewMap(m map[string]any) (*Map, error) {
 	}, nil
 }
 
-func (m *Map) Proto() *pb.Value {
+func (m *Map) proto() *pb.Value {
 	pm := map[string]*pb.Value{}
 	for k, v := range m.Underlying {
 		pm[k] = Proto(v)

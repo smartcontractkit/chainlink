@@ -21,7 +21,7 @@ func NewList(l []any) (*List, error) {
 	return &List{Underlying: lv}, nil
 }
 
-func (l *List) Proto() *pb.Value {
+func (l *List) proto() *pb.Value {
 	v := []*pb.Value{}
 	for _, e := range l.Underlying {
 		v = append(v, Proto(e))

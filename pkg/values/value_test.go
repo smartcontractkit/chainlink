@@ -131,8 +131,7 @@ func Test_Value(t *testing.T) {
 
 			pb := Proto(wrapped)
 
-			rehydratedValue, err := FromProto(pb)
-			require.NoError(t, err)
+			rehydratedValue := FromProto(pb)
 			assert.Equal(t, wrapped, rehydratedValue)
 
 			unwrapped, err := Unwrap(rehydratedValue)
