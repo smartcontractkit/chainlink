@@ -1521,8 +1521,8 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJ
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
 github.com/smartcontractkit/libocr v0.0.0-20240229181116-bfb2432a7a66 h1:xsU00JB9GJxEiN6tDbqgN+fT98ySdxkUwTw6CfBXscw=
 github.com/smartcontractkit/libocr v0.0.0-20240229181116-bfb2432a7a66/go.mod h1:SJEZCHgMCAzzBvo9vMV2DQ9onfEcIJCYSViyP4JI6c4=
-github.com/smartcontractkit/seth v0.1.1 h1:Uh7Ldr6N+4HV6YPI/s5s3P8I+UndJXzDSL2VsBsiL/Y=
-github.com/smartcontractkit/seth v0.1.1/go.mod h1:aOaGwrIVFG/MYaLSj9UUMyE5QJnYQoAgnxm5cKfT9Ng=
+github.com/smartcontractkit/seth v0.1.2 h1:ImXJmniuq6yWB6b3eezjV+lkYb1GfQuaJkwRvrCfTKQ=
+github.com/smartcontractkit/seth v0.1.2/go.mod h1:aOaGwrIVFG/MYaLSj9UUMyE5QJnYQoAgnxm5cKfT9Ng=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 h1:yiKnypAqP8l0OX0P3klzZ7SCcBUxy5KqTAKZmQOvSQE=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=
