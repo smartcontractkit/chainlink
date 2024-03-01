@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster.sol";
+import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";

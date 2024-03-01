@@ -1,6 +1,6 @@
 /**
  * @description this script generates a master interface for interacting with the automation registry
- * @notice run this script with pnpm ts-node ./scripts/generate-automation-master-interface.ts
+ * @notice run this script with pnpm ts-node ./scripts/generate-automation-master-interface-v2_3.ts
  */
 import { AutomationRegistry2_3__factory as Registry } from '../typechain/factories/AutomationRegistry2_3__factory'
 import { AutomationRegistryLogicA2_3__factory as RegistryLogicA } from '../typechain/factories/AutomationRegistryLogicA2_3__factory'
