@@ -311,7 +311,7 @@ func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, regis
 		ReorgProtectionEnabled: reorgProtectionEnabled,
 	}
 
-	encodedOnchainConfig, err := convenienceABI.Methods["_onChainConfig22Plus"].Inputs.Pack(&onchainConfigStruct)
+	encodedOnchainConfig, err := convenienceABI.Methods["_onChainConfig22"].Inputs.Pack(&onchainConfigStruct)
 
 	return encodedOnchainConfig, err
 }

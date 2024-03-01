@@ -331,8 +331,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
-					return ac.IAutomationV2CommonLogTrigger{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error) {
+					return ac.IAutomationV2CommonLogTriggerConfig{}, nil
 				},
 			},
 			expectsErr: true,
@@ -385,8 +385,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
-					return ac.IAutomationV2CommonLogTrigger{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error) {
+					return ac.IAutomationV2CommonLogTriggerConfig{}, nil
 				},
 			},
 		},
@@ -437,8 +437,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
-					return ac.IAutomationV2CommonLogTrigger{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error) {
+					return ac.IAutomationV2CommonLogTriggerConfig{}, nil
 				},
 			},
 		},
@@ -491,8 +491,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
-					return ac.IAutomationV2CommonLogTrigger{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error) {
+					return ac.IAutomationV2CommonLogTriggerConfig{}, nil
 				},
 			},
 		},
@@ -556,9 +556,9 @@ func (r *mockRegistry) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big
 
 type mockPacker struct {
 	encoding.Packer
-	UnpackLogTriggerConfigFn func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error)
+	UnpackLogTriggerConfigFn func(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error)
 }
 
-func (p *mockPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
+func (p *mockPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error) {
 	return p.UnpackLogTriggerConfigFn(raw)
 }
