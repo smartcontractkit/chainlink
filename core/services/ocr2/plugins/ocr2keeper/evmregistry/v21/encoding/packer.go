@@ -20,7 +20,7 @@ type triggerWrapper = automation_convenience.LogTrigger
 type abiPacker struct {
 	autoV2CommonABI abi.ABI
 	utilsABI        abi.ABI
-	streamsABI  abi.ABI
+	streamsABI      abi.ABI
 }
 
 var _ Packer = (*abiPacker)(nil)
