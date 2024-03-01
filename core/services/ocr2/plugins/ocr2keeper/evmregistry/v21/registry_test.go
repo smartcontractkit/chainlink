@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -331,8 +331,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (automation_convenience.LogTriggerConfig, error) {
-					return automation_convenience.LogTriggerConfig{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
+					return ac.IAutomationV2CommonLogTrigger{}, nil
 				},
 			},
 			expectsErr: true,
@@ -385,8 +385,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (automation_convenience.LogTriggerConfig, error) {
-					return automation_convenience.LogTriggerConfig{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
+					return ac.IAutomationV2CommonLogTrigger{}, nil
 				},
 			},
 		},
@@ -437,8 +437,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (automation_convenience.LogTriggerConfig, error) {
-					return automation_convenience.LogTriggerConfig{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
+					return ac.IAutomationV2CommonLogTrigger{}, nil
 				},
 			},
 		},
@@ -491,8 +491,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (automation_convenience.LogTriggerConfig, error) {
-					return automation_convenience.LogTriggerConfig{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
+					return ac.IAutomationV2CommonLogTrigger{}, nil
 				},
 			},
 		},
@@ -556,9 +556,9 @@ func (r *mockRegistry) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big
 
 type mockPacker struct {
 	encoding.Packer
-	UnpackLogTriggerConfigFn func(raw []byte) (automation_convenience.LogTriggerConfig, error)
+	UnpackLogTriggerConfigFn func(raw []byte) (ac.IAutomationV2CommonLogTrigger, error)
 }
 
-func (p *mockPacker) UnpackLogTriggerConfig(raw []byte) (automation_convenience.LogTriggerConfig, error) {
+func (p *mockPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV2CommonLogTrigger, error) {
 	return p.UnpackLogTriggerConfigFn(raw)
 }

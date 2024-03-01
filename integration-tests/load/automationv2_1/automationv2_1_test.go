@@ -382,7 +382,7 @@ Load Config:
 	}
 
 	for i, consumerContract := range consumerContracts {
-		logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
+		logTriggerConfigStruct := automation_convenience.IAutomationV2CommonLogTriggerConfig{
 			ContractAddress: triggerAddresses[i],
 			FilterSelector:  1,
 			Topic0:          emitterABI.Events["Log4"].ID,
