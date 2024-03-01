@@ -41,26 +41,30 @@ jobs:
           done
           exit 1
 
-  initialize:
+  tag-check:
     needs: [changes]
-    name: Initialize
+    name: Tag Check
     runs-on: ubuntu-latest
     outputs:
       is-release: ${{ steps.release-tag-check.outputs.is-release }}
       is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
+      release-version: ${{ steps.release-tag-check.outputs.release-version }}
+      pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
     steps:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@ae1be257313b71d702be2d2bbe7ff76dc4fae460 # feat/release-tag-check-versions
         env:
           # Match semver git tags with a "contracts-" prefix.
           RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'
           PRE_RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+-(.+)$'
+          # Get the version by stripping the "contracts-v" prefix. 
+          VERSION_PREFIX: 'contracts-v'
 
   prepublish-test:
-    needs: [changes, initialize]
-    if: needs.changes.outputs.changes == 'true' || needs.initialize.outputs.is-pre-release == 'true'
+    needs: [changes, tag-check]
+    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
     name: Prepublish Test
     runs-on: ubuntu-latest
     steps:
@@ -82,8 +86,8 @@ jobs:
         continue-on-error: true
 
   native-compile:
-    needs: [changes, initialize]
-    if: needs.changes.outputs.changes == 'true' || needs.initialize.outputs.is-release == 'true' || needs.initialize.outputs.is-pre-release == 'true'
+    needs: [changes, tag-check]
+    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-release == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
     name: Native Compilation
     runs-on: ubuntu-latest
     steps:
@@ -188,15 +192,21 @@ jobs:
   publish-beta:
     name: Publish Beta NPM
     environment: publish
-    needs: [initialize, changes, lint, prettier, native-compile, prepublish-test]
+    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
     runs-on: ubuntu-latest
-    if: needs.initialize.outputs.is-pre-release == 'true'
+    if: needs.tag-check.outputs.is-pre-release == 'true'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+
+      - name: Version package.json
+        working-directory: contracts
+        run: |
+          echo "Bumping version to ${{ needs.tag-check.outputs.pre-release-version }}"
+          pnpm version ${{ needs.tag-check.outputs.pre-release-version }} --no-git-tag-version --no-commit-hooks --no-git-checks
 
       - name: Publish to NPM
         uses: smartcontractkit/.github/actions/ci-publish-npm@7b965cf1a0d58d05a9b8a45fffd929cd1ee18393 # feat/ci-publish-npm-0-3-0
@@ -220,17 +230,26 @@ jobs:
   publish-prod:
     name: Publish Prod NPM
     environment: publish
-    needs: [initialize, changes, lint, prettier, native-compile, prepublish-test]
+    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: needs.initialize.outputs.is-release == 'true'
+    if: needs.tag-check.outputs.is-release == 'true'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+
+      - name: Validate version
+        working-directory: contracts
+        run: |
+          PACKAGE_JSON_VERSION="$(cat package.json | jq -r '.version')"
+          if [ "$PACKAGE_JSON_VERSION" != "${{ needs.tag-check.outputs.release-version }}" ]; then
+            echo "::error version mismatch: package.json version ($PACKAGE_JSON_VERSION) does not match version computed from tag ${{ needs.tag-check.outputs.release-version }}"
+            exit 1
+          fi
 
       - name: Publish to NPM
         uses: smartcontractkit/.github/actions/ci-publish-npm@9b67e00c8ff886444445bd444186fe8c53b54dcb # feat/ci-publish-npm-0-3-0
@@ -240,7 +259,7 @@ jobs:
           github-release-tag-name: ${{ github.ref_name }}
           github-release-changelog-path: "contracts/CHANGELOG.md"
           create-github-release: true
-          publish-command: "pnpm publish-prod"
+          publish-command: "pnpm publish-prod --dry-run --no-git-checks"
           package-json-directory: contracts
 
       - name: Collect Metrics
