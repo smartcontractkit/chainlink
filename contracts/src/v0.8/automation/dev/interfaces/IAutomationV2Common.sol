@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.19;
+pragma solidity ^0.8.4;
 
-import { OnchainConfigLegacy } from "../AutomationConvenience.sol";
+import {OnchainConfigLegacy} from "../AutomationConvenience.sol";
 
 interface IAutomationV2Common {
   event UpkeepPerformed(
@@ -40,7 +40,7 @@ interface IAutomationV2Common {
   }
 
   /**
- * @notice state of the registry
+   * @notice state of the registry
    * @dev only used in params and return values
    * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
    * @member nonce used for ID generation
@@ -66,7 +66,6 @@ interface IAutomationV2Common {
     uint32 latestEpoch;
     bool paused;
   }
-
 
   function checkUpkeep(
     uint256 id,
@@ -120,15 +119,15 @@ interface IAutomationV2Common {
   function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo);
   function getMinBalance(uint256 id) external view returns (uint96);
   function getState()
-  external
-  view
-  returns (
-    State memory state,
-    OnchainConfigLegacy memory config,
-    address[] memory signers,
-    address[] memory transmitters,
-    uint8 f
-  );
+    external
+    view
+    returns (
+      State memory state,
+      OnchainConfigLegacy memory config,
+      address[] memory signers,
+      address[] memory transmitters,
+      uint8 f
+    );
   function registerUpkeep(
     address target,
     uint32 gasLimit,
