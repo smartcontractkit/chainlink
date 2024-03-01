@@ -42,13 +42,20 @@ var (
 
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
-
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-	cleanupFn := getCleanupFn(testcontext.Get(t), l, vrfv2Config)
+	cleanupFn := getCleanupFn(
+		testcontext.Get(t),
+		testEnv,
+		vrfv2Config,
+		vrfContracts,
+		eoaWalletAddress,
+		subIDs,
+		l,
+	)
 
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
@@ -449,7 +456,15 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	vrfv2Config := config.VRFv2
-	cleanupFn := getCleanupFn(testcontext.Get(t), l, vrfv2Config)
+	cleanupFn := getCleanupFn(
+		testcontext.Get(t),
+		testEnv,
+		vrfv2Config,
+		vrfContracts,
+		eoaWalletAddress,
+		subIDs,
+		l,
+	)
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 2,
@@ -519,7 +534,15 @@ func TestVRFOwner(t *testing.T) {
 	config, err := tc.GetConfig("Smoke", tc.VRFv2)
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
-	cleanupFn := getCleanupFn(testcontext.Get(t), l, vrfv2Config)
+	cleanupFn := getCleanupFn(
+		testcontext.Get(t),
+		testEnv,
+		vrfv2Config,
+		vrfContracts,
+		eoaWalletAddress,
+		subIDs,
+		l,
+	)
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: 0,
@@ -626,7 +649,15 @@ func TestVRFV2WithBHS(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
 
-	cleanupFn := getCleanupFn(testcontext.Get(t), l, vrfv2Config)
+	cleanupFn := getCleanupFn(
+		testcontext.Get(t),
+		testEnv,
+		vrfv2Config,
+		vrfContracts,
+		eoaWalletAddress,
+		subIDs,
+		l,
+	)
 
 	//Underfund Subscription
 	vrfv2Config.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
@@ -775,7 +806,15 @@ func TestVRFV2WithBHS(t *testing.T) {
 	})
 }
 
-func getCleanupFn(ctx context.Context, l zerolog.Logger, config *vrfv2_config.Config) func() {
+func getCleanupFn(
+	ctx context.Context,
+	testEnv *test_env.CLClusterTestEnv,
+	config *vrfv2_config.Config,
+	vrfContracts *vrfcommon.VRFContracts,
+	eoaWalletAddress string,
+	subIDs []uint64,
+	l zerolog.Logger,
+) func() {
 	return func() {
 		if testEnv.EVMClient.NetworkSimulated() {
 			l.Info().
