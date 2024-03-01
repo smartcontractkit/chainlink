@@ -92,7 +92,7 @@ func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, prev
 func (c *evmTxAttemptBuilder) NewCustomTxAttempt(ctx context.Context, etx Tx, fee gas.EvmFee, gasLimit uint32, txType int, lggr logger.Logger) (attempt TxAttempt, retryable bool, err error) {
 	if c.chainType.IsValid() && c.chainType == config.ChainZkSync {
 		if !fee.ValidDynamic() {
-			err = pkgerrors.Errorf("Attempt %v is a type 71 transaction but estimator did not return dynamic fee bump", attempt.ID)
+			err = pkgerrors.Errorf("Attempt %v is an EIP-712 transaction but estimator did not return dynamic fee bump", attempt.ID)
 			logger.Sugared(lggr).AssumptionViolation(err.Error())
 			return attempt, false, err // not retryable
 		}
@@ -153,8 +153,8 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(ctx context.Context, nonce evmty
 			payload,
 			c.feeConfig.GasPerPubdata(),
 		)
-
-		signedRawTx, err := c.keystore.SignZkSyncTx(ctx, fromAddress, &tx, &c.chainID)
+		var signedRawTx []byte
+		signedRawTx, err = c.keystore.SignZkSyncTx(ctx, fromAddress, &tx, &c.chainID)
 		if err != nil {
 			return attempt, pkgerrors.Wrapf(err, "error using account %s to sign empty EIP-712 transaction", fromAddress.String())
 		}

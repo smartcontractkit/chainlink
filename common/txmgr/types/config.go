@@ -1,8 +1,6 @@
 package types
 
-import (
-	"time"
-)
+import "time"
 
 type TransactionManagerChainConfig interface {
 	BroadcasterChainConfig

@@ -819,9 +819,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 
 	now := time.Now()
 	lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
-	var errType client.SendTxReturnCode
-	var sendError error
-	errType, sendError = ec.client.SendTransactionReturnCode(ctx, etx, attempt, lggr)
+	errType, sendError := ec.client.SendTransactionReturnCode(ctx, etx, attempt, lggr)
 
 	switch errType {
 	case client.Underpriced:
@@ -1078,7 +1076,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast tx %v with sequence %v and gas limit %v: %s", etx.ID, *etx.Sequence, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
 				continue
 			}
-
 			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast tx %v with hash: 0x%x", etx.ID, attempt.Hash)
 		}
 	}

@@ -214,8 +214,8 @@ func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.T
 
 func (c *chainClient) SendRawTransactionReturnCode(ctx context.Context, rawTx []byte, fromAddress common.Address) (common.Hash, commonclient.SendTxReturnCode, error) {
 	txHash := common.Hash{}
-	hexdata := common.Bytes2Hex(rawTx)
-	err := c.CallContext(ctx, &txHash, "eth_sendRawTransaction", fmt.Sprintf("0x%v", hexdata))
+	hexdata := fmt.Sprintf("0x%v", common.Bytes2Hex(rawTx))
+	err := c.CallContext(ctx, &txHash, "eth_sendRawTransaction", hexdata)
 	// Sending empty transaction will not log any useful fields when classifying errors
 	// This method is expected to only be used by zkSync which does not provide a way to decode EIP-712 transactions into the geth type
 	returnCode := ClassifySendError(err, c.logger, &types.Transaction{}, fromAddress, c.IsL2())
