@@ -2913,7 +2913,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec := newEthConfirmer(t, txStore, ethClient, config, ethKeyStore,  "", nil)
+		ec := newEthConfirmer(t, txStore, ethClient, config, ethKeyStore, "", nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(1)
@@ -2939,7 +2939,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec := newEthConfirmer(t, txStore, ethClient, config, ethKeyStore,  "", nil)
+		ec := newEthConfirmer(t, txStore, ethClient, config, ethKeyStore, "", nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EVM().GasEstimator().LimitDefault()
@@ -2983,7 +2983,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
 	t.Run("doesn't process task runs that are not suspended (possibly already previously resumed)", func(t *testing.T) {
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore,  "", func(uuid.UUID, interface{}, error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, "", func(uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -3002,7 +3002,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore,  "", func(uuid.UUID, interface{}, error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, "", func(uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -3023,7 +3023,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		ch := make(chan interface{})
 		nonce := evmtypes.Nonce(3)
 		var err error
-		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore,  "", func(id uuid.UUID, value interface{}, thisErr error) error {
+		ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, "", func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
 			ch <- value
 			return nil

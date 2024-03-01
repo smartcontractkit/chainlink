@@ -496,6 +496,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceDefault:       assets.NewWeiI(math.MaxInt64),
 					PriceMax:           assets.NewWei(mustHexToBig(t, "FFFFFFFFFFFF")),
 					PriceMin:           assets.NewWeiI(13),
+					GasPerPubdata:      assets.NewWeiI(50_000),
 
 					LimitJobType: evmcfg.GasLimitJobType{
 						OCR:    ptr[uint32](1001),
@@ -964,6 +965,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '9.223372036854775807 ether'
 TipCapDefault = '2 wei'
 TipCapMin = '1 wei'
+GasPerPubdata = '50 kwei'
 
 [EVM.GasEstimator.LimitJobType]
 OCR = 1001
