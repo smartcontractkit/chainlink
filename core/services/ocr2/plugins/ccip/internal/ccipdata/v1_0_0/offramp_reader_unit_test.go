@@ -3,6 +3,7 @@ package v1_0_0
 import (
 	"fmt"
 	"math/rand"
+	"slices"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -153,4 +154,59 @@ func generateTokensAndOutputs(nbTokens uint) ([]common.Address, []common.Address
 		}
 	}
 	return srcTks, dstTks, outputs
+}
+
+func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
+	minSeqNr := uint64(10)
+	maxSeqNr := uint64(14)
+	inputLogs := []logpoller.Log{
+		CreateExecutionStateChangeEventLog(t, 10, 2, utils.RandomBytes32()),
+		CreateExecutionStateChangeEventLog(t, 11, 3, utils.RandomBytes32()),
+		CreateExecutionStateChangeEventLog(t, 12, 5, utils.RandomBytes32()),
+		CreateExecutionStateChangeEventLog(t, 14, 7, utils.RandomBytes32()),
+	}
+
+	tests := []struct {
+		name                        string
+		lastFinalizedBlock          uint64
+		expectedFinalizedSequenceNr []uint64
+	}{
+		{
+			"all logs are finalized",
+			10,
+			[]uint64{10, 11, 12, 14},
+		},
+		{
+			"some logs are finalized",
+			5,
+			[]uint64{10, 11, 12},
+		},
+		{
+			"no logs are finalized",
+			1,
+			[]uint64{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			offrampAddress := utils.RandomAddress()
+
+			lp := mocks.NewLogPoller(t)
+			lp.On("LatestBlock", mock.Anything).
+				Return(logpoller.LogPollerBlock{FinalizedBlockNumber: int64(tt.lastFinalizedBlock)}, nil)
+			lp.On("IndexedLogsTopicRange", ExecutionStateChangedEvent, offrampAddress, 1, logpoller.EvmWord(minSeqNr), logpoller.EvmWord(maxSeqNr), logpoller.Confirmations(0), mock.Anything).
+				Return(inputLogs, nil)
+
+			offRamp, err := NewOffRamp(logger.TestLogger(t), offrampAddress, evmclimocks.NewClient(t), lp, nil)
+			require.NoError(t, err)
+			logs, err := offRamp.GetExecutionStateChangesBetweenSeqNums(testutils.Context(t), minSeqNr, maxSeqNr, 0)
+			require.NoError(t, err)
+			assert.Len(t, logs, len(inputLogs))
+
+			for _, log := range logs {
+				assert.Equal(t, slices.Contains(tt.expectedFinalizedSequenceNr, log.SequenceNumber), log.Finalized)
+			}
+		})
+	}
 }
