@@ -136,15 +136,23 @@ helm uninstall cl-cluster
 ```
 
 # Grafana dashboard
-We are using [Grabana]() lib to create dashboards programmatically
+We are using [Grabana](https://github.com/K-Phoen/grabana) lib to create dashboards programmatically
+
+You can select `PANELS_INCLUDED`, options are `core`, `wasp`, comma separated
+
+You can also select dashboard platform in `INFRA_PLATFORM` either `kubernetes` or `docker`
 ```
+export LOKI_TENANT_ID=promtail
+export LOKI_URL=...
 export GRAFANA_URL=...
 export GRAFANA_TOKEN=...
-export LOKI_DATA_SOURCE_NAME=Loki
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
-export DASHBOARD_FOLDER=CRIB
-export DASHBOARD_NAME=ChainlinkCluster
+export LOKI_DATA_SOURCE_NAME=Loki
+export PANELS_INCLUDED=core,wasp
+export INFRA_PLATFORM=kubernetes|docker
+export GRAFANA_FOLDER=DashboardCoreDebug
+export DASHBOARD_NAME=ChainlinkClusterDebug
 
-cd dashboard/cmd && go run dashboard_deploy.go
+go run dashboard/cmd/dashboard_deploy.go
 ```
-Open Grafana folder `CRIB` and find dashboard `ChainlinkCluster`
+Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDebug`
