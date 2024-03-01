@@ -231,6 +231,8 @@ TipCapDefault = '1 wei' # Default
 #
 # Only applies to EIP-1559 transactions)
 TipCapMin = '1 wei' # Default
+# GasPerPubdata is a value only used for zkSync exclusive EIP-712 transactions. It controls the gas limit for L1 fees.
+GasPerPubdata = '50000 wei' # Default
 
 [EVM.GasEstimator.LimitJobType]
 # OCR overrides LimitDefault for OCR jobs.
