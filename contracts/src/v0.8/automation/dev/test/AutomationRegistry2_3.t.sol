@@ -7,7 +7,7 @@ import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
 import {AutomationRegistryBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
-import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster.sol";
+import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../chains/ChainModuleBase.sol";
 
 contract AutomationRegistry2_3_SetUp is BaseTest {

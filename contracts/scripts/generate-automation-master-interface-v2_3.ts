@@ -10,7 +10,7 @@ import fs from 'fs'
 import { exec } from 'child_process'
 
 const dest = 'src/v0.8/automation/dev/interfaces/v2_3'
-const srcDest = `${dest}/IAutomationRegistryMaster.sol`
+const srcDest = `${dest}/IAutomationRegistryMaster2_3.sol`
 const tmpDest = `${dest}/tmp.txt`
 
 const combinedABI = []

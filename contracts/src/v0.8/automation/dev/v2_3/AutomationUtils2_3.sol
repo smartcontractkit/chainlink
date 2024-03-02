@@ -22,7 +22,6 @@ struct LogTriggerConfig {
   bytes32 topic3;
 }
 
-// TODO: this util is tied to the registry base, hence not shared across versions
 contract AutomationUtils2_3 {
   /**
    * @dev this can be removed as OnchainConfig is now exposed directly from the registry
