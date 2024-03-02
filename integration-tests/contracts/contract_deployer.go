@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -958,13 +956,18 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	var mode uint8
 	switch e.client.GetChainID().Int64() {
 	//Arbitrum payment model
-	case networks.ArbitrumMainnet.ChainID, networks.ArbitrumSepolia.ChainID:
+	//Goerli Arbitrum
+	case 421613:
+		mode = uint8(1)
+	//Sepolia Arbitrum
+	case 421614:
 		mode = uint8(1)
 	//Optimism payment model
-	case networks.OptimismMainnet.ChainID, networks.OptimismSepolia.ChainID:
+	//Goerli Optimism
+	case 420:
 		mode = uint8(2)
-	//Base
-	case networks.BaseMainnet.ChainID, networks.BaseSepolia.ChainID:
+	//Goerli Base
+	case 84531:
 		mode = uint8(2)
 	default:
 		mode = uint8(0)
@@ -1224,21 +1227,21 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		var err error
 		chainId := e.client.GetChainID().Int64()
 
-		if chainId == networks.ScrollMainnet.ChainID || chainId == networks.ScrollSepolia.ChainID {
+		if chainId == 534352 || chainId == 534351 { // Scroll / Scroll Sepolia
 			chainModuleAddr, _, _, err = e.client.DeployContract("ScrollModule", func(
 				auth *bind.TransactOpts,
 				backend bind.ContractBackend,
 			) (common.Address, *types.Transaction, interface{}, error) {
 				return scroll_module.DeployScrollModule(auth, backend)
 			})
-		} else if chainId == networks.ArbitrumMainnet.ChainID || chainId == networks.ArbitrumSepolia.ChainID {
+		} else if chainId == 42161 || chainId == 421614 || chainId == 421613 { // Arbitrum One / Sepolia / Goerli
 			chainModuleAddr, _, _, err = e.client.DeployContract("ArbitrumModule", func(
 				auth *bind.TransactOpts,
 				backend bind.ContractBackend,
 			) (common.Address, *types.Transaction, interface{}, error) {
 				return arbitrum_module.DeployArbitrumModule(auth, backend)
 			})
-		} else if chainId == networks.OptimismMainnet.ChainID || chainId == networks.OptimismSepolia.ChainID {
+		} else if chainId == 10 || chainId == 11155420 { // Optimism / Optimism Sepolia
 			chainModuleAddr, _, _, err = e.client.DeployContract("OptimismModule", func(
 				auth *bind.TransactOpts,
 				backend bind.ContractBackend,
@@ -1266,10 +1269,8 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		}
 
 		var allowedReadOnlyAddress common.Address
-		if chainId == networks.PolygonZkEvmMainnet.ChainID || chainId == networks.PolygonZkEvmCardona.ChainID {
+		if chainId == 1101 || chainId == 1442 || chainId == 2442 {
 			allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
-		} else if chainId == networks.GnosisMainnet.ChainID || chainId == networks.GnosisChiado.ChainID {
-			allowedReadOnlyAddress = common.HexToAddress("0xfffffffffffffffffffffffffffffffffffffffe")
 		} else {
 			allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 		}
