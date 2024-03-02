@@ -176,16 +176,18 @@ jobs:
         run: go build ./tools/flakeytests/cmd/runner
       - name: Re-run tests
         env:
-          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           ./runner \
-            -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
-            -grafana_host=$GRAFANA_CLOUD_HOST \
+            -grafana_auth=$GRAFANA_INTERNAL_BASIC_AUTH \
+            -grafana_host=$GRAFANA_INTERNAL_HOST \
+            -grafana_org_id=$GRAFANA_INTERNAL_TENANT_ID \
             -gh_sha=$GITHUB_SHA \
             -gh_event_path=$GITHUB_EVENT_PATH \
             -gh_event_name=$GITHUB_EVENT_NAME \
