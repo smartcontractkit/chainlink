@@ -21,11 +21,13 @@ inputs:
   go-module-file:
     description: Set where the go module file is located at
     default: "go.sum"
-  # grafana cloud inputs
+  # grafana inputs
   gc-host:
-    description: "grafana cloud hostname"
+    description: "grafana hostname"
   gc-basic-auth:
-    description: "grafana cloud basic auth"
+    description: "grafana basic auth"
+  gc-org-id:
+    description: "grafana org id"
 
 runs:
   using: composite
@@ -64,9 +66,10 @@ runs:
         path: ${{ inputs.go-directory }}/golangci-lint-report.xml
     - name: Collect Metrics
       if: always()
-      uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+      uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
       with:
         basic-auth: ${{ inputs.gc-basic-auth }}
         hostname: ${{ inputs.gc-host }}
+        org-id: ${{ inputs.gc-org-id }}
         this-job-name: ${{ inputs.name }}
       continue-on-error: true
