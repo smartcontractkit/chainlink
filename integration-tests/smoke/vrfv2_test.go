@@ -717,7 +717,7 @@ func TestVRFOwner(t *testing.T) {
 		require.Error(t, err, "error should occur when not the owner of Coordinator contract tries to owner-cancel subscription")
 
 		_, err = vrfContracts.VRFOwner.OwnerCancelSubscription(subIDForCancelling)
-		require.Error(t, err)
+		require.NoError(t, err)
 
 		_, err = vrfContracts.CoordinatorV2.WaitForSubscriptionCanceledEvent([]uint64{subIDForCancelling}, time.Second*30)
 		require.NoError(t, err, "error waiting for subscription canceled event")
