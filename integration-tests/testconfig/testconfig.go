@@ -418,7 +418,7 @@ func (c *TestConfig) readNetworkConfiguration() error {
 func (c *TestConfig) Validate() error {
 	defer func() {
 		if r := recover(); r != nil {
-			panic(fmt.Errorf("Panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
+			panic(fmt.Errorf("panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
 		}
 	}()
 	if c.ChainlinkImage == nil {
