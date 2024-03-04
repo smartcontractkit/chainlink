@@ -64,16 +64,18 @@ type orm struct {
 	chainID *big.Int
 	db      sqlutil.Queryer
 	lggr    logger.Logger
+	logSQL  bool
 }
 
 var _ ORM = &orm{}
 
 // NewORM creates an orm scoped to chainID.
-func NewORM(chainID *big.Int, db sqlutil.Queryer, lggr logger.Logger) ORM {
+func NewORM(chainID *big.Int, db sqlutil.Queryer, lggr logger.Logger, logSQL bool) ORM {
 	return &orm{
 		chainID: chainID,
 		db:      db,
 		lggr:    lggr,
+		logSQL:  logSQL,
 	}
 }
 
@@ -82,7 +84,20 @@ func (o *orm) Transaction(ctx context.Context, fn func(*orm) error) (err error) 
 }
 
 // new returns a NewORM like o, but backed by q.
-func (o *orm) new(q sqlutil.Queryer) *orm { return NewORM(o.chainID, q, o.lggr).(*orm) }
+func (o *orm) new(q sqlutil.Queryer) *orm { return NewORM(o.chainID, q, o.lggr, o.logSQL).(*orm) }
+
+func (o *orm) logQuery(query string) {
+	if o.logSQL {
+		o.lggr.Debugw("SQL QUERY", "sql", query)
+	}
+}
+
+func (o *orm) logError(err error, query string) error {
+	if o.logSQL && err != nil {
+		o.lggr.Debugw("SQL ERROR", "err", err, "sql", query)
+	}
+	return err
+}
 
 // InsertBlock is idempotent to support replays.
 func (o *orm) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
@@ -99,9 +114,11 @@ func (o *orm) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumbe
 				(evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at) 
       		VALUES (:evm_chain_id, :block_hash, :block_number, :block_timestamp, :finalized_block_number, NOW()) 
 			ON CONFLICT DO NOTHING`
+
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	_, err = o.db.ExecContext(ctx, query, sqlArgs...)
-	return err
+	return o.logError(err, query)
 }
 
 // InsertFilter is idempotent.
@@ -146,8 +163,9 @@ func (o *orm) InsertFilter(ctx context.Context, filter Filter) (err error) {
 		topicsSql.String())
 
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	_, err = o.db.ExecContext(ctx, query, sqlArgs...)
-	return err
+	return o.logError(err, query)
 }
 
 // DeleteFilter removes all events,address pairs associated with the Filter
@@ -173,34 +191,41 @@ func (o *orm) LoadFilters(ctx context.Context) (map[string]Filter, error) {
 		FROM evm.log_poller_filters WHERE evm_chain_id = $1
 		GROUP BY name`
 	var rows []Filter
+	o.logQuery(query)
 	err := o.db.SelectContext(ctx, &rows, query, ubig.New(o.chainID))
 	filters := make(map[string]Filter)
 	for _, filter := range rows {
 		filters[filter.Name] = filter
 	}
-	return filters, err
+	return filters, o.logError(err, query)
 }
 
 func (o *orm) SelectBlockByHash(ctx context.Context, hash common.Hash) (*LogPollerBlock, error) {
 	var b LogPollerBlock
-	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE block_hash = $1 AND evm_chain_id = $2`, hash.Bytes(), ubig.New(o.chainID)); err != nil {
-		return nil, err
+	query := `SELECT * FROM evm.log_poller_blocks WHERE block_hash = $1 AND evm_chain_id = $2`
+	o.logQuery(query)
+	if err := o.db.GetContext(ctx, &b, query, hash.Bytes(), ubig.New(o.chainID)); err != nil {
+		return nil, o.logError(err, query)
 	}
 	return &b, nil
 }
 
 func (o *orm) SelectBlockByNumber(ctx context.Context, n int64) (*LogPollerBlock, error) {
 	var b LogPollerBlock
-	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE block_number = $1 AND evm_chain_id = $2`, n, ubig.New(o.chainID)); err != nil {
-		return nil, err
+	query := `SELECT * FROM evm.log_poller_blocks WHERE block_number = $1 AND evm_chain_id = $2`
+	o.logQuery(query)
+	if err := o.db.GetContext(ctx, &b, query, n, ubig.New(o.chainID)); err != nil {
+		return nil, o.logError(err, query)
 	}
 	return &b, nil
 }
 
 func (o *orm) SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error) {
 	var b LogPollerBlock
-	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`, ubig.New(o.chainID)); err != nil {
-		return nil, err
+	query := `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`
+	o.logQuery(query)
+	if err := o.db.GetContext(ctx, &b, query, ubig.New(o.chainID)); err != nil {
+		return nil, o.logError(err, query)
 	}
 	return &b, nil
 }
@@ -222,8 +247,9 @@ func (o *orm) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig c
 	var l Log
 
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.GetContext(ctx, &l, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return &l, nil
 }
@@ -231,25 +257,25 @@ func (o *orm) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig c
 // DeleteBlocksBefore delete all blocks before and including end.
 func (o *orm) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error) {
 	if limit > 0 {
-		fmt.Println("Deleting all blocks before with limit", end, limit)
-		result, err := o.db.ExecContext(ctx,
-			`DELETE FROM evm.log_poller_blocks
+		query := `DELETE FROM evm.log_poller_blocks
         				WHERE block_number IN (
             				SELECT block_number FROM evm.log_poller_blocks
             				WHERE block_number <= $1 
             				AND evm_chain_id = $2
 							LIMIT $3
 						)
-						AND evm_chain_id = $2`,
-			end, ubig.New(o.chainID), limit)
+						AND evm_chain_id = $2`
+		o.logQuery(query)
+		result, err := o.db.ExecContext(ctx, query, end, ubig.New(o.chainID), limit)
 		rowsAffected, _ := result.RowsAffected()
-		return rowsAffected, err
+		return rowsAffected, o.logError(err, query)
 	}
-	fmt.Println("Deleting all blocks before", end)
-	result, err := o.db.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks 
-       WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
+	query := `DELETE FROM evm.log_poller_blocks 
+       WHERE block_number <= $1 AND evm_chain_id = $2`
+	o.logQuery(query)
+	result, err := o.db.ExecContext(ctx, query, end, ubig.New(o.chainID))
 	rowsAffected, _ := result.RowsAffected()
-	return rowsAffected, err
+	return rowsAffected, o.logError(err, query)
 }
 
 func (o *orm) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
