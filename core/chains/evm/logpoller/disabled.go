@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 var (
-	ErrDisabled                 = errors.New("log poller disabled")
+	ErrDisabled                 = pkgerrors.New("log poller disabled")
 	LogPollerDisabled LogPoller = disabled{}
 )
 

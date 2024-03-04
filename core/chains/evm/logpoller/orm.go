@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -397,7 +397,7 @@ func (o *orm) insertLogsWithinTx(ctx context.Context, logs []Log, tx *sqlx.Tx) e
 		)
 
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
+			if pkgerrors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
 				// In case of DB timeouts, try to insert again with a smaller batch upto a limit
 				batchInsertSize /= 2
 				i -= batchInsertSize // counteract +=batchInsertSize on next loop iteration
@@ -412,7 +412,7 @@ func (o *orm) insertLogsWithinTx(ctx context.Context, logs []Log, tx *sqlx.Tx) e
 func (o *orm) validateLogs(logs []Log) error {
 	for _, log := range logs {
 		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
-			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
+			return pkgerrors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
 		}
 	}
 	return nil
@@ -518,7 +518,7 @@ func (o *orm) SelectLogsWithSigs(ctx context.Context, start, end int64, address 
 
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
 	err = o.db.SelectContext(ctx, &logs, query, sqlArgs...)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return logs, err
@@ -575,7 +575,7 @@ func (o *orm) SelectLatestLogEventSigsAddrsWithConfs(ctx context.Context, fromBl
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, errors.Wrap(err, "failed to execute query")
+		return nil, pkgerrors.Wrap(err, "failed to execute query")
 	}
 	return logs, nil
 }

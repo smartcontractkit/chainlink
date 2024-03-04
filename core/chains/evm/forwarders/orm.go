@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -70,7 +70,7 @@ func (o *orm) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sql
 		// If the forwarder wasn't found, we still want to delete the filter.
 		// In that case, the transaction must return nil, even though DeleteForwarder
 		// will return sql.ErrNoRows
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err != nil && !pkgerrors.Is(err, sql.ErrNoRows) {
 			return err
 		}
 		rowsAffected, err := result.RowsAffected()
@@ -119,19 +119,19 @@ func (o *orm) FindForwardersInListByChain(ctx context.Context, evmChainId big.Bi
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to format query")
+		return nil, pkgerrors.Wrap(err, "Failed to format query")
 	}
 
 	query, args, err = sqlx.In(query, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to run sqlx.IN on query")
+		return nil, pkgerrors.Wrap(err, "Failed to run sqlx.IN on query")
 	}
 
 	query = o.db.Rebind(query)
 	err = o.db.SelectContext(ctx, &fwdrs, query, args...)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to execute query")
+		return nil, pkgerrors.Wrap(err, "Failed to execute query")
 	}
 
 	return fwdrs, nil

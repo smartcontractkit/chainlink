@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -103,7 +103,7 @@ func (th *TestHarness) PollAndSaveLogs(ctx context.Context, currentBlockNumber i
 func (th *TestHarness) assertDontHave(t *testing.T, start, end int) {
 	for i := start; i < end; i++ {
 		_, err := th.ORM.SelectBlockByNumber(testutils.Context(t), int64(i))
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
+		assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	}
 }
 

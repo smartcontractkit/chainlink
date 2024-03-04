@@ -14,7 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgx/v4"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -216,17 +216,17 @@ func TestORM(t *testing.T) {
 	require.NoError(t, o1.DeleteLogsAndBlocksAfter(ctx, 10))
 	_, err = o1.SelectBlockByHash(ctx, common.HexToHash("0x1234"))
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 
 	// Delete blocks from another chain.
 	require.NoError(t, o2.DeleteLogsAndBlocksAfter(ctx, 11))
 	_, err = o2.SelectBlockByHash(ctx, common.HexToHash("0x1234"))
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	// Delete blocks after should also delete block 12.
 	_, err = o2.SelectBlockByHash(ctx, common.HexToHash("0x1235"))
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 
 	// Should be able to insert and read back a log.
 	topic := common.HexToHash("0x1599")
@@ -350,7 +350,7 @@ func TestORM(t *testing.T) {
 	// With no blocks, should be an error
 	_, err = o1.SelectLatestLogByEventSigWithConfs(ctx, topic, common.HexToAddress("0x1234"), 0)
 	require.Error(t, err)
-	require.True(t, errors.Is(err, sql.ErrNoRows))
+	require.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	// With block 10, only 0 confs should work
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1234"), 10, time.Now(), 0))
 	log, err := o1.SelectLatestLogByEventSigWithConfs(ctx, topic, common.HexToAddress("0x1234"), 0)
@@ -358,7 +358,7 @@ func TestORM(t *testing.T) {
 	assert.Equal(t, int64(10), log.BlockNumber)
 	_, err = o1.SelectLatestLogByEventSigWithConfs(ctx, topic, common.HexToAddress("0x1234"), 1)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	// With block 12, anything <=2 should work
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1234"), 11, time.Now(), 0))
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1235"), 12, time.Now(), 0))
@@ -370,7 +370,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	_, err = o1.SelectLatestLogByEventSigWithConfs(ctx, topic, common.HexToAddress("0x1234"), 3)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 
 	// Required for confirmations to work
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1234"), 13, time.Now(), 0))

@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -49,7 +49,7 @@ func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) e
 	$1, $2, $3, $4, $5, $6, $7, $8)
 	ON CONFLICT (evm_chain_id, hash) DO NOTHING`
 	_, err := orm.db.ExecContext(ctx, query, head.Hash, head.Number, head.ParentHash, head.CreatedAt, head.Timestamp, head.L1BlockNumber, orm.chainID, head.BaseFeePerGas)
-	return errors.Wrap(err, "IdempotentInsertHead failed to insert head")
+	return pkgerrors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
 func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
@@ -71,23 +71,23 @@ func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
 func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
 	err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
-	err = errors.Wrap(err, "LatestHead failed")
+	err = pkgerrors.Wrap(err, "LatestHead failed")
 	return
 }
 
 func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
 	err = orm.db.SelectContext(ctx, &heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
-	err = errors.Wrap(err, "LatestHeads failed")
+	err = pkgerrors.Wrap(err, "LatestHeads failed")
 	return
 }
 
 func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
 	err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return head, err
