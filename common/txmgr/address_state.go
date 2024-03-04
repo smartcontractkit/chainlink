@@ -129,6 +129,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountT
 		if as.inprogressTx != nil {
 			return 1
 		}
+		return 0
 	case TxUnconfirmed:
 		return len(as.unconfirmedTxs)
 	case TxConfirmedMissingReceipt:
@@ -139,7 +140,7 @@ func (as *AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountT
 		return len(as.fatalErroredTxs)
 	}
 
-	return 0
+	return -1
 }
 
 // FindTxWithIdempotencyKey returns the transaction with the given idempotency key.
