@@ -69,7 +69,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -202,7 +202,7 @@ jobs:
           enabled=$pyroscope_enabled
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+          key_secret="$PYROSCOPE_KEY"
 
           [PrivateEthereumNetwork]
           consensus_type="pos"
@@ -224,7 +224,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           touch .root_dir
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout ${{ matrix.timeout }} -test.run ${{ matrix.test }}
           binary_name: tests
@@ -258,7 +258,7 @@ jobs:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
       - name: Main Slack Notification
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         id: slack
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}

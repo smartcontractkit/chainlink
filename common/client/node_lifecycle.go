@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -282,16 +281,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
-	if err := n.rpc.Dial(n.nodeCtx); err != nil {
-		lggr.Errorw("Failed to dial out-of-sync RPC node", "nodeState", n.State())
-		n.declareUnreachable()
-		return
-	}
-
-	// Manually re-verify since out-of-sync nodes are automatically disconnected
-	if err := n.verify(n.nodeCtx); err != nil {
-		lggr.Errorw(fmt.Sprintf("Failed to verify out-of-sync RPC node: %v", err), "err", err)
-		n.declareInvalidChainID()
+	state := n.createVerifiedConn(n.nodeCtx, lggr)
+	if state != nodeStateAlive {
+		n.declareState(state)
 		return
 	}
 
@@ -377,21 +369,18 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 
 			n.setState(nodeStateDialed)
 
-			err = n.verify(n.nodeCtx)
-
-			if errors.Is(err, errInvalidChainID) {
-				lggr.Errorw("Failed to redial RPC node; remote endpoint returned the wrong chain ID", "err", err)
-				n.declareInvalidChainID()
-				return
-			} else if err != nil {
-				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node; verify failed: %v", err), "err", err)
-				n.declareUnreachable()
+			state := n.verifyConn(n.nodeCtx, lggr)
+			switch state {
+			case nodeStateUnreachable:
+				n.setState(nodeStateUnreachable)
+				continue
+			case nodeStateAlive:
+				lggr.Infow(fmt.Sprintf("Successfully redialled and verified RPC node %s. Node was offline for %s", n.String(), time.Since(unreachableAt)), "nodeState", n.State())
+				fallthrough
+			default:
+				n.declareState(state)
 				return
 			}
-
-			lggr.Infow(fmt.Sprintf("Successfully redialled and verified RPC node %s. Node was offline for %s", n.String(), time.Since(unreachableAt)), "nodeState", n.State())
-			n.declareAlive()
-			return
 		}
 	}
 }
@@ -414,6 +403,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 	invalidAt := time.Now()
 
 	lggr := logger.Named(n.lfcLog, "InvalidChainID")
+
+	// Need to redial since invalid chain ID nodes are automatically disconnected
+	state := n.createVerifiedConn(n.nodeCtx, lggr)
+	if state != nodeStateInvalidChainID {
+		n.declareState(state)
+		return
+	}
+
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with invalid chain ID", n.String()), "nodeState", n.State())
 
 	chainIDRecheckBackoff := iutils.NewRedialBackoff()
@@ -423,18 +420,71 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 		case <-n.nodeCtx.Done():
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
-			err := n.verify(n.nodeCtx)
-			if errors.Is(err, errInvalidChainID) {
-				lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err)
+			state := n.verifyConn(n.nodeCtx, lggr)
+			switch state {
+			case nodeStateInvalidChainID:
 				continue
-			} else if err != nil {
-				lggr.Errorw(fmt.Sprintf("Unexpected error while verifying RPC node chain ID; %v", err), "err", err)
+			case nodeStateAlive:
+				lggr.Infow(fmt.Sprintf("Successfully verified RPC node. Node was offline for %s", time.Since(invalidAt)), "nodeState", n.State())
+				fallthrough
+			default:
+				n.declareState(state)
+				return
+			}
+		}
+	}
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
+	defer n.wg.Done()
+
+	{
+		// sanity check
+		state := n.State()
+		switch state {
+		case nodeStateSyncing:
+		case nodeStateClosed:
+			return
+		default:
+			panic(fmt.Sprintf("syncingLoop can only run for node in nodeStateSyncing state, got: %s", state))
+		}
+	}
+
+	syncingAt := time.Now()
+
+	lggr := logger.Sugared(logger.Named(n.lfcLog, "Syncing"))
+	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with syncing status", n.String()), "nodeState", n.State())
+	// Need to redial since syncing nodes are automatically disconnected
+	state := n.createVerifiedConn(n.nodeCtx, lggr)
+	if state != nodeStateSyncing {
+		n.declareState(state)
+		return
+	}
+
+	recheckBackoff := iutils.NewRedialBackoff()
+
+	for {
+		select {
+		case <-n.nodeCtx.Done():
+			return
+		case <-time.After(recheckBackoff.Duration()):
+			lggr.Tracew("Trying to recheck if the node is still syncing", "nodeState", n.State())
+			isSyncing, err := n.rpc.IsSyncing(n.nodeCtx)
+			if err != nil {
+				lggr.Errorw("Unexpected error while verifying RPC node synchronization status", "err", err, "nodeState", n.State())
 				n.declareUnreachable()
 				return
 			}
-			lggr.Infow(fmt.Sprintf("Successfully verified RPC node. Node was offline for %s", time.Since(invalidAt)), "nodeState", n.State())
+
+			if isSyncing {
+				lggr.Errorw("Verification failed: Node is syncing", "nodeState", n.State())
+				continue
+			}
+
+			lggr.Infow(fmt.Sprintf("Successfully verified RPC node. Node was syncing for %s", time.Since(syncingAt)), "nodeState", n.State())
 			n.declareAlive()
 			return
 		}
+
 	}
 }

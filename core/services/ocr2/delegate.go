@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -44,11 +45,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
+	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
@@ -70,6 +74,7 @@ import (
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -107,6 +112,7 @@ type Delegate struct {
 	bridgeORM             bridges.ORM
 	mercuryORM            evmmercury.ORM
 	pipelineRunner        pipeline.Runner
+	streamRegistry        streams.Getter
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	cfg                   DelegateConfig
@@ -219,6 +225,7 @@ func NewDelegate(
 	bridgeORM bridges.ORM,
 	mercuryORM evmmercury.ORM,
 	pipelineRunner pipeline.Runner,
+	streamRegistry streams.Getter,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	legacyChains legacyevm.LegacyChainContainer,
@@ -238,6 +245,7 @@ func NewDelegate(
 		bridgeORM:             bridgeORM,
 		mercuryORM:            mercuryORM,
 		pipelineRunner:        pipelineRunner,
+		streamRegistry:        streamRegistry,
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
 		legacyChains:          legacyChains,
@@ -344,7 +352,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 }
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
@@ -430,10 +438,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	spec.CaptureEATelemetry = d.cfg.OCR2().CaptureEATelemetry()
 
-	ctx := lggrCtx.ContextWithValues(context.Background())
+	ctx = lggrCtx.ContextWithValues(ctx)
 	switch spec.PluginType {
 	case types.Mercury:
 		return d.newServicesMercury(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+
+	case types.LLO:
+		return d.newServicesLLO(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.Median:
 		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
@@ -455,7 +466,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 		thresholdPluginDB := NewDB(d.db, spec.ID, thresholdPluginId, lggr, d.cfg.Database())
 		s4PluginDB := NewDB(d.db, spec.ID, s4PluginId, lggr, d.cfg.Database())
-		return d.newServicesOCR2Functions(lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
+		return d.newServicesOCR2Functions(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
 	case types.GenericPlugin:
 		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, d.capabilitiesRegistry)
@@ -467,7 +478,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 func GetEVMEffectiveTransmitterID(jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.PluginType == types.Mercury {
+	if spec.PluginType == types.Mercury || spec.PluginType == types.LLO {
 		return spec.TransmitterID.String, nil
 	}
 
@@ -773,6 +784,135 @@ func (d *Delegate) newServicesMercury(
 	}
 
 	return mercuryServices, err2
+}
+
+func (d *Delegate) newServicesLLO(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+	ocrLogger commontypes.Logger,
+) ([]job.ServiceCtx, error) {
+	lggr = logger.Sugared(lggr.Named("LLO"))
+	spec := jb.OCR2OracleSpec
+	transmitterID := spec.TransmitterID.String
+	if len(transmitterID) != 64 {
+		return nil, errors.Errorf("ServicesForSpec: streams job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
+	}
+	if _, err := hex.DecodeString(transmitterID); err != nil {
+		return nil, errors.Wrapf(err, "ServicesForSpec: streams job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
+	}
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
+	}
+	if rid.Network != relay.EVM {
+		return nil, fmt.Errorf("streams services: expected EVM relayer got %s", rid.Network)
+	}
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "streams"}
+	}
+
+	provider, err2 := relayer.NewLLOProvider(ctx,
+		types.RelayArgs{
+			ExternalJobID: jb.ExternalJobID,
+			JobID:         jb.ID,
+			ContractID:    spec.ContractID,
+			New:           d.isNewlyCreatedJob,
+			RelayConfig:   spec.RelayConfig.Bytes(),
+			ProviderType:  string(spec.PluginType),
+		}, types.PluginArgs{
+			TransmitterID: transmitterID,
+			PluginConfig:  spec.PluginConfig.Bytes(),
+		})
+	if err2 != nil {
+		return nil, err2
+	}
+
+	var pluginCfg lloconfig.PluginConfig
+	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginCfg); err != nil {
+		return nil, err
+	}
+
+	kbm := make(map[llotypes.ReportFormat]llo.Key)
+	for rfStr, kbid := range pluginCfg.KeyBundleIDs {
+		k, err3 := d.ks.Get(kbid)
+		if err3 != nil {
+			return nil, fmt.Errorf("job %d (%s) specified key bundle ID %q for report format %s, but got error trying to load it: %w", jb.ID, jb.Name.ValueOrZero(), kbid, rfStr, err3)
+		}
+		rf, err4 := llotypes.ReportFormatFromString(rfStr)
+		if err4 != nil {
+			return nil, fmt.Errorf("job %d (%s) specified key bundle ID %q for report format %s, but it is not a recognized report format: %w", jb.ID, jb.Name.ValueOrZero(), kbid, rfStr, err4)
+		}
+		kbm[rf] = k
+	}
+	// NOTE: This is a bit messy because we assume chain type matches report
+	// format, and it may not in all cases. We don't yet know what report
+	// formats we need or how they correspond to chain types, so assume it's
+	// 1:1 for now but will change in future
+	//
+	// https://smartcontract-it.atlassian.net/browse/MERC-3722
+	for _, s := range chaintype.SupportedChainTypes {
+		rf, err3 := llotypes.ReportFormatFromString(string(s))
+		if err3 != nil {
+			return nil, fmt.Errorf("job %d (%s) has a chain type with no matching report format %s: %w", jb.ID, jb.Name.ValueOrZero(), s, err3)
+		}
+		if _, exists := kbm[rf]; !exists {
+			// Use the first if unspecified
+			kbs, err4 := d.ks.GetAllOfType(s)
+			if err4 != nil {
+				return nil, err4
+			}
+			if len(kbs) == 0 {
+				// unsupported key type
+				continue
+			} else if len(kbs) > 1 {
+				lggr.Debugf("Multiple on-chain signing keys found for report format %s, using the first", rf.String())
+			}
+			kbm[rf] = kbs[0]
+		}
+	}
+
+	// FIXME: This is a bit confusing because the OCR2 key bundle actually
+	// includes an EVM on-chain key... but LLO only uses the key bundle for the
+	// offchain keys and the suppoprted onchain keys are defined in the plugin
+	// config on the job spec instead.
+	// https://smartcontract-it.atlassian.net/browse/MERC-3594
+	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)
+	kr := llo.NewOnchainKeyring(lggr, kbm)
+
+	cfg := llo.DelegateConfig{
+		Logger:   lggr,
+		Queryer:  pg.NewQ(d.db, lggr, d.cfg.Database()),
+		Runner:   d.pipelineRunner,
+		Registry: d.streamRegistry,
+
+		ChannelDefinitionCache: provider.ChannelDefinitionCache(),
+
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractTransmitter:          provider.ContractTransmitter(),
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		// TODO: Telemetry for llo
+		// https://smartcontract-it.atlassian.net/browse/MERC-3603
+		MonitoringEndpoint:     nil,
+		OffchainConfigDigester: provider.OffchainConfigDigester(),
+		OffchainKeyring:        kb,
+		OnchainKeyring:         kr,
+		OCRLogger:              ocrLogger,
+	}
+	oracle, err := llo.NewDelegate(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return []job.ServiceCtx{provider, oracle}, nil
 }
 
 func (d *Delegate) newServicesMedian(
@@ -1094,6 +1234,9 @@ func (d *Delegate) newServicesOCR2Keepers(
 	switch cfg.ContractVersion {
 	case "v2.1":
 		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+	case "v2.1+":
+		// Future contracts of v2.1 (v2.x) will use the same job spec as v2.1
+		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
 		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
@@ -1370,6 +1513,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 }
 
 func (d *Delegate) newServicesOCR2Functions(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1395,6 +1539,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	}
 	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
+			ctx,
 			chain,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
@@ -1506,7 +1651,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		LogPollerWrapper:  functionsProvider.LogPollerWrapper(),
 	}
 
-	functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, &thresholdOracleArgs, &s4OracleArgs, &functionsServicesConfig)
+	functionsServices, err := functions.NewFunctionsServices(ctx, &functionsOracleArgs, &thresholdOracleArgs, &s4OracleArgs, &functionsServicesConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 	}
