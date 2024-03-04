@@ -28,6 +28,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+const (
+	zeroAddress = "0x0000000000000000000000000000000000000000"
+)
+
 type Lookup interface {
 	Lookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult
 }
@@ -208,6 +212,7 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 func (s *streams) makeCallbackEthCall(ctx context.Context, payload []byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
 	var responseBytes hexutil.Bytes
 	args := map[string]interface{}{
+		"from": zeroAddress,
 		"to":   s.registry.Address().Hex(),
 		"data": hexutil.Bytes(payload),
 	}
