@@ -12,6 +12,6 @@ jobs:
       pull-requests: write
     steps:
       - name: Comment CRIB details on PR
-        run: node ./.github/scripts/pr-comment-crib-env.js
+        run: ./.github/scripts/pr-comment-crib-env.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
