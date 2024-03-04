@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/graph"
@@ -21,7 +22,7 @@ func TestPingPong(t *testing.T) {
 		name         string
 		balances     map[models.NetworkSelector]int64
 		lanes        [][2]models.NetworkSelector
-		inflight     []models.PendingTransfer
+		inflight     []UnexecutedTransfer
 		expTransfers []models.Transfer
 		expErr       bool
 	}{
@@ -192,13 +193,13 @@ func runPingPongInfinitySimulation(t *testing.T, rounds, maxNets, maxLanes int) 
 	g := genGraph(t, balances, lanes)
 
 	pp := NewPingPong()
-	inflightTransfers := make([]models.PendingTransfer, 0)
+	inflightTransfers := make([]UnexecutedTransfer, 0)
 
 	for round := 0; round < rounds; round++ {
 		// Cleanup the executed transfers from memory.
-		filteredInflights := make([]models.PendingTransfer, 0, len(inflightTransfers))
+		filteredInflights := make([]UnexecutedTransfer, 0, len(inflightTransfers))
 		for _, tr := range inflightTransfers {
-			if tr.Status != models.TransferStatusExecuted {
+			if tr.TransferStatus() != models.TransferStatusExecuted {
 				filteredInflights = append(filteredInflights, tr)
 			}
 		}
@@ -211,7 +212,7 @@ func runPingPongInfinitySimulation(t *testing.T, rounds, maxNets, maxLanes int) 
 			assert.True(t, len(transfersToBalance) > 0, "balance should not be reached")
 		}
 
-		pendingTransfers := make([]models.PendingTransfer, len(transfersToBalance))
+		pendingTransfers := make([]UnexecutedTransfer, len(transfersToBalance))
 		for i, tr := range transfersToBalance {
 			pendingTransfers[i] = models.PendingTransfer{
 				Transfer: models.Transfer{
@@ -231,17 +232,24 @@ func runPingPongInfinitySimulation(t *testing.T, rounds, maxNets, maxLanes int) 
 		numInflightToApply := 1 + rand.Intn(len(inflightTransfers))
 		numApplied := 0
 		for idx, inf := range inflightTransfers {
-			sourceLiq, err := g.GetLiquidity(inf.From)
+			sourceLiq, err := g.GetLiquidity(inf.FromNetwork())
 			assert.NoError(t, err)
-			destLiq, err := g.GetLiquidity(inf.To)
+			destLiq, err := g.GetLiquidity(inf.ToNetwork())
 			assert.NoError(t, err)
 
-			newSourceLiq := big.NewInt(0).Sub(sourceLiq, inf.Amount.ToInt())
-			newDestLiq := big.NewInt(0).Add(destLiq, inf.Amount.ToInt())
+			newSourceLiq := big.NewInt(0).Sub(sourceLiq, inf.TransferAmount())
+			newDestLiq := big.NewInt(0).Add(destLiq, inf.TransferAmount())
 
-			g.SetLiquidity(inf.From, newSourceLiq)
-			g.SetLiquidity(inf.To, newDestLiq)
-			inflightTransfers[idx].Status = models.TransferStatusExecuted
+			g.SetLiquidity(inf.FromNetwork(), newSourceLiq)
+			g.SetLiquidity(inf.ToNetwork(), newDestLiq)
+
+			// XXX: this is ugly, but we need to update the transfer status to executed.
+			// We can't do it directly because the Transfer interface doesn't have a setter.
+			pendingTr, ok := inflightTransfers[idx].(models.PendingTransfer)
+			require.True(t, ok)
+
+			pendingTr.Status = models.TransferStatusExecuted
+			inflightTransfers[idx] = pendingTr
 
 			numApplied++
 			if numApplied >= numInflightToApply {

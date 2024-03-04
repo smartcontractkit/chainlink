@@ -31,16 +31,26 @@ type Observation struct {
 	ResolvedTransfers []Transfer
 	// PendingTransfers are transfers that are in one of the TransferStatus states.
 	PendingTransfers []PendingTransfer
+	// InflightTransfers are the transfers that are currently in flight and have not been included onchain.
+	InflightTransfers []Transfer
 	// Edges are the edges of the rebalancer graph.
 	Edges []Edge
 	// ConfigDigests contains the config digests for each chain and rebalancer.
 	ConfigDigests []ConfigDigestWithMeta
 }
 
-func NewObservation(liqPerChain []NetworkLiquidity, resolvedTransfers []Transfer, pendingTransfers []PendingTransfer, edges []Edge, configDigests []ConfigDigestWithMeta) Observation {
+func NewObservation(
+	liqPerChain []NetworkLiquidity,
+	resolvedTransfers []Transfer,
+	pendingTransfers []PendingTransfer,
+	inflightTransfers []Transfer,
+	edges []Edge,
+	configDigests []ConfigDigestWithMeta,
+) Observation {
 	return Observation{
 		LiquidityPerChain: liqPerChain,
 		PendingTransfers:  pendingTransfers,
+		InflightTransfers: inflightTransfers,
 		ResolvedTransfers: resolvedTransfers,
 		Edges:             edges,
 		ConfigDigests:     configDigests,

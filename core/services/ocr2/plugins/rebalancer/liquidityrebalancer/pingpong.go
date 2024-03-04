@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 )
@@ -16,25 +17,25 @@ func NewPingPong() *PingPong {
 	return &PingPong{}
 }
 
-func (p *PingPong) ComputeTransfersToBalance(g graph.Graph, inflightTransfers []models.PendingTransfer) ([]models.ProposedTransfer, error) {
-	newTransfers := make([]models.PendingTransfer, 0)
+func (p *PingPong) ComputeTransfersToBalance(g graph.Graph, unexecuted []UnexecutedTransfer) ([]models.ProposedTransfer, error) {
+	newTransfers := make([]UnexecutedTransfer, 0)
 	for _, netSel := range g.GetNetworks() {
 		balance, err := g.GetLiquidity(netSel)
 		if err != nil {
 			return nil, fmt.Errorf("get %d liquidity: %w", netSel, err)
 		}
 
-		// subtract inflight transfers from the balance
-		for _, tr := range inflightTransfers {
-			if tr.From == netSel && tr.Status != models.TransferStatusExecuted {
-				balance = big.NewInt(0).Sub(balance, tr.Amount.ToInt())
+		// subtract unexecuted transfers from the balance
+		for _, tr := range unexecuted {
+			if tr.FromNetwork() == netSel && tr.TransferStatus() != models.TransferStatusExecuted {
+				balance = big.NewInt(0).Sub(balance, tr.TransferAmount())
 			}
 		}
 		if balance.Cmp(big.NewInt(0)) <= 0 {
 			continue
 		}
 
-		neighbors := p.eligibleNeighbors(g, netSel, append(inflightTransfers, newTransfers...))
+		neighbors := p.eligibleNeighbors(g, netSel, append(unexecuted, newTransfers...))
 		if len(neighbors) == 0 {
 			continue
 		}
@@ -56,9 +57,9 @@ func (p *PingPong) ComputeTransfersToBalance(g graph.Graph, inflightTransfers []
 	results := make([]models.ProposedTransfer, len(newTransfers))
 	for i, tr := range newTransfers {
 		results[i] = models.ProposedTransfer{
-			From:   tr.From,
-			To:     tr.To,
-			Amount: tr.Amount,
+			From:   tr.FromNetwork(),
+			To:     tr.ToNetwork(),
+			Amount: ubig.New(tr.TransferAmount()),
 		}
 	}
 	return results, nil
@@ -66,8 +67,8 @@ func (p *PingPong) ComputeTransfersToBalance(g graph.Graph, inflightTransfers []
 
 // eligibleNeighbors returns the neighbors that:
 // 1. Can transfer back (bidirectional graph connection).
-// 2. There is no inflight transfer in either direction.
-func (p *PingPong) eligibleNeighbors(g graph.Graph, netSel models.NetworkSelector, inflight []models.PendingTransfer) []models.NetworkSelector {
+// 2. There is no unexecuted transfer in either direction.
+func (p *PingPong) eligibleNeighbors(g graph.Graph, netSel models.NetworkSelector, unexecuted []UnexecutedTransfer) []models.NetworkSelector {
 	allNeighbors, exists := g.GetNeighbors(netSel)
 	if !exists {
 		panic(fmt.Errorf("critical internal graph issue: neighbors of %d not found", netSel))
@@ -78,7 +79,7 @@ func (p *PingPong) eligibleNeighbors(g graph.Graph, netSel models.NetworkSelecto
 		if !g.HasConnection(neighborNetSel, netSel) {
 			continue
 		}
-		if p.isInflightBidirectionally(netSel, neighborNetSel, inflight) {
+		if p.isUnexecutedBidirectionally(netSel, neighborNetSel, unexecuted) {
 			continue
 		}
 		targetNeighbors = append(targetNeighbors, neighborNetSel)
@@ -87,12 +88,13 @@ func (p *PingPong) eligibleNeighbors(g graph.Graph, netSel models.NetworkSelecto
 	return targetNeighbors
 }
 
-func (p *PingPong) isInflightBidirectionally(from, to models.NetworkSelector, inflight []models.PendingTransfer) bool {
-	for _, tr := range inflight {
-		if tr.Status == models.TransferStatusExecuted {
+func (p *PingPong) isUnexecutedBidirectionally(from, to models.NetworkSelector, unexecuted []UnexecutedTransfer) bool {
+	for _, tr := range unexecuted {
+		if tr.TransferStatus() == models.TransferStatusExecuted {
 			continue
 		}
-		if (tr.From == from && tr.To == to) || (tr.From == to && tr.To == from) {
+		if (tr.FromNetwork() == from && tr.ToNetwork() == to) ||
+			(tr.FromNetwork() == to && tr.ToNetwork() == from) {
 			return true
 		}
 	}
