@@ -92,57 +92,37 @@ func (o *capability) HealthReport() map[string]error {
 }
 
 type workflowConfig struct {
-	AggregationMethod string         `mapstructure:"aggregation_method"`
-	AggregationConfig map[string]any `mapstructure:"aggregation_config"`
-	Encoder           string         `mapstructure:"encoder"`
-	EncoderConfig     map[string]any `mapstructure:"encoder_config"`
+	AggregationMethod string      `mapstructure:"aggregation_method"`
+	AggregationConfig *values.Map `mapstructure:"aggregation_config"`
+	Encoder           string      `mapstructure:"encoder"`
+	EncoderConfig     *values.Map `mapstructure:"encoder_config"`
+}
+
+func newWorkflowConfig() *workflowConfig {
+	return &workflowConfig{
+		EncoderConfig:     values.EmptyMap(),
+		AggregationConfig: values.EmptyMap(),
+	}
 }
 
 func (o *capability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
-	confMap, err := request.Config.Unwrap()
+	c := newWorkflowConfig()
+	err := request.Config.UnwrapTo(c)
 	if err != nil {
 		return err
-	}
-
-	// TODO: values lib should a wrapped version of decode
-	// which can handle passthrough translations of maps to values.Map.
-	// This will avoid the need to translate/untranslate
-	c := &workflowConfig{}
-	err = mapstructure.Decode(confMap, c)
-	if err != nil {
-		return err
-	}
-
-	if c.AggregationConfig == nil {
-		o.lggr.Warn("aggregation_config is empty")
-		c.AggregationConfig = map[string]any{}
-	}
-	if c.EncoderConfig == nil {
-		o.lggr.Warn("encoder_config is empty")
-		c.EncoderConfig = map[string]any{}
 	}
 
 	switch c.AggregationMethod {
 	case "data_feeds_2_0":
-		cm, err := values.NewMap(c.AggregationConfig)
-		if err != nil {
-			return err
-		}
-
 		mc := mercury.NewCodec()
-		agg, err := datafeeds.NewDataFeedsAggregator(*cm, mc, o.lggr)
+		agg, err := datafeeds.NewDataFeedsAggregator(*c.AggregationConfig, mc, o.lggr)
 		if err != nil {
 			return err
 		}
 
 		o.aggregators[request.Metadata.WorkflowID] = agg
 
-		em, err := values.NewMap(c.EncoderConfig)
-		if err != nil {
-			return err
-		}
-
-		encoder, err := o.encoderFactory(em)
+		encoder, err := o.encoderFactory(c.EncoderConfig)
 		if err != nil {
 			return err
 		}

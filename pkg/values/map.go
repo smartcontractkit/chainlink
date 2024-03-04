@@ -1,6 +1,10 @@
 package values
 
 import (
+	"fmt"
+	"math"
+	"reflect"
+
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
@@ -8,6 +12,12 @@ import (
 
 type Map struct {
 	Underlying map[string]Value
+}
+
+func EmptyMap() *Map {
+	return &Map{
+		Underlying: map[string]Value{},
+	}
 }
 
 func NewMap(m map[string]any) (*Map, error) {
@@ -51,7 +61,8 @@ func (m *Map) Unwrap() (any, error) {
 
 func (m *Map) UnwrapTo(toStruct any) error {
 	c := &mapstructure.DecoderConfig{
-		Result: toStruct,
+		Result:     toStruct,
+		DecodeHook: unwrapsValues,
 	}
 
 	d, err := mapstructure.NewDecoder(c)
@@ -60,4 +71,32 @@ func (m *Map) UnwrapTo(toStruct any) error {
 	}
 
 	return d.Decode(m.Underlying)
+}
+
+func unwrapsValues(f reflect.Type, t reflect.Type, data any) (any, error) {
+	valueType := reflect.TypeOf((*Value)(nil)).Elem()
+	if f.Implements(valueType) {
+		unw, err := Unwrap(data.(Value))
+		if err != nil {
+			return data, nil
+		}
+
+		switch t {
+		case reflect.TypeOf(unw):
+			return unw, nil
+
+		// Handle ints exceptionally;
+		// This is because ints are handled as int64s
+		// in the values library.
+		case reflect.TypeOf(int(0)):
+			i := unw.(int64)
+			if i > math.MaxInt {
+				return nil, fmt.Errorf("cannot convert int64 to int: %d is too large", i)
+			}
+
+			return i, nil
+		}
+	}
+
+	return data, nil
 }
