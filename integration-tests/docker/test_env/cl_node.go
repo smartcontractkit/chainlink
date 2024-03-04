@@ -285,6 +285,10 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
+func (n *ClNode) GetPostgresContainerRequest() *tc.ContainerRequest {
+	return n.PostgresDb.GetContainerRequest()
+}
+
 func (n *ClNode) StartContainer() error {
 	err := n.PostgresDb.StartContainer()
 	if err != nil {
@@ -381,8 +385,7 @@ func (n *ClNode) ExecGetVersion() (string, error) {
 	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 }
 
-func (n *ClNode) getContainerRequest(secrets string) (
-	*tc.ContainerRequest, error) {
+func (n *ClNode) getContainerRequest(secrets string) (*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
 		return nil, err

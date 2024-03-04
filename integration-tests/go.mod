@@ -42,6 +42,9 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
+// DEBUG
+replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
+
 // avoids ambigious imports of indirect dependencies
 exclude github.com/hashicorp/consul v1.2.1
 
