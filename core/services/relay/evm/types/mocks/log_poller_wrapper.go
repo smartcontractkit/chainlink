@@ -52,9 +52,9 @@ func (_m *LogPollerWrapper) HealthReport() map[string]error {
 	return r0
 }
 
-// LatestEvents provides a mock function with given fields:
-func (_m *LogPollerWrapper) LatestEvents() ([]types.OracleRequest, []types.OracleResponse, error) {
-	ret := _m.Called()
+// LatestEvents provides a mock function with given fields: ctx
+func (_m *LogPollerWrapper) LatestEvents(ctx context.Context) ([]types.OracleRequest, []types.OracleResponse, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LatestEvents")
@@ -63,27 +63,27 @@ func (_m *LogPollerWrapper) LatestEvents() ([]types.OracleRequest, []types.Oracl
 	var r0 []types.OracleRequest
 	var r1 []types.OracleResponse
 	var r2 error
-	if rf, ok := ret.Get(0).(func() ([]types.OracleRequest, []types.OracleResponse, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(context.Context) ([]types.OracleRequest, []types.OracleResponse, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func() []types.OracleRequest); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) []types.OracleRequest); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.OracleRequest)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func() []types.OracleResponse); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) []types.OracleResponse); ok {
+		r1 = rf(ctx)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).([]types.OracleResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func() error); ok {
-		r2 = rf()
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
 	} else {
 		r2 = ret.Error(2)
 	}

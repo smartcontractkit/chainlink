@@ -455,7 +455,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesDKG(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.OCR2VRF:
-		return d.newServicesOCR2VRF(lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+		return d.newServicesOCR2VRF(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.OCR2Keeper:
 		return d.newServicesOCR2Keepers(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
@@ -1045,6 +1045,7 @@ func (d *Delegate) newServicesDKG(
 }
 
 func (d *Delegate) newServicesOCR2VRF(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1147,6 +1148,7 @@ func (d *Delegate) newServicesOCR2VRF(
 	}
 
 	coordinator, err2 := ocr2coordinator.New(
+		ctx,
 		lggr.Named("OCR2VRFCoordinator"),
 		common.HexToAddress(spec.ContractID),
 		common.HexToAddress(cfg.VRFCoordinatorAddress),

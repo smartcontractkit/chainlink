@@ -191,7 +191,7 @@ type RouteUpdateSubscriber interface {
 //go:generate mockery --quiet --name LogPollerWrapper --output ./mocks/ --case=underscore
 type LogPollerWrapper interface {
 	services.Service
-	LatestEvents() ([]OracleRequest, []OracleResponse, error)
+	LatestEvents(ctx context.Context) ([]OracleRequest, []OracleResponse, error)
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer
 	SubscribeToUpdates(name string, subscriber RouteUpdateSubscriber)

@@ -112,7 +112,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	}, nil
 }
 
-func (l *logPollerWrapper) Start(context.Context) error {
+func (l *logPollerWrapper) Start(ctx context.Context) error {
 	return l.StartOnce("LogPollerWrapper", func() error {
 		l.lggr.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
 		l.mu.Lock()
@@ -121,7 +121,7 @@ func (l *logPollerWrapper) Start(context.Context) error {
 			return errors.New("only contract version 1 is supported")
 		}
 		l.closeWait.Add(1)
-		go l.checkForRouteUpdates()
+		go l.checkForRouteUpdates(ctx)
 		return nil
 	})
 }
@@ -142,7 +142,7 @@ func (l *logPollerWrapper) HealthReport() map[string]error {
 func (l *logPollerWrapper) Name() string { return l.lggr.Name() }
 
 // methods of LogPollerWrapper
-func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
+func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
 	l.mu.Lock()
 	coordinators := []common.Address{}
 	if l.activeCoordinator != (common.Address{}) {
@@ -151,7 +151,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	if l.proposedCoordinator != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
-	latest, err := l.logPoller.LatestBlock(context.Background())
+	latest, err := l.logPoller.LatestBlock(ctx)
 	if err != nil {
 		l.mu.Unlock()
 		return nil, nil, err
@@ -170,9 +170,6 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debug("LatestEvents: no non-zero coordinators to check")
 		return resultsReq, resultsResp, errors.New("no non-zero coordinators to check")
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	for _, coordinator := range coordinators {
 		requestEndBlock := latestBlockNum - l.requestBlockOffset
@@ -332,7 +329,7 @@ func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber 
 	}
 }
 
-func (l *logPollerWrapper) checkForRouteUpdates() {
+func (l *logPollerWrapper) checkForRouteUpdates(ctx context.Context) {
 	defer l.closeWait.Done()
 	freqSec := l.pluginConfig.ContractUpdateCheckFrequencySec
 	if freqSec == 0 {
@@ -349,7 +346,7 @@ func (l *logPollerWrapper) checkForRouteUpdates() {
 			l.lggr.Errorw("LogPollerWrapper: error calling getCurrentCoordinators", "err", err)
 			return
 		}
-		l.handleRouteUpdate(active, proposed)
+		l.handleRouteUpdate(ctx, active, proposed)
 	}
 
 	updateOnce() // update once right away
@@ -391,7 +388,7 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 	return activeCoordinator, proposedCoordinator, nil
 }
 
-func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, proposedCoordinator common.Address) {
+func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -404,8 +401,8 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, p
 		l.lggr.Debug("LogPollerWrapper: no changes to routes")
 		return
 	}
-	errActive := l.registerFilters(activeCoordinator)
-	errProposed := l.registerFilters(proposedCoordinator)
+	errActive := l.registerFilters(ctx, activeCoordinator)
+	errProposed := l.registerFilters(ctx, proposedCoordinator)
 	if errActive != nil || errProposed != nil {
 		l.lggr.Errorw("LogPollerWrapper: Failed to register filters", "errorActive", errActive, "errorProposed", errProposed)
 		return
@@ -427,12 +424,10 @@ func filterName(addr common.Address) string {
 	return logpoller.FilterName("FunctionsLogPollerWrapper", addr.String())
 }
 
-func (l *logPollerWrapper) registerFilters(coordinatorAddress common.Address) error {
+func (l *logPollerWrapper) registerFilters(ctx context.Context, coordinatorAddress common.Address) error {
 	if (coordinatorAddress == common.Address{}) {
 		return nil
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	return l.logPoller.RegisterFilter(
 		ctx,
 		logpoller.Filter{
