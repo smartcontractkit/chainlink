@@ -3421,16 +3421,15 @@ describe('AutomationRegistry2_2', () => {
 
     beforeEach(async () => {
       const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
-      maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei
-        .mul(
-          maxPerformDataSize
-            .add(registryTransmitCalldataFixedBytesOverhead)
-            .add(
-              registryTransmitCalldataPerSignerBytesOverhead.mul(
-                BigNumber.from(f + 1),
-              ),
+      maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei.mul(
+        maxPerformDataSize
+          .add(registryTransmitCalldataFixedBytesOverhead)
+          .add(
+            registryTransmitCalldataPerSignerBytesOverhead.mul(
+              BigNumber.from(f + 1),
             ),
-        )
+          ),
+      )
       maxl1CostWeiOptWithoutMultiplier = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     })
 
