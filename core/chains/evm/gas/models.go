@@ -34,6 +34,9 @@ type EvmFeeEstimator interface {
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
 	L1Oracle() rollups.L1Oracle
+	// GetConfig returns the underlying gas estimator config
+	GetConfig() evmconfig.GasEstimator
+
 	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error)
 	BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error)
 
@@ -64,7 +67,6 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
 	)
-	df := geCfg.EIP1559DynamicFees()
 
 	// create l1Oracle only if it is supported for the chain
 	var l1Oracle rollups.L1Oracle
@@ -95,7 +97,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 			return NewFixedPriceEstimator(geCfg, bh, lggr)
 		}
 	}
-	return NewWrappedEvmEstimator(lggr, newEstimator, df, l1Oracle)
+	return NewWrappedEvmEstimator(lggr, newEstimator, geCfg, l1Oracle)
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
@@ -164,19 +166,19 @@ type WrappedEvmEstimator struct {
 	services.StateMachine
 	lggr logger.Logger
 	EvmEstimator
-	EIP1559Enabled bool
-	l1Oracle       rollups.L1Oracle
+	estimatorConfig evmconfig.GasEstimator
+	l1Oracle        rollups.L1Oracle
 }
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle) EvmFeeEstimator {
+func NewWrappedEvmEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, geCfg evmconfig.GasEstimator, l1Oracle rollups.L1Oracle) EvmFeeEstimator {
 	lggr = logger.Named(lggr, "WrappedEvmEstimator")
 	return &WrappedEvmEstimator{
-		lggr:           lggr,
-		EvmEstimator:   newEstimator(lggr),
-		EIP1559Enabled: eip1559Enabled,
-		l1Oracle:       l1Oracle,
+		lggr:            lggr,
+		EvmEstimator:    newEstimator(lggr),
+		estimatorConfig: geCfg,
+		l1Oracle:        l1Oracle,
 	}
 }
 
@@ -241,9 +243,13 @@ func (e *WrappedEvmEstimator) L1Oracle() rollups.L1Oracle {
 	return e.l1Oracle
 }
 
+func (e *WrappedEvmEstimator) GetConfig() evmconfig.GasEstimator {
+	return e.estimatorConfig
+}
+
 func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error) {
 	// get dynamic fee
-	if e.EIP1559Enabled {
+	if e.estimatorConfig.EIP1559DynamicFees() {
 		var dynamicFee DynamicFee
 		dynamicFee, chainSpecificFeeLimit, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
 		fee.DynamicFeeCap = dynamicFee.FeeCap
@@ -263,7 +269,7 @@ func (e *WrappedEvmEstimator) GetMaxCost(ctx context.Context, amount assets.Eth,
 	}
 
 	var gasPrice *assets.Wei
-	if e.EIP1559Enabled {
+	if e.estimatorConfig.EIP1559DynamicFees() {
 		gasPrice = fees.DynamicFeeCap
 	} else {
 		gasPrice = fees.Legacy

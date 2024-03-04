@@ -7,6 +7,8 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
+	config "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+
 	context "context"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -73,6 +75,26 @@ func (_m *EvmFeeEstimator) Close() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetConfig provides a mock function with given fields:
+func (_m *EvmFeeEstimator) GetConfig() config.GasEstimator {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetConfig")
+	}
+
+	var r0 config.GasEstimator
+	if rf, ok := ret.Get(0).(func() config.GasEstimator); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.GasEstimator)
+		}
 	}
 
 	return r0
