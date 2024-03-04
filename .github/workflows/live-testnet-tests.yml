@@ -5,6 +5,7 @@
 # (we're trying to eliminate this as a requirement, should make it a lot easier).
 # Each chain can have a variety of tests to run.
 # We also want reporting to be clear in the start-slack-thread and post-test-results-to-slack jobs.
+# Funding address: 0xC1107e57082945E28d3202A81B1520DEA3AE6AEC
 # ***
 
 name: Live Testnet Tests
@@ -176,7 +177,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>\nThe funding address for all tests and networks is `0xC1107e57082945E28d3202A81B1520DEA3AE6AEC`"
                       }
                     }
                   ]

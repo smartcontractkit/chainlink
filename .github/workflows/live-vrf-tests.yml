@@ -1,3 +1,4 @@
+# Funding address: 0xC1107e57082945E28d3202A81B1520DEA3AE6AEC
 name: Live VRF Tests
 on:
   workflow_dispatch:
@@ -10,14 +11,10 @@ on:
         description: "Remove any networks you don't want to run tests on"
         required: true
         default: "SEPOLIA,OPTIMISM_SEPOLIA,ARBITRUM_SEPOLIA"
-      test:
-        description: "Choose test you want to run"
+      test_list:
+        description: "Comma-separated list of tests to run"
         required: true
-        type: choice
-        options:
-          - "TestVRFBasic"
-          - "TestVRFv2Basic"
-          - "TestVRFv2Plus"
+        default: "TestVRFBasic,TestVRFv2Basic,TestVRFv2Plus"
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -143,6 +140,11 @@ jobs:
         run: |
           echo "HTTP_URLS_SECRET_NAME=QA_${{ matrix }}_HTTP_URLS"
           echo "URLS_SECRET_NAME=QA_${{ matrix }}_URLS"
+      - name: Split Test Names
+        id: split_list
+        run: |
+          IFS=',' read -ra ADDR <<< "${{ inputs.test_list }}"
+          echo "test_list=${ADDR[*]}" >> $GITHUB_ENV
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
@@ -170,7 +172,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
-          test_command_to_run: ./tests -test.timeout 1h -test.count=1 -test.parallel=1 -test.run ${{ inputs.test }}
+          test_command_to_run: ./tests -test.timeout 4h -test.count=1 -test.parallel=1 -test.run ${{ env.test_list }}
           binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
