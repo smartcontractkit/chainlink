@@ -76,9 +76,9 @@ type ObservedORM struct {
 
 // NewObservedORM creates an observed version of log poller's ORM created by NewORM
 // Please see ObservedLogPoller for more details on how latencies are measured
-func NewObservedORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger) *ObservedORM {
+func NewObservedORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, logSQL bool) *ObservedORM {
 	return &ObservedORM{
-		ORM:            NewORM(chainID, db, lggr),
+		ORM:            NewORM(chainID, db, lggr, logSQL),
 		queryDuration:  lpQueryDuration,
 		datasetSize:    lpQueryDataSets,
 		logsInserted:   lpLogsInserted,

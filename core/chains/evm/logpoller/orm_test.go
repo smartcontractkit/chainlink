@@ -487,7 +487,7 @@ func TestLogPollerFilters(t *testing.T) {
 	chainID := testutils.NewRandomEVMChainID()
 
 	dbx := pgtest.NewSqlxDB(t)
-	orm := logpoller.NewORM(chainID, dbx, lggr)
+	orm := logpoller.NewORM(chainID, dbx, lggr, true)
 
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
@@ -1467,7 +1467,7 @@ func TestInsertLogsWithBlock(t *testing.T) {
 	// Using pgtest.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
 	// (inner tx rollback will rollback outer tx, blocking rest of execution)
 	_, db := heavyweight.FullTestDBV2(t, nil)
-	o := logpoller.NewORM(chainID, db, logger.Test(t))
+	o := logpoller.NewORM(chainID, db, logger.Test(t), true)
 
 	correctLog := GenLog(chainID, 1, 1, utils.RandomAddress().String(), event[:], address)
 	invalidLog := GenLog(chainID, -10, -10, utils.RandomAddress().String(), event[:], address)
@@ -1544,7 +1544,7 @@ func TestInsertLogsInTx(t *testing.T) {
 
 	// We need full db here, because we want to test transaction rollbacks.
 	_, db := heavyweight.FullTestDBV2(t, nil)
-	o := logpoller.NewORM(chainID, db, logger.Test(t))
+	o := logpoller.NewORM(chainID, db, logger.Test(t), true)
 
 	logs := make([]logpoller.Log, maxLogsSize, maxLogsSize+1)
 	for i := 0; i < maxLogsSize; i++ {
@@ -1655,7 +1655,7 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 func Benchmark_LogsDataWordBetween(b *testing.B) {
 	chainId := big.NewInt(137)
 	_, db := heavyweight.FullTestDBV2(b, nil)
-	o := logpoller.NewORM(chainId, db, logger.Test(b))
+	o := logpoller.NewORM(chainId, db, logger.Test(b), true)
 	ctx := testutils.Context(b)
 
 	numberOfReports := 100_000
@@ -1708,7 +1708,7 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 func Benchmark_DeleteExpiredLogs(b *testing.B) {
 	chainId := big.NewInt(137)
 	_, db := heavyweight.FullTestDBV2(b, nil)
-	o := logpoller.NewORM(chainId, db, logger.Test(b))
+	o := logpoller.NewORM(chainId, db, logger.Test(b), true)
 	ctx := testutils.Context(b)
 
 	numberOfReports := 200_000

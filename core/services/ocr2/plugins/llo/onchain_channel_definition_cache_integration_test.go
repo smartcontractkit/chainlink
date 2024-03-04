@@ -85,7 +85,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			KeepFinalizedBlocksDepth: 1000,
 		}
 		lp := logpoller.NewLogPoller(
-			logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts)
+			logpoller.NewORM(testutils.SimulatedChainID, db, lggr, true), ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)
 		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, 0)
 
@@ -157,7 +157,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			KeepFinalizedBlocksDepth: 1000,
 		}
 		lp := &mockLogPoller{
-			LogPoller: logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts),
+			LogPoller: logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, true), ethClient, lggr, lpOpts),
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
 				return 0, nil
 			},
@@ -198,7 +198,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		}
-		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts)
+		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, true), ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)
 		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, channel2Block.Number().Int64()+1)
 

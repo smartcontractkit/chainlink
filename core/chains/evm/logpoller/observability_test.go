@@ -146,7 +146,7 @@ func generateRandomLogs(chainId, count int) []Log {
 func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
 	lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 	db := pgtest.NewSqlxDB(t)
-	return NewObservedORM(big.NewInt(chainId), db, lggr)
+	return NewObservedORM(big.NewInt(chainId), db, lggr, true)
 }
 
 func resetMetrics(lp ObservedORM) {

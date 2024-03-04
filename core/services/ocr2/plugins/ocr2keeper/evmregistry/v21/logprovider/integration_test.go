@@ -658,7 +658,7 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr)
+	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr, true)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,
