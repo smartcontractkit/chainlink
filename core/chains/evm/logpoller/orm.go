@@ -111,18 +111,6 @@ func (o *orm) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumbe
 func (o *orm) InsertFilter(ctx context.Context, filter Filter) (err error) {
 	// '::' has to be escaped in the query string
 	// https://github.com/jmoiron/sqlx/issues/91, https://github.com/jmoiron/sqlx/issues/428
-	/*
-		query := `
-			INSERT INTO evm.log_poller_filters
-		  		(name, evm_chain_id, retention, created_at, address, event)
-			SELECT * FROM
-				(SELECT $1, $2 ::NUMERIC, $3 ::BIGINT, NOW()) x,
-				(SELECT unnest($4 ::BYTEA[]) addr) a,
-				(SELECT unnest($5 ::BYTEA[]) ev) e
-			ON CONFLICT (evm.f_log_poller_filter_hash(name, evm_chain_id, address, event, topic2, topic3, topic4))
-			DO UPDATE SET retention=$3 ::BIGINT, max_logs_kept=$6 ::NUMERIC, logs_per_block=$7 ::NUMERIC`
-	*/
-
 	topicArrays := []types.HashArray{filter.Topic2, filter.Topic3, filter.Topic4}
 	args, err := newQueryArgs(o.chainID).
 		withCustomArg("name", filter.Name).
@@ -334,7 +322,7 @@ func (o *orm) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error)
 			GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))
 		) DELETE FROM evm.logs l USING r
 			WHERE l.evm_chain_id = $1 AND l.address=r.address AND l.event_sig=r.event
-			AND l.created_at <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`, // retention is in nanoseconds (time.Duration aka BIGINT)
+			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`, // retention is in nanoseconds (time.Duration aka BIGINT)
 			ubig.New(o.chainID))
 	}
 
@@ -371,7 +359,7 @@ func (o *orm) InsertLogsWithBlock(ctx context.Context, logs []Log, block LogPoll
 	})
 }
 
-func (o *orm) insertBlockWithinTx(ctx context.Context, tx *sqlx.Tx, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
+func (o *orm) insertBlockWithinTx(ctx context.Context, tx sqlutil.Queryer, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
 	query := `INSERT INTO evm.log_poller_blocks (evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at)
 			VALUES ($1, $2, $3, $4, $5, NOW())
 			ON CONFLICT DO NOTHING`
