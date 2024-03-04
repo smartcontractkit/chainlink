@@ -115,7 +115,8 @@ jobs:
         run: |
           NETWORKS="[\"${{ github.event.inputs.networks }}\"]"
           NETWORKS="${NETWORKS//,/\",\"}"
-          echo "matrix=${NETWORKS}"
+          echo "matrix=${NETWORKS}" >> "$GITHUB_OUTPUT"
+
 
   # End Build Test Dependencies
 
@@ -128,7 +129,6 @@ jobs:
       contents: read
     needs: [build-chainlink, build-tests, build-matrix]
     strategy:
-      max-parallel: 1
       fail-fast: false
       matrix: 
         network: ${{fromJson(needs.build-matrix.outputs.matrix)}}
