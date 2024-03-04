@@ -107,7 +107,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	validateFiltersTable(t, lp, orm)
 
 	// Removing non-existence Filter should log error but return nil
-	err = lp.UnregisterFilter(testutils.Context(t), "Filter doesn't exist")
+	err = lp.UnregisterFilter(ctx, "Filter doesn't exist")
 	require.NoError(t, err)
 	require.Equal(t, observedLogs.Len(), 1)
 	require.Contains(t, observedLogs.TakeAll()[0].Entry.Message, "not found")
@@ -121,19 +121,19 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.True(t, ok, "'Emitter Log 1 + 2 dupe' Filter missing")
 
 	// Removing an existing Filter should remove it from both memory and db
-	err = lp.UnregisterFilter(testutils.Context(t), "Emitter Log 1 + 2")
+	err = lp.UnregisterFilter(ctx, "Emitter Log 1 + 2")
 	require.NoError(t, err)
 	_, ok = lp.filters["Emitter Log 1 + 2"]
 	require.False(t, ok, "'Emitter Log 1 Filter' should have been removed by UnregisterFilter()")
 	require.Len(t, lp.filters, 2)
 	validateFiltersTable(t, lp, orm)
 
-	err = lp.UnregisterFilter(testutils.Context(t), "Emitter Log 1 + 2 dupe")
+	err = lp.UnregisterFilter(ctx, "Emitter Log 1 + 2 dupe")
 	require.NoError(t, err)
-	err = lp.UnregisterFilter(testutils.Context(t), "Emitter Log 1")
+	err = lp.UnregisterFilter(ctx, "Emitter Log 1")
 	require.NoError(t, err)
 	assert.Len(t, lp.filters, 0)
-	filters, err := lp.orm.LoadFilters(testutils.Context(t))
+	filters, err := lp.orm.LoadFilters(ctx)
 	require.NoError(t, err)
 	assert.Len(t, filters, 0)
 
@@ -254,6 +254,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
+	ctx := testutils.Context(t)
 
 	head := evmtypes.Head{Number: 4}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
@@ -282,8 +283,8 @@ func TestLogPoller_Replay(t *testing.T) {
 	lp := NewLogPoller(orm, ec, lggr, lpOpts)
 
 	// process 1 log in block 3
-	lp.PollAndSaveLogs(testutils.Context(t), 4)
-	latest, err := lp.LatestBlock(testutils.Context(t))
+	lp.PollAndSaveLogs(ctx, 4)
+	latest, err := lp.LatestBlock(ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), latest.BlockNumber)
 
@@ -460,6 +461,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
+	ctx := testutils.Context(t)
 
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
@@ -477,7 +479,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 		ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 
 		lp := NewLogPoller(orm, ec, lggr, lpOpts)
-		latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(testutils.Context(t))
+		latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 		require.NoError(t, err)
 		require.Equal(t, latestBlock.Number, head.Number)
 		require.Equal(t, lpOpts.FinalityDepth, latestBlock.Number-lastFinalizedBlockNumber)
@@ -503,7 +505,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 			lpOpts.UseFinalityTag = true
 			lp := NewLogPoller(orm, ec, lggr, lpOpts)
 
-			latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(testutils.Context(t))
+			latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 			require.NoError(t, err)
 			require.Equal(t, expectedLatestBlockNumber, latestBlock.Number)
 			require.Equal(t, expectedLastFinalizedBlockNumber, lastFinalizedBlockNumber)
@@ -521,7 +523,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 
 			lpOpts.UseFinalityTag = true
 			lp := NewLogPoller(orm, ec, lggr, lpOpts)
-			_, _, err := lp.latestBlocks(testutils.Context(t))
+			_, _, err := lp.latestBlocks(ctx)
 			require.Error(t, err)
 		})
 
@@ -530,7 +532,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 			ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
 			lpOpts.UseFinalityTag = true
 			lp := NewLogPoller(orm, ec, lggr, lpOpts)
-			_, _, err := lp.latestBlocks(testutils.Context(t))
+			_, _, err := lp.latestBlocks(ctx)
 			require.Error(t, err)
 		})
 	})
