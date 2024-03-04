@@ -67,10 +67,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) BeforeJobCreated(job.Job)              {}
-func (d *Delegate) AfterJobCreated(job.Job)               {}
-func (d *Delegate) BeforeJobDeleted(job.Job)              {}
-func (d *Delegate) OnDeleteJob(job.Job, pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(job.Job)                               {}
+func (d *Delegate) AfterJobCreated(job.Job)                                {}
+func (d *Delegate) BeforeJobDeleted(job.Job)                               {}
+func (d *Delegate) OnDeleteJob(context.Context, job.Job, pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {

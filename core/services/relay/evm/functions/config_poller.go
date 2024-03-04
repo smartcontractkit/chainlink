@@ -184,11 +184,9 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 }
 
 // called from LogPollerWrapper in a separate goroutine
-func (cp *configPoller) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+func (cp *configPoller) UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error {
 	cp.targetContract.Store(&activeCoordinator)
 	// Register filters for both active and proposed
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	err := cp.destChainLogPoller.RegisterFilter(ctx, logpoller.Filter{Name: configPollerFilterName(activeCoordinator), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{activeCoordinator}})
 	if err != nil {
 		return err

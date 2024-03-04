@@ -73,7 +73,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {
 		)
 	}
 }
-func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {

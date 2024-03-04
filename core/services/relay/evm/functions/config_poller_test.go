@@ -92,7 +92,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	servicetest.Run(t, lp)
 	configPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, lggr)
 	require.NoError(t, err)
-	require.NoError(t, configPoller.UpdateRoutes(ocrAddress, ocrAddress))
+	require.NoError(t, configPoller.UpdateRoutes(testutils.Context(t), ocrAddress, ocrAddress))
 	// Should have no config to begin with.
 	_, config, err := configPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)

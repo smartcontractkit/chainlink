@@ -273,7 +273,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
-func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
+func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) error {
 	// If the job spec is malformed in any way, we report the error but return nil so that
 	//  the job deletion itself isn't blocked.
 
@@ -290,13 +290,13 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	}
 	// we only have clean to do for the EVM
 	if rid.Network == relay.EVM {
-		return d.cleanupEVM(jb, q, rid)
+		return d.cleanupEVM(ctx, jb, q, rid)
 	}
 	return nil
 }
 
 // cleanupEVM is a helper for clean up EVM specific state when a job is deleted
-func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error {
+func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, q pg.Queryer, relayID relay.ID) error {
 	//  If UnregisterFilter returns an
 	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
 	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
@@ -341,8 +341,6 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 	}
 
 	filters = append(filters, relayFilters...)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
 		err = lp.UnregisterFilter(ctx, filter)

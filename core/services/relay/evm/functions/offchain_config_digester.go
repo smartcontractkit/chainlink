@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -82,7 +83,7 @@ func (d *functionsOffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDige
 }
 
 // called from LogPollerWrapper in a separate goroutine
-func (d *functionsOffchainConfigDigester) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+func (d *functionsOffchainConfigDigester) UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error {
 	d.contractAddress.Store(&activeCoordinator)
 	return nil
 }
