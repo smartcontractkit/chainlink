@@ -113,7 +113,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 // FindTxWithIdempotencyKey returns a transaction with the given idempotency key
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID CHAIN_ID) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_tx_with_idempotency_key: %w", ErrInvalidChainID)
+		return nil, nil
 	}
 
 	// Check if the transaction is in the pending queue of all address states
@@ -125,7 +125,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		}
 	}
 
-	return nil, fmt.Errorf("find_tx_with_idempotency_key: %w", ErrTxnNotFound)
+	return nil, nil
 }
 
 // CheckTxQueueCapacity checks if the queue capacity has been reached for a given address

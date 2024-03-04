@@ -1,13 +1,100 @@
 package txmgr_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	//"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+
+	//	evmassets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	/*
+		toAddress := testutils.NewAddress()
+		gasLimit := uint32(1000)
+		payload := []byte{1, 2, 3}
+	*/
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	idempotencyKey := "777"
+	inTx := cltest.NewEthTx(fromAddress)
+	inTx.IdempotencyKey = &idempotencyKey
+	// insert the transaction into the persistent store
+	require.NoError(t, persistentStore.InsertTx(&inTx))
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+	tcs := []struct {
+		name             string
+		inIdempotencyKey string
+		inChainID        *big.Int
+
+		expNilErr bool
+		expNilTx  bool
+	}{
+		{"no idempotency key", "", chainID, true, true},
+		{"wrong idempotency key", "wrong", chainID, true, true},
+		{"finds tx with idempotency key", idempotencyKey, chainID, false, false},
+		{"wrong chain", idempotencyKey, big.NewInt(999), true, true},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
+			actTx, actErr := inMemoryStore.FindTxWithIdempotencyKey(ctx, tc.inIdempotencyKey, tc.inChainID)
+			expTx, expErr := persistentStore.FindTxWithIdempotencyKey(ctx, tc.inIdempotencyKey, tc.inChainID)
+			require.Equal(t, expErr, actErr)
+			if tc.expNilErr {
+				require.Nil(t, actErr)
+				require.Nil(t, expErr)
+			}
+			if tc.expNilTx {
+				require.Nil(t, actTx)
+				require.Nil(t, expTx)
+			} else {
+				require.NotNil(t, actTx)
+				require.NotNil(t, expTx)
+				assertTxEqual(t, *expTx, *actTx)
+			}
+		})
+	}
+}
 
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
