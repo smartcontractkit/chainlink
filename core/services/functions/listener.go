@@ -185,14 +185,14 @@ func NewFunctionsListener(
 }
 
 // Start complies with job.Service
-func (l *functionsListener) Start(ctx context.Context) error {
+func (l *functionsListener) Start(context.Context) error {
 	return l.StartOnce("FunctionsListener", func() error {
 		l.serviceContext, l.serviceCancel = context.WithCancel(context.Background())
 
 		switch l.pluginConfig.ContractVersion {
 		case 1:
 			l.shutdownWaitGroup.Add(1)
-			go l.processOracleEventsV1(ctx)
+			go l.processOracleEventsV1(l.serviceContext)
 		default:
 			return fmt.Errorf("unsupported contract version: %d", l.pluginConfig.ContractVersion)
 		}

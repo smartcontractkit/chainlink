@@ -112,7 +112,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	}, nil
 }
 
-func (l *logPollerWrapper) Start(ctx context.Context) error {
+func (l *logPollerWrapper) Start(context.Context) error {
 	return l.StartOnce("LogPollerWrapper", func() error {
 		l.lggr.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
 		l.mu.Lock()
@@ -121,7 +121,7 @@ func (l *logPollerWrapper) Start(ctx context.Context) error {
 			return errors.New("only contract version 1 is supported")
 		}
 		l.closeWait.Add(1)
-		go l.checkForRouteUpdates(ctx)
+		go l.checkForRouteUpdates()
 		return nil
 	})
 }
@@ -329,7 +329,7 @@ func (l *logPollerWrapper) SubscribeToUpdates(ctx context.Context, subscriberNam
 	}
 }
 
-func (l *logPollerWrapper) checkForRouteUpdates(ctx context.Context) {
+func (l *logPollerWrapper) checkForRouteUpdates() {
 	defer l.closeWait.Done()
 	freqSec := l.pluginConfig.ContractUpdateCheckFrequencySec
 	if freqSec == 0 {
@@ -346,7 +346,10 @@ func (l *logPollerWrapper) checkForRouteUpdates(ctx context.Context) {
 			l.lggr.Errorw("LogPollerWrapper: error calling getCurrentCoordinators", "err", err)
 			return
 		}
-		l.handleRouteUpdate(ctx, active, proposed)
+
+		handleRouteCtx, handleRouteCancel := utils.ContextFromChan(l.stopCh)
+		defer handleRouteCancel()
+		l.handleRouteUpdate(handleRouteCtx, active, proposed)
 	}
 
 	updateOnce() // update once right away
