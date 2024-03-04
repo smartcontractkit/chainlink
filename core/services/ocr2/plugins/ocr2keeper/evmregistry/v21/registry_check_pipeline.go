@@ -22,7 +22,7 @@ const (
 	// checkBlockTooOldRange is the number of blocks that can be behind the latest block before
 	// we return a CheckBlockTooOld error
 	checkBlockTooOldRange = 128
-	zeroAddress = "0x0000000000000000000000000000000000000000"
+	zeroAddress           = "0x0000000000000000000000000000000000000000"
 )
 
 type checkResult struct {
