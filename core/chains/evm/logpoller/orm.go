@@ -109,8 +109,6 @@ func (o *orm) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumbe
 // Each address/event pair must have a unique job id, so it may be removed when the job is deleted.
 // If a second job tries to overwrite the same pair, this should fail.
 func (o *orm) InsertFilter(ctx context.Context, filter Filter) (err error) {
-	// '::' has to be escaped in the query string
-	// https://github.com/jmoiron/sqlx/issues/91, https://github.com/jmoiron/sqlx/issues/428
 	topicArrays := []types.HashArray{filter.Topic2, filter.Topic3, filter.Topic4}
 	args, err := newQueryArgs(o.chainID).
 		withCustomArg("name", filter.Name).
@@ -124,8 +122,6 @@ func (o *orm) InsertFilter(ctx context.Context, filter Filter) (err error) {
 	if err != nil {
 		return err
 	}
-	// '::' has to be escaped in the query string
-	// https://github.com/jmoiron/sqlx/issues/91, https://github.com/jmoiron/sqlx/issues/428
 	var topicsColumns, topicsSql strings.Builder
 	for n, topicValues := range topicArrays {
 		if len(topicValues) != 0 {
@@ -134,6 +130,8 @@ func (o *orm) InsertFilter(ctx context.Context, filter Filter) (err error) {
 			fmt.Fprintf(&topicsSql, ",\n(SELECT unnest(:%s ::::BYTEA[]) %s) t%d", topicCol, topicCol, n+2)
 		}
 	}
+	// '::' has to be escaped in the query string
+	// https://github.com/jmoiron/sqlx/issues/91, https://github.com/jmoiron/sqlx/issues/428
 	query := fmt.Sprintf(`
 		INSERT INTO evm.log_poller_filters
 	  		(name, evm_chain_id, retention, max_logs_kept, logs_per_block, created_at, address, event %s)
@@ -367,7 +365,7 @@ func (o *orm) insertBlockWithinTx(ctx context.Context, tx sqlutil.Queryer, block
 	return err
 }
 
-func (o *orm) insertLogsWithinTx(ctx context.Context, logs []Log, tx *sqlx.Tx) error {
+func (o *orm) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.Queryer) error {
 	batchInsertSize := 4000
 	for i := 0; i < len(logs); i += batchInsertSize {
 		start, end := i, i+batchInsertSize
@@ -375,14 +373,14 @@ func (o *orm) insertLogsWithinTx(ctx context.Context, logs []Log, tx *sqlx.Tx) e
 			end = len(logs)
 		}
 
-		_, err := tx.NamedExecContext(ctx, `
-				INSERT INTO evm.logs 
+		query := `INSERT INTO evm.logs 
 					(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) 
 				VALUES 
 					(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
-				ON CONFLICT DO NOTHING`,
-			logs[start:end],
-		)
+				ON CONFLICT DO NOTHING`
+
+		query, sqlArgs, _ := o.db.BindNamed(query, logs[start:end])
+		_, err := tx.ExecContext(ctx, query, sqlArgs...)
 
 		if err != nil {
 			if pkgerrors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {

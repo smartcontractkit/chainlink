@@ -170,14 +170,14 @@ func GetExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *lp_config.Conf
 }
 
 // NodeHasExpectedFilters returns true if the provided node has all the expected filters registered
-func NodeHasExpectedFilters(expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, string, error) {
+func NodeHasExpectedFilters(ctx context.Context, expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, string, error) {
 	orm, db, err := NewOrm(logger, chainID, postgresDb)
 	if err != nil {
 		return false, "", err
 	}
 
 	defer db.Close()
-	knownFilters, err := orm.LoadFilters(context.Background())
+	knownFilters, err := orm.LoadFilters(ctx)
 	if err != nil {
 		return false, "", err
 	}
@@ -594,7 +594,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 		return nil, dbError
 	}
 
-	allLogsInEVMNode, err := getEVMLogs(startBlock, endBlock, logEmitters, evmClient, l, cfg)
+	allLogsInEVMNode, err := getEVMLogs(ctx, startBlock, endBlock, logEmitters, evmClient, l, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -722,13 +722,13 @@ func PrintMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Log
 
 // getEVMLogs returns a slice of all logs emitted by the provided log emitters in the provided block range,
 // which are present in the EVM node to which the provided evm client is connected
-func getEVMLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *lp_config.Config) ([]geth_types.Log, error) {
+func getEVMLogs(ctx context.Context, startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *lp_config.Config) ([]geth_types.Log, error) {
 	allLogsInEVMNode := make([]geth_types.Log, 0)
 	for j := 0; j < len(logEmitters); j++ {
 		address := (*logEmitters[j]).Address()
 		for _, event := range cfg.General.EventsToEmit {
 			l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching logs from EVM node")
-			logsInEVMNode, err := evmClient.FilterLogs(context.Background(), geth.FilterQuery{
+			logsInEVMNode, err := evmClient.FilterLogs(ctx, geth.FilterQuery{
 				Addresses: []common.Address{(address)},
 				Topics:    [][]common.Hash{{event.ID}},
 				FromBlock: big.NewInt(startBlock),
