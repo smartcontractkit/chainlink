@@ -1482,7 +1482,7 @@ func TestTooManyLogResults(t *testing.T) {
 	})
 	require.NoError(t, err)
 	lp.PollAndSaveLogs(ctx, 5)
-	block, err2 := o.SelectLatestBlock(testutils.Context(t))
+	block, err2 := o.SelectLatestBlock(ctx)
 	require.NoError(t, err2)
 	assert.Equal(t, int64(298), block.BlockNumber)
 
@@ -1513,7 +1513,7 @@ func TestTooManyLogResults(t *testing.T) {
 	})
 
 	lp.PollAndSaveLogs(ctx, 298)
-	block, err2 = o.SelectLatestBlock(testutils.Context(t))
+	block, err2 = o.SelectLatestBlock(ctx)
 	require.NoError(t, err2)
 	assert.Equal(t, int64(298), block.BlockNumber)
 	warns := obs.FilterMessageSnippet("halving block range").FilterLevelExact(zapcore.WarnLevel).All()
@@ -1542,7 +1542,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 	th := SetupTH(t, lpOpts)
 
 	eventSig := EmitterABI.Events["Log1"].ID
-	err := th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
+	err := th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name:      "GetBlocks Test",
 		EventSigs: []common.Hash{eventSig},
 		Addresses: []common.Address{th.EmitterAddress1}},
@@ -1571,7 +1571,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 	require.Equal(t, int(currentBlock), firstBatchLen+secondBatchLen+2)
 
 	finalizedLogs, err := th.LogPoller.LogsDataWordGreaterThan(
-		testutils.Context(t),
+		ctx,
 		eventSig,
 		th.EmitterAddress1,
 		0,
@@ -1583,7 +1583,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 
 	numberOfConfirmations := 1
 	logsByConfs, err := th.LogPoller.LogsDataWordGreaterThan(
-		testutils.Context(t),
+		ctx,
 		eventSig,
 		th.EmitterAddress1,
 		0,
@@ -1634,7 +1634,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 			}
 			th := SetupTH(t, lpOpts)
 			// Should return error before the first poll and save
-			_, err := th.LogPoller.LatestBlock(testutils.Context(t))
+			_, err := th.LogPoller.LatestBlock(ctx)
 			require.Error(t, err)
 
 			// Mark first block as finalized
@@ -1648,7 +1648,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 
 			th.PollAndSaveLogs(ctx, 1)
 
-			latestBlock, err := th.LogPoller.LatestBlock(testutils.Context(t))
+			latestBlock, err := th.LogPoller.LatestBlock(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(numberOfBlocks), latestBlock.BlockNumber)
 			require.Equal(t, tt.expectedFinalizedBlock, latestBlock.FinalizedBlockNumber)
@@ -1787,7 +1787,7 @@ func Test_PruneOldBlocks(t *testing.T) {
 			th := SetupTH(t, lpOpts)
 
 			for i := 1; i <= tt.blockToCreate; i++ {
-				err := th.ORM.InsertBlock(testutils.Context(t), utils.RandomBytes32(), int64(i+10), time.Now(), int64(i))
+				err := th.ORM.InsertBlock(ctx, utils.RandomBytes32(), int64(i+10), time.Now(), int64(i))
 				require.NoError(t, err)
 			}
 
