@@ -177,7 +177,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, lpOpts)
 	servicetest.Run(t, lp)
 
-	configPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID)
+	configPoller, err := NewConfigPoller(testutils.Context(t), lggr, lp, verifierAddress, feedID)
 	require.NoError(t, err)
 
 	configPoller.Start()

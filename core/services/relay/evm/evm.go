@@ -185,6 +185,8 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 }
 
 func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
 	lggr := r.lggr.Named("MercuryProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
@@ -205,7 +207,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	cp, err := newMercuryConfigProvider(lggr, r.chain, relayOpts)
+	cp, err := newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
@@ -315,6 +317,9 @@ func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs common
 
 // NewConfigProvider is called by bootstrap jobs
 func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider commontypes.ConfigProvider, err error) {
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
 	lggr := r.lggr.Named("ConfigProvider").Named(args.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(args)
 	relayConfig, err := relayOpts.RelayConfig()
@@ -340,7 +345,7 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 	case "median":
 		configProvider, err = newStandardConfigProvider(lggr, r.chain, relayOpts)
 	case "mercury":
-		configProvider, err = newMercuryConfigProvider(lggr, r.chain, relayOpts)
+		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "llo":
 		configProvider, err = newLLOConfigProvider(lggr, r.chain, relayOpts)
 	default:
