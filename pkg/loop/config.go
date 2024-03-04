@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	envDatabaseURL            = "CL_DATABASE_URL"
 	envPromPort               = "CL_PROMETHEUS_PORT"
 	envTracingEnabled         = "CL_TRACING_ENABLED"
 	envTracingCollectorTarget = "CL_TRACING_COLLECTOR_TARGET"
@@ -20,6 +21,8 @@ const (
 // EnvConfig is the configuration between the application and the LOOP executable. The values
 // are fully resolved and static and passed via the environment.
 type EnvConfig struct {
+	DatabaseURL *url.URL
+
 	PrometheusPort int
 
 	TracingEnabled         bool
@@ -32,6 +35,7 @@ type EnvConfig struct {
 // AsCmdEnv returns a slice of environment variable key/value pairs for an exec.Cmd.
 func (e *EnvConfig) AsCmdEnv() (env []string) {
 	injectEnv := map[string]string{
+		envDatabaseURL:            e.DatabaseURL.String(),
 		envPromPort:               strconv.Itoa(e.PrometheusPort),
 		envTracingEnabled:         strconv.FormatBool(e.TracingEnabled),
 		envTracingCollectorTarget: e.TracingCollectorTarget,
@@ -53,6 +57,11 @@ func (e *EnvConfig) AsCmdEnv() (env []string) {
 func (e *EnvConfig) parse() error {
 	promPortStr := os.Getenv(envPromPort)
 	var err error
+	e.DatabaseURL, err = getDatabaseURL()
+	if err != nil {
+		return fmt.Errorf("failed to parse %s: %q", envDatabaseURL, err)
+	}
+
 	e.PrometheusPort, err = strconv.Atoi(promPortStr)
 	if err != nil {
 		return fmt.Errorf("failed to parse %s = %q: %w", envPromPort, promPortStr, err)
@@ -122,4 +131,18 @@ func getTracingSamplingRatio() float64 {
 // getTLSCertPath parses the CL_TRACING_TLS_CERT_PATH environment variable.
 func getTLSCertPath() string {
 	return os.Getenv(envTracingTLSCertPath)
+}
+
+// getDatabaseURL parses the CL_DATABASE_URL environment variable.
+func getDatabaseURL() (*url.URL, error) {
+	databaseURL := os.Getenv(envDatabaseURL)
+	if databaseURL == "" {
+		// DatabaseURL is optional
+		return nil, nil
+	}
+	u, err := url.Parse(databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %s: %w", envDatabaseURL, err)
+	}
+	return u, nil
 }

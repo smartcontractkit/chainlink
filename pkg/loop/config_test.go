@@ -1,6 +1,7 @@
 package loop
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ func TestEnvConfig_parse(t *testing.T) {
 		name                           string
 		envVars                        map[string]string
 		expectError                    bool
+		expectedDatabaseURL            string
 		expectedPrometheusPort         int
 		expectedTracingEnabled         bool
 		expectedTracingCollectorTarget string
@@ -23,6 +25,7 @@ func TestEnvConfig_parse(t *testing.T) {
 		{
 			name: "All variables set correctly",
 			envVars: map[string]string{
+				envDatabaseURL:              "postgres://user:password@localhost:5432/db",
 				envPromPort:                 "8080",
 				envTracingEnabled:           "true",
 				envTracingCollectorTarget:   "some:target",
@@ -31,11 +34,19 @@ func TestEnvConfig_parse(t *testing.T) {
 				envTracingAttribute + "XYZ": "value",
 			},
 			expectError:                    false,
+			expectedDatabaseURL:            "postgres://user:password@localhost:5432/db",
 			expectedPrometheusPort:         8080,
 			expectedTracingEnabled:         true,
 			expectedTracingCollectorTarget: "some:target",
 			expectedTracingSamplingRatio:   1.0,
 			expectedTracingTLSCertPath:     "internal/test/fixtures/client.pem",
+		},
+		{
+			name: "CL_DATABASE_URL parse error",
+			envVars: map[string]string{
+				envDatabaseURL: "wrong-db-url",
+			},
+			expectError: true,
 		},
 		{
 			name: "CL_PROMETHEUS_PORT parse error",
@@ -71,6 +82,9 @@ func TestEnvConfig_parse(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				} else {
+					if config.DatabaseURL.String() != tc.expectedDatabaseURL {
+						t.Errorf("Expected Database URL %s, got %s", tc.expectedDatabaseURL, config.DatabaseURL)
+					}
 					if config.PrometheusPort != tc.expectedPrometheusPort {
 						t.Errorf("Expected Prometheus port %d, got %d", tc.expectedPrometheusPort, config.PrometheusPort)
 					}
@@ -94,6 +108,7 @@ func TestEnvConfig_parse(t *testing.T) {
 
 func TestEnvConfig_AsCmdEnv(t *testing.T) {
 	envCfg := EnvConfig{
+		DatabaseURL:            &url.URL{Scheme: "postgres", Host: "localhost:5432", User: url.UserPassword("user", "password"), Path: "/db"},
 		PrometheusPort:         9090,
 		TracingEnabled:         true,
 		TracingCollectorTarget: "http://localhost:9000",
@@ -108,6 +123,7 @@ func TestEnvConfig_AsCmdEnv(t *testing.T) {
 		got[pair[0]] = pair[1]
 	}
 
+	assert.Equal(t, "postgres://user:password@localhost:5432/db", got[envDatabaseURL])
 	assert.Equal(t, strconv.Itoa(9090), got[envPromPort])
 	assert.Equal(t, "true", got[envTracingEnabled])
 	assert.Equal(t, "http://localhost:9000", got[envTracingCollectorTarget])
