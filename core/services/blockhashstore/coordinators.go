@@ -70,8 +70,8 @@ type V1Coordinator struct {
 }
 
 // NewV1Coordinator creates a new V1Coordinator from the given contract.
-func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
-	err := lp.RegisterFilter(context.Background(), logpoller.Filter{
+func NewV1Coordinator(ctx context.Context, c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
+	err := lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: logpoller.FilterName("VRFv1CoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
@@ -159,8 +159,8 @@ type V2Coordinator struct {
 }
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
-	err := lp.RegisterFilter(context.Background(), logpoller.Filter{
+func NewV2Coordinator(ctx context.Context, c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
+	err := lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2CoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
@@ -250,8 +250,8 @@ type V2PlusCoordinator struct {
 }
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2PlusCoordinator(c v2plus.IVRFCoordinatorV2PlusInternalInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
-	err := lp.RegisterFilter(context.Background(), logpoller.Filter{
+func NewV2PlusCoordinator(ctx context.Context, c v2plus.IVRFCoordinatorV2PlusInternalInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
+	err := lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2PlusCoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),

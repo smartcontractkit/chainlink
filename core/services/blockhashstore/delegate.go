@@ -107,7 +107,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 
 		var coord *V1Coordinator
-		coord, err = NewV1Coordinator(c, lp)
+		coord, err = NewV1Coordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
@@ -122,7 +122,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 
 		var coord *V2Coordinator
-		coord, err = NewV2Coordinator(c, lp)
+		coord, err = NewV2Coordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
@@ -137,7 +137,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 
 		var coord *V2PlusCoordinator
-		coord, err = NewV2PlusCoordinator(c, lp)
+		coord, err = NewV2PlusCoordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2Plus coordinator")
 		}
