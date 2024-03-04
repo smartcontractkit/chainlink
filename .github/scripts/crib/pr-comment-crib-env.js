@@ -31,15 +31,6 @@ async function run() {
       return;
     }
 
-    // Comment header and unique identifier
-    const commentHeader = "## CRIB Environment Details";
-
-    // Check if the comment already exists
-    if (await commentExists(octokit, owner, repo, prNumber, commentHeader)) {
-      core.info("CRIB environment comment already exists. Skipping.");
-      return;
-    }
-
     // List labels on the PR
     const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
       owner,
@@ -54,6 +45,15 @@ async function run() {
 
     if (!labelMatches) {
       core.info("No 'crib' PR label found. Proceeding.");
+      return;
+    }
+
+    // Comment header and unique identifier
+    const commentHeader = "## CRIB Environment Details";
+
+    // Check if the comment already exists
+    if (await commentExists(octokit, owner, repo, prNumber, commentHeader)) {
+      core.info("CRIB environment comment already exists. Skipping.");
       return;
     }
 
