@@ -245,8 +245,8 @@ Load Config:
 		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
 
 		var overrideFn = func(_ interface{}, target interface{}) {
-			ctfconfig.MustConfigOverrideChainlinkVersion(loadedTestConfig.ChainlinkImage, target)
-			ctfconfig.MightConfigOverridePyroscopeKey(loadedTestConfig.Pyroscope, target)
+			ctfconfig.MustConfigOverrideChainlinkVersion(loadedTestConfig.GetChainlinkImageConfig(), target)
+			ctfconfig.MightConfigOverridePyroscopeKey(loadedTestConfig.GetPyroscopeConfig(), target)
 		}
 
 		cd := chainlink.NewWithOverride(i, map[string]any{
