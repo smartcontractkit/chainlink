@@ -48,8 +48,15 @@ type Encoder interface {
 
 type LogEventProvider interface {
 	GetLatestPayloads(context.Context) ([]UpkeepPayload, error)
+	SetConfig(LogEventProviderConfig)
 	Start(context.Context) error
 	Close() error
+}
+
+type LogEventProviderConfig struct {
+	NumLogUpkeeps    uint32
+	FastExecLogsHigh uint32
+	FastExecLogsLow  uint32
 }
 
 type RecoverableProvider interface {
