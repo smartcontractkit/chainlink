@@ -257,6 +257,37 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
   }
 
+  /**
+   * @notice sets billing configuration for a token
+   * @param token the address of the token
+   * @param config the config for the token
+   */
+  function setBillingConfig(address token, BillingConfig memory config) external onlyOwner {
+    require(token != address(0), "Token address cannot be zero address");
+
+    s_billingConfigs[token] = config;
+
+    // If the token is not already in the array, add it
+    if (!tokenExists(token)) {
+      s_billingTokens.push(token);
+    }
+
+    emit BillingConfigSet(token, config);
+  }
+
+  /**
+   * @notice checks if a token exists in the billingTokens array
+   * @param token the address of the token
+   */
+  function tokenExists(address token) internal view returns (bool) {
+    for (uint256 i = 0; i < s_billingTokens.length; i++) {
+      if (s_billingTokens[i] == token) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // ================================================================
   // |                           GETTERS                            |
   // ================================================================
@@ -307,6 +338,14 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
 
   function getAllowedReadOnlyAddress() external view returns (address) {
     return i_allowedReadOnlyAddress;
+  }
+
+  function getBillingTokens() external view returns (address[] memory) {
+    return s_billingTokens;
+  }
+
+  function getBillingToken(address token) external view returns (BillingConfig memory) {
+    return s_billingConfigs[token];
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {

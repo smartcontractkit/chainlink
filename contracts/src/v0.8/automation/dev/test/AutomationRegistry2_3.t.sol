@@ -7,7 +7,7 @@ import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
 import {AutomationRegistryBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
-import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster.sol";
+import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../chains/ChainModuleBase.sol";
 
 contract AutomationRegistry2_3_SetUp is BaseTest {
@@ -79,6 +79,35 @@ contract AutomationRegistry2_3_CheckUpkeep is AutomationRegistry2_3_SetUp {
     // Expecting a revert since the tx.origin is not address(0)
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster.OnlySimulatedBackend.selector));
     registryMaster.checkUpkeep(id, triggerData);
+  }
+}
+
+contract AutomationRegistry2_3_SetBillingConfig is AutomationRegistry2_3_SetUp {
+  function testSetBillingConfigSuccess() public {
+    uint32 gasFeePPB = 100;
+    uint24 flatFeeMicroLink = 5000;
+    address priceFeed = address(0x1234567890123456789012345678901234567890);
+    address linkToken = address(0x514910771AF9Ca656af840dff83E8264EcF986CA);
+
+    // TODO BillingConfig is different in IAutomationRegistryMaster and AutomationRegistryBase2_3
+    IAutomationRegistryMaster.AutomationRegistryBase2_3.BillingConfig memory billingConfig = IAutomationRegistryMaster.AutomationRegistryBase2_3.BillingConfig({
+      active: true,
+      gasFeePPB: gasFeePPB,
+      flatFeeMicroLink: flatFeeMicroLink,
+      priceFeed: priceFeed
+    });
+
+    // Set billing configuration
+    registryMaster.setBillingConfig(linkToken, billingConfig);
+
+    // Retrieve billing configuration for the token
+    IAutomationRegistryMaster.AutomationRegistryBase2_3.BillingConfig memory retrievedConfig = registryMaster.getBillingToken(linkToken);
+
+    // Check if the retrieved configuration matches the expected configuration
+    assertEq(retrievedConfig.active, billingConfig.active);
+    assertEq(retrievedConfig.gasFeePPB, billingConfig.gasFeePPB);
+    assertEq(retrievedConfig.flatFeeMicroLink, billingConfig.flatFeeMicroLink);
+    assertEq(retrievedConfig.priceFeed, billingConfig.priceFeed);
   }
 }
 

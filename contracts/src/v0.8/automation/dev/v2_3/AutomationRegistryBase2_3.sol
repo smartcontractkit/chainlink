@@ -103,6 +103,9 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
   mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
+  // billing
+  mapping(address => BillingConfig) internal s_billingConfigs; // billing configurations for different tokens
+  address[] internal s_billingTokens; // list of billing tokens
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -446,6 +449,16 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     bytes32 blockHash;
   }
 
+  /**
+   * @notice the billing config of a token
+   */
+  struct BillingConfig {
+    bool active;
+    uint32 gasFeePPB;
+    uint24 flatFeeMicroLink;
+    address priceFeed;
+  }
+
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
@@ -483,6 +496,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
+  // Event to emit when a billing configuration is set
+  event BillingConfigSet(address indexed token, BillingConfig config);
 
   /**
    * @param link address of the LINK Token
