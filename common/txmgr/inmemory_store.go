@@ -66,6 +66,7 @@ func NewInMemoryStore[
 	chainID CHAIN_ID,
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	config txmgrtypes.InMemoryStoreConfig,
 ) (*InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
 	ms := InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		lggr:     lggr,
@@ -76,8 +77,8 @@ func NewInMemoryStore[
 		addressStates: map[ADDR]*AddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{},
 	}
 
-	maxUnstarted := 50
-	addresses, err := keyStore.EnabledAddressesForChain(chainID)
+	maxUnstarted := int(config.MaxQueued())
+	addresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("new_in_memory_store: %w", err)
 	}

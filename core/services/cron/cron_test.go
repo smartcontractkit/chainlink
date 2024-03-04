@@ -41,7 +41,7 @@ func TestCronV2Pipeline(t *testing.T) {
 	delegate := cron.NewDelegate(runner, lggr)
 
 	require.NoError(t, jobORM.CreateJob(jb))
-	serviceArray, err := delegate.ServicesForSpec(*jb)
+	serviceArray, err := delegate.ServicesForSpec(testutils.Context(t), *jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
