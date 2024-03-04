@@ -183,7 +183,7 @@ type OracleResponse struct {
 }
 
 type RouteUpdateSubscriber interface {
-	UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error
+	UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error
 }
 
 // A LogPoller wrapper that understands router proxy contracts
@@ -194,5 +194,5 @@ type LogPollerWrapper interface {
 	LatestEvents(ctx context.Context) ([]OracleRequest, []OracleResponse, error)
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer
-	SubscribeToUpdates(name string, subscriber RouteUpdateSubscriber)
+	SubscribeToUpdates(ctx context.Context, name string, subscriber RouteUpdateSubscriber)
 }

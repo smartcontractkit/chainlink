@@ -145,9 +145,9 @@ func (_m *LogPollerWrapper) Start(_a0 context.Context) error {
 	return r0
 }
 
-// SubscribeToUpdates provides a mock function with given fields: name, subscriber
-func (_m *LogPollerWrapper) SubscribeToUpdates(name string, subscriber types.RouteUpdateSubscriber) {
-	_m.Called(name, subscriber)
+// SubscribeToUpdates provides a mock function with given fields: ctx, name, subscriber
+func (_m *LogPollerWrapper) SubscribeToUpdates(ctx context.Context, name string, subscriber types.RouteUpdateSubscriber) {
+	_m.Called(ctx, name, subscriber)
 }
 
 // NewLogPollerWrapper creates a new instance of LogPollerWrapper. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
