@@ -160,6 +160,14 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
+		// prepend the postgres version option from the toml config
+		if testconfig.GetChainlinkImageConfig().PostgresVersion != nil && *testconfig.GetChainlinkImageConfig().PostgresVersion != "" {
+			opts = append([]func(c *ClNode){
+				func(c *ClNode) {
+					c.PostgresDb.EnvComponent.ContainerVersion = *testconfig.GetChainlinkImageConfig().PostgresVersion
+				},
+			}, opts...)
+		}
 		opts = append(opts, WithSecrets(secretsConfig), WithLogStream(te.LogStream))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
