@@ -969,12 +969,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	// are moved correctly and requests can be made successfully in the subscription in
 	// new coordinator
 	t.Run("Test migration of direct billing using VRFV2PlusWrapper subID", func(t *testing.T) {
-		activeSubIdsOldCoordinatorBeforeMigration, err := vrfv2PlusContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
-		if err != nil {
-			// Empty subscriptions in coordinator throws IndexOutOfRange revert error
-			activeSubIdsOldCoordinatorBeforeMigration = []*big.Int{}
-		}
-
 		configCopy := config.MustCopy().(tc.TestConfig)
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			env,
@@ -993,7 +987,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 		vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.CoordinatorV2Plus)
 
-		activeSubIdsOldCoordinatorBeforeMigration, err = vrfv2PlusContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
+		activeSubIdsOldCoordinatorBeforeMigration, err := vrfv2PlusContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
 		require.NoError(t, err, "error occurred getting active sub ids")
 		require.Len(t, activeSubIdsOldCoordinatorBeforeMigration, 1, "Active Sub Ids length is not equal to 1")
 		activeSubID := activeSubIdsOldCoordinatorBeforeMigration[0]
