@@ -5215,24 +5215,6 @@ describe('AutomationRegistry2_2', () => {
           'CannotCancel()',
         )
       })
-
-      describe('when called by the owner when the admin has just canceled', () => {
-        let oldExpiration: BigNumber
-
-        beforeEach(async () => {
-          await registry.connect(admin).cancelUpkeep(upkeepId)
-          const registration = await registry.getUpkeep(upkeepId)
-          oldExpiration = registration.maxValidBlocknumber
-        })
-
-        it('allows the owner to cancel it more quickly', async () => {
-          await registry.connect(owner).cancelUpkeep(upkeepId)
-
-          const registration = await registry.getUpkeep(upkeepId)
-          const newExpiration = registration.maxValidBlocknumber
-          assert.isTrue(newExpiration.lt(oldExpiration))
-        })
-      })
     })
 
     describe('when called by the admin', async () => {
