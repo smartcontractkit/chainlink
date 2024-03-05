@@ -146,7 +146,7 @@ func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_
 	}
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
-	return logpoller.NewORM(chainID, db, logger), db, nil
+	return logpoller.NewORM(chainID, db, logger, false), db, nil
 }
 
 type ExpectedFilter struct {

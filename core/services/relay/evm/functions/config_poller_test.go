@@ -80,7 +80,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	defer ethClient.Close()
 	lggr := logger.TestLogger(t)
 
-	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)
+	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, true)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,

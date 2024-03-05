@@ -89,7 +89,7 @@ func TestConfigPoller(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
-		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr)
+		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, true)
 
 		lpOpts := logpoller.Opts{
 			PollPeriod:               100 * time.Millisecond,

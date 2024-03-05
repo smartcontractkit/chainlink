@@ -64,16 +64,18 @@ type orm struct {
 	chainID *big.Int
 	db      sqlutil.Queryer
 	lggr    logger.Logger
+	logSQL  bool
 }
 
 var _ ORM = &orm{}
 
 // NewORM creates an orm scoped to chainID.
-func NewORM(chainID *big.Int, db sqlutil.Queryer, lggr logger.Logger) ORM {
+func NewORM(chainID *big.Int, db sqlutil.Queryer, lggr logger.Logger, logSQL bool) ORM {
 	return &orm{
 		chainID: chainID,
 		db:      db,
 		lggr:    lggr,
+		logSQL:  logSQL,
 	}
 }
 
@@ -82,7 +84,20 @@ func (o *orm) Transaction(ctx context.Context, fn func(*orm) error) (err error) 
 }
 
 // new returns a NewORM like o, but backed by q.
-func (o *orm) new(q sqlutil.Queryer) *orm { return NewORM(o.chainID, q, o.lggr).(*orm) }
+func (o *orm) new(q sqlutil.Queryer) *orm { return NewORM(o.chainID, q, o.lggr, o.logSQL).(*orm) }
+
+func (o *orm) logQuery(query string) {
+	if o.logSQL {
+		o.lggr.Debugw("SQL QUERY", "sql", query)
+	}
+}
+
+func (o *orm) logError(err error, query string) error {
+	if o.logSQL && err != nil {
+		o.lggr.Debugw("SQL ERROR", "err", err, "sql", query)
+	}
+	return err
+}
 
 // InsertBlock is idempotent to support replays.
 func (o *orm) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
@@ -99,9 +114,11 @@ func (o *orm) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumbe
 				(evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at) 
       		VALUES (:evm_chain_id, :block_hash, :block_number, :block_timestamp, :finalized_block_number, NOW()) 
 			ON CONFLICT DO NOTHING`
+
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	_, err = o.db.ExecContext(ctx, query, sqlArgs...)
-	return err
+	return o.logError(err, query)
 }
 
 // InsertFilter is idempotent.
@@ -146,16 +163,17 @@ func (o *orm) InsertFilter(ctx context.Context, filter Filter) (err error) {
 		topicsSql.String())
 
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	_, err = o.db.ExecContext(ctx, query, sqlArgs...)
-	return err
+	return o.logError(err, query)
 }
 
 // DeleteFilter removes all events,address pairs associated with the Filter
 func (o *orm) DeleteFilter(ctx context.Context, name string) error {
-	_, err := o.db.ExecContext(ctx,
-		`DELETE FROM evm.log_poller_filters WHERE name = $1 AND evm_chain_id = $2`,
-		name, ubig.New(o.chainID))
-	return err
+	query := `DELETE FROM evm.log_poller_filters WHERE name = $1 AND evm_chain_id = $2`
+	o.logQuery(query)
+	_, err := o.db.ExecContext(ctx, query, name, ubig.New(o.chainID))
+	return o.logError(err, query)
 
 }
 
@@ -173,34 +191,41 @@ func (o *orm) LoadFilters(ctx context.Context) (map[string]Filter, error) {
 		FROM evm.log_poller_filters WHERE evm_chain_id = $1
 		GROUP BY name`
 	var rows []Filter
+	o.logQuery(query)
 	err := o.db.SelectContext(ctx, &rows, query, ubig.New(o.chainID))
 	filters := make(map[string]Filter)
 	for _, filter := range rows {
 		filters[filter.Name] = filter
 	}
-	return filters, err
+	return filters, o.logError(err, query)
 }
 
 func (o *orm) SelectBlockByHash(ctx context.Context, hash common.Hash) (*LogPollerBlock, error) {
 	var b LogPollerBlock
-	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE block_hash = $1 AND evm_chain_id = $2`, hash.Bytes(), ubig.New(o.chainID)); err != nil {
-		return nil, err
+	query := `SELECT * FROM evm.log_poller_blocks WHERE block_hash = $1 AND evm_chain_id = $2`
+	o.logQuery(query)
+	if err := o.db.GetContext(ctx, &b, query, hash.Bytes(), ubig.New(o.chainID)); err != nil {
+		return nil, o.logError(err, query)
 	}
 	return &b, nil
 }
 
 func (o *orm) SelectBlockByNumber(ctx context.Context, n int64) (*LogPollerBlock, error) {
 	var b LogPollerBlock
-	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE block_number = $1 AND evm_chain_id = $2`, n, ubig.New(o.chainID)); err != nil {
-		return nil, err
+	query := `SELECT * FROM evm.log_poller_blocks WHERE block_number = $1 AND evm_chain_id = $2`
+	o.logQuery(query)
+	if err := o.db.GetContext(ctx, &b, query, n, ubig.New(o.chainID)); err != nil {
+		return nil, o.logError(err, query)
 	}
 	return &b, nil
 }
 
 func (o *orm) SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error) {
 	var b LogPollerBlock
-	if err := o.db.GetContext(ctx, &b, `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`, ubig.New(o.chainID)); err != nil {
-		return nil, err
+	query := `SELECT * FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`
+	o.logQuery(query)
+	if err := o.db.GetContext(ctx, &b, query, ubig.New(o.chainID)); err != nil {
+		return nil, o.logError(err, query)
 	}
 	return &b, nil
 }
@@ -222,8 +247,9 @@ func (o *orm) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig c
 	var l Log
 
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.GetContext(ctx, &l, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return &l, nil
 }
@@ -231,25 +257,25 @@ func (o *orm) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig c
 // DeleteBlocksBefore delete all blocks before and including end.
 func (o *orm) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error) {
 	if limit > 0 {
-		fmt.Println("Deleting all blocks before with limit", end, limit)
-		result, err := o.db.ExecContext(ctx,
-			`DELETE FROM evm.log_poller_blocks
+		query := `DELETE FROM evm.log_poller_blocks
         				WHERE block_number IN (
             				SELECT block_number FROM evm.log_poller_blocks
             				WHERE block_number <= $1 
             				AND evm_chain_id = $2
 							LIMIT $3
 						)
-						AND evm_chain_id = $2`,
-			end, ubig.New(o.chainID), limit)
+						AND evm_chain_id = $2`
+		o.logQuery(query)
+		result, err := o.db.ExecContext(ctx, query, end, ubig.New(o.chainID), limit)
 		rowsAffected, _ := result.RowsAffected()
-		return rowsAffected, err
+		return rowsAffected, o.logError(err, query)
 	}
-	fmt.Println("Deleting all blocks before", end)
-	result, err := o.db.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks 
-       WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
+	query := `DELETE FROM evm.log_poller_blocks 
+       WHERE block_number <= $1 AND evm_chain_id = $2`
+	o.logQuery(query)
+	result, err := o.db.ExecContext(ctx, query, end, ubig.New(o.chainID))
 	rowsAffected, _ := result.RowsAffected()
-	return rowsAffected, err
+	return rowsAffected, o.logError(err, query)
 }
 
 func (o *orm) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
@@ -261,26 +287,28 @@ func (o *orm) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
 		// If not applied, these queries can become very slow. After some critical number
 		// of logs, Postgres will try to scan all the logs in the index by block_number.
 		// Latency without upper bound filter can be orders of magnitude higher for large number of logs.
-		_, err := o.db.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks 
+		query := `DELETE FROM evm.log_poller_blocks 
        						WHERE evm_chain_id = $1
        						AND block_number >= $2
        						AND block_number <= (SELECT MAX(block_number) 
 						 		FROM evm.log_poller_blocks 
-						 		WHERE evm_chain_id = $1)`,
-			ubig.New(o.chainID), start)
+						 		WHERE evm_chain_id = $1)`
+		o.logQuery(query)
+		_, err := o.db.ExecContext(ctx, query, ubig.New(o.chainID), start)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
-			return err
+			return o.logError(err, query)
 		}
 
-		_, err = o.db.ExecContext(ctx, `DELETE FROM evm.logs 
+		query = `DELETE FROM evm.logs 
        						WHERE evm_chain_id = $1 
        						AND block_number >= $2
-       						AND block_number <= (SELECT MAX(block_number) FROM evm.logs WHERE evm_chain_id = $1)`,
-			ubig.New(o.chainID), start)
+       						AND block_number <= (SELECT MAX(block_number) FROM evm.logs WHERE evm_chain_id = $1)`
+		o.logQuery(query)
+		_, err = o.db.ExecContext(ctx, query, ubig.New(o.chainID), start)
 		if err != nil {
 			o.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err)
-			return err
+			return o.logError(err, query)
 		}
 		return nil
 	})
@@ -297,8 +325,9 @@ type Exp struct {
 func (o *orm) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error) {
 	var err error
 	var result sql.Result
+	var query string
 	if limit > 0 {
-		result, err = o.db.ExecContext(ctx, `
+		query = `
 		DELETE FROM evm.logs
 		WHERE (evm_chain_id, address, event_sig, block_number) IN (
 			SELECT l.evm_chain_id, l.address, l.event_sig, l.block_number
@@ -312,20 +341,24 @@ func (o *orm) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error)
 			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
 			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')
 			LIMIT $2
-		)`, ubig.New(o.chainID), limit)
+		)`
+		o.logQuery(query)
+		result, err = o.db.ExecContext(ctx, query, ubig.New(o.chainID), limit)
 	} else {
-		result, err = o.db.ExecContext(ctx, `WITH r AS
+		// retention is in nanoseconds (time.Duration aka BIGINT)
+		query = `WITH r AS
 		( SELECT address, event, MAX(retention) AS retention
 			FROM evm.log_poller_filters WHERE evm_chain_id=$1 
 			GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))
 		) DELETE FROM evm.logs l USING r
 			WHERE l.evm_chain_id = $1 AND l.address=r.address AND l.event_sig=r.event
-			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`, // retention is in nanoseconds (time.Duration aka BIGINT)
-			ubig.New(o.chainID))
+			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`
+		o.logQuery(query)
+		result, err = o.db.ExecContext(ctx, query, ubig.New(o.chainID))
 	}
 
 	rowsAffected, _ := result.RowsAffected()
-	return rowsAffected, err
+	return rowsAffected, o.logError(err, query)
 }
 
 // InsertLogs is idempotent to support replays.
@@ -361,8 +394,9 @@ func (o *orm) insertBlockWithinTx(ctx context.Context, tx sqlutil.Queryer, block
 	query := `INSERT INTO evm.log_poller_blocks (evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at)
 			VALUES ($1, $2, $3, $4, $5, NOW())
 			ON CONFLICT DO NOTHING`
+	o.logQuery(query)
 	_, err := tx.ExecContext(ctx, query, ubig.New(o.chainID), blockHash.Bytes(), blockNumber, blockTimestamp, finalizedBlock)
-	return err
+	return o.logError(err, query)
 }
 
 func (o *orm) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.Queryer) error {
@@ -380,6 +414,7 @@ func (o *orm) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.Que
 				ON CONFLICT DO NOTHING`
 
 		query, sqlArgs, _ := o.db.BindNamed(query, logs[start:end])
+		o.logQuery(query)
 		_, err := tx.ExecContext(ctx, query, sqlArgs...)
 
 		if err != nil {
@@ -389,7 +424,7 @@ func (o *orm) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.Que
 				i -= batchInsertSize // counteract +=batchInsertSize on next loop iteration
 				continue
 			}
-			return err
+			return o.logError(err, query)
 		}
 	}
 	return nil
@@ -421,9 +456,10 @@ func (o *orm) SelectLogsByBlockRange(ctx context.Context, start, end int64) ([]L
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	err = o.db.SelectContext(ctx, &logs, query, sqlArgs...)
 	if err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -448,9 +484,10 @@ func (o *orm) SelectLogs(ctx context.Context, start, end int64, address common.A
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	err = o.db.SelectContext(ctx, &logs, query, sqlArgs...)
 	if err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -476,8 +513,9 @@ func (o *orm) SelectLogsCreatedAfter(ctx context.Context, address common.Address
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -503,11 +541,12 @@ func (o *orm) SelectLogsWithSigs(ctx context.Context, start, end int64, address 
 				ORDER BY (block_number, log_index)`
 
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	err = o.db.SelectContext(ctx, &logs, query, sqlArgs...)
 	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
-	return logs, err
+	return logs, o.logError(err, query)
 }
 
 func (o *orm) GetBlocksRange(ctx context.Context, start int64, end int64) ([]LogPollerBlock, error) {
@@ -527,9 +566,10 @@ func (o *orm) GetBlocksRange(ctx context.Context, start int64, end int64) ([]Log
 
 	var blocks []LogPollerBlock
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	err = o.db.SelectContext(ctx, &blocks, query, sqlArgs...)
 	if err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return blocks, nil
 }
@@ -560,8 +600,9 @@ func (o *orm) SelectLatestLogEventSigsAddrsWithConfs(ctx context.Context, fromBl
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to execute query")
+		return nil, o.logError(pkgerrors.Wrap(err, "failed to execute query"), query)
 	}
 	return logs, nil
 }
@@ -587,8 +628,9 @@ func (o *orm) SelectLatestBlockByEventSigsAddrsWithConfs(ctx context.Context, fr
 
 	var blockNumber int64
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.GetContext(ctx, &blockNumber, query, sqlArgs...); err != nil {
-		return 0, err
+		return 0, o.logError(err, query)
 	}
 	return blockNumber, nil
 }
@@ -615,8 +657,9 @@ func (o *orm) SelectLogsDataWordRange(ctx context.Context, address common.Addres
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -642,8 +685,9 @@ func (o *orm) SelectLogsDataWordGreaterThan(ctx context.Context, address common.
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -670,8 +714,9 @@ func (o *orm) SelectLogsDataWordBetween(ctx context.Context, address common.Addr
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -697,8 +742,9 @@ func (o *orm) SelectIndexedLogsTopicGreaterThan(ctx context.Context, address com
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -726,8 +772,9 @@ func (o *orm) SelectIndexedLogsTopicRange(ctx context.Context, address common.Ad
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -753,8 +800,9 @@ func (o *orm) SelectIndexedLogs(ctx context.Context, address common.Address, eve
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -782,9 +830,10 @@ func (o *orm) SelectIndexedLogsByBlockRange(ctx context.Context, start, end int6
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	err = o.db.SelectContext(ctx, &logs, query, sqlArgs...)
 	if err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -812,8 +861,9 @@ func (o *orm) SelectIndexedLogsCreatedAfter(ctx context.Context, address common.
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -837,9 +887,10 @@ func (o *orm) SelectIndexedLogsByTxHash(ctx context.Context, address common.Addr
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	err = o.db.SelectContext(ctx, &logs, query, sqlArgs...)
 	if err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }
@@ -881,8 +932,9 @@ func (o *orm) SelectIndexedLogsWithSigsExcluding(ctx context.Context, sigA, sigB
 
 	var logs []Log
 	query, sqlArgs, _ := o.db.BindNamed(query, args)
+	o.logQuery(query)
 	if err := o.db.SelectContext(ctx, &logs, query, sqlArgs...); err != nil {
-		return nil, err
+		return nil, o.logError(err, query)
 	}
 	return logs, nil
 }

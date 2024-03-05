@@ -62,7 +62,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 
-	orm := NewORM(chainID, db, lggr)
+	orm := NewORM(chainID, db, lggr, true)
 
 	// Set up a test chain with a log emitting contract deployed.
 	lpOpts := Opts{
@@ -204,7 +204,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr)
+	orm := NewORM(chainID, db, lggr, true)
 
 	head := evmtypes.Head{Number: 3}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
@@ -253,7 +253,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr)
+	orm := NewORM(chainID, db, lggr, true)
 	ctx := testutils.Context(t)
 
 	head := evmtypes.Head{Number: 4}
@@ -460,7 +460,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	lggr := logger.Test(t)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr)
+	orm := NewORM(chainID, db, lggr, true)
 	ctx := testutils.Context(t)
 
 	lpOpts := Opts{

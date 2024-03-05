@@ -270,7 +270,7 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 		RpcBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), it.chain.Client(), lggr, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, true), it.chain.Client(), lggr, lpOpts)
 	require.NoError(t, lp.Start(ctx))
 	it.chain.On("LogPoller").Return(lp)
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.chain, it.chainConfig)

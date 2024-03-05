@@ -88,7 +88,7 @@ func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 	chainId := big.NewInt(137)
 	ctx := testutils.Context(b)
 	_, db := heavyweight.FullTestDBV2(b, nil)
-	o := logpoller.NewORM(chainId, db, logger.Test(b))
+	o := logpoller.NewORM(chainId, db, logger.Test(b), true)
 	event, address, _ := populateDatabase(b, o, chainId)
 
 	// Setting searchDate to pick around 5k logs
@@ -109,7 +109,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := big.NewInt(137)
 
-	o := logpoller.NewORM(big.NewInt(137), db, logger.Test(t))
+	o := logpoller.NewORM(big.NewInt(137), db, logger.Test(t), true)
 	event1, address1, address2 := populateDatabase(t, o, chainID)
 
 	func() {
@@ -702,7 +702,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		t.Log("Starting test", mineOrReorg)
 		chainID := testutils.NewRandomEVMChainID()
 		// Set up a test chain with a log emitting contract deployed.
-		orm := logpoller.NewORM(chainID, db, lggr)
+		orm := logpoller.NewORM(chainID, db, lggr, true)
 		// Note this property test is run concurrently and the sim is not threadsafe.
 		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 			owner.From: {
@@ -1364,7 +1364,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	chainID1 := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
-	o := logpoller.NewORM(chainID1, db, lggr)
+	o := logpoller.NewORM(chainID1, db, lggr, true)
 
 	owner := testutils.MustNewSimTransactor(t)
 	ethDB := rawdb.NewMemoryDatabase()
@@ -1437,7 +1437,7 @@ func TestTooManyLogResults(t *testing.T) {
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
-	o := logpoller.NewORM(chainID, db, lggr)
+	o := logpoller.NewORM(chainID, db, lggr, true)
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Hour,

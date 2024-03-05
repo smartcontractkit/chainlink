@@ -165,7 +165,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	db := pgtest.NewSqlxDB(t)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)
+	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, true)
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,

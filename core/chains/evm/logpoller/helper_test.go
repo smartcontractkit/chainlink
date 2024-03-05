@@ -52,8 +52,8 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	chainID2 := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 
-	o := logpoller.NewORM(chainID, db, lggr)
-	o2 := logpoller.NewORM(chainID2, db, lggr)
+	o := logpoller.NewORM(chainID, db, lggr, true)
+	o2 := logpoller.NewORM(chainID2, db, lggr, true)
 	owner := testutils.MustNewSimTransactor(t)
 	ethDB := rawdb.NewMemoryDatabase()
 	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
