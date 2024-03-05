@@ -22,6 +22,7 @@ const (
 	// checkBlockTooOldRange is the number of blocks that can be behind the latest block before
 	// we return a CheckBlockTooOld error
 	checkBlockTooOldRange = 128
+	zeroAddress           = "0x0000000000000000000000000000000000000000"
 )
 
 type checkResult struct {
@@ -233,6 +234,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
+					"from": zeroAddress,
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},
@@ -320,6 +322,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
+					"from": zeroAddress,
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},

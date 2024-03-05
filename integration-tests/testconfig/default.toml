@@ -6,6 +6,9 @@ log_targets=["file"]
 log_producer_timeout="10s"
 log_producer_retry_limit=10
 
+[ChainlinkImage]
+postgres_version="15.6"
+
 [Network]
 selected_networks=["simulated"]
 
