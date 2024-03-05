@@ -51,10 +51,10 @@ jobs:
       release-version: ${{ steps.release-tag-check.outputs.release-version }}
       pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@ae1be257313b71d702be2d2bbe7ff76dc4fae460 # feat/release-tag-check-versions
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
         env:
           # Match semver git tags with a "contracts-" prefix.
           RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'
@@ -209,12 +209,11 @@ jobs:
           pnpm version ${{ needs.tag-check.outputs.pre-release-version }} --no-git-tag-version --no-commit-hooks --no-git-checks
 
       - name: Publish to NPM
-        uses: smartcontractkit/.github/actions/ci-publish-npm@7b965cf1a0d58d05a9b8a45fffd929cd1ee18393 # feat/ci-publish-npm-0-3-0
+        uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
           create-github-release: false
-          # TODO: Remove --dry-run when ready to publish
-          publish-command: "pnpm publish-beta --dry-run --no-git-checks"
+          publish-command: "pnpm publish-beta --no-git-checks"
           package-json-directory: contracts
 
       - name: Collect Metrics
@@ -252,14 +251,14 @@ jobs:
           fi
 
       - name: Publish to NPM
-        uses: smartcontractkit/.github/actions/ci-publish-npm@9b67e00c8ff886444445bd444186fe8c53b54dcb # feat/ci-publish-npm-0-3-0
+        uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           github-release-tag-name: ${{ github.ref_name }}
           github-release-changelog-path: "contracts/CHANGELOG.md"
           create-github-release: true
-          publish-command: "pnpm publish-prod --dry-run --no-git-checks"
+          publish-command: "pnpm publish-prod"
           package-json-directory: contracts
 
       - name: Collect Metrics
