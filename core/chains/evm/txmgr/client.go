@@ -171,7 +171,7 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 	_, errCall := c.client.CallContract(ctx, ethereum.CallMsg{
 		From:       a.Tx.FromAddress,
 		To:         &a.Tx.ToAddress,
-		Gas:        uint64(a.Tx.FeeLimit),
+		Gas:        a.Tx.FeeLimit,
 		GasPrice:   a.TxFee.Legacy.ToInt(),
 		GasFeeCap:  a.TxFee.DynamicFeeCap.ToInt(),
 		GasTipCap:  a.TxFee.DynamicTipCap.ToInt(),
