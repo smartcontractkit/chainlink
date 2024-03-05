@@ -902,12 +902,3 @@ func nestedBlockNumberQuery(confs Confirmations) string {
 			WHERE evm_chain_id = :evm_chain_id 
 			ORDER BY block_number DESC LIMIT 1) `
 }
-
-func UseTopicIndex(index int) (int, error) {
-	// Only topicIndex 1 through 3 is valid. 0 is the event sig and only 4 total topics are allowed
-	if !(index == 1 || index == 2 || index == 3) {
-		return 0, fmt.Errorf("invalid index for topic: %d", index)
-	}
-	// Add 1 since postgresql arrays are 1-indexed.
-	return index + 1, nil
-}
