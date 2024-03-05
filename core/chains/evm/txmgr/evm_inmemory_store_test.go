@@ -154,7 +154,93 @@ func TestInMemoryStore_CheckTxQueueCapacity(t *testing.T) {
 				require.NoError(t, expErr)
 				require.NoError(t, actErr)
 			}
-			//require.Equal(t, expErr, actErr)
+		})
+	}
+}
+
+func TestInMemoryStore_CountTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// initialize unstarted transactions
+	inUnstartedTxs := []evmtxmgr.Tx{
+		cltest.NewEthTx(fromAddress),
+		cltest.NewEthTx(fromAddress),
+	}
+	for _, inTx := range inUnstartedTxs {
+		// insert the transaction into the persistent store
+		require.NoError(t, persistentStore.InsertTx(&inTx))
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+	}
+	// initialize unconfirmed transactions
+	inNonces := []int64{1, 2, 3}
+	for _, inNonce := range inNonces {
+		// insert the transaction into the persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTx(t, persistentStore, inNonce, fromAddress)
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+	}
+
+	tcs := []struct {
+		name          string
+		inFromAddress common.Address
+		inChainID     *big.Int
+
+		expUnstartedCount   uint32
+		expUnconfirmedCount uint32
+		hasErr              bool
+	}{
+		{"return correct total transactions", fromAddress, chainID, 2, 3, false},
+		{"invalid chain id", fromAddress, big.NewInt(999), 0, 0, false},
+		{"invalid address", common.Address{}, chainID, 0, 0, false},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
+			actMemoryCount, actErr := inMemoryStore.CountUnstartedTransactions(ctx, tc.inFromAddress, tc.inChainID)
+			actPersistentCount, expErr := persistentStore.CountUnstartedTransactions(ctx, tc.inFromAddress, tc.inChainID)
+			if tc.hasErr {
+				require.NotNil(t, expErr)
+				require.NotNil(t, actErr)
+			} else {
+				require.NoError(t, expErr)
+				require.NoError(t, actErr)
+			}
+			assert.Equal(t, tc.expUnstartedCount, actMemoryCount)
+			assert.Equal(t, tc.expUnstartedCount, actPersistentCount)
+
+			actMemoryCount, actErr = inMemoryStore.CountUnconfirmedTransactions(ctx, tc.inFromAddress, tc.inChainID)
+			actPersistentCount, expErr = persistentStore.CountUnconfirmedTransactions(ctx, tc.inFromAddress, tc.inChainID)
+			if tc.hasErr {
+				require.NotNil(t, expErr)
+				require.NotNil(t, actErr)
+			} else {
+				require.NoError(t, expErr)
+				require.NoError(t, actErr)
+			}
+			assert.Equal(t, tc.expUnconfirmedCount, actMemoryCount)
+			assert.Equal(t, tc.expUnconfirmedCount, actPersistentCount)
 		})
 	}
 }

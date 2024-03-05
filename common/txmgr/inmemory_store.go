@@ -165,14 +165,14 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindL
 // NOTE(jtw): used to calculate total inflight transactions
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountUnconfirmedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (uint32, error) {
 	if ms.chainID.String() != chainID.String() {
-		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrInvalidChainID)
+		return 0, nil
 	}
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
-		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrAddressNotFound)
+		return 0, nil
 	}
 
 	return uint32(as.CountTransactionsByState(TxUnconfirmed)), nil
@@ -183,14 +183,14 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 // NOTE(jtw): used to calculate total inflight transactions
 func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountUnstartedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (uint32, error) {
 	if ms.chainID.String() != chainID.String() {
-		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrInvalidChainID)
+		return 0, nil
 	}
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
-		return 0, fmt.Errorf("count_unstarted_transactions: %w", ErrAddressNotFound)
+		return 0, nil
 	}
 
 	return uint32(as.CountTransactionsByState(TxUnstarted)), nil
