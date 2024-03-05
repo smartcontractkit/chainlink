@@ -63,11 +63,11 @@ func (g *gasEstimatorConfig) FeeCapDefault() *assets.Wei {
 	return g.c.FeeCapDefault
 }
 
-func (g *gasEstimatorConfig) LimitDefault() uint32 {
+func (g *gasEstimatorConfig) LimitDefault() uint64 {
 	return *g.c.LimitDefault
 }
 
-func (g *gasEstimatorConfig) LimitMax() uint32 {
+func (g *gasEstimatorConfig) LimitMax() uint64 {
 	return *g.c.LimitMax
 }
 

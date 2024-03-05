@@ -602,7 +602,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
-			FeeLimit:       uint32(estimateGasLimit),
+			FeeLimit:       estimateGasLimit,
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Meta: &txmgr.TxMeta{
 				RequestID:     &requestID,
@@ -814,7 +814,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
-					FeeLimit:       p.gasLimit,
+					FeeLimit:       uint64(p.gasLimit),
 					Meta: &txmgr.TxMeta{
 						RequestID:     &requestID,
 						MaxLink:       maxLink,

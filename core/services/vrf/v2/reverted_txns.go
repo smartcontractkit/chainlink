@@ -707,7 +707,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 		FromAddress:    fromAddress,
 		ToAddress:      lsn.vrfOwner.Address(),
 		EncodedPayload: txData,
-		FeeLimit:       uint32(estimateGasLimit),
+		FeeLimit:       estimateGasLimit,
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		Meta: &txmgr.TxMeta{
 			RequestID:               &reqID,

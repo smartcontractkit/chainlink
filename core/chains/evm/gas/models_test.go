@@ -22,7 +22,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// fee values
-	gasLimit := uint32(10)
+	gasLimit := uint64(10)
 	legacyFee := assets.NewWeiI(10)
 	dynamicFee := gas.DynamicFee{
 		FeeCap: assets.NewWeiI(20),

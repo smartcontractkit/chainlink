@@ -240,7 +240,7 @@ func (lsn *listenerV2) processBatch(
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
-			FeeLimit:       totalGasLimitBumped,
+			FeeLimit:       uint64(totalGasLimitBumped),
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Meta: &txmgr.TxMeta{
 				RequestIDs:      reqIDHashes,

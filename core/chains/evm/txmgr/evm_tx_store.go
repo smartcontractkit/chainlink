@@ -167,7 +167,7 @@ type DbEthTx struct {
 	Value          assets.Eth
 	// GasLimit on the EthTx is always the conceptual gas limit, which is not
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
-	GasLimit uint32
+	GasLimit uint64
 	Error    nullv4.String
 	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
@@ -276,7 +276,7 @@ type DbEthTxAttempt struct {
 	BroadcastBeforeBlockNum *int64
 	State                   string
 	CreatedAt               time.Time
-	ChainSpecificGasLimit   uint32
+	ChainSpecificGasLimit   uint64
 	TxType                  int
 	GasTipCap               *assets.Wei
 	GasFeeCap               *assets.Wei

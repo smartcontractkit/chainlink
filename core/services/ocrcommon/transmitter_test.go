@@ -31,7 +31,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
@@ -73,7 +73,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
@@ -124,7 +124,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 
 	fromAddress := common.Address{}
 
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
@@ -156,7 +156,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
 	txm := txmmocks.NewMockEvmTxManager(t)

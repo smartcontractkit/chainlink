@@ -24,7 +24,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 	maxGasPrice := assets.NewWeiI(100)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
-	const gasLimit uint32 = 80000
+	const gasLimit uint64 = 80000
 
 	cfg := &gas.MockGasEstimatorConfig{BumpPercentF: 10, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1}
 

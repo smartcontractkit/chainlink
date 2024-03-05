@@ -212,7 +212,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 		FromAddress:    config.FromAddress().Address(),
 		ToAddress:      config.ForwarderAddress().Address(),
 		EncodedPayload: calldata,
-		FeeLimit:       uint32(defaultGasLimit),
+		FeeLimit:       uint64(defaultGasLimit),
 		Meta:           txMeta,
 		Strategy:       strategy,
 		Checker:        checker,

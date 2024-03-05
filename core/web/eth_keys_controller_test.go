@@ -409,7 +409,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 		FromAddress:    addr,
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
-		FeeLimit:       uint32(1000),
+		FeeLimit:       uint64(1000),
 		Meta:           nil,
 		Strategy:       strategy,
 	})

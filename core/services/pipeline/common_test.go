@@ -324,7 +324,7 @@ func TestSelectGasLimit(t *testing.T) {
 	t.Parallel()
 
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(999))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(999))
 		c.EVM[0].GasEstimator.LimitJobType = toml.GasLimitJobType{
 			DR:     ptr(uint32(100)),
 			VRF:    ptr(uint32(101)),

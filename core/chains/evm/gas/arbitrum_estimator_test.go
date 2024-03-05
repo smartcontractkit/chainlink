@@ -23,12 +23,12 @@ import (
 )
 
 type arbConfig struct {
-	v           uint32
+	v           uint64
 	bumpPercent uint16
 	bumpMin     *assets.Wei
 }
 
-func (a *arbConfig) LimitMax() uint32 {
+func (a *arbConfig) LimitMax() uint64 {
 	return a.v
 }
 
@@ -44,9 +44,9 @@ func TestArbitrumEstimator(t *testing.T) {
 	t.Parallel()
 
 	maxGasPrice := assets.NewWeiI(100)
-	const maxGasLimit uint32 = 500_000
+	const maxGasLimit uint64 = 500_000
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
-	const gasLimit uint32 = 80000
+	const gasLimit uint64 = 80000
 	const gasPriceBufferPercentage = 50
 	const bumpPercent = 10
 	var bumpMin = assets.NewWei(big.NewInt(1))
@@ -195,7 +195,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			perL2Tx       = 50_000
 			perL1Calldata = 10_000
 		)
-		var expLimit = gasLimit + perL2Tx + perL1Calldata*uint32(len(calldata))
+		var expLimit = gasLimit + perL2Tx + perL1Calldata*uint64(len(calldata))
 
 		var b bytes.Buffer
 		b.Write(common.BigToHash(big.NewInt(perL2Tx)).Bytes())

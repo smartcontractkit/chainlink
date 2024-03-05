@@ -24,7 +24,7 @@ func Test_BumpLegacyGasPriceOnly(t *testing.T) {
 		bumpMin                *assets.Wei
 		priceMax               *assets.Wei
 		expectedGasPrice       *assets.Wei
-		originalLimit          uint32
+		originalLimit          uint64
 		limitMultiplierPercent float32
 		expectedLimit          uint64
 	}{
@@ -156,7 +156,7 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		bumpMin                *assets.Wei
 		priceMax               *assets.Wei
 		expectedFee            gas.DynamicFee
-		originalLimit          uint32
+		originalLimit          uint64
 		limitMultiplierPercent float32
 		expectedLimit          uint64
 	}{

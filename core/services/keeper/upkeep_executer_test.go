@@ -132,7 +132,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 			})
 
-		gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
+		gasLimit := uint64(5_000_000 + config.Keeper().Registry().PerformGasOverhead())
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateTransaction",
@@ -177,7 +177,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 			})
 
-			gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
+			gasLimit := uint64(5_000_000 + config.Keeper().Registry().PerformGasOverhead())
 
 			ethTxCreated := cltest.NewAwaiter()
 			txm.On("CreateTransaction",
@@ -287,7 +287,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			cltest.NewAwaiter(),
 			cltest.NewAwaiter(),
 		}
-		gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
+		gasLimit := uint64(5_000_000 + config.Keeper().Registry().PerformGasOverhead())
 		txm.On("CreateTransaction",
 			mock.Anything,
 			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool { return txRequest.FeeLimit == gasLimit }),

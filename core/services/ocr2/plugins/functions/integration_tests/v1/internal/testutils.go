@@ -312,7 +312,7 @@ func StartNewNode(
 	owner *bind.TransactOpts,
 	port int,
 	b *backends.SimulatedBackend,
-	maxGas uint32,
+	maxGas uint64,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	ocr2Keystore []byte,
 	thresholdKeyShare string,
@@ -557,7 +557,7 @@ func CreateFunctionsNodes(
 	}
 
 	bootstrapPort := freeport.GetOne(t)
-	bootstrapNode = StartNewNode(t, owner, bootstrapPort, b, uint32(maxGas), nil, nil, "")
+	bootstrapNode = StartNewNode(t, owner, bootstrapPort, b, uint64(maxGas), nil, nil, "")
 	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
@@ -575,7 +575,7 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		oracleNode := StartNewNode(t, owner, ports[i], b, uint32(maxGas), []commontypes.BootstrapperLocator{
+		oracleNode := StartNewNode(t, owner, ports[i], b, uint64(maxGas), []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)

@@ -561,7 +561,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		ToAddress:      to,
 		EncodedPayload: []byte{},
 		Value:          value,
-		FeeLimit:       gasLimit,
+		FeeLimit:       uint64(gasLimit),
 		Strategy:       NewSendEveryStrategy(),
 	}
 	etx, err = b.pruneQueueAndCreateTxn(ctx, txRequest, chainID)

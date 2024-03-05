@@ -18,7 +18,7 @@ import (
 )
 
 type batchBHSConfig interface {
-	LimitDefault() uint32
+	LimitDefault() uint64
 }
 
 type BatchBlockhashStore struct {

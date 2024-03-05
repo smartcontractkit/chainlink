@@ -2,19 +2,18 @@ package fee
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 
 	"github.com/shopspring/decimal"
 )
 
-func ApplyMultiplier(feeLimit uint32, multiplier float32) (uint32, error) {
-	result := decimal.NewFromBigInt(big.NewInt(0).SetUint64(uint64(feeLimit)), 0).Mul(decimal.NewFromFloat32(multiplier)).IntPart()
+func ApplyMultiplier(feeLimit uint64, multiplier float32) (uint64, error) {
+	result := decimal.NewFromBigInt(big.NewInt(0).SetUint64(uint64(feeLimit)), 0).Mul(decimal.NewFromFloat32(multiplier)).BigInt()
 
-	if result > math.MaxUint32 {
-		return 0, fmt.Errorf("integer overflow when applying multiplier of %f to fee limit of %d", multiplier, feeLimit)
+	if result.IsUint64() {
+		return 0, fmt.Errorf("integer cannot be represented as uint64 when applying multiplier of %f to fee limit of %d", multiplier, feeLimit)
 	}
-	return uint32(result), nil
+	return result.Uint64(), nil
 }
 
 // Returns the input value increased by the given percentage.

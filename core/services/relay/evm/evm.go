@@ -498,10 +498,10 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
 	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
 	if ocr2Limit != nil {
-		gasLimit = *ocr2Limit
+		gasLimit = uint64(*ocr2Limit)
 	}
 	if opts.pluginGasLimit != nil {
-		gasLimit = *opts.pluginGasLimit
+		gasLimit = uint64(*opts.pluginGasLimit)
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(

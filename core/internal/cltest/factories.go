@@ -142,7 +142,7 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          big.Int(assets.NewEthValue(142)),
-		FeeLimit:       uint32(1000000000),
+		FeeLimit:       uint64(1000000000),
 		State:          txmgrcommon.TxUnstarted,
 	}
 }

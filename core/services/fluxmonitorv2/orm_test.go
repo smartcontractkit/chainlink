@@ -180,7 +180,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore)
 		to       = testutils.NewAddress()
 		payload  = []byte{1, 0, 0}
-		gasLimit = uint32(21000)
+		gasLimit = uint64(21000)
 	)
 	idempotencyKey := uuid.New().String()
 	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{

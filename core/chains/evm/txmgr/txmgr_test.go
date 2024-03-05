@@ -113,7 +113,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
@@ -396,7 +396,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 
 	fromAddress := thisKey.Address
 	evmFromAddress := fromAddress
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	toAddress := testutils.NewAddress()
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
@@ -784,13 +784,13 @@ func withDefaults() func(*txmgr.TxRequest) {
 		tx.ToAddress = testutils.NewAddress()
 		tx.EncodedPayload = []byte{1, 2, 3}
 		tx.Value = big.Int(assets.NewEthValue(142))
-		tx.FeeLimit = uint32(1000000000)
+		tx.FeeLimit = uint64(1000000000)
 		tx.Strategy = txmgrcommon.NewSendEveryStrategy()
 		// Set default values for other fields if needed
 	}
 }
 
-func mustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.Tx) {
+func mustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64, value big.Int, chainID *big.Int) (tx txmgr.Tx) {
 	txRequest := txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,

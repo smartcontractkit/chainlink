@@ -25,7 +25,7 @@ import (
 var _ BHS = &BulletproofBHS{}
 
 type bpBHSConfig interface {
-	LimitDefault() uint32
+	LimitDefault() uint64
 }
 
 type bpBHSDatabaseConfig interface {

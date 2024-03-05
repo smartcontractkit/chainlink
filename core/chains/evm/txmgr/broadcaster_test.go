@@ -188,7 +188,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 	encodedPayload := []byte{1, 2, 3}
 	value := big.Int(assets.NewEthValue(142))
-	gasLimit := uint32(242)
+	gasLimit := uint64(242)
 	checker := txmgr.TransmitCheckerSpec{
 		CheckerType: txmgr.TransmitCheckerTypeSimulate,
 	}
@@ -705,7 +705,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	value := big.Int(assets.NewEthValue(142))
-	gasLimit := uint32(242)
+	gasLimit := uint64(242)
 	encodedPayload := []byte{0, 1}
 	nextNonce := evmtypes.Nonce(916714082576372851)
 	firstNonce := nextNonce
@@ -994,7 +994,7 @@ func getLocalNextNonce(t *testing.T, eb *txmgr.Broadcaster, fromAddress gethComm
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	value := big.Int(assets.NewEthValue(142))
-	gasLimit := uint32(242)
+	gasLimit := uint64(242)
 	encodedPayload := []byte{0, 1}
 
 	db := pgtest.NewSqlxDB(t)
@@ -1632,7 +1632,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	value := big.Int(assets.NewEthValue(142))
-	gasLimit := uint32(242)
+	gasLimit := uint64(242)
 	encodedPayload := []byte{0, 1}
 	localNonce := 0
 
