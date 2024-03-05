@@ -134,19 +134,19 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Check
 		return nil
 	}
 	if ms.chainID.String() != chainID.String() {
-		return fmt.Errorf("check_tx_queue_capacity: %w", ErrInvalidChainID)
+		return nil
 	}
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
-		return fmt.Errorf("check_tx_queue_capacity: %w", ErrAddressNotFound)
+		return nil
 	}
 
 	count := uint64(as.CountTransactionsByState(TxUnstarted))
 	if count >= maxQueuedTransactions {
-		return fmt.Errorf("check_tx_queue_capacity: cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, label.MaxQueuedTransactionsWarning)
+		return fmt.Errorf("cannot create transaction; too many unstarted transactions in the queue (%v/%v). %s", count, maxQueuedTransactions, label.MaxQueuedTransactionsWarning)
 	}
 
 	return nil

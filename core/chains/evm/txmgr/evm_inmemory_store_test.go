@@ -23,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
+// TODO: CLEANUP?
+
 func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 	t.Parallel()
 
@@ -30,13 +32,7 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
 	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
-
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
-	/*
-		toAddress := testutils.NewAddress()
-		gasLimit := uint32(1000)
-		payload := []byte{1, 2, 3}
-	*/
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
@@ -65,8 +61,8 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 		inIdempotencyKey string
 		inChainID        *big.Int
 
-		expNilErr bool
-		expNilTx  bool
+		hasErr bool
+		hasTx  bool
 	}{
 		{"no idempotency key", "", chainID, true, true},
 		{"wrong idempotency key", "wrong", chainID, true, true},
@@ -80,18 +76,85 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 			actTx, actErr := inMemoryStore.FindTxWithIdempotencyKey(ctx, tc.inIdempotencyKey, tc.inChainID)
 			expTx, expErr := persistentStore.FindTxWithIdempotencyKey(ctx, tc.inIdempotencyKey, tc.inChainID)
 			require.Equal(t, expErr, actErr)
-			if tc.expNilErr {
+			if !tc.hasErr {
 				require.Nil(t, actErr)
 				require.Nil(t, expErr)
 			}
-			if tc.expNilTx {
-				require.Nil(t, actTx)
-				require.Nil(t, expTx)
-			} else {
+			if tc.hasTx {
 				require.NotNil(t, actTx)
 				require.NotNil(t, expTx)
 				assertTxEqual(t, *expTx, *actTx)
+			} else {
+				require.Nil(t, actTx)
+				require.Nil(t, expTx)
 			}
+		})
+	}
+}
+
+func TestInMemoryStore_CheckTxQueueCapacity(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	inTxs := []evmtxmgr.Tx{
+		cltest.NewEthTx(fromAddress),
+		cltest.NewEthTx(fromAddress),
+	}
+	for _, inTx := range inTxs {
+		// insert the transaction into the persistent store
+		require.NoError(t, persistentStore.InsertTx(&inTx))
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+	}
+
+	tcs := []struct {
+		name           string
+		inFromAddress  common.Address
+		inMaxQueuedTxs uint64
+		inChainID      *big.Int
+
+		hasErr bool
+	}{
+		{"capacity reached", fromAddress, 2, chainID, true},
+		{"above capacity", fromAddress, 1, chainID, true},
+		{"below capacity", fromAddress, 3, chainID, false},
+		{"wrong chain", fromAddress, 2, big.NewInt(999), false},
+		{"wrong address", common.Address{}, 2, chainID, false},
+		{"max queued txs is 0", fromAddress, 0, chainID, false},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
+			actErr := inMemoryStore.CheckTxQueueCapacity(ctx, tc.inFromAddress, tc.inMaxQueuedTxs, tc.inChainID)
+			expErr := persistentStore.CheckTxQueueCapacity(ctx, tc.inFromAddress, tc.inMaxQueuedTxs, tc.inChainID)
+			if tc.hasErr {
+				require.NotNil(t, expErr)
+				require.NotNil(t, actErr)
+			} else {
+				require.NoError(t, expErr)
+				require.NoError(t, actErr)
+			}
+			//require.Equal(t, expErr, actErr)
 		})
 	}
 }
