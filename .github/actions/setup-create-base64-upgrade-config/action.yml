@@ -9,6 +9,9 @@ inputs:
     default: "public.ecr.aws/chainlink/chainlink"
   chainlinkVersion:
     description: The git commit sha to use for the image tag
+  chainlinkPostgresVersion:
+    description: The postgres version to use with the chainlink node
+    default: "15.6"
   upgradeImage:
     description: The chainlink image to upgrade to
     default: "public.ecr.aws/chainlink/chainlink"
@@ -25,6 +28,7 @@ runs:
         SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
         CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
         CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+        CHAINLINK_POSTGRES_VERSION: ${{ inputs.chainlinkPostgresVersion }}
         UPGRADE_IMAGE: ${{ inputs.upgradeImage }}
         UPGRADE_VERSION: ${{ inputs.upgradeVersion }}
       run: |
@@ -50,6 +54,7 @@ runs:
         [ChainlinkImage]
         image="$CHAINLINK_IMAGE"
         version="$CHAINLINK_VERSION"
+        postgres_version="$CHAINLINK_POSTGRES_VERSION"
 
         [ChainlinkUpgradeImage]
         image="$UPGRADE_IMAGE"
