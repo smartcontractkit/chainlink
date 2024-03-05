@@ -419,12 +419,7 @@ contract VRFV2Plus is BaseTest {
     // Request random words.
     vm.expectEmit(true, true, false, true);
     uint256 preSeed;
-    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(
-      vrfKeyHash,
-      address(s_testConsumer),
-      subId,
-      2
-    );
+    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_testConsumer), subId, 2);
     emit RandomWordsRequested(
       vrfKeyHash,
       requestId,
@@ -512,12 +507,7 @@ contract VRFV2Plus is BaseTest {
     // Request random words.
     vm.expectEmit(true, true, true, true);
     uint256 preSeed;
-    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(
-      vrfKeyHash,
-      address(s_testConsumer),
-      subId,
-      2
-    );
+    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_testConsumer), subId, 2);
     emit RandomWordsRequested(
       vrfKeyHash,
       requestId,
