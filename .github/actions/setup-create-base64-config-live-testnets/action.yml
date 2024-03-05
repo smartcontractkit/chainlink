@@ -12,6 +12,9 @@ inputs:
     default: "public.ecr.aws/chainlink/chainlink"
   chainlinkVersion:
     description: The git commit sha to use for the image tag
+  chainlinkPostgresVersion:
+    description: The postgres version to use with the chainlink node
+    default: "15.6"
   pyroscopeServer:
     description: URL of Pyroscope server
   pyroscopeEnvironment:
@@ -52,6 +55,7 @@ runs:
         PYROSCOPE_KEY: ${{ inputs.pyroscopeKey }}
         CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
         CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+        CHAINLINK_POSTGRES_VERSION: ${{ inputs.chainlinkPostgresVersion }}
         LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
         LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
         LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
@@ -89,6 +93,7 @@ runs:
         [ChainlinkImage]
         image="$CHAINLINK_IMAGE"
         version="$CHAINLINK_VERSION"
+        postgres_version="$CHAINLINK_POSTGRES_VERSION"
 
         [Pyroscope]
         enabled=$pyroscope_enabled
