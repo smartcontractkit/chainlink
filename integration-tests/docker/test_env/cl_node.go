@@ -323,8 +323,18 @@ func (n *ClNode) UpdateContainerData(container tc.Container) error {
 }
 
 // PrepContainerStart prepares the container to be started
-// Typically used when setting up parallel containers
-func (n *ClNode) PrepContainerStart() error {
+
+func (n *ClNode) PrepContainerStart() {
+
+}
+
+// StartContainer starts a postgres container and a ClNode container and sets all URLs and ports
+func (n *ClNode) StartContainer() error {
+	err := n.PostgresDb.StartContainer()
+	if err != nil {
+		return err
+	}
+
 	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
 		PgDbName:      n.PostgresDb.DbName,
@@ -333,14 +343,6 @@ func (n *ClNode) PrepContainerStart() error {
 		PgPassword:    n.PostgresDb.Password,
 		CustomSecrets: n.NodeSecretsConfigTOML,
 	}.String()
-	if err != nil {
-		return err
-	}
-}
-
-// StartContainer starts a postgres container and a ClNode container and sets all URLs and ports
-func (n *ClNode) StartContainer() error {
-	err := n.PostgresDb.StartContainer()
 	if err != nil {
 		return err
 	}
@@ -357,7 +359,6 @@ func (n *ClNode) StartContainer() error {
 			L: n.l,
 		}
 	}
-
 	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
