@@ -108,7 +108,7 @@ jobs:
 
   # End Build Test Dependencies
 
-  live-vrf-tests:
+  live-smoke-tests:
     environment: integration
     permissions:
       checks: write
@@ -120,7 +120,7 @@ jobs:
       fail-fast: false
       matrix: 
         network: ${{fromJson(needs.build-tests.outputs.matrix)}}
-    name: VRF Tests on ${{ matrix.network }}
+    name: Smoke Tests on ${{ matrix.network }}
     runs-on: ubuntu-latest
     steps:
       - name: Build Secrets Names
