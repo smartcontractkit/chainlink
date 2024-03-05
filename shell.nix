@@ -1,7 +1,6 @@
 { pkgs ? import <nixpkgs> { } }:
 with pkgs;
 let
-  go = go_1_21;
   postgresql = postgresql_14;
   nodejs = nodejs-18_x;
   nodePackages = pkgs.nodePackages.override { inherit nodejs; };
