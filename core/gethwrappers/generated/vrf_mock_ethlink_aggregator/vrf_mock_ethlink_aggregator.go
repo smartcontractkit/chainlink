@@ -29,7 +29,7 @@ var (
 )
 
 var VRFMockETHLINKAggregatorMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"_answer\",\"type\":\"int256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"answer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"description\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint80\",\"name\":\"_roundId\",\"type\":\"uint80\"}],\"name\":\"getRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"ans\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"ans\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_blockTimestampDeduction\",\"type\":\"uint256\"}],\"name\":\"setBlockTimestampDeduction\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"_answer\",\"type\":\"int256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"answer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"description\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint80\",\"name\":\"\",\"type\":\"uint80\"}],\"name\":\"getRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"ans\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestRoundData\",\"outputs\":[{\"internalType\":\"uint80\",\"name\":\"roundId\",\"type\":\"uint80\"},{\"internalType\":\"int256\",\"name\":\"ans\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"startedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"updatedAt\",\"type\":\"uint256\"},{\"internalType\":\"uint80\",\"name\":\"answeredInRound\",\"type\":\"uint80\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_blockTimestampDeduction\",\"type\":\"uint256\"}],\"name\":\"setBlockTimestampDeduction\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
 	Bin: "0x6080604052600060015534801561001557600080fd5b506040516103383803806103388339810160408190526100349161003c565b600055610055565b60006020828403121561004e57600080fd5b5051919050565b6102d4806100646000396000f3fe608060405234801561001057600080fd5b506004361061007d5760003560e01c806385bb7d691161005b57806385bb7d69146100e65780639a6fc8f5146100ef578063f0ad37df14610139578063feaf968c1461014e57600080fd5b8063313ce5671461008257806354fd4d50146100965780637284e416146100a7575b600080fd5b604051601281526020015b60405180910390f35b60015b60405190815260200161008d565b604080518082018252601881527f5652464d6f636b4554484c494e4b41676772656761746f7200000000000000006020820152905161008d9190610216565b61009960005481565b6101026100fd3660046101e3565b610156565b6040805169ffffffffffffffffffff968716815260208101959095528401929092526060830152909116608082015260a00161008d565b61014c6101473660046101ca565b600155565b005b610102610186565b6000806000806000600160005461016b6101b5565b6101736101b5565b9299919850965090945060019350915050565b6000806000806000600160005461019b6101b5565b6101a36101b5565b92989197509550909350600192509050565b6000600154426101c59190610289565b905090565b6000602082840312156101dc57600080fd5b5035919050565b6000602082840312156101f557600080fd5b813569ffffffffffffffffffff8116811461020f57600080fd5b9392505050565b600060208083528351808285015260005b8181101561024357858101830151858201604001528201610227565b81811115610255576000604083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016929092016040019392505050565b6000828210156102c2577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b50039056fea164736f6c6343000806000a",
 }
 
@@ -235,11 +235,11 @@ func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorCallerSession) Descript
 	return _VRFMockETHLINKAggregator.Contract.Description(&_VRFMockETHLINKAggregator.CallOpts)
 }
 
-func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorCaller) GetRoundData(opts *bind.CallOpts, _roundId *big.Int) (GetRoundData,
+func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorCaller) GetRoundData(opts *bind.CallOpts, arg0 *big.Int) (GetRoundData,
 
 	error) {
 	var out []interface{}
-	err := _VRFMockETHLINKAggregator.contract.Call(opts, &out, "getRoundData", _roundId)
+	err := _VRFMockETHLINKAggregator.contract.Call(opts, &out, "getRoundData", arg0)
 
 	outstruct := new(GetRoundData)
 	if err != nil {
@@ -256,16 +256,16 @@ func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorCaller) GetRoundData(op
 
 }
 
-func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorSession) GetRoundData(_roundId *big.Int) (GetRoundData,
+func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorSession) GetRoundData(arg0 *big.Int) (GetRoundData,
 
 	error) {
-	return _VRFMockETHLINKAggregator.Contract.GetRoundData(&_VRFMockETHLINKAggregator.CallOpts, _roundId)
+	return _VRFMockETHLINKAggregator.Contract.GetRoundData(&_VRFMockETHLINKAggregator.CallOpts, arg0)
 }
 
-func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorCallerSession) GetRoundData(_roundId *big.Int) (GetRoundData,
+func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorCallerSession) GetRoundData(arg0 *big.Int) (GetRoundData,
 
 	error) {
-	return _VRFMockETHLINKAggregator.Contract.GetRoundData(&_VRFMockETHLINKAggregator.CallOpts, _roundId)
+	return _VRFMockETHLINKAggregator.Contract.GetRoundData(&_VRFMockETHLINKAggregator.CallOpts, arg0)
 }
 
 func (_VRFMockETHLINKAggregator *VRFMockETHLINKAggregatorCaller) LatestRoundData(opts *bind.CallOpts) (LatestRoundData,
@@ -361,7 +361,7 @@ type VRFMockETHLINKAggregatorInterface interface {
 
 	Description(opts *bind.CallOpts) (string, error)
 
-	GetRoundData(opts *bind.CallOpts, _roundId *big.Int) (GetRoundData,
+	GetRoundData(opts *bind.CallOpts, arg0 *big.Int) (GetRoundData,
 
 		error)
 
