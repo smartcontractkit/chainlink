@@ -5212,7 +5212,7 @@ describe('AutomationRegistry2_2', () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
         await evmRevert(
           registry.connect(owner).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -5225,12 +5225,11 @@ describe('AutomationRegistry2_2', () => {
           oldExpiration = registration.maxValidBlocknumber
         })
 
-        it('allows the owner to cancel it more quickly', async () => {
-          await registry.connect(owner).cancelUpkeep(upkeepId)
-
-          const registration = await registry.getUpkeep(upkeepId)
-          const newExpiration = registration.maxValidBlocknumber
-          assert.isTrue(newExpiration.lt(oldExpiration))
+        it('reverts with proper error', async () => {
+          await evmRevert(
+            registry.connect(owner).cancelUpkeep(upkeepId),
+            'UpkeepCancelled()',
+          )
         })
       })
     })
@@ -5241,7 +5240,7 @@ describe('AutomationRegistry2_2', () => {
 
         await evmRevert(
           registry.connect(admin).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -5254,7 +5253,7 @@ describe('AutomationRegistry2_2', () => {
 
         await evmRevert(
           registry.connect(owner).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'UpkeepCancelled()',
         )
       })
 
