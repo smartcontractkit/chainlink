@@ -285,50 +285,10 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
-func (n *ClNode) GetPostgresContainerRequest() *tc.ContainerRequest {
-	return n.PostgresDb.GetContainerRequest()
-}
-
-func (n *ClNode) StartContainer() error {
-	err := n.PostgresDb.StartContainer()
-	if err != nil {
-		return err
-	}
-
-	// If the node secrets TOML is not set, generate it with the default template
-	nodeSecretsToml, err := templates.NodeSecretsTemplate{
-		PgDbName:      n.PostgresDb.DbName,
-		PgHost:        n.PostgresDb.ContainerName,
-		PgPort:        n.PostgresDb.InternalPort,
-		PgPassword:    n.PostgresDb.Password,
-		CustomSecrets: n.NodeSecretsConfigTOML,
-	}.String()
-	if err != nil {
-		return err
-	}
-
-	cReq, err := n.getContainerRequest(nodeSecretsToml)
-	if err != nil {
-		return err
-	}
-
-	l := tc.Logger
-	if n.t != nil {
-		l = logging.CustomT{
-			T: n.t,
-			L: n.l,
-		}
-	}
-	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
-		ContainerRequest: *cReq,
-		Started:          true,
-		Reuse:            true,
-		Logger:           l,
-	})
-	if err != nil {
-		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
-	}
-
+// UpdateContainerData updates the ClNode container data to match with an already started container
+// setting all URLs and ports
+// Typically used when setting up parallel containers
+func (n *ClNode) UpdateContainerData(container tc.Container) error {
 	clEndpoint, err := test_env.GetEndpoint(testcontext.Get(n.t), container, "http")
 	if err != nil {
 		return err
@@ -359,8 +319,56 @@ func (n *ClNode) StartContainer() error {
 	clClient.Config.InternalIP = n.ContainerName
 	n.Container = container
 	n.API = clClient
-
 	return nil
+}
+
+// PrepContainerStart prepares the container to be started
+// Typically used when setting up parallel containers
+func (n *ClNode) PrepContainerStart() error {
+	// If the node secrets TOML is not set, generate it with the default template
+	nodeSecretsToml, err := templates.NodeSecretsTemplate{
+		PgDbName:      n.PostgresDb.DbName,
+		PgHost:        n.PostgresDb.ContainerName,
+		PgPort:        n.PostgresDb.InternalPort,
+		PgPassword:    n.PostgresDb.Password,
+		CustomSecrets: n.NodeSecretsConfigTOML,
+	}.String()
+	if err != nil {
+		return err
+	}
+}
+
+// StartContainer starts a postgres container and a ClNode container and sets all URLs and ports
+func (n *ClNode) StartContainer() error {
+	err := n.PostgresDb.StartContainer()
+	if err != nil {
+		return err
+	}
+
+	cReq, err := n.GetContainerRequest(nodeSecretsToml)
+	if err != nil {
+		return err
+	}
+
+	l := tc.Logger
+	if n.t != nil {
+		l = logging.CustomT{
+			T: n.t,
+			L: n.l,
+		}
+	}
+
+	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
+		ContainerRequest: *cReq,
+		Started:          true,
+		Reuse:            true,
+		Logger:           l,
+	})
+	if err != nil {
+		return fmt.Errorf("%s err: %w", ErrStartCLNodeContainer, err)
+	}
+
+	return n.UpdateContainerData(container)
 }
 
 func (n *ClNode) ExecGetVersion() (string, error) {
@@ -385,7 +393,15 @@ func (n *ClNode) ExecGetVersion() (string, error) {
 	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 }
 
-func (n *ClNode) getContainerRequest(secrets string) (*tc.ContainerRequest, error) {
+// GetPostgresContainerRequest returns a testcontainers.ContainerRequest for the PostgresDb associated with the ClNode
+// Usually this is only used to build a parallel container request.
+func (n *ClNode) GetPostgresContainerRequest() *tc.ContainerRequest {
+	return n.PostgresDb.GetContainerRequest()
+}
+
+// GetContainerRequest returns a testcontainers.ContainerRequest for the ClNode
+// Usually this is only used to build a parallel container request. If you just want to start the node, use StartContainer
+func (n *ClNode) GetContainerRequest(secrets string) (*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
 		return nil, err

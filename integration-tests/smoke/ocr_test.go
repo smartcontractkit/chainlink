@@ -85,6 +85,7 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
 
+	start := time.Now()
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
@@ -96,6 +97,9 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 		WithSeth().
 		Build()
 	require.NoError(t, err)
+	// DEBUG: Getting before time
+	l.Warn().Str("Duration", time.Since(start).String()).Msg("ADAM HERE")
+	t.FailNow()
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
