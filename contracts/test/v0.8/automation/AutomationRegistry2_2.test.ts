@@ -5212,7 +5212,7 @@ describe('AutomationRegistry2_2', () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
         await evmRevert(
           registry.connect(owner).cancelUpkeep(upkeepId),
-          'AlreadyCanceled()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -5226,11 +5226,9 @@ describe('AutomationRegistry2_2', () => {
         })
 
         it('reverts with proper error', async () => {
-          await registry.connect(owner).cancelUpkeep(upkeepId)
-
           await evmRevert(
             registry.connect(owner).cancelUpkeep(upkeepId),
-            'AlreadyCanceled()',
+            'UpkeepCancelled()',
           )
         })
       })
@@ -5242,7 +5240,7 @@ describe('AutomationRegistry2_2', () => {
 
         await evmRevert(
           registry.connect(admin).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -5255,7 +5253,7 @@ describe('AutomationRegistry2_2', () => {
 
         await evmRevert(
           registry.connect(owner).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'UpkeepCancelled()',
         )
       })
 

@@ -105,7 +105,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
 
   error ArrayHasNoEntries();
-  error AlreadyCanceled();
+  error CannotCancel();
   error CheckDataExceedsLimit();
   error ConfigDigestMismatch();
   error DuplicateEntry();

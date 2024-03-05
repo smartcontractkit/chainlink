@@ -278,7 +278,8 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
     bool isOwner = msg.sender == owner();
 
     uint256 height = s_hotVars.chainModule.blockNumber();
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert AlreadyCanceled();
+    if (upkeep.maxValidBlocknumber == 0) revert CannotCancel();
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
     if (!isOwner) {
