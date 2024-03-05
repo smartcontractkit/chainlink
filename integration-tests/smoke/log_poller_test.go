@@ -98,7 +98,7 @@ func executeBasicLogPollerTest(t *testing.T) {
 	lpTestEnv := prepareEnvironment(l, t, &testConfig)
 	testEnv := lpTestEnv.testEnv
 
-	ctx := context.Background()
+	ctx := testcontext.Get(t)
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
@@ -179,7 +179,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	lpTestEnv := prepareEnvironment(l, t, &testConfig)
 	testEnv := lpTestEnv.testEnv
 
-	ctx := context.Background()
+	ctx := testcontext.Get(t)
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
