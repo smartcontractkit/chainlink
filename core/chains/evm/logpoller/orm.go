@@ -333,7 +333,7 @@ func (o *DbORM) InsertLogs(ctx context.Context, logs []Log) error {
 		return err
 	}
 	return o.Transaction(ctx, func(orm *DbORM) error {
-		return o.insertLogsWithinTx(ctx, logs, orm.db.(*sqlx.Tx))
+		return orm.insertLogsWithinTx(ctx, logs, orm.db.(*sqlx.Tx))
 	})
 }
 
@@ -349,19 +349,12 @@ func (o *DbORM) InsertLogsWithBlock(ctx context.Context, logs []Log, block LogPo
 
 	// Block and logs goes with the same TX to ensure atomicity
 	return o.Transaction(ctx, func(orm *DbORM) error {
-		if err := o.insertBlockWithinTx(ctx, orm.db.(*sqlx.Tx), block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber); err != nil {
+		err := orm.InsertBlock(ctx, block.BlockHash, block.BlockNumber, block.BlockTimestamp, block.FinalizedBlockNumber)
+		if err != nil {
 			return err
 		}
-		return o.insertLogsWithinTx(ctx, logs, orm.db.(*sqlx.Tx))
+		return orm.insertLogsWithinTx(ctx, logs, orm.db.(*sqlx.Tx))
 	})
-}
-
-func (o *DbORM) insertBlockWithinTx(ctx context.Context, tx sqlutil.Queryer, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
-	query := `INSERT INTO evm.log_poller_blocks (evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at)
-			VALUES ($1, $2, $3, $4, $5, NOW())
-			ON CONFLICT DO NOTHING`
-	_, err := tx.ExecContext(ctx, query, ubig.New(o.chainID), blockHash.Bytes(), blockNumber, blockTimestamp, finalizedBlock)
-	return err
 }
 
 func (o *DbORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.Queryer) error {
