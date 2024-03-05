@@ -1,6 +1,7 @@
 package ocr2keeper
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -67,6 +68,7 @@ func EVMProvider(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, spec jo
 }
 
 func EVMDependencies20(
+	ctx context.Context,
 	spec job.Job,
 	db *sqlx.DB,
 	lggr logger.Logger,
@@ -95,7 +97,7 @@ func EVMDependencies20(
 	// to be detected in most cases
 	var lookbackBlocks int64 = 250
 	// TODO: accept a version of the registry contract and use the correct interfaces
-	logProvider, err := evmregistry20.NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
+	logProvider, err := evmregistry20.NewLogProvider(ctx, lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
 	return keeperProvider, registry, encoder, logProvider, err
 }

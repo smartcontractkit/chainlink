@@ -48,6 +48,7 @@ func LogProviderFilterName(addr common.Address) string {
 }
 
 func NewLogProvider(
+	ctx context.Context,
 	logger logger.Logger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
@@ -68,8 +69,6 @@ func NewLogProvider(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: LogProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{

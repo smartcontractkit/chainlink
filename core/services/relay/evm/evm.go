@@ -525,6 +525,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	}
 
 	return NewOCRContractTransmitter(
+		ctx,
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		transmissionContractABI,

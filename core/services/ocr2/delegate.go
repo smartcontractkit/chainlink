@@ -1247,9 +1247,9 @@ func (d *Delegate) newServicesOCR2Keepers(
 		// Future contracts of v2.1 (v2.x) will use the same job spec as v2.1
 		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
-		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
-		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	}
 }
 
@@ -1401,6 +1401,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 }
 
 func (d *Delegate) newServicesOCR2Keepers20(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1424,7 +1425,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.ethKs, d.cfg.Database())
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(ctx, jb, d.db, lggr, chain, d.ethKs, d.cfg.Database())
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}

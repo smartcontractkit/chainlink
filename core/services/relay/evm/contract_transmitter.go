@@ -55,6 +55,7 @@ func transmitterFilterName(addr common.Address) string {
 }
 
 func NewOCRContractTransmitter(
+	ctx context.Context,
 	address gethcommon.Address,
 	caller contractReader,
 	contractABI abi.ABI,
@@ -68,8 +69,6 @@ func NewOCRContractTransmitter(
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
 	if err != nil {
 		return nil, err
