@@ -9,12 +9,34 @@
 
 name: Live Testnet Tests
 on:
-  schedule:
-    - cron: "0 5 * * *" # Run every night at midnight EST
-  push:
-    tags:
-      - "*"
+  # Disable refular runs for now until we can fix some test client flakiness and improve stability
+  # schedule:
+  #   - cron: "0 5 * * *" # Run every night at midnight EST
+  # push:
+  #   tags:
+  #     - "*"
   workflow_dispatch:
+    inputs:
+      slack_user_id:
+        description: "The Slack member ID to notify"
+        required: true
+        type: string
+      network:
+        description: "The network to run tests on"
+        required: true
+        type: choice
+        options:
+          - "All"
+          - "Sepolia"
+          - "Optimism Sepolia"
+          - "Arbitrum Sepolia"
+          - "Base Sepolia"
+          - "Polygon Mumbai"
+          - "Avalanche Fuji"
+          - "Fantom Testnet"
+          - "Celo Alfajores"
+          - "Linea Goerli"
+          - "BSC Testnet"
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -142,7 +164,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG>' || 'All Good!' }}"
+                        "text": "Notifying <@${{ inputs.slack_user_id }}>"
                       }
                     },
                     {
@@ -198,6 +220,7 @@ jobs:
 
   sepolia-smoke-tests:
     environment: integration
+    if: ${{ (github.event.inputs.network == 'All' || github.event.inputs.network == 'Sepolia') }}
     permissions:
       checks: write
       pull-requests: write
@@ -270,6 +293,7 @@ jobs:
 
   bsc-testnet-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'BSC Testnet' }}
     permissions:
       checks: write
       pull-requests: write
@@ -342,6 +366,7 @@ jobs:
 
   optimism-sepolia-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Optimism Sepolia' }}
     permissions:
       checks: write
       pull-requests: write
@@ -414,6 +439,7 @@ jobs:
 
   arbitrum-sepolia-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Arbitrum Sepolia' }}
     permissions:
       checks: write
       pull-requests: write
@@ -486,6 +512,7 @@ jobs:
 
   base-sepolia-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Base Sepolia' }}
     permissions:
       checks: write
       pull-requests: write
@@ -554,6 +581,7 @@ jobs:
 
   polygon-mumbai-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Polygon Mumbai' }}
     permissions:
       checks: write
       pull-requests: write
@@ -626,6 +654,7 @@ jobs:
 
   avalanche-fuji-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Avalanche Fuji' }}
     permissions:
       checks: write
       pull-requests: write
@@ -698,6 +727,7 @@ jobs:
 
   fantom-testnet-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Fantom Testnet' }}
     permissions:
       checks: write
       pull-requests: write
@@ -770,6 +800,7 @@ jobs:
 
   celo-alfajores-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Celo Alfajores' }}
     permissions:
       checks: write
       pull-requests: write
@@ -907,6 +938,7 @@ jobs:
 
   linea-goerli-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Linea Goerli' }}
     permissions:
       checks: write
       pull-requests: write
