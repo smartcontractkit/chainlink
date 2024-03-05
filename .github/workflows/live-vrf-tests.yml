@@ -134,8 +134,8 @@ jobs:
       - name: Build Secrets Names
         id: build-secrets-names
         run: |
-          echo "HTTP_URLS_SECRET_NAME=QA_${{ matrix }}_HTTP_URLS"
-          echo "URLS_SECRET_NAME=QA_${{ matrix }}_URLS"
+          echo "HTTP_URLS_SECRET_NAME=QA_${{ matrix.network }}_HTTP_URLS"
+          echo "URLS_SECRET_NAME=QA_${{ matrix.network }}_URLS"
       - name: Split Test Names
         id: split_list
         run: |
