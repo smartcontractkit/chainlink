@@ -1268,8 +1268,6 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		var allowedReadOnlyAddress common.Address
 		if chainId == networks.PolygonZkEvmMainnet.ChainID || chainId == networks.PolygonZkEvmCardona.ChainID {
 			allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
-		} else if chainId == networks.GnosisMainnet.ChainID || chainId == networks.GnosisChiado.ChainID {
-			allowedReadOnlyAddress = common.HexToAddress("0xfffffffffffffffffffffffffffffffffffffffe")
 		} else {
 			allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 		}
