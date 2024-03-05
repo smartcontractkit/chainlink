@@ -19,7 +19,7 @@ We are using [devspace](https://www.devspace.sh/docs/getting-started/installatio
 
 Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments for more details
 
-Configure your `cluster` setup (`./setup.sh` script can be found in 1pass)
+Set up your K8s access
 ```
 export DEVSPACE_IMAGE="..."
 ./setup.sh ${my-personal-namespace-name-crib}
