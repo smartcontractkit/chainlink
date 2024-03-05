@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `eth_call` RPC requests are now sent with both `input` and `data` fields to increase compability with servers that recognize only one.
+- GasEstimator will now include Type `0x3` (Blob) transactions in the gas calculations to estimate it more accurately.
 
 ## 2.9.0 - 2024-02-22
 
