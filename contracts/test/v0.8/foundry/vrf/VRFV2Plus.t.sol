@@ -410,7 +410,7 @@ contract VRFV2Plus is BaseTest {
     vm.roll(requestBlock);
     s_linkToken.transfer(address(s_testConsumer), 10 ether);
     s_testConsumer.createSubscriptionAndFund(10 ether);
-    uint256 subId = s_testConsumer.s_subId();
+    subId = s_testConsumer.s_subId();
 
     // Apply basic configs to contract.
     setConfig();
@@ -418,7 +418,8 @@ contract VRFV2Plus is BaseTest {
 
     // Request random words.
     vm.expectEmit(true, true, false, true);
-    (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
+    uint256 preSeed;
+    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(
       vrfKeyHash,
       address(s_testConsumer),
       subId,
@@ -460,7 +461,7 @@ contract VRFV2Plus is BaseTest {
         -block-num 20 \
         -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2
     */
-    VRF.Proof memory proof = VRF.Proof({
+    proof = VRF.Proof({
       pk: [
         72488970228380509287422715226575535698893157273063074627791787432852706183111,
         62070622898698443831883535403436258712770888294397026493185421712108624767191
@@ -483,7 +484,7 @@ contract VRFV2Plus is BaseTest {
       ],
       zInv: 100579074451139970455673776933943662313989441807178260211316504761358492254052
     });
-    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
+    rc = VRFCoordinatorV2_5.RequestCommitment({
       blockNum: requestBlock,
       subId: subId,
       callbackGasLimit: 1000000,
@@ -501,7 +502,7 @@ contract VRFV2Plus is BaseTest {
     uint32 requestBlock = 10;
     vm.roll(requestBlock);
     s_testConsumer.createSubscriptionAndFund(0);
-    uint256 subId = s_testConsumer.s_subId();
+    subId = s_testConsumer.s_subId();
     s_testCoordinator.fundSubscriptionWithNative{value: 10 ether}(subId);
 
     // Apply basic configs to contract.
@@ -510,7 +511,8 @@ contract VRFV2Plus is BaseTest {
 
     // Request random words.
     vm.expectEmit(true, true, true, true);
-    (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
+    uint256 preSeed;
+    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(
       vrfKeyHash,
       address(s_testConsumer),
       subId,
@@ -553,7 +555,7 @@ contract VRFV2Plus is BaseTest {
         -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2 \
         -native-payment true
         */
-    VRF.Proof memory proof = VRF.Proof({
+    proof = VRF.Proof({
       pk: [
         72488970228380509287422715226575535698893157273063074627791787432852706183111,
         62070622898698443831883535403436258712770888294397026493185421712108624767191
@@ -576,7 +578,7 @@ contract VRFV2Plus is BaseTest {
       ],
       zInv: 97568175302326019383632009699686265453584842953005404815285123863099260038246
     });
-    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
+    rc = VRFCoordinatorV2_5.RequestCommitment({
       blockNum: requestBlock,
       subId: subId,
       callbackGasLimit: 1_000_000,
