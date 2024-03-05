@@ -27,23 +27,23 @@ type ORM interface {
 	HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error)
 }
 
-var _ ORM = &orm{}
+var _ ORM = &DbORM{}
 
-type orm struct {
+type DbORM struct {
 	chainID ubig.Big
 	db      sqlutil.Queryer
 }
 
 // NewORM creates an ORM scoped to chainID.
-func NewORM(chainID big.Int, db sqlutil.Queryer) ORM {
-	return &orm{
+func NewORM(chainID big.Int, db sqlutil.Queryer) *DbORM {
+	return &DbORM{
 		chainID: ubig.Big(chainID),
 		db:      db,
 	}
 }
 
-func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error {
-	// listener guarantees head.EVMChainID to be equal to orm.chainID
+func (orm *DbORM) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error {
+	// listener guarantees head.EVMChainID to be equal to DbORM.chainID
 	query := `
 	INSERT INTO evm.heads (hash, number, parent_hash, created_at, timestamp, l1_block_number, evm_chain_id, base_fee_per_gas) VALUES (
 	$1, $2, $3, $4, $5, $6, $7, $8)
@@ -52,7 +52,7 @@ func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) e
 	return pkgerrors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
-func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
+func (orm *DbORM) TrimOldHeads(ctx context.Context, n uint) (err error) {
 	_, err = orm.db.ExecContext(ctx, `
 	DELETE FROM evm.heads
 	WHERE evm_chain_id = $1 AND number < (
@@ -68,7 +68,7 @@ func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
 	return err
 }
 
-func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error) {
+func (orm *DbORM) LatestHead(ctx context.Context) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
 	err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
 	if pkgerrors.Is(err, sql.ErrNoRows) {
@@ -78,13 +78,13 @@ func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
 	return
 }
 
-func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
+func (orm *DbORM) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
 	err = orm.db.SelectContext(ctx, &heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
 	err = pkgerrors.Wrap(err, "LatestHeads failed")
 	return
 }
 
-func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
+func (orm *DbORM) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
 	err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
 	if pkgerrors.Is(err, sql.ErrNoRows) {
