@@ -318,7 +318,7 @@ func (n *ClNode) StartContainer() error {
 	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
-		Reuse:            true,
+		Reuse:            false,
 		Logger:           l,
 	})
 	if err != nil {
