@@ -8,7 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	ocr3_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ocr3/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
+	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
@@ -24,10 +26,16 @@ func newStopCh(t *testing.T) <-chan struct{} {
 func PluginGenericTest(t *testing.T, p types.OCR3ReportingPluginClient) {
 	t.Run("PluginServer", func(t *testing.T) {
 		ctx := tests.Context(t)
-		factory, err := p.NewReportingPluginFactory(ctx, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{}, types.CapabilitiesRegistry(nil))
+		factory, err := p.NewReportingPluginFactory(ctx,
+			types.ReportingPluginServiceConfig{},
+			testcore.MockConn{},
+			testcore.PipelineRunner,
+			testcore.Telemetry,
+			&testcore.ErrorLog,
+			types.CapabilitiesRegistry(nil))
 		require.NoError(t, err)
 
-		test.OCR3ReportingPluginFactory(t, factory)
+		ocr3_test.OCR3ReportingPluginFactory(t, factory)
 	})
 }
 
@@ -37,9 +45,9 @@ func TestGRPCService_MedianProvider(t *testing.T) {
 	stopCh := newStopCh(t)
 	test.PluginTest(
 		t,
-		test.ReportingPluginWithMedianProviderName,
+		ocr3_test.OCR3ReportingPluginWithMedianProviderName,
 		&GRPCService[types.MedianProvider]{
-			PluginServer: test.OCR3StaticReportingPluginWithMedianProvider{},
+			PluginServer: ocr3_test.MedianServer,
 			BrokerConfig: loop.BrokerConfig{
 				Logger: logger.Test(t),
 				StopCh: stopCh,
@@ -57,7 +65,7 @@ func TestGRPCService_PluginProvider(t *testing.T) {
 		t,
 		PluginServiceName,
 		&GRPCService[types.PluginProvider]{
-			PluginServer: test.OCR3StaticReportingPluginWithPluginProvider{},
+			PluginServer: ocr3_test.AgnosticPluginServer,
 			BrokerConfig: loop.BrokerConfig{
 				Logger: logger.Test(t),
 				StopCh: stopCh,

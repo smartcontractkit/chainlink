@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
+	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
+	relayer_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/relayer"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -16,7 +18,13 @@ func TestPluginRelayer(t *testing.T) {
 	t.Parallel()
 
 	stopCh := newStopCh(t)
-	test.PluginTest(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.RunPluginRelayer)
+	test.PluginTest(t, loop.PluginRelayerName,
+		&loop.GRPCPluginRelayer{
+			PluginServer: relayer_test.NewRelayerTester(false),
+			BrokerConfig: loop.BrokerConfig{
+				Logger: logger.Test(t),
+				StopCh: stopCh}},
+		relayer_test.RunPlugin)
 }
 
 func TestPluginRelayerExec(t *testing.T) {
@@ -25,7 +33,7 @@ func TestPluginRelayerExec(t *testing.T) {
 
 	pr := newPluginRelayerExec(t, true, stopCh)
 
-	test.RunPluginRelayer(t, pr)
+	relayer_test.RunPlugin(t, pr)
 }
 
 func FuzzPluginRelayer(f *testing.F) {
@@ -38,7 +46,7 @@ func FuzzPluginRelayer(f *testing.F) {
 		return relayer
 	}
 
-	test.RunFuzzPluginRelayer(f, testFunc)
+	relayer_test.RunFuzzPluginRelayer(f, testFunc)
 }
 
 func FuzzRelayer(f *testing.F) {
@@ -48,14 +56,14 @@ func FuzzRelayer(f *testing.F) {
 		stopCh := newStopCh(t)
 		p := newPluginRelayerExec(t, false, stopCh)
 		ctx := tests.Context(t)
-		relayer, err := p.NewRelayer(ctx, test.ConfigTOML, test.StaticKeystore{})
+		relayer, err := p.NewRelayer(ctx, test.ConfigTOML, testcore.Keystore)
 
 		require.NoError(t, err)
 
 		return relayer
 	}
 
-	test.RunFuzzRelayer(f, testFunc)
+	relayer_test.RunFuzzRelayer(f, testFunc)
 }
 
 func newPluginRelayerExec(t *testing.T, staticChecks bool, stopCh <-chan struct{}) loop.PluginRelayer {

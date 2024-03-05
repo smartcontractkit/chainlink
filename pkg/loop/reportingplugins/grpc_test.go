@@ -9,6 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
+	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
+	testcoreapi "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core/api"
+	testreportingplugin "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/reporting_plugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -25,10 +28,15 @@ func newStopCh(t *testing.T) <-chan struct{} {
 func PluginGenericTest(t *testing.T, p types.ReportingPluginClient) {
 	t.Run("PluginServer", func(t *testing.T) {
 		ctx := tests.Context(t)
-		factory, err := p.NewReportingPluginFactory(ctx, types.ReportingPluginServiceConfig{}, test.MockConn{}, &test.StaticPipelineRunnerService{}, &test.StaticTelemetry{}, &test.StaticErrorLog{})
+		factory, err := p.NewReportingPluginFactory(ctx,
+			types.ReportingPluginServiceConfig{},
+			testcore.MockConn{},
+			testcore.PipelineRunner,
+			testcore.Telemetry,
+			&testcore.ErrorLog)
 		require.NoError(t, err)
 
-		test.ReportingPluginFactory(t, factory)
+		testreportingplugin.RunFactory(t, factory)
 	})
 }
 
@@ -38,9 +46,9 @@ func TestGRPCService_MedianProvider(t *testing.T) {
 	stopCh := newStopCh(t)
 	test.PluginTest(
 		t,
-		test.ReportingPluginWithMedianProviderName,
+		testcoreapi.MedianID,
 		&reportingplugins.GRPCService[types.MedianProvider]{
-			PluginServer: test.StaticReportingPluginWithMedianProvider{},
+			PluginServer: testcoreapi.MedianProviderServer,
 			BrokerConfig: loop.BrokerConfig{
 				Logger: logger.Test(t),
 				StopCh: stopCh,
@@ -58,7 +66,7 @@ func TestGRPCService_PluginProvider(t *testing.T) {
 		t,
 		reportingplugins.PluginServiceName,
 		&reportingplugins.GRPCService[types.PluginProvider]{
-			PluginServer: test.StaticReportingPluginWithPluginProvider{},
+			PluginServer: testcoreapi.AgnosticProviderServer,
 			BrokerConfig: loop.BrokerConfig{
 				Logger: logger.Test(t),
 				StopCh: stopCh,

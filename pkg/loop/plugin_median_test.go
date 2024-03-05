@@ -10,7 +10,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/median/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
+	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
+	relayer_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/relayer"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -19,14 +22,27 @@ func TestPluginMedian(t *testing.T) {
 	t.Parallel()
 
 	stopCh := newStopCh(t)
-	test.PluginTest(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.PluginMedian)
+	test.PluginTest(t, loop.PluginMedianName,
+		&loop.GRPCPluginMedian{
+			PluginServer: median_test.MedianFactoryServer,
+			BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh},
+		},
+		median_test.PluginMedian)
 
 	t.Run("proxy", func(t *testing.T) {
-		test.PluginTest(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, func(t *testing.T, pr loop.PluginRelayer) {
-			p := newMedianProvider(t, pr)
-			pm := test.PluginMedianTest{MedianProvider: p}
-			test.PluginTest(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, pm.TestPluginMedian)
-		})
+		test.PluginTest(t, loop.PluginRelayerName,
+			&loop.GRPCPluginRelayer{
+				PluginServer: relayer_test.NewRelayerTester(false),
+				BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}},
+			func(t *testing.T, pr loop.PluginRelayer) {
+				p := newMedianProvider(t, pr)
+				pm := median_test.PluginMedianTest{MedianProvider: p}
+				test.PluginTest(t, loop.PluginMedianName,
+					&loop.GRPCPluginMedian{
+						PluginServer: median_test.MedianFactoryServer,
+						BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}},
+					pm.TestPluginMedian)
+			})
 	})
 }
 
@@ -45,12 +61,12 @@ func TestPluginMedianExec(t *testing.T) {
 	i, err := client.Dispense(loop.PluginMedianName)
 	require.NoError(t, err)
 
-	test.PluginMedian(t, i.(types.PluginMedian))
+	median_test.PluginMedian(t, i.(types.PluginMedian))
 
 	t.Run("proxy", func(t *testing.T) {
 		pr := newPluginRelayerExec(t, false, stopCh)
 		p := newMedianProvider(t, pr)
-		pm := test.PluginMedianTest{MedianProvider: p}
+		pm := median_test.PluginMedianTest{MedianProvider: p}
 		pm.TestPluginMedian(t, i.(types.PluginMedian))
 	})
 }
@@ -65,10 +81,10 @@ func newStopCh(t *testing.T) <-chan struct{} {
 
 func newMedianProvider(t *testing.T, pr loop.PluginRelayer) types.MedianProvider {
 	ctx := context.Background()
-	r, err := pr.NewRelayer(ctx, test.ConfigTOML, test.StaticKeystore{})
+	r, err := pr.NewRelayer(ctx, test.ConfigTOML, testcore.Keystore)
 	require.NoError(t, err)
 	servicetest.Run(t, r)
-	p, err := r.NewPluginProvider(ctx, test.RelayArgs, test.PluginArgs)
+	p, err := r.NewPluginProvider(ctx, relayer_test.RelayArgs, relayer_test.PluginArgs)
 	mp, ok := p.(types.MedianProvider)
 	require.True(t, ok)
 	require.NoError(t, err)
@@ -78,12 +94,12 @@ func newMedianProvider(t *testing.T, pr loop.PluginRelayer) types.MedianProvider
 
 func newGenericPluginProvider(t *testing.T, pr loop.PluginRelayer) types.PluginProvider {
 	ctx := context.Background()
-	r, err := pr.NewRelayer(ctx, test.ConfigTOML, test.StaticKeystore{})
+	r, err := pr.NewRelayer(ctx, test.ConfigTOML, testcore.Keystore)
 	require.NoError(t, err)
 	servicetest.Run(t, r)
-	ra := test.RelayArgs
+	ra := relayer_test.RelayArgs
 	ra.ProviderType = string(types.GenericPlugin)
-	p, err := r.NewPluginProvider(ctx, ra, test.PluginArgs)
+	p, err := r.NewPluginProvider(ctx, ra, relayer_test.PluginArgs)
 	require.NoError(t, err)
 	servicetest.Run(t, p)
 	return p

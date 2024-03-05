@@ -1,19 +1,31 @@
 package mercury_common_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"reflect"
 
+	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	mercury_types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 )
 
-type OnChainConfigCodecParameters struct {
+// OnchainConfigCodec is a static implementation of OnchainConfigCodec for testing
+var OnchainConfigCodec = staticOnchainConfigCodec{
+	onChainConfigCodecParameters: StaticOnChainConfigCodecFixtures,
+}
+
+type OnchainConfigCodecEvaluator interface {
+	mercury_types.OnchainConfigCodec
+	testtypes.Evaluator[mercury_types.OnchainConfigCodec]
+}
+
+type onChainConfigCodecParameters struct {
 	Encoded []byte
 	Decoded mercury_types.OnchainConfig
 }
 
-var StaticOnChainConfigCodecFixtures = OnChainConfigCodecParameters{
+var StaticOnChainConfigCodecFixtures = onChainConfigCodecParameters{
 	Encoded: []byte("on chain config to be encoded"),
 	Decoded: mercury_types.OnchainConfig{
 		Min: big.NewInt(1),
@@ -21,11 +33,13 @@ var StaticOnChainConfigCodecFixtures = OnChainConfigCodecParameters{
 	},
 }
 
-type StaticOnchainConfigCodec struct{}
+type staticOnchainConfigCodec struct {
+	onChainConfigCodecParameters
+}
 
-var _ mercury_types.OnchainConfigCodec = StaticOnchainConfigCodec{}
+var _ OnchainConfigCodecEvaluator = staticOnchainConfigCodec{}
 
-func (StaticOnchainConfigCodec) Encode(c mercury_types.OnchainConfig) ([]byte, error) {
+func (staticOnchainConfigCodec) Encode(c mercury_types.OnchainConfig) ([]byte, error) {
 	if !reflect.DeepEqual(c, StaticOnChainConfigCodecFixtures.Decoded) {
 		return nil, fmt.Errorf("expected OnchainConfig %v but got %v", StaticOnChainConfigCodecFixtures.Decoded, c)
 	}
@@ -33,6 +47,26 @@ func (StaticOnchainConfigCodec) Encode(c mercury_types.OnchainConfig) ([]byte, e
 	return StaticOnChainConfigCodecFixtures.Encoded, nil
 }
 
-func (StaticOnchainConfigCodec) Decode([]byte) (mercury_types.OnchainConfig, error) {
+func (staticOnchainConfigCodec) Decode([]byte) (mercury_types.OnchainConfig, error) {
 	return StaticOnChainConfigCodecFixtures.Decoded, nil
+}
+
+func (staticOnchainConfigCodec) Evaluate(ctx context.Context, other mercury_types.OnchainConfigCodec) error {
+	encoded, err := other.Encode(StaticOnChainConfigCodecFixtures.Decoded)
+	if err != nil {
+		return fmt.Errorf("failed to encode: %w", err)
+	}
+	if !reflect.DeepEqual(encoded, StaticOnChainConfigCodecFixtures.Encoded) {
+		return fmt.Errorf("expected encoded %x but got %x", StaticOnChainConfigCodecFixtures.Encoded, encoded)
+	}
+
+	decoded, err := other.Decode(StaticOnChainConfigCodecFixtures.Encoded)
+	if err != nil {
+		return fmt.Errorf("failed to decode: %w", err)
+	}
+	if !reflect.DeepEqual(decoded, StaticOnChainConfigCodecFixtures.Decoded) {
+		return fmt.Errorf("expected decoded %v but got %v", StaticOnChainConfigCodecFixtures.Decoded, decoded)
+	}
+
+	return nil
 }
