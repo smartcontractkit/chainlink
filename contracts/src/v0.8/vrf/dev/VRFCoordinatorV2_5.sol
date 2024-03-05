@@ -503,7 +503,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 weiPerUnitGas,
     bool nativePayment,
     bool onlyPremium
-  ) internal returns (uint96) {
+  ) internal view returns (uint96) {
     if (nativePayment) {
       return _calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium);
     }
@@ -514,7 +514,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) internal returns (uint96) {
+  ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
     uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
     // calculate the payment without the premium
@@ -533,7 +533,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) internal returns (uint96) {
+  ) internal view returns (uint96) {
     int256 weiPerUnitLink;
     weiPerUnitLink = _getFeedData();
     if (weiPerUnitLink <= 0) {
