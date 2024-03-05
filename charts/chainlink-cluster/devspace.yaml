@@ -36,20 +36,15 @@ pipelines:
 
       run_dependencies --all
       ensure_pull_secrets --all
-      build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
+      
+      build_images --all
+      
       kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
-      if [ -n "$1" ]; then
-        echo "Deploying tag $1"
-        tag=$1
-        image=${DEVSPACE_IMAGE}:$tag
-      else
-        echo "Deploying current commit tag: $(git rev-parse --short HEAD)"
-        tag=$(git rev-parse --short HEAD)
-        image=${DEVSPACE_IMAGE}:$tag
-      fi
 
-      echo "Checking tag: $tag"
+      tag=$(git rev-parse --short HEAD)
+      image=${DEVSPACE_IMAGE}:$tag
+      echo "Checking tag: '$tag'"
       repository_name="chainlink-devspace"
       desired_tag=$tag
 
@@ -73,7 +68,7 @@ pipelines:
       --set=helm.values.chainlink.nodes[5].image=$image
       echo
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
-      echo "To extend the TTL for e.g. 72 hours, run: devspace ttl ${DEVSPACE_NAMESPACE} 72h"
+      echo "To extend the TTL for e.g. 72 hours, run: devspace run ttl ${DEVSPACE_NAMESPACE} 72h"
 
       echo
       echo "############################################"
@@ -97,11 +92,25 @@ commands:
 images:
   app:
     image: ${DEVSPACE_IMAGE}
-    dockerfile: ../../core/chainlink.devspace.Dockerfile
-    context: ../..
-    docker:
-      disableFallback: true
+    tags:
+      - $(git rev-parse --short HEAD)
+    custom:
+      skipImageArg: true
+      command: |-
+        TOPLEVEL=$(git rev-parse --show-toplevel)
+        pushd $TOPLEVEL
+        pwd
+        goreleaser --version
+        MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.develop.yaml
+        popd
+        BUILT_IMAGE=$(cat $TOPLEVEL/dist/artifacts.json | jq -r '.[] | select(.type == "Docker Image" and .goarch == "amd64" and (.name | contains("sha")) and ( .name | contains("root") | not) ) | .name')
 
+        echo "Tagging and pushing image"
+        tag=$(git rev-parse --short HEAD)
+        TAGGED_IMAGE=${DEVSPACE_IMAGE}:$tag
+        docker tag $BUILT_IMAGE ${runtime.images.app.image}:${runtime.images.app.tag}
+        echo "Tagged image: $TAGGED_IMAGE"
+        docker push $TAGGED_IMAGE
 hooks:
   - wait:
       running: true
