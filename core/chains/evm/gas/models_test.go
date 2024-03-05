@@ -64,15 +64,12 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	// GetConfig returns the correct gas estimator config interface
 	t.Run("GetConfig", func(t *testing.T) {
 		lggr := logger.Test(t)
-		// expect nil
-		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, nil, nil)
-		config := estimator.GetConfig()
-		assert.Nil(t, config)
 
-		// expect l1Oracle
-		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, geCfg, nil)
-		config = estimator.GetConfig()
-		assert.Equal(t, geCfg, config)
+		priceMax := assets.NewWei(big.NewInt(100))
+		geCfg.On("PriceMax").Return(priceMax)
+
+		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, geCfg, nil)
+		assert.True(t, priceMax.Equal(estimator.MaxGasPrice()))
 	})
 
 	// GetFee returns gas estimation based on configuration value

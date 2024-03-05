@@ -34,8 +34,8 @@ type EvmFeeEstimator interface {
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
 	L1Oracle() rollups.L1Oracle
-	// GetConfig returns the underlying gas estimator config
-	GetConfig() evmconfig.GasEstimator
+	// MaxGasPrice returns the max gas price configured for the fee estimator.
+	MaxGasPrice() *assets.Wei
 
 	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error)
 	BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error)
@@ -243,8 +243,8 @@ func (e *WrappedEvmEstimator) L1Oracle() rollups.L1Oracle {
 	return e.l1Oracle
 }
 
-func (e *WrappedEvmEstimator) GetConfig() evmconfig.GasEstimator {
-	return e.estimatorConfig
+func (e *WrappedEvmEstimator) MaxGasPrice() *assets.Wei {
+	return e.estimatorConfig.PriceMax()
 }
 
 func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error) {
