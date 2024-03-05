@@ -114,6 +114,7 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Build Test Image
+        if: inputs.enableChaos || inputs.enableReorg
         uses: ./.github/actions/build-test-image
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
