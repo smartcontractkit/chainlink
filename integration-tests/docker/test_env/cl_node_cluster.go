@@ -22,6 +22,15 @@ func (c *ClCluster) Start() error {
 	eg := &errgroup.Group{}
 	nodes := c.Nodes
 
+	// TODO: Parallel containers implementation
+	// Launch postgres nodes in parallel
+	// Assign each running container to a Go object
+
+	// Prepare all nodes (assign them running postgres containers)
+	// Launch nodes
+	// Wait for all nodes to be running
+	// Update port and URL values for each running container and corresponding Go object
+
 	for i := 0; i < len(nodes); i++ {
 		nodeIndex := i
 		eg.Go(func() error {
