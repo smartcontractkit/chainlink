@@ -14,7 +14,26 @@ If you have previously run these smoke tests using GitHub Actions or some sort o
 
 ## Configure
 
-See the [example.env](./example.env) file for environment variables you can set to configure things like network settings, Chainlink version, and log level. Remember to use `source .env` to activate your settings.
+We have finished first pass at moving the configuration from env vars to TOML files. Currently all product-related configuration is already in TOML files, but env vars still are used to control things like log level, Slack notifications and Kubernetes-related settings. See the [example.env](./example.env) file for environment variables.
+
+We have added what we think are sensible defaults for all products, you can find them in `./testconfig/<product>/<product>.toml` files. Each product folder contains also an `example.toml` file with all possible TOML keys and some description. Detailed description of TOML configuration can be found in [README.md](./testconfig/README.md), but if you want to run some tests using default value all you need to do is provide Chainlink image and version:
+```toml
+# ./testconfig/overrides.toml
+
+[ChainlinkImage]
+image = "your image name"
+version = "your tag"
+```
+
+You could also think about that config this way:
+```toml
+# ./testconfig/overrides.toml
+[ChainlinkImage]
+image = "${CHAINLINK_IMAGE}"
+version = "${CHAINLINK_VERSION}"
+```
+
+Of course above just and example, in real world no substitution will take place unless you use some templating tool, but it should give you an idea on how to move from env vars to TOML files. **Remember** your runtime configuration needs to be placed in `./testconfig/overrides.toml` file **that should never be committed**.
 
 ## Build
 
@@ -26,9 +45,9 @@ e.g.
 
 `make build_docker_image image=chainlink tag=test-tag`
 
-You'll want to set the `CHAINLINK_IMAGE` and `CHAINLINK_VERSION` env values appropriately as well. See [example.env](./example.env) for more details.
-
 ## Run
+
+Make sure you have `./testconfig/overrides.toml` file with your Chainlink image and version.
 
 `go test ./smoke/<product>_test.go`
 
