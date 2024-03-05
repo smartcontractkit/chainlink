@@ -30,7 +30,6 @@ func TestVRFBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	l.Warn().Msg("// DEBUG: Starting VRF Basic Test")
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
