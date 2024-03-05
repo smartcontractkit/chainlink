@@ -3,10 +3,6 @@ name: Live VRF Tests
 on:
   workflow_dispatch:
     inputs:
-      slack_user_id:
-        description: "The Slack member ID to notify"
-        required: true
-        type: string
       networks:
         description: "Remove any networks you don't want to run tests on"
         required: true
