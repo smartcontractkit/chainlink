@@ -2,7 +2,9 @@ package values
 
 import (
 	"fmt"
+	"reflect"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
@@ -55,7 +57,27 @@ func Wrap(v any) (Value, error) {
 		return tv, nil
 	}
 
-	return nil, fmt.Errorf("could not wrap into value: %+v", v)
+	// Handle slices, structs, and pointers to structs
+	switch reflect.ValueOf(v).Kind() {
+	case reflect.Slice:
+		val := reflect.ValueOf(v)
+		s := make([]any, val.Len())
+		for i := 0; i < val.Len(); i++ {
+			item := val.Index(i).Interface()
+			s[i] = item
+		}
+		return NewList(s) // can't just pass v in directly, so we have to copy it to a []any slice
+	case reflect.Struct:
+		return createMapFromStruct(v)
+	case reflect.Pointer:
+		if reflect.Indirect(reflect.ValueOf(v)).Kind() == reflect.Struct {
+			return createMapFromStruct(reflect.Indirect(reflect.ValueOf(v)).Interface())
+		}
+	default:
+		return nil, fmt.Errorf("could not wrap into value: %+v", v)
+	}
+
+	return nil, fmt.Errorf("could not wrap into value: %+v", v) // Unreachable
 }
 
 func Unwrap(v Value) (any, error) {
@@ -124,4 +146,13 @@ func fromDecimalValueProto(decStr string) *Decimal {
 	}
 
 	return NewDecimal(dec)
+}
+
+func createMapFromStruct(v any) (Value, error) {
+	var resultMap map[string]interface{}
+	err := mapstructure.Decode(v, &resultMap)
+	if err != nil {
+		return nil, err
+	}
+	return NewMap(resultMap)
 }

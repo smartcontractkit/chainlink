@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -51,6 +52,21 @@ type ReportInfo struct {
 	Price     float64
 }
 
+// TODO: fix this by adding support for uint64 in value.go
+type FeedReport struct {
+	FeedID               int64  `json:"feedId"`
+	FullReport           []byte `json:"fullreport"`
+	BenchmarkPrice       int64  `json:"benchmarkPrice"`
+	ObservationTimestamp int64  `json:"observationTimestamp"`
+}
+
+type TriggerEvent struct {
+	TriggerType string       `json:"triggerType"`
+	ID          string       `json:"id"`
+	Timestamp   string       `json:"timestamp"`
+	Payload     []FeedReport `json:"payload"`
+}
+
 // TODO implement an actual codec
 type Codec struct {
 }
@@ -90,6 +106,33 @@ func (m Codec) Wrap(reportSet ReportSet) (values.Value, error) {
 			},
 		},
 	)
+}
+
+func (m Codec) WrapMercuryTriggerEvent(event TriggerEvent) (values.Value, error) {
+	return values.Wrap(event)
+}
+
+func (m Codec) UnwrapMercuryTriggerEvent(raw values.Value) (TriggerEvent, error) {
+	mercuryTriggerEvent := TriggerEvent{}
+	val, err := raw.Unwrap()
+	if err != nil {
+		return mercuryTriggerEvent, err
+	}
+	event := val.(map[string]any)
+	mercuryTriggerEvent.TriggerType = event["TriggerType"].(string)
+	mercuryTriggerEvent.ID = event["ID"].(string)
+	mercuryTriggerEvent.Timestamp = event["Timestamp"].(string)
+	mercuryTriggerEvent.Payload = make([]FeedReport, 0)
+	for _, report := range event["Payload"].([]any) {
+		reportMap := report.(map[string]any)
+		var mercuryReport FeedReport
+		err = mapstructure.Decode(reportMap, &mercuryReport)
+		if err != nil {
+			return mercuryTriggerEvent, err
+		}
+		mercuryTriggerEvent.Payload = append(mercuryTriggerEvent.Payload, mercuryReport)
+	}
+	return mercuryTriggerEvent, nil
 }
 
 func NewCodec() Codec {

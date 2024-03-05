@@ -3,10 +3,23 @@ package values
 import (
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type TestValueEvent struct {
+	TriggerType string       `json:"triggerType"`
+	ID          string       `json:"id"`
+	Timestamp   string       `json:"timestamp"`
+	Payload     []TestReport `json:"payload"`
+}
+
+type TestReport struct {
+	FeedID     int64  `json:"feedId"`
+	FullReport string `json:"fullreport"`
+}
 
 func Test_Value(t *testing.T) {
 	testCases := []struct {
@@ -90,6 +103,65 @@ func Test_Value(t *testing.T) {
 				}
 				mv, err := NewMap(m)
 				return m, mv, err
+			},
+		},
+		{
+			name: "struct",
+			newValue: func() (any, Value, error) {
+				var v TestReport
+				m := map[string]any{
+					"FeedID":     int64(2),
+					"FullReport": "hello",
+				}
+				err := mapstructure.Decode(m, &v)
+				if err != nil {
+					return nil, nil, err
+				}
+				vv, err := Wrap(v)
+				return m, vv, err
+			},
+		},
+		{
+			name: "structPointer",
+			newValue: func() (any, Value, error) {
+				var v TestReport
+				m := map[string]any{
+					"FeedID":     int64(3),
+					"FullReport": "world",
+				}
+				err := mapstructure.Decode(m, &v)
+				if err != nil {
+					return nil, nil, err
+				}
+				vv, err := Wrap(&v)
+				return m, vv, err
+			},
+		},
+		{
+			name: "nestedStruct",
+			newValue: func() (any, Value, error) {
+				var v TestValueEvent
+				m := map[string]any{
+					"TriggerType": "mercury",
+					"ID":          "123",
+					"Timestamp":   "123",
+					"Payload": []any{
+						map[string]any{
+							"FeedID":     int64(4),
+							"FullReport": "hello",
+						},
+						map[string]any{
+							"FeedID":     int64(5),
+							"FullReport": "world",
+						},
+					},
+				}
+				err := mapstructure.Decode(m, &v)
+				if err != nil {
+					return nil, nil, err
+				}
+				vv, err := Wrap(v)
+				return m, vv, err
 			},
 		},
 		{
