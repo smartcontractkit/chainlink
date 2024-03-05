@@ -21,7 +21,7 @@ var (
 	LogBackfillBuffer = 100
 )
 
-func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
+func (p *logEventProvider) RefreshActiveUpkeeps(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 	// Exploratory: investigate how we can batch the refresh
 	if len(ids) == 0 {
 		return nil, nil
@@ -41,7 +41,7 @@ func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, er
 	if len(inactiveIDs) > 0 {
 		p.lggr.Debugw("Removing inactive upkeeps", "upkeeps", len(inactiveIDs))
 		for _, id := range inactiveIDs {
-			if err := p.UnregisterFilter(id); err != nil {
+			if err := p.UnregisterFilter(ctx, id); err != nil {
 				merr = errors.Join(merr, fmt.Errorf("failed to unregister filter: %s", id.String()))
 			}
 		}
@@ -143,11 +143,9 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	return nil
 }
 
-func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
+func (p *logEventProvider) UnregisterFilter(ctx context.Context, upkeepID *big.Int) error {
 	// Filter might have been unregistered already, only try to unregister if it exists
 	if p.poller.HasFilter(p.filterName(upkeepID)) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 		if err := p.poller.UnregisterFilter(ctx, p.filterName(upkeepID)); err != nil {
 			return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
 		}

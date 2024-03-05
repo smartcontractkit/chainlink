@@ -213,7 +213,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 			},
 			logEventProvider: &mockLogEventProvider{
-				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
 					assert.Equal(t, 1, len(ids))
 					return ids, nil
@@ -238,7 +238,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
-				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
 					assert.Equal(t, 1, len(ids))
 					return ids, nil
@@ -263,7 +263,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
-				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
 					assert.Equal(t, 1, len(ids))
 					return ids, nil
@@ -292,12 +292,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
-				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
 					assert.Equal(t, 1, len(ids))
 					return ids, nil
 				},
-				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
+				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
 					return errors.New("register filter boom")
 				},
 			},
@@ -346,12 +346,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
-				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only two are a valid log trigger upkeep
 					assert.Equal(t, 2, len(ids))
 					return ids, nil
 				},
-				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
+				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
 					return nil
 				},
 			},
@@ -399,11 +399,11 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				return res
 			}(),
 			logEventProvider: &mockLogEventProvider{
-				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					assert.Equal(t, logTriggerRefreshBatchSize, len(ids))
 					return ids, nil
 				},
-				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
+				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
 					return nil
 				},
 			},
@@ -451,13 +451,13 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				return res
 			}(),
 			logEventProvider: &mockLogEventProvider{
-				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					if len(ids) != logTriggerRefreshBatchSize {
 						assert.Equal(t, 3, len(ids))
 					}
 					return ids, nil
 				},
-				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
+				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
 					return nil
 				},
 			},
@@ -527,16 +527,16 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 
 type mockLogEventProvider struct {
 	logprovider.LogEventProvider
-	RefreshActiveUpkeepsFn func(ids ...*big.Int) ([]*big.Int, error)
-	RegisterFilterFn       func(opts logprovider.FilterOptions) error
+	RefreshActiveUpkeepsFn func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error)
+	RegisterFilterFn       func(ctx context.Context, opts logprovider.FilterOptions) error
 }
 
-func (p *mockLogEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
-	return p.RefreshActiveUpkeepsFn(ids...)
+func (p *mockLogEventProvider) RefreshActiveUpkeeps(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
+	return p.RefreshActiveUpkeepsFn(ctx, ids...)
 }
 
 func (p *mockLogEventProvider) RegisterFilter(ctx context.Context, opts logprovider.FilterOptions) error {
-	return p.RegisterFilterFn(opts)
+	return p.RegisterFilterFn(ctx, opts)
 }
 
 type mockRegistry struct {

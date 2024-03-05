@@ -366,11 +366,8 @@ func (r *EvmRegistry) pollLogs() error {
 
 	{
 		var logs []logpoller.Log
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 		if logs, err = r.poller.LogsWithSigs(
-			ctx,
+			r.ctx,
 			end.BlockNumber-logEventLookback,
 			end.BlockNumber,
 			upkeepStateEvents,
@@ -394,9 +391,7 @@ func UpkeepFilterName(addr common.Address) string {
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return r.poller.RegisterFilter(ctx, logpoller.Filter{
+	return r.poller.RegisterFilter(r.ctx, logpoller.Filter{
 		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},
