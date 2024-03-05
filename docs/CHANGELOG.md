@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Minimum required version of Postgres is now >= 12. Postgres 11 was EOL'd in November 2023. Added a new version check that will prevent Chainlink from running on EOL'd Postgres. If you are running Postgres <= 11 you should upgrade to the latest version. The check can be forcibly overridden by setting SKIP_PG_VERSION_CHECK=true.
-- HeadTracker now respects the `FinalityTagEnabled` config option. If the flag is enabled, HeadTracker backfill blocks up to the latest finalized block provided by the corresponding RPC call. To address potential misconfigurations, `HistoryDepth` is now calculated from the latest finalized block instead of the head. NOTE: Consumers (e.g. TXM and LogPoller) do not fully utilize Finality Tag yet.
+- HeadTracker now respects the `FinalityTagEnabled` config option. If the flag is enabled, HeadTracker backfills blocks up to the latest finalized block provided by the corresponding RPC call. To address potential misconfigurations, `HistoryDepth` is now calculated from the latest finalized block instead of the head. NOTE: Consumers (e.g. TXM and LogPoller) do not fully utilize Finality Tag yet.
 
 
 <!-- unreleasedstop -->
