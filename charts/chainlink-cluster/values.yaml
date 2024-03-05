@@ -160,38 +160,6 @@ mockserver:
     limits:
       cpu: 1
       memory: 1024Mi
-runner:
-  podSecurityContext:
-    fsGroup: 999
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: false
-    runAsNonRoot: true
-    runAsUser: 999
-    runAsGroup: 999
-  stateful: false
-  resources:
-    requests:
-      cpu: 1
-      memory: 512Mi
-    limits:
-      cpu: 1
-      memory: 512Mi
-  affinity: {}
-  tolerations: []
-  nodeSelector: {}
-  ingress:
-    enabled: false
-    className: ""
-    hosts: []
-    tls: []
-    annotations: {}
-  service:
-    type: NodePort
-    port: 8080
-
 opentelemetry-collector:
   enabled: true
   mode: deployment

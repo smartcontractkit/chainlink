@@ -15,19 +15,18 @@ vars:
   # This is a comma separated list of CIDR blocks that will be allowed to access the ingress.
   DEVSPACE_INGRESS_CIDRS:
     source: env
+  # Devspace dev timeout
+  DEVSPACE_DEV_TIMEOUT: 600s
 
 # This is a list of `pipelines` that DevSpace can execute (you can define your own)
 pipelines:
   dev:
+    # We don't need a rollout here and image haven't been really changed,
+    # may not deserve to be commited, so we are just rebooting the app pods
     run: |-
-      run_dependencies --all       # 1. Deploy any projects this project needs (see "dependencies")
-      ensure_pull_secrets --all    # 2. Ensure pull secrets
-      start_dev app-1 &
-      start_dev app-2 &
-      start_dev app-3 &
-      start_dev app-4 &
-      start_dev app-5 &
-      start_dev app-6
+      devspace run-pipeline deploy
+      kubectl get pods -n ${DEVSPACE_NAMESPACE} --no-headers=true | grep '^app-node-' | awk '{print $1}' | xargs kubectl delete pod -n ${DEVSPACE_NAMESPACE}
+      kubectl wait pods -n ${DEVSPACE_NAMESPACE} --selector=app=app --for=condition=Ready --timeout=${DEVSPACE_DEV_TIMEOUT}
   # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
   deploy:
     run: |-
@@ -107,7 +106,7 @@ images:
         pushd $TOPLEVEL
         pwd
         goreleaser --version
-        MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.develop.yaml
+        MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
         popd
         BUILT_IMAGE=$(cat $TOPLEVEL/dist/artifacts.json | jq -r '.[] | select(.type == "Docker Image" and .goarch == "amd64" and (.name | contains("sha")) and ( .name | contains("root") | not) ) | .name')
 
@@ -286,36 +285,6 @@ deployments:
             limits:
               cpu: 1
               memory: 1024Mi
-        runner:
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
-          stateful: false
-          resources:
-            requests:
-              cpu: 1
-              memory: 512Mi
-            limits:
-              cpu: 1
-              memory: 512Mi
-          affinity: {}
-          tolerations: []
-          nodeSelector: {}
-          ingress:
-            enabled: false
-            className: ""
-            hosts: []
-            tls: []
-            annotations: {}
-          service:
-            type: NodePort
-            port: 8080
-
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
 
@@ -436,164 +405,3 @@ deployments:
         nodeSelector:
         tolerations:
         affinity:
-
-# This is a list of `dev` containers that are based on the containers created by your deployments
-dev:
-  app-1:
-    workingDir: /home/chainlink
-    container: node
-    labelSelector:
-      instance: node-1
-    # Sync files between the local filesystem and the development container
-    sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
-      - path: ../..:/home/chainlink
-        printLogs: true
-        disableDownload: true
-        uploadExcludePaths:
-          - integration-tests/
-          - .github/
-          - belt/
-          - charts/
-          - contracts/
-          - node_modules/
-          - integration/
-          - integration-scripts/
-          - testdata/
-          - evm-test-helpers/
-  app-2:
-    workingDir: /home/chainlink
-    container: node
-    labelSelector:
-      instance: node-2
-    # Sync files between the local filesystem and the development container
-    sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
-      - path: ../..:/home/chainlink
-        printLogs: true
-        disableDownload: true
-        uploadExcludePaths:
-          - integration-tests/
-          - .git
-          - .github/
-          - docs/
-          - belt/
-          - charts/
-          - contracts/
-          - node_modules/
-          - integration/
-          - integration-scripts/
-          - testdata/
-          - evm-test-helpers/
-  app-3:
-    workingDir: /home/chainlink
-    container: node
-    labelSelector:
-      instance: node-3
-    # Sync files between the local filesystem and the development container
-    sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
-      - path: ../..:/home/chainlink
-        printLogs: true
-        disableDownload: true
-        uploadExcludePaths:
-          - integration-tests/
-          - .git
-          - .github/
-          - docs/
-          - belt/
-          - charts/
-          - contracts/
-          - node_modules/
-          - integration/
-          - integration-scripts/
-          - testdata/
-          - evm-test-helpers/
-  app-4:
-    workingDir: /home/chainlink
-    container: node
-    labelSelector:
-      instance: node-4
-    # Sync files between the local filesystem and the development container
-    sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
-      - path: ../..:/home/chainlink
-        printLogs: true
-        disableDownload: true
-        uploadExcludePaths:
-          - integration-tests/
-          - .git
-          - .github/
-          - docs/
-          - belt/
-          - charts/
-          - contracts/
-          - node_modules/
-          - integration/
-          - integration-scripts/
-          - testdata/
-          - evm-test-helpers/
-  app-5:
-    workingDir: /home/chainlink
-    container: node
-    labelSelector:
-      instance: node-5
-    # Sync files between the local filesystem and the development container
-    sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
-      - path: ../..:/home/chainlink
-        printLogs: true
-        disableDownload: true
-        uploadExcludePaths:
-          - integration-tests/
-          - .git
-          - .github/
-          - docs/
-          - belt/
-          - charts/
-          - contracts/
-          - node_modules/
-          - integration/
-          - integration-scripts/
-          - testdata/
-          - evm-test-helpers/
-  app-6:
-    workingDir: /home/chainlink
-    container: node
-    labelSelector:
-      instance: node-6
-    # Sync files between the local filesystem and the development container
-    sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
-      - path: ../..:/home/chainlink
-        printLogs: true
-        disableDownload: true
-        uploadExcludePaths:
-          - integration-tests/
-          - .git
-          - .github/
-          - docs/
-          - belt/
-          - charts/
-          - contracts/
-          - node_modules/
-          - integration/
-          - integration-scripts/
-          - testdata/
-          - evm-test-helpers/
-    terminal:
-      enabled: true
-    ports:
-      - port: "2345"

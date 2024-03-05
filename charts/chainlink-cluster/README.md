@@ -19,10 +19,9 @@ We are using [devspace](https://www.devspace.sh/docs/getting-started/installatio
 
 Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments for more details
 
-Configure your `cluster` setup (one time setup, internal usage only)
+Configure your `cluster` setup (`./setup.sh` script can be found in 1pass)
 ```
 export DEVSPACE_IMAGE="..."
-cd charts/chainlink-cluster
 ./setup.sh ${my-personal-namespace-name-crib}
 ```
 
@@ -38,12 +37,12 @@ Valid values are `1h`, `2m`, `3s`, etc. Go time format is invalid `1h2m3s`
 devspace run ttl ${namespace} 120h
 ```
 
-If you don't need a build use
+If you don't need to build use
 ```
 devspace deploy --skip-build
 ```
 
-To deploy particular commit (must be in registry) use
+To deploy particular commit (must be in the registry) use
 ```
 devspace deploy --skip-build ${short_sha_of_image}
 ```
@@ -53,22 +52,12 @@ Forward ports to check UI or run tests
 devspace run connect ${my-personal-namespace-name-crib}
 ```
 
-Connect to your environment, by replacing container with label `node-1` with your local repository files
+Update some Go code of Chainlink node and quickly sync your cluster
 ```
-devspace dev -p node
-make chainlink
-make chainlink-local-start
-```
-Fix something in the code locally, it'd automatically sync, rebuild it inside container and run again
-```
-make chainlink
-make chainlink-local-start
+devspace dev
 ```
 
-Reset the pod to original image
-```
-devspace reset pods
-```
+To reset pods to original image just checkout needed commit and do `devspace deploy` again
 
 Destroy the cluster
 ```

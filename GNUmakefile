@@ -3,7 +3,7 @@
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
-GOFLAGS = -ldflags "$(GO_LDFLAGS) -extldflags=-static"
+GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -54,13 +54,6 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 .PHONY: chainlink-test
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
-
-chainlink-devspace: ## Build the chainlink binary.
-	GOOS=linux GOARCH=amd64 go build $(GOFLAGS) .
-
-.PHONY: chainlink-local-start
-chainlink-local-start:
-	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
 
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
