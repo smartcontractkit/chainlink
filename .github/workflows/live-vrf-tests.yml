@@ -1,10 +1,10 @@
 # Funding address: 0xC1107e57082945E28d3202A81B1520DEA3AE6AEC
-name: Live VRF Tests
+name: Generic Live Smoke Tests
 on:
   workflow_dispatch:
     inputs:
       networks:
-        description: "Remove any networks you don't want to run tests on"
+        description: "Comma-separated list of networks to run on"
         required: true
         default: "SEPOLIA,OPTIMISM_SEPOLIA,ARBITRUM_SEPOLIA"
       test_list:
@@ -72,6 +72,8 @@ jobs:
       contents: read
     name: Build Tests Binary
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -86,6 +88,12 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Network Matrix
+        id: build-matrix
+        run: |
+          NETWORKS="[\"${{ github.event.inputs.networks }}\"]"
+          NETWORKS="${NETWORKS//,/\",\"}"
+          echo "matrix=${NETWORKS}" >> "$GITHUB_OUTPUT"
       - name: Build Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
@@ -97,22 +105,6 @@ jobs:
           cache_restore_only: "true"
           binary_name: tests
 
-  build-matrix:
-    environment: integration
-    permissions:
-      id-token: write
-      contents: read
-    name: Build Matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.build-matrix.outputs.matrix }}
-    steps:
-      - id: build-matrix
-        run: |
-          NETWORKS="[\"${{ github.event.inputs.networks }}\"]"
-          NETWORKS="${NETWORKS//,/\",\"}"
-          echo "matrix=${NETWORKS}" >> "$GITHUB_OUTPUT"
-
 
   # End Build Test Dependencies
 
@@ -123,11 +115,11 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, build-tests, build-matrix]
+    needs: [build-chainlink, build-tests]
     strategy:
       fail-fast: false
       matrix: 
-        network: ${{fromJson(needs.build-matrix.outputs.matrix)}}
+        network: ${{fromJson(needs.build-tests.outputs.matrix)}}
     name: VRF Tests on ${{ matrix.network }}
     runs-on: ubuntu-latest
     steps:
