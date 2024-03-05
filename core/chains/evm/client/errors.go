@@ -436,7 +436,7 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		return commonclient.Fatal
 	}
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
-		lggr.Debugw("Transaction already confirmed for this nonce: %d", tx.Nonce(), "err", sendError, "etx", tx)
+		lggr.Debugw(fmt.Sprintf("Transaction already confirmed for this nonce: %d", tx.Nonce()), "err", sendError, "etx", tx)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
 		return commonclient.TransactionAlreadyKnown
@@ -484,7 +484,7 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		return commonclient.InsufficientFunds
 	}
 	if sendError.IsTimeout() {
-		lggr.Errorw("timeout while sending transaction %x", tx.Hash(), "err", sendError, "etx", tx)
+		lggr.Errorw(fmt.Sprintf("timeout while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsCanceled() {
