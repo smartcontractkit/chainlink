@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"math/big"
 	"net/url"
 	"time"
 
@@ -13,41 +12,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
-
-var _ evmconfig.NodePool = NodePool{}
-
-type NodePool struct {
-	selectionMode        string
-	leaseDuration        time.Duration
-	pollFailureThreshold uint32
-	pollInterval         time.Duration
-	syncThreshold        uint32
-	nodeIsSyncingEnabled bool
-}
-
-func (c NodePool) PollFailureThreshold() uint32 {
-	return c.pollFailureThreshold
-}
-
-func (c NodePool) PollInterval() time.Duration {
-	return c.pollInterval
-}
-
-func (c NodePool) SelectionMode() string {
-	return c.selectionMode
-}
-
-func (c NodePool) LeaseDuration() time.Duration {
-	return c.leaseDuration
-}
-
-func (c NodePool) SyncThreshold() uint32 {
-	return c.syncThreshold
-}
-
-func (c NodePool) NodeIsSyncingEnabled() bool {
-	return c.nodeIsSyncingEnabled
-}
 
 type NodeConfig struct {
 	Name     *string
@@ -61,44 +25,36 @@ type NodeConfig struct {
 // Parameters should only be basic go types to make it accessible for external users
 // Configs can be stored in a variety of ways
 func NewClientConfigs(
-	selectionMode string,
+	selectionMode *string,
 	leaseDuration time.Duration,
-	noNewHeadsThreshold time.Duration,
-	chainID *big.Int,
 	chainType string,
 	nodeCfgs []NodeConfig,
-	pollFailureThreshold uint32,
+	pollFailureThreshold *uint32,
 	pollInterval time.Duration,
-	syncThreshold uint32,
-	nodeIsSyncingEnabled bool,
+	syncThreshold *uint32,
+	nodeIsSyncingEnabled *bool,
 ) (evmconfig.NodePool, []*toml.Node, config.ChainType, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
 	if err != nil {
 		return nil, nil, "", err
 	}
-	nodePool := NodePool{
-		selectionMode:        selectionMode,
-		leaseDuration:        leaseDuration,
-		pollFailureThreshold: pollFailureThreshold,
-		pollInterval:         pollInterval,
-		syncThreshold:        syncThreshold,
-		nodeIsSyncingEnabled: nodeIsSyncingEnabled,
+	nodePool := toml.NodePool{
+		SelectionMode:        selectionMode,
+		LeaseDuration:        commonconfig.MustNewDuration(leaseDuration),
+		PollFailureThreshold: pollFailureThreshold,
+		PollInterval:         commonconfig.MustNewDuration(pollInterval),
+		SyncThreshold:        syncThreshold,
+		NodeIsSyncingEnabled: nodeIsSyncingEnabled,
 	}
-	return nodePool, nodes, config.ChainType(chainType), nil
+	nodePoolCfg := &evmconfig.NodePoolConfig{C: nodePool}
+	return nodePoolCfg, nodes, config.ChainType(chainType), nil
 }
 
 func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 	nodes := make([]*toml.Node, len(nodeCfgs))
 	for _, nodeCfg := range nodeCfgs {
-		wsUrl, err := commonconfig.ParseURL(*nodeCfg.WSURL)
-		if err != nil {
-			return nil, err
-		}
-		var httpUrl *commonconfig.URL
-		httpUrl, err = commonconfig.ParseURL(*nodeCfg.HTTPURL)
-		if err != nil {
-			return nil, err
-		}
+		wsUrl := commonconfig.MustParseURL(*nodeCfg.WSURL)
+		httpUrl := commonconfig.MustParseURL(*nodeCfg.HTTPURL)
 		node := toml.Node{
 			Name:     nodeCfg.Name,
 			WSURL:    wsUrl,

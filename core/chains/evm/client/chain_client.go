@@ -15,7 +15,6 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -23,22 +22,8 @@ var _ Client = (*chainClient)(nil)
 
 // TODO-1663: rename this to client, once the client.go file is deprecated.
 type chainClient struct {
-	multiNode commonclient.MultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCClient,
-		rpc.BatchElem,
-	]
-	logger logger.SugaredLogger
+	multiNode EvmMultiNode
+	logger    logger.SugaredLogger
 }
 
 func NewChainClient(
@@ -46,25 +31,12 @@ func NewChainClient(
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
-	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
+	nodes []EvmNode,
+	sendonlys []EvmSendOnlyNode,
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
-	multiNode := commonclient.NewMultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCClient,
-	](
+	multiNode := commonclient.NewMultiNode(
 		lggr,
 		selectionMode,
 		leaseDuration,

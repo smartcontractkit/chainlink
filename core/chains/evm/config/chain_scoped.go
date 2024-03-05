@@ -166,7 +166,7 @@ func (e *evmConfig) MinIncomingConfirmations() uint32 {
 }
 
 func (e *evmConfig) NodePool() NodePool {
-	return &nodePoolConfig{c: e.c.NodePool}
+	return &NodePoolConfig{C: e.c.NodePool}
 }
 
 func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
