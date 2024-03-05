@@ -275,11 +275,10 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
    */
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
-    bool canceled = upkeep.maxValidBlocknumber != UINT32_MAX;
     bool isOwner = msg.sender == owner();
 
     uint256 height = s_hotVars.chainModule.blockNumber();
-    if (canceled) revert CannotCancel();
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert AlreadyCanceled();
     if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
     if (!isOwner) {

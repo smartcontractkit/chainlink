@@ -5212,8 +5212,27 @@ describe('AutomationRegistry2_2', () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
         await evmRevert(
           registry.connect(owner).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'AlreadyCanceled()',
         )
+      })
+
+      describe('when called by the owner when the admin has just canceled', () => {
+        let oldExpiration: BigNumber
+
+        beforeEach(async () => {
+          await registry.connect(admin).cancelUpkeep(upkeepId)
+          const registration = await registry.getUpkeep(upkeepId)
+          oldExpiration = registration.maxValidBlocknumber
+        })
+
+        it('reverts with proper error', async () => {
+          await registry.connect(owner).cancelUpkeep(upkeepId)
+
+          await evmRevert(
+            registry.connect(owner).cancelUpkeep(upkeepId),
+            'AlreadyCanceled()',
+          )
+        })
       })
     })
 
