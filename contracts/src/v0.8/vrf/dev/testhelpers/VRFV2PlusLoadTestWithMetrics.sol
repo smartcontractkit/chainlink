@@ -122,4 +122,23 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
       request.fulfilmentBlockNumber
     );
   }
+
+  function _calculateMetrics(
+    uint256 _responseTime,
+    uint256 _fastestResponseTime,
+    uint256 _slowestResponseTime,
+    uint256 _averageInMillions,
+    uint256 _responseCount
+  ) internal pure returns (uint256 slowest, uint256 fastest, uint256 average) {
+    uint256 _requestDelayInMillions = _responseTime * 1_000_000;
+    if (_responseTime > _slowestResponseTime) {
+      _slowestResponseTime = _responseTime;
+    }
+    _fastestResponseTime = _responseTime < _fastestResponseTime ? _responseTime : _fastestResponseTime;
+    uint256 averageInMillions = _responseCount > 0
+      ? (_averageInMillions * _responseCount + _requestDelayInMillions) / (_responseCount + 1)
+      : _requestDelayInMillions;
+
+    return (_slowestResponseTime, _fastestResponseTime, averageInMillions);
+  }
 }
