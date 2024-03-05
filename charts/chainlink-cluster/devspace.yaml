@@ -68,7 +68,7 @@ pipelines:
       --set=helm.values.chainlink.nodes[5].image=$image
       echo
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
-      echo "To extend the TTL for e.g. 72 hours, run: devspace ttl ${DEVSPACE_NAMESPACE} 72h"
+      echo "To extend the TTL for e.g. 72 hours, run: devspace run ttl ${DEVSPACE_NAMESPACE} 72h"
 
       echo
       echo "############################################"
