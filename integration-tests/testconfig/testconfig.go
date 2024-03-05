@@ -384,6 +384,8 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	logger.Debug().Msg("Validating test config")
 	err = testConfig.Validate()
 	if err != nil {
+		logger.Error().
+			Msg("Error validating test config. You might want refer to integration-tests/testconfig/README.md for more information.")
 		return TestConfig{}, errors.Wrapf(err, "error validating test config")
 	}
 
@@ -397,7 +399,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 func (c *TestConfig) readNetworkConfiguration() error {
 	// currently we need to read that kind of secrets only for network configuration
-	if c == nil {
+	if c.Network == nil {
 		c.Network = &ctf_config.NetworkConfig{}
 	}
 
@@ -418,22 +420,25 @@ func (c *TestConfig) readNetworkConfiguration() error {
 func (c *TestConfig) Validate() error {
 	defer func() {
 		if r := recover(); r != nil {
-			panic(fmt.Errorf("Panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
+			panic(fmt.Errorf("panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
 		}
 	}()
+
 	if c.ChainlinkImage == nil {
-		return fmt.Errorf("chainlink image config must be set")
+		return MissingImageInfoAsError("chainlink image config must be set")
 	}
-	if err := c.ChainlinkImage.Validate(); err != nil {
-		return errors.Wrapf(err, "chainlink image config validation failed")
+	if c.ChainlinkImage != nil {
+		if err := c.ChainlinkImage.Validate(); err != nil {
+			return MissingImageInfoAsError(fmt.Sprintf("chainlink image config validation failed: %s", err.Error()))
+		}
 	}
 	if c.ChainlinkUpgradeImage != nil {
 		if err := c.ChainlinkUpgradeImage.Validate(); err != nil {
-			return errors.Wrapf(err, "chainlink upgrade image config validation failed")
+			return MissingImageInfoAsError(fmt.Sprintf("chainlink upgrade image config validation failed: %s", err.Error()))
 		}
 	}
 	if err := c.Network.Validate(); err != nil {
-		return errors.Wrapf(err, "network config validation failed")
+		return NoSelectedNetworkInfoAsError(fmt.Sprintf("network config validation failed: %s", err.Error()))
 	}
 
 	if c.Logging == nil {

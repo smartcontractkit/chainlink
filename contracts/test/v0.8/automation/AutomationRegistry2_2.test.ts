@@ -3421,17 +3421,15 @@ describe('AutomationRegistry2_2', () => {
 
     beforeEach(async () => {
       const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
-      maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei
-        .mul(16)
-        .mul(
-          maxPerformDataSize
-            .add(registryTransmitCalldataFixedBytesOverhead)
-            .add(
-              registryTransmitCalldataPerSignerBytesOverhead.mul(
-                BigNumber.from(f + 1),
-              ),
+      maxl1CostWeiArbWithoutMultiplier = arbL1PriceinWei.mul(
+        maxPerformDataSize
+          .add(registryTransmitCalldataFixedBytesOverhead)
+          .add(
+            registryTransmitCalldataPerSignerBytesOverhead.mul(
+              BigNumber.from(f + 1),
             ),
-        )
+          ),
+      )
       maxl1CostWeiOptWithoutMultiplier = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     })
 
@@ -5214,7 +5212,7 @@ describe('AutomationRegistry2_2', () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
         await evmRevert(
           registry.connect(owner).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -5227,12 +5225,11 @@ describe('AutomationRegistry2_2', () => {
           oldExpiration = registration.maxValidBlocknumber
         })
 
-        it('allows the owner to cancel it more quickly', async () => {
-          await registry.connect(owner).cancelUpkeep(upkeepId)
-
-          const registration = await registry.getUpkeep(upkeepId)
-          const newExpiration = registration.maxValidBlocknumber
-          assert.isTrue(newExpiration.lt(oldExpiration))
+        it('reverts with proper error', async () => {
+          await evmRevert(
+            registry.connect(owner).cancelUpkeep(upkeepId),
+            'UpkeepCancelled()',
+          )
         })
       })
     })
@@ -5243,7 +5240,7 @@ describe('AutomationRegistry2_2', () => {
 
         await evmRevert(
           registry.connect(admin).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'UpkeepCancelled()',
         )
       })
 
@@ -5256,7 +5253,7 @@ describe('AutomationRegistry2_2', () => {
 
         await evmRevert(
           registry.connect(owner).cancelUpkeep(upkeepId),
-          'CannotCancel()',
+          'UpkeepCancelled()',
         )
       })
 
