@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"sync"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -49,17 +50,17 @@ var (
 )
 
 type ExecutionPluginStaticConfig struct {
-	lggr                     logger.Logger
-	onRampReader             ccipdata.OnRampReader
-	offRampReader            ccipdata.OffRampReader
-	commitStoreReader        ccipdata.CommitStoreReader
-	sourcePriceRegistry      ccipdata.PriceRegistryReader
-	sourceWrappedNativeToken cciptypes.Address
-	tokenDataWorker          tokendata.Worker
-	destChainSelector        uint64
-	priceRegistryProvider    ccipdataprovider.PriceRegistry
-	tokenPoolBatchedReader   batchreader.TokenPoolBatchedReader
-	metricsCollector         ccip.PluginMetricsCollector
+	lggr                        logger.Logger
+	onRampReader                ccipdata.OnRampReader
+	offRampReader               ccipdata.OffRampReader
+	commitStoreReader           ccipdata.CommitStoreReader
+	sourcePriceRegistryProvider ccipdataprovider.PriceRegistry
+	sourceWrappedNativeToken    cciptypes.Address
+	tokenDataWorker             tokendata.Worker
+	destChainSelector           uint64
+	priceRegistryProvider       ccipdataprovider.PriceRegistry // destination price registry provider.
+	tokenPoolBatchedReader      batchreader.TokenPoolBatchedReader
+	metricsCollector            ccip.PluginMetricsCollector
 }
 
 type ExecutionReportingPlugin struct {
@@ -70,10 +71,12 @@ type ExecutionReportingPlugin struct {
 	tokenDataWorker  tokendata.Worker
 	metricsCollector ccip.PluginMetricsCollector
 	// Source
-	gasPriceEstimator        prices.GasPriceEstimatorExec
-	sourcePriceRegistry      ccipdata.PriceRegistryReader
-	sourceWrappedNativeToken cciptypes.Address
-	onRampReader             ccipdata.OnRampReader
+	gasPriceEstimator           prices.GasPriceEstimatorExec
+	sourcePriceRegistry         ccipdata.PriceRegistryReader
+	sourcePriceRegistryProvider ccipdataprovider.PriceRegistry
+	sourcePriceRegistryLock     sync.RWMutex
+	sourceWrappedNativeToken    cciptypes.Address
+	onRampReader                ccipdata.OnRampReader
 	// Dest
 
 	commitStoreReader      ccipdata.CommitStoreReader
@@ -952,7 +955,7 @@ func inflightAggregates(
 // price values are USD per 1e18 of smallest token denomination, in base units 1e18 (e.g. 5$ = 5e18 USD per 1e18 units).
 // this function is used for price registry of both source and destination chains.
 func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryReader, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
-	prices := make(map[cciptypes.Address]*big.Int)
+	tokenPrices := make(map[cciptypes.Address]*big.Int)
 
 	fetchedPrices, err := priceRegistry.GetTokenPrices(ctx, tokens)
 	if err != nil {
@@ -971,16 +974,16 @@ func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryRe
 		}
 
 		// price registry should not report different price for the same token
-		price, exists := prices[token]
+		price, exists := tokenPrices[token]
 		if exists && fetchedPrices[i].Value.Cmp(price) != 0 {
 			return nil, fmt.Errorf("price registry reported different prices (%s and %s) for the same token %s",
 				fetchedPrices[i].Value, price, token)
 		}
 
-		prices[token] = fetchedPrices[i].Value
+		tokenPrices[token] = fetchedPrices[i].Value
 	}
 
-	return prices, nil
+	return tokenPrices, nil
 }
 
 func (r *ExecutionReportingPlugin) getUnexpiredCommitReports(
@@ -1043,6 +1046,11 @@ func (r *ExecutionReportingPlugin) prepareTokenExecData(ctx context.Context) (ex
 		return execTokenData{}, err
 	}
 
+	// Ensure that the source price registry is synchronized with the onRamp.
+	if err = r.ensurePriceRegistrySynchronization(ctx); err != nil {
+		return execTokenData{}, fmt.Errorf("ensuring price registry synchronization: %w", err)
+	}
+
 	sourceFeeTokens, err := r.sourcePriceRegistry.GetFeeTokens(ctx)
 	if err != nil {
 		return execTokenData{}, fmt.Errorf("get source fee tokens: %w", err)
@@ -1093,6 +1101,43 @@ func (r *ExecutionReportingPlugin) prepareTokenExecData(ctx context.Context) (ex
 		destTokenPrices:        destTokenPrices,
 		gasPrice:               gasPrice,
 	}, nil
+}
+
+// ensurePriceRegistrySynchronization ensures that the source price registry points to the same as the one configured on the onRamp.
+// This is required since the price registry address on the onRamp can change over time.
+func (r *ExecutionReportingPlugin) ensurePriceRegistrySynchronization(ctx context.Context) error {
+	needPriceRegistryUpdate := false
+	r.sourcePriceRegistryLock.RLock()
+	priceRegistryAddress, err := r.onRampReader.SourcePriceRegistryAddress(ctx)
+	if err != nil {
+		r.sourcePriceRegistryLock.RUnlock()
+		return fmt.Errorf("getting price registry from onramp: %w", err)
+	}
+
+	needPriceRegistryUpdate = r.sourcePriceRegistry == nil || priceRegistryAddress != r.sourcePriceRegistry.Address()
+	r.sourcePriceRegistryLock.RUnlock()
+	if !needPriceRegistryUpdate {
+		return nil
+	}
+
+	// Update the price registry if required.
+	r.sourcePriceRegistryLock.Lock()
+	defer r.sourcePriceRegistryLock.Unlock()
+
+	// Price registry address changed or not initialized yet, updating source price registry.
+	sourcePriceRegistry, err := r.sourcePriceRegistryProvider.NewPriceRegistryReader(ctx, priceRegistryAddress)
+	if err != nil {
+		return err
+	}
+	oldPriceRegistry := r.sourcePriceRegistry
+	r.sourcePriceRegistry = sourcePriceRegistry
+	// Close the old price registry
+	if oldPriceRegistry != nil {
+		if err1 := oldPriceRegistry.Close(); err1 != nil {
+			r.lggr.Warnw("failed to close old price registry", "err", err1)
+		}
+	}
+	return nil
 }
 
 // selectReportsToFillBatch returns the reports to fill the message limit. Single Commit Root contains exactly (Interval.Max - Interval.Min + 1) messages.

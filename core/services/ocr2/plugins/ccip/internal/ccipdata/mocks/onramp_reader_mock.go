@@ -129,6 +129,34 @@ func (_m *OnRampReader) RouterAddress() (cciptypes.Address, error) {
 	return r0, r1
 }
 
+// SourcePriceRegistryAddress provides a mock function with given fields: ctx
+func (_m *OnRampReader) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SourcePriceRegistryAddress")
+	}
+
+	var r0 cciptypes.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (cciptypes.Address, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) cciptypes.Address); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(cciptypes.Address)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewOnRampReader creates a new instance of OnRampReader. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewOnRampReader(t interface {

@@ -27,6 +27,7 @@ func TestOnRamp(t *testing.T) {
 
 		expFilterNames := []string{
 			logpoller.FilterName(ccipdata.COMMIT_CCIP_SENDS, addr),
+			logpoller.FilterName(ccipdata.CONFIG_CHANGED, addr),
 		}
 		versionFinder := newMockVersionFinder(ccipconfig.EVM2EVMOnRamp, *semver.MustParse(versionStr), nil)
 
