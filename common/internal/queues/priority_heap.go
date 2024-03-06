@@ -123,5 +123,6 @@ func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pop() 
 	tx := old[n-1]
 	old[n-1] = nil // avoid memory leak
 	pq.txs = old[0 : n-1]
+	delete(pq.idToIndex, tx.ID)
 	return tx
 }
