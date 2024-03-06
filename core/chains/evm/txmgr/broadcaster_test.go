@@ -276,7 +276,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				return false
 			}
 			require.Equal(t, evmcfg.EVM().ChainID(), tx.ChainId())
-			require.Equal(t, uint64(gasLimit), tx.Gas())
+			require.Equal(t, gasLimit, tx.Gas())
 			require.Equal(t, evmcfg.EVM().GasEstimator().PriceDefault().ToInt(), tx.GasPrice())
 			require.Equal(t, toAddress, *tx.To())
 			require.Equal(t, value.String(), tx.Value().String())
@@ -299,7 +299,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				return false
 			}
 			require.Equal(t, evmcfg.EVM().ChainID(), tx.ChainId())
-			require.Equal(t, uint64(gasLimit), tx.Gas())
+			require.Equal(t, gasLimit, tx.Gas())
 			require.Equal(t, evmcfg.EVM().GasEstimator().PriceDefault().ToInt(), tx.GasPrice())
 			require.Equal(t, toAddress, *tx.To())
 			require.Equal(t, value.String(), tx.Value().String())

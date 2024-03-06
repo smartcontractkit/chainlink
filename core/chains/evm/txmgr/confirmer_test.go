@@ -2848,7 +2848,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Sequence) &&
 				tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() &&
-				tx.Gas() == uint64(overrideGasLimit) &&
+				tx.Gas() == overrideGasLimit &&
 				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
 				tx.To().String() == etx1.ToAddress.String()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
