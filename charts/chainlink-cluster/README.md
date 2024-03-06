@@ -31,8 +31,7 @@ cp .env.sample .env
 # Fill in the required values in .env
 ```
 
-
-Build and deploy current commit
+Build and deploy the current state of your repository 
 ```
 devspace deploy
 ```
@@ -49,9 +48,9 @@ If you don't need to build use
 devspace deploy --skip-build
 ```
 
-To deploy particular commit (must be in the registry) use
+If you want to deploy an image that is already available in ECR, use: 
 ```
-devspace deploy --skip-build ${short_sha_of_image}
+devspace deploy --skip-build ${image}
 ```
 
 Forward ports to check UI or run tests
