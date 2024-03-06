@@ -492,7 +492,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) proc
 	}
 }
 
-// handleInProgressTx checks if there is any transaction
+// handleAnyInProgressTx checks if there is any transaction
 // in_progress and if so, finishes the job
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleAnyInProgressTx(ctx context.Context, fromAddress ADDR) (err error, retryable bool) {
 	etx, err := eb.txStore.GetTxInProgress(ctx, fromAddress)

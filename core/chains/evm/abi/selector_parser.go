@@ -228,7 +228,7 @@ func ParseSelector(unescapedSelector string) (abi.SelectorMarshaling, error) {
 	return abi.SelectorMarshaling{Name: name, Type: "function", Inputs: fakeArgs}, nil
 }
 
-// ParseSelector converts a method selector into a struct that can be JSON encoded
+// ParseSignature converts a method selector into a struct that can be JSON encoded
 // and consumed by other functions in this package.
 // Note, although uppercase letters are not part of the ABI spec, this function
 // still accepts it as the general format is valid.
