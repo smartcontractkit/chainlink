@@ -54,7 +54,9 @@ type OnRampReader interface {
 	// If some requests do not exist in the provided sequence numbers range they will not be part of the response.
 	// It's the responsibility of the caller to validate whether all the requests exist or not.
 	GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]EVM2EVMMessageWithTxMeta, error)
-
+	// IsSourceCursed returns true if the source chain is cursed. OnRamp communicates with the underlying RMN
+	// to verify if source chain was cursed or not.
+	IsSourceCursed(ctx context.Context) (bool, error)
 	// RouterAddress returns the router address that is configured on the onRamp
 	RouterAddress() (Address, error)
 

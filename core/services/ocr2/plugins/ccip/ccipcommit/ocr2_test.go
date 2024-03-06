@@ -51,14 +51,15 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 	someTokenAddr := ccipcalc.HexToAddress("2000")
 
 	testCases := []struct {
-		name                string
-		epochAndRound       types.ReportTimestamp
-		commitStoreIsPaused bool
-		commitStoreSeqNum   uint64
-		tokenPrices         map[cciptypes.Address]*big.Int
-		sendReqs            []cciptypes.EVM2EVMMessageWithTxMeta
-		tokenDecimals       map[cciptypes.Address]uint8
-		fee                 *big.Int
+		name              string
+		epochAndRound     types.ReportTimestamp
+		commitStorePaused bool
+		sourceChainCursed bool
+		commitStoreSeqNum uint64
+		tokenPrices       map[cciptypes.Address]*big.Int
+		sendReqs          []cciptypes.EVM2EVMMessageWithTxMeta
+		tokenDecimals     map[cciptypes.Address]uint8
+		fee               *big.Int
 
 		expErr bool
 		expObs ccip.CommitObservation
@@ -90,9 +91,16 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			},
 		},
 		{
-			name:                "commit store is down",
-			commitStoreIsPaused: true,
-			expErr:              true,
+			name:              "commit store is down",
+			commitStorePaused: true,
+			sourceChainCursed: false,
+			expErr:            true,
+		},
+		{
+			name:              "source chain is cursed",
+			commitStorePaused: false,
+			sourceChainCursed: true,
+			expErr:            true,
 		},
 	}
 
@@ -100,12 +108,13 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
-			commitStoreReader.On("IsDown", ctx).Return(tc.commitStoreIsPaused, nil)
-			if !tc.commitStoreIsPaused {
+			commitStoreReader.On("IsDown", ctx).Return(tc.commitStorePaused, nil)
+			if !tc.commitStorePaused && !tc.sourceChainCursed {
 				commitStoreReader.On("GetExpectedNextSequenceNumber", ctx).Return(tc.commitStoreSeqNum, nil)
 			}
 
 			onRampReader := ccipdatamocks.NewOnRampReader(t)
+			onRampReader.On("IsSourceCursed", ctx).Return(tc.sourceChainCursed, nil)
 			if len(tc.sendReqs) > 0 {
 				onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.commitStoreSeqNum, tc.commitStoreSeqNum+OnRampMessagesScanLimit, true).
 					Return(tc.sendReqs, nil)

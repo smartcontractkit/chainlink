@@ -11,4 +11,4 @@ const (
 	ExecPluginLabel      = "exec"
 )
 
-var ErrCommitStoreIsDown = errors.New("commitStoreReader is down")
+var ErrChainPausedOrCursed = errors.New("commitStoreReader is down or source chain is cursed")

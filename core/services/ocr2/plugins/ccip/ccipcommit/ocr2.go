@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -98,13 +99,8 @@ func (r *CommitReportingPlugin) Query(context.Context, types.ReportTimestamp) (t
 // the observation will be considered invalid and rejected.
 func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound types.ReportTimestamp, _ types.Query) (types.Observation, error) {
 	lggr := r.lggr.Named("CommitObservation")
-	// If the commit store is down the protocol should halt.
-	down, err := r.commitStoreReader.IsDown(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "isDown check errored")
-	}
-	if down {
-		return nil, ccip.ErrCommitStoreIsDown
+	if err := ccipcommon.VerifyNotDown(ctx, r.lggr, r.commitStoreReader, r.onRampReader); err != nil {
+		return nil, err
 	}
 	r.inflightReports.expire(lggr)
 
