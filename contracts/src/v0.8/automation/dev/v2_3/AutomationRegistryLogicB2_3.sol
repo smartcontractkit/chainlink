@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
+import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../interfaces/IChainModule.sol";
 
-contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
+contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -22,7 +22,7 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
-  ) AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
+  ) AutomationRegistryBase2_3(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
