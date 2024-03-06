@@ -25,7 +25,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/segmentio/ksuid v1.0.4
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chain-selectors v1.0.10
+	github.com/smartcontractkit/chain-selectors v1.0.11
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240124161023-948579cbaffa
 	github.com/smartcontractkit/chainlink-testing-framework v1.24.3
