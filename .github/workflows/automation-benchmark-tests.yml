@@ -66,7 +66,7 @@ jobs:
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           suites: benchmark chaos reorg load
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark

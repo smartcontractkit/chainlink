@@ -70,7 +70,7 @@ jobs:
       - name: Check if image exists
         if: inputs.chainlinkImage == ''
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
         with:
           repository: chainlink
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
@@ -78,7 +78,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage == ''
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -258,7 +258,7 @@ jobs:
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
         if: ${{ matrix.tests.enabled == true }}
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}

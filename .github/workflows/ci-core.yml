@@ -99,7 +99,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
