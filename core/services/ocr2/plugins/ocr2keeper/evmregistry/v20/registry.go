@@ -102,6 +102,9 @@ func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr log
 		enc:      EVMAutomationEncoder20{},
 	}
 
+	r.ctx, r.cancel = context.WithCancel(context.Background())
+	r.reInit = time.NewTimer(reInitializationDelay)
+
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
 		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
@@ -200,13 +203,10 @@ func (r *EvmRegistry) Name() string {
 	return r.lggr.Name()
 }
 
-func (r *EvmRegistry) Start(ctx context.Context) error {
+func (r *EvmRegistry) Start(_ context.Context) error {
 	return r.sync.StartOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		r.ctx, r.cancel = context.WithCancel(context.Background())
-		r.reInit = time.NewTimer(reInitializationDelay)
-
 		// initialize the upkeep keys; if the reInit timer returns, do it again
 		{
 			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
