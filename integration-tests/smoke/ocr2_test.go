@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"fmt"
-	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -33,25 +32,28 @@ func TestOCRv2Basic(t *testing.T) {
 	go func() {
 		file, err := os.OpenFile("system_usage.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Fatal(err)
+			t.Error(err)
 		}
 		defer file.Close()
 
 		for {
 			cpuPercent, err := cpu.Percent(0, false)
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 			vMem, err := mem.VirtualMemory()
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			// Log CPU and RAM usage
 			logMessage := fmt.Sprintf("CPU usage: %.2f%%, RAM usage: %.2f%%\n", cpuPercent[0], vMem.UsedPercent)
 			_, err = file.WriteString(time.Now().Format("2006-01-02 15:04:05") + " " + logMessage)
 			if err != nil {
-				log.Fatal(err)
+				t.Error(err)
+			}
+			if err = file.Sync(); err != nil {
+				t.Error(err)
 			}
 
 			time.Sleep(time.Second)
