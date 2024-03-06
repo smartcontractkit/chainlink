@@ -1,35 +1,31 @@
 import fs from 'fs'
 import { ethers } from 'hardhat'
 import { assert } from 'chai'
-import { KeeperRegistry2_1__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry2_1__factory'
-import { KeeperRegistryLogicA2_1__factory as KeeperRegistryLogicAFactory } from '../../../typechain/factories/KeeperRegistryLogicA2_1__factory'
-import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicBFactory } from '../../../typechain/factories/KeeperRegistryLogicB2_1__factory'
-import { KeeperRegistryBase2_1__factory as KeeperRegistryBaseFactory } from '../../../typechain/factories/KeeperRegistryBase2_1__factory'
+import { AutomationRegistry2_2__factory as AutomationRegistryFactory } from '../../../typechain/factories/AutomationRegistry2_2__factory'
+import { AutomationRegistryLogicA2_2__factory as AutomationRegistryLogicAFactory } from '../../../typechain/factories/AutomationRegistryLogicA2_2__factory'
+import { AutomationRegistryLogicB2_2__factory as AutomationRegistryLogicBFactory } from '../../../typechain/factories/AutomationRegistryLogicB2_2__factory'
+import { AutomationRegistryBase2_2__factory as AutomationRegistryBaseFactory } from '../../../typechain/factories/AutomationRegistryBase2_2__factory'
 import { Chainable__factory as ChainableFactory } from '../../../typechain/factories/Chainable__factory'
-import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '../../../typechain/factories/IKeeperRegistryMaster__factory'
+import { IAutomationRegistryMaster__factory as IAutomationRegistryMasterFactory } from '../../../typechain/factories/IAutomationRegistryMaster__factory'
 import { IAutomationRegistryConsumer__factory as IAutomationRegistryConsumerFactory } from '../../../typechain/factories/IAutomationRegistryConsumer__factory'
 import { MigratableKeeperRegistryInterface__factory as MigratableKeeperRegistryInterfaceFactory } from '../../../typechain/factories/MigratableKeeperRegistryInterface__factory'
 import { MigratableKeeperRegistryInterfaceV2__factory as MigratableKeeperRegistryInterfaceV2Factory } from '../../../typechain/factories/MigratableKeeperRegistryInterfaceV2__factory'
 import { OCR2Abstract__factory as OCR2AbstractFactory } from '../../../typechain/factories/OCR2Abstract__factory'
 import { IAutomationV2Common__factory as IAutomationV2CommonFactory } from '../../../typechain/factories/IAutomationV2Common__factory'
-import {
-  assertSatisfiesEvents,
-  assertSatisfiesInterface,
-  entryID,
-} from './helpers'
+import { assertSatisfiesEvents, assertSatisfiesInterface, entryID } from "./helpers";
 
 const compositeABIs = [
-  KeeperRegistryFactory.abi,
-  KeeperRegistryLogicAFactory.abi,
-  KeeperRegistryLogicBFactory.abi,
+  AutomationRegistryFactory.abi,
+  AutomationRegistryLogicAFactory.abi,
+  AutomationRegistryLogicBFactory.abi,
 ]
 
-describe('IKeeperRegistryMaster', () => {
+describe('IAutomationRegistryMaster', () => {
   it('is up to date', async () => {
     const checksum = ethers.utils.id(compositeABIs.join(''))
     const knownChecksum = fs
       .readFileSync(
-        'src/v0.8/automation/interfaces/v2_1/IKeeperRegistryMaster.sol',
+        'src/v0.8/automation/dev/interfaces/v2_2/IAutomationRegistryMaster.sol',
       )
       .toString()
       .slice(17, 83) // checksum located at top of file
@@ -43,7 +39,7 @@ describe('IKeeperRegistryMaster', () => {
   it('is generated from composite contracts without competing definitions', async () => {
     const sharedEntries = [
       ...ChainableFactory.abi,
-      ...KeeperRegistryBaseFactory.abi,
+      ...AutomationRegistryBaseFactory.abi,
     ]
     const abiSet = new Set()
     const sharedSet = new Set()
@@ -68,42 +64,42 @@ describe('IKeeperRegistryMaster', () => {
 
   it('satisfies the IAutomationRegistryConsumer interface', async () => {
     assertSatisfiesInterface(
-      IKeeperRegistryMasterFactory.abi,
+      IAutomationRegistryMasterFactory.abi,
       IAutomationRegistryConsumerFactory.abi,
     )
   })
 
   it('satisfies the MigratableKeeperRegistryInterface interface', async () => {
     assertSatisfiesInterface(
-      IKeeperRegistryMasterFactory.abi,
+      IAutomationRegistryMasterFactory.abi,
       MigratableKeeperRegistryInterfaceFactory.abi,
     )
   })
 
   it('satisfies the MigratableKeeperRegistryInterfaceV2 interface', async () => {
     assertSatisfiesInterface(
-      IKeeperRegistryMasterFactory.abi,
+      IAutomationRegistryMasterFactory.abi,
       MigratableKeeperRegistryInterfaceV2Factory.abi,
     )
   })
 
   it('satisfies the OCR2Abstract interface', async () => {
     assertSatisfiesInterface(
-      IKeeperRegistryMasterFactory.abi,
+      IAutomationRegistryMasterFactory.abi,
       OCR2AbstractFactory.abi,
     )
   })
 
   it('satisfies the IAutomationV2Common interface', async () => {
     assertSatisfiesInterface(
-      IKeeperRegistryMasterFactory.abi,
+      IAutomationRegistryMasterFactory.abi,
       IAutomationV2CommonFactory.abi,
     )
   })
 
   it('satisfies the IAutomationV2Common events', async () => {
     assertSatisfiesEvents(
-      IKeeperRegistryMasterFactory.abi,
+      IAutomationRegistryMasterFactory.abi,
       IAutomationV2CommonFactory.abi,
     )
   })
