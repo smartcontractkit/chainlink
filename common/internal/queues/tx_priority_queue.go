@@ -59,7 +59,7 @@ func (pq *txPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Rem
 	}
 
 	if i := pq.ph.FindIndexByID(id); i != -1 {
-		return heap.Remove(pq.ph, i).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+		return heap.Remove(pq.ph, i-1).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	}
 
 	return nil
