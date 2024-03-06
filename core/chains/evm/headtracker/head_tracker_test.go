@@ -250,6 +250,14 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
+	t.Run("Starts even if latest finalizedHead is nil", func(t *testing.T) {
+		ht := newHeadTracker(t)
+		head := cltest.Head(1000)
+		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
+		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, nil).Once()
+		ht.Start(t)
+		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
+	})
 	t.Run("Happy path", func(t *testing.T) {
 		head := cltest.Head(1000)
 		ht := newHeadTracker(t)
