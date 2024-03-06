@@ -35,12 +35,16 @@ type EnvConfig struct {
 // AsCmdEnv returns a slice of environment variable key/value pairs for an exec.Cmd.
 func (e *EnvConfig) AsCmdEnv() (env []string) {
 	injectEnv := map[string]string{
-		envDatabaseURL:            e.DatabaseURL.String(),
 		envPromPort:               strconv.Itoa(e.PrometheusPort),
 		envTracingEnabled:         strconv.FormatBool(e.TracingEnabled),
 		envTracingCollectorTarget: e.TracingCollectorTarget,
 		envTracingSamplingRatio:   strconv.FormatFloat(e.TracingSamplingRatio, 'f', -1, 64),
 		envTracingTLSCertPath:     e.TracingTLSCertPath,
+	}
+
+	// DatabaseURL is optional
+	if e.DatabaseURL != nil {
+		injectEnv[envDatabaseURL] = e.DatabaseURL.String()
 	}
 
 	for k, v := range e.TracingAttributes {
