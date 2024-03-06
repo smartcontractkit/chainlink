@@ -105,21 +105,48 @@ contract VRFV2PlusWrapperTest is BaseTest {
     address indexed sender
   );
 
+  // IVRFV2PlusWrapper events
+  event LinkSet(address link);
+  event LinkNativeFeedSet(address linkNativeFeed);
+  event FulfillmentTxSizeSet(uint32 size);
+  event ConfigSet(
+    uint32 wrapperGasOverhead,
+    uint32 coordinatorGasOverhead,
+    uint8 wrapperPremiumPercentage,
+    bytes32 keyHash,
+    uint8 maxNumWords,
+    uint32 stalenessSeconds,
+    int256 fallbackWeiPerUnitLink,
+    uint32 fulfillmentFlatFeeLinkPPM,
+    uint32 fulfillmentFlatFeeNativePPM
+  );
+
+  // VRFV2PlusWrapperConsumerBase events
+  event LinkTokenSet(address link);
+
   function testSetLinkAndLinkNativeFeed() public {
     VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(0), address(0), address(s_testCoordinator));
 
-    // Set LINK and LINK/Native feed on wrapper.
+    // Set LINK on wrapper.
+    vm.expectEmit(false, false, false, true, address(wrapper));
+    emit LinkSet(address(s_linkToken));
     wrapper.setLINK(address(s_linkToken));
-    wrapper.setLinkNativeFeed(address(s_linkNativeFeed));
     assertEq(address(wrapper.s_link()), address(s_linkToken));
-    assertEq(address(wrapper.s_linkNativeFeed()), address(s_linkNativeFeed));
 
     // Revert for subsequent assignment.
     vm.expectRevert(VRFV2PlusWrapper.LinkAlreadySet.selector);
     wrapper.setLINK(address(s_linkToken));
 
+    // Set LINK/Native feed on wrapper.
+    vm.expectEmit(false, false, false, true, address(wrapper));
+    emit LinkNativeFeedSet(address(s_linkNativeFeed));
+    wrapper.setLinkNativeFeed(address(s_linkNativeFeed));
+    assertEq(address(wrapper.s_linkNativeFeed()), address(s_linkNativeFeed));
+
     // Consumer can set LINK token.
     VRFV2PlusWrapperConsumerExample consumer = new VRFV2PlusWrapperConsumerExample(address(0), address(wrapper));
+    vm.expectEmit(false, false, false, true, address(consumer));
+    emit LinkTokenSet(address(s_linkToken));
     consumer.setLinkToken(address(s_linkToken));
 
     // Revert for subsequent assignment.

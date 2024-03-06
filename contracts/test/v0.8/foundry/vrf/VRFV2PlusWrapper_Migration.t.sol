@@ -13,7 +13,7 @@ import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapper.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
-contract VRFV2PlusWrapperTest is BaseTest {
+contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
   uint256 internal constant DEFAULT_NATIVE_FUNDING = 7 ether; // 7 ETH
   uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 ETH
@@ -126,6 +126,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
     bytes extraArgs,
     address indexed sender
   );
+
+  event CoordinatorSet(address vrfCoordinator);
 
   function testMigrateWrapperLINKPayment() public {
     s_linkToken.transfer(address(s_consumer), DEFAULT_LINK_FUNDING);
@@ -282,6 +284,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       true // check data fields
     );
     address newCoordinatorAddr = address(s_newCoordinator);
+    emit CoordinatorSet(address(s_newCoordinator));
     emit MigrationCompleted(newCoordinatorAddr, subID);
 
     s_wrapper.migrate(newCoordinatorAddr);

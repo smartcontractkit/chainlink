@@ -151,7 +151,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     if (address(s_link) != address(0)) {
       revert LinkAlreadySet();
     }
+
     s_link = LinkTokenInterface(link);
+
+    emit LinkSet(link);
   }
 
   /**
@@ -160,6 +163,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function setLinkNativeFeed(address linkNativeFeed) external onlyOwner {
     s_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
+
+    emit LinkNativeFeedSet(linkNativeFeed);
   }
 
   /**
@@ -168,6 +173,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function setFulfillmentTxSize(uint32 size) external onlyOwner {
     s_fulfillmentTxSizeBytes = size;
+
+    emit FulfillmentTxSizeSet(size);
   }
 
   /**
@@ -221,6 +228,18 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_fallbackWeiPerUnitLink = _fallbackWeiPerUnitLink;
     s_fulfillmentFlatFeeLinkPPM = _fulfillmentFlatFeeLinkPPM;
     s_fulfillmentFlatFeeNativePPM = _fulfillmentFlatFeeNativePPM;
+
+    emit ConfigSet(
+      _wrapperGasOverhead,
+      _coordinatorGasOverhead,
+      _wrapperPremiumPercentage,
+      _keyHash,
+      _maxNumWords,
+      _stalenessSeconds,
+      _fallbackWeiPerUnitLink,
+      _fulfillmentFlatFeeLinkPPM,
+      _fulfillmentFlatFeeNativePPM
+    );
   }
 
   /**
