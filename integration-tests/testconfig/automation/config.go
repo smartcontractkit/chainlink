@@ -105,6 +105,9 @@ type Adhoc struct {
 	RegistryAddress       *string `toml:"registry_address"`
 	RegistrarAddress      *string `toml:"registrar_address"`
 	DataStreamURL         *string `toml:"data_stream_url"`
+	DataStreamUsername    *string `toml:"data_stream_username"`
+	DataStreamPassword    *string `toml:"data_stream_password"`
+	DataStreamFeedId      *string `toml:"data_stream_feed_id"`
 }
 
 func (c *Adhoc) Validate() error {
@@ -147,6 +150,15 @@ func (c *Adhoc) Validate() error {
 	if *c.ConnectDataStream {
 		if c.DataStreamURL == nil {
 			return errors.New("data_stream_url must be set")
+		}
+		if c.DataStreamUsername == nil {
+			return errors.New("data_stream_username must be set")
+		}
+		if c.DataStreamPassword == nil {
+			return errors.New("data_stream_password must be set")
+		}
+		if c.DataStreamFeedId == nil {
+			return errors.New("data_stream_feed_id must be set")
 		}
 	}
 	return nil

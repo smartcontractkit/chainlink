@@ -43,11 +43,11 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
-	secretsTOML = `[Mercury.Credentials.cred1]
+	secretsTOML = `[Mercury.Credentials.%s]
 LegacyURL = '%s'
 URL = '%s'
-Username = 'node'
-Password = 'nodepass'`
+Username = '%s'
+Password = '%s'`
 
 	nodeSpec = map[string]interface{}{
 		"resources": map[string]interface{}{
@@ -131,7 +131,11 @@ func setupEnvironment(t *testing.T, loadedTestConfig tc.TestConfig) (*automation
 	}
 
 	if *loadedTestConfig.Automation.Adhoc.ConnectDataStream {
-		secretsTOML = fmt.Sprintf(secretsTOML, *loadedTestConfig.Automation.Adhoc.DataStreamURL, *loadedTestConfig.Automation.Adhoc.DataStreamURL)
+		secretsTOML = fmt.Sprintf(
+			secretsTOML, "cred1",
+			*loadedTestConfig.Automation.Adhoc.DataStreamURL, *loadedTestConfig.Automation.Adhoc.DataStreamURL,
+			*loadedTestConfig.Automation.Adhoc.DataStreamUsername, *loadedTestConfig.Automation.Adhoc.DataStreamPassword,
+		)
 	} else {
 		secretsTOML = ""
 	}
@@ -281,7 +285,7 @@ func TestAutomation(t *testing.T) {
 			require.NoError(t, err, "Error deploying streams lookup conditional consumer")
 			conditionalConsumerAddress = conditionalConsumer.Address()
 
-			err = conditionalConsumer.SetFeeds([]string{"0x000200"})
+			err = conditionalConsumer.SetFeeds([]string{*loadedTestConfig.Automation.Adhoc.DataStreamFeedId})
 			require.NoError(t, err, "Error setting feeds")
 		} else {
 			conditionalConsumer, err := automationTest.Deployer.DeployUpkeepCounter(big.NewInt(math.MaxInt64), big.NewInt(10))
@@ -309,7 +313,7 @@ func TestAutomation(t *testing.T) {
 		if *config.ConnectDataStream {
 			logTriggerConsumerA, err := automationTest.Deployer.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer()
 			require.NoError(t, err, "Error deploying log trigger consumer")
-			err = logTriggerConsumerA.SetFeeds([]string{"0x000200"})
+			err = logTriggerConsumerA.SetFeeds([]string{*loadedTestConfig.Automation.Adhoc.DataStreamFeedId})
 			require.NoError(t, err, "Error setting feeds")
 			logTriggerConsumer = logTriggerConsumerA
 			topic0Match = logTriggerStreamsLookupUpkeepABI.Events["LimitOrderExecuted"].ID
