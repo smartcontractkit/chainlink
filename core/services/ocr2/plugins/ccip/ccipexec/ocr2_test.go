@@ -48,6 +48,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 	testCases := []struct {
 		name              string
 		commitStorePaused bool
+		sourceChainCursed bool
 		inflightReports   []InflightInternalExecutionReport
 		unexpiredReports  []cciptypes.CommitStoreReportWithTxMeta
 		sendRequests      []cciptypes.EVM2EVMMessageWithTxMeta
@@ -61,11 +62,19 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 		{
 			name:              "commit store is down",
 			commitStorePaused: true,
+			sourceChainCursed: false,
+			expErr:            true,
+		},
+		{
+			name:              "source chain is cursed",
+			commitStorePaused: false,
+			sourceChainCursed: true,
 			expErr:            true,
 		},
 		{
 			name:              "happy flow",
 			commitStorePaused: false,
+			sourceChainCursed: false,
 			inflightReports:   []InflightInternalExecutionReport{},
 			unexpiredReports: []cciptypes.CommitStoreReportWithTxMeta{
 				{
@@ -149,6 +158,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.offRampReader = mockOffRampReader
 
 			mockOnRampReader := ccipdatamocks.NewOnRampReader(t)
+			mockOnRampReader.On("IsSourceCursed", ctx).Return(tc.sourceChainCursed, nil).Maybe()
 			mockOnRampReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything, false).
 				Return(tc.sendRequests, nil).Maybe()
 			sourcePriceRegistryAddress := cciptypes.Address(utils.RandomAddress().String())

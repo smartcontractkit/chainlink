@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -38,6 +40,9 @@ type OnRamp struct {
 	sendRequestedSeqNumberWord       int
 	filters                          []logpoller.Filter
 	cachedSourcePriceRegistryAddress cache.AutoSync[cciptypes.Address]
+	// Static config can be cached, because it's never expected to change.
+	// The only way to change that is through the contract's constructor (redeployment)
+	cachedStaticConfig cache.OnceCtxFunction[evm_2_evm_onramp_1_0_0.EVM2EVMOnRampStaticConfig]
 }
 
 func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client) (*OnRamp, error) {
@@ -59,6 +64,9 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 			Addresses: []common.Address{onRampAddress},
 		},
 	}
+	cachedStaticConfig := cache.OnceCtxFunction[evm_2_evm_onramp_1_0_0.EVM2EVMOnRampStaticConfig](func(ctx context.Context) (evm_2_evm_onramp_1_0_0.EVM2EVMOnRampStaticConfig, error) {
+		return onRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
+	})
 	return &OnRamp{
 		lggr:       lggr,
 		address:    onRampAddress,
@@ -75,6 +83,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 			[]common.Hash{abihelpers.MustGetEventID("ConfigSet", onRampABI)},
 			onRampAddress,
 		),
+		cachedStaticConfig: cachedStaticConfig,
 	}, nil
 }
 
@@ -148,6 +157,24 @@ func (o *OnRamp) RouterAddress() (cciptypes.Address, error) {
 		return "", err
 	}
 	return cciptypes.Address(config.Router.String()), nil
+}
+
+func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
+	staticConfig, err := o.cachedStaticConfig(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	arm, err := arm_contract.NewARMContract(staticConfig.ArmProxy, o.client)
+	if err != nil {
+		return false, fmt.Errorf("intializing Arm contract through the ArmProxy: %w", err)
+	}
+
+	cursed, err := arm.IsCursed(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return false, fmt.Errorf("checking if source Arm is cursed: %w", err)
+	}
+	return cursed, nil
 }
 
 func (o *OnRamp) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error) {

@@ -97,12 +97,8 @@ func (r *ExecutionReportingPlugin) Query(context.Context, types.ReportTimestamp)
 
 func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp types.ReportTimestamp, query types.Query) (types.Observation, error) {
 	lggr := r.lggr.Named("ExecutionObservation")
-	down, err := r.commitStoreReader.IsDown(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "isDown check errored")
-	}
-	if down {
-		return nil, ccip.ErrCommitStoreIsDown
+	if err := ccipcommon.VerifyNotDown(ctx, r.lggr, r.commitStoreReader, r.onRampReader); err != nil {
+		return nil, err
 	}
 	// Expire any inflight reports.
 	r.inflightReports.expire(lggr)

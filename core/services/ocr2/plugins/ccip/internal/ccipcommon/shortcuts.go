@@ -5,9 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -72,4 +75,42 @@ func FlattenUniqueSlice[T comparable](slices ...[]T) []T {
 		}
 	}
 	return flattened
+}
+
+// VerifyNotDown returns error if the commitStore is down (paused or destination cursed) or if the source chain is cursed
+// Both RPCs are called in parallel to save some time. These calls cannot be batched because they target different chains.
+func VerifyNotDown(ctx context.Context, lggr logger.Logger, commitStore ccipdata.CommitStoreReader, onRamp ccipdata.OnRampReader) error {
+	var (
+		eg       = new(errgroup.Group)
+		isDown   bool
+		isCursed bool
+	)
+
+	eg.Go(func() error {
+		var err error
+		isDown, err = commitStore.IsDown(ctx)
+		if err != nil {
+			return errors.Wrap(err, "commitStore isDown check errored")
+		}
+		return nil
+	})
+
+	eg.Go(func() error {
+		var err error
+		isCursed, err = onRamp.IsSourceCursed(ctx)
+		if err != nil {
+			return errors.Wrap(err, "onRamp isSourceCursed errored")
+		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	if isDown || isCursed {
+		lggr.Errorf("Source chain is cursed or CommitStore is down", "isDown", isDown, "isCursed", isCursed)
+		return ccip.ErrChainPausedOrCursed
+	}
+	return nil
 }
