@@ -8,6 +8,10 @@ jobs:
   crib:
     runs-on: ubuntu-latest
     permissions:
+      # For AWS assume role.
+      id-token: write
+      contents: read
+      # To comment on PR's.
       issues: write
       pull-requests: write
     steps:
@@ -20,7 +24,16 @@ jobs:
       - run: npm ci
         working-directory: ./.github/scripts/crib
 
+      - name: Assume role capable of dispatching action
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_SAND }}
+          role-duration-seconds: 900
+          role-session-name: gha-${{ github.repository }}-pr-labels-crib
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Comment CRIB details on PR
         run: ./.github/scripts/crib/pr-comment-crib-env.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ROUTE53_ZONE_ID: ${{ secrets.ROUTE53_ZONE_ID_SAND }}
