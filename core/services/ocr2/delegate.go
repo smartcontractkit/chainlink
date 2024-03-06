@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
 
@@ -660,6 +661,7 @@ func (d *Delegate) newServicesGenericPlugin(
 			ContractTransmitter:          provider.ContractTransmitter(),
 			ContractConfigTracker:        provider.ContractConfigTracker(),
 			OffchainConfigDigester:       provider.OffchainConfigDigester(),
+			MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 		}
 		oracleArgs.ReportingPluginFactory = plugin
 		srvs = append(srvs, plugin)
@@ -685,6 +687,7 @@ func (d *Delegate) newServicesGenericPlugin(
 			OffchainConfigDigester:       provider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
 			OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+			MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 		}
 		oracleArgs.ReportingPluginFactory = plugin
 		srvs = append(srvs, plugin)
@@ -768,6 +771,7 @@ func (d *Delegate) newServicesMercury(
 		OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
 	chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
@@ -892,6 +896,8 @@ func (d *Delegate) newServicesLLO(
 		Runner:   d.pipelineRunner,
 		Registry: d.streamRegistry,
 
+		JobName: jb.Name,
+
 		ChannelDefinitionCache: provider.ChannelDefinitionCache(),
 
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -941,6 +947,7 @@ func (d *Delegate) newServicesMedian(
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Median),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
 	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
@@ -1018,6 +1025,7 @@ func (d *Delegate) newServicesDKG(
 		OffchainConfigDigester: dkgProvider.OffchainConfigDigester(),
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kb,
+		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	return dkg.NewDKGServices(
 		jb,
@@ -1586,6 +1594,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
 		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
 	noopMonitoringEndpoint := telemetry.NoopAgent{}
@@ -1604,6 +1613,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kb,
 		ReportingPluginFactory: nil, // To be set by NewFunctionsServices
+		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
 	s4OracleArgs := libocr2.OCR2OracleArgs{
@@ -1620,6 +1630,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kb,
 		ReportingPluginFactory: nil, // To be set by NewFunctionsServices
+		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
 	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
