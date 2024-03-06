@@ -25,6 +25,13 @@ export DEVSPACE_IMAGE="..."
 ./setup.sh ${my-personal-namespace-name-crib}
 ```
 
+Create a .env file based on the .env.sample file
+```sh
+cp .env.sample .env
+# Fill in the required values in .env
+```
+
+
 Build and deploy current commit
 ```
 devspace deploy
