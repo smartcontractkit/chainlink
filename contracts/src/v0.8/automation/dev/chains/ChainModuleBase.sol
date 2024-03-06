@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
+import {IChainModule} from "../interfaces/IChainModule.sol";
 
 contract ChainModuleBase is IChainModule {
   uint256 private constant FIXED_GAS_OVERHEAD = 300;
