@@ -370,7 +370,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
   /**
    * @dev Prevents taking an action if the minimum number of responses has not
    * been received for an answer.
-   * @param _answerId The the identifier of the answer that keeps track of the responses.
+   * @param _answerId The identifier of the answer that keeps track of the responses.
    */
   modifier ensureMinResponsesReceived(uint256 _answerId) {
     if (answers[_answerId].responses.length >= answers[_answerId].minimumResponses) {
@@ -380,7 +380,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
 
   /**
    * @dev Prevents taking an action if not all responses are received for an answer.
-   * @param _answerId The the identifier of the answer that keeps track of the responses.
+   * @param _answerId The identifier of the answer that keeps track of the responses.
    */
   modifier ensureAllResponsesReceived(uint256 _answerId) {
     if (answers[_answerId].responses.length == answers[_answerId].maxResponses) {

@@ -689,7 +689,7 @@ ds1 -> ds1_parse
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
 	}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
-	// Have the the fake node start a new round
+	// Have the fake node start a new round
 	submitAnswer(t, answerParams{
 		fa:              &fa,
 		roundId:         1,

@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-// JobSpecType defines the the the spec type of the job
+// JobSpecType defines the spec type of the job
 type JobSpecType string
 
 func (t JobSpecType) String() string {
