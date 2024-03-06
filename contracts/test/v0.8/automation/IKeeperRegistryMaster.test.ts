@@ -68,23 +68,23 @@ function assertSatisfiesInterface(
     //   Object.prototype.hasOwnProperty.call(expected, functionName) &&
     //   functionName.match('^.+(.*)$') // only match typed function sigs
     // ) {
-      //console.log(functionName)
-      assert.isDefined(
-        implementer.functions[functionName],
-        `missing function ${functionName}`,
+    //console.log(functionName)
+    assert.isDefined(
+      implementer.functions[functionName],
+      `missing function ${functionName}`,
+    )
+    const propertiesToMatch: (keyof FunctionFragment)[] = [
+      'constant',
+      'stateMutability',
+      'payable',
+    ]
+    for (const property of propertiesToMatch) {
+      assert.equal(
+        implementer.functions[functionName][property],
+        expected.functions[functionName][property],
+        `property ${property} does not match for function ${functionName}`,
       )
-      const propertiesToMatch: (keyof FunctionFragment)[] = [
-        'constant',
-        'stateMutability',
-        'payable',
-      ]
-      for (const property of propertiesToMatch) {
-        assert.equal(
-          implementer.functions[functionName][property],
-          expected.functions[functionName][property],
-          `property ${property} does not match for function ${functionName}`,
-        )
-      }
+    }
   }
 }
 
