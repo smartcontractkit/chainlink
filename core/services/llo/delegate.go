@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/prometheus/client_golang/prometheus"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	ocr3types "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -45,6 +47,7 @@ type DelegateConfig struct {
 	Queryer  pg.Queryer
 	Runner   streams.Runner
 	Registry Registry
+	JobName  null.String
 
 	// LLO
 	ChannelDefinitionCache llotypes.ChannelDefinitionCache
@@ -106,6 +109,7 @@ func (d *delegate) Start(ctx context.Context) error {
 			ReportingPluginFactory: llo.NewPluginFactory(
 				d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
 			),
+			MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 		})
 
 		if err != nil {
