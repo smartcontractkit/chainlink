@@ -337,7 +337,13 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		attempts = append(attempts, as.FindTxAttempts(states, txFilterFn, txAttemptFilterFn)...)
 	}
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
+	// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
 	sort.Slice(attempts, func(i, j int) bool {
+		iSequence, jSequence := attempts[i].Tx.Sequence, attempts[j].Tx.Sequence
+		if iSequence == nil || jSequence == nil {
+			return false
+		}
+
 		return (*attempts[i].Tx.Sequence).Int64() < (*attempts[j].Tx.Sequence).Int64()
 	})
 

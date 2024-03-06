@@ -319,7 +319,6 @@ func TestInMemoryStore_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 					assertTxAttemptEqual(t, expTxAttempts[i], actTxAttempts[i])
 				}
 			}
-
 		})
 	}
 }
