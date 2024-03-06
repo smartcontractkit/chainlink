@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-const core = require("@actions/core");
-const github = require("@actions/github");
-const { Octokit } = require("@octokit/rest");
-const { route53RecordsExist } = require("./lib/check-route53-records");
+import * as core from "@actions/core";
+import * as github from "@actions/github";
+import { Octokit } from "@octokit/rest";
+import { route53RecordsExist } from "./lib/check-route53-records.js";
 
 function generateSubdomains(subdomainPrefix, prNumber) {
   return [
@@ -136,10 +136,4 @@ ${subdomainsFormatted}
   }
 }
 
-// Run the script if it's executed directly from the command line
-if (require.main === module) {
-  run();
-}
-
-// Export the run function for testing purposes
-module.exports = { run };
+run();
