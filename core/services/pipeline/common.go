@@ -560,9 +560,9 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 
 var ErrInvalidEVMChainID = errors.New("invalid EVM chain ID")
 
-func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint32 {
+func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint64 {
 	if specGasLimit != nil {
-		return *specGasLimit
+		return uint64(*specGasLimit)
 	}
 
 	jt := ge.LimitJobType()
@@ -583,7 +583,7 @@ func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32
 	}
 
 	if jobTypeGasLimit != nil {
-		return *jobTypeGasLimit
+		return uint64(*jobTypeGasLimit)
 	}
 	return ge.LimitDefault()
 }
