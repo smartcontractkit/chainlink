@@ -188,7 +188,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 					HistoryDepth: ptr.Ptr(uint32(100)),
 				},
 				GasEstimator: evmcfg.GasEstimator{
-					LimitDefault:  ptr.Ptr(uint32(6000000)),
+					LimitDefault:  ptr.Ptr(uint64(6000000)),
 					PriceMax:      assets.GWei(200),
 					FeeCapDefault: assets.GWei(200),
 				},
@@ -223,7 +223,7 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = keySpecicifArr
 		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
-			LimitDefault: ptr.Ptr[uint32](3500000),
+			LimitDefault: ptr.Ptr[uint64](3500000),
 		}
 		c.EVM[0].Chain.Transactions = evmcfg.Transactions{
 			MaxQueued: ptr.Ptr[uint32](10000),
