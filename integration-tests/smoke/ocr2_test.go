@@ -2,12 +2,16 @@ package smoke
 
 import (
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -25,6 +29,34 @@ import (
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
+
+	go func() {
+		file, err := os.OpenFile("system_usage.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		for {
+			cpuPercent, err := cpu.Percent(0, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vMem, err := mem.VirtualMemory()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Log CPU and RAM usage
+			logMessage := fmt.Sprintf("CPU usage: %.2f%%, RAM usage: %.2f%%\n", cpuPercent[0], vMem.UsedPercent)
+			_, err = file.WriteString(time.Now().Format("2006-01-02 15:04:05") + " " + logMessage)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			time.Sleep(time.Second)
+		}
+	}()
 
 	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
 	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
