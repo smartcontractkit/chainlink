@@ -64,19 +64,8 @@ func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider type
 			providerID, providerRes, err = m.Serve("MedianProvider", proxy.NewProxy(grpcProvider.ClientConn()))
 		} else {
 			providerID, providerRes, err = m.ServeNew("MedianProvider", func(s *grpc.Server) {
-				pb.RegisterServiceServer(s, &ServiceServer{Srv: provider})
-				pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
-				pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})
-				pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
+				registerPluginProviderServices(s, provider)
 				pb.RegisterReportCodecServer(s, &reportCodecServer{impl: provider.ReportCodec()})
-				if provider.ChainReader() != nil {
-					pb.RegisterChainReaderServer(s, &chainReaderServer{impl: provider.ChainReader()})
-				}
-
-				if provider.Codec() != nil {
-					pb.RegisterCodecServer(s, &codecServer{impl: provider.Codec()})
-				}
-
 				pb.RegisterMedianContractServer(s, &medianContractServer{impl: provider.MedianContract()})
 				pb.RegisterOnchainConfigCodecServer(s, &onchainConfigCodecServer{impl: provider.OnchainConfigCodec()})
 			})

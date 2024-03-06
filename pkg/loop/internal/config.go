@@ -225,3 +225,19 @@ func pbContractConfig(cc libocr.ContractConfig) *pb.ContractConfig {
 	}
 	return r
 }
+
+func registerPluginProviderServices(s *grpc.Server, provider types.PluginProvider) {
+	pb.RegisterServiceServer(s, &ServiceServer{Srv: provider})
+	pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
+	pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})
+	pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
+	// although these are part of the plugin provider interface, they are not actually implemented by all plugin providers (ie median)
+	// once we transition all plugins to the core node api, we can remove these checks
+	if provider.ChainReader() != nil {
+		pb.RegisterChainReaderServer(s, &chainReaderServer{impl: provider.ChainReader()})
+	}
+
+	if provider.Codec() != nil {
+		pb.RegisterCodecServer(s, &codecServer{impl: provider.Codec()})
+	}
+}
