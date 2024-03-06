@@ -1,6 +1,8 @@
 package values
 
 import (
+	"math"
+	"math/big"
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
@@ -87,6 +89,14 @@ func Test_Value(t *testing.T) {
 			newValue: func() (any, Value, error) {
 				b := true
 				bv := NewBool(b)
+				return b, bv, nil
+			},
+		},
+		{
+			name: "bigInt",
+			newValue: func() (any, Value, error) {
+				b := *big.NewInt(math.MaxInt64)
+				bv := NewBigInt(b)
 				return b, bv, nil
 			},
 		},

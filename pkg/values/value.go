@@ -2,6 +2,7 @@ package values
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
@@ -12,6 +13,7 @@ import (
 
 type Unwrappable interface {
 	Unwrap() (any, error)
+	UnwrapTo(any) error
 }
 
 type Value interface {
@@ -38,6 +40,8 @@ func Wrap(v any) (Value, error) {
 		return NewInt64(tv), nil
 	case int:
 		return NewInt64(int64(tv)), nil
+	case big.Int:
+		return NewBigInt(tv), nil
 	case nil:
 		return nil, nil
 
@@ -58,26 +62,40 @@ func Wrap(v any) (Value, error) {
 	}
 
 	// Handle slices, structs, and pointers to structs
-	switch reflect.ValueOf(v).Kind() {
+	val := reflect.ValueOf(v)
+	// nolint
+	switch val.Kind() {
+	// Better complex type support for maps
+	case reflect.Map:
+		m := make(map[string]any, val.Len())
+		iter := val.MapRange()
+		for iter.Next() {
+			k := iter.Key()
+			ks, ok := k.Interface().(string)
+			if !ok {
+				return nil, fmt.Errorf("could not wrap into value %+v", v)
+			}
+			v := iter.Value()
+			m[ks] = v.Interface()
+		}
+		return NewMap(m)
+	// Better complex type support for slices
 	case reflect.Slice:
-		val := reflect.ValueOf(v)
 		s := make([]any, val.Len())
 		for i := 0; i < val.Len(); i++ {
 			item := val.Index(i).Interface()
 			s[i] = item
 		}
-		return NewList(s) // can't just pass v in directly, so we have to copy it to a []any slice
+		return NewList(s)
 	case reflect.Struct:
 		return createMapFromStruct(v)
 	case reflect.Pointer:
 		if reflect.Indirect(reflect.ValueOf(v)).Kind() == reflect.Struct {
 			return createMapFromStruct(reflect.Indirect(reflect.ValueOf(v)).Interface())
 		}
-	default:
-		return nil, fmt.Errorf("could not wrap into value: %+v", v)
 	}
 
-	return nil, fmt.Errorf("could not wrap into value: %+v", v) // Unreachable
+	return nil, fmt.Errorf("could not wrap into value: %+v", v)
 }
 
 func Unwrap(v Value) (any, error) {
@@ -118,6 +136,8 @@ func FromProto(val *pb.Value) Value {
 		return FromListValueProto(val.GetListValue())
 	case *pb.Value_MapValue:
 		return FromMapValueProto(val.GetMapValue())
+	case *pb.Value_BigintValue:
+		return fromBigIntValueProto(val.GetBigintValue())
 	}
 
 	panic(fmt.Errorf("unsupported type %T: %+v", val, val))
@@ -146,6 +166,12 @@ func fromDecimalValueProto(decStr string) *Decimal {
 	}
 
 	return NewDecimal(dec)
+}
+
+func fromBigIntValueProto(b []byte) *BigInt {
+	i := big.Int{}
+	bi := i.SetBytes(b)
+	return NewBigInt(*bi)
 }
 
 func createMapFromStruct(v any) (Value, error) {

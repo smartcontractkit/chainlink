@@ -63,3 +63,11 @@ func NewInt64Value(i int64) *Value {
 		},
 	}
 }
+
+func NewBigIntValue(bib []byte) *Value {
+	return &Value{
+		Value: &Value_BigintValue{
+			BigintValue: bib,
+		},
+	}
+}

@@ -1,8 +1,6 @@
 package values
 
 import (
-	"fmt"
-	"math"
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
@@ -59,10 +57,13 @@ func (m *Map) Unwrap() (any, error) {
 	return nm, nil
 }
 
-func (m *Map) UnwrapTo(toStruct any) error {
+func (m *Map) UnwrapTo(to any) error {
 	c := &mapstructure.DecoderConfig{
-		Result:     toStruct,
-		DecodeHook: unwrapsValues,
+		Result: to,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapValueToMap,
+			unwrapsValues,
+		),
 	}
 
 	d, err := mapstructure.NewDecoder(c)
@@ -73,10 +74,34 @@ func (m *Map) UnwrapTo(toStruct any) error {
 	return d.Decode(m.Underlying)
 }
 
+func mapValueToMap(f reflect.Type, t reflect.Type, data any) (any, error) {
+	if f != reflect.TypeOf(map[string]Value{}) {
+		return data, nil
+	}
+
+	switch t {
+	case reflect.TypeOf(map[string]any{}):
+		dv := data.(map[string]Value)
+		d := map[string]any{}
+		for k, v := range dv {
+			unw, err := Unwrap(v)
+			if err != nil {
+				return nil, err
+			}
+
+			d[k] = unw
+		}
+
+		return d, nil
+	}
+	return data, nil
+}
+
 func unwrapsValues(f reflect.Type, t reflect.Type, data any) (any, error) {
 	valueType := reflect.TypeOf((*Value)(nil)).Elem()
 	if f.Implements(valueType) {
-		unw, err := Unwrap(data.(Value))
+		dv := data.(Value)
+		unw, err := Unwrap(dv)
 		if err != nil {
 			return data, nil
 		}
@@ -89,9 +114,10 @@ func unwrapsValues(f reflect.Type, t reflect.Type, data any) (any, error) {
 		// This is because ints are handled as int64s
 		// in the values library.
 		case reflect.TypeOf(int(0)):
-			i := unw.(int64)
-			if i > math.MaxInt {
-				return nil, fmt.Errorf("cannot convert int64 to int: %d is too large", i)
+			var i int
+			err := dv.UnwrapTo(&i)
+			if err != nil {
+				return nil, err
 			}
 
 			return i, nil
