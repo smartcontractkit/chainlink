@@ -26,7 +26,7 @@ pipelines:
     run: |-
       devspace run-pipeline deploy
       kubectl get pods -n ${DEVSPACE_NAMESPACE} --no-headers=true | grep '^app-node-' | awk '{print $1}' | xargs kubectl delete pod -n ${DEVSPACE_NAMESPACE}
-      kubectl wait pods -n ${DEVSPACE_NAMESPACE} --selector=app=app --for=condition=Ready --timeout=${DEVSPACE_DEV_TIMEOUT}
+      kubectl wait pods -n ${DEVSPACE_NAMESPACE} --selector=app=app --for=condition=Ready --timeout=${DEVSPACE_K8S_POD_WAIT_TIMEOUT}
   # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
   deploy:
     run: |-
