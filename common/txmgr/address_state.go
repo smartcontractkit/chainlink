@@ -51,9 +51,9 @@ func newAddressState[
 	lggr logger.SugaredLogger,
 	chainID CHAIN_ID,
 	fromAddress ADDR,
-	maxUnstarted int,
+	maxUnstarted uint64,
 	txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-) (*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE], error) {
+) *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	// Count the number of transactions in each state to reduce the number of map resizes
 	counts := map[txmgrtypes.TxState]int{
 		TxUnstarted:               0,
@@ -70,7 +70,7 @@ func newAddressState[
 		if tx.IdempotencyKey != nil {
 			idempotencyKeysCount++
 		}
-		if tx.State == TxUnconfirmed {
+		if len(tx.TxAttempts) > 0 {
 			txAttemptCount += len(tx.TxAttempts)
 		}
 	}
@@ -81,7 +81,7 @@ func newAddressState[
 		fromAddress: fromAddress,
 
 		idempotencyKeyToTx:         make(map[string]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], idempotencyKeysCount),
-		unstartedTxs:               queues.NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](maxUnstarted),
+		unstartedTxs:               queues.NewTxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](int(maxUnstarted)),
 		inprogressTx:               nil,
 		unconfirmedTxs:             make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxUnconfirmed]),
 		confirmedMissingReceiptTxs: make(map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], counts[TxConfirmedMissingReceipt]),
@@ -107,6 +107,8 @@ func newAddressState[
 			as.confirmedTxs[tx.ID] = &tx
 		case TxFatalError:
 			as.fatalErroredTxs[tx.ID] = &tx
+		default:
+			panic("unknown transaction state")
 		}
 		as.allTxs[tx.ID] = &tx
 		if tx.IdempotencyKey != nil {
@@ -117,7 +119,7 @@ func newAddressState[
 		}
 	}
 
-	return &as, nil
+	return &as
 }
 
 // CountTransactionsByState returns the number of transactions that are in the given state
