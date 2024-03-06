@@ -61,7 +61,7 @@ func NewTransmitEventProvider(
 	if err != nil {
 		return nil, err
 	}
-	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
+	err = logPoller.RegisterFilter(context.Background(), logpoller.Filter{
 		Name: EventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			// These are the events that are emitted when a node transmits a report
