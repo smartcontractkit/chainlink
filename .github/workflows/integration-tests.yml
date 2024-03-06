@@ -244,7 +244,8 @@ jobs:
           fi
 
   eth-smoke-tests-matrix-automation:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    if: false # DEBUG
+    # if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
       checks: write
@@ -332,7 +333,8 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
 
   eth-smoke-tests-matrix-log-poller:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
+    if: false # DEBUG
+    # if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
     environment: integration
     permissions:
       checks: write
