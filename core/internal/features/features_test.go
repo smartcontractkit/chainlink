@@ -1334,7 +1334,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
-	assert.Equal(t, uint32(500000), gasLimit)
+	assert.Equal(t, uint64(500000), gasLimit)
 	assert.Equal(t, "41.5 gwei", gasPrice.Legacy.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EVM().GasEstimator().PriceDefault().Int64()) // unchanged
 
