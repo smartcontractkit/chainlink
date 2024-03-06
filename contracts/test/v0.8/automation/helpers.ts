@@ -6,8 +6,8 @@ import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '
 import { AutomationRegistryLogicB2_2__factory as AutomationRegistryLogicBFactory } from '../../../typechain/factories/AutomationRegistryLogicB2_2__factory'
 import { IAutomationRegistryMaster as IAutomationRegistry } from '../../../typechain/IAutomationRegistryMaster'
 import { IAutomationRegistryMaster__factory as IAutomationRegistryMasterFactory } from '../../../typechain/factories/IAutomationRegistryMaster__factory'
-import { assert } from "chai";
-import { FunctionFragment } from "@ethersproject/abi";
+import { assert } from 'chai'
+import { FunctionFragment } from '@ethersproject/abi'
 
 export const deployRegistry21 = async (
   from: Signer,
