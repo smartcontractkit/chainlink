@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/zksync"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -159,6 +160,27 @@ func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	return types.NewTx(&tx)
 }
 
+func NewZkSyncTransaction(nonce uint64, from common.Address, to common.Address, value *big.Int, gasLimit uint32, chainID *big.Int, gasTipCap, gasFeeCap *assets.Wei, data []byte, gasPerPubdata *assets.Wei) zksync.Transaction712 {
+
+	return zksync.Transaction712{
+		ChainID:    chainID,
+		Nonce:      big.NewInt(int64(nonce)),
+		GasTipCap:  gasTipCap.ToInt(),
+		GasFeeCap:  gasFeeCap.ToInt(),
+		Gas:        big.NewInt(int64(gasLimit)),
+		To:         &to,
+		From:       &from,
+		Value:      value,
+		Data:       data,
+		AccessList: nil,
+		Meta: &zksync.Eip712Meta{
+			GasPerPubdata:   (*hexutil.Big)(gasPerPubdata.ToInt()),
+			CustomSignature: nil,
+			FactoryDeps:     nil,
+		},
+	}
+}
+
 func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
@@ -194,6 +216,18 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
 	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func MustInsertUnconfirmedEthTxWithBroadcastZkSyncAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
+	var err error
+	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
+	attempt := NewZkSyncTxAttempt(t, etx.ID)
+
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -244,6 +278,25 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 		// Just a random signed raw tx that decodes correctly
 		// Ignore all actual values
 		SignedRawTx:           hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
+		Hash:                  evmutils.NewHash(),
+		State:                 txmgrtypes.TxAttemptInProgress,
+		ChainSpecificFeeLimit: 42,
+	}
+}
+
+func NewZkSyncTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
+	gasTipCap := assets.NewWeiI(1)
+	gasFeeCap := assets.NewWeiI(1)
+	return txmgr.TxAttempt{
+		TxType: 0x2,
+		TxID:   etxID,
+		TxFee: gas.EvmFee{
+			DynamicTipCap: gasTipCap,
+			DynamicFeeCap: gasFeeCap,
+		},
+		// Just a random signed raw tx that decodes correctly
+		// Ignore all actual values
+		SignedRawTx:           hexutil.MustDecode("0x71f88980843b9accc5843b9accc681f2946c03dda95a2aed917eecc6eddd4b9d16e638041181f2832a2a008080808094b2a03aab1eb1441f94fde43fbcba9111329eabc082c350c0b84149d34801694fbb0849a542c2db2f99fdb154b818ccd5f34191be2276e48740e63cd53ffd00cdf027fb4e1d8c060e5cea9be3eca496dc4d01d2594d93b01afd801cc0"),
 		Hash:                  evmutils.NewHash(),
 		State:                 txmgrtypes.TxAttemptInProgress,
 		ChainSpecificFeeLimit: 42,

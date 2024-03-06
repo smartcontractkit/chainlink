@@ -277,6 +277,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+GasPerPubdata = '50 kwei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 25
@@ -367,6 +368,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+GasPerPubdata = '50 kwei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 25
@@ -451,6 +453,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
+GasPerPubdata = '50 kwei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 25

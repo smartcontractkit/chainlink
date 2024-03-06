@@ -148,6 +148,26 @@ func (_m *GasEstimator) FeeCapDefault() *assets.Wei {
 	return r0
 }
 
+// GasPerPubdata provides a mock function with given fields:
+func (_m *GasEstimator) GasPerPubdata() *assets.Wei {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GasPerPubdata")
+	}
+
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*assets.Wei)
+		}
+	}
+
+	return r0
+}
+
 // LimitDefault provides a mock function with given fields:
 func (_m *GasEstimator) LimitDefault() uint32 {
 	ret := _m.Called()

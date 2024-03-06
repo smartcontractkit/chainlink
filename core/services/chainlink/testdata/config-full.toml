@@ -291,6 +291,7 @@ EIP1559DynamicFees = true
 FeeCapDefault = '9.223372036854775807 ether'
 TipCapDefault = '2 wei'
 TipCapMin = '1 wei'
+GasPerPubdata = '50 kwei'
 
 [EVM.GasEstimator.LimitJobType]
 OCR = 1001

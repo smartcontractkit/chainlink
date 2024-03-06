@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -51,20 +52,7 @@ func NewChainClient(
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
-	multiNode := commonclient.NewMultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCClient,
-	](
+	multiNode := commonclient.NewMultiNode(
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -222,6 +210,16 @@ func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.T
 	err := c.SendTransaction(ctx, tx)
 	returnCode := ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
 	return returnCode, err
+}
+
+func (c *chainClient) SendRawTransactionReturnCode(ctx context.Context, rawTx []byte, fromAddress common.Address) (common.Hash, commonclient.SendTxReturnCode, error) {
+	txHash := common.Hash{}
+	hexdata := fmt.Sprintf("0x%v", common.Bytes2Hex(rawTx))
+	err := c.CallContext(ctx, &txHash, "eth_sendRawTransaction", hexdata)
+	// Sending empty transaction will not log any useful fields when classifying errors
+	// This method is expected to only be used by zkSync which does not provide a way to decode EIP-712 transactions into the geth type
+	returnCode := ClassifySendError(err, c.logger, &types.Transaction{}, fromAddress, c.IsL2())
+	return txHash, returnCode, err
 }
 
 func (c *chainClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {

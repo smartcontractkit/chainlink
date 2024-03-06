@@ -33,6 +33,7 @@ type FeeConfig interface {
 	PriceMax() *assets.Wei
 	PriceMin() *assets.Wei
 	PriceMaxKey(gethcommon.Address) *assets.Wei
+	GasPerPubdata() *assets.Wei
 }
 
 type DatabaseConfig interface {

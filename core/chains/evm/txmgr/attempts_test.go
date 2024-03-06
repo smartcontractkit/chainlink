@@ -15,14 +15,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
@@ -36,13 +39,15 @@ type feeConfig struct {
 	tipCapMin          *assets.Wei
 	priceMin           *assets.Wei
 	priceMax           *assets.Wei
+	gasPerPubdata      *assets.Wei
 }
 
 func newFeeConfig() *feeConfig {
 	return &feeConfig{
-		tipCapMin: assets.NewWeiI(0),
-		priceMin:  assets.NewWeiI(0),
-		priceMax:  assets.NewWeiI(0),
+		tipCapMin:     assets.NewWeiI(0),
+		priceMin:      assets.NewWeiI(0),
+		priceMax:      assets.NewWeiI(0),
+		gasPerPubdata: assets.NewWeiI(50_000),
 	}
 }
 
@@ -50,6 +55,7 @@ func (g *feeConfig) EIP1559DynamicFees() bool                        { return g.
 func (g *feeConfig) TipCapMin() *assets.Wei                          { return g.tipCapMin }
 func (g *feeConfig) PriceMin() *assets.Wei                           { return g.priceMin }
 func (g *feeConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei { return g.priceMax }
+func (g *feeConfig) GasPerPubdata() *assets.Wei                      { return g.gasPerPubdata }
 
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()
@@ -69,7 +75,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", mock.Anything, to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), kst, nil)
 		hash, rawBytes, err := cks.SignTx(testutils.Context(t), addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
@@ -80,7 +86,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", mock.Anything, to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), kst, nil)
 		hash, rawBytes, err := cks.SignTx(testutils.Context(t), addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
@@ -90,7 +96,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		kst := ksmocks.NewEth(t)
 		kst.On("SignTx", mock.Anything, to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), kst, nil)
 
 		_, rawBytes, err := cks.SignTx(testutils.Context(t), addr, tx)
 		require.NoError(t, err)
@@ -113,7 +119,7 @@ func TestTxm_SignTx(t *testing.T) {
 			Data:  []byte{1, 2, 3},
 		})
 		kst.On("SignTx", mock.Anything, to, typedTx, chainID).Return(typedTx, nil).Once()
-		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, newFeeConfig(), kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*chainID, "", newFeeConfig(), kst, nil)
 		_, rawBytes, err := cks.SignTx(testutils.Context(t), addr, typedTx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
@@ -123,6 +129,35 @@ func TestTxm_SignTx(t *testing.T) {
 		decodedTx, err = txmgr.GetGethSignedTx(rawBytes)
 		require.NoError(t, err)
 		require.Equal(t, typedTx.Hash(), decodedTx.Hash())
+	})
+
+	t.Run("can properly encoded raw transaction for ZkSyncTx", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		keystore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		nonce := evmtypes.Nonce(42)
+		_, address := cltest.MustInsertRandomKeyReturningState(t, keystore)
+		txmTx := txmgr.Tx{
+			Sequence:    &nonce,
+			FromAddress: address,
+			ToAddress:   to,
+			Value:       *big.NewInt(142),
+			FeeLimit:    500_000,
+		}
+		fee := gas.EvmFee{
+			DynamicFeeCap: assets.NewWeiI(100_000_000),
+			DynamicTipCap: assets.NewWeiI(10_000_000),
+		}
+		feeConfig := &feeConfig{
+			eip1559DynamicFees: true,
+			tipCapMin:          assets.NewWeiI(0),
+			priceMin:           assets.NewWeiI(0),
+			priceMax:           assets.NewWeiI(1_000_000_000),
+			gasPerPubdata:      assets.NewWeiI(50_000),
+		}
+		cks := txmgr.NewEvmTxAttemptBuilder(cltest.FixtureChainID, config.ChainZkSync, feeConfig, keystore, nil)
+		_, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, fee, 242, 0x1, logger.Test(t))
+		require.NoError(t, err)
 	})
 }
 
@@ -137,7 +172,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		feeCfg := newFeeConfig()
 		feeCfg.priceMax = assets.GWei(200)
-		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), feeCfg, kst, nil)
+		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", feeCfg, kst, nil)
 		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
 		a, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
 			DynamicTipCap: dynamicFee.TipCap,
@@ -179,7 +214,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				gcfg := configtest.NewGeneralConfig(t, test.setCfg)
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
-				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM().GasEstimator(), kst, nil)
+				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", cfg.EVM().GasEstimator(), kst, nil)
 				dynamicFee := gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}
 				_, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
 					DynamicTipCap: dynamicFee.TipCap,
@@ -203,7 +238,7 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 	gc := newFeeConfig()
 	gc.priceMin = assets.NewWeiI(10)
 	gc.priceMax = assets.NewWeiI(50)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), gc, kst, nil)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", gc, kst, nil)
 	lggr := logger.Test(t)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
@@ -229,7 +264,7 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 
 	kst := ksmocks.NewEth(t)
 	lggr := logger.Test(t)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), newFeeConfig(), kst, nil)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", newFeeConfig(), kst, nil)
 
 	dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
 	legacyFee := assets.NewWeiI(100)
@@ -263,7 +298,7 @@ func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 	kst := ksmocks.NewEth(t)
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
-	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), &feeConfig{eip1559DynamicFees: true}, kst, est)
+	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), "", &feeConfig{eip1559DynamicFees: true}, kst, est)
 
 	t.Run("NewAttempt", func(t *testing.T) {
 		_, _, _, retryable, err := cks.NewTxAttempt(ctx, txmgr.Tx{}, lggr)
@@ -282,5 +317,44 @@ func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to bump fee")
 		assert.True(t, retryable)
+	})
+}
+
+func TestTxm_New712Tx(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates attempt with fields", func(t *testing.T) {
+		var n evmtypes.Nonce
+		lggr := logger.Test(t)
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		keystore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		_, addr := cltest.MustInsertRandomKeyReturningState(t, keystore)
+		feeCfg := &feeConfig{
+			eip1559DynamicFees: true,
+			tipCapMin:          assets.NewWeiI(0),
+			priceMin:           assets.NewWeiI(0),
+			priceMax:           assets.NewWeiI(1_000_000_000),
+			gasPerPubdata:      assets.NewWeiI(50_000),
+		}
+		cks := txmgr.NewEvmTxAttemptBuilder(cltest.FixtureChainID, "", feeCfg, keystore, nil)
+		dynamicFee := gas.DynamicFee{TipCap: assets.NewWeiI(100_000_000), FeeCap: assets.NewWeiI(200_000_000)}
+		txmTx := txmgr.Tx{
+			Sequence:    &n,
+			FromAddress: addr,
+			Value:       *big.NewInt(142),
+			FeeLimit:    500_000,
+		}
+		a, _, err := cks.NewCustomTxAttempt(testutils.Context(t), txmTx, gas.EvmFee{
+			DynamicTipCap: dynamicFee.TipCap,
+			DynamicFeeCap: dynamicFee.FeeCap,
+		}, 100, 0x2, lggr)
+		require.NoError(t, err)
+		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))
+		assert.Nil(t, a.TxFee.Legacy)
+		assert.NotNil(t, a.TxFee.DynamicTipCap)
+		assert.Equal(t, assets.NewWeiI(100_000_000).String(), a.TxFee.DynamicTipCap.String())
+		assert.NotNil(t, a.TxFee.DynamicFeeCap)
+		assert.Equal(t, assets.NewWeiI(200_000_000).String(), a.TxFee.DynamicFeeCap.String())
 	})
 }

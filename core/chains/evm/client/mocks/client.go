@@ -673,6 +673,43 @@ func (_m *Client) PendingNonceAt(ctx context.Context, account common.Address) (u
 	return r0, r1
 }
 
+// SendRawTransactionReturnCode provides a mock function with given fields: ctx, rawTx, fromAddress
+func (_m *Client) SendRawTransactionReturnCode(ctx context.Context, rawTx []byte, fromAddress common.Address) (common.Hash, commonclient.SendTxReturnCode, error) {
+	ret := _m.Called(ctx, rawTx, fromAddress)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendRawTransactionReturnCode")
+	}
+
+	var r0 common.Hash
+	var r1 commonclient.SendTxReturnCode
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, common.Address) (common.Hash, commonclient.SendTxReturnCode, error)); ok {
+		return rf(ctx, rawTx, fromAddress)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, common.Address) common.Hash); ok {
+		r0 = rf(ctx, rawTx, fromAddress)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(common.Hash)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []byte, common.Address) commonclient.SendTxReturnCode); ok {
+		r1 = rf(ctx, rawTx, fromAddress)
+	} else {
+		r1 = ret.Get(1).(commonclient.SendTxReturnCode)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, []byte, common.Address) error); ok {
+		r2 = rf(ctx, rawTx, fromAddress)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // SendTransaction provides a mock function with given fields: ctx, tx
 func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	ret := _m.Called(ctx, tx)

@@ -1087,7 +1087,12 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 	if gasLimit == 0 {
 		gasLimit = ec.feeConfig.LimitDefault()
 	}
-	txhash, err := ec.client.SendEmptyTransaction(ctx, ec.TxAttemptBuilder.NewEmptyTxAttempt, seq, gasLimit, fee, fromAddress)
+	attempt, err := ec.TxAttemptBuilder.NewEmptyTxAttempt(ctx, seq, gasLimit, fee, fromAddress)
+	if err != nil {
+		return "", fmt.Errorf("(Confirmer).sendEmptyTransaction failed to create empty tx attempt: %w", err)
+	}
+	var txhash string
+	txhash, err = ec.client.SendEmptyTransaction(ctx, attempt, seq, gasLimit, fee, fromAddress)
 	if err != nil {
 		return "", fmt.Errorf("(Confirmer).sendEmptyTransaction failed: %w", err)
 	}

@@ -9,6 +9,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -60,11 +61,12 @@ func NewNonceSyncer(
 	txStore EvmTxStore,
 	lggr logger.Logger,
 	ethClient evmclient.Client,
+	chainType config.ChainType,
 ) NonceSyncer {
 	lggr = logger.Named(lggr, "NonceSyncer")
 	return &nonceSyncerImpl{
 		txStore: txStore,
-		client:  NewEvmTxmClient(ethClient),
+		client:  NewEvmTxmClient(ethClient, chainType),
 		chainID: ethClient.ConfiguredChainID(),
 		logger:  lggr,
 	}
