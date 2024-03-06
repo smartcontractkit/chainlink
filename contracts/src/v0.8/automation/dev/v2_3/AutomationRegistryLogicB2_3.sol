@@ -19,11 +19,21 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   constructor(
     address link,
-    address linkNativeFeed,
+    address linkUSDFeed,
+    address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
-  ) AutomationRegistryBase2_3(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
+  )
+    AutomationRegistryBase2_3(
+      link,
+      linkUSDFeed,
+      nativeUSDFeed,
+      fastGasFeed,
+      automationForwarderLogic,
+      allowedReadOnlyAddress
+    )
+  {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -294,8 +304,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     return address(i_link);
   }
 
-  function getLinkNativeFeedAddress() external view returns (address) {
-    return address(i_linkNativeFeed);
+  function getLinkUSDFeedAddress() external view returns (address) {
+    return address(i_linkUSDFeed);
+  }
+
+  function getNativeUSDFeedAddress() external view returns (address) {
+    return address(i_nativeUSDFeed);
   }
 
   function getFastGasFeedAddress() external view returns (address) {
@@ -507,8 +521,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkNative);
+    (uint256 fastGasWei, uint256 linkUSD, uint256 nativeUSD) = _getFeedData(hotVars);
+    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD);
   }
 
   /**
@@ -544,5 +558,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
     return s_dedupKeys[dedupKey];
+  }
+
+  /**
+   * @notice returns the fallback native price
+   */
+  function getFallbackNativePrice() external view returns (uint256) {
+    return s_fallbackNativePrice;
   }
 }
