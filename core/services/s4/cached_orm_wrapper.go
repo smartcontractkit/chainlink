@@ -43,13 +43,22 @@ func (c CachedORM) Get(address *ubig.Big, slotId uint, qopts ...pg.QOpt) (*Row, 
 }
 
 func (c CachedORM) Update(row *Row, qopts ...pg.QOpt) error {
-	c.clearCache(row)
+	c.deleteRowFromCache(row)
 
 	return c.underlayingORM.Update(row, qopts...)
 }
 
 func (c CachedORM) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) (int64, error) {
-	return c.underlayingORM.DeleteExpired(limit, utcNow, qopts...)
+	deletedRows, err := c.underlayingORM.DeleteExpired(limit, utcNow, qopts...)
+	if err != nil {
+		return 0, err
+	}
+
+	if deletedRows > 0 {
+		c.cache.Flush()
+	}
+
+	return deletedRows, nil
 }
 
 func (c CachedORM) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
@@ -74,7 +83,7 @@ func (c CachedORM) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, err
 	return c.underlayingORM.GetUnconfirmedRows(limit, qopts...)
 }
 
-func (c CachedORM) clearCache(row *Row) {
+func (c CachedORM) deleteRowFromCache(row *Row) {
 	for key := range c.cache.Items() {
 		keyParts := strings.Split(key, "_")
 		if len(keyParts) != 3 {
