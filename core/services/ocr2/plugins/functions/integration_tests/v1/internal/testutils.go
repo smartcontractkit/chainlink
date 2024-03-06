@@ -312,7 +312,7 @@ func StartNewNode(
 	owner *bind.TransactOpts,
 	port int,
 	b *backends.SimulatedBackend,
-	maxGas uint64,
+	maxGas uint32,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	ocr2Keystore []byte,
 	thresholdKeyShare string,
@@ -337,7 +337,7 @@ func StartNewNode(
 
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(maxGas))
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 		c.EVM[0].GasEstimator.PriceDefault = assets.NewWei(big.NewInt(int64(DefaultGasPrice)))
 
@@ -557,7 +557,7 @@ func CreateFunctionsNodes(
 	}
 
 	bootstrapPort := freeport.GetOne(t)
-	bootstrapNode = StartNewNode(t, owner, bootstrapPort, b, uint64(maxGas), nil, nil, "")
+	bootstrapNode = StartNewNode(t, owner, bootstrapPort, b, uint32(maxGas), nil, nil, "")
 	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
@@ -575,7 +575,7 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		oracleNode := StartNewNode(t, owner, ports[i], b, uint64(maxGas), []commontypes.BootstrapperLocator{
+		oracleNode := StartNewNode(t, owner, ports[i], b, uint32(maxGas), []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)
