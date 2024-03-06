@@ -15,7 +15,10 @@ type pluginProviderClient struct {
 	codec               types.Codec
 }
 
-func (p *pluginProviderClient) ClientConn() grpc.ClientConnInterface { return p.cc }
+var _ types.PluginProvider = (*pluginProviderClient)(nil)
+
+// in practice, inherited from configProviderClient
+var _ GRPCClientConn = (*pluginProviderClient)(nil)
 
 func newPluginProviderClient(b *BrokerExt, cc grpc.ClientConnInterface) *pluginProviderClient {
 	p := &pluginProviderClient{configProviderClient: newConfigProviderClient(b.WithName("PluginProviderClient"), cc)}

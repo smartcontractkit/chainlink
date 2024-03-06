@@ -178,8 +178,6 @@ type medianProviderClient struct {
 	codec              types.Codec
 }
 
-func (m *medianProviderClient) ClientConn() grpc.ClientConnInterface { return m.cc }
-
 func newMedianProviderClient(b *BrokerExt, cc grpc.ClientConnInterface) *medianProviderClient {
 	m := &medianProviderClient{pluginProviderClient: newPluginProviderClient(b.WithName("MedianProviderClient"), cc)}
 	m.reportCodec = &reportCodecClient{b, pb.NewReportCodecClient(m.cc)}

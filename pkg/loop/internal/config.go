@@ -13,6 +13,7 @@ import (
 )
 
 var _ types.ConfigProvider = (*configProviderClient)(nil)
+var _ GRPCClientConn = (*configProviderClient)(nil)
 
 type configProviderClient struct {
 	*ServiceClient
