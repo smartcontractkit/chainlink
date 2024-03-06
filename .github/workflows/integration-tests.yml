@@ -244,8 +244,7 @@ jobs:
           fi
 
   eth-smoke-tests-matrix-automation:
-    if: false # DEBUG
-    # if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
       checks: write
@@ -333,8 +332,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
 
   eth-smoke-tests-matrix-log-poller:
-    if: false # DEBUG
-    # if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
     environment: integration
     permissions:
       checks: write
@@ -436,23 +434,23 @@ jobs:
       fail-fast: false
       matrix:
         product:
-          # - name: runlog
-          #   nodes: 2
-          #   os: ubuntu-latest
-          #   pyroscope_env: "ci-smoke-runlog-evm-simulated"
-          # - name: cron
-          #   nodes: 2
-          #   os: ubuntu-latest
-          #   pyroscope_env: "ci-smoke-cron-evm-simulated"
-          # - name: flux
-          #   nodes: 1
-          #   os: ubuntu-latest
-          #   pyroscope_env: "ci-smoke-flux-evm-simulated"
-          # - name: ocr
-          #   nodes: 2
-          #   os: ubuntu-latest
-          #   file: ocr
-          #   pyroscope_env: ci-smoke-ocr-evm-simulated
+          - name: runlog
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: "ci-smoke-runlog-evm-simulated"
+          - name: cron
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: "ci-smoke-cron-evm-simulated"
+          - name: flux
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: "ci-smoke-flux-evm-simulated"
+          - name: ocr
+            nodes: 2
+            os: ubuntu-latest
+            file: ocr
+            pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 6
             os: ubuntu20.04-16cores-64GB
@@ -463,33 +461,32 @@ jobs:
             os: ubuntu20.04-16cores-64GB
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
-          # - name: vrf
-          #   nodes: 2
-          #   os: ubuntu-latest
-          #   pyroscope_env: ci-smoke-vrf-evm-simulated
-          # - name: vrfv2
-          #   nodes: 4
-          #   os: ubuntu-latest
-          #   pyroscope_env: ci-smoke-vrf2-evm-simulated
-          # - name: vrfv2plus
-          #   nodes: 4
-          #   os: ubuntu-latest
-          #   pyroscope_env: ci-smoke-vrf2plus-evm-simulated
-          # - name: forwarder_ocr
-          #   nodes: 2
-          #   os: ubuntu-latest
-          #   pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-          # - name: forwarders_ocr2
-          #   nodes: 2
-          #   os: ubuntu-latest
-          #   pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+          - name: vrf
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf-evm-simulated
+          - name: vrfv2
+            nodes: 4
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf2-evm-simulated
+          - name: vrfv2plus
+            nodes: 4
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+          - name: forwarder_ocr
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+          - name: forwarders_ocr2
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
-      - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@v2
-        with:
-          theme: dark
+      # Handy for debugging resource usage
+      # - name: Collect Workflow Telemetry
+      #   uses: catchpoint/workflow-telemetry-action@v2
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
