@@ -15,7 +15,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-func TestPriorityHeap(t *testing.T) {
+func TestTxPriorityQueue(t *testing.T) {
 	capacity := 5
 	t.Run("transactions can be added to queue", func(t *testing.T) {
 		pq := queues.NewTxPriorityQueue[
