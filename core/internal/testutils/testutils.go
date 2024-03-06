@@ -290,6 +290,8 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 			var resp JSONRPCResponse
 			if chainID != nil && m.String() == "eth_chainId" {
 				resp.Result = `"0x` + chainID.Text(16) + `"`
+			} else if m.String() == "eth_syncing" {
+				resp.Result = "false"
 			} else {
 				resp = callback(m.String(), req.Get("params"))
 			}

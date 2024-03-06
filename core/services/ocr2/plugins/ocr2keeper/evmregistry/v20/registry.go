@@ -102,6 +102,9 @@ func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr log
 		enc:      EVMAutomationEncoder20{},
 	}
 
+	r.ctx, r.cancel = context.WithCancel(context.Background())
+	r.reInit = time.NewTimer(reInitializationDelay)
+
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
 		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
@@ -200,13 +203,10 @@ func (r *EvmRegistry) Name() string {
 	return r.lggr.Name()
 }
 
-func (r *EvmRegistry) Start(ctx context.Context) error {
+func (r *EvmRegistry) Start(_ context.Context) error {
 	return r.sync.StartOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		r.ctx, r.cancel = context.WithCancel(context.Background())
-		r.reInit = time.NewTimer(reInitializationDelay)
-
 		// initialize the upkeep keys; if the reInit timer returns, do it again
 		{
 			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
@@ -366,11 +366,8 @@ func (r *EvmRegistry) pollLogs() error {
 
 	{
 		var logs []logpoller.Log
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 		if logs, err = r.poller.LogsWithSigs(
-			ctx,
+			r.ctx,
 			end.BlockNumber-logEventLookback,
 			end.BlockNumber,
 			upkeepStateEvents,
@@ -394,9 +391,7 @@ func UpkeepFilterName(addr common.Address) string {
 func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return r.poller.RegisterFilter(ctx, logpoller.Filter{
+	return r.poller.RegisterFilter(r.ctx, logpoller.Filter{
 		Name:      UpkeepFilterName(addr),
 		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
 		Addresses: []common.Address{addr},

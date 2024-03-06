@@ -125,9 +125,9 @@ func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	return r0, r1, r2, r3, r4
 }
 
-// NewCustomTxAttempt provides a mock function with given fields: tx, fee, gasLimit, txType, lggr
-func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) NewCustomTxAttempt(tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fee FEE, gasLimit uint32, txType int, lggr logger.Logger) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], bool, error) {
-	ret := _m.Called(tx, fee, gasLimit, txType, lggr)
+// NewCustomTxAttempt provides a mock function with given fields: ctx, tx, fee, gasLimit, txType, lggr
+func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) NewCustomTxAttempt(ctx context.Context, tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fee FEE, gasLimit uint32, txType int, lggr logger.Logger) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], bool, error) {
+	ret := _m.Called(ctx, tx, fee, gasLimit, txType, lggr)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NewCustomTxAttempt")
@@ -136,23 +136,23 @@ func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	var r0 txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 bool
 	var r2 error
-	if rf, ok := ret.Get(0).(func(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], FEE, uint32, int, logger.Logger) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], bool, error)); ok {
-		return rf(tx, fee, gasLimit, txType, lggr)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], FEE, uint32, int, logger.Logger) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], bool, error)); ok {
+		return rf(ctx, tx, fee, gasLimit, txType, lggr)
 	}
-	if rf, ok := ret.Get(0).(func(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], FEE, uint32, int, logger.Logger) txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(tx, fee, gasLimit, txType, lggr)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], FEE, uint32, int, logger.Logger) txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, tx, fee, gasLimit, txType, lggr)
 	} else {
 		r0 = ret.Get(0).(txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	}
 
-	if rf, ok := ret.Get(1).(func(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], FEE, uint32, int, logger.Logger) bool); ok {
-		r1 = rf(tx, fee, gasLimit, txType, lggr)
+	if rf, ok := ret.Get(1).(func(context.Context, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], FEE, uint32, int, logger.Logger) bool); ok {
+		r1 = rf(ctx, tx, fee, gasLimit, txType, lggr)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
 
-	if rf, ok := ret.Get(2).(func(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], FEE, uint32, int, logger.Logger) error); ok {
-		r2 = rf(tx, fee, gasLimit, txType, lggr)
+	if rf, ok := ret.Get(2).(func(context.Context, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], FEE, uint32, int, logger.Logger) error); ok {
+		r2 = rf(ctx, tx, fee, gasLimit, txType, lggr)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -160,9 +160,9 @@ func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	return r0, r1, r2
 }
 
-// NewEmptyTxAttempt provides a mock function with given fields: seq, feeLimit, fee, fromAddress
-func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) NewEmptyTxAttempt(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(seq, feeLimit, fee, fromAddress)
+// NewEmptyTxAttempt provides a mock function with given fields: ctx, seq, feeLimit, fee, fromAddress
+func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) NewEmptyTxAttempt(ctx context.Context, seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, seq, feeLimit, fee, fromAddress)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NewEmptyTxAttempt")
@@ -170,17 +170,17 @@ func (_m *TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 
 	var r0 txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(SEQ, uint32, FEE, ADDR) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(seq, feeLimit, fee, fromAddress)
+	if rf, ok := ret.Get(0).(func(context.Context, SEQ, uint32, FEE, ADDR) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, seq, feeLimit, fee, fromAddress)
 	}
-	if rf, ok := ret.Get(0).(func(SEQ, uint32, FEE, ADDR) txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(seq, feeLimit, fee, fromAddress)
+	if rf, ok := ret.Get(0).(func(context.Context, SEQ, uint32, FEE, ADDR) txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, seq, feeLimit, fee, fromAddress)
 	} else {
 		r0 = ret.Get(0).(txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	}
 
-	if rf, ok := ret.Get(1).(func(SEQ, uint32, FEE, ADDR) error); ok {
-		r1 = rf(seq, feeLimit, fee, fromAddress)
+	if rf, ok := ret.Get(1).(func(context.Context, SEQ, uint32, FEE, ADDR) error); ok {
+		r1 = rf(ctx, seq, feeLimit, fee, fromAddress)
 	} else {
 		r1 = ret.Error(1)
 	}

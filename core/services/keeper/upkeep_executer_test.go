@@ -226,14 +226,15 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("errors if submission key not found", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		_, _, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, mockEstimator(t), func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})
 
 		// replace expected key with random one
-		_, err := keyStore.Eth().Create(testutils.SimulatedChainID)
+		_, err := keyStore.Eth().Create(ctx, testutils.SimulatedChainID)
 		require.NoError(t, err)
-		_, err = keyStore.Eth().Delete(job.KeeperSpec.FromAddress.Hex())
+		_, err = keyStore.Eth().Delete(ctx, job.KeeperSpec.FromAddress.Hex())
 		require.NoError(t, err)
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())

@@ -31,7 +31,7 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
-	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.TestLogger(t)), 32)
+	provider, err := NewTransmitEventProvider(ctx, logger.TestLogger(t), lp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.TestLogger(t)), 32)
 	require.NoError(t, err)
 	require.NotNil(t, provider)
 
@@ -105,8 +105,9 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 	lp := new(mocks.LogPoller)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	client := evmClientMocks.NewClient(t)
+	ctx := testutils.Context(t)
 
-	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)
+	provider, err := NewTransmitEventProvider(ctx, logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)
 	require.NoError(t, err)
 
 	id := core.GenUpkeepID(types.LogTrigger, "1111111111111111")

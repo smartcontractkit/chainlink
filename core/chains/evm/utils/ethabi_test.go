@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -636,7 +636,7 @@ func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
 		vInt, _ := v.Int(nil)
 		word, err := EVMWordSignedBigInt(vInt)
 		if err != nil {
-			return nil, errors.Wrap(err, "while converting float to int256")
+			return nil, pkgerrors.Wrap(err, "while converting float to int256")
 		}
 		return EVMEncodeBytes(word), nil
 	default:

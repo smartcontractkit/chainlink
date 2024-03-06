@@ -35,6 +35,7 @@ func (mockTransmitter) FromAddress() gethcommon.Address { return testutils.NewAd
 
 func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	digestStr := "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc776"
 	lggr := logger.TestLogger(t)
@@ -54,7 +55,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 		return &txmgr.TxMeta{}, nil
 	}, 1)
 	require.NoError(t, err)
-	require.NoError(t, functionsTransmitter.UpdateRoutes(gethcommon.Address{}, gethcommon.Address{}))
+	require.NoError(t, functionsTransmitter.UpdateRoutes(ctx, gethcommon.Address{}, gethcommon.Address{}))
 
 	digest, epoch, err := functionsTransmitter.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
@@ -64,6 +65,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 
 func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	contractVersion := uint32(1)
 	configuredDestAddress, coordinatorAddress := testutils.NewAddress(), testutils.NewAddress()
@@ -78,7 +80,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 		return &txmgr.TxMeta{}, nil
 	}, contractVersion)
 	require.NoError(t, err)
-	require.NoError(t, ot.UpdateRoutes(configuredDestAddress, configuredDestAddress))
+	require.NoError(t, ot.UpdateRoutes(ctx, configuredDestAddress, configuredDestAddress))
 
 	reqId, err := hex.DecodeString("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
 	require.NoError(t, err)
@@ -107,6 +109,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 
 func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	contractVersion := uint32(1)
 	configuredDestAddress, coordinatorAddress1, coordinatorAddress2 := testutils.NewAddress(), testutils.NewAddress(), testutils.NewAddress()
@@ -121,7 +124,7 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 		return &txmgr.TxMeta{}, nil
 	}, contractVersion)
 	require.NoError(t, err)
-	require.NoError(t, ot.UpdateRoutes(configuredDestAddress, configuredDestAddress))
+	require.NoError(t, ot.UpdateRoutes(ctx, configuredDestAddress, configuredDestAddress))
 
 	reqId1, err := hex.DecodeString("110102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
 	require.NoError(t, err)

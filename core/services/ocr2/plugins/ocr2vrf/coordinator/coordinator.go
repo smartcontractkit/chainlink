@@ -165,6 +165,7 @@ type coordinator struct {
 
 // New creates a new CoordinatorInterface implementor.
 func New(
+	ctx context.Context,
 	lggr logger.Logger,
 	beaconAddress common.Address,
 	coordinatorAddress common.Address,
@@ -182,8 +183,6 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
 		EventSigs: []common.Hash{

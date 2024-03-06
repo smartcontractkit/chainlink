@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 type TxType uint8
@@ -22,7 +22,7 @@ func (txt *TxType) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if hx > math.MaxUint8 {
-		return errors.Errorf("expected 'type' to fit into a single byte, got: '%s'", data)
+		return pkgerrors.Errorf("expected 'type' to fit into a single byte, got: '%s'", data)
 	}
 	*txt = TxType(hx)
 	return nil

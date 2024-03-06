@@ -62,7 +62,7 @@ type TransactionClient[
 	) (client.SendTxReturnCode, error)
 	SendEmptyTransaction(
 		ctx context.Context,
-		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error),
+		newTxAttempt func(ctx context.Context, seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error),
 		seq SEQ,
 		gasLimit uint32,
 		fee FEE,
