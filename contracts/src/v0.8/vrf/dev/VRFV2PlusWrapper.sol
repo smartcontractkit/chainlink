@@ -311,7 +311,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function calculateRequestPrice(
     uint32 _callbackGasLimit
-  ) external view override onlyConfiguredNotDisabled returns (uint256) {
+  ) external override onlyConfiguredNotDisabled returns (uint256) {
     int256 weiPerUnitLink = _getFeedData();
     return _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
   }
@@ -334,7 +334,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function estimateRequestPrice(
     uint32 _callbackGasLimit,
     uint256 _requestGasPriceWei
-  ) external view override onlyConfiguredNotDisabled returns (uint256) {
+  ) external override onlyConfiguredNotDisabled returns (uint256) {
     int256 weiPerUnitLink = _getFeedData();
     return _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
   }
@@ -545,14 +545,18 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     }
   }
 
-  function _getFeedData() private view returns (int256) {
-    bool staleFallback = s_stalenessSeconds > 0;
+  function _getFeedData() private returns (int256 weiPerUnitLink) {
+    uint32 stalenessSeconds = s_stalenessSeconds;
     uint256 timestamp;
-    int256 weiPerUnitLink;
     (, weiPerUnitLink, , timestamp, ) = s_linkNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
-      weiPerUnitLink = s_fallbackWeiPerUnitLink;
+    if (stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp) {
+      int256 fallbackWeiPerUnitLink = s_fallbackWeiPerUnitLink;
+
+      // Emit event first before weiPerUnitLink is overwritten.
+      emit FallbackWeiPerUnitLinkUsed(fallbackWeiPerUnitLink, weiPerUnitLink, stalenessSeconds, block.timestamp, timestamp);
+
+      weiPerUnitLink = fallbackWeiPerUnitLink;
     }
     // solhint-disable-next-line custom-errors
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");

@@ -94,6 +94,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint8 linkPremiumPercentage
   );
 
+  event FallbackWeiPerUnitLinkUsed(
+    int256 fallbackWeiPerUnitLink,
+    int256 weiPerUniLink,
+    uint256 stalenessSeconds,
+    uint256 blockTimestamp,
+    uint256 timestamp
+  );
+
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
   }
@@ -503,7 +511,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 weiPerUnitGas,
     bool nativePayment,
     bool onlyPremium
-  ) internal view returns (uint96) {
+  ) internal returns (uint96) {
     if (nativePayment) {
       return _calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium);
     }
@@ -533,7 +541,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) internal view returns (uint96) {
+  ) internal returns (uint96) {
     int256 weiPerUnitLink;
     weiPerUnitLink = _getFeedData();
     if (weiPerUnitLink <= 0) {
@@ -561,13 +569,18 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     return uint96(payment);
   }
 
-  function _getFeedData() private view returns (int256 weiPerUnitLink) {
+  function _getFeedData() private returns (int256 weiPerUnitLink) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     uint256 timestamp;
     (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp) {
-      weiPerUnitLink = s_fallbackWeiPerUnitLink;
+      int256 fallbackWeiPerUnitLink = s_fallbackWeiPerUnitLink;
+
+      // Emit event first before weiPerUnitLink is overwritten.
+      emit FallbackWeiPerUnitLinkUsed(fallbackWeiPerUnitLink, weiPerUnitLink, stalenessSeconds, block.timestamp, timestamp);
+
+      weiPerUnitLink = fallbackWeiPerUnitLink;
     }
     return weiPerUnitLink;
   }

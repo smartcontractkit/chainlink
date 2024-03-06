@@ -201,8 +201,8 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
 
     // Request randomness from wrapper.
     uint32 callbackGasLimit = 1_000_000;
-    vm.expectEmit(true, true, true, true);
     uint256 wrapperCost = s_wrapper.calculateRequestPrice(callbackGasLimit);
+    vm.expectEmit(true, true, true, true);
     emit WrapperRequestMade(1, wrapperCost);
     uint256 requestId = s_consumer.makeRequest(callbackGasLimit, 0, 1);
     assertEq(requestId, 1);
