@@ -1205,7 +1205,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		}
 
 		if trr.Task.Type() == pipeline.TaskTypeEstimateGasLimit {
-			res.gasLimit = trr.Result.Value.(uint32)
+			res.gasLimit = trr.Result.Value.(uint64)
 		}
 	}
 	return res
