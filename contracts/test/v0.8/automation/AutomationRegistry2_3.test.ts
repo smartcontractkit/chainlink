@@ -27,7 +27,7 @@ import { OptimismModule__factory as OptimismModuleFactory } from '../../../typec
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
-import { AutomationUtils2_2 as AutomationUtils } from '../../../typechain/AutomationUtils2_2'
+import { AutomationUtils2_3 as AutomationUtils } from '../../../typechain/AutomationUtils2_3'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
@@ -49,12 +49,12 @@ import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import { deployRegistry22 } from './helpers'
+import { deployRegistry23 } from './helpers'
 
 const describeMaybe = process.env.SKIP_SLOW ? describe.skip : describe
 const itMaybe = process.env.SKIP_SLOW ? it.skip : it
 
-// copied from AutomationRegistryInterface2_2.sol
+// copied from AutomationRegistryInterface2_3.sol
 enum UpkeepFailureReason {
   NONE,
   UPKEEP_CANCELLED,
@@ -68,7 +68,7 @@ enum UpkeepFailureReason {
   REGISTRY_PAUSED,
 }
 
-// copied from AutomationRegistryBase2_2.sol
+// copied from AutomationRegistryBase2_3.sol
 enum Trigger {
   CONDITION,
   LOG,
@@ -377,7 +377,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe('AutomationRegistry2_2', () => {
+describe('AutomationRegistry2_3', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -417,7 +417,7 @@ describe('AutomationRegistry2_2', () => {
   before(async () => {
     personas = (await getUsers()).personas
 
-    const utilsFactory = await ethers.getContractFactory('AutomationUtils2_2')
+    const utilsFactory = await ethers.getContractFactory('AutomationUtils2_3')
     automationUtils = await utilsFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
@@ -936,7 +936,7 @@ describe('AutomationRegistry2_2', () => {
       offchainBytes,
     ]
 
-    registry = await deployRegistry22(
+    registry = await deployRegistry23(
       owner,
       linkToken.address,
       linkEthFeed.address,
@@ -944,7 +944,7 @@ describe('AutomationRegistry2_2', () => {
       zeroAddress,
     )
 
-    arbRegistry = await deployRegistry22(
+    arbRegistry = await deployRegistry23(
       owner,
       linkToken.address,
       linkEthFeed.address,
@@ -952,7 +952,7 @@ describe('AutomationRegistry2_2', () => {
       zeroAddress,
     )
 
-    opRegistry = await deployRegistry22(
+    opRegistry = await deployRegistry23(
       owner,
       linkToken.address,
       linkEthFeed.address,
@@ -960,7 +960,7 @@ describe('AutomationRegistry2_2', () => {
       zeroAddress,
     )
 
-    mgRegistry = await deployRegistry22(
+    mgRegistry = await deployRegistry23(
       owner,
       linkToken.address,
       linkEthFeed.address,
@@ -968,7 +968,7 @@ describe('AutomationRegistry2_2', () => {
       zeroAddress,
     )
 
-    blankRegistry = await deployRegistry22(
+    blankRegistry = await deployRegistry23(
       owner,
       linkToken.address,
       linkEthFeed.address,
@@ -3021,7 +3021,7 @@ describe('AutomationRegistry2_2', () => {
         assert.isTrue(registryBefore.sub(previousBalance).eq(registryAfter))
 
         registration = await registry.getUpkeep(upkeepId)
-        assert.equal(0, registration.balance.toNumber())
+        assert.equal(registration.balance.toNumber(), 0)
       })
     })
   })
@@ -3604,7 +3604,7 @@ describe('AutomationRegistry2_2', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'AutomationRegistry 2.2.0')
+      assert.equal(typeAndVersion, 'AutomationRegistry 2.3.0')
     })
   })
 
@@ -4223,9 +4223,9 @@ describe('AutomationRegistry2_2', () => {
             registration.performGas.toString(),
           )
           assert.equal(await admin.getAddress(), registration.admin)
-          assert.equal(0, registration.balance.toNumber())
-          assert.equal(0, registration.amountSpent.toNumber())
-          assert.equal(0, registration.lastPerformedBlockNumber)
+          assert.equal(registration.balance.toNumber(), 0)
+          assert.equal(registration.amountSpent.toNumber(), 0)
+          assert.equal(registration.lastPerformedBlockNumber, 0)
           assert.equal(checkData, registration.checkData)
           assert.equal(registration.paused, false)
           assert.equal(registration.offchainConfig, '0x')
@@ -4613,7 +4613,7 @@ describe('AutomationRegistry2_2', () => {
         .connect(admin)
         .transferUpkeepAdmin(upkeepId, await payee1.getAddress())
       const receipt = await tx.wait()
-      assert.equal(0, receipt.logs.length)
+      assert.equal(receipt.logs.length, 0)
     })
   })
 
@@ -4786,7 +4786,7 @@ describe('AutomationRegistry2_2', () => {
           await payee2.getAddress(),
         )
       const receipt = await tx.wait()
-      assert.equal(0, receipt.logs.length)
+      assert.equal(receipt.logs.length, 0)
     })
   })
 
@@ -5144,7 +5144,7 @@ describe('AutomationRegistry2_2', () => {
       await blankRegistry.connect(owner).setPayees(newPayees) // used to test initial configurations // optimism registry
       const ignored = await blankRegistry.getTransmitterInfo(newTransmitter) // used to test initial configurations
       assert.equal(newPayee, ignored.payee)
-      assert.equal(true, ignored.active)
+      assert.equal(ignored.active, true)
     })
 
     it('reverts if payee is non zero and owner tries to change payee', async () => {
@@ -5405,7 +5405,7 @@ describe('AutomationRegistry2_2', () => {
           const upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
 
           // all upkeep balance is deducted for cancellation fee
-          assert.equal(0, upkeepAfter.toNumber())
+          assert.equal(upkeepAfter.toNumber(), 0)
           // payee balance should not change
           assert.isTrue(payee1After.eq(payee1Before))
           // all upkeep balance is transferred to the owner
