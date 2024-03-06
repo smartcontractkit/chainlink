@@ -4,10 +4,9 @@ pragma solidity 0.8.19;
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
-import {AutomationRegistryBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
-import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {IAutomationRegistryMaster, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../chains/ChainModuleBase.sol";
 
 contract AutomationRegistry2_3_SetUp is BaseTest {
@@ -98,7 +97,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
   function testSetConfigSuccess() public {
     (uint32 configCount, , ) = registryMaster.latestConfigDetails();
     assertEq(configCount, 0);
-    ChainModuleBase module = new ChainModuleBase();
+    address module = address(new ChainModuleBase());
 
     AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
       paymentPremiumPPB: 10_000,
@@ -119,7 +118,21 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       chainModule: module,
       reorgProtectionEnabled: true
     });
+
+    address billingTokenAddress = 0x1111111111111111111111111111111111111111;
+    address[] memory billingTokens = new address[](1);
+    billingTokens[0] = billingTokenAddress;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      active: true,
+      gasFeePPB: 5_000,
+      flatFeeMicroLink: 20_000,
+      priceFeed: 0x2222222222222222222222222222222222222222
+    });
+
     bytes memory onchainConfigBytes = abi.encode(cfg);
+    bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
     uint256 a = 1234;
     address b = address(0);
@@ -153,7 +166,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       s_valid_signers,
       s_valid_transmitters,
       F,
-      onchainConfigBytes,
+      onchainConfigBytesWithBilling,
       OFFCHAIN_CONFIG_VERSION,
       offchainConfigBytes
     );
@@ -163,6 +176,12 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     assertEq(signers, s_valid_signers);
     assertEq(transmitters, s_valid_transmitters);
     assertEq(f, F);
+
+    AutomationRegistryBase2_3.BillingConfig memory config = registryMaster.getBillingTokenConfig(billingTokenAddress);
+    assertEq(config.gasFeePPB, 5_000);
+    assertEq(config.active, true);
+    assertEq(config.flatFeeMicroLink, 20_000);
+    assertEq(config.priceFeed, 0x2222222222222222222222222222222222222222);
   }
 
   function _configDigestFromConfigData(

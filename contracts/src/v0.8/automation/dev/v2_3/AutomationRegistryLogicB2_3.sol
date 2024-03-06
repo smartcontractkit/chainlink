@@ -309,6 +309,14 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     return i_allowedReadOnlyAddress;
   }
 
+  function getBillingTokens() external view returns (address[] memory) {
+    return s_billingTokens;
+  }
+
+  function getBillingTokenConfig(address token) external view returns (BillingConfig memory) {
+    return s_billingConfigs[token];
+  }
+
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
     return UPKEEP_TRANSCODER_VERSION_BASE;
   }
