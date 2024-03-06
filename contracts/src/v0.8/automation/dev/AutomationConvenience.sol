@@ -93,7 +93,9 @@ struct OnchainConfigV22 {
 
 contract AutomationConvenience {
   function _onChainConfig22(OnchainConfigV22 memory) external {}
+
   function _onChainConfig21(OnchainConfigV21 memory) external {}
+
   function _report(IAutomationV2Common.Report memory) external {}
 
   function _logTriggerConfig(IAutomationV2Common.LogTriggerConfig memory) external {}

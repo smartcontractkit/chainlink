@@ -12,6 +12,7 @@ import { IAutomationRegistryConsumer__factory as IAutomationRegistryConsumerFact
 import { MigratableKeeperRegistryInterface__factory as MigratableKeeperRegistryInterfaceFactory } from '../../../typechain/factories/MigratableKeeperRegistryInterface__factory'
 import { MigratableKeeperRegistryInterfaceV2__factory as MigratableKeeperRegistryInterfaceV2Factory } from '../../../typechain/factories/MigratableKeeperRegistryInterfaceV2__factory'
 import { OCR2Abstract__factory as OCR2AbstractFactory } from '../../../typechain/factories/OCR2Abstract__factory'
+import { IAutomationV2Common__factory as IAutomationV2CommonFactory } from '../../../typechain/factories/IAutomationV2Common__factory'
 
 type Entry = {
   inputs?: any[]
@@ -45,12 +46,11 @@ function entryID(entry: Entry) {
   return ethers.utils.id(JSON.stringify(preimage))
 }
 
-// potentially use this to test for interface compatibility
 /**
- * @dev because the keeper master interface is a composit of several different contracts,
- * it is possible that a interface could be satisfied by functions across different
- * contracts, and therefore not enforcable by the compiler directly. Instead, we use this
- * test to assert that the master interface satisfies the contraints of an individual interface
+ * @dev because the keeper master interface is a composite of several different contracts,
+ * it is possible that an interface could be satisfied by functions across different
+ * contracts, and therefore not enforceable by the compiler directly. Instead, we use this
+ * test to assert that the master interface satisfies the constraints of an individual interface
  */
 function assertSatisfiesInterface(
   contractABI: InterfaceABI,
@@ -59,10 +59,16 @@ function assertSatisfiesInterface(
   const implementer = new ethers.utils.Interface(contractABI)
   const expected = new ethers.utils.Interface(expectedABI)
   for (const functionName in expected.functions) {
-    if (
-      Object.prototype.hasOwnProperty.call(expected, functionName) &&
-      functionName.match('^.+(.*)$') // only match typed function sigs
-    ) {
+    if (functionName.match('^.+(.*)$')) {
+      console.log(functionName + ': matched')
+    } else {
+      console.log(functionName + ': unmatched')
+    }
+    // if (
+    //   Object.prototype.hasOwnProperty.call(expected, functionName) &&
+    //   functionName.match('^.+(.*)$') // only match typed function sigs
+    // ) {
+      //console.log(functionName)
       assert.isDefined(
         implementer.functions[functionName],
         `missing function ${functionName}`,
@@ -79,9 +85,27 @@ function assertSatisfiesInterface(
           `property ${property} does not match for function ${functionName}`,
         )
       }
-    }
   }
 }
+
+// function assertSatisfiesEvents(
+//   contractABI: InterfaceABI,
+//   expectedABI: InterfaceABI,
+// ) {
+//   const implementer = new ethers.utils.Interface(contractABI)
+//   const expected = new ethers.utils.Interface(expectedABI)
+//   for (const eventName in expected.events) {
+//     if (
+//       Object.prototype.hasOwnProperty.call(expected, eventName) &&
+//       eventName.match('^.+(.*)$') // only match typed function sigs
+//     ) {
+//       assert.isDefined(
+//         implementer.events[eventName],
+//         `missing event: ${eventName}`,
+//       )
+//     }
+//   }
+// }
 
 describe('IKeeperRegistryMaster', () => {
   it('is up to date', async () => {
@@ -150,6 +174,13 @@ describe('IKeeperRegistryMaster', () => {
     assertSatisfiesInterface(
       IKeeperRegistryMasterFactory.abi,
       OCR2AbstractFactory.abi,
+    )
+  })
+
+  it('satisfies the IAutomationV2Common interface', async () => {
+    assertSatisfiesInterface(
+      IKeeperRegistryMasterFactory.abi,
+      IAutomationV2CommonFactory.abi,
     )
   })
 })

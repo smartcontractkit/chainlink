@@ -4,6 +4,46 @@ pragma solidity ^0.8.4;
 import {OnchainConfigV21} from "../AutomationConvenience.sol";
 
 interface IAutomationV2Common {
+  // registry events
+  event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
+  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event ConfigSet(
+    uint32 previousConfigBlockNumber,
+    bytes32 configDigest,
+    uint64 configCount,
+    address[] signers,
+    address[] transmitters,
+    uint8 f,
+    bytes onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes offchainConfig
+  );
+  event DedupKeyAdded(bytes32 indexed dedupKey);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
+  event OwnerFundsWithdrawn(uint96 amount);
+  event OwnershipTransferred(address indexed from, address indexed to);
+  event OwnershipTransferRequested(address indexed from, address indexed to);
+  event Paused(address account);
+  event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
+  event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
+  event PayeesUpdated(address[] transmitters, address[] payees);
+  event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
+  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
+  event Transmitted(bytes32 configDigest, uint32 epoch);
+  event Unpaused(address account);
+
+  // upkeep events
+  event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
+  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+  event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
+  event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
+  event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
+  event UpkeepCheckDataSet(uint256 indexed id, bytes newCheckData);
+  event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
+  event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
+  event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
+  event UpkeepPaused(uint256 indexed id);
   event UpkeepPerformed(
     uint256 indexed id,
     bool indexed success,
@@ -12,17 +52,11 @@ interface IAutomationV2Common {
     uint256 gasOverhead,
     bytes trigger
   );
-  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
+  event UpkeepPrivilegeConfigSet(uint256 indexed id, bytes privilegeConfig);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepRegistered(uint256 indexed id, uint32 performGas, address admin);
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
-  event UpkeepPaused(uint256 indexed id);
   event UpkeepUnpaused(uint256 indexed id);
-  event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
-  event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
-  event DedupKeyAdded(bytes32 indexed dedupKey);
 
   struct UpkeepInfo {
     address target;
