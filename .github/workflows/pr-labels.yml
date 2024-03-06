@@ -29,7 +29,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_SAND }}
           role-duration-seconds: 900
-          role-session-name: gha-${{ github.repository }}-pr-labels-crib
+          role-session-name: gha-pr-labels-crib
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Comment CRIB details on PR
