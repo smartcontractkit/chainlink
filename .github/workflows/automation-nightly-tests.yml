@@ -38,8 +38,6 @@ jobs:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
           git_commit_sha: ${{ github.sha }}
-          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
