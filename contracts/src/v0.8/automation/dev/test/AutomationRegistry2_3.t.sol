@@ -4,10 +4,9 @@ pragma solidity 0.8.19;
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
-import {AutomationRegistryBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
-import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 
 contract AutomationRegistry2_3_SetUp is BaseTest {
@@ -29,7 +28,7 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
   address[] internal s_valid_transmitters;
   address[] internal s_registrars;
 
-  IAutomationRegistryMaster internal registryMaster;
+  IAutomationRegistryMaster2_3 internal registryMaster;
 
   function setUp() public override {
     s_valid_transmitters = new address[](4);
@@ -55,7 +54,7 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
       ZERO_ADDRESS
     );
     AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
-    registryMaster = IAutomationRegistryMaster(
+    registryMaster = IAutomationRegistryMaster2_3(
       address(new AutomationRegistry2_3(AutomationRegistryLogicB2_3(address(logicA2_3))))
     );
   }
@@ -77,7 +76,7 @@ contract AutomationRegistry2_3_CheckUpkeep is AutomationRegistry2_3_SetUp {
 
     // The tx.origin is the DEFAULT_SENDER (0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) of foundry
     // Expecting a revert since the tx.origin is not address(0)
-    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster.OnlySimulatedBackend.selector));
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlySimulatedBackend.selector));
     registryMaster.checkUpkeep(id, triggerData);
   }
 }
@@ -95,31 +94,44 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     bytes offchainConfig
   );
 
+  address module = address(new ChainModuleBase());
+  AutomationRegistryBase2_3.OnchainConfig cfg = AutomationRegistryBase2_3.OnchainConfig({
+    paymentPremiumPPB: 10_000,
+    flatFeeMicroLink: 40_000,
+    checkGasLimit: 5_000_000,
+    stalenessSeconds: 90_000,
+    gasCeilingMultiplier: 0,
+    minUpkeepSpend: 0,
+    maxPerformGas: 10_000_000,
+    maxCheckDataSize: 5_000,
+    maxPerformDataSize: 5_000,
+    maxRevertDataSize: 5_000,
+    fallbackGasPrice: 20_000_000_000,
+    fallbackLinkPrice: 200_000_000_000,
+    transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+    registrars: s_registrars,
+    upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+    chainModule: module,
+    reorgProtectionEnabled: true
+  });
+
   function testSetConfigSuccess() public {
     (uint32 configCount, , ) = registryMaster.latestConfigDetails();
     assertEq(configCount, 0);
-    ChainModuleBase module = new ChainModuleBase();
 
-    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
-      paymentPremiumPPB: 10_000,
-      flatFeeMicroLink: 40_000,
-      checkGasLimit: 5_000_000,
-      stalenessSeconds: 90_000,
-      gasCeilingMultiplier: 0,
-      minUpkeepSpend: 0,
-      maxPerformGas: 10_000_000,
-      maxCheckDataSize: 5_000,
-      maxPerformDataSize: 5_000,
-      maxRevertDataSize: 5_000,
-      fallbackGasPrice: 20_000_000_000,
-      fallbackLinkPrice: 200_000_000_000,
-      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-      registrars: s_registrars,
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
-      chainModule: module,
-      reorgProtectionEnabled: true
+    address billingTokenAddress = 0x1111111111111111111111111111111111111111;
+    address[] memory billingTokens = new address[](1);
+    billingTokens[0] = billingTokenAddress;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_000,
+      flatFeeMicroLink: 20_000,
+      priceFeed: 0x2222222222222222222222222222222222222222
     });
+
     bytes memory onchainConfigBytes = abi.encode(cfg);
+    bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
     uint256 a = 1234;
     address b = address(0);
@@ -153,7 +165,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       s_valid_signers,
       s_valid_transmitters,
       F,
-      onchainConfigBytes,
+      onchainConfigBytesWithBilling,
       OFFCHAIN_CONFIG_VERSION,
       offchainConfigBytes
     );
@@ -163,6 +175,182 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     assertEq(signers, s_valid_signers);
     assertEq(transmitters, s_valid_transmitters);
     assertEq(f, F);
+
+    AutomationRegistryBase2_3.BillingConfig memory config = registryMaster.getBillingTokenConfig(billingTokenAddress);
+    assertEq(config.gasFeePPB, 5_000);
+    assertEq(config.flatFeeMicroLink, 20_000);
+    assertEq(config.priceFeed, 0x2222222222222222222222222222222222222222);
+
+    address[] memory tokens = registryMaster.getBillingTokens();
+    assertEq(tokens.length, 1);
+  }
+
+  function testSetConfigMultipleBillingConfigsSuccess() public {
+    (uint32 configCount, , ) = registryMaster.latestConfigDetails();
+    assertEq(configCount, 0);
+
+    address billingTokenAddress1 = 0x1111111111111111111111111111111111111111;
+    address billingTokenAddress2 = 0x1111111111111111111111111111111111111112;
+    address[] memory billingTokens = new address[](2);
+    billingTokens[0] = billingTokenAddress1;
+    billingTokens[1] = billingTokenAddress2;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_001,
+      flatFeeMicroLink: 20_001,
+      priceFeed: 0x2222222222222222222222222222222222222221
+    });
+    billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_002,
+      flatFeeMicroLink: 20_002,
+      priceFeed: 0x2222222222222222222222222222222222222222
+    });
+
+    bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
+
+    uint256 a = 1234;
+    address b = address(0);
+    bytes memory offchainConfigBytes = abi.encode(a, b);
+
+    registryMaster.setConfig(
+      s_valid_signers,
+      s_valid_transmitters,
+      F,
+      onchainConfigBytesWithBilling,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registryMaster.getState();
+
+    assertEq(signers, s_valid_signers);
+    assertEq(transmitters, s_valid_transmitters);
+    assertEq(f, F);
+
+    AutomationRegistryBase2_3.BillingConfig memory config1 = registryMaster.getBillingTokenConfig(billingTokenAddress1);
+    assertEq(config1.gasFeePPB, 5_001);
+    assertEq(config1.flatFeeMicroLink, 20_001);
+    assertEq(config1.priceFeed, 0x2222222222222222222222222222222222222221);
+
+    AutomationRegistryBase2_3.BillingConfig memory config2 = registryMaster.getBillingTokenConfig(billingTokenAddress2);
+    assertEq(config2.gasFeePPB, 5_002);
+    assertEq(config2.flatFeeMicroLink, 20_002);
+    assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
+
+    address[] memory tokens = registryMaster.getBillingTokens();
+    assertEq(tokens.length, 2);
+  }
+
+  function testSetConfigTwiceAndLastSetOverwrites() public {
+    (uint32 configCount, , ) = registryMaster.latestConfigDetails();
+    assertEq(configCount, 0);
+
+    // BillingConfig1
+    address billingTokenAddress1 = 0x1111111111111111111111111111111111111111;
+    address[] memory billingTokens1 = new address[](1);
+    billingTokens1[0] = billingTokenAddress1;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs1 = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs1[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_001,
+      flatFeeMicroLink: 20_001,
+      priceFeed: 0x2222222222222222222222222222222222222221
+    });
+
+    bytes memory onchainConfigBytesWithBilling1 = abi.encode(cfg, billingTokens1, billingConfigs1);
+
+    // BillingConfig2
+    address billingTokenAddress2 = 0x1111111111111111111111111111111111111112;
+    address[] memory billingTokens2 = new address[](1);
+    billingTokens2[0] = billingTokenAddress2;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs2 = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs2[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_002,
+      flatFeeMicroLink: 20_002,
+      priceFeed: 0x2222222222222222222222222222222222222222
+    });
+
+    bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg, billingTokens2, billingConfigs2);
+
+    uint256 a = 1234;
+    address b = address(0);
+    bytes memory offchainConfigBytes = abi.encode(a, b);
+
+    // set config once
+    registryMaster.setConfig(
+      s_valid_signers,
+      s_valid_transmitters,
+      F,
+      onchainConfigBytesWithBilling1,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    // set config twice
+    registryMaster.setConfig(
+      s_valid_signers,
+      s_valid_transmitters,
+      F,
+      onchainConfigBytesWithBilling2,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registryMaster.getState();
+
+    assertEq(signers, s_valid_signers);
+    assertEq(transmitters, s_valid_transmitters);
+    assertEq(f, F);
+
+    AutomationRegistryBase2_3.BillingConfig memory config2 = registryMaster.getBillingTokenConfig(billingTokenAddress2);
+    assertEq(config2.gasFeePPB, 5_002);
+    assertEq(config2.flatFeeMicroLink, 20_002);
+    assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
+
+    address[] memory tokens = registryMaster.getBillingTokens();
+    assertEq(tokens.length, 1);
+  }
+
+  function testSetConfigDuplicateBillingConfigFailure() public {
+    (uint32 configCount, , ) = registryMaster.latestConfigDetails();
+    assertEq(configCount, 0);
+
+    address billingTokenAddress1 = 0x1111111111111111111111111111111111111111;
+    address billingTokenAddress2 = 0x1111111111111111111111111111111111111111;
+    address[] memory billingTokens = new address[](2);
+    billingTokens[0] = billingTokenAddress1;
+    billingTokens[1] = billingTokenAddress2;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_001,
+      flatFeeMicroLink: 20_001,
+      priceFeed: 0x2222222222222222222222222222222222222221
+    });
+    billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_002,
+      flatFeeMicroLink: 20_002,
+      priceFeed: 0x2222222222222222222222222222222222222222
+    });
+
+    bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
+
+    uint256 a = 1234;
+    address b = address(0);
+    bytes memory offchainConfigBytes = abi.encode(a, b);
+
+    // expect revert because of duplicate tokens
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.DuplicateEntry.selector));
+    registryMaster.setConfig(
+      s_valid_signers,
+      s_valid_transmitters,
+      F,
+      onchainConfigBytesWithBilling,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
   }
 
   function _configDigestFromConfigData(
