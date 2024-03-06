@@ -278,7 +278,7 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	assert.Equal(t, assets.GWei(500), ge.PriceMax())
 	assert.Equal(t, assets.GWei(1), ge.PriceMin())
 	assert.Equal(t, uint64(500000), ge.LimitDefault())
-	assert.Equal(t, uint32(500000), ge.LimitMax())
+	assert.Equal(t, uint64(500000), ge.LimitMax())
 	assert.Equal(t, float32(1), ge.LimitMultiplier())
 	assert.Equal(t, uint32(21000), ge.LimitTransfer())
 	assert.Equal(t, assets.GWei(5), ge.BumpMin())
