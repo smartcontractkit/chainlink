@@ -196,12 +196,6 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 		return nil, nil, errors.Wrap(err, "could not get source native token")
 	}
 
-	// TODO: we don't support onramp source registry changes without a reboot yet?
-	sourcePriceRegistry, err := factory.NewPriceRegistryReader(lggr, versionFinder, dynamicOnRampConfig.PriceRegistry, params.sourceChain.LogPoller(), params.sourceChain.Client())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not load source registry")
-	}
-
 	commitStoreReader, err := factory.NewCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller(), params.sourceChain.GasEstimator(), qopts...)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not load commitStoreReader reader")
@@ -214,7 +208,6 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 
 	// Prom wrappers
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.ExecPluginLabel)
-	sourcePriceRegistry = observability.NewPriceRegistryReader(sourcePriceRegistry, sourceChainID, ccip.ExecPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.ExecPluginLabel)
 	offRampReader := observability.NewObservedOffRampReader(params.offRampReader, destChainID, ccip.ExecPluginLabel)
 	metricsCollector := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, sourceChainID, destChainID)
@@ -231,7 +224,6 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 	execLggr.Infow("Initialized exec plugin",
 		"pluginConfig", params.pluginConfig,
 		"onRampAddress", params.offRampConfig.OnRamp,
-		"sourcePriceRegistry", sourcePriceRegistry.Address(),
 		"dynamicOnRampConfig", dynamicOnRampConfig,
 		"sourceNative", sourceWrappedNative,
 		"sourceRouter", sourceRouter.Address())
@@ -244,15 +236,15 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 	}
 
 	return &ExecutionPluginStaticConfig{
-			lggr:                     execLggr,
-			onRampReader:             onRampReader,
-			commitStoreReader:        commitStoreReader,
-			offRampReader:            offRampReader,
-			sourcePriceRegistry:      sourcePriceRegistry,
-			sourceWrappedNativeToken: cciptypes.Address(sourceWrappedNative.String()),
-			destChainSelector:        destChainSelector,
-			priceRegistryProvider:    ccipdataprovider.NewEvmPriceRegistry(params.destChain.LogPoller(), params.destChain.Client(), execLggr, ccip.ExecPluginLabel),
-			tokenPoolBatchedReader:   tokenPoolBatchedReader,
+			lggr:                        execLggr,
+			onRampReader:                onRampReader,
+			commitStoreReader:           commitStoreReader,
+			offRampReader:               offRampReader,
+			sourcePriceRegistryProvider: ccipdataprovider.NewEvmPriceRegistry(params.sourceChain.LogPoller(), params.sourceChain.Client(), execLggr, ccip.ExecPluginLabel),
+			sourceWrappedNativeToken:    cciptypes.Address(sourceWrappedNative.String()),
+			destChainSelector:           destChainSelector,
+			priceRegistryProvider:       ccipdataprovider.NewEvmPriceRegistry(params.destChain.LogPoller(), params.destChain.Client(), execLggr, ccip.ExecPluginLabel),
+			tokenPoolBatchedReader:      tokenPoolBatchedReader,
 			tokenDataWorker: tokendata.NewBackgroundWorker(
 				ctx,
 				tokenDataProviders,

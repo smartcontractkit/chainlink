@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"reflect"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
 	tokenpoolbatchedmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader/mocks"
+	ccipdataprovidermocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider/mocks"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
@@ -149,6 +151,8 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			mockOnRampReader := ccipdatamocks.NewOnRampReader(t)
 			mockOnRampReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything, false).
 				Return(tc.sendRequests, nil).Maybe()
+			sourcePriceRegistryAddress := cciptypes.Address(utils.RandomAddress().String())
+			mockOnRampReader.On("SourcePriceRegistryAddress", ctx).Return(sourcePriceRegistryAddress, nil).Maybe()
 			p.onRampReader = mockOnRampReader
 
 			mockGasPriceEstimator := prices.NewMockGasPriceEstimatorExec(t)
@@ -161,12 +165,15 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			destPriceRegReader.On("Address").Return(cciptypes.Address(utils.RandomAddress().String())).Maybe()
 			destPriceRegReader.On("GetFeeTokens", ctx).Return([]cciptypes.Address{}, nil).Maybe()
 			sourcePriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
-			sourcePriceRegReader.On("Address").Return(cciptypes.Address(utils.RandomAddress().String())).Maybe()
+			sourcePriceRegReader.On("Address").Return(sourcePriceRegistryAddress).Maybe()
 			sourcePriceRegReader.On("GetFeeTokens", ctx).Return([]cciptypes.Address{}, nil).Maybe()
 			sourcePriceRegReader.On("GetTokenPrices", ctx, mock.Anything).Return(
 				[]cciptypes.TokenPriceUpdate{{TokenPrice: cciptypes.TokenPrice{Token: ccipcalc.HexToAddress("0x1"), Value: big.NewInt(123)}, TimestampUnixSec: big.NewInt(time.Now().Unix())}}, nil).Maybe()
 			p.destPriceRegistry = destPriceRegReader
-			p.sourcePriceRegistry = sourcePriceRegReader
+
+			mockOnRampPriceRegistryProvider := ccipdataprovidermocks.NewPriceRegistry(t)
+			mockOnRampPriceRegistryProvider.On("NewPriceRegistryReader", ctx, sourcePriceRegistryAddress).Return(sourcePriceRegReader, nil).Maybe()
+			p.sourcePriceRegistryProvider = mockOnRampPriceRegistryProvider
 
 			p.snoozedRoots = cache.NewSnoozedRoots(time.Minute, time.Minute)
 
@@ -1813,28 +1820,37 @@ func Test_prepareTokenExecData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			onrampReader := ccipdatamocks.NewOnRampReader(t)
 			offrampReader := ccipdatamocks.NewOffRampReader(t)
 			sourcePriceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
 			destPriceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorExec(t)
+			sourcePriceRegistryProvider := ccipdataprovidermocks.NewPriceRegistry(t)
 
+			sourcePriceRegistryAddress := cciptypes.Address(utils.RandomAddress().String())
+			onrampReader.On("SourcePriceRegistryAddress", ctx).Return(sourcePriceRegistryAddress, nil).Maybe()
 			offrampReader.On("CurrentRateLimiterState", ctx).Return(cciptypes.TokenBucketRateLimit{}, nil).Maybe()
 			offrampReader.On("GetSourceToDestTokensMapping", ctx).Return(map[cciptypes.Address]cciptypes.Address{}, nil).Maybe()
 			gasPriceEstimator.On("GetGasPrice", ctx).Return(big.NewInt(1e9), nil).Maybe()
 
 			offrampReader.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{DestinationTokens: tt.destTokens}, tt.destTokensErr).Maybe()
+			sourcePriceRegistry.On("Address").Return(sourcePriceRegistryAddress, nil).Maybe()
 			sourcePriceRegistry.On("GetFeeTokens", ctx).Return(tt.sourceFeeTokens, tt.sourceFeeTokensErr).Maybe()
 			sourcePriceRegistry.On("GetTokenPrices", ctx, mock.Anything).Return(tt.sourcePrices, nil).Maybe()
 			destPriceRegistry.On("GetFeeTokens", ctx).Return(tt.destFeeTokens, tt.destFeeTokensErr).Maybe()
 			destPriceRegistry.On("GetTokenPrices", ctx, mock.Anything).Return(tt.destPrices, nil).Maybe()
 
+			sourcePriceRegistryProvider.On("NewPriceRegistryReader", ctx, sourcePriceRegistryAddress).Return(sourcePriceRegistry, nil).Maybe()
+
 			reportingPlugin := ExecutionReportingPlugin{
-				offRampReader:            offrampReader,
-				sourcePriceRegistry:      sourcePriceRegistry,
-				destPriceRegistry:        destPriceRegistry,
-				gasPriceEstimator:        gasPriceEstimator,
-				sourceWrappedNativeToken: weth,
-				destWrappedNative:        wavax,
+				onRampReader:                onrampReader,
+				offRampReader:               offrampReader,
+				sourcePriceRegistry:         nil, // will be updated at first use.
+				sourcePriceRegistryProvider: sourcePriceRegistryProvider,
+				destPriceRegistry:           destPriceRegistry,
+				gasPriceEstimator:           gasPriceEstimator,
+				sourceWrappedNativeToken:    weth,
+				destWrappedNative:           wavax,
 			}
 
 			tokenData, err := reportingPlugin.prepareTokenExecData(ctx)
@@ -1864,4 +1880,40 @@ func encodeExecutionReport(t *testing.T, report cciptypes.ExecReport) []byte {
 	encodedReport, err := reader.EncodeExecutionReport(report)
 	require.NoError(t, err)
 	return encodedReport
+}
+
+// Verify the price registry update mechanism in case of configuration change on the source onRamp.
+func TestExecutionReportingPlugin_ensurePriceRegistrySynchronization(t *testing.T) {
+	p := &ExecutionReportingPlugin{}
+	p.lggr = logger.TestLogger(t)
+	p.sourcePriceRegistryLock = sync.RWMutex{}
+
+	sourcePriceRegistryAddress1 := cciptypes.Address(utils.RandomAddress().String())
+	sourcePriceRegistryAddress2 := cciptypes.Address(utils.RandomAddress().String())
+
+	mockPriceRegistryReader1 := ccipdatamocks.NewPriceRegistryReader(t)
+	mockPriceRegistryReader2 := ccipdatamocks.NewPriceRegistryReader(t)
+	mockPriceRegistryReader1.On("Address").Return(sourcePriceRegistryAddress1, nil)
+	mockPriceRegistryReader2.On("Address").Return(sourcePriceRegistryAddress2, nil).Maybe()
+	mockPriceRegistryReader1.On("Close").Return(nil)
+	mockPriceRegistryReader2.On("Close").Return(nil).Maybe()
+
+	mockSourcePriceRegistryProvider := ccipdataprovidermocks.NewPriceRegistry(t)
+	mockSourcePriceRegistryProvider.On("NewPriceRegistryReader", mock.Anything, sourcePriceRegistryAddress1).Return(mockPriceRegistryReader1, nil)
+	mockSourcePriceRegistryProvider.On("NewPriceRegistryReader", mock.Anything, sourcePriceRegistryAddress2).Return(mockPriceRegistryReader2, nil)
+	p.sourcePriceRegistryProvider = mockSourcePriceRegistryProvider
+
+	mockOnRampReader := ccipdatamocks.NewOnRampReader(t)
+	p.onRampReader = mockOnRampReader
+
+	mockOnRampReader.On("SourcePriceRegistryAddress", mock.Anything).Return(sourcePriceRegistryAddress1, nil).Once()
+	require.Equal(t, nil, p.sourcePriceRegistry)
+	err := p.ensurePriceRegistrySynchronization(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, mockPriceRegistryReader1, p.sourcePriceRegistry)
+
+	mockOnRampReader.On("SourcePriceRegistryAddress", mock.Anything).Return(sourcePriceRegistryAddress2, nil).Once()
+	err = p.ensurePriceRegistrySynchronization(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, mockPriceRegistryReader2, p.sourcePriceRegistry)
 }
