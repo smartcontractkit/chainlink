@@ -18,6 +18,8 @@ const (
 	defaultExpiration = 10 * time.Minute
 	// cleanupInterval decides when the expired items in cache will be deleted.
 	cleanupInterval = 5 * time.Minute
+
+	getSnapshotCachePrefix = "GetSnapshot"
 )
 
 // CachedORM is a cached orm wrapper that implements the ORM interface.
@@ -43,7 +45,7 @@ func (c CachedORM) Get(address *ubig.Big, slotId uint, qopts ...pg.QOpt) (*Row, 
 }
 
 func (c CachedORM) Update(row *Row, qopts ...pg.QOpt) error {
-	c.deleteRowFromCache(row)
+	c.deleteRowFromSnapshotCache(row)
 
 	return c.underlayingORM.Update(row, qopts...)
 }
@@ -62,7 +64,7 @@ func (c CachedORM) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt)
 }
 
 func (c CachedORM) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
-	key := fmt.Sprintf("GetSnapshot_%s_%s", addressRange.MinAddress.String(), addressRange.MaxAddress.String())
+	key := fmt.Sprintf("%s_%s_%s", getSnapshotCachePrefix, addressRange.MinAddress.String(), addressRange.MaxAddress.String())
 
 	cached, found := c.cache.Get(key)
 	if found {
@@ -83,23 +85,30 @@ func (c CachedORM) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, err
 	return c.underlayingORM.GetUnconfirmedRows(limit, qopts...)
 }
 
-func (c CachedORM) deleteRowFromCache(row *Row) {
+// deleteRowFromSnapshotCache will clean the cache for every snapshot that would involve a given row
+// in case of an error parsing a key it will also delete the key from the cache
+func (c CachedORM) deleteRowFromSnapshotCache(row *Row) {
 	for key := range c.cache.Items() {
 		keyParts := strings.Split(key, "_")
 		if len(keyParts) != 3 {
-			c.lggr.Errorf("invalid cache key: %s", key)
+			continue
+		}
+
+		if keyParts[0] != getSnapshotCachePrefix {
 			continue
 		}
 
 		minAddress, ok := new(big.Int).SetString(keyParts[1], 10)
 		if !ok {
-			c.lggr.Errorf("error while converting minAddress string: %s to big.Int ", keyParts[1])
+			c.lggr.Errorf("error while converting minAddress string: %s to big.Int, deleting key %q", keyParts[1], key)
+			c.cache.Delete(key)
 			continue
 		}
 
 		maxAddress, ok := new(big.Int).SetString(keyParts[2], 10)
 		if !ok {
-			c.lggr.Errorf("error while converting minAddress string: %s to big.Int ", keyParts[2])
+			c.lggr.Errorf("error while converting minAddress string: %s to big.Int, deleting key %q ", keyParts[2], key)
+			c.cache.Delete(key)
 			continue
 		}
 
