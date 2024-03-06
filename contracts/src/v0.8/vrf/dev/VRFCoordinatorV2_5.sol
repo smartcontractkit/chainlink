@@ -27,6 +27,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
+  error MsgDataTooBig(uint32 have, uint32 want);
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
   error InvalidLinkWeiPrice(int256 linkWei);
@@ -504,6 +505,11 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     bool nativePayment,
     bool onlyPremium
   ) internal view returns (uint96) {
+    // fulfilRandomWords msg.data has 772 bytes and with an additional
+    // buffer of 32 bytes, we get 804 bytes.
+    if (msg.data.length > 804) {
+      revert MsgDataTooBig(uint32(msg.data.length), 804);
+    }
     if (nativePayment) {
       return _calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium);
     }
