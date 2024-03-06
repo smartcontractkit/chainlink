@@ -70,7 +70,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: '{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}'
+  name_template: '{{ .Env.CHAINLINK_VERSION }}-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}-{{ .ShortCommit }}'
 
 changelog:
   sort: asc
