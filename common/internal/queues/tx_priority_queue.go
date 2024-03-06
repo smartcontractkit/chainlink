@@ -19,7 +19,7 @@ type TxPriorityQueue[
 	ph *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
-// NewTxPriorityQueue returns a new txPrioirityQueue instance
+// NewTxPriorityQueue returns a new txPriorityQueue instance
 func NewTxPriorityQueue[
 	CHAIN_ID types.ID,
 	ADDR, TX_HASH, BLOCK_HASH types.Hashable,
