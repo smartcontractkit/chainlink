@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -257,8 +257,8 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 
 func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 	est := gasmocks.NewEvmFeeEstimator(t)
-	est.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), errors.New("fail"))
-	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), errors.New("fail"))
+	est.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), pkgerrors.New("fail"))
+	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint32(0), pkgerrors.New("fail"))
 
 	kst := ksmocks.NewEth(t)
 	lggr := logger.Test(t)

@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -128,7 +128,7 @@ func (o *DbORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 			(SELECT unnest(:address_array ::::BYTEA[]) addr) a,
 			(SELECT unnest(:event_sig_array ::::BYTEA[]) ev) e
 			%s
-		ON CONFLICT  (hash_record_extended((name, evm_chain_id, address, event, topic2, topic3, topic4), 0))
+		ON CONFLICT  (evm.f_log_poller_filter_hash(name, evm_chain_id, address, event, topic2, topic3, topic4))
 		DO UPDATE SET retention=:retention ::::BIGINT, max_logs_kept=:max_logs_kept ::::NUMERIC, logs_per_block=:logs_per_block ::::NUMERIC`,
 		topicsColumns.String(),
 		topicsSql.String())
@@ -309,7 +309,7 @@ func (o *DbORM) DeleteExpiredLogs(limit int64, qopts ...pg.QOpt) (int64, error) 
 			GROUP BY evm_chain_id,address, event HAVING NOT 0 = ANY(ARRAY_AGG(retention))
 		) DELETE FROM evm.logs l USING r
 			WHERE l.evm_chain_id = $1 AND l.address=r.address AND l.event_sig=r.event
-			AND l.created_at <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`, // retention is in nanoseconds (time.Duration aka BIGINT)
+			AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')`, // retention is in nanoseconds (time.Duration aka BIGINT)
 		ubig.New(o.chainID))
 }
 
@@ -361,7 +361,7 @@ func (o *DbORM) insertLogsWithinTx(logs []Log, tx pg.Queryer) error {
 		)
 
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
+			if pkgerrors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
 				// In case of DB timeouts, try to insert again with a smaller batch upto a limit
 				batchInsertSize /= 2
 				i -= batchInsertSize // counteract +=batchInsertSize on next loop iteration
@@ -376,7 +376,7 @@ func (o *DbORM) insertLogsWithinTx(logs []Log, tx pg.Queryer) error {
 func (o *DbORM) validateLogs(logs []Log) error {
 	for _, log := range logs {
 		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
-			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
+			return pkgerrors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
 		}
 	}
 	return nil
@@ -397,7 +397,7 @@ func (o *DbORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
         	WHERE evm_chain_id = :evm_chain_id
         	AND block_number >= :start_block 
         	AND block_number <= :end_block 
-        	ORDER BY (block_number, log_index, created_at)`, args)
+        	ORDER BY (block_number, log_index)`, args)
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +475,7 @@ func (o *DbORM) SelectLogsWithSigs(start, end int64, address common.Address, eve
 				AND event_sig = ANY(:event_sig_array)
 				AND block_number BETWEEN :start_block AND :end_block
 				ORDER BY (block_number, log_index)`, args)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return logs, err
@@ -526,7 +526,7 @@ func (o *DbORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresse
 		ORDER BY block_number ASC`, nestedBlockNumberQuery(confs))
 	var logs []Log
 	if err := o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
-		return nil, errors.Wrap(err, "failed to execute query")
+		return nil, pkgerrors.Wrap(err, "failed to execute query")
 	}
 	return logs, nil
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/kylelemons/godebug/diff"
 	gotoml "github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -31,7 +31,7 @@ func TestDoc(t *testing.T) {
 	var strict *gotoml.StrictMissingError
 	if err != nil && strings.Contains(err.Error(), "undecoded keys: ") {
 		t.Errorf("Docs contain extra fields: %v", err)
-	} else if errors.As(err, &strict) {
+	} else if pkgerrors.As(err, &strict) {
 		t.Fatal("StrictMissingError:", strict.String())
 	} else {
 		require.NoError(t, err)

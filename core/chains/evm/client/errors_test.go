@@ -3,14 +3,14 @@ package client_test
 import (
 	"testing"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
 func newSendErrorWrapped(s string) *evmclient.SendError {
-	return evmclient.NewSendError(errors.Wrap(errors.New(s), "wrapped with some old bollocks"))
+	return evmclient.NewSendError(pkgerrors.Wrap(pkgerrors.New(s), "wrapped with some old bollocks"))
 }
 
 type errorCase struct {
@@ -155,6 +155,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"transaction underpriced", true, "Klaytn"},
 			{"intrinsic gas too low", true, "Klaytn"},
 			{"max fee per gas less than block base fee", true, "zkSync"},
+			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
 		}
 
 		for _, test := range tests {
@@ -362,7 +363,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.message, func(t *testing.T) {
-			err := evmclient.NewSendError(errors.New(test.message))
+			err := evmclient.NewSendError(pkgerrors.New(test.message))
 			assert.Equal(t, test.expect, err.Fatal())
 		})
 	}

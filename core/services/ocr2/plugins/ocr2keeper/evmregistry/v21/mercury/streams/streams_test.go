@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
@@ -243,6 +244,7 @@ func TestStreams_CheckErrorHandler(t *testing.T) {
 			require.Nil(t, err)
 
 			args := map[string]interface{}{
+				"from": zeroAddress,
 				"to":   s.registry.Address().Hex(),
 				"data": hexutil.Bytes(payload),
 			}
@@ -397,6 +399,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 			payload, err := s.abi.Pack("checkCallback", tt.lookup.UpkeepId, values, tt.lookup.ExtraData)
 			require.Nil(t, err)
 			args := map[string]interface{}{
+				"from": zeroAddress,
 				"to":   s.registry.Address().Hex(),
 				"data": hexutil.Bytes(payload),
 			}
@@ -948,6 +951,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 				payload, err := s.abi.Pack("checkCallback", upkeepId, tt.values, tt.extraData)
 				require.Nil(t, err)
 				args := map[string]interface{}{
+					"from": zeroAddress,
 					"to":   s.registry.Address().Hex(),
 					"data": hexutil.Bytes(payload),
 				}

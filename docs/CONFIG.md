@@ -1604,6 +1604,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1658,6 +1659,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1687,6 +1689,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1740,6 +1743,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1769,6 +1773,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1822,6 +1827,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1851,6 +1857,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1904,6 +1911,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1934,6 +1942,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1987,6 +1996,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -2016,6 +2026,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -2069,6 +2080,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2098,6 +2110,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -2151,6 +2164,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2180,6 +2194,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -2234,6 +2249,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2263,6 +2279,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2316,6 +2333,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2344,6 +2362,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2397,6 +2416,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2425,6 +2445,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2478,6 +2499,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2507,6 +2529,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2560,6 +2583,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2590,6 +2614,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2643,6 +2668,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2672,6 +2698,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2725,6 +2752,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2754,6 +2782,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2807,6 +2836,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2836,6 +2866,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2889,6 +2920,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2918,6 +2950,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2971,6 +3004,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3000,6 +3034,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3053,6 +3088,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3082,6 +3118,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3135,6 +3172,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3165,6 +3203,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3218,6 +3257,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3247,6 +3287,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3300,6 +3341,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3328,6 +3370,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3381,6 +3424,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3410,6 +3454,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3463,6 +3508,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3491,6 +3537,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3544,6 +3591,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3573,6 +3621,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3626,6 +3675,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3655,6 +3705,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3708,6 +3759,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3736,6 +3788,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '100'
 NonceAutoSync = true
@@ -3789,6 +3842,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3817,6 +3871,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3870,6 +3925,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3899,6 +3955,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3952,6 +4009,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3981,6 +4039,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4034,6 +4093,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4062,6 +4122,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4115,6 +4176,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4144,6 +4206,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4197,6 +4260,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4226,6 +4290,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4279,6 +4344,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4309,6 +4375,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4362,6 +4429,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4391,6 +4459,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4444,6 +4513,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4473,6 +4543,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4526,6 +4597,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4555,6 +4627,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4608,6 +4681,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4637,6 +4711,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4690,6 +4765,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4718,6 +4794,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4771,6 +4848,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4799,6 +4877,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4852,6 +4931,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4881,6 +4961,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4934,6 +5015,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4963,6 +5045,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5016,6 +5099,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5045,6 +5129,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5098,6 +5183,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5128,6 +5214,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5181,6 +5268,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5211,6 +5299,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5264,6 +5353,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5293,6 +5383,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5346,6 +5437,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5375,6 +5467,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5428,6 +5521,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5457,6 +5551,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5510,6 +5605,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5539,6 +5635,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -5592,6 +5689,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5621,6 +5719,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5674,6 +5773,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5703,6 +5803,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5756,6 +5857,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5883,6 +5985,14 @@ LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how man
 LogPrunePageSize = 0 # Default
 ```
 LogPrunePageSize defines size of the page for pruning logs. Controls how many logs/blocks (at most) are deleted in a single prune tick. Default value 0 means no paging, delete everything at once.
+
+### BackupLogPollerBlockDelay
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+BackupLogPollerBlockDelay = 100 # Default
+```
+BackupLogPollerBlockDelay works in conjunction with Feature.LogPoller. Controls the block delay of Backup LogPoller, affecting how far behind the latest finalized block it starts and how often it runs.
+BackupLogPollerDelay=0 will disable Backup LogPoller (_not recommended for production environment_).
 
 ### MinContractPayment
 ```toml
@@ -6389,6 +6499,7 @@ PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
 SyncThreshold = 5 # Default
 LeaseDuration = '0s' # Default
+NodeIsSyncingEnabled = false # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -6439,6 +6550,16 @@ Setting this to a low value (under 1m) might cause RPC to switch too aggressivel
 Recommended value is over 5m
 
 Set to '0s' to disable
+
+### NodeIsSyncingEnabled
+```toml
+NodeIsSyncingEnabled = false # Default
+```
+NodeIsSyncingEnabled is a flag that enables `syncing` health check on each reconnection to an RPC.
+Node transitions and remains in `Syncing` state while RPC signals this state (In case of Ethereum `eth_syncing` returns anything other than false).
+All of the requests to node in state `Syncing` are rejected.
+
+Set true to enable this check
 
 ## EVM.OCR
 ```toml

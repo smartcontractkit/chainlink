@@ -525,18 +525,19 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 
-				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
-				LogBackfillBatchSize:     ptr[uint32](17),
-				LogPollInterval:          &minute,
-				LogKeepBlocksDepth:       ptr[uint32](100000),
-				LogPrunePageSize:         ptr[uint32](0),
-				MinContractPayment:       commonassets.NewLinkFromJuels(math.MaxInt64),
-				MinIncomingConfirmations: ptr[uint32](13),
-				NonceAutoSync:            ptr(true),
-				NoNewHeadsThreshold:      &minute,
-				OperatorFactoryAddress:   mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-				RPCDefaultBatchSize:      ptr[uint32](17),
-				RPCBlockQueryDelay:       ptr[uint16](10),
+				LinkContractAddress:       mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
+				LogBackfillBatchSize:      ptr[uint32](17),
+				LogPollInterval:           &minute,
+				LogKeepBlocksDepth:        ptr[uint32](100000),
+				LogPrunePageSize:          ptr[uint32](0),
+				BackupLogPollerBlockDelay: ptr[uint64](532),
+				MinContractPayment:        commonassets.NewLinkFromJuels(math.MaxInt64),
+				MinIncomingConfirmations:  ptr[uint32](13),
+				NonceAutoSync:             ptr(true),
+				NoNewHeadsThreshold:       &minute,
+				OperatorFactoryAddress:    mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				RPCDefaultBatchSize:       ptr[uint32](17),
+				RPCBlockQueryDelay:        ptr[uint16](10),
 
 				Transactions: evmcfg.Transactions{
 					MaxInFlight:          ptr[uint32](19),
@@ -559,6 +560,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SelectionMode:        &selectionMode,
 					SyncThreshold:        ptr[uint32](13),
 					LeaseDuration:        &zeroSeconds,
+					NodeIsSyncingEnabled: ptr(true),
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -925,6 +927,7 @@ LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 532
 MinIncomingConfirmations = 13
 MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
@@ -995,6 +998,7 @@ PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = true
 
 [EVM.OCR]
 ContractConfirmations = 11

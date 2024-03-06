@@ -36,6 +36,7 @@ type EVM interface {
 	LinkContractAddress() string
 	LogBackfillBatchSize() uint32
 	LogKeepBlocksDepth() uint32
+	BackupLogPollerBlockDelay() uint64
 	LogPollInterval() time.Duration
 	LogPrunePageSize() uint32
 	MinContractPayment() *commonassets.Link
@@ -139,6 +140,7 @@ type NodePool interface {
 	SelectionMode() string
 	SyncThreshold() uint32
 	LeaseDuration() time.Duration
+	NodeIsSyncingEnabled() bool
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

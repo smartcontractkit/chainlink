@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -231,7 +231,7 @@ func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	bf := new(big.Float).Quo(ef, weif)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
-		return math.Inf(1), errors.New("assets.Eth.Float64: Could not approximate Eth value into float")
+		return math.Inf(1), pkgerrors.New("assets.Eth.Float64: Could not approximate Eth value into float")
 	}
 	return f64, nil
 }
