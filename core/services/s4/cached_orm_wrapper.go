@@ -43,10 +43,7 @@ func (c CachedORM) Get(address *ubig.Big, slotId uint, qopts ...pg.QOpt) (*Row, 
 }
 
 func (c CachedORM) Update(row *Row, qopts ...pg.QOpt) error {
-	err := c.clearCache(row)
-	if err != nil {
-		c.lggr.Error("failed to clear cache: %w", err)
-	}
+	c.clearCache(row)
 
 	return c.underlayingORM.Update(row, qopts...)
 }
@@ -77,27 +74,28 @@ func (c CachedORM) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, err
 	return c.underlayingORM.GetUnconfirmedRows(limit, qopts...)
 }
 
-func (c CachedORM) clearCache(row *Row) error {
+func (c CachedORM) clearCache(row *Row) {
 	for key := range c.cache.Items() {
 		keyParts := strings.Split(key, "_")
 		if len(keyParts) != 3 {
-			return fmt.Errorf("invalid cache key")
+			c.lggr.Errorf("invalid cache key: %s", key)
+			continue
 		}
 
 		minAddress, ok := new(big.Int).SetString(keyParts[1], 10)
 		if !ok {
-			return fmt.Errorf("error while converting minAddress string: %s to big.Int ", keyParts[1])
+			c.lggr.Errorf("error while converting minAddress string: %s to big.Int ", keyParts[1])
+			continue
 		}
 
 		maxAddress, ok := new(big.Int).SetString(keyParts[2], 10)
 		if !ok {
-			return fmt.Errorf("error while converting minAddress string: %s to big.Int ", keyParts[2])
+			c.lggr.Errorf("error while converting minAddress string: %s to big.Int ", keyParts[2])
+			continue
 		}
 
 		if row.Address.ToInt().Cmp(minAddress) >= 0 && row.Address.ToInt().Cmp(maxAddress) <= 0 {
 			c.cache.Delete(key)
 		}
 	}
-
-	return nil
 }
