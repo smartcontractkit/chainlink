@@ -18,6 +18,7 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 )
 
 var (
@@ -260,7 +261,7 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	error,
 ) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
+		return nil, nil
 	}
 
 	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -276,14 +277,20 @@ func (ms *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	for _, as := range ms.addressStates {
 		attempts = append(attempts, as.FindTxAttempts(states, txFilter, txAttemptFilter)...)
 	}
-	// TODO: FINISH THIS
 	// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
 	sort.SliceStable(attempts, func(i, j int) bool {
-		/*
-			if attempts[i].TxID == attempts[j].TxID {
+		if attempts[i].TxID == attempts[j].TxID {
+			var iGasPrice, jGasPrice evmgas.EvmFee
+			// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+
+			if iGasPrice.Legacy.Cmp(jGasPrice.Legacy) == 0 {
+				// sort by gas_tip_cap DESC
+				return iGasPrice.DynamicFeeCap.Cmp(jGasPrice.DynamicFeeCap) > 0
+			} else {
 				// sort by gas_price DESC
+				return iGasPrice.Legacy.Cmp(jGasPrice.Legacy) > 0
 			}
-		*/
+		}
 
 		return attempts[i].TxID < attempts[j].TxID
 	})
