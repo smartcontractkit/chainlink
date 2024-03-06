@@ -30,47 +30,14 @@ pipelines:
   # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
   deploy:
     run: |-
-      set -o pipefail
-      echo "Removing .devspace cache!"
-      rm -rf .devspace/ || true
-      registry_id=$(echo "$DEVSPACE_IMAGE" | cut -d'.' -f1)
-
-      # Login into registry
-      echo "Authorizing into ECR registry"
-      aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${registry_id}.dkr.ecr.us-west-2.amazonaws.com
-
       run_dependencies --all
       ensure_pull_secrets --all
-      
       build_images --all
       
       kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
 
-      tag=$(git rev-parse --short HEAD)
-      image=${DEVSPACE_IMAGE}:$tag
-      echo "Checking tag: '$tag'"
-      repository_name="chainlink-devspace"
-      desired_tag=$tag
-
-      # Check if the desired tag is present in the repository
-      image_list=$(aws ecr list-images --repository-name "$repository_name")
-      tag_exists=$(echo "$image_list" | jq -e '.imageIds[] | select(.imageTag == "'"${desired_tag}"'")' >/dev/null && echo true || echo false)
-
-      # Check the value of the tag_exists variable
-      if [ "$tag_exists" = "true" ]; then
-        echo "Image tag '$tag' found."
-      else
-        echo "Image tag '$tag' not found. Please build the image using 'devspace deploy'"
-        exit 1
-      fi
-      create_deployments app \
-      --set=helm.values.chainlink.nodes[0].image=$image \
-      --set=helm.values.chainlink.nodes[1].image=$image \
-      --set=helm.values.chainlink.nodes[2].image=$image \
-      --set=helm.values.chainlink.nodes[3].image=$image \
-      --set=helm.values.chainlink.nodes[4].image=$image \
-      --set=helm.values.chainlink.nodes[5].image=$image
+      create_deployments app 
       echo
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
       echo "To extend the TTL for e.g. 72 hours, run: devspace run ttl ${DEVSPACE_NAMESPACE} 72h"
@@ -98,24 +65,16 @@ images:
   app:
     image: ${DEVSPACE_IMAGE}
     tags:
-      - $(git rev-parse --short HEAD)
+      - ${devspace.namespace}-${devspace.timestamp}
     custom:
       skipImageArg: true
       command: |-
-        TOPLEVEL=$(git rev-parse --show-toplevel)
-        pushd $TOPLEVEL
-        pwd
-        goreleaser --version
-        MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
-        popd
-        BUILT_IMAGE=$(cat $TOPLEVEL/dist/artifacts.json | jq -r '.[] | select(.type == "Docker Image" and .goarch == "amd64" and (.name | contains("sha")) and ( .name | contains("root") | not) ) | .name')
+        GIT_ROOT=$(git rev-parse --show-toplevel)
+        cd $GIT_ROOT
 
-        echo "Tagging and pushing image"
-        tag=$(git rev-parse --short HEAD)
-        TAGGED_IMAGE=${DEVSPACE_IMAGE}:$tag
-        docker tag $BUILT_IMAGE ${runtime.images.app.image}:${runtime.images.app.tag}
-        echo "Tagged image: $TAGGED_IMAGE"
-        docker push $TAGGED_IMAGE
+        image=${runtime.images.app}
+        MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk IMAGE=$image ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
+        docker push $image 
 hooks:
   - wait:
       running: true
