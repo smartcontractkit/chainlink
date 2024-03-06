@@ -591,8 +591,8 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 
 		lsn.l.Infow("Estimated gas limit on force fulfillment",
 			"estimateGasLimit", estimateGasLimit, "pipelineGasLimit", p.gasLimit)
-		if estimateGasLimit < uint64(p.gasLimit) {
-			estimateGasLimit = uint64(p.gasLimit)
+		if estimateGasLimit < p.gasLimit {
+			estimateGasLimit = p.gasLimit
 		}
 
 		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
@@ -814,7 +814,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
-					FeeLimit:       uint64(p.gasLimit),
+					FeeLimit:       p.gasLimit,
 					Meta: &txmgr.TxMeta{
 						RequestID:     &requestID,
 						MaxLink:       maxLink,
