@@ -58,3 +58,11 @@ type CoordinatorJobSpecConfig struct {
 	RequestTimeout                string
 	RevertsPipelineEnabled        bool
 }
+
+type BHSJobSpecConfig struct {
+	RunTimeout     string
+	WaitBlocks     int
+	LookBackBlocks int
+	PollPeriod     string
+	RequestTimeout string
+}

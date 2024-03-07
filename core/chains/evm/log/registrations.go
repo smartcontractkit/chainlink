@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -119,12 +119,12 @@ func (r *registrations) handlersWithGreaterConfs(confs uint32) (handlersWithGrea
 // maps modified are only used for checks
 func (r *registrations) checkAddSubscriber(sub *subscriber) error {
 	if sub.opts.MinIncomingConfirmations <= 0 {
-		return errors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined", sub.opts.MinIncomingConfirmations)
+		return pkgerrors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined", sub.opts.MinIncomingConfirmations)
 	}
 
 	jobID := sub.listener.JobID()
 	if _, exists := r.registeredSubs[sub]; exists {
-		return errors.Errorf("Cannot add subscriber %p for job ID %v: already added", sub, jobID)
+		return pkgerrors.Errorf("Cannot add subscriber %p for job ID %v: already added", sub, jobID)
 	}
 	r.registeredSubs[sub] = struct{}{}
 	addrs, exists := r.jobIDAddrs[jobID]
@@ -132,7 +132,7 @@ func (r *registrations) checkAddSubscriber(sub *subscriber) error {
 		r.jobIDAddrs[jobID] = make(map[common.Address]struct{})
 	}
 	if _, exists := addrs[sub.opts.Contract]; exists {
-		return errors.Errorf("Cannot add subscriber %p: only one subscription is allowed per jobID/contract address. There is already a subscription with job ID %v listening on %s", sub, jobID, sub.opts.Contract.Hex())
+		return pkgerrors.Errorf("Cannot add subscriber %p: only one subscription is allowed per jobID/contract address. There is already a subscription with job ID %v listening on %s", sub, jobID, sub.opts.Contract.Hex())
 	}
 	r.jobIDAddrs[jobID][sub.opts.Contract] = struct{}{}
 	return nil
@@ -165,16 +165,16 @@ func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool
 func (r *registrations) checkRemoveSubscriber(sub *subscriber) error {
 	jobID := sub.listener.JobID()
 	if _, exists := r.registeredSubs[sub]; !exists {
-		return errors.Errorf("Cannot remove subscriber %p for job ID %v: not registered", sub, jobID)
+		return pkgerrors.Errorf("Cannot remove subscriber %p for job ID %v: not registered", sub, jobID)
 	}
 	delete(r.registeredSubs, sub)
 	addrs, exists := r.jobIDAddrs[jobID]
 	if !exists {
-		return errors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing job ID %v", sub, jobID)
+		return pkgerrors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing job ID %v", sub, jobID)
 	}
 	_, exists = addrs[sub.opts.Contract]
 	if !exists {
-		return errors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing address %s", sub, sub.opts.Contract.Hex())
+		return pkgerrors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing address %s", sub, sub.opts.Contract.Hex())
 	}
 	delete(r.jobIDAddrs[jobID], sub.opts.Contract)
 	if len(r.jobIDAddrs[jobID]) == 0 {
