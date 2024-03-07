@@ -111,6 +111,13 @@ func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Push(t
 	pq.Lock()
 	defer pq.Unlock()
 
+	if len(pq.txs) == cap(pq.txs) {
+		// make room if cap is reached
+		delete(pq.idToIndex, pq.txs[0].ID)
+		copy(pq.txs, pq.txs[1:])
+		pq.txs = pq.txs[:len(pq.txs)-1]
+	}
+
 	pq.txs = append(pq.txs, tx.(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]))
 	pq.idToIndex[tx.(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]).ID] = len(pq.txs)
 }

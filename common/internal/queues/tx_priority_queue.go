@@ -36,10 +36,6 @@ func NewTxPriorityQueue[
 
 // AddTx adds a transaction to the queue
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AddTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-	if pq.ph.Len() == pq.ph.Cap() {
-		heap.Pop(pq.ph)
-	}
-
 	heap.Push(pq.ph, tx)
 }
 
