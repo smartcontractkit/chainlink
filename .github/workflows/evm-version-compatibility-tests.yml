@@ -39,9 +39,6 @@ jobs:
             echo "No relevant dependency bump detected."
             echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
           fi
-          cat "$GITHUB_OUTPUT"
-      - name: Confirm output
-        run: cat "$GITHUB_OUTPUT"
 
   # Build Test Dependencies
 
@@ -130,8 +127,9 @@ jobs:
         id: decode-base64-test-list
         if: env.BASE64_TEST_LIST != ''
         run: |
-          echo "Decoding test_input..."
+          echo "Decoding base64 test list..."
           DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
+          echo $DECODED_BASE64_TEST_LIST
           cd ./integration-tests
           echo $DECODED_BASE64_TEST_LIST >> ./evm_node_compatibility_test_list.json
 
@@ -142,8 +140,8 @@ jobs:
           cd ./integration-tests
           cp ./smoke/evm_node_compatibility_test_list.json .
 
-      - name: Set Matrix from Decoded Input
-        id: set-test-matrix-list
+      - name: Create Test Matrix
+        id: create-test-matrix-list
         run: |
           cd ./integration-tests
           JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./evm_node_compatibility_test_list.json ubuntu-latest)

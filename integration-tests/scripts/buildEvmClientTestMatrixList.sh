@@ -26,7 +26,7 @@ matrix_output() {
   local docker_image=$6
   local product=$7
   local counter_out=$(printf "%02d\n" $counter)
-  echo -n "{\"name\": \"${job_name}-${counter_out}\", \"os\": \"${node_label}\", \"eth_client\": \"${eth_client}\", \"docker_image\": \"${docker_image}\", \"run\": \"-run '^${test_name}$'\"}"
+  echo -n "{\"name\": \"${job_name}-${counter_out}\", \"os\": \"${node_label}\", \"product\": \"${product}\", \"eth_client\": \"${eth_client}\", \"docker_image\": \"${docker_image}\", \"run\": \"-run '^${test_name}$'\"}"
 }
 
 # Read the JSON file and loop through 'tests' and 'run'
@@ -36,8 +36,8 @@ jq -c '.tests[]' ${JSONFILE} | while read -r test; do
   effective_node_label=${label:-$NODE_LABEL}
   eth_client=$(echo ${test} | jq -r '.eth_client')
   docker_image=$(echo ${test} | jq -r '.docker_image')
-  subTests=$(echo ${test} | jq -r '.run[]?.name // empty')
   product=$(echo ${test} | jq -r '.product')
+  subTests=$(echo ${test} | jq -r '.run[]?.name // empty')
   output=""
 
   if [ $COUNTER -ne 1 ]; then
