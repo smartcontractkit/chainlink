@@ -855,12 +855,11 @@ jobs:
 
   ## Solana Section
   get_solana_sha:
-    if: ${{ inputs.run_solana != 'false' }}
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
     name: Get Solana Sha From Go Mod
     environment: Integration
     runs-on: ubuntu-latest
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
     outputs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
