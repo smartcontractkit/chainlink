@@ -126,6 +126,33 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
+  function withdrawNonLinkFees(address assetAddress, address to, uint256 amount) external nonReentrant onlyOwner {
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+
+    // withdraw the requested asset
+    // TODO: Q: this is where we withdraw ERC20 from our contract, where do we get ERC20 deposit, another ticket?
+    bool transferStatus = IERC20(assetAddress).transfer(to, amount);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
+
+    // emit event when funds are withdrawn
+    emit FeesWithdrawn(to, assetAddress, amount);
+  }
+
+  function linkAvailableForPayment() public view returns (uint256) {
+    return i_link.balanceOf(address(this)) - s_expectedLinkBalance;
+  }
+
+  function withdrawLinkFees(address to, uint256 amount) external nonReentrant onlyOwner {
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    uint256 amount = linkAvailableForPayment();
+
+    // TODO Q: besides this LINK transfer from current contract to recepient, any other accounting needed?
+    i_link.transfer(to, amount);
+    emit FeesWithdrawn(to, address(i_link), amount);
+  }
+
   // ================================================================
   // |                       NODE MANAGEMENT                        |
   // ================================================================
@@ -192,14 +219,6 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     s_storage.ownerLinkBalance = 0;
     emit OwnerFundsWithdrawn(amount);
     i_link.transfer(msg.sender, amount);
-  }
-
-  /**
-   * @notice allows the owner to withdraw any LINK accidentally sent to the contract
-   */
-  function recoverFunds() external onlyOwner {
-    uint256 total = i_link.balanceOf(address(this));
-    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
   }
 
   /**

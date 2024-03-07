@@ -160,6 +160,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error UpkeepNotNeeded();
   error ValueNotChanged();
   error ZeroAddressNotAllowed();
+  error TransferFailed();
 
   enum MigrationPermission {
     NONE,
@@ -499,6 +500,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
   // Event to emit when a billing configuration is set
   event BillingConfigSet(IERC20 indexed token, BillingConfig config);
+  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
 
   /**
    * @param link address of the LINK Token
