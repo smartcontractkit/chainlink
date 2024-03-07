@@ -9,7 +9,7 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 
 require (
 	github.com/K-Phoen/grabana v0.22.1
-	github.com/ethereum/go-ethereum v1.13.8
+	github.com/ethereum/go-ethereum v1.13.9
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/rs/zerolog v1.30.0
