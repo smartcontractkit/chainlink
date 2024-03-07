@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -55,6 +56,7 @@ type ORM interface {
 	SelectLogsDataWordRange(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	SelectLogsDataWordBetween(address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+	SelectFilteredLogs(filter commontypes.QueryFilter, sortAndLimit commontypes.SortAndLimit) ([]Log, error)
 }
 
 type DbORM struct {
@@ -820,6 +822,11 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 		return nil, err
 	}
 	return logs, nil
+}
+
+func (o *DbORM) SelectFilteredLogs(_ commontypes.QueryFilter, _ commontypes.SortAndLimit) ([]Log, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func nestedBlockNumberQuery(confs Confirmations) string {

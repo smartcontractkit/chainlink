@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
@@ -61,6 +62,9 @@ type LogPoller interface {
 	LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
 	LogsDataWordBetween(eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+
+	// DSL querying
+	FilteredLogs(filter commontypes.QueryFilter, sortAndLimit commontypes.SortAndLimit) ([]Log, error)
 }
 
 type Confirmations int
@@ -1234,4 +1238,8 @@ func EvmWord(i uint64) common.Hash {
 	var b = make([]byte, 8)
 	binary.BigEndian.PutUint64(b, i)
 	return common.BytesToHash(b)
+}
+
+func (lp *logPoller) FilteredLogs(filter commontypes.QueryFilter, sortAndLimit commontypes.SortAndLimit) ([]Log, error) {
+	return lp.orm.SelectFilteredLogs(filter, sortAndLimit)
 }

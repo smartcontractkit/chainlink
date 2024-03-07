@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -16,6 +17,10 @@ var (
 )
 
 type disabled struct{}
+
+func (d disabled) FilteredLogs(_ types.QueryFilter, _ types.SortAndLimit) ([]Log, error) {
+	return nil, nil
+}
 
 func (disabled) Name() string { return "disabledLogPoller" }
 
