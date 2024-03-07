@@ -55,7 +55,7 @@ jobs:
     name: Core Tests (${{ matrix.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
-    runs-on: ubuntu20.04-64cores-256GB
+    runs-on: ubuntu20.04-32cores-128GB
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
