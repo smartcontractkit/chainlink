@@ -61,6 +61,7 @@ type ExecutionPluginStaticConfig struct {
 	priceRegistryProvider       ccipdataprovider.PriceRegistry // destination price registry provider.
 	tokenPoolBatchedReader      batchreader.TokenPoolBatchedReader
 	metricsCollector            ccip.PluginMetricsCollector
+	chainHealthcheck            cache.ChainHealthcheck
 }
 
 type ExecutionReportingPlugin struct {
