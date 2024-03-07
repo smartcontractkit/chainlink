@@ -171,7 +171,7 @@ jobs:
       id-token: write
       contents: read
     needs:
-      [check-dependency-bump-tests, build-chainlink, build-tests, build-test-matrix]
+      [check-dependency-bump, build-chainlink, build-tests, build-test-matrix]
     env:
       SELECTED_NETWORKS: SIMULATED
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
