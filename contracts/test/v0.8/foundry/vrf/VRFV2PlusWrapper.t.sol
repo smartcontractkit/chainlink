@@ -64,6 +64,18 @@ contract VRFV2PlusWrapperTest is BaseTest {
   }
 
   function setConfigWrapper() internal {
+    vm.expectEmit(false, false, false, true, address(s_wrapper));
+    emit ConfigSet(
+      wrapperGasOverhead,
+      coordinatorGasOverhead,
+      0,
+      vrfKeyHash,
+      10,
+      1,
+      50000000000000000,
+      0,
+      0
+    );
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
       coordinatorGasOverhead, // coordinator gas overhead
@@ -152,6 +164,14 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Revert for subsequent assignment.
     vm.expectRevert(VRFV2PlusWrapperConsumerBase.LINKAlreadySet.selector);
     consumer.setLinkToken(address(s_linkToken));
+  }
+
+  function testSetFulfillmentTxSize() public {
+    uint32 fulfillmentTxSize = 100_000;
+    vm.expectEmit(false, false, false, true, address(s_wrapper));
+    emit FulfillmentTxSizeSet(fulfillmentTxSize);
+    s_wrapper.setFulfillmentTxSize(fulfillmentTxSize);
+    assertEq(s_wrapper.s_fulfillmentTxSizeBytes(), fulfillmentTxSize);
   }
 
   function testRequestAndFulfillRandomWordsNativeWrapper() public {
