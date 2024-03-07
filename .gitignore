@@ -29,6 +29,7 @@ tools/clroot/db.sqlite3-wal
 .vscode/
 *.iml
 debug.env
+*.txt
 
 # codeship
 *.aes
@@ -95,3 +96,6 @@ override*.toml
 
 # Pythin venv
 .venv/
+
+# Temp Changelog migration
+CHANGELOG.md
