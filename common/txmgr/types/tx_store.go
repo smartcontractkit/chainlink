@@ -66,7 +66,7 @@ type InMemoryInitializer[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
-	AllTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
+	GetAllTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) ([]Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
 }
 
 // TransactionStore contains the persistence layer methods needed to manage Txs and TxAttempts
