@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
+import {AutomationForwarderLogic} from "../AutomationForwarderLogic.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistry2_2} from "../v2_2/AutomationRegistry2_2.sol";
 import {AutomationRegistryBase2_2} from "../v2_2/AutomationRegistryBase2_2.sol";

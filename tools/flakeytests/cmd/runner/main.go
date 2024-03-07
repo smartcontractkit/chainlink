@@ -24,6 +24,7 @@ func main() {
 
 	grafanaHost := flag.String("grafana_host", "", "grafana host URL")
 	grafanaAuth := flag.String("grafana_auth", "", "grafana basic auth for Loki API")
+	grafanaOrgID := flag.String("grafana_org_id", "", "grafana org ID")
 	command := flag.String("command", "", "test command being rerun; used to tag metrics")
 	ghSHA := flag.String("gh_sha", "", "commit sha for which we're rerunning tests")
 	ghEventPath := flag.String("gh_event_path", "", "path to associated gh event")
@@ -38,6 +39,10 @@ func main() {
 
 	if *grafanaAuth == "" {
 		log.Fatal("Error re-running flakey tests: `grafana_auth` is required")
+	}
+
+	if *grafanaOrgID == "" {
+		log.Fatal("Error re-running flakey tests: `grafana_org_id` is required")
 	}
 
 	if *command == "" {
@@ -58,7 +63,7 @@ func main() {
 	}
 
 	meta := flakeytests.GetGithubMetadata(*ghRepo, *ghEventName, *ghSHA, *ghEventPath, *ghRunID)
-	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *command, meta)
+	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *grafanaOrgID, *command, meta)
 	r := flakeytests.NewRunner(readers, rep, numReruns)
 	err := r.Run(ctx)
 	if err != nil {
