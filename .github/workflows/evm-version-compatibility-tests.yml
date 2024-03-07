@@ -18,8 +18,8 @@ env:
   MOD_CACHE_VERSION: 2
 
 jobs:
-  # Check if go.mod has changed
 
+  # Check if go.mod has changed
   check-dependency-bump:
       runs-on: ubuntu-latest
       steps:
@@ -39,6 +39,8 @@ jobs:
             echo "No relevant dependency bump detected."
             echo "dependency_bumped=false" >> $GITHUB_OUTPUT
           fi
+      - name: Confirm output
+        run: cat $GITHUB_OUTPUT
 
   # Build Test Dependencies
 
