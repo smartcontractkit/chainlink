@@ -132,8 +132,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error InvalidSigner();
   error InvalidTransmitter();
   error InvalidTriggerType();
-  error MaxCheckDataSizeCanOnlyIncrease();
-  error MaxPerformDataSizeCanOnlyIncrease();
   error MigrationNotPermitted();
   error NotAContract();
   error OnlyActiveSigners();
@@ -160,6 +158,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error TooManyOracles();
   error TranscoderNotSet();
   error TransferFailed();
+  error UnsupportedBillingToken();
   error UpkeepAlreadyExists();
   error UpkeepCancelled();
   error UpkeepNotCanceled();
@@ -255,11 +254,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 performGas;
     uint32 maxValidBlocknumber;
     IAutomationForwarder forwarder;
-    // 0 bytes left in 1st EVM word - not written to in transmit
+    // 0 bytes left in 1st EVM word - read in transmit path
     uint96 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumber;
     // 2 bytes left in 2nd EVM word - written in transmit path
+    IERC20 billingToken;
+    // 12 bytes left in 3rd EVM word - read in transmit path
   }
 
   /// @dev Config + State storage struct which is on hot transmit path
@@ -493,6 +494,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
+    if (s_billingConfigs[upkeep.billingToken].priceFeed == address(0)) revert UnsupportedBillingToken();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;

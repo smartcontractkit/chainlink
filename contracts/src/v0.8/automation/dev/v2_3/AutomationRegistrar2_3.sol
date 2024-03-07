@@ -6,6 +6,7 @@ import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegist
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -28,8 +29,6 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     ENABLED_SENDER_ALLOWLIST,
     ENABLED_ALL
   }
-
-  bytes4 private constant REGISTER_REQUEST_SELECTOR = this.register.selector;
 
   mapping(bytes32 => PendingRequest) private s_pendingRequests;
   mapping(uint8 => TriggerRegistrationStorage) private s_triggerRegistrations;
@@ -84,18 +83,34 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     address admin;
     uint96 balance;
   }
-
+  /**
+   * @member name string of the upkeep to be registered
+   * @member encryptedEmail email address of upkeep contact
+   * @member upkeepContract address to perform upkeep on
+   * @member gasLimit amount of gas to provide the target contract when performing upkeep
+   * @member adminAddress address to cancel upkeep and withdraw remaining funds
+   * @member triggerType the type of trigger for the upkeep
+   * @member checkData data passed to the contract when checking for upkeep
+   * @member triggerConfig the config for the trigger
+   * @member offchainConfig offchainConfig for upkeep in bytes
+   * @member amount quantity of LINK upkeep is funded with (specified in Juels)
+   * @member sender address of the sender making the request
+   */
   struct RegistrationParams {
+    address upkeepContract;
+    uint96 amount;
+    // 1 word full
+    address adminAddress;
+    uint32 gasLimit;
+    uint8 triggerType;
+    // 7 bytes left in 2nd word
+    IERC20 billingToken;
+    // 12 bytes left in 3rd word
     string name;
     bytes encryptedEmail;
-    address upkeepContract;
-    uint32 gasLimit;
-    address adminAddress;
-    uint8 triggerType;
     bytes checkData;
     bytes triggerConfig;
     bytes offchainConfig;
-    uint96 amount;
   }
 
   RegistrarConfig private s_config;
@@ -131,10 +146,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   error HashMismatch();
   error OnlyAdminOrOwner();
   error InsufficientPayment();
-  error RegistrationRequestFailed();
   error OnlyLink();
-  error AmountMismatch();
-  error SenderMismatch();
   error FunctionNotPermitted();
   error LinkTransferFailed(address to);
   error InvalidDataLength();
@@ -165,103 +177,30 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   //EXTERNAL
 
   /**
-   * @notice register can only be called through transferAndCall on LINK contract
-   * @param name string of the upkeep to be registered
-   * @param encryptedEmail email address of upkeep contact
-   * @param upkeepContract address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when performing upkeep
-   * @param adminAddress address to cancel upkeep and withdraw remaining funds
-   * @param triggerType the type of trigger for the upkeep
-   * @param checkData data passed to the contract when checking for upkeep
-   * @param triggerConfig the config for the trigger
-   * @param offchainConfig offchainConfig for upkeep in bytes
-   * @param amount quantity of LINK upkeep is funded with (specified in Juels)
-   * @param sender address of the sender making the request
-   */
-  function register(
-    string memory name,
-    bytes calldata encryptedEmail,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    uint8 triggerType,
-    bytes memory checkData,
-    bytes memory triggerConfig,
-    bytes memory offchainConfig,
-    uint96 amount,
-    address sender
-  ) external onlyLINK {
-    _register(
-      RegistrationParams({
-        name: name,
-        encryptedEmail: encryptedEmail,
-        upkeepContract: upkeepContract,
-        gasLimit: gasLimit,
-        adminAddress: adminAddress,
-        triggerType: triggerType,
-        checkData: checkData,
-        triggerConfig: triggerConfig,
-        offchainConfig: offchainConfig,
-        amount: amount
-      }),
-      sender
-    );
-  }
-
-  /**
    * @notice Allows external users to register upkeeps; assumes amount is approved for transfer by the contract
    * @param requestParams struct of all possible registration parameters
    */
   function registerUpkeep(RegistrationParams calldata requestParams) external returns (uint256) {
-    if (requestParams.amount < s_config.minLINKJuels) {
-      revert InsufficientPayment();
-    }
-
-    LINK.transferFrom(msg.sender, address(this), requestParams.amount);
-
+    require(LINK.transferFrom(msg.sender, address(this), requestParams.amount));
     return _register(requestParams, msg.sender);
   }
 
   /**
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
+   * @param requestParams struct of all possible registration parameters
+   * @param hash the committment of the registration request
    */
-  function approve(
-    string memory name,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    uint8 triggerType,
-    bytes calldata checkData,
-    bytes memory triggerConfig,
-    bytes calldata offchainConfig,
-    bytes32 hash
-  ) external onlyOwner {
+  function approve(RegistrationParams calldata requestParams, bytes32 hash) external onlyOwner {
     PendingRequest memory request = s_pendingRequests[hash];
     if (request.admin == address(0)) {
       revert RequestNotFound();
     }
-    bytes32 expectedHash = keccak256(
-      abi.encode(upkeepContract, gasLimit, adminAddress, triggerType, checkData, triggerConfig, offchainConfig)
-    );
+    bytes32 expectedHash = keccak256(abi.encode(requestParams));
     if (hash != expectedHash) {
       revert HashMismatch();
     }
     delete s_pendingRequests[hash];
-    _approve(
-      RegistrationParams({
-        name: name,
-        encryptedEmail: "",
-        upkeepContract: upkeepContract,
-        gasLimit: gasLimit,
-        adminAddress: adminAddress,
-        triggerType: triggerType,
-        checkData: checkData,
-        triggerConfig: triggerConfig,
-        offchainConfig: offchainConfig,
-        amount: request.balance
-      }),
-      expectedHash
-    );
+    _approve(requestParams, expectedHash);
   }
 
   /**
@@ -362,26 +301,11 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @param amount Amount of LINK sent (specified in Juels)
    * @param data Payload of the transaction
    */
-  function onTokenTransfer(
-    address sender,
-    uint256 amount,
-    bytes calldata data
-  )
-    external
-    override
-    onlyLINK
-    permittedFunctionsForLINK(data)
-    isActualAmount(amount, data)
-    isActualSender(sender, data)
-  {
-    if (amount < s_config.minLINKJuels) {
-      revert InsufficientPayment();
-    }
-    (bool success, ) = address(this).delegatecall(data);
-    // calls register
-    if (!success) {
-      revert RegistrationRequestFailed();
-    }
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
+    if (msg.sender != address(LINK)) revert OnlyLink();
+    RegistrationParams memory params = abi.decode(data, (RegistrationParams));
+    params.amount = uint96(amount); // igore whatever is sent in registration params, use actual value
+    _register(params, sender);
   }
 
   // ================================================================
@@ -392,20 +316,13 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @dev verify registration request and emit RegistrationRequested event
    */
   function _register(RegistrationParams memory params, address sender) private returns (uint256) {
+    if (params.amount < s_config.minLINKJuels) {
+      revert InsufficientPayment();
+    }
     if (params.adminAddress == address(0)) {
       revert InvalidAdminAddress();
     }
-    bytes32 hash = keccak256(
-      abi.encode(
-        params.upkeepContract,
-        params.gasLimit,
-        params.adminAddress,
-        params.triggerType,
-        params.checkData,
-        params.triggerConfig,
-        params.offchainConfig
-      )
-    );
+    bytes32 hash = keccak256(abi.encode(params));
 
     emit RegistrationRequested(
       hash,
@@ -426,7 +343,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       s_triggerRegistrations[params.triggerType].approvedCount++;
       upkeepId = _approve(params, hash);
     } else {
-      uint96 newBalance = s_pendingRequests[hash].balance + params.amount;
+      uint96 newBalance = s_pendingRequests[hash].balance + params.amount; // TODO - this is bad UX
       s_pendingRequests[hash] = PendingRequest({admin: params.adminAddress, balance: newBalance});
     }
 
@@ -437,19 +354,20 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
-    IAutomationRegistryMaster2_3 AutomationRegistry = s_config.AutomationRegistry;
-    uint256 upkeepId = AutomationRegistry.registerUpkeep(
+    IAutomationRegistryMaster2_3 registry = s_config.AutomationRegistry;
+    uint256 upkeepId = registry.registerUpkeep(
       params.upkeepContract,
       params.gasLimit,
       params.adminAddress,
       params.triggerType,
+      address(params.billingToken), // have to cast as address because master interface doesn't use contract types
       params.checkData,
       params.triggerConfig,
       params.offchainConfig
     );
-    bool success = LINK.transferAndCall(address(AutomationRegistry), params.amount, abi.encode(upkeepId));
+    bool success = LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
     if (!success) {
-      revert LinkTransferFailed(address(AutomationRegistry));
+      revert LinkTransferFailed(address(registry));
     }
     emit RegistrationApproved(hash, params.name, upkeepId);
     return upkeepId;
@@ -469,69 +387,5 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       return true;
     }
     return false;
-  }
-
-  // ================================================================
-  // |                          MODIFIERS                           |
-  // ================================================================
-
-  /**
-   * @dev Reverts if not sent from the LINK token
-   */
-  modifier onlyLINK() {
-    if (msg.sender != address(LINK)) {
-      revert OnlyLink();
-    }
-    _;
-  }
-
-  /**
-   * @dev Reverts if the given data does not begin with the `register` function selector
-   * @param _data The data payload of the request
-   */
-  modifier permittedFunctionsForLINK(bytes memory _data) {
-    bytes4 funcSelector;
-    assembly {
-      // solhint-disable-next-line avoid-low-level-calls
-      funcSelector := mload(add(_data, 32)) // First 32 bytes contain length of data
-    }
-    if (funcSelector != REGISTER_REQUEST_SELECTOR) {
-      revert FunctionNotPermitted();
-    }
-    _;
-  }
-
-  /**
-   * @dev Reverts if the actual amount passed does not match the expected amount
-   * @param expected amount that should match the actual amount
-   * @param data bytes
-   */
-  modifier isActualAmount(uint256 expected, bytes calldata data) {
-    // decode register function arguments to get actual amount
-    (, , , , , , , , , uint96 amount, ) = abi.decode(
-      data[4:],
-      (string, bytes, address, uint32, address, uint8, bytes, bytes, bytes, uint96, address)
-    );
-    if (expected != amount) {
-      revert AmountMismatch();
-    }
-    _;
-  }
-
-  /**
-   * @dev Reverts if the actual sender address does not match the expected sender address
-   * @param expected address that should match the actual sender address
-   * @param data bytes
-   */
-  modifier isActualSender(address expected, bytes calldata data) {
-    // decode register function arguments to get actual sender
-    (, , , , , , , , , , address sender) = abi.decode(
-      data[4:],
-      (string, bytes, address, uint32, address, uint8, bytes, bytes, bytes, uint96, address)
-    );
-    if (expected != sender) {
-      revert SenderMismatch();
-    }
-    _;
   }
 }

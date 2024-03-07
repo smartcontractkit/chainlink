@@ -10,6 +10,7 @@ import {AutomationForwarder} from "../../AutomationForwarder.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
@@ -215,6 +216,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     uint32 gasLimit,
     address admin,
     Trigger triggerType,
+    IERC20 billingToken,
     bytes calldata checkData,
     bytes memory triggerConfig,
     bytes memory offchainConfig
@@ -234,7 +236,8 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         lastPerformedBlockNumber: 0,
         amountSpent: 0,
         paused: false,
-        forwarder: forwarder
+        forwarder: forwarder,
+        billingToken: billingToken
       }),
       admin,
       checkData,
@@ -247,20 +250,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     emit UpkeepTriggerConfigSet(id, triggerConfig);
     emit UpkeepOffchainConfigSet(id, offchainConfig);
     return (id);
-  }
-
-  /**
-   * @notice this function registers a conditional upkeep, using a backwards compatible function signature
-   * @dev this function is backwards compatible with versions <=2.0, but may be removed in a future version
-   */
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData,
-    bytes calldata offchainConfig
-  ) external returns (uint256 id) {
-    return registerUpkeep(target, gasLimit, admin, Trigger.CONDITION, checkData, bytes(""), offchainConfig);
   }
 
   /**
