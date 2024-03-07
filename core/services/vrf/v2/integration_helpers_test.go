@@ -356,7 +356,7 @@ func testMultipleConsumersNeedTrustedBHS(
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(5_000_000))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(5_000_000))
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
@@ -541,7 +541,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		c.Feature.LogPoller = ptr(true)
@@ -1074,7 +1074,7 @@ func testSingleConsumerEIP150(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(3.5e6))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(3.5e6))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1144,7 +1144,7 @@ func testSingleConsumerEIP150Revert(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1209,7 +1209,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1332,7 +1332,7 @@ func testSingleConsumerMultipleGasLanes(
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: expensiveGasLane},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
@@ -1644,7 +1644,7 @@ func testMaliciousConsumer(
 	vrfVersion vrfcommon.Version,
 ) {
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](2_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](2_000_000)
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
 		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
