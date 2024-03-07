@@ -11,10 +11,6 @@ inputs:
   git_commit_sha:
     description: The git commit sha to use for the image tag
     default: ${{ github.sha }}
-  GRAFANA_CLOUD_BASIC_AUTH:
-    description: "grafana cloud basic auth"
-  GRAFANA_CLOUD_HOST:
-    description: "grafana cloud hostname"
   AWS_REGION:
     description: "AWS region to use for ECR"
   AWS_ROLE_TO_ASSUME:
