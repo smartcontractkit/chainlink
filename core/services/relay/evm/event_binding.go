@@ -39,6 +39,29 @@ type eventBinding struct {
 
 var _ readBinding = &eventBinding{}
 
+type EventIndexBindings map[string]eventIndexBinding
+
+func (e *EventIndexBindings) Bind(eventBinding *eventBinding, key string, index int) {
+	(*e)[key] = eventIndexBinding{
+		eventBinding: eventBinding,
+		topicIndex:   index,
+	}
+}
+
+func (e *EventIndexBindings) Get(key string) (common.Hash, common.Address, int, error) {
+	binding, ok := (*e)[key]
+	if !ok {
+		return common.Hash{}, common.Address{}, 0, fmt.Errorf("%w: unregistered key", commontypes.ErrInternal)
+	}
+
+	return binding.hash, binding.address, binding.topicIndex, nil
+}
+
+type eventIndexBinding struct {
+	*eventBinding
+	topicIndex int
+}
+
 func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
 }

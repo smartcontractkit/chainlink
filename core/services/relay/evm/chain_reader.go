@@ -29,23 +29,25 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
-	lggr             logger.Logger
-	lp               logpoller.LogPoller
-	client           evmclient.Client
-	contractBindings contractBindings
-	parsed           *parsedTypes
-	codec            commontypes.RemoteCodec
+	lggr               logger.Logger
+	lp                 logpoller.LogPoller
+	client             evmclient.Client
+	contractBindings   contractBindings
+	eventIndexBindings EventIndexBindings
+	parsed             *parsedTypes
+	codec              commontypes.RemoteCodec
 	commonservices.StateMachine
 }
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:             lggr.Named("ChainReader"),
-		lp:               lp,
-		client:           chain.Client(),
-		contractBindings: contractBindings{},
-		parsed:           &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
+		lggr:               lggr.Named("ChainReader"),
+		lp:                 lp,
+		client:             chain.Client(),
+		contractBindings:   contractBindings{},
+		eventIndexBindings: EventIndexBindings{},
+		parsed:             &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	var err error
@@ -76,6 +78,18 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 	}
 
 	return b.GetLatestValue(ctx, params, returnVal)
+}
+
+func (cr *chainReader) QueryKeys(_ context.Context, queryFilter commontypes.QueryFilter) ([]commontypes.Event, error) {
+	remappedFilters, err := cr.remapQueryFilter(queryFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO chain agnostic chain reader sort and limit instead of default here
+	// TODO parse returned logs into chain agnostic form
+	_, err = cr.lp.FilteredLogs(remappedFilters, commontypes.DefaultSortAndLimit)
+	return nil, err
 }
 
 func (cr *chainReader) Bind(_ context.Context, bindings []commontypes.BoundContract) error {
@@ -193,7 +207,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, eventName, &eventBinding{
+	eb := &eventBinding{
 		contractName:  contractName,
 		eventName:     eventName,
 		lp:            cr.lp,
@@ -202,7 +216,18 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		inputModifier: inputModifier,
 		topicInfo:     topicInfo,
 		id:            wrapItemType(contractName, eventName, false) + uuid.NewString(),
-	})
+	}
+
+	// set key binding for QueryKeys
+	for index, topics := range event.Inputs {
+		genericTopicName, ok := chainReaderDefinition.GenericTopicNames[topics.Name]
+		if ok {
+			cr.eventIndexBindings.Bind(eb, eventName+"-"+genericTopicName, index)
+		}
+
+	}
+
+	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
 
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
@@ -256,6 +281,40 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 	output := types.NewCodecEntry(outputs, nil, mod)
 	cr.parsed.decoderDefs[wrapItemType(contractName, methodName, false)] = output
 	return output.Init()
+}
+
+// remapQueryFilter, changes some chain agnostic filters to match evm specific filters.
+func (cr *chainReader) remapQueryFilter(queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
+	switch filter := queryFilter.(type) {
+	case *commontypes.AndFilter:
+		var remappedFilters []commontypes.QueryFilter
+		for _, f := range filter.Filters {
+			remappedFilter, err := cr.remapQueryFilter(f)
+			if err != nil {
+				return nil, err
+			}
+			remappedFilters = append(remappedFilters, remappedFilter)
+		}
+		return &commontypes.AndFilter{Filters: remappedFilters}, nil
+	case *commontypes.KeysByValueFilter:
+		var searchEventTopicsByValueFilter *logpoller.EventTopicsByValueFilter
+		for i, key := range filter.Keys {
+			eventSig, _, index, err := cr.eventIndexBindings.Get(key)
+			if err != nil {
+				return nil, err
+			}
+			searchEventTopicsByValueFilter.EventSigs = append(searchEventTopicsByValueFilter.EventSigs, eventSig)
+			searchEventTopicsByValueFilter.Topics = append(searchEventTopicsByValueFilter.Topics, []int{index})
+			searchEventTopicsByValueFilter.Values = append(searchEventTopicsByValueFilter.Values, filter.Values[i])
+
+		}
+		return searchEventTopicsByValueFilter, nil
+		//TODO remap chain agnostic confirmations filter into EVM finality filter
+	case *commontypes.ConfirmationFilter:
+		return &logpoller.FinalityFilter{}, nil
+	default:
+		return filter, nil
+	}
 }
 
 func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Argument, types.CodecEntry, map[string]bool) {
