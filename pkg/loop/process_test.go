@@ -13,10 +13,11 @@ func (h *HelperProcessCommand) New() *exec.Cmd {
 	return (test.HelperProcessCommand)(*h).New()
 }
 
-func NewHelperProcessCommand(command string, staticChecks bool) *exec.Cmd {
+func NewHelperProcessCommand(command string, staticChecks bool, throwErrorType int) *exec.Cmd {
 	h := HelperProcessCommand{
-		Command:      command,
-		StaticChecks: staticChecks,
+		Command:        command,
+		StaticChecks:   staticChecks,
+		ThrowErrorType: throwErrorType,
 	}
 	return h.New()
 }

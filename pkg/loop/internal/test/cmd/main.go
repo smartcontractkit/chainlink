@@ -32,6 +32,9 @@ func main() {
 	var staticChecks bool
 	flag.BoolVar(&staticChecks, "static-checks", false, "run static var checks on static relayer")
 
+	throwErrorType := 0
+	flag.IntVar(&throwErrorType, "throw-error-type", 0, "make the PluginLoggerTest throw a specific error")
+
 	flag.Parse()
 	defer os.Exit(0)
 
@@ -89,7 +92,7 @@ func main() {
 		os.Exit(0)
 
 	case test.PluginLoggerTestName:
-		loggerTest := &test.GRPCPluginLoggerTest{Logger: logger.Named(lggr, test.LoggerTestName)}
+		loggerTest := &test.GRPCPluginLoggerTest{SugaredLogger: logger.Sugared(lggr), ErrorType: throwErrorType}
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: test.PluginLoggerTestHandshakeConfig(),
 			Plugins: map[string]plugin.Plugin{

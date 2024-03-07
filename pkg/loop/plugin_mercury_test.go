@@ -45,7 +45,7 @@ func TestPluginMercuryExec(t *testing.T) {
 	stopCh := newStopCh(t)
 	mercury := loop.GRPCPluginMercury{BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}
 	cc := mercury.ClientConfig()
-	cc.Cmd = NewHelperProcessCommand(loop.PluginMercuryName, true)
+	cc.Cmd = NewHelperProcessCommand(loop.PluginMercuryName, true, 0)
 	c := plugin.NewClient(cc)
 	t.Cleanup(c.Kill)
 	client, err := c.Client()

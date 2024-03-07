@@ -51,7 +51,7 @@ func TestPluginMedianExec(t *testing.T) {
 	stopCh := newStopCh(t)
 	median := loop.GRPCPluginMedian{BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}
 	cc := median.ClientConfig()
-	cc.Cmd = NewHelperProcessCommand(loop.PluginMedianName, false)
+	cc.Cmd = NewHelperProcessCommand(loop.PluginMedianName, false, 0)
 	c := plugin.NewClient(cc)
 	t.Cleanup(c.Kill)
 	client, err := c.Client()

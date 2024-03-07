@@ -69,7 +69,7 @@ func FuzzRelayer(f *testing.F) {
 func newPluginRelayerExec(t *testing.T, staticChecks bool, stopCh <-chan struct{}) loop.PluginRelayer {
 	relayer := loop.GRPCPluginRelayer{BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}
 	cc := relayer.ClientConfig()
-	cc.Cmd = NewHelperProcessCommand(loop.PluginRelayerName, staticChecks)
+	cc.Cmd = NewHelperProcessCommand(loop.PluginRelayerName, staticChecks, 0)
 	c := plugin.NewClient(cc)
 	t.Cleanup(c.Kill)
 	client, err := c.Client()

@@ -1,8 +1,12 @@
 package loop
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"go.uber.org/zap"
@@ -17,7 +21,7 @@ func HCLogLogger(l logger.Logger) hclog.Logger {
 	hcl := hclog.NewInterceptLogger(&hclog.LoggerOptions{
 		Output: io.Discard, // only write through p.Logger Sink
 	})
-	hcl.RegisterSink(&hclSinkAdapter{l: l})
+	hcl.RegisterSink(&hclSinkAdapter{l: logger.Sugared(l)})
 	return hcl
 }
 
@@ -25,16 +29,16 @@ var _ hclog.SinkAdapter = (*hclSinkAdapter)(nil)
 
 // hclSinkAdapter implements [hclog.SinkAdapter] with a [logger.Logger].
 type hclSinkAdapter struct {
-	l logger.Logger
+	l logger.SugaredLogger
 	m sync.Map // [string]func() l.Logger
 }
 
-func (h *hclSinkAdapter) named(name string) logger.Logger {
-	onceVal := onceValue(func() logger.Logger {
-		return logger.Named(h.l, name)
+func (h *hclSinkAdapter) named(name string) logger.SugaredLogger {
+	onceVal := onceValue(func() logger.SugaredLogger {
+		return h.l.Named(name)
 	})
 	v, _ := h.m.LoadOrStore(name, onceVal)
-	return v.(func() logger.Logger)()
+	return v.(func() logger.SugaredLogger)()
 }
 
 func removeArg(args []interface{}, key string) ([]interface{}, string) {
@@ -52,6 +56,83 @@ func removeArg(args []interface{}, key string) ([]interface{}, string) {
 	return args, ""
 }
 
+// logMessage is the JSON payload that gets sent to Stderr from the plugin to the host
+type logMessage struct {
+	Message   string                 `json:"@message"`
+	Level     string                 `json:"@level"`
+	Timestamp time.Time              `json:"timestamp"`
+	ExtraArgs []*LogMessageExtraArgs `json:"extra_args"`
+}
+
+// LogMessageExtraArgs is a key value pair within the Output payload
+type LogMessageExtraArgs struct {
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
+}
+
+// flattenExtraArgs is used to flatten arguments of the log message
+func flattenExtraArgs(le *logMessage) []interface{} {
+	var result []interface{}
+	result = append(result, "level")
+	result = append(result, le.Level)
+	result = append(result, "timestamp")
+	result = append(result, le.Timestamp)
+	for _, kv := range le.ExtraArgs {
+		result = append(result, kv.Key)
+		result = append(result, kv.Value)
+	}
+
+	return result
+}
+
+func parseJSON(input string) (*logMessage, error) {
+	var raw map[string]interface{}
+	entry := &logMessage{}
+
+	err := json.Unmarshal([]byte(input), &raw)
+	if err != nil {
+		return nil, err
+	}
+
+	if v, ok := raw["@message"]; ok {
+		entry.Message = v.(string)
+		delete(raw, "@message")
+	}
+
+	if v, ok := raw["@level"]; ok {
+		entry.Level = v.(string)
+		delete(raw, "@level")
+	}
+
+	for k, v := range raw {
+		entry.ExtraArgs = append(entry.ExtraArgs, &LogMessageExtraArgs{
+			Key:   k,
+			Value: v,
+		})
+	}
+
+	return entry, nil
+}
+
+// logDebug will parse msg and figure out if it's a panic, fatal or critical log message, this is done here because the hashicorp plugin will push any
+// unrecognizable message from stderr as a debug statement
+func logDebug(msg string, l logger.SugaredLogger, args ...interface{}) {
+	if strings.HasPrefix(msg, "panic:") {
+		l.Criticalw(fmt.Sprintf("[PANIC] %s", msg), args...)
+	} else if log, err := parseJSON(msg); err == nil {
+		switch log.Level {
+		case "fatal":
+			l.Criticalw(fmt.Sprintf("[FATAL] %s", log.Message), flattenExtraArgs(log)...)
+		case "critical", "dpanic":
+			l.Criticalw(log.Message, flattenExtraArgs(log)...)
+		default:
+			l.Debugw(log.Message, flattenExtraArgs(log)...)
+		}
+	} else {
+		l.Debugw(msg, args...)
+	}
+}
+
 func (h *hclSinkAdapter) Accept(_ string, level hclog.Level, msg string, args ...interface{}) {
 	if level == hclog.Off {
 		return
@@ -66,8 +147,10 @@ func (h *hclSinkAdapter) Accept(_ string, level hclog.Level, msg string, args ..
 	case hclog.Off:
 		return // unreachable, but satisfies linter
 	case hclog.NoLevel:
-	case hclog.Debug, hclog.Trace:
+	case hclog.Trace:
 		l.Debugw(msg, args...)
+	case hclog.Debug:
+		logDebug(msg, l, args...)
 	case hclog.Info:
 		l.Infow(msg, args...)
 	case hclog.Warn:

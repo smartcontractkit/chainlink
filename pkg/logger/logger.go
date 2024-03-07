@@ -81,6 +81,12 @@ func TestObserved(tb testing.TB, lvl zapcore.Level) (Logger, *observer.ObservedL
 	return &logger{sl}, logs
 }
 
+// TestObservedSugared returns a new test SugaredLogger for tb and ObservedLogs at the given Level.
+func TestObservedSugared(tb testing.TB, lvl zapcore.Level) (SugaredLogger, *observer.ObservedLogs) {
+	sl, logs := testObserved(tb, lvl)
+	return Sugared(&logger{sl}), logs
+}
+
 func testObserved(tb testing.TB, lvl zapcore.Level) (*zap.SugaredLogger, *observer.ObservedLogs) {
 	oCore, logs := observer.New(lvl)
 	observe := zap.WrapCore(func(c zapcore.Core) zapcore.Core {

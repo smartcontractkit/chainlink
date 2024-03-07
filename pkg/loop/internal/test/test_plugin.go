@@ -19,6 +19,7 @@ type HelperProcessCommand struct {
 	CommandLocation string
 	Command         string
 	StaticChecks    bool
+	ThrowErrorType  int
 }
 
 func (h HelperProcessCommand) New() *exec.Cmd {
@@ -32,6 +33,10 @@ func (h HelperProcessCommand) New() *exec.Cmd {
 
 	if h.StaticChecks {
 		cmdArgs = append(cmdArgs, "-static-checks")
+	}
+
+	if h.ThrowErrorType != 0 {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("-throw-error-type=%d", h.ThrowErrorType))
 	}
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...) // #nosec

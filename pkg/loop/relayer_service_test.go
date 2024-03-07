@@ -19,7 +19,7 @@ import (
 func TestRelayerService(t *testing.T) {
 	t.Parallel()
 	relayer := loop.NewRelayerService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
-		return NewHelperProcessCommand(loop.PluginRelayerName, false)
+		return NewHelperProcessCommand(loop.PluginRelayerName, false,0)
 	}, test.ConfigTOML, testcore.Keystore)
 	hook := relayer.XXXTestHook()
 	servicetest.Run(t, relayer)
